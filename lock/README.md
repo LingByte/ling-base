@@ -1,0 +1,69 @@
+# lock
+
+Unified distributed locking for Go services. All backends implement the same `lock.Locker` interface:
+
+- `Lock(ctx)` — block until acquired or context cancelled
+- `TryLock(ctx)` — single attempt
+- `Unlock(ctx)` — release
+- `Refresh(ctx)` — extend lease where supported
+
+Shared configuration uses functional options: `WithTTL`, `WithRetryDelay`, and `WithValue` (auto-generated token when empty).
+
+## On-demand modules
+
+| Module path | Third-party deps |
+|-------------|------------------|
+| `github.com/LingByte/ling-base/lock` | **none** (+ `lock/memory`) |
+| `.../lock/redis` | go-redis |
+| `.../lock/redlock` | lock/redis |
+| `.../lock/etcd` | etcd clientv3 |
+| `.../lock/zookeeper` | go-zookeeper/zk |
+| `.../lock/consul` | hashicorp/consul/api |
+| `.../lock/mysql` | database/sql only |
+| `.../lock/postgres` | database/sql only |
+
+```bash
+go get github.com/LingByte/ling-base/lock/redis
+```
+
+## Backends
+
+| Package | Use case | TTL / lease | Refresh |
+|---------|----------|-------------|---------|
+| `memory` | Process-local (tests, single instance) | In-memory expiry | Yes |
+| `redis` | Single Redis node (`SET NX` + Lua unlock/refresh) | Required | Yes |
+| `redlock` | Multiple Redis nodes (quorum) | Required | Yes (quorum) |
+| `etcd` | etcd v3 lease + transactional create | ≥ 1s | KeepAlive |
+| `zookeeper` | Ephemeral sequential nodes | Session | No-op (session) |
+| `consul` | Session + KV lock | ≥ 1s | Session renew |
+| `mysql` | `GET_LOCK` / `RELEASE_LOCK` | N/A (connection) | No-op |
+| `postgres` | Advisory locks (`pg_try_advisory_lock`) | N/A (session) | No-op |
+
+## Quick start
+
+```go
+import (
+    "context"
+    "time"
+
+    "github.com/LingByte/ling-base/lock"
+    lockredis "github.com/LingByte/ling-base/lock/redis"
+    goredis "github.com/redis/go-redis/v9"
+)
+
+func run(client *goredis.Client) error {
+    mu, err := lockredis.NewMutex(client, "orders:42",
+        lock.WithTTL(30*time.Second),
+        lock.WithRetryDelay(100*time.Millisecond),
+    )
+    if err != nil {
+        return err
+    }
+    ctx := context.Background()
+    if err := mu.Lock(ctx); err != nil {
+        return err
+    }
+    defer mu.Unlock(ctx)
+    return mu.Refresh(ctx)
+}
+```
