@@ -6,7 +6,8 @@ import (
 )
 
 // LoginCaptchaTypes are the kinds randomly issued for auth flows.
-var LoginCaptchaTypes = []Type{TypeSlider, TypeImage, TypeClick, TypeMath, TypeJigsaw, TypeRotate}
+// Slider is excluded because it is inconvenient on mobile H5 browsers.
+var LoginCaptchaTypes = []Type{TypeImage, TypeClick, TypeMath, TypeJigsaw, TypeRotate}
 
 // RandomType picks one captcha kind uniformly at random.
 func RandomType() Type {

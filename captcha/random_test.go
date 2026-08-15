@@ -7,14 +7,14 @@ func TestRandomType_InRange(t *testing.T) {
 	for i := 0; i < 500; i++ {
 		got := RandomType()
 		switch got {
-		case TypeSlider, TypeImage, TypeClick, TypeMath, TypeJigsaw, TypeRotate:
+		case TypeImage, TypeClick, TypeMath, TypeJigsaw, TypeRotate:
 			seen[got] = true
 		default:
 			t.Fatalf("unexpected type %q", got)
 		}
 	}
-	if len(seen) != 6 {
-		t.Fatalf("expected all six types over 500 draws, got %d: %v", len(seen), seen)
+	if len(seen) != 5 {
+		t.Fatalf("expected all five types over 500 draws, got %d: %v", len(seen), seen)
 	}
 }
 
