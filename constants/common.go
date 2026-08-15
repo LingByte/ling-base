@@ -25,6 +25,18 @@ const (
 	DBDriverPG     = "postgres"
 )
 
+// Environment variable keys for database / config cache
+const (
+	ENV_DB_DRIVER             = "DB_DRIVER"
+	ENV_DSN                   = "DSN"
+	ENV_DB_MAX_OPEN_CONNS     = "DB_MAX_OPEN_CONNS"
+	ENV_DB_MAX_IDLE_CONNS     = "DB_MAX_IDLE_CONNS"
+	ENV_DB_CONN_MAX_LIFETIME  = "DB_CONN_MAX_LIFETIME"
+	ENV_DB_CONN_MAX_IDLE_TIME = "DB_CONN_MAX_IDLE_TIME"
+	ENV_CONFIG_CACHE_SIZE     = "CONFIG_CACHE_SIZE"
+	ENV_CONFIG_CACHE_EXPIRED  = "CONFIG_CACHE_EXPIRED"
+)
+
 // Server defaults
 const (
 	DefaultServerAddr = ":8082"
@@ -65,19 +77,19 @@ const (
 	TimezoneShanghai   = "Asia/Shanghai"       // China Standard Time (UTC+8)
 	TimezoneTokyo      = "Asia/Tokyo"          // Japan Standard Time (UTC+9)
 	TimezoneSingapore  = "Asia/Singapore"      // Singapore Time (UTC+8)
-	TimezoneKolkata     = "Asia/Kolkata"        // India Standard Time (UTC+5:30)
-	TimezoneDubai       = "Asia/Dubai"          // Gulf Standard Time (UTC+4)
-	TimezoneLondon      = "Europe/London"       // GMT/BST (UTC+0/+1)
-	TimezoneParis       = "Europe/Paris"        // Central European Time (UTC+1/+2)
-	TimezoneBerlin      = "Europe/Berlin"       // Central European Time (UTC+1/+2)
-	TimezoneMoscow      = "Europe/Moscow"       // Moscow Standard Time (UTC+3)
-	TimezoneNewYork     = "America/New_York"    // Eastern Time (UTC-5/-4)
-	TimezoneChicago     = "America/Chicago"     // Central Time (UTC-6/-5)
-	TimezoneLosAngeles  = "America/Los_Angeles" // Pacific Time (UTC-8/-7)
-	TimezoneSaoPaulo    = "America/Sao_Paulo"   // Brasilia Time (UTC-3)
-	TimezoneSydney      = "Australia/Sydney"    // Australian Eastern Time (UTC+10/+11)
-	TimezoneAuckland    = "Pacific/Auckland"    // New Zealand Time (UTC+12/+13)
-	TimezoneUTC         = "UTC"                 // Coordinated Universal Time
+	TimezoneKolkata    = "Asia/Kolkata"        // India Standard Time (UTC+5:30)
+	TimezoneDubai      = "Asia/Dubai"          // Gulf Standard Time (UTC+4)
+	TimezoneLondon     = "Europe/London"       // GMT/BST (UTC+0/+1)
+	TimezoneParis      = "Europe/Paris"        // Central European Time (UTC+1/+2)
+	TimezoneBerlin     = "Europe/Berlin"       // Central European Time (UTC+1/+2)
+	TimezoneMoscow     = "Europe/Moscow"       // Moscow Standard Time (UTC+3)
+	TimezoneNewYork    = "America/New_York"    // Eastern Time (UTC-5/-4)
+	TimezoneChicago    = "America/Chicago"     // Central Time (UTC-6/-5)
+	TimezoneLosAngeles = "America/Los_Angeles" // Pacific Time (UTC-8/-7)
+	TimezoneSaoPaulo   = "America/Sao_Paulo"   // Brasilia Time (UTC-3)
+	TimezoneSydney     = "Australia/Sydney"    // Australian Eastern Time (UTC+10/+11)
+	TimezoneAuckland   = "Pacific/Auckland"    // New Zealand Time (UTC+12/+13)
+	TimezoneUTC        = "UTC"                 // Coordinated Universal Time
 )
 
 // DefaultTimezone is the fallback timezone when the configured name is empty

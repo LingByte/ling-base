@@ -3,10 +3,16 @@ module github.com/LingByte/ling-base
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/constants v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.12.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
+)
+
+replace (
+	github.com/LingByte/ling-base/common => ./common
+	github.com/LingByte/ling-base/constants => ./constants
 )
 
 require (
