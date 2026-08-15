@@ -66,6 +66,8 @@ use (
 	./lock/redis
 	./lock/redlock
 	./lock/zookeeper
+	./mq
+	./mq/rabbitmq
 	./notification
 	./notification/email
 	./notification/im
