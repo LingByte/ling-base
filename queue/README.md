@@ -1,0 +1,270 @@
+# queue
+
+A durable, distributed task queue with priority scheduling, CPU-aware and
+goroutine-pool-aware dispatch, crash recovery, and consumer concurrency control.
+
+## Architecture
+
+```
+Producer → Enqueue → Queue Backend (memory / redis)
+                              ↓
+                    Scheduler (worker pool)
+                     ↓              ↓
+               CPU Adaptive    Fixed Pool
+                     ↓
+                   Workers → Handler(task)
+```
+
+## Backends
+
+### memory
+
+In-process priority queue — fast, single-node, no persistence.
+
+```go
+import memoryqueue "github.com/LingByte/ling-base/queue/memory"
+
+q := memoryqueue.New("my-tasks")
+```
+
+### redis
+
+Redis-backed distributed queue using sorted sets for priority scheduling.
+Supports multiple consumer nodes, crash recovery, and persistent storage.
+
+```go
+import redisqueue "github.com/LingByte/ling-base/queue/redis"
+
+client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+q := redisqueue.New("my-tasks", client)
+```
+
+## Scheduler
+
+The scheduler pulls tasks from the queue and dispatches them to workers.
+
+### Fixed worker pool (default)
+
+```go
+scheduler, _ := queue.NewScheduler(queue.SchedulerConfig{
+    Queue:       q,
+    Handler:     myHandler,
+    WorkerCount: 4,
+})
+scheduler.Start()
+defer scheduler.Stop()
+```
+
+### CPU-adaptive scheduling
+
+Workers scale based on CPU usage — more workers when CPU is idle, fewer when busy:
+
+```go
+scheduler, _ := queue.NewScheduler(queue.SchedulerConfig{
+    Queue:            q,
+    Handler:          myHandler,
+    Mode:             queue.ModeCPUAdaptive,
+    WorkerCount:      4,
+    MinWorkers:       1,
+    MaxWorkers:       16,
+    CPUHighThreshold: 80,  // reduce workers above 80% CPU
+    CPULowThreshold:  30,  // add workers below 30% CPU
+    CPUCheckInterval: 5 * time.Second,
+})
+```
+
+### External worker pool
+
+Use an external `pool.WorkerPool` for dispatch:
+
+```go
+wp := pool.NewWorkerPool(8, 100)
+wp.Start()
+
+scheduler, _ := queue.NewScheduler(queue.SchedulerConfig{
+    Queue:      q,
+    Handler:    myHandler,
+    WorkerPool: wp,
+})
+```
+
+## Task lifecycle
+
+```
+pending → running → success
+                  → failed (if max retries exceeded)
+                  → retry (if retries remaining)
+pending → canceled
+```
+
+Tasks support:
+- **Priority** — higher priority tasks are dequeued first
+- **Retries** — configurable `MaxRetries` with automatic requeue
+- **Cancel** — remove pending tasks
+- **Progress** — track execution progress
+
+## Persistence & recovery
+
+When using the Redis backend, tasks survive process restarts:
+
+1. On `Enqueue`, the task is persisted to Redis
+2. On `Dequeue`, the task is moved from pending to running set
+3. On `Ack`, the task is marked terminal and cleaned up
+4. On `Start()`, the scheduler calls `Recover()` — all running tasks
+   (from a crashed process) are reset to pending and re-queued
+
+## API
+
+### Queue interface
+
+```go
+type Queue interface {
+    Enqueue(ctx, task) error
+    Dequeue(ctx, timeout) (*Task, error)
+    Ack(ctx, taskID, status, errMsg) error
+    Requeue(ctx, taskID) error
+    Get(ctx, taskID) (*Task, error)
+    Cancel(ctx, taskID) error
+    Recover(ctx) ([]*Task, error)
+    Stats(ctx) (QueueStats, error)
+    Close() error
+    Name() string
+}
+```
+
+### Submitting tasks
+
+```go
+payload, _ := queue.EncodePayload(MyJob{URL: "https://example.com"})
+
+task := &queue.Task{
+    ID:         idgen.ShortID(),
+    Queue:      "my-tasks",
+    Priority:   5,
+    Payload:    payload,
+    MaxRetries: 3,
+}
+
+_ = q.Enqueue(ctx, task)
+```
+
+### Handler
+
+```go
+func handler(ctx context.Context, task *queue.Task) error {
+    job, err := queue.DecodePayload[MyJob](task)
+    if err != nil {
+        return err
+    }
+    return processJob(ctx, job)
+}
+```
+
+## Capacity-aware scheduler
+
+For the scenario **"limited computing power, large number of async jobs —
+queuing, resource preemption, priority-based scheduling"**, use
+`CapacityScheduler`:
+
+```go
+scheduler, _ := queue.NewCapacityScheduler(queue.CapacitySchedulerConfig{
+    Queue:            q,
+    Handler:          myHandler,
+    WorkerCount:      4,
+    Capacity:         15,     // max total weight of running tasks
+    Strategy:         queue.StrategyPreemptive,
+    EnablePreemption: true,
+    AgingThreshold:   30 * time.Second,
+})
+```
+
+### Features
+
+**Capacity limiting** — each task has a `Weight` (resource cost). The total
+weight of concurrently running tasks cannot exceed `Capacity`. Tasks that
+would exceed capacity wait in the queue.
+
+**Job grouping** — tasks with the same `JobID` run sequentially in submission
+order. Tasks with different `JobID`s run concurrently. This models the
+common pattern of multi-step jobs where steps within a job are ordered but
+jobs are independent.
+
+**Priority scheduling** — higher-priority tasks are dispatched first. Four
+strategies are available:
+
+| Strategy | Description |
+|----------|-------------|
+| `StrategyFIFO` | First in, first out (ignores priority) |
+| `StrategyPriority` | Highest priority first (may starve low priority) |
+| `StrategyWeightedFair` | Fair sharing with aging (no starvation) |
+| `StrategyPreemptive` | Priority + preemption of running tasks |
+
+**Aging** — tasks that wait longer than `AgingThreshold` get a priority boost
+proportional to their wait time, preventing starvation of low-priority tasks.
+
+**Preemption** — with `StrategyPreemptive` + `EnablePreemption`, when
+capacity is full and a high-priority task arrives, the scheduler preempts
+lower-priority running tasks (cooperative cancellation via context) and
+re-queues them. The preempted task's `OnPreempt` callback is invoked.
+
+### Task fields for capacity scheduling
+
+```go
+task := &queue.Task{
+    ID:           "task-1",
+    JobID:        "job-42",      // same JobID = sequential
+    Priority:     10,            // higher = more important
+    Weight:       5,             // resource cost (capacity units)
+    Preemptible:  true,          // can be preempted
+    Payload:      payload,
+    MaxRetries:   3,
+}
+```
+
+### Progress reporting & execution logging
+
+The `CapacityScheduler` supports a `RichHandler` that receives a
+`TaskContext` for live progress updates and execution log recording:
+
+```go
+scheduler, _ := queue.NewCapacityScheduler(queue.CapacitySchedulerConfig{
+    Queue:       q,
+    Capacity:    10,
+    RichHandler: func(tctx queue.TaskContext, task *queue.Task) error {
+        tctx.Log(queue.LogLevelInfo, "starting work")
+        tctx.SetProgress(10)
+        // ... do work, check tctx.Err() for cancellation ...
+        tctx.SetProgress(100)
+        tctx.Log(queue.LogLevelInfo, "done")
+        return nil
+    },
+})
+
+// Query a task's queue position (0 = next to dispatch).
+pos, _ := scheduler.Position(ctx, "task-1")
+
+// Retrieve execution logs (newest first).
+logs, _ := scheduler.ListLogs(ctx, "task-1", 50)
+```
+
+Logs are stored in the backend:
+- **memory**: in-process slice per task
+- **redis**: Redis list (`LPUSH`/`LRANGE`)
+
+### Duplicate prevention
+
+Both backends reject duplicate task IDs with `queue.ErrDuplicateTask`:
+- **memory**: checks an in-memory ID map
+- **redis**: uses atomic `SETNX` — if the task key already exists, the
+  enqueue is rejected without overwriting
+
+### Restart recovery
+
+On `Start()`, the scheduler calls `Recover()` on the backend:
+- **memory**: returns nothing (no persistence)
+- **redis**: returns all pending + running tasks (running tasks are reset
+  to pending), which are re-ingested into the scheduler
+
+## License
+
+MIT
