@@ -1,0 +1,7 @@
+Hello, World!
+
+This is a sample text file for parser-demo.
+It contains multiple lines of text.
+
+Line 4: The quick brown fox jumps over the lazy dog.
+Line 5: Lorem ipsum dolor sit amet, consectetur adipiscing elit.

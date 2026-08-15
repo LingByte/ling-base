@@ -1,0 +1,17 @@
+name: parser-demo
+version: 1.0.0
+description: A demo for the ling-base parser module
+
+features:
+  - single file parsing
+  - directory batch parsing
+  - metrics analysis
+  - benchmark reporting
+
+ocr_drivers:
+  - aliyun
+  - qcloud
+  - baidu
+  - google
+  - azure
+  - aws

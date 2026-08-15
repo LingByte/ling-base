@@ -1,0 +1,16 @@
+From: alice@example.com
+To: bob@example.com
+Subject: Parser Demo Test
+Date: Mon, 15 Jan 2026 10:00:00 +0000
+Content-Type: text/plain
+
+Hello Bob,
+
+This is a test email for the parser-demo.
+
+The parser should extract:
+- Headers (From, To, Subject, Date)
+- Body text
+
+Best regards,
+Alice

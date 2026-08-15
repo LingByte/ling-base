@@ -1,0 +1,14 @@
+2026-01-15 10:00:00 INFO  Application started on port 8080
+2026-01-15 10:00:01 INFO  Database connection established
+2026-01-15 10:00:05 DEBUG Loading configuration from config.yaml
+2026-01-15 10:00:10 INFO  Registered 6 OCR providers
+2026-01-15 10:00:15 WARN  Cache miss for key:user:12345
+2026-01-15 10:00:20 ERROR Failed to parse file: corrupted.pdf - unexpected EOF
+2026-01-15 10:00:25 ERROR Database query timeout after 30s
+2026-01-15 10:00:30 WARN  Retrying database query (attempt 2/3)
+2026-01-15 10:00:35 INFO  Database query succeeded on retry
+2026-01-15 10:00:40 DEBUG Response time: 45ms
+2026-01-15 10:00:45 INFO  Request processed: GET /api/parse 200
+2026-01-15 10:01:00 FATAL Out of memory: cannot allocate 1GB buffer
+2026-01-15 10:01:05 INFO  Graceful shutdown initiated
+2026-01-15 10:01:10 INFO  Server stopped

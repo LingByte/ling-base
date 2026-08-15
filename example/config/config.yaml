@@ -1,0 +1,25 @@
+# Base configuration (all environments)
+server:
+  port: 8080
+  host: "0.0.0.0"
+  shutdown_timeout: "10s"
+
+db:
+  dsn: ""  # set to "sqlite:./app.db" to enable DB-backed config store
+
+redis:
+  addr: ""           # set to "localhost:6379" to enable Redis cache
+  password: ""
+  db: 0
+
+search:
+  index_path: ""     # "memory" for in-memory, a path for disk, "disabled" to turn off
+  batch_size: 100
+  query_timeout: "5s"
+
+rate_limit:
+  rps: 100
+  max_conns: 1000
+
+log:
+  level: "info"

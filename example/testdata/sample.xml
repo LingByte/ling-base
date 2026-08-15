@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+    <book id="1">
+        <title>The Go Programming Language</title>
+        <author>Alan Donovan</author>
+        <year>2015</year>
+        <price>39.99</price>
+    </book>
+    <book id="2">
+        <title>Effective Go</title>
+        <author>Go Team</author>
+        <year>2020</year>
+        <price>0.00</price>
+    </book>
+    <magazine id="3">
+        <title>Go Weekly</title>
+        <issue>42</issue>
+    </magazine>
+</catalog>

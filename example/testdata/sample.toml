@@ -1,0 +1,19 @@
+# Sample TOML configuration
+
+title = "parser-demo config"
+
+[server]
+host = "localhost"
+port = 8080
+debug = true
+
+[database]
+driver = "postgres"
+host = "db.example.com"
+port = 5432
+name = "parser_demo"
+
+[features]
+ocr = true
+asr = false
+max_file_size = 10485760

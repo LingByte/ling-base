@@ -1,0 +1,17 @@
+# Development environment overrides
+server:
+  port: 8080
+  host: "localhost"
+
+redis:
+  addr: ""  # set via REDIS_ADDR env var to enable
+
+search:
+  index_path: "memory"  # in-memory search index for dev
+
+rate_limit:
+  rps: 50
+  max_conns: 100
+
+log:
+  level: "debug"

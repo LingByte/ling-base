@@ -1,0 +1,21 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Alice Smith
+N:Smith;Alice;;;
+ORG:Example Corp
+TITLE:Software Engineer
+TEL;TYPE=WORK:+1-555-0100
+TEL;TYPE=CELL:+1-555-0199
+EMAIL:alice@example.com
+URL:https://alice.example.com
+NOTE:Lead developer for parser module.
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Bob Jones
+N:Jones;Bob;;;
+ORG:Tech Inc
+TITLE:Product Manager
+TEL;TYPE=WORK:+1-555-0200
+EMAIL:bob@techinc.com
+END:VCARD

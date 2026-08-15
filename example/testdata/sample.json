@@ -1,0 +1,11 @@
+{
+  "name": "parser-demo",
+  "version": "1.0.0",
+  "description": "A demo for the ling-base parser module",
+  "supported_formats": ["txt", "md", "csv", "json", "xml", "html"],
+  "metrics": {
+    "max_text_length": 1000000,
+    "include_tables": true
+  },
+  "tags": ["parser", "demo", "benchmark"]
+}
