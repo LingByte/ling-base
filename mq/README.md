@@ -4,25 +4,33 @@ Broker-agnostic message queue abstraction with pluggable backends.
 
 ## Packages
 
-- `mq/` — core interfaces: `Message`, `Delivery`, `Producer`, `Consumer`, `Broker`, `Handler`, `Middleware`
-- `mq/rabbitmq/` — RabbitMQ backend (amqp091-go)
+| Package | Description |
+|---------|-------------|
+| `mq/` | Core interfaces: `Message`, `Delivery`, `Producer`, `Consumer`, `Broker`, `Handler`, `Middleware` |
+| `mq/factory/` | Unified factory — `NewBroker(BrokerConfig)` dispatches to all backends |
+| `mq/rabbitmq/` | RabbitMQ backend (amqp091-go) |
+| `mq/kafka/` | Kafka backend (segmentio/kafka-go) |
+| `mq/rocketmq/` | RocketMQ backend (apache/rocketmq-client-go/v2) |
+| `mq/activemq/` | ActiveMQ backend via STOMP (go-stomp/stomp) |
+| `mq/redisstream/` | Redis Streams backend (go-redis) |
 
-## Quick start
+## Quick start via factory
 
 ```go
 import (
     "github.com/LingByte/ling-base/mq"
+    "github.com/LingByte/ling-base/mq/factory"
     "github.com/LingByte/ling-base/mq/rabbitmq"
 )
 
-broker, _ := rabbitmq.New(rabbitmq.DefaultConfig())
+broker, err := factory.NewBroker(mq.BrokerConfig{
+    Type:           mq.BrokerRabbitMQ,
+    RabbitMQConfig: &rabbitmq.Config{URL: "amqp://guest:guest@localhost:5672/"},
+})
+if err != nil { panic(err) }
 defer broker.Close()
-broker.Connect()
 
-// Declare topology
-broker.DeclareExchange("events", mq.DefaultExchangeOptions())
-broker.DeclareQueue("events.queue", mq.DefaultQueueOptions())
-broker.Bind("events.queue", "events", "events.#")
+broker.Connect()
 
 // Produce
 producer, _ := broker.Producer("events", mq.PublishOptions{Persistent: true})
@@ -49,6 +57,44 @@ consumer, _ := broker.Consumer("events.queue", mq.ConsumeOptions{
 consumer.Start(ctx)
 ```
 
+## Switching backends
+
+```go
+// Kafka
+broker, _ := factory.NewBroker(mq.BrokerConfig{
+    Type:       mq.BrokerKafka,
+    KafkaConfig: &kafka.Config{Brokers: []string{"localhost:9092"}, GroupID: "my-group"},
+})
+
+// RocketMQ
+broker, _ := factory.NewBroker(mq.BrokerConfig{
+    Type:          mq.BrokerRocketMQ,
+    RocketMQConfig: &rocketmq.Config{NameServer: []string{"127.0.0.1:9876"}},
+})
+
+// ActiveMQ (STOMP)
+broker, _ := factory.NewBroker(mq.BrokerConfig{
+    Type:          mq.BrokerActiveMQ,
+    ActiveMQConfig: &activemq.Config{Addr: "localhost:61613"},
+})
+
+// Redis Streams
+broker, _ := factory.NewBroker(mq.BrokerConfig{
+    Type:             mq.BrokerRedisStream,
+    RedisStreamConfig: &redisstream.Config{Addr: "localhost:6379", Group: "my-group"},
+})
+```
+
+## Backend capabilities
+
+| Backend | Persistent | Ordered | Transaction | ConsumerGroup | PubSub |
+|---------|-----------|---------|-------------|---------------|--------|
+| RabbitMQ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Kafka | ✅ | ✅ | ✅ | ✅ | ✅ |
+| RocketMQ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ActiveMQ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Redis Streams | ✅ | ✅ | ❌ | ✅ | ❌ |
+
 ## Middleware
 
 | Middleware | Description |
@@ -59,12 +105,3 @@ consumer.Start(ctx)
 | `RetryMiddleware` | Retries failed deliveries with backoff |
 | `DeadLetterMiddleware` | Routes failures to a dead-letter handler |
 | `Chain` | Composes multiple middleware |
-
-## Backends
-
-| Backend | Status | Features |
-|---|---|---|
-| RabbitMQ | ✅ | Exchange/queue/binding, QoS, publisher confirms, auto-reconnect, concurrent consumers |
-| Redis Streams | planned | |
-| Kafka | planned | |
-| NATS | planned | |

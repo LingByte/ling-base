@@ -67,7 +67,12 @@ use (
 	./lock/redlock
 	./lock/zookeeper
 	./mq
+	./mq/activemq
+	./mq/factory
+	./mq/kafka
 	./mq/rabbitmq
+	./mq/redisstream
+	./mq/rocketmq
 	./notification
 	./notification/email
 	./notification/im
