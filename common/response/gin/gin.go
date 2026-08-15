@@ -89,7 +89,8 @@ func NoContent(c *gin.Context) {
 
 // WriteError renders any error as an error envelope. If err is already
 // an *AppError it is used directly; otherwise it is wrapped as
-// CodeInternal. The HTTP status is derived from the AppError.
+// CodeInternal. The HTTP status is 200 so callers can uniformly inspect
+// the JSON `code` field; the business error code is in the envelope.
 func WriteError(c *gin.Context, err error) {
 	ae := response.AsAppError(err)
 	writeAppError(c, ae)
@@ -100,28 +101,31 @@ func HandleError(c *gin.Context, err error) {
 	WriteError(c, err)
 }
 
-// Fail writes a 500 error envelope with a direct message.
+// Fail writes an error envelope with a direct message. The HTTP status
+// is 200 so callers can uniformly inspect the JSON `code` field; the
+// business error code is embedded in the envelope.
 func Fail(c *gin.Context, msg string, data any) {
 	ae := response.Err(response.CodeInternal).WithDetails(nil)
 	ae.Message = msg
-	c.JSON(http.StatusInternalServerError, buildEnvelope(ae, data))
+	c.JSON(http.StatusOK, buildEnvelope(ae, data))
 }
 
 // FailWithCode writes an error envelope with a custom numeric code and
-// message. The HTTP status is derived from the code's default mapping.
+// message. The HTTP status is 200; the business code is in the envelope.
 func FailWithCode(c *gin.Context, code response.Code, msg string, data any) {
 	ae := response.Err(code)
 	if msg != "" {
 		ae.Message = msg
 	}
-	c.JSON(response.HTTPStatusOf(ae), buildEnvelope(ae, data))
+	c.JSON(http.StatusOK, buildEnvelope(ae, data))
 }
 
 // FailI18n writes an error envelope with a localized message derived
-// from the i18n key. The Code is inferred from the key.
+// from the i18n key. The HTTP status is 200; the business code is in
+// the envelope.
 func FailI18n(c *gin.Context, key string, data any, args ...any) {
 	ae := response.NewI18n(codeForI18nKey(key), key, args...)
-	c.JSON(response.HTTPStatusOf(ae), buildEnvelope(ae, data))
+	c.JSON(http.StatusOK, buildEnvelope(ae, data))
 }
 
 // FailAppError writes a typed AppError directly.
@@ -133,7 +137,10 @@ func FailAppError(c *gin.Context, ae *response.AppError) {
 }
 
 // AbortWithStatusJSON aborts the request with an error envelope derived
-// from the HTTP status and error.
+// from the HTTP status and error. The HTTP status is 200 so callers can
+// uniformly inspect the JSON `code` field; the business error code is
+// in the envelope. The httpStatus argument is used only to derive the
+// business code.
 func AbortWithStatusJSON(c *gin.Context, httpStatus int, err error) {
 	code := response.CodeForHTTPStatus(httpStatus)
 	ae := response.AsAppError(err)
@@ -141,7 +148,7 @@ func AbortWithStatusJSON(c *gin.Context, httpStatus int, err error) {
 		ae.Code = code
 	}
 	ae.HTTPStatus = httpStatus
-	c.AbortWithStatusJSON(httpStatus, buildEnvelope(ae, nil))
+	c.AbortWithStatusJSON(http.StatusOK, buildEnvelope(ae, nil))
 }
 
 // ──────────────────────────────────────────────
@@ -167,9 +174,10 @@ func Recovery() gin.HandlerFunc {
 // Internal helpers
 // ──────────────────────────────────────────────
 
-// writeAppError writes the AppError envelope with the correct HTTP status.
+// writeAppError writes the AppError envelope with HTTP 200 so callers
+// can uniformly inspect the JSON `code` field.
 func writeAppError(c *gin.Context, ae *response.AppError) {
-	c.JSON(response.HTTPStatusOf(ae), buildEnvelope(ae, nil))
+	c.JSON(http.StatusOK, buildEnvelope(ae, nil))
 }
 
 // buildEnvelope constructs the JSON envelope from an AppError.

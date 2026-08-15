@@ -212,7 +212,7 @@ func TestWriteError_WithAppError(t *testing.T) {
 	ae := response.Err(response.CodeNotFound).WithDetails(map[string]any{"field": "id"})
 	w := runHandler(func(c *gin.Context) { WriteError(c, ae) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumNotFound, env.Code)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
@@ -225,7 +225,7 @@ func TestWriteError_WithAppError_OverrideStatus(t *testing.T) {
 	ae := response.Err(response.CodeNotFound).WithStatus(http.StatusTeapot)
 	w := runHandler(func(c *gin.Context) { WriteError(c, ae) })
 
-	assert.Equal(t, http.StatusTeapot, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
 }
@@ -234,7 +234,7 @@ func TestWriteError_WithPlainError(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { WriteError(c, errors.New("boom")) })
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInternal, env.Code)
 	assert.Equal(t, string(response.CodeInternal), env.Error)
@@ -245,7 +245,7 @@ func TestWriteError_WithNilError(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { WriteError(c, nil) })
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInternal, env.Code)
 	assert.Equal(t, string(response.CodeInternal), env.Error)
@@ -261,7 +261,7 @@ func TestWriteError_WithResolver(t *testing.T) {
 	ae := response.Err(response.CodeNotFound)
 	w := runHandler(func(c *gin.Context) { WriteError(c, ae) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, "资源未找到", env.Message)
 }
@@ -271,7 +271,7 @@ func TestHandleError_Alias(t *testing.T) {
 	ae := response.Err(response.CodeBadRequest)
 	w := runHandler(func(c *gin.Context) { HandleError(c, ae) })
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInvalidParams, env.Code)
 	assert.Equal(t, string(response.CodeBadRequest), env.Error)
@@ -281,7 +281,7 @@ func TestFail(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { Fail(c, "something broke", nil) })
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInternal, env.Code)
 	assert.Equal(t, string(response.CodeInternal), env.Error)
@@ -292,7 +292,7 @@ func TestFail_WithData(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { Fail(c, "err", map[string]string{"hint": "x"}) })
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Contains(t, string(env.Data), `"hint":"x"`)
 }
@@ -301,7 +301,7 @@ func TestFailWithCode_NotFound(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { FailWithCode(c, response.CodeNotFound, "missing", nil) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumNotFound, env.Code)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
@@ -312,7 +312,7 @@ func TestFailWithCode_BadRequest(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { FailWithCode(c, response.CodeBadRequest, "bad input", nil) })
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInvalidParams, env.Code)
 	assert.Equal(t, string(response.CodeBadRequest), env.Error)
@@ -324,7 +324,7 @@ func TestFailWithCode_EmptyMsg(t *testing.T) {
 	// Empty msg -> uses default MsgKey from Err(code).
 	w := runHandler(func(c *gin.Context) { FailWithCode(c, response.CodeNotFound, "", nil) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumNotFound, env.Code)
 	// With no resolver and empty Message, resolveMessage returns MsgKey.
@@ -338,7 +338,7 @@ func TestFailWithCode_EmptyMsg_WithResolver(t *testing.T) {
 	}}
 	w := runHandler(func(c *gin.Context) { FailWithCode(c, response.CodeNotFound, "", nil) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, "Not Found (localized)", env.Message)
 }
@@ -347,7 +347,7 @@ func TestFailI18n_KeyNotFound(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { FailI18n(c, response.KeyNotFound, nil) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumNotFound, env.Code)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
@@ -362,7 +362,7 @@ func TestFailI18n_WithResolver(t *testing.T) {
 	}}
 	w := runHandler(func(c *gin.Context) { FailI18n(c, response.KeyNotFound, nil) })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, "未找到", env.Message)
 }
@@ -374,7 +374,7 @@ func TestFailI18n_WithArgs(t *testing.T) {
 	}}
 	w := runHandler(func(c *gin.Context) { FailI18n(c, response.KeyNotFound, nil, "widget") })
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, "Item widget not found", env.Message)
 }
@@ -384,7 +384,7 @@ func TestFailAppError_Valid(t *testing.T) {
 	ae := response.New(response.CodeConflict, "dup")
 	w := runHandler(func(c *gin.Context) { FailAppError(c, ae) })
 
-	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumConflict, env.Code)
 	assert.Equal(t, string(response.CodeConflict), env.Error)
@@ -396,7 +396,7 @@ func TestFailAppError_Nil(t *testing.T) {
 	resetResolver(t)
 	w := runHandler(func(c *gin.Context) { FailAppError(c, nil) })
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInternal, env.Code)
 	assert.Equal(t, string(response.CodeInternal), env.Error)
@@ -408,7 +408,7 @@ func TestAbortWithStatusJSON_PlainError(t *testing.T) {
 		AbortWithStatusJSON(c, http.StatusNotFound, errors.New("nope"))
 	})
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
 	assert.Equal(t, "nope", env.Message)
@@ -421,12 +421,12 @@ func TestAbortWithStatusJSON_AppError(t *testing.T) {
 		AbortWithStatusJSON(c, http.StatusInternalServerError, ae)
 	})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	// AppError code is BAD_REQUEST but httpStatus is 500; since ae.Code != CodeInternal,
 	// the code is NOT overridden. So error stays BAD_REQUEST.
 	assert.Equal(t, string(response.CodeBadRequest), env.Error)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestAbortWithStatusJSON_AppErrorInternal_OverridesCode(t *testing.T) {
@@ -437,7 +437,7 @@ func TestAbortWithStatusJSON_AppErrorInternal_OverridesCode(t *testing.T) {
 		AbortWithStatusJSON(c, http.StatusNotFound, errors.New("missing"))
 	})
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, string(response.CodeNotFound), env.Error)
 }
@@ -455,7 +455,7 @@ func TestAbortWithStatusJSON_IsAborted(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.True(t, aborted)
-	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // ──────────────────────────────────────────────
@@ -468,7 +468,7 @@ func TestRecovery_Panic(t *testing.T) {
 		panic("boom!")
 	})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Equal(t, response.CodeNumInternal, env.Code)
 	assert.Equal(t, string(response.CodeInternal), env.Error)
@@ -481,7 +481,7 @@ func TestRecovery_PanicWithError(t *testing.T) {
 		panic(errors.New("custom error"))
 	})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	env := decodeError(t, w)
 	assert.Contains(t, env.Message, "panic: custom error")
 }
