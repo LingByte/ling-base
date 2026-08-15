@@ -147,6 +147,42 @@ func CRC64Hex(data []byte) string {
 	return fmt.Sprintf("%016x", CRC64(data))
 }
 
+// CRC16CCITT returns the CRC16-CCITT checksum of data (poly 0x1021).
+func CRC16CCITT(data []byte) uint16 {
+	var crc uint16
+	for _, b := range data {
+		idx := byte((crc >> 8) ^ uint16(b))
+		crc = (crc << 8) ^ crc16Tab[idx]
+	}
+	return crc
+}
+
+// CRC16 returns the CRC16-CCITT checksum of data.
+func CRC16(data []byte) uint16 { return CRC16CCITT(data) }
+
+// CRC16Hex returns the CRC16-CCITT checksum as a hex string.
+func CRC16Hex(data []byte) string {
+	return fmt.Sprintf("%04x", CRC16CCITT(data))
+}
+
+var crc16Tab = makeCRC16Table(0x1021)
+
+func makeCRC16Table(poly uint16) [256]uint16 {
+	var tab [256]uint16
+	for i := 0; i < 256; i++ {
+		var crc uint16 = uint16(i) << 8
+		for j := 0; j < 8; j++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ poly
+			} else {
+				crc <<= 1
+			}
+		}
+		tab[i] = crc
+	}
+	return tab
+}
+
 // Adler32 returns the Adler-32 checksum of data.
 func Adler32(data []byte) uint32 {
 	return adler32.Checksum(data)

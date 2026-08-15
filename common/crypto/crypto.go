@@ -29,11 +29,13 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
+	"crypto/rc4"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -203,6 +205,75 @@ func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) {
 		}
 	}
 	return data[:len(data)-padding], nil
+}
+
+// ──────────────────────────────────────────────
+// AES-CFB
+// ──────────────────────────────────────────────
+
+// AESCFBEncrypt encrypts plaintext using AES in CFB mode.
+// The returned ciphertext includes a random IV prepended to the encrypted data.
+func AESCFBEncrypt(key, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: AES CFB: %w", err)
+	}
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, fmt.Errorf("crypto: read IV: %w", err)
+	}
+	cfb := cipher.NewCFBEncrypter(block, iv)
+	cfb.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+	return ciphertext, nil
+}
+
+// AESCFBDecrypt decrypts AES-CFB ciphertext (IV prepended).
+func AESCFBDecrypt(key, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: AES CFB: %w", err)
+	}
+	if len(ciphertext) < aes.BlockSize {
+		return nil, errors.New("crypto: ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb.XORKeyStream(ciphertext, ciphertext)
+	return ciphertext, nil
+}
+
+// ──────────────────────────────────────────────
+// RC4 (legacy)
+// ──────────────────────────────────────────────
+
+// RC4Encrypt encrypts str with RC4 and returns hex-encoded result.
+// RC4 is considered insecure; prefer AES for new code.
+func RC4Encrypt(str string, key []byte) string {
+	plaintext := []byte(str)
+	c, err := rc4.NewCipher(key)
+	if err != nil {
+		return ""
+	}
+	out := make([]byte, len(plaintext))
+	c.XORKeyStream(out, plaintext)
+	return hex.EncodeToString(out)
+}
+
+// RC4Decrypt decrypts a hex-encoded RC4 ciphertext.
+func RC4Decrypt(str string, key []byte) string {
+	ciphertext, _ := hex.DecodeString(str)
+	if len(ciphertext) == 0 {
+		return ""
+	}
+	c, err := rc4.NewCipher(key)
+	if err != nil {
+		return ""
+	}
+	out := make([]byte, len(ciphertext))
+	c.XORKeyStream(out, ciphertext)
+	return string(out)
 }
 
 // ──────────────────────────────────────────────

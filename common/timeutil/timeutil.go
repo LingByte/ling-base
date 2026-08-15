@@ -809,3 +809,19 @@ func Max(a, b time.Time) time.Time { return maxTime(a, b) }
 
 // Min returns the earlier of two times.
 func Min(a, b time.Time) time.Time { return minTime(a, b) }
+
+// Yesterday returns the time 24 hours ago.
+func Yesterday() time.Time { return time.Now().AddDate(0, 0, -1) }
+
+// CalculateAge returns the age in years given a birthday.
+func CalculateAge(birthday time.Time) int {
+	now := time.Now()
+	age := now.Year() - birthday.Year()
+	if now.YearDay() < birthday.YearDay() {
+		age--
+	}
+	return age
+}
+
+// AddDuration returns the Unix timestamp after adding d to now.
+func AddDuration(d time.Duration) int64 { return time.Now().Add(d).Unix() }
