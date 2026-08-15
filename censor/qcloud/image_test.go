@@ -32,3 +32,41 @@ func TestImageCensor_CensorImage_EmptyURL(t *testing.T) {
 		t.Fatal("expected error for empty imageURL")
 	}
 }
+
+func TestImageCensor_CensorImage_CanceledContext(t *testing.T) {
+	c, _ := NewImageCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.CensorImage(ctx, "https://example.com/img.png")
+	if err == nil {
+		t.Fatal("expected error with canceled context")
+	}
+}
+
+func TestImageCensor_CensorImage_APIError(t *testing.T) {
+	c, _ := NewImageCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	_, err := c.CensorImage(context.Background(), "https://example.com/img.png")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+}
+
+func TestNewImageCensor_CustomRegion(t *testing.T) {
+	c, err := NewImageCensor(Config{SecretID: "sid", SecretKey: "sk", Region: "ap-shanghai"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.region != "ap-shanghai" {
+		t.Errorf("region = %q, want ap-shanghai", c.region)
+	}
+}
+
+func TestNewImageCensor_DefaultRegion(t *testing.T) {
+	c, err := NewImageCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.region != defaultRegion {
+		t.Errorf("region = %q, want %q", c.region, defaultRegion)
+	}
+}

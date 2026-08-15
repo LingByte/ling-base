@@ -59,8 +59,8 @@ func TestNewMutexValidation(t *testing.T) {
 
 func TestTryLockUnlockRefresh(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)":    {valid: true, val: 1},
-		"SELECT RELEASE_LOCK(?)":   {valid: true, val: 1},
+		"SELECT GET_LOCK(?, 0)":  {valid: true, val: 1},
+		"SELECT RELEASE_LOCK(?)": {valid: true, val: 1},
 	}}
 	ctx := context.Background()
 	m, err := lockmysql.NewMutex(db, "my-lock")

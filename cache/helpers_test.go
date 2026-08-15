@@ -124,10 +124,10 @@ func (e errCache) Get(context.Context, string) ([]byte, error) { return nil, e.g
 func (e errCache) Set(_ context.Context, _ string, _ []byte, _ time.Duration) error {
 	return e.setErr
 }
-func (errCache) Delete(context.Context, string) error           { return nil }
-func (errCache) Exists(context.Context, string) (bool, error)   { return false, nil }
-func (errCache) Clear(context.Context) error                    { return nil }
-func (errCache) Close() error                                   { return nil }
+func (errCache) Delete(context.Context, string) error         { return nil }
+func (errCache) Exists(context.Context, string) (bool, error) { return false, nil }
+func (errCache) Clear(context.Context) error                  { return nil }
+func (errCache) Close() error                                 { return nil }
 
 func TestGetOrSetGetError(t *testing.T) {
 	boom := errors.New("get failed")

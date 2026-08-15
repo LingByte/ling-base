@@ -9,12 +9,12 @@ import (
 )
 
 type fakeLease struct {
-	grantErr       error
-	revokeErr      error
-	keepAliveErr   error
-	grantID        clientv3.LeaseID
-	lastRevoke     clientv3.LeaseID
-	lastKeepAlive  clientv3.LeaseID
+	grantErr      error
+	revokeErr     error
+	keepAliveErr  error
+	grantID       clientv3.LeaseID
+	lastRevoke    clientv3.LeaseID
+	lastKeepAlive clientv3.LeaseID
 }
 
 func (f *fakeLease) Grant(context.Context, int64) (*clientv3.LeaseGrantResponse, error) {

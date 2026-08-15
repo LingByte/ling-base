@@ -12,15 +12,15 @@ import (
 )
 
 type fakeBackend struct {
-	mu      sync.Mutex
-	keys    map[string]string
-	leases  map[int64]int64 // leaseID -> ttl seconds
-	nextID  int64
-	grantErr error
-	acquireErr error
-	acquireOK  bool
-	revokeErr  error
-	deleteErr  error
+	mu           sync.Mutex
+	keys         map[string]string
+	leases       map[int64]int64 // leaseID -> ttl seconds
+	nextID       int64
+	grantErr     error
+	acquireErr   error
+	acquireOK    bool
+	revokeErr    error
+	deleteErr    error
 	keepAliveErr error
 }
 

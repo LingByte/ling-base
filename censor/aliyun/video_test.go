@@ -43,3 +43,54 @@ func TestVideoCensor_GetResult_EmptyTaskID(t *testing.T) {
 		t.Fatal("expected error for empty taskID")
 	}
 }
+
+func TestVideoCensor_Submit_CanceledContext(t *testing.T) {
+	c, _ := NewVideoCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.SubmitCensorVideo(ctx, "https://example.com/video.mp4")
+	if err == nil {
+		t.Fatal("expected error with canceled context")
+	}
+}
+
+func TestVideoCensor_Submit_APIError(t *testing.T) {
+	c, _ := NewVideoCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	_, err := c.SubmitCensorVideo(context.Background(), "https://example.com/video.mp4")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+}
+
+func TestVideoCensor_GetResult_CanceledContext(t *testing.T) {
+	c, _ := NewVideoCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.GetCensorResult(ctx, "task-456")
+	if err == nil {
+		t.Fatal("expected error with canceled context")
+	}
+}
+
+func TestVideoCensor_GetResult_APIError(t *testing.T) {
+	c, _ := NewVideoCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	_, err := c.GetCensorResult(context.Background(), "task-456")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+}
+
+func TestNewVideoCensor_CustomEndpoint(t *testing.T) {
+	c, err := NewVideoCensor(Config{
+		AccessKeyID: "ak", AccessKeySecret: "sk", Endpoint: "green-cip.cn-beijing.aliyuncs.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c == nil || c.client == nil {
+		t.Fatal("client should be initialized")
+	}
+	if c.service != videoService {
+		t.Errorf("service = %q, want %q", c.service, videoService)
+	}
+}

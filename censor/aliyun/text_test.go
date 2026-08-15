@@ -53,3 +53,53 @@ func TestTextCensor_CensorText_CanceledContext(t *testing.T) {
 		t.Fatal("expected error with canceled context")
 	}
 }
+
+func TestTextCensor_CensorText_APIError(t *testing.T) {
+	c, _ := NewTextCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	// With fake credentials, the API call will fail. Verify the error is wrapped.
+	_, err := c.CensorText(context.Background(), "some text")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+	if !strings.Contains(err.Error(), "aliyun TextModeration") {
+		t.Errorf("error should contain 'aliyun TextModeration', got: %v", err)
+	}
+}
+
+func TestTextCensor_CensorText_NonEmptyText(t *testing.T) {
+	c, _ := NewTextCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	// Even with a canceled context, the method should return an error
+	// because the underlying SDK call will fail.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.CensorText(ctx, "test content for moderation")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestNewTextCensor_NilClient(t *testing.T) {
+	c := &TextCensor{client: nil, service: textService}
+	if c == nil {
+		t.Fatal("TextCensor should not be nil")
+	}
+	if c.service != textService {
+		t.Errorf("service = %q, want %q", c.service, textService)
+	}
+}
+
+func TestHighRiskLabels(t *testing.T) {
+	expected := map[string]bool{
+		"terrorism":  true,
+		"porn":       true,
+		"contraband": true,
+	}
+	for label := range expected {
+		if !highRiskLabels[label] {
+			t.Errorf("highRiskLabels should contain %q", label)
+		}
+	}
+	if len(highRiskLabels) != len(expected) {
+		t.Errorf("highRiskLabels has %d entries, want %d", len(highRiskLabels), len(expected))
+	}
+}

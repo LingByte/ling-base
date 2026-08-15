@@ -15,10 +15,10 @@ import (
 )
 
 type fakeSession struct {
-	mu       sync.Mutex
-	sessions map[string]*api.SessionEntry
-	next     int
-	createErr error
+	mu         sync.Mutex
+	sessions   map[string]*api.SessionEntry
+	next       int
+	createErr  error
 	destroyErr error
 	renewErr   error
 }
@@ -63,8 +63,8 @@ func (f *fakeSession) Renew(id string, _ *api.WriteOptions) (*api.SessionEntry, 
 }
 
 type fakeKV struct {
-	mu       sync.Mutex
-	locks    map[string]string // key -> session id
+	mu         sync.Mutex
+	locks      map[string]string // key -> session id
 	acquireErr error
 	releaseErr error
 }

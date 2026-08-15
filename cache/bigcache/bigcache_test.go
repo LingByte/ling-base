@@ -181,4 +181,3 @@ func TestBigcacheNewWithContextCanceled(t *testing.T) {
 		t.Fatal("expected canceled context error")
 	}
 }
-

@@ -338,3 +338,167 @@ func TestRedisBloomLargeBatch(t *testing.T) {
 func key(i int) string {
 	return "key-" + strconv.Itoa(i)
 }
+
+// ===== Option function tests =====
+
+func TestRedisBloomWithKey(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk, redisbloom.WithKey("custom-key"))
+	if f.Key() != "custom-key" {
+		t.Fatalf("Key = %q, want custom-key", f.Key())
+	}
+}
+
+func TestRedisBloomWithCapacity(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithCapacity(8000, 0.005),
+	)
+	if f.Capacity() != 8000 {
+		t.Fatalf("Capacity = %d, want 8000", f.Capacity())
+	}
+	if f.ErrorRate() != 0.005 {
+		t.Fatalf("ErrorRate = %v, want 0.005", f.ErrorRate())
+	}
+}
+
+func TestRedisBloomWithErrorRate(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithExpectedCapacity(1000),
+		redisbloom.WithErrorRate(0.02),
+	)
+	if f.ErrorRate() != 0.02 {
+		t.Fatalf("ErrorRate = %v, want 0.02", f.ErrorRate())
+	}
+}
+
+func TestRedisBloomWithExpectedCapacity(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithExpectedCapacity(42),
+	)
+	if f.Capacity() != 42 {
+		t.Fatalf("Capacity = %d, want 42", f.Capacity())
+	}
+}
+
+func TestRedisBloomWithTTL(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk, redisbloom.WithTTL(5*time.Second))
+	ctx := context.Background()
+	_ = f.Add(ctx, "x")
+	if bk.expireTTL != 5*time.Second {
+		t.Fatalf("expireTTL = %v, want 5s", bk.expireTTL)
+	}
+}
+
+func TestRedisBloomWithExpansion(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithCapacity(1000, 0.01),
+		redisbloom.WithExpansion(4),
+	)
+	ctx := context.Background()
+	_ = f.Add(ctx, "x")
+	if bk.reserveExpansion != 4 {
+		t.Fatalf("reserveExpansion = %d, want 4", bk.reserveExpansion)
+	}
+}
+
+func TestRedisBloomWithNonScaling(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithCapacity(1000, 0.01),
+		redisbloom.WithNonScaling(),
+	)
+	ctx := context.Background()
+	_ = f.Add(ctx, "x")
+	if !bk.reserveNonScaling {
+		t.Fatal("reserveNonScaling = false, want true")
+	}
+}
+
+func TestRedisBloomWithNoCreate(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk, redisbloom.WithNoCreate())
+	ctx := context.Background()
+	if err := f.Add(ctx, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if bk.reserved {
+		t.Fatal("backend should NOT have received Reserve with NoCreate")
+	}
+}
+
+// ===== Filter getter tests =====
+
+func TestRedisBloomCapacityGetter(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithCapacity(3000, 0.001),
+	)
+	if f.Capacity() != 3000 {
+		t.Fatalf("Capacity = %d, want 3000", f.Capacity())
+	}
+}
+
+func TestRedisBloomErrorRateGetter(t *testing.T) {
+	bk := newFakeBackend()
+	f := newFilter(t, bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithCapacity(1000, 0.0001),
+	)
+	if f.ErrorRate() != 0.0001 {
+		t.Fatalf("ErrorRate = %v, want 0.0001", f.ErrorRate())
+	}
+}
+
+// ===== Config validation edge cases =====
+
+func TestRedisBloomValidateMissingKey(t *testing.T) {
+	bk := newFakeBackend()
+	_, err := redisbloom.NewWithBackend(bk, redisbloom.WithCapacity(100, 0.01))
+	if !errors.Is(err, bloom.ErrEmptyKey) {
+		t.Fatalf("missing key = %v, want ErrEmptyKey", err)
+	}
+}
+
+func TestRedisBloomValidateZeroCapacity(t *testing.T) {
+	bk := newFakeBackend()
+	_, err := redisbloom.NewWithBackend(bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithExpectedCapacity(0),
+	)
+	if !errors.Is(err, bloom.ErrInvalidCapacity) {
+		t.Fatalf("capacity=0 = %v, want ErrInvalidCapacity", err)
+	}
+}
+
+func TestRedisBloomValidateNegativeErrorRate(t *testing.T) {
+	bk := newFakeBackend()
+	_, err := redisbloom.NewWithBackend(bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithErrorRate(-0.5),
+	)
+	if !errors.Is(err, bloom.ErrInvalidFalsePositiveRate) {
+		t.Fatalf("errorRate=-0.5 = %v, want ErrInvalidFalsePositiveRate", err)
+	}
+}
+
+func TestRedisBloomValidateErrorRateOne(t *testing.T) {
+	bk := newFakeBackend()
+	_, err := redisbloom.NewWithBackend(bk,
+		redisbloom.WithKey("k"),
+		redisbloom.WithErrorRate(1.0),
+	)
+	if !errors.Is(err, bloom.ErrInvalidFalsePositiveRate) {
+		t.Fatalf("errorRate=1.0 = %v, want ErrInvalidFalsePositiveRate", err)
+	}
+}

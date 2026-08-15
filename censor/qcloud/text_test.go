@@ -51,3 +51,47 @@ func TestTextCensor_CensorText_CanceledContext(t *testing.T) {
 		t.Fatal("expected error with canceled context")
 	}
 }
+
+func TestNewTextCensor_CustomBizType(t *testing.T) {
+	c, err := NewTextCensor(Config{SecretID: "sid", SecretKey: "sk", BizType: "custom_biz"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.bizType != "custom_biz" {
+		t.Errorf("bizType = %q, want custom_biz", c.bizType)
+	}
+}
+
+func TestNewTextCensor_DefaultBizType(t *testing.T) {
+	c, err := NewTextCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.bizType != "default" {
+		t.Errorf("bizType = %q, want default", c.bizType)
+	}
+}
+
+func TestNewTextCensor_StoresSecretIDAndKey(t *testing.T) {
+	c, err := NewTextCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.secretID != "sid" {
+		t.Errorf("secretID = %q, want sid", c.secretID)
+	}
+	if c.secretKey != "sk" {
+		t.Errorf("secretKey = %q, want sk", c.secretKey)
+	}
+}
+
+func TestTextCensor_CensorText_APIError(t *testing.T) {
+	c, _ := NewTextCensor(Config{SecretID: "sid", SecretKey: "sk"})
+	_, err := c.CensorText(context.Background(), "hello")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+	if !strings.Contains(err.Error(), "qcloud TextModeration") {
+		t.Errorf("error should contain 'qcloud TextModeration', got: %v", err)
+	}
+}

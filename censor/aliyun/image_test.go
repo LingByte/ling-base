@@ -32,3 +32,33 @@ func TestImageCensor_CensorImage_EmptyURL(t *testing.T) {
 		t.Fatal("expected error for empty imageURL")
 	}
 }
+
+func TestImageCensor_CensorImage_CanceledContext(t *testing.T) {
+	c, _ := NewImageCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := c.CensorImage(ctx, "https://example.com/img.png")
+	if err == nil {
+		t.Fatal("expected error with canceled context")
+	}
+}
+
+func TestImageCensor_CensorImage_APIError(t *testing.T) {
+	c, _ := NewImageCensor(Config{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	_, err := c.CensorImage(context.Background(), "https://example.com/img.png")
+	if err == nil {
+		t.Fatal("expected error with fake credentials")
+	}
+}
+
+func TestNewImageCensor_CustomEndpoint(t *testing.T) {
+	c, err := NewImageCensor(Config{
+		AccessKeyID: "ak", AccessKeySecret: "sk", Endpoint: "green-cip.cn-beijing.aliyuncs.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c == nil || c.client == nil {
+		t.Fatal("client should be initialized")
+	}
+}
