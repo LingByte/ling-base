@@ -52,6 +52,39 @@ func TestReadMP3_InvalidData(t *testing.T) {
 	}
 }
 
+func TestLoadMP3_RealFile(t *testing.T) {
+	audio, err := LoadMP3("testdata/test.mp3")
+	if err != nil {
+		t.Fatalf("LoadMP3 failed: %v", err)
+	}
+	if audio.SampleRate != 44100 {
+		t.Fatalf("SampleRate = %d, want 44100", audio.SampleRate)
+	}
+	if audio.Channels < 1 {
+		t.Fatalf("Channels = %d, want >= 1", audio.Channels)
+	}
+	if audio.NumSamples() == 0 {
+		t.Fatal("NumSamples = 0, expected decoded audio")
+	}
+}
+
+func TestReadMP3_EmptyData(t *testing.T) {
+	_, err := ReadMP3(bytes.NewReader([]byte{}))
+	if err == nil {
+		t.Fatal("ReadMP3 with empty data should fail")
+	}
+}
+
+func TestLoad_MP3ViaLoad(t *testing.T) {
+	audio, err := Load("testdata/test.mp3")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if audio.SampleRate != 44100 {
+		t.Fatalf("SampleRate = %d, want 44100", audio.SampleRate)
+	}
+}
+
 func TestLoad_WAVViaLoad(t *testing.T) {
 	audio := createTestTone()
 	path := filepath.Join(t.TempDir(), "test.wav")

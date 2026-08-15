@@ -39,3 +39,32 @@ func TestBaseModelBeforeCreateSetsIDWhenSnowflakeNil(t *testing.T) {
 	}
 	_ = time.Now()
 }
+
+func TestBaseModelBeforeUpdate(t *testing.T) {
+	var m BaseModel
+	old := m.UpdatedAt
+	if err := m.BeforeUpdate(&gorm.DB{}); err != nil {
+		t.Fatal(err)
+	}
+	if !m.UpdatedAt.After(old) && m.UpdatedAt.IsZero() {
+		t.Fatal("BeforeUpdate should set UpdatedAt")
+	}
+}
+
+func TestBaseModelSetUpdateInfo(t *testing.T) {
+	var m BaseModel
+	m.SetUpdateInfo("dave")
+	if m.UpdateBy != "dave" {
+		t.Fatalf("UpdateBy = %q, want %q", m.UpdateBy, "dave")
+	}
+}
+
+func TestBaseModelBeforeCreatePreservesExistingID(t *testing.T) {
+	m := BaseModel{ID: 999}
+	if err := m.BeforeCreate(&gorm.DB{}); err != nil {
+		t.Fatal(err)
+	}
+	if m.ID != 999 {
+		t.Fatalf("ID = %d, want 999", m.ID)
+	}
+}

@@ -356,3 +356,118 @@ func TestEnvCacheExpiration(t *testing.T) {
 	assert.False(t, ok)
 	assert.Equal(t, "", v)
 }
+
+func TestGetFloatEnv(t *testing.T) {
+	t.Setenv("TEST_FLOAT_ENV", "3.14")
+	if v := GetFloatEnv("TEST_FLOAT_ENV"); v != 3.14 {
+		t.Fatalf("GetFloatEnv = %v, want 3.14", v)
+	}
+	if v := GetFloatEnv("NON_EXISTENT_FLOAT"); v != 0 {
+		t.Fatalf("GetFloatEnv = %v, want 0", v)
+	}
+}
+
+func TestGetFloatEnvWithDefault(t *testing.T) {
+	t.Setenv("TEST_FLOAT_DEFAULT", "2.5")
+	if v := GetFloatEnvWithDefault("TEST_FLOAT_DEFAULT", 9.9); v != 2.5 {
+		t.Fatalf("GetFloatEnvWithDefault = %v, want 2.5", v)
+	}
+	if v := GetFloatEnvWithDefault("NON_EXISTENT_FLOAT_DEFAULT", 9.9); v != 9.9 {
+		t.Fatalf("GetFloatEnvWithDefault = %v, want 9.9", v)
+	}
+}
+
+func TestGetIntEnvWithDefault(t *testing.T) {
+	t.Setenv("TEST_INT_DEFAULT", "42")
+	if v := GetIntEnvWithDefault("TEST_INT_DEFAULT", 99); v != 42 {
+		t.Fatalf("GetIntEnvWithDefault = %v, want 42", v)
+	}
+	if v := GetIntEnvWithDefault("NON_EXISTENT_INT_DEFAULT", 99); v != 99 {
+		t.Fatalf("GetIntEnvWithDefault = %v, want 99", v)
+	}
+}
+
+func TestGetStringOrDefault(t *testing.T) {
+	t.Setenv("TEST_STR_DEFAULT", "hello")
+	if v := GetStringOrDefault("TEST_STR_DEFAULT", "fallback"); v != "hello" {
+		t.Fatalf("GetStringOrDefault = %q, want %q", v, "hello")
+	}
+	if v := GetStringOrDefault("NON_EXISTENT_STR", "fallback"); v != "fallback" {
+		t.Fatalf("GetStringOrDefault = %q, want %q", v, "fallback")
+	}
+}
+
+func TestGetBoolOrDefault(t *testing.T) {
+	t.Setenv("TEST_BOOL_DEFAULT", "true")
+	if v := GetBoolOrDefault("TEST_BOOL_DEFAULT", false); !v {
+		t.Fatal("GetBoolOrDefault = false, want true")
+	}
+	if v := GetBoolOrDefault("NON_EXISTENT_BOOL", true); !v {
+		t.Fatal("GetBoolOrDefault = false, want true (default)")
+	}
+}
+
+func TestGetIntOrDefault(t *testing.T) {
+	t.Setenv("TEST_INT_OR_DEFAULT", "77")
+	if v := GetIntOrDefault("TEST_INT_OR_DEFAULT", 100); v != 77 {
+		t.Fatalf("GetIntOrDefault = %d, want 77", v)
+	}
+	if v := GetIntOrDefault("NON_EXISTENT_INT_OR", 100); v != 100 {
+		t.Fatalf("GetIntOrDefault = %d, want 100", v)
+	}
+}
+
+func TestGetFloatOrDefault(t *testing.T) {
+	t.Setenv("TEST_FLOAT_OR_DEFAULT", "1.5")
+	if v := GetFloatOrDefault("TEST_FLOAT_OR_DEFAULT", 9.9); v != 1.5 {
+		t.Fatalf("GetFloatOrDefault = %v, want 1.5", v)
+	}
+	if v := GetFloatOrDefault("NON_EXISTENT_FLOAT_OR", 9.9); v != 9.9 {
+		t.Fatalf("GetFloatOrDefault = %v, want 9.9", v)
+	}
+	t.Setenv("TEST_FLOAT_OR_INVALID", "not_a_float")
+	if v := GetFloatOrDefault("TEST_FLOAT_OR_INVALID", 9.9); v != 9.9 {
+		t.Fatalf("GetFloatOrDefault invalid = %v, want 9.9", v)
+	}
+}
+
+func TestParseDuration(t *testing.T) {
+	if d := ParseDuration("", 5*time.Second); d != 5*time.Second {
+		t.Fatalf("ParseDuration empty = %v, want 5s", d)
+	}
+	if d := ParseDuration("30m", 5*time.Second); d != 30*time.Minute {
+		t.Fatalf("ParseDuration 30m = %v, want 30m", d)
+	}
+	if d := ParseDuration("invalid", 5*time.Second); d != 5*time.Second {
+		t.Fatalf("ParseDuration invalid = %v, want 5s", d)
+	}
+}
+
+func TestEnvDuration(t *testing.T) {
+	t.Setenv("TEST_DURATION", "1h30m")
+	d, ok := EnvDuration("TEST_DURATION")
+	if !ok || d != 90*time.Minute {
+		t.Fatalf("EnvDuration = %v ok=%v, want 1h30m true", d, ok)
+	}
+	if _, ok := EnvDuration("NON_EXISTENT_DURATION"); ok {
+		t.Fatal("EnvDuration should return false for unset key")
+	}
+	t.Setenv("TEST_DURATION_INVALID", "not_a_duration")
+	if _, ok := EnvDuration("TEST_DURATION_INVALID"); ok {
+		t.Fatal("EnvDuration should return false for invalid value")
+	}
+}
+
+func TestEnvIntInvalid(t *testing.T) {
+	t.Setenv("TEST_ENV_INT_INVALID", "abc")
+	if _, ok := EnvInt("TEST_ENV_INT_INVALID"); ok {
+		t.Fatal("EnvInt should return false for invalid value")
+	}
+}
+
+func TestEnvFloatInvalid(t *testing.T) {
+	t.Setenv("TEST_ENV_FLOAT_INVALID", "not_a_float")
+	if _, ok := EnvFloat("TEST_ENV_FLOAT_INVALID"); ok {
+		t.Fatal("EnvFloat should return false for invalid value")
+	}
+}
