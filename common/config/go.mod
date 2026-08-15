@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/config
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/cache v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/cache v0.1.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0
@@ -12,6 +12,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -21,5 +22,3 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-replace github.com/LingByte/ling-base/cache => ../../cache
