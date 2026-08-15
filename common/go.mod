@@ -3,10 +3,11 @@ module github.com/LingByte/ling-base/common
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/idgen v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/constants v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/idgen v0.1.0
+	github.com/LingByte/ling-base/constants v0.1.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.2
@@ -30,7 +31,6 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/spf13/cast v1.3.1 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
@@ -39,9 +39,4 @@ require (
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/sqlite v1.23.1 // indirect
-)
-
-replace (
-	github.com/LingByte/ling-base/common/idgen => ./idgen
-	github.com/LingByte/ling-base/constants => ../constants
 )
