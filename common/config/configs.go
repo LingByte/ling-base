@@ -60,9 +60,9 @@ type StoreOptions struct {
 	// SetValue/CheckValue are no-ops on the DB, LoadAutoloads returns nothing.
 	DB *gorm.DB
 
-	// Cache is an optional cache.Cache implementation for config values.
+	// Cache is an optional cache.Cache[string, []byte] implementation for config values.
 	// When nil, an LRU cache with TTL is created automatically.
-	Cache cache.Cache
+	Cache cache.Cache[string, []byte]
 
 	// CacheSize is the max number of cached config entries (default 1024).
 	// Only used when Cache is nil.
@@ -83,7 +83,7 @@ type StoreOptions struct {
 //  3. OS environment variable / .env file
 type Store struct {
 	db    *gorm.DB
-	cache cache.Cache
+	cache cache.Cache[string, []byte]
 	ctx   context.Context // background context for cache ops
 }
 
@@ -106,7 +106,7 @@ func NewStore(opts StoreOptions) (*Store, error) {
 		if ttl <= 0 {
 			ttl = 10 * time.Second
 		}
-		c, err := lrucache.New(size,
+		c, err := lrucache.New[string, []byte](size,
 			lrucache.WithDefaultTTL(ttl),
 			lrucache.WithCleanupInterval(time.Minute),
 		)

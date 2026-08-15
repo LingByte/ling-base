@@ -11,7 +11,7 @@ import (
 )
 
 func TestHelpers(t *testing.T) {
-	c, err := lru.New(10, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](10, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestHelpers(t *testing.T) {
 }
 
 func TestGetOrSet(t *testing.T) {
-	c, err := lru.New(10, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](10, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestGetOrSet(t *testing.T) {
 }
 
 func TestGetOrSetMissOnly(t *testing.T) {
-	c, err := lru.New(1, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestGetOrSetMissOnly(t *testing.T) {
 }
 
 func TestGetJSONErrors(t *testing.T) {
-	c, err := lru.New(10, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](10, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestGetJSONErrors(t *testing.T) {
 }
 
 func TestGetOrSetFnError(t *testing.T) {
-	c, err := lru.New(1, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}

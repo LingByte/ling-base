@@ -437,7 +437,7 @@ func TestStore_CustomCache(t *testing.T) {
 	t.Cleanup(func() { envStore.Purge() })
 
 	// Use a custom cache (LRU with short TTL).
-	c, err := lrucache.New(100, lrucache.WithDefaultTTL(5*time.Second))
+	c, err := lrucache.New[string, []byte](100, lrucache.WithDefaultTTL(5*time.Second))
 	require.NoError(t, err)
 
 	s, err := NewStore(StoreOptions{

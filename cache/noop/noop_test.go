@@ -11,7 +11,7 @@ import (
 )
 
 func TestNoop(t *testing.T) {
-	c := noop.New()
+	c := noop.New[string, []byte]()
 	ctx := context.Background()
 
 	if _, err := c.Get(ctx, "k"); !errors.Is(err, cache.ErrNotFound) {

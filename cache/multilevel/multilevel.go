@@ -10,40 +10,43 @@ import (
 )
 
 // Cache reads L1 first, falls back to L2, and writes through to both.
-type Cache struct {
-	l1     cache.Cache
-	l2     cache.Cache
+type Cache[K comparable, V any] struct {
+	l1     cache.Cache[K, V]
+	l2     cache.Cache[K, V]
 	closed bool
 }
 
 // New creates a multilevel cache. Both l1 and l2 are required.
-func New(l1, l2 cache.Cache) (*Cache, error) {
+func New[K comparable, V any](l1, l2 cache.Cache[K, V]) (*Cache[K, V], error) {
 	if l1 == nil || l2 == nil {
 		return nil, errors.New("multilevel: l1 and l2 are required")
 	}
-	return &Cache{l1: l1, l2: l2}, nil
+	return &Cache[K, V]{l1: l1, l2: l2}, nil
 }
 
-func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
-	if err := c.check(ctx, key); err != nil {
-		return nil, err
+func (c *Cache[K, V]) Get(ctx context.Context, key K) (V, error) {
+	if err := c.check(ctx); err != nil {
+		var zero V
+		return zero, err
 	}
 	if val, err := c.l1.Get(ctx, key); err == nil {
 		return val, nil
 	} else if !errors.Is(err, cache.ErrNotFound) {
-		return nil, err
+		var zero V
+		return zero, err
 	}
 
 	val, err := c.l2.Get(ctx, key)
 	if err != nil {
-		return nil, err
+		var zero V
+		return zero, err
 	}
 	_ = c.l1.Set(ctx, key, val, 0)
 	return val, nil
 }
 
-func (c *Cache) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
-	if err := c.check(ctx, key); err != nil {
+func (c *Cache[K, V]) Set(ctx context.Context, key K, value V, ttl time.Duration) error {
+	if err := c.check(ctx); err != nil {
 		return err
 	}
 	if err := c.l2.Set(ctx, key, value, ttl); err != nil {
@@ -52,16 +55,16 @@ func (c *Cache) Set(ctx context.Context, key string, value []byte, ttl time.Dura
 	return c.l1.Set(ctx, key, value, ttl)
 }
 
-func (c *Cache) Delete(ctx context.Context, key string) error {
-	if err := c.check(ctx, key); err != nil {
+func (c *Cache[K, V]) Delete(ctx context.Context, key K) error {
+	if err := c.check(ctx); err != nil {
 		return err
 	}
 	_ = c.l1.Delete(ctx, key)
 	return c.l2.Delete(ctx, key)
 }
 
-func (c *Cache) Exists(ctx context.Context, key string) (bool, error) {
-	if err := c.check(ctx, key); err != nil {
+func (c *Cache[K, V]) Exists(ctx context.Context, key K) (bool, error) {
+	if err := c.check(ctx); err != nil {
 		return false, err
 	}
 	if ok, err := c.l1.Exists(ctx, key); err != nil {
@@ -72,7 +75,7 @@ func (c *Cache) Exists(ctx context.Context, key string) (bool, error) {
 	return c.l2.Exists(ctx, key)
 }
 
-func (c *Cache) Clear(ctx context.Context) error {
+func (c *Cache[K, V]) Clear(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -83,7 +86,7 @@ func (c *Cache) Clear(ctx context.Context) error {
 	return c.l2.Clear(ctx)
 }
 
-func (c *Cache) Close() error {
+func (c *Cache[K, V]) Close() error {
 	if c.closed {
 		return nil
 	}
@@ -96,17 +99,14 @@ func (c *Cache) Close() error {
 	return err2
 }
 
-func (c *Cache) check(ctx context.Context, key string) error {
+func (c *Cache[K, V]) check(ctx context.Context) error {
 	if c.closed {
 		return cache.ErrClosed
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if key == "" {
-		return cache.ErrEmptyKey
-	}
 	return nil
 }
 
-var _ cache.Cache = (*Cache)(nil)
+var _ cache.Cache[string, []byte] = (*Cache[string, []byte])(nil)

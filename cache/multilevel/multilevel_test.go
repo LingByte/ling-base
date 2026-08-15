@@ -12,30 +12,30 @@ import (
 	"github.com/LingByte/ling-base/cache/multilevel"
 )
 
-func newLevels(t *testing.T) (cache.Cache, cache.Cache) {
+func newLevels(t *testing.T) (cache.Cache[string, []byte], cache.Cache[string, []byte]) {
 	t.Helper()
-	l1, err := lru.New(10, lru.WithCleanupInterval(0))
+	l1, err := lru.New[string, []byte](10, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
-	l2 := memory.New(memory.WithCleanupInterval(0))
+	l2 := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	t.Cleanup(func() { _ = l1.Close(); _ = l2.Close() })
 	return l1, l2
 }
 
 func TestMultilevelNewValidation(t *testing.T) {
 	l1, l2 := newLevels(t)
-	if _, err := multilevel.New(nil, l2); err == nil {
+	if _, err := multilevel.New[string, []byte](nil, l2); err == nil {
 		t.Fatal("expected error for nil l1")
 	}
-	if _, err := multilevel.New(l1, nil); err == nil {
+	if _, err := multilevel.New[string, []byte](l1, nil); err == nil {
 		t.Fatal("expected error for nil l2")
 	}
 }
 
 func TestMultilevelL2FillL1(t *testing.T) {
 	l1, l2 := newLevels(t)
-	c, err := multilevel.New(l1, l2)
+	c, err := multilevel.New[string, []byte](l1, l2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestMultilevelL2FillL1(t *testing.T) {
 
 func TestMultilevelL1Hit(t *testing.T) {
 	l1, l2 := newLevels(t)
-	c, err := multilevel.New(l1, l2)
+	c, err := multilevel.New[string, []byte](l1, l2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestMultilevelL1Hit(t *testing.T) {
 
 func TestMultilevelSetDeleteExistsClear(t *testing.T) {
 	l1, l2 := newLevels(t)
-	c, err := multilevel.New(l1, l2)
+	c, err := multilevel.New[string, []byte](l1, l2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,14 +102,11 @@ func TestMultilevelSetDeleteExistsClear(t *testing.T) {
 
 func TestMultilevelClosedAndErrors(t *testing.T) {
 	l1, l2 := newLevels(t)
-	c, err := multilevel.New(l1, l2)
+	c, err := multilevel.New[string, []byte](l1, l2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if _, err := c.Get(ctx, ""); !errors.Is(err, cache.ErrEmptyKey) {
-		t.Fatalf("empty key = %v", err)
-	}
 	ctxC, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := c.Get(ctxC, "k"); err != context.Canceled {
@@ -182,9 +179,9 @@ func TestMultilevelErrorPaths(t *testing.T) {
 	l1Err := stubCache{get: func(context.Context, string) ([]byte, error) {
 		return nil, boom
 	}}
-	l2, _ := lru.New(1, lru.WithCleanupInterval(0))
+	l2, _ := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	defer l2.Close()
-	c, err := multilevel.New(l1Err, l2)
+	c, err := multilevel.New[string, []byte](l1Err, l2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,9 +191,9 @@ func TestMultilevelErrorPaths(t *testing.T) {
 	}
 
 	l1Miss := stubCache{}
-	l2Miss, _ := lru.New(1, lru.WithCleanupInterval(0))
+	l2Miss, _ := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	defer l2Miss.Close()
-	c2, _ := multilevel.New(l1Miss, l2Miss)
+	c2, _ := multilevel.New[string, []byte](l1Miss, l2Miss)
 	defer c2.Close()
 	if _, err := c2.Get(ctx, "k"); !errors.Is(err, cache.ErrNotFound) {
 		t.Fatalf("L2 miss = %v", err)
@@ -204,14 +201,14 @@ func TestMultilevelErrorPaths(t *testing.T) {
 
 	l1OK := stubCache{}
 	l2Fail := stubCache{set: func(context.Context, string, []byte, time.Duration) error { return boom }}
-	c3, _ := multilevel.New(l1OK, l2Fail)
+	c3, _ := multilevel.New[string, []byte](l1OK, l2Fail)
 	defer c3.Close()
 	if err := c3.Set(ctx, "k", []byte("v"), 0); !errors.Is(err, boom) {
 		t.Fatalf("Set L2 fail = %v", err)
 	}
 
 	l1ExistsErr := stubCache{exists: func(context.Context, string) (bool, error) { return false, boom }}
-	c4, _ := multilevel.New(l1ExistsErr, l2Miss)
+	c4, _ := multilevel.New[string, []byte](l1ExistsErr, l2Miss)
 	defer c4.Close()
 	if _, err := c4.Exists(ctx, "k"); !errors.Is(err, boom) {
 		t.Fatalf("Exists L1 err = %v", err)
@@ -219,7 +216,7 @@ func TestMultilevelErrorPaths(t *testing.T) {
 
 	ctxC, cancel := context.WithCancel(ctx)
 	cancel()
-	c5, _ := multilevel.New(l1OK, l2Miss)
+	c5, _ := multilevel.New[string, []byte](l1OK, l2Miss)
 	defer c5.Close()
 	if err := c5.Clear(ctxC); err != context.Canceled {
 		t.Fatalf("clear cancelled = %v", err)

@@ -9,21 +9,24 @@ import (
 )
 
 // Cache discards all writes and always misses on reads.
-type Cache struct{}
+type Cache[K comparable, V any] struct{}
 
 // New returns a no-op cache.
-func New() *Cache { return &Cache{} }
+func New[K comparable, V any]() *Cache[K, V] { return &Cache[K, V]{} }
 
-func (Cache) Get(context.Context, string) ([]byte, error) { return nil, cache.ErrNotFound }
+func (Cache[K, V]) Get(context.Context, K) (V, error) {
+	var zero V
+	return zero, cache.ErrNotFound
+}
 
-func (Cache) Set(context.Context, string, []byte, time.Duration) error { return nil }
+func (Cache[K, V]) Set(context.Context, K, V, time.Duration) error { return nil }
 
-func (Cache) Delete(context.Context, string) error { return nil }
+func (Cache[K, V]) Delete(context.Context, K) error { return nil }
 
-func (Cache) Exists(context.Context, string) (bool, error) { return false, nil }
+func (Cache[K, V]) Exists(context.Context, K) (bool, error) { return false, nil }
 
-func (Cache) Clear(context.Context) error { return nil }
+func (Cache[K, V]) Clear(context.Context) error { return nil }
 
-func (Cache) Close() error { return nil }
+func (Cache[K, V]) Close() error { return nil }
 
-var _ cache.Cache = (*Cache)(nil)
+var _ cache.Cache[string, []byte] = (*Cache[string, []byte])(nil)

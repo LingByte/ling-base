@@ -12,7 +12,7 @@ import (
 )
 
 func TestMemoryBasic(t *testing.T) {
-	c := memory.New(memory.WithCleanupInterval(0))
+	c := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	defer c.Close()
 
 	ctx := context.Background()
@@ -30,7 +30,7 @@ func TestMemoryBasic(t *testing.T) {
 }
 
 func TestMemoryTTLAndCleanup(t *testing.T) {
-	c := memory.New(memory.WithCleanupInterval(20 * time.Millisecond))
+	c := memory.New[string, []byte](memory.WithCleanupInterval(20 * time.Millisecond))
 	defer c.Close()
 
 	ctx := context.Background()
@@ -44,7 +44,7 @@ func TestMemoryTTLAndCleanup(t *testing.T) {
 }
 
 func TestMemoryPrefixDefaultTTL(t *testing.T) {
-	c := memory.New(
+	c := memory.New[string, []byte](
 		memory.WithPrefix("x:"),
 		memory.WithDefaultTTL(time.Hour),
 		memory.WithCleanupInterval(0),
@@ -62,7 +62,7 @@ func TestMemoryPrefixDefaultTTL(t *testing.T) {
 }
 
 func TestMemoryDeleteClearClose(t *testing.T) {
-	c := memory.New(memory.WithCleanupInterval(0))
+	c := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	ctx := context.Background()
 	_ = c.Set(ctx, "a", []byte("1"), 0)
 	_ = c.Delete(ctx, "a")
@@ -88,16 +88,13 @@ func TestMemoryDeleteClearClose(t *testing.T) {
 }
 
 func TestMemoryErrors(t *testing.T) {
-	c := memory.New(memory.WithCleanupInterval(0))
+	c := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	defer c.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := c.Get(ctx, "k"); err != context.Canceled {
 		t.Fatalf("Get cancelled = %v", err)
-	}
-	if _, err := c.Get(context.Background(), ""); !errors.Is(err, cache.ErrEmptyKey) {
-		t.Fatalf("empty key = %v", err)
 	}
 	if _, err := c.Get(context.Background(), "missing"); !errors.Is(err, cache.ErrNotFound) {
 		t.Fatalf("not found = %v", err)
@@ -113,7 +110,7 @@ func TestMemoryErrors(t *testing.T) {
 		t.Fatalf("expired exists = %v, %v", ok, err)
 	}
 
-	c2 := memory.New(memory.WithCleanupInterval(0))
+	c2 := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	_ = c2.Close()
 	if err := c2.Clear(context.Background()); !errors.Is(err, cache.ErrClosed) {
 		t.Fatalf("clear closed = %v", err)
@@ -121,7 +118,7 @@ func TestMemoryErrors(t *testing.T) {
 }
 
 func TestMemoryConcurrent(t *testing.T) {
-	c := memory.New(memory.WithCleanupInterval(0))
+	c := memory.New[string, []byte](memory.WithCleanupInterval(0))
 	defer c.Close()
 	ctx := context.Background()
 	var wg sync.WaitGroup

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/LingByte/CloudStepsGo/pkg/constants"
+	"github.com/LingByte/ling-base/constants"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

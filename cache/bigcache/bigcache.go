@@ -187,4 +187,4 @@ func (c *Cache) check(ctx context.Context, key string) error {
 	return nil
 }
 
-var _ cache.Cache = (*Cache)(nil)
+var _ cache.Cache[string, []byte] = (*Cache)(nil)

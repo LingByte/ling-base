@@ -12,7 +12,7 @@ import (
 )
 
 func TestLRUBasic(t *testing.T) {
-	c, err := lru.New(2, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](2, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestLRUBasic(t *testing.T) {
 }
 
 func TestLRUTTL(t *testing.T) {
-	c, err := lru.New(10, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](10, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestLRUTTL(t *testing.T) {
 }
 
 func TestLRUPrefixAndDefaultTTL(t *testing.T) {
-	c, err := lru.New(10,
+	c, err := lru.New[string, []byte](10,
 		lru.WithPrefix("app:"),
 		lru.WithDefaultTTL(time.Hour),
 		lru.WithCleanupInterval(0),
@@ -86,7 +86,7 @@ func TestLRUPrefixAndDefaultTTL(t *testing.T) {
 }
 
 func TestLRUDeleteClearClose(t *testing.T) {
-	c, err := lru.New(5, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](5, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,24 +117,24 @@ func TestLRUDeleteClearClose(t *testing.T) {
 	}
 }
 
-func TestLRUEmptyKeyAndInvalidCapacity(t *testing.T) {
-	if _, err := lru.New(0); !errors.Is(err, cache.ErrInvalidCapacity) {
+func TestLRUInvalidCapacity(t *testing.T) {
+	if _, err := lru.New[string, []byte](0); !errors.Is(err, cache.ErrInvalidCapacity) {
 		t.Fatalf("expected ErrInvalidCapacity, got %v", err)
 	}
 
-	c, err := lru.New(1, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer c.Close()
 
-	if _, err := c.Get(context.Background(), ""); !errors.Is(err, cache.ErrEmptyKey) {
-		t.Fatalf("expected ErrEmptyKey, got %v", err)
+	if _, err := c.Get(context.Background(), "missing"); !errors.Is(err, cache.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
 func TestLRUConcurrent(t *testing.T) {
-	c, err := lru.New(100, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](100, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,13 +155,10 @@ func TestLRUConcurrent(t *testing.T) {
 	wg.Wait()
 }
 
-func TestLRUDoubleCloseAndCap(t *testing.T) {
-	c, err := lru.New(7, lru.WithCleanupInterval(0))
+func TestLRUDoubleClose(t *testing.T) {
+	c, err := lru.New[string, []byte](7, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
-	}
-	if c.Cap() != 7 {
-		t.Fatalf("Cap = %d", c.Cap())
 	}
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
@@ -172,7 +169,7 @@ func TestLRUDoubleCloseAndCap(t *testing.T) {
 }
 
 func TestLRUCancelledContext(t *testing.T) {
-	c, err := lru.New(1, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](1, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +186,7 @@ func TestLRUCancelledContext(t *testing.T) {
 }
 
 func TestLRUUpdateExisting(t *testing.T) {
-	c, err := lru.New(5, lru.WithCleanupInterval(0))
+	c, err := lru.New[string, []byte](5, lru.WithCleanupInterval(0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +206,7 @@ func TestLRUUpdateExisting(t *testing.T) {
 }
 
 func TestLRUCleanup(t *testing.T) {
-	c, err := lru.New(10, lru.WithCleanupInterval(20*time.Millisecond))
+	c, err := lru.New[string, []byte](10, lru.WithCleanupInterval(20*time.Millisecond))
 	if err != nil {
 		t.Fatal(err)
 	}

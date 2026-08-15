@@ -118,6 +118,8 @@ const (
 	SignalChannelBufSize = 1
 )
 
+const DbField = "_ling_db"
+
 // IsProdMode reports whether a MODE value requests production-strict behaviour.
 // Single source of truth for the prod check — the long form "production" is
 // matched as a prefix of ENV_PROD instead of a second constant.

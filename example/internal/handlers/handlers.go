@@ -54,7 +54,7 @@ import (
 // gin HTTP server lifecycle as a bootstrap.Lifecycle component.
 type Handlers struct {
 	db              *gorm.DB                       // optional, nil in env-only mode
-	cache           cache.Cache                    // optional, nil in no-redis mode
+	cache           cache.Cache[string, []byte]                    // optional, nil in no-redis mode
 	search          search.Engine                  // optional, nil in no-search mode
 	cb              *circuitbreaker.CircuitBreaker // circuit breaker for demo endpoint
 	taskQueue       queue.Queue                    // task queue backend
@@ -80,7 +80,7 @@ var requestCounter atomic.Int64
 // NewHandlers creates a new Handlers instance with the given dependencies.
 // db, redis cache, and search engine may be nil — the server degrades gracefully.
 // Limiters are initialized from the config store values.
-func NewHandlers(db *gorm.DB, cache cache.Cache, searchEng search.Engine, cfg *config.Store, events eventbus.Bus) *Handlers {
+func NewHandlers(db *gorm.DB, cache cache.Cache[string, []byte], searchEng search.Engine, cfg *config.Store, events eventbus.Bus) *Handlers {
 	rps := cfg.GetFloatValue("RATE_LIMIT_RPS", 100)
 	maxConns := cfg.GetIntValue("RATE_LIMIT_MAX_CONNS", 1000)
 
@@ -627,7 +627,7 @@ func (h *Handlers) handleWithLimit(ctx context.Context) (string, time.Duration, 
 
 // NewRedisCache creates a Redis cache from the given address.
 // Returns nil if addr is empty (Redis disabled).
-func NewRedisCache(addr, password string, db int) cache.Cache {
+func NewRedisCache(addr, password string, db int) cache.Cache[string, []byte] {
 	if addr == "" {
 		return nil
 	}
