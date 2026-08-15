@@ -148,6 +148,36 @@ func EnsureBannerFile(filename, defaultText string) error {
 	return nil
 }
 
+// PrintBannerFromFile ensures the banner file exists (generating it if
+// needed), then prints its contents with ANSI gradient coloring. This
+// combines EnsureBannerFile + file read + colored output in one call.
+func PrintBannerFromFile(filename, defaultText string) error {
+	if err := EnsureBannerFile(filename, defaultText); err != nil {
+		return fmt.Errorf("failed to ensure banner file: %w", err)
+	}
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	colors := []string{
+		constants.ANSIBannerGradient1,
+		constants.ANSIBannerGradient2,
+		constants.ANSIBannerGradient3,
+		constants.ANSIBannerGradient4,
+		constants.ANSIBannerGradient5,
+		constants.ANSIBannerGradient6,
+	}
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		color := colors[i%len(colors)]
+		fmt.Println(color + line + constants.ANSIReset)
+	}
+	return nil
+}
+
 // PrintBanner prints the ASCII art banner to the given writer (typically os.Stdout).
 // If bannerFile is non-empty and exists, its content is printed; otherwise the
 // text is rendered with the local Doom font.
