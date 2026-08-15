@@ -40,3 +40,7 @@ require (
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/sqlite v1.23.1 // indirect
 )
+
+replace github.com/LingByte/ling-base/common/idgen => ./idgen
+
+replace github.com/LingByte/ling-base/constants => ../constants
