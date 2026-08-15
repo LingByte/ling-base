@@ -4,6 +4,7 @@
 package common
 
 import (
+	"bufio"
 	"io"
 	"log"
 	"os"
@@ -115,4 +116,52 @@ func MakeMigrates(db *gorm.DB, insts []any) error {
 		}
 	}
 	return nil
+}
+
+// RunInitSQL executes SQL statements from a local .sql file segment by
+// segment (split by semicolon). Comment lines starting with -- or # and
+// empty lines are skipped. Idempotent scripts should use IF NOT EXISTS
+// in SQL for protection.
+func RunInitSQL(db *gorm.DB, sqlFilePath string) error {
+	f, err := os.Open(sqlFilePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var (
+		sb      strings.Builder
+		scanner = bufio.NewScanner(f)
+	)
+	// Relax token limit (long lines)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trim := strings.TrimSpace(line)
+		// Ignore comment lines (starting with -- or #) and empty lines
+		if trim == "" || strings.HasPrefix(trim, "--") || strings.HasPrefix(trim, "#") {
+			continue
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
+		// Use ; as statement terminator (simple splitting, suitable for most scenarios)
+		if strings.HasSuffix(trim, ";") {
+			stmt := strings.TrimSpace(sb.String())
+			sb.Reset()
+			if stmt != "" {
+				if err := db.Exec(stmt).Error; err != nil {
+					return err
+				}
+			}
+		}
+	}
+	// Handle remaining content at end of file without semicolon
+	rest := strings.TrimSpace(sb.String())
+	if rest != "" {
+		if err := db.Exec(rest).Error; err != nil {
+			return err
+		}
+	}
+	return scanner.Err()
 }
