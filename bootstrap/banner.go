@@ -258,8 +258,40 @@ type BannerInfo struct {
 //	 Profile:      prod                Started:  2026-08-14T14:57:45+08:00
 //	 Go:           go1.26.2
 func PrintBannerWithInfo(w io.Writer, text string, info BannerInfo) error {
-	if err := PrintBannerColored(w, text); err != nil {
-		return err
+	return PrintBannerWithInfoFromFile(w, text, "", info)
+}
+
+// PrintBannerWithInfoFromFile prints the colored banner (from file if available,
+// otherwise rendered from text) followed by the info panel.
+func PrintBannerWithInfoFromFile(w io.Writer, text, bannerFile string, info BannerInfo) error {
+	if bannerFile != "" {
+		if data, err := os.ReadFile(bannerFile); err == nil && len(data) > 0 {
+			// Print file content with gradient coloring, then info panel.
+			lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+			colors := []string{
+				constants.ANSIBannerGradient1,
+				constants.ANSIBannerGradient2,
+				constants.ANSIBannerGradient3,
+				constants.ANSIBannerGradient4,
+				constants.ANSIBannerGradient5,
+				constants.ANSIBannerGradient6,
+			}
+			for i, line := range lines {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				color := colors[i%len(colors)]
+				fmt.Fprintln(w, color+line+constants.ANSIReset)
+			}
+		} else {
+			if err := PrintBannerColored(w, text); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := PrintBannerColored(w, text); err != nil {
+			return err
+		}
 	}
 
 	cLabel := constants.ANSIBannerGradient1 // light blue

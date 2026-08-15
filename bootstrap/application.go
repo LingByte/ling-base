@@ -350,7 +350,7 @@ func (a *Application) printBanner() {
 		BuildTime: version.GetBuildTime(),
 		StartTime: time.Now(),
 	}
-	if err := PrintBannerWithInfo(a.output, a.bannerText, info); err != nil {
+	if err := PrintBannerWithInfoFromFile(a.output, a.bannerText, a.bannerFile, info); err != nil {
 		log.Printf("[app] banner print failed: %v", err)
 	}
 }
