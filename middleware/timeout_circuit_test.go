@@ -404,7 +404,7 @@ func TestCircuitBreakerMiddleware_BlockedWhenOpen(t *testing.T) {
 	)
 
 	// Force the breaker open for "/" endpoint
-	cb := globalTimeoutCircuitManager.getCircuitBreaker("/")
+	cb := globalTimeoutCircuitManager.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	cb.Allow()
 	cb.RecordFailure()
 	assert.Equal(t, StateOpen, cb.GetState())
@@ -528,7 +528,7 @@ func TestCombinedTimeoutCircuitMiddleware_CircuitBreakerBlocked(t *testing.T) {
 	mgr.enableCircuitBreaker = true
 	globalTimeoutCircuitManager = mgr
 
-	cb := mgr.getCircuitBreaker("/")
+	cb := mgr.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	cb.Allow()
 	cb.RecordFailure()
 
@@ -622,7 +622,7 @@ func TestCircuitBreakerMiddleware_5xxRecordsFailure(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	cb := globalTimeoutCircuitManager.getCircuitBreaker("/")
+	cb := globalTimeoutCircuitManager.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	assert.Equal(t, 1, cb.GetStats()["failure_count"])
 }
 
@@ -650,7 +650,7 @@ func TestCircuitBreakerMiddleware_4xxNoRecord(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	cb := globalTimeoutCircuitManager.getCircuitBreaker("/")
+	cb := globalTimeoutCircuitManager.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	assert.Equal(t, 0, cb.GetStats()["failure_count"])
 }
 
@@ -678,7 +678,7 @@ func TestCombinedTimeoutCircuitMiddleware_5xxRecordsFailure(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	cb := globalTimeoutCircuitManager.getCircuitBreaker("/")
+	cb := globalTimeoutCircuitManager.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	assert.Equal(t, 1, cb.GetStats()["failure_count"])
 }
 
@@ -698,7 +698,7 @@ func TestCombinedTimeoutCircuitMiddleware_2xxRecordsSuccess(t *testing.T) {
 	)
 
 	// First allow + failure to get a non-zero failure count
-	cb := globalTimeoutCircuitManager.getCircuitBreaker("/")
+	cb := globalTimeoutCircuitManager.getCircuitBreaker("/").(*legacyBreakerAdapter).cb
 	cb.Allow()
 	cb.RecordFailure()
 

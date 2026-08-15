@@ -403,3 +403,38 @@ func TestState_String(t *testing.T) {
 	assert.Equal(t, "half-open", StateHalfOpen.String())
 	assert.Equal(t, "unknown", State(99).String())
 }
+
+func TestCircuit_AllowMarkSuccessMarkFailed(t *testing.T) {
+	cb := New(Config{
+		FailureThreshold:   0.5,
+		MinRequests:        2,
+		SlidingWindowSize:  10,
+		RecoveryTimeout:    50 * time.Millisecond,
+		MaxRequests:        1,
+	})
+
+	// Closed: allow
+	assert.NoError(t, cb.Allow())
+
+	// Record failures to trip
+	cb.MarkFailed()
+	cb.MarkFailed()
+
+	// Should be open now
+	err := cb.Allow()
+	assert.ErrorIs(t, err, ErrCircuitOpen)
+
+	// Wait for recovery
+	time.Sleep(60 * time.Millisecond)
+
+	// Half-open: allow one trial
+	assert.NoError(t, cb.Allow())
+	// Second trial should be rejected (MaxRequests=1)
+	err = cb.Allow()
+	assert.ErrorIs(t, err, ErrTooManyRequests)
+
+	// Mark success → closes
+	cb.MarkSuccess()
+	assert.Equal(t, StateClosed, cb.State())
+	assert.NoError(t, cb.Allow())
+}

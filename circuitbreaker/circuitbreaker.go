@@ -420,3 +420,51 @@ func (cb *CircuitBreaker) Reset() {
 	defer cb.mu.Unlock()
 	cb.trip(StateClosed)
 }
+
+// Allow checks whether a request can proceed without running an operation.
+// Returns nil if allowed, ErrCircuitOpen if the breaker is Open, or
+// ErrTooManyRequests if Half-Open is saturated. The caller MUST call
+// MarkSuccess or MarkFailed after the request completes.
+func (cb *CircuitBreaker) Allow() error {
+	_, err := cb.beforeRequest()
+	return err
+}
+
+// MarkSuccess records a successful request outcome.
+func (cb *CircuitBreaker) MarkSuccess() {
+	cb.recordOutcomeAllow(true)
+}
+
+// MarkFailed records a failed request outcome.
+func (cb *CircuitBreaker) MarkFailed() {
+	cb.recordOutcomeAllow(false)
+}
+
+// recordOutcomeAllow records the outcome without a generation check,
+// for use with the Allow/MarkSuccess/MarkFailed API.
+func (cb *CircuitBreaker) recordOutcomeAllow(success bool) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	switch cb.state {
+	case StateClosed:
+		cb.recordOutcome(success)
+		if !success && cb.shouldTrip() {
+			cb.trip(StateOpen)
+		}
+
+	case StateHalfOpen:
+		cb.halfOpenRequests.Add(-1)
+		if success {
+			cb.halfOpenSuccesses.Add(1)
+			if int(cb.halfOpenSuccesses.Load()) >= cb.cfg.MaxRequests {
+				cb.trip(StateClosed)
+			}
+		} else {
+			cb.trip(StateOpen)
+		}
+
+	case StateOpen:
+		cb.halfOpenRequests.Add(-1)
+	}
+}

@@ -195,7 +195,8 @@ func (cb *CircuitBreaker) GetStats() map[string]interface{} {
 type TimeoutCircuitManager struct {
 	timeoutConfig        TimeoutConfig
 	circuitBreakerConfig CircuitBreakerConfig
-	circuitBreakers      sync.Map // map[string]*CircuitBreaker
+	breakerFactory       BreakerFactory
+	circuitBreakers      sync.Map // map[string]Breaker
 	mu                   sync.RWMutex
 	enableTimeout        bool
 	enableCircuitBreaker bool
@@ -211,6 +212,48 @@ func NewTimeoutCircuitManager(timeoutConfig TimeoutConfig, cbConfig CircuitBreak
 		enableCircuitBreaker: true,
 	}
 }
+
+// SetBreakerFactory overrides the default breaker creation strategy.
+// Pass DefaultBreakerFactory, SREBreakerFactory, or a custom factory.
+// Must be called before the middleware is first invoked.
+func (m *TimeoutCircuitManager) SetBreakerFactory(f BreakerFactory) {
+	if f != nil {
+		m.breakerFactory = f
+	}
+}
+
+// getBreakerFactory returns the configured factory or a default that
+// wraps the legacy CircuitBreaker for backward compatibility.
+func (m *TimeoutCircuitManager) getBreakerFactory() BreakerFactory {
+	if m.breakerFactory != nil {
+		return m.breakerFactory
+	}
+	// Legacy default: use the inline state-machine breaker.
+	cfg := m.circuitBreakerConfig
+	return func(endpoint string) Breaker {
+		return &legacyBreakerAdapter{cb: NewCircuitBreaker(cfg)}
+	}
+}
+
+// legacyBreakerAdapter wraps the inline CircuitBreaker to satisfy Breaker.
+type legacyBreakerAdapter struct{ cb *CircuitBreaker }
+
+func (a *legacyBreakerAdapter) Allow() error {
+	if a.cb.Allow() {
+		return nil
+	}
+	return errCircuitOpen
+}
+
+func (a *legacyBreakerAdapter) MarkSuccess() { a.cb.RecordSuccess() }
+func (a *legacyBreakerAdapter) MarkFailed()  { a.cb.RecordFailure() }
+
+// errCircuitOpen is the sentinel returned by the legacy adapter.
+var errCircuitOpen = errCircuitOpenSentinel{}
+
+type errCircuitOpenSentinel struct{}
+
+func (errCircuitOpenSentinel) Error() string { return "middleware: circuit breaker open" }
 
 // InitTimeoutCircuitManager configures the global timeout/circuit manager from app config.
 // Safe to call once at startup; subsequent calls are no-ops (sync.Once).
@@ -251,12 +294,12 @@ func DefaultTimeoutConfig() TimeoutConfig {
 }
 
 // getCircuitBreaker 获取熔断器
-func (tcm *TimeoutCircuitManager) getCircuitBreaker(endpoint string) *CircuitBreaker {
+func (tcm *TimeoutCircuitManager) getCircuitBreaker(endpoint string) Breaker {
 	if cb, ok := tcm.circuitBreakers.Load(endpoint); ok {
-		return cb.(*CircuitBreaker)
+		return cb.(Breaker)
 	}
 
-	cb := NewCircuitBreaker(tcm.circuitBreakerConfig)
+	cb := tcm.getBreakerFactory()(endpoint)
 	tcm.circuitBreakers.Store(endpoint, cb)
 	return cb
 }
@@ -384,11 +427,10 @@ func CircuitBreakerMiddleware() gin.HandlerFunc {
 		cb := manager.getCircuitBreaker(endpoint)
 
 		// 检查熔断器是否允许请求
-		if !cb.Allow() {
-			state := cb.GetState()
+		if err := cb.Allow(); err != nil {
 			logger.WarnCtx(c.Request.Context(), "Circuit breaker blocked request",
 				zap.String("endpoint", endpoint),
-				zap.Int("state", int(state)))
+				zap.String("reason", err.Error()))
 
 			// 返回服务不可用错误
 			c.JSON(http.StatusServiceUnavailable, manager.timeoutConfig.FallbackResponse)
@@ -408,14 +450,14 @@ func CircuitBreakerMiddleware() gin.HandlerFunc {
 
 		if status >= 200 && status < 400 {
 			// 成功响应
-			cb.RecordSuccess()
+			cb.MarkSuccess()
 			logger.DebugCtx(c.Request.Context(), "Circuit breaker recorded success",
 				zap.String("endpoint", endpoint),
 				zap.Int("status", status),
 				zap.Duration("duration", duration))
 		} else if status >= 500 {
 			// 服务器错误，记录失败
-			cb.RecordFailure()
+			cb.MarkFailed()
 			logger.WarnCtx(c.Request.Context(), "Circuit breaker recorded failure",
 				zap.String("endpoint", endpoint),
 				zap.Int("status", status),
@@ -444,14 +486,13 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		var cb *CircuitBreaker
+		var cb Breaker
 		if manager.enableCircuitBreaker {
 			cb = manager.getCircuitBreaker(endpoint)
-			if !cb.Allow() {
-				state := cb.GetState()
+			if err := cb.Allow(); err != nil {
 				logger.WarnCtx(c.Request.Context(), "Circuit breaker blocked request",
 					zap.String("endpoint", endpoint),
-					zap.Int("state", int(state)))
+					zap.String("reason", err.Error()))
 
 				c.JSON(http.StatusServiceUnavailable, manager.timeoutConfig.FallbackResponse)
 				c.Abort()
@@ -464,9 +505,9 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 			if cb != nil {
 				status := c.Writer.Status()
 				if status >= 200 && status < 400 {
-					cb.RecordSuccess()
+					cb.MarkSuccess()
 				} else if status >= 500 {
-					cb.RecordFailure()
+					cb.MarkFailed()
 				}
 			}
 			return
@@ -501,7 +542,7 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 					zap.Any("panic", requestPanic),
 					zap.ByteString("stack", debug.Stack()))
 				if cb != nil {
-					cb.RecordFailure()
+					cb.MarkFailed()
 				}
 				if !c.Writer.Written() {
 					c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -514,14 +555,14 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 
 			if cb != nil {
 				if status >= 200 && status < 400 {
-					cb.RecordSuccess()
+					cb.MarkSuccess()
 				} else if status >= 500 {
-					cb.RecordFailure()
+					cb.MarkFailed()
 				}
 			}
 		case <-ctx.Done():
 			if cb != nil {
-				cb.RecordFailure()
+				cb.MarkFailed()
 			}
 			logger.WarnCtx(c.Request.Context(), "Request timeout",
 				zap.String("endpoint", endpoint),
@@ -546,8 +587,12 @@ func GetCircuitBreakerStats() map[string]interface{} {
 
 	manager.circuitBreakers.Range(func(key, value interface{}) bool {
 		endpoint := key.(string)
-		cb := value.(*CircuitBreaker)
-		stats[endpoint] = cb.GetStats()
+		cb := value.(Breaker)
+		if adapter, ok := cb.(*legacyBreakerAdapter); ok {
+			stats[endpoint] = adapter.cb.GetStats()
+		} else {
+			stats[endpoint] = map[string]string{"type": "custom"}
+		}
 		return true
 	})
 
