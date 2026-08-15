@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/response/gin
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/response v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -42,5 +42,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/LingByte/ling-base/common/response => ../
