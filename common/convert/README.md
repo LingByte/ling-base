@@ -1,0 +1,111 @@
+# common/convert
+
+Type-safe conversion utilities and format interconversion (JSON / TOML / YAML).
+
+## Type Conversion
+
+Convert any value to the target type with clear error messages:
+
+```go
+import "github.com/LingByte/ling-base/common/convert"
+
+n, err   := convert.ToInt("42")         // 42, nil
+f, err   := convert.ToFloat64("3.14")   // 3.14, nil
+b, err   := convert.ToBool("yes")       // true, nil
+s, err   := convert.ToString(42)        // "42", nil
+d, err   := convert.ToDuration("5s")    // 5 * time.Second, nil
+
+// Slice conversion
+ints, err   := convert.ToSlice[int]([]any{1, 2, 3})       // []int{1,2,3}
+strs, err   := convert.ToSliceString([]any{"a", "b"})     // []string{"a","b"}
+
+// Map conversion (YAML often returns map[any]any)
+m, err := convert.ToMapStringAny(map[any]any{"key": "val"}) // map[string]any{"key":"val"}
+```
+
+### Supported types
+
+| Function | From |
+|----------|------|
+| `ToInt` | int, uint, float, string, bool, json.Number |
+| `ToInt64` | same as ToInt + large floats |
+| `ToUint` | same as ToInt (rejects negative) |
+| `ToFloat64` | float, int, string, bool, json.Number |
+| `ToBool` | bool, string (true/false/1/0/yes/no/on/off), int |
+| `ToString` | string, bool, all numerics, []byte, fmt.Stringer, json.Number, JSON fallback |
+| `ToDuration` | time.Duration, string ("5s"), int (nanoseconds) |
+| `ToSlice[T]` | []T, []any (element-wise), single value → []T |
+| `ToMapStringAny` | map[any]any, map[string]any |
+
+## Format Interconversion
+
+Convert between JSON, TOML, and YAML:
+
+```go
+// Direct conversion functions
+yamlBytes, err := convert.FromJSONToYAML(jsonBytes)
+jsonBytes, err := convert.FromYAMLToJSON(yamlBytes)
+tomlBytes, err := convert.FromJSONToTOML(jsonBytes)
+jsonBytes, err := convert.FromTOMLToJSON(tomlBytes)
+tomlBytes, err := convert.FromYAMLToTOML(yamlBytes)
+yamlBytes, err := convert.FromTOMLToYAML(tomlBytes)
+
+// Generic Convert (any → any)
+result, err := convert.Convert(convert.FormatJSON, convert.FormatYAML, data)
+
+// Marshal / Unmarshal with explicit format
+bytes, err := convert.Marshal(convert.FormatTOML, myStruct)
+err = convert.Unmarshal(convert.FormatYAML, data, &myStruct)
+
+// Struct-level helpers
+jsonBytes, err := convert.StructToJSON(myStruct)
+err = convert.YAMLToStruct(yamlBytes, &myStruct)
+```
+
+### TOML note
+
+TOML requires a map or struct at the top level. If you convert a JSON
+array or scalar to TOML, it is automatically wrapped under a `"data"` key.
+
+## Deep Copy / Clone
+
+```go
+// Type-safe deep copy via JSON round-trip
+copied, err := convert.Clone(original)
+
+// Generic deep copy (returns any)
+copied, err := convert.CopyJSON(original)
+
+// Deep copy that returns zero on error (no error return)
+copied := convert.DeepCopy(original)
+```
+
+## Map Utilities
+
+```go
+// Convert any map to map[string]string
+m, err := convert.ToMapStringString(map[string]int{"count": 42})
+// → map[string]string{"count": "42"}
+
+// Convert any map to map[string]int
+m, err := convert.ToMapStringInt(map[string]string{"count": "42"})
+// → map[string]int{"count": 42}
+```
+
+## JSON Convenience
+
+```go
+// Parse JSON to map
+m, err := convert.JSONToMap([]byte(`{"key":"value"}`))
+
+// Parse JSON to slice
+s, err := convert.JSONToSlice([]byte(`[1,2,3]`))
+
+// Panic-on-error variants for static data
+b := convert.MustMarshal(convert.FormatJSON, data)
+convert.MustUnmarshal(convert.FormatJSON, data, &result)
+```
+
+## License
+
+MIT
