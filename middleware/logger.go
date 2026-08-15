@@ -15,21 +15,16 @@ import (
 
 const slowHTTPThreshold = 300 * time.Millisecond
 
-// SkipAccessLogPaths are high-churn paths that should not emit access logs.
-// Callers may override via SetSkipAccessLogPaths.
-var skipAccessLogPaths = []string{
-	"/metrics",
-	"/monitor",
-	"/static",
-	"/favicon.ico",
-	"/uploads",
-}
+// skipAccessLogPaths are high-churn paths that should not emit access logs.
+// Empty by default; configure via SetSkipAccessLogPaths at startup.
+var skipAccessLogPaths []string
 
-// SetSkipAccessLogPaths replaces the default skip list.
+// SetSkipAccessLogPaths configures which path substrings should skip
+// access logging. Pass nil/empty to clear. Must be called before the
+// middleware is first invoked (not safe to mutate concurrently with
+// request handling).
 func SetSkipAccessLogPaths(paths []string) {
-	if len(paths) > 0 {
-		skipAccessLogPaths = paths
-	}
+	skipAccessLogPaths = paths
 }
 
 func shouldSkipAccessLog(path string) bool {

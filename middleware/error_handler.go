@@ -49,5 +49,9 @@ func ErrorHandler() gin.HandlerFunc {
 
 // WriteError is a convenience helper to attach an error to the context and abort.
 func WriteError(c *gin.Context, err error) {
-	ginresp.WriteError(c, err)
+	if err == nil {
+		return
+	}
+	c.Error(err)
+	c.Abort()
 }

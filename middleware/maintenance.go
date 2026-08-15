@@ -16,26 +16,20 @@ const (
 	EnvMaintenanceMessage = "MAINTENANCE_MESSAGE"
 )
 
-// MaintenanceAllowedPaths are paths that stay open during maintenance.
-var maintenanceAllowedPaths = []string{
-	"/health", "/healthz", "/livez", "/ready", "/readyz",
-	"/api/status", "/api/changelog",
-	"/.well-known/jwks.json",
-}
+// maintenanceAllowedPaths are paths that stay open during maintenance.
+// Empty by default; configure via SetMaintenanceAllowedPaths at startup.
+var maintenanceAllowedPaths []string
 
-// MaintenanceAllowedPrefixes are path prefixes that stay open during maintenance.
-var maintenanceAllowedPrefixes = []string{
-	"/api/docs",
-}
+// maintenanceAllowedPrefixes are path prefixes that stay open during maintenance.
+// Empty by default; configure via SetMaintenanceAllowedPaths at startup.
+var maintenanceAllowedPrefixes []string
 
-// SetMaintenanceAllowedPaths overrides the default allowed paths/prefixes.
+// SetMaintenanceAllowedPaths configures which paths/prefixes stay open
+// during maintenance mode. Pass nil/empty to clear. Must be called
+// before the middleware is first invoked.
 func SetMaintenanceAllowedPaths(paths, prefixes []string) {
-	if len(paths) > 0 {
-		maintenanceAllowedPaths = paths
-	}
-	if len(prefixes) > 0 {
-		maintenanceAllowedPrefixes = prefixes
-	}
+	maintenanceAllowedPaths = paths
+	maintenanceAllowedPrefixes = prefixes
 }
 
 // MaintenanceBypassFunc returns true if the request should bypass maintenance.
