@@ -171,7 +171,7 @@ func (s *Store) GetValue(key string) string {
 	// 2. Database
 	if s.db != nil {
 		var c ConfigItem
-		if err := s.db.Where("key = ?", key).Take(&c).Error; err == nil {
+		if err := s.db.Where("`key` = ?", key).Take(&c).Error; err == nil {
 			s.cacheSet(key, c.Value)
 			return c.Value
 		}
@@ -363,7 +363,7 @@ func (s *Store) DeleteValue(key string) error {
 		return nil
 	}
 
-	if err := s.db.Where("key = ?", key).Delete(&ConfigItem{}).Error; err != nil {
+	if err := s.db.Where("`key` = ?", key).Delete(&ConfigItem{}).Error; err != nil {
 		return fmt.Errorf("config: deleteValue %q: %w", key, err)
 	}
 	return nil
