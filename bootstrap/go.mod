@@ -15,3 +15,11 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/LingByte/ling-base => ../
+
+replace github.com/LingByte/ling-base/eventbus => ../eventbus
+
+replace github.com/LingByte/ling-base/eventbus/memory => ../eventbus/memory
+
+replace github.com/LingByte/ling-base/version => ../version

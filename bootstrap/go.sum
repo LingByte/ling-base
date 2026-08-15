@@ -1,11 +1,5 @@
 github.com/LingByte/ling-base/constants v0.1.0 h1:xGVVvIEJXHmCM03ANL6uPuqk2MK3y87LzesLfXgmLQs=
 github.com/LingByte/ling-base/constants v0.1.0/go.mod h1:LYfNMki0Qfbcj2sr502VKtlZmUMXiinhK8/DXx2YtkY=
-github.com/LingByte/ling-base/eventbus v0.1.0 h1:KkCbKk1IXfElGUjnH2OquwQ8cBFDiKkRygdsBCaC75c=
-github.com/LingByte/ling-base/eventbus v0.1.0/go.mod h1:XC3zpS1kuyS88vYT9yKAfA53ttmHTYCmGHTM57Or+Zw=
-github.com/LingByte/ling-base/eventbus/memory v0.1.0 h1:6QvEn4VXrLm8fE99F5i23UwbbK2UvvjWo/N2JfZZfEk=
-github.com/LingByte/ling-base/eventbus/memory v0.1.0/go.mod h1:XNC5snfSNXe+3Joi18LPjukZQcFB0y+y+xFyYomGb9M=
-github.com/LingByte/ling-base/version v0.1.0 h1:/5YAc3Rm4BS3/zNM0uvGeWA4aYj3jNDtWffAaeGSFx8=
-github.com/LingByte/ling-base/version v0.1.0/go.mod h1:qCTolpNUJyAcrXDZKmADX29AcolXfRKUiip0LnZ+HpA=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
