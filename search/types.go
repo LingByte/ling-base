@@ -177,17 +177,38 @@ type SearchRequest struct {
 	// Facets to compute.
 	Facets []FacetRequest
 
+	// Aggregations to compute (richer than Facets).
+	Aggregations []AggregationRequest
+
 	// Sorting and pagination.
 	SortBy []string
 	From   int
 	Size   int
 
+	// SearchAfter provides cursor-based pagination using sort values
+	// from the last hit. Only supported by ExtendedEngine backends.
+	SearchAfter []any
+
 	// Field selection and highlighting.
 	IncludeFields   []string
+	ExcludeFields   []string
 	Highlight       bool
 	HighlightFields []string
 	FragmentSize    int
 	MaxFragments    int
+
+	// TrackTotalHits: if true, the engine returns the exact total hit
+	// count (may be expensive for large result sets). Default: true.
+	TrackTotalHits *bool
+
+	// MinScore: if > 0, only return hits with score >= MinScore.
+	MinScore float64
+
+	// Explain: if true, return score explanation for each hit.
+	Explain bool
+
+	// Version: if true, return document version for each hit.
+	Version bool
 }
 
 // Hit represents a single search result.
@@ -196,6 +217,9 @@ type Hit struct {
 	Score     float64             `json:"score"`
 	Fields    map[string]any      `json:"fields"`
 	Fragments map[string][]string `json:"fragments,omitempty"`
+	Sort      []any               `json:"sort,omitempty"`  // sort values for SearchAfter
+	Version   int64               `json:"version,omitempty"`
+	Index     string              `json:"index,omitempty"`  // source index (multi-index search)
 }
 
 // FacetTerm is a single term in a facet result.
@@ -212,10 +236,12 @@ type FacetResult struct {
 
 // SearchResult is the response to a SearchRequest.
 type SearchResult struct {
-	Total  uint64                 `json:"total"`
-	Took   time.Duration          `json:"took"`
-	Hits   []Hit                  `json:"hits"`
-	Facets map[string]FacetResult `json:"facets,omitempty"`
+	Total        uint64                      `json:"total"`
+	Took         time.Duration               `json:"took"`
+	Hits         []Hit                       `json:"hits"`
+	Facets       map[string]FacetResult      `json:"facets,omitempty"`
+	Aggregations map[string]AggregationResult `json:"aggregations,omitempty"`
+	MaxScore     float64                     `json:"maxScore,omitempty"`
 }
 
 // -------- Helper constructors --------

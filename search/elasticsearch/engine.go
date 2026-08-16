@@ -444,8 +444,15 @@ func (e *engine) Search(ctx context.Context, req search.SearchRequest) (search.S
 	}
 
 	// Source field selection
-	if len(req.IncludeFields) > 0 {
-		body["_source"] = req.IncludeFields
+	if len(req.IncludeFields) > 0 || len(req.ExcludeFields) > 0 {
+		src := map[string]any{}
+		if len(req.IncludeFields) > 0 {
+			src["includes"] = req.IncludeFields
+		}
+		if len(req.ExcludeFields) > 0 {
+			src["excludes"] = req.ExcludeFields
+		}
+		body["_source"] = src
 	} else {
 		body["_source"] = true
 	}
@@ -457,6 +464,33 @@ func (e *engine) Search(ctx context.Context, req search.SearchRequest) (search.S
 			sortArr = append(sortArr, s)
 		}
 		body["sort"] = sortArr
+	}
+
+	// SearchAfter (cursor-based pagination)
+	if len(req.SearchAfter) > 0 {
+		body["search_after"] = req.SearchAfter
+	}
+
+	// Track total hits
+	if req.TrackTotalHits != nil {
+		body["track_total_hits"] = *req.TrackTotalHits
+	} else {
+		body["track_total_hits"] = true
+	}
+
+	// Min score
+	if req.MinScore > 0 {
+		body["min_score"] = req.MinScore
+	}
+
+	// Explain
+	if req.Explain {
+		body["explain"] = true
+	}
+
+	// Version
+	if req.Version {
+		body["version"] = true
 	}
 
 	// Highlight
@@ -484,9 +518,9 @@ func (e *engine) Search(ctx context.Context, req search.SearchRequest) (search.S
 		body["highlight"] = hl
 	}
 
-	// Facets (aggregations)
+	// Facets (legacy) + Aggregations (rich)
+	aggs := make(map[string]any)
 	if len(req.Facets) > 0 {
-		aggs := make(map[string]any, len(req.Facets))
 		for _, f := range req.Facets {
 			size := f.Size
 			if size <= 0 {
@@ -499,6 +533,13 @@ func (e *engine) Search(ctx context.Context, req search.SearchRequest) (search.S
 				},
 			}
 		}
+	}
+	if len(req.Aggregations) > 0 {
+		for k, v := range buildAggregations(req.Aggregations) {
+			aggs[k] = v
+		}
+	}
+	if len(aggs) > 0 {
 		body["aggs"] = aggs
 	}
 
@@ -521,64 +562,27 @@ func (e *engine) Search(ctx context.Context, req search.SearchRequest) (search.S
 		return search.SearchResult{}, fmt.Errorf("elasticsearch: search: %s", resp.String())
 	}
 
-	// Parse response
-	var esResp struct {
-		Took int64 `json:"took"`
-		Hits struct {
-			Total struct {
-				Value uint64 `json:"value"`
-			} `json:"total"`
-			Hits []struct {
-				ID     string          `json:"_id"`
-				Score  *float64        `json:"_score"`
-				Source map[string]any  `json:"_source"`
-				Highlight map[string][]string `json:"highlight"`
-			} `json:"hits"`
-		} `json:"hits"`
-		Aggregations map[string]struct {
-			Buckets []struct {
-				Key   string `json:"key"`
-				Count int    `json:"doc_count"`
-			} `json:"buckets"`
-			SumOtherDocCount int `json:"sum_other_doc_count"`
-		} `json:"aggregations"`
+	result, err := parseSearchResponse(resp.Body)
+	if err != nil {
+		return search.SearchResult{}, err
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&esResp); err != nil {
-		return search.SearchResult{}, fmt.Errorf("elasticsearch: decode response: %w", err)
-	}
-
-	result := search.SearchResult{
-		Total:  esResp.Hits.Total.Value,
-		Took:   time.Duration(esResp.Took) * time.Millisecond,
-		Hits:   make([]search.Hit, 0, len(esResp.Hits.Hits)),
-		Facets: map[string]search.FacetResult{},
-	}
-
-	for _, h := range esResp.Hits.Hits {
-		hit := search.Hit{
-			ID:        h.ID,
-			Fields:    h.Source,
-			Fragments: h.Highlight,
+	// Also populate Facets from terms aggregations (backward compat)
+	if result.Aggregations != nil {
+		result.Facets = map[string]search.FacetResult{}
+		for name, agg := range result.Aggregations {
+			if len(agg.Buckets) > 0 {
+				fr := search.FacetResult{Total: len(agg.Buckets)}
+				for _, b := range agg.Buckets {
+					term := fmt.Sprintf("%v", b.Key)
+					fr.Terms = append(fr.Terms, search.FacetTerm{
+						Term:  term,
+						Count: b.Count,
+					})
+				}
+				result.Facets[name] = fr
+			}
 		}
-		if h.Score != nil {
-			hit.Score = *h.Score
-		}
-		result.Hits = append(result.Hits, hit)
-	}
-
-	// Parse aggregations into facets
-	for name, agg := range esResp.Aggregations {
-		fr := search.FacetResult{
-			Total: len(agg.Buckets),
-		}
-		for _, b := range agg.Buckets {
-			fr.Terms = append(fr.Terms, search.FacetTerm{
-				Term:  b.Key,
-				Count: b.Count,
-			})
-		}
-		result.Facets[name] = fr
 	}
 
 	return result, nil
