@@ -37,7 +37,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/LingByte/ling-base/eventbus/memory v0.0.0-00010101000000-000000000000 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/alphacep/vosk-api/go v0.3.50 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
@@ -129,7 +128,6 @@ replace (
 	github.com/LingByte/ling-base/common/response/gin => ../common/response/gin
 	github.com/LingByte/ling-base/common/validate => ../common/validate
 	github.com/LingByte/ling-base/eventbus => ../eventbus
-	github.com/LingByte/ling-base/eventbus/memory => ../eventbus/memory
 	github.com/LingByte/ling-base/limiter => ../limiter
 	github.com/LingByte/ling-base/limiter/count => ../limiter/count
 	github.com/LingByte/ling-base/limiter/tokenbucket => ../limiter/tokenbucket

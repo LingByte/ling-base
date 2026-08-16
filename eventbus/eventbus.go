@@ -19,9 +19,11 @@
 //   - Handler: a function that processes events.
 //   - Bus:     the central dispatcher that routes events to handlers.
 //
-// # Backend
+// # Dispatch modes
 //
-//   - memory/  — in-process pub/sub with sync/async/wildcard dispatch
+//   - Sync      — Publish blocks until all handlers complete (default)
+//   - Async     — Publish returns immediately; handlers run in background
+//   - Parallel  — handlers run concurrently; Publish waits for all
 //
 // # Middleware
 //
@@ -42,7 +44,7 @@
 //
 // # Basic usage
 //
-//	bus := memory.New()
+//	bus := eventbus.NewBus()
 //	defer bus.Close()
 //
 //	bus.Subscribe("user.created", func(ctx context.Context, e *eventbus.Event) error {

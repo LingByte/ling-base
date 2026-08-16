@@ -42,7 +42,6 @@ use (
 	./common/validate
 	./constants
 	./eventbus
-	./eventbus/memory
 	./example
 	./i18n
 	./i18n/gin

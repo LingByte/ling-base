@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"github.com/LingByte/ling-base/eventbus"
-	"github.com/LingByte/ling-base/eventbus/memory"
 )
 
 // Common application event names.
@@ -26,5 +25,5 @@ const (
 // in background goroutines. This decouples event producers (e.g. HTTP
 // handlers) from consumers (e.g. DB persistence listeners).
 func newEventBus() eventbus.Bus {
-	return memory.New(memory.WithDispatchMode(memory.Async))
+	return eventbus.NewBus(eventbus.WithDispatchMode(eventbus.Async))
 }

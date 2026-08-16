@@ -1,9 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package memory implements an in-process event bus with sync/async
-// dispatch, wildcard topic matching, and middleware support.
-package memory
+package eventbus
 
 import (
 	"context"
@@ -11,9 +9,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/LingByte/ling-base/eventbus"
 )
+
+// ============================================================
+// DispatchMode
+// ============================================================
 
 // DispatchMode controls how events are delivered to handlers.
 type DispatchMode int
@@ -35,13 +35,17 @@ const (
 	Parallel
 )
 
-// Bus is an in-memory event bus.
-type Bus struct {
+// ============================================================
+// Bus (in-memory implementation)
+// ============================================================
+
+// bus is the default in-memory event bus implementation.
+type bus struct {
 	mu         sync.RWMutex
 	subs       map[string][]*subscription
 	mode       DispatchMode
-	middleware []eventbus.Middleware
-	metrics    eventbus.MetricsCollector
+	middleware []Middleware
+	metrics    MetricsCollector
 	closed     atomic.Bool
 	bufferSize int // async buffer size (0 = unbuffered)
 	asyncQueue chan *pendingEvent
@@ -51,36 +55,44 @@ type Bus struct {
 type subscription struct {
 	id      string
 	topic   string
-	handler eventbus.Handler
+	handler Handler
 }
 
 type pendingEvent struct {
 	ctx context.Context
-	e   *eventbus.Event
+	e   *Event
 }
 
+// ============================================================
+// Options
+// ============================================================
+
 // Option configures the Bus.
-type Option func(*Bus)
+type Option func(*bus)
 
 // WithDispatchMode sets the dispatch mode (default: Sync).
 func WithDispatchMode(mode DispatchMode) Option {
-	return func(b *Bus) { b.mode = mode }
+	return func(b *bus) { b.mode = mode }
 }
 
 // WithMiddleware adds middleware applied to all handlers.
-func WithMiddleware(mw ...eventbus.Middleware) Option {
-	return func(b *Bus) { b.middleware = append(b.middleware, mw...) }
+func WithMiddleware(mw ...Middleware) Option {
+	return func(b *bus) { b.middleware = append(b.middleware, mw...) }
 }
 
 // WithAsyncBufferSize sets the buffer size for async dispatch.
 // Only effective with Async mode. Default: 1024.
 func WithAsyncBufferSize(n int) Option {
-	return func(b *Bus) { b.bufferSize = n }
+	return func(b *bus) { b.bufferSize = n }
 }
 
-// New creates a new in-memory event bus.
-func New(opts ...Option) *Bus {
-	b := &Bus{
+// ============================================================
+// Constructor
+// ============================================================
+
+// NewBus creates a new in-memory event bus.
+func NewBus(opts ...Option) Bus {
+	b := &bus{
 		subs:       make(map[string][]*subscription),
 		mode:       Sync,
 		bufferSize: 1024,
@@ -96,7 +108,7 @@ func New(opts ...Option) *Bus {
 }
 
 // startAsyncWorkers launches goroutines to process the async queue.
-func (b *Bus) startAsyncWorkers() {
+func (b *bus) startAsyncWorkers() {
 	const numWorkers = 4
 	for i := 0; i < numWorkers; i++ {
 		b.asyncWg.Add(1)
@@ -109,16 +121,20 @@ func (b *Bus) startAsyncWorkers() {
 	}
 }
 
+// ============================================================
+// Publish
+// ============================================================
+
 // Publish sends an event to all matching subscribers.
-func (b *Bus) Publish(ctx context.Context, e *eventbus.Event) error {
+func (b *bus) Publish(ctx context.Context, e *Event) error {
 	if b.closed.Load() {
-		return eventbus.ErrClosed
+		return ErrClosed
 	}
 	if e == nil {
 		return fmt.Errorf("eventbus: event is nil")
 	}
 	if e.ID == "" {
-		e.ID = eventbus.GenerateID()
+		e.ID = generateID()
 	}
 	if e.Time.IsZero() {
 		e.Time = time.Now()
@@ -144,7 +160,7 @@ func (b *Bus) Publish(ctx context.Context, e *eventbus.Event) error {
 }
 
 // dispatch sends the event to all matching subscribers synchronously.
-func (b *Bus) dispatch(ctx context.Context, e *eventbus.Event) error {
+func (b *bus) dispatch(ctx context.Context, e *Event) error {
 	subs := b.matchSubs(e.Name)
 	if len(subs) == 0 {
 		return nil
@@ -153,7 +169,7 @@ func (b *Bus) dispatch(ctx context.Context, e *eventbus.Event) error {
 	for _, s := range subs {
 		handler := s.handler
 		if len(b.middleware) > 0 {
-			handler = eventbus.ApplyMiddleware(handler, b.middleware...)
+			handler = ApplyMiddleware(handler, b.middleware...)
 		}
 		b.metrics.RecordPending()
 		start := time.Now()
@@ -170,7 +186,7 @@ func (b *Bus) dispatch(ctx context.Context, e *eventbus.Event) error {
 }
 
 // dispatchParallel sends the event to all matching subscribers concurrently.
-func (b *Bus) dispatchParallel(ctx context.Context, e *eventbus.Event) error {
+func (b *bus) dispatchParallel(ctx context.Context, e *Event) error {
 	subs := b.matchSubs(e.Name)
 	if len(subs) == 0 {
 		return nil
@@ -183,10 +199,10 @@ func (b *Bus) dispatchParallel(ctx context.Context, e *eventbus.Event) error {
 	for _, s := range subs {
 		handler := s.handler
 		if len(b.middleware) > 0 {
-			handler = eventbus.ApplyMiddleware(handler, b.middleware...)
+			handler = ApplyMiddleware(handler, b.middleware...)
 		}
 		wg.Add(1)
-		go func(s *subscription, h eventbus.Handler) {
+		go func(s *subscription, h Handler) {
 			defer wg.Done()
 			b.metrics.RecordPending()
 			start := time.Now()
@@ -207,13 +223,13 @@ func (b *Bus) dispatchParallel(ctx context.Context, e *eventbus.Event) error {
 }
 
 // matchSubs returns all subscriptions whose topic matches the event name.
-func (b *Bus) matchSubs(name string) []*subscription {
+func (b *bus) matchSubs(name string) []*subscription {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	var matched []*subscription
 	for _, subs := range b.subs {
 		for _, s := range subs {
-			if eventbus.TopicMatches(s.topic, name) {
+			if TopicMatches(s.topic, name) {
 				matched = append(matched, s)
 			}
 		}
@@ -221,9 +237,13 @@ func (b *Bus) matchSubs(name string) []*subscription {
 	return matched
 }
 
+// ============================================================
+// Subscribe / Unsubscribe
+// ============================================================
+
 // Subscribe registers a handler for the given topic pattern.
 // Returns a Subscription that can be used with Unsubscribe.
-func (b *Bus) Subscribe(topic string, handler eventbus.Handler) eventbus.Subscription {
+func (b *bus) Subscribe(topic string, handler Handler) Subscription {
 	if topic == "" {
 		topic = "*"
 	}
@@ -235,11 +255,11 @@ func (b *Bus) Subscribe(topic string, handler eventbus.Handler) eventbus.Subscri
 	b.mu.Unlock()
 
 	b.metrics.RecordSubscribe()
-	return eventbus.NewSubscription(id, topic)
+	return NewSubscription(id, topic)
 }
 
 // Unsubscribe removes a subscription.
-func (b *Bus) Unsubscribe(sub eventbus.Subscription) error {
+func (b *bus) Unsubscribe(sub Subscription) error {
 	if sub == nil {
 		return fmt.Errorf("eventbus: subscription is nil")
 	}
@@ -262,8 +282,12 @@ func (b *Bus) Unsubscribe(sub eventbus.Subscription) error {
 	return fmt.Errorf("eventbus: subscription %s not found", id)
 }
 
+// ============================================================
+// Close
+// ============================================================
+
 // Close shuts down the bus. For async mode, it drains the queue.
-func (b *Bus) Close() error {
+func (b *bus) Close() error {
 	if !b.closed.CompareAndSwap(false, true) {
 		return nil
 	}
@@ -274,20 +298,28 @@ func (b *Bus) Close() error {
 	return nil
 }
 
+// ============================================================
+// Metrics
+// ============================================================
+
 // Metrics returns a snapshot of bus metrics.
-func (b *Bus) Metrics() eventbus.Metrics {
+func (b *bus) Metrics() Metrics {
 	return b.metrics.Snapshot()
 }
 
+// ============================================================
+// Introspection helpers
+// ============================================================
+
 // SubscriberCount returns the number of subscribers for a topic pattern.
-func (b *Bus) SubscriberCount(topic string) int {
+func (b *bus) SubscriberCount(topic string) int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return len(b.subs[topic])
 }
 
 // Topics returns all registered topic patterns.
-func (b *Bus) Topics() []string {
+func (b *bus) Topics() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	topics := make([]string, 0, len(b.subs))
