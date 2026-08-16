@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSafeErrMsg(t *testing.T) {
@@ -184,6 +186,15 @@ func TestMonitorDisabled(t *testing.T) {
 	origCfg := GetPerformanceMonitorConfig()
 	defer SetPerformanceMonitorConfig(origCfg)
 
+	// chdir to temp dir so no pprof files leak into the repo
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer os.RemoveAll(filepath.Join(tmp, "pprof"))
+
 	SetPerformanceMonitorConfig(PerformanceMonitorConfig{Enabled: false})
 
 	done := make(chan struct{})
@@ -202,6 +213,15 @@ func TestMonitorDisabled(t *testing.T) {
 func TestMonitorEnabledBriefly(t *testing.T) {
 	origCfg := GetPerformanceMonitorConfig()
 	defer SetPerformanceMonitorConfig(origCfg)
+
+	// chdir to temp dir so no pprof files leak into the repo
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer os.RemoveAll(filepath.Join(tmp, "pprof"))
 
 	// Enable with very high thresholds so no profile is captured
 	SetPerformanceMonitorConfig(PerformanceMonitorConfig{
@@ -224,6 +244,15 @@ func TestMonitorEnabledHighThreshold(t *testing.T) {
 	origCfg := GetPerformanceMonitorConfig()
 	defer SetPerformanceMonitorConfig(origCfg)
 
+	// chdir to temp dir so no pprof files leak into the repo
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer os.RemoveAll(filepath.Join(tmp, "pprof"))
+
 	SetPerformanceMonitorConfig(PerformanceMonitorConfig{
 		Enabled:         true,
 		CPUThreshold:    999,
@@ -240,6 +269,15 @@ func TestMonitorZeroThresholds(t *testing.T) {
 	origCfg := GetPerformanceMonitorConfig()
 	defer SetPerformanceMonitorConfig(origCfg)
 
+	// chdir to temp dir so no pprof files leak into the repo
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer os.RemoveAll(filepath.Join(tmp, "pprof"))
+
 	SetPerformanceMonitorConfig(PerformanceMonitorConfig{
 		Enabled:         true,
 		CPUThreshold:    0, // should fallback to default
@@ -249,4 +287,15 @@ func TestMonitorZeroThresholds(t *testing.T) {
 
 	go Monitor()
 	time.Sleep(2 * time.Second)
+}
+
+func TestSetPProfDir(t *testing.T) {
+	orig := pprofDir
+	defer func() { pprofDir = orig }()
+
+	SetPProfDir("/tmp/custom-pprof")
+	assert.Equal(t, "/tmp/custom-pprof", pprofDir)
+
+	SetPProfDir("")
+	assert.Equal(t, "./pprof", pprofDir)
 }

@@ -20,7 +20,17 @@ const defaultCPUPProfThreshold = 80.0
 const defaultMemPProfThreshold = 85.0
 
 // pprofDir 是 pprof 文件落地目录；运行时下若已存在则复用，不存在时尝试创建。
-const pprofDir = "./pprof"
+// 可通过 SetPProfDir 在启动时配置。
+var pprofDir = "./pprof"
+
+// SetPProfDir 配置 pprof 文件落地目录。必须在 Monitor 启动前调用。
+// 传空字符串则恢复默认值 "./pprof"。
+func SetPProfDir(dir string) {
+	if dir == "" {
+		dir = "./pprof"
+	}
+	pprofDir = dir
+}
 
 // heap dump 冷却，避免内存持续偏高时刷爆磁盘。
 const heapDumpCooldown = 10 * time.Minute
