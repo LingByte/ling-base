@@ -93,6 +93,10 @@ use (
 	./realtime/gemini
 	./realtime/aliyunomni
 	./realtime/volcdialogue
+	./realtime/stepfun
+	./realtime/minimax
+	./realtime/tencentsts
+	./realtime/iflytek
 	./recognizer
 	./recognizer/aws
 	./recognizer/baidu
