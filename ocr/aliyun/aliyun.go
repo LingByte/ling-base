@@ -13,13 +13,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	ocrapi "github.com/alibabacloud-go/ocr-api-20210707/v3/client"
 	"github.com/alibabacloud-go/tea/tea"
 )
 
-// Provider implements parser.OCRProvider using Alibaba Cloud OCR.
+// Provider implements ocr.Provider using Alibaba Cloud OCR.
 type Provider struct {
 	AccessKeyID     string
 	AccessKeySecret string
@@ -27,7 +27,7 @@ type Provider struct {
 	client          *ocrapi.Client
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider from explicit credentials.
 func New(accessKeyID, accessKeySecret, endpoint string) *Provider {
@@ -83,7 +83,7 @@ func (p *Provider) clientLazy() (*ocrapi.Client, error) {
 
 // Recognize sends image bytes to Alibaba Cloud RecognizeGeneral API.
 // The API accepts image bytes via the Body field (io.Reader).
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	_ = ctx
 	_ = opts
 
@@ -107,7 +107,7 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("aliyun", NewFromEnv())
+	ocr.RegisterProvider("aliyun", NewFromEnv())
 }
 
 // Ensure strings is referenced (used for future language hint support).

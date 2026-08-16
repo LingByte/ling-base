@@ -16,10 +16,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 )
 
-// Provider implements parser.OCRProvider using Baidu Cloud OCR.
+// Provider implements ocr.Provider using Baidu Cloud OCR.
 type Provider struct {
 	APIKey    string
 	SecretKey string
@@ -31,7 +31,7 @@ type Provider struct {
 	accessToken string
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider from explicit credentials.
 func New(apiKey, secretKey string) *Provider {
@@ -110,7 +110,7 @@ func (p *Provider) fetchAccessToken(ctx context.Context) (string, error) {
 }
 
 // Recognize sends image bytes to Baidu Cloud General Basic OCR API.
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	token, err := p.fetchAccessToken(ctx)
 	if err != nil {
 		return "", err
@@ -171,5 +171,5 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("baidu", NewFromEnv())
+	ocr.RegisterProvider("baidu", NewFromEnv())
 }

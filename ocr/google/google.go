@@ -12,12 +12,12 @@ import (
 	"strings"
 
 	vision "cloud.google.com/go/vision/apiv1"
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 	"google.golang.org/api/option"
 	visionpb "google.golang.org/genproto/googleapis/cloud/vision/v1"
 )
 
-// Provider implements parser.OCRProvider using Google Cloud Vision.
+// Provider implements ocr.Provider using Google Cloud Vision.
 type Provider struct {
 	// CredentialsFile is the path to a service account JSON key file.
 	// If empty, GOOGLE_APPLICATION_CREDENTIALS is used.
@@ -25,7 +25,7 @@ type Provider struct {
 	client          *vision.ImageAnnotatorClient
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider with an explicit credentials file path.
 func New(credentialsFile string) *Provider {
@@ -60,7 +60,7 @@ func (p *Provider) clientLazy(ctx context.Context) (*vision.ImageAnnotatorClient
 }
 
 // Recognize sends image bytes to Google Cloud Vision TEXT_DETECTION.
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	c, err := p.clientLazy(ctx)
 	if err != nil {
 		return "", err
@@ -104,5 +104,5 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("google", NewFromEnv())
+	ocr.RegisterProvider("google", NewFromEnv())
 }

@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/textract/types"
 )
 
-// Provider implements parser.OCRProvider using AWS Textract.
+// Provider implements ocr.Provider using AWS Textract.
 type Provider struct {
 	AccessKeyID     string
 	SecretAccessKey string
@@ -27,7 +27,7 @@ type Provider struct {
 	client          *textract.Client
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider from explicit credentials.
 func New(accessKeyID, secretAccessKey, region string) *Provider {
@@ -87,7 +87,7 @@ func (p *Provider) clientLazy(ctx context.Context) (*textract.Client, error) {
 }
 
 // Recognize sends image bytes to AWS Textract DetectDocumentText API.
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	c, err := p.clientLazy(ctx)
 	if err != nil {
 		return "", err
@@ -127,5 +127,5 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("aws", NewFromEnv())
+	ocr.RegisterProvider("aws", NewFromEnv())
 }

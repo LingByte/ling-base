@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 )
 
-// Provider implements parser.OCRProvider using Azure Computer Vision Read API.
+// Provider implements ocr.Provider using Azure Computer Vision Read API.
 type Provider struct {
 	Endpoint        string // e.g. "https://my-cv.cognitiveservices.azure.com/"
 	SubscriptionKey string
@@ -27,7 +27,7 @@ type Provider struct {
 	APIVersion string
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider from explicit credentials.
 func New(endpoint, key string) *Provider {
@@ -76,7 +76,7 @@ func (p *Provider) apiKey() (string, error) {
 // Recognize sends image bytes to Azure Computer Vision Read API.
 // The Read API is asynchronous: it submits the image, polls for results,
 // then returns the extracted text.
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	baseURL, err := p.endpointURL()
 	if err != nil {
 		return "", err
@@ -133,7 +133,7 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("azure", NewFromEnv())
+	ocr.RegisterProvider("azure", NewFromEnv())
 }
 
 // Ensure time is imported for potential future polling-based flows.

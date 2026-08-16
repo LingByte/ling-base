@@ -11,21 +11,21 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/ocr"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-	ocr "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ocr/v20181119"
+	tcocr "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ocr/v20181119"
 )
 
-// Provider implements parser.OCRProvider using Tencent Cloud OCR.
+// Provider implements ocr.Provider using Tencent Cloud OCR.
 type Provider struct {
 	SecretID  string
 	SecretKey string
 	Region    string
-	client    *ocr.Client
+	client    *tcocr.Client
 }
 
-var _ parser.OCRProvider = (*Provider)(nil)
+var _ ocr.Provider = (*Provider)(nil)
 
 // New creates a Provider from explicit credentials.
 func New(secretID, secretKey, region string) *Provider {
@@ -47,7 +47,7 @@ func NewFromEnv() *Provider {
 
 func (p *Provider) Name() string { return "qcloud" }
 
-func (p *Provider) clientLazy() (*ocr.Client, error) {
+func (p *Provider) clientLazy() (*tcocr.Client, error) {
 	if p.client != nil {
 		return p.client, nil
 	}
@@ -68,7 +68,7 @@ func (p *Provider) clientLazy() (*ocr.Client, error) {
 	}
 	cp := common.NewCredential(id, key)
 	cpf := profile.NewClientProfile()
-	c, err := ocr.NewClient(cp, region, cpf)
+	c, err := tcocr.NewClient(cp, region, cpf)
 	if err != nil {
 		return nil, fmt.Errorf("qcloud ocr: create client: %w", err)
 	}
@@ -77,14 +77,14 @@ func (p *Provider) clientLazy() (*ocr.Client, error) {
 }
 
 // Recognize sends image bytes to Tencent Cloud GeneralBasicOCR API.
-func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parser.OCROptions) (string, error) {
+func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.Options) (string, error) {
 	c, err := p.clientLazy()
 	if err != nil {
 		return "", err
 	}
 
 	b64 := base64.StdEncoding.EncodeToString(imageBytes)
-	req := ocr.NewGeneralBasicOCRRequest()
+	req := tcocr.NewGeneralBasicOCRRequest()
 	req.ImageBase64 = common.StringPtr(b64)
 
 	resp, err := c.GeneralBasicOCR(req)
@@ -105,5 +105,5 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *parse
 }
 
 func init() {
-	parser.RegisterOCRProvider("qcloud", NewFromEnv())
+	ocr.RegisterProvider("qcloud", NewFromEnv())
 }

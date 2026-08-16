@@ -77,13 +77,14 @@ use (
 	./notification/inbox
 	./notification/sms
 	./notification/webhook
+	./ocr
+	./ocr/aliyun
+	./ocr/aws
+	./ocr/azure
+	./ocr/baidu
+	./ocr/google
+	./ocr/qcloud
 	./parser
-	./parser/ocr/aliyun
-	./parser/ocr/aws
-	./parser/ocr/azure
-	./parser/ocr/baidu
-	./parser/ocr/google
-	./parser/ocr/qcloud
 	./pool
 	./queue
 	./queue/memory
