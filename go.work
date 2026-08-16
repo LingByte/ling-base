@@ -43,7 +43,6 @@ use (
 	./constants
 	./eventbus
 	./eventbus/memory
-	./eventbus/redis
 	./example
 	./i18n
 	./i18n/gin

@@ -1,9 +1,15 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package eventbus provides a production-grade event bus with pluggable
-// backends, middleware support, observability metrics, and optional
-// persistence.
+// Package eventbus provides a lightweight in-process event bus with
+// middleware support and observability metrics.
+//
+// This package is intentionally **memory-only** — it handles synchronous
+// and asynchronous in-process pub/sub with wildcard topic matching.
+// For cross-process, persistent, or broker-backed messaging (RabbitMQ,
+// Kafka, RocketMQ, ActiveMQ, Redis Streams), use the [mq] package
+// instead, which provides a unified Broker abstraction with pluggable
+// backends.
 //
 // # Architecture
 //
@@ -13,12 +19,9 @@
 //   - Handler: a function that processes events.
 //   - Bus:     the central dispatcher that routes events to handlers.
 //
-// # Backends
-//
-// Two backends are provided:
+// # Backend
 //
 //   - memory/  — in-process pub/sub with sync/async/wildcard dispatch
-//   - redis/   — Redis Streams-based persistent pub/sub (cross-process)
 //
 // # Middleware
 //
