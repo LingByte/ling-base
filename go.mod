@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/circuitbreaker v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/response v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/constants v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.12.0
@@ -13,6 +13,14 @@ require (
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/time v0.15.0
+	gorm.io/driver/sqlite v1.6.0
+	gorm.io/gorm v1.31.2
+)
+
+require (
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 )
 
 replace (
@@ -48,7 +56,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect

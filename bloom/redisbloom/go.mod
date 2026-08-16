@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/bloom v0.0.0
-	github.com/redis/go-redis/v9 v9.21.0
+	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1
 )
 

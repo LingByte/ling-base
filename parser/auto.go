@@ -61,7 +61,7 @@ func (r *Router) Parse(ctx context.Context, req *ParseRequest, opts *ParseOption
 			return nil, fmt.Errorf("%s requires an OCR provider (register via RegisterOCRProvider): %w", ft, ErrUnsupportedFileType)
 		}
 		if isASRFileType(ft) {
-			return nil, fmt.Errorf("%s requires ASR support (build tag 'asr'), libvosk, and VOSK_MODEL: %w", ft, ErrUnsupportedFileType)
+			return nil, fmt.Errorf("%s requires an ASR recognizer engine (inject via NewASRParser): %w", ft, ErrUnsupportedFileType)
 		}
 		return nil, ErrUnsupportedFileType
 	}

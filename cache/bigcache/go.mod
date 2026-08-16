@@ -7,4 +7,6 @@ require (
 	github.com/allegro/bigcache/v3 v3.1.0
 )
 
+require github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+
 replace github.com/LingByte/ling-base/cache => ../

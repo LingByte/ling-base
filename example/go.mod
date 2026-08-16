@@ -28,7 +28,6 @@ require (
 	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/queue/memory v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/retry v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/sandbox v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/search v0.1.0
 	github.com/LingByte/ling-base/search/bleve v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/version v0.1.0
@@ -41,8 +40,8 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/LingByte/ling-base/recognizer v0.0.0 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
-	github.com/alphacep/vosk-api/go v0.3.50 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
 	github.com/blevesearch/bleve/v2 v2.5.0 // indirect
 	github.com/blevesearch/bleve_index_api v1.2.7 // indirect
@@ -85,6 +84,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -109,6 +109,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
@@ -127,6 +128,8 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
 	gorm.io/driver/postgres v1.6.2 // indirect
@@ -159,8 +162,8 @@ replace (
 	github.com/LingByte/ling-base/pool => ../pool
 	github.com/LingByte/ling-base/queue => ../queue
 	github.com/LingByte/ling-base/queue/memory => ../queue/memory
+	github.com/LingByte/ling-base/recognizer => ../recognizer
 	github.com/LingByte/ling-base/retry => ../retry
-	github.com/LingByte/ling-base/sandbox => ../sandbox
 	github.com/LingByte/ling-base/search => ../search
 	github.com/LingByte/ling-base/search/bleve => ../search/bleve
 	github.com/LingByte/ling-base/version => ../version

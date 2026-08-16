@@ -254,7 +254,7 @@ func TestRouter_Parse_ASRFileType(t *testing.T) {
 	}, &ParseOptions{})
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrUnsupportedFileType)
-	assert.Contains(t, err.Error(), "ASR")
+	assert.Contains(t, err.Error(), "recognizer engine")
 }
 
 func TestRouter_Parse_AutoDetectsFileType(t *testing.T) {

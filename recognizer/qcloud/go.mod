@@ -12,7 +12,7 @@ require (
 require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace github.com/LingByte/ling-base/recognizer => ../

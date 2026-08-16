@@ -62,7 +62,7 @@ func SupportedDocumentNotes() []string {
 		"旧版 .doc 使用 OLE 启发式提取，复杂排版可能不完整",
 		"扫描版 PDF 无法提取文字，请先 OCR 或转换为文本 PDF",
 		"图片 OCR 需注册云厂商 OCR provider（阿里云/腾讯云/百度/Google/Azure/AWS）",
-		"音频 ASR 需后端以 asr 构建标签、安装 libvosk，并设置 VOSK_MODEL 环境变量",
+		"音频 ASR 需注入 recognizer.Engine（local/volcengine/qcloud 等），通过 NewASRParser 构造",
 		"非 WAV/MP3 音频解码可能需要系统安装 ffmpeg",
 	}
 }

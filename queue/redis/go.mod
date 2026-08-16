@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
 	github.com/alicebob/miniredis/v2 v2.38.0
-	github.com/redis/go-redis/v9 v9.21.0
+	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1
 )
 

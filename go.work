@@ -89,14 +89,14 @@ use (
 	./queue/memory
 	./queue/redis
 	./realtime
-	./realtime/openai
-	./realtime/gemini
 	./realtime/aliyunomni
-	./realtime/volcdialogue
-	./realtime/stepfun
-	./realtime/minimax
-	./realtime/tencentsts
+	./realtime/gemini
 	./realtime/iflytek
+	./realtime/minimax
+	./realtime/openai
+	./realtime/stepfun
+	./realtime/tencentsts
+	./realtime/volcdialogue
 	./recognizer
 	./recognizer/aws
 	./recognizer/baidu
@@ -111,7 +111,6 @@ use (
 	./recognizer/volcengine_llm
 	./recognizer/whisper
 	./retry
-	./sandbox
 	./search
 	./search/bleve
 	./search/elasticsearch
