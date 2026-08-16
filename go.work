@@ -104,6 +104,36 @@ use (
 	./stores/s3
 	./stores/tos
 	./system
+	./synthesizer
+	./synthesizer/aliyun
+	./synthesizer/baidu
+	./synthesizer/openai
+	./synthesizer/volcengine
+	./synthesizer/azure
+	./synthesizer/elevenlabs
+	./synthesizer/fishaudio
+	./synthesizer/fishspeech
+	./synthesizer/coqui
+	./synthesizer/qcloud
+	./synthesizer/minimax
+	./synthesizer/qiniu
+	./synthesizer/xunfei
+	./synthesizer/local
+	./synthesizer/google
+	./synthesizer/aws
+	./recognizer
+	./recognizer/qcloud
+	./recognizer/volcengine
+	./recognizer/volcengine_llm
+	./recognizer/whisper
+	./recognizer/google
+	./recognizer/funasr
+	./recognizer/baidu
+	./recognizer/aws
+	./recognizer/local
+	./recognizer/voiceapi
+	./recognizer/gladia
+	./recognizer/deepgram
 	./version
 )
 
