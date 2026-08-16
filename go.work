@@ -88,6 +88,24 @@ use (
 	./queue
 	./queue/memory
 	./queue/redis
+	./realtime
+	./realtime/openai
+	./realtime/gemini
+	./realtime/aliyunomni
+	./realtime/volcdialogue
+	./recognizer
+	./recognizer/aws
+	./recognizer/baidu
+	./recognizer/deepgram
+	./recognizer/funasr
+	./recognizer/gladia
+	./recognizer/google
+	./recognizer/local
+	./recognizer/qcloud
+	./recognizer/voiceapi
+	./recognizer/volcengine
+	./recognizer/volcengine_llm
+	./recognizer/whisper
 	./retry
 	./sandbox
 	./search
@@ -103,37 +121,24 @@ use (
 	./stores/oss
 	./stores/s3
 	./stores/tos
-	./system
 	./synthesizer
 	./synthesizer/aliyun
-	./synthesizer/baidu
-	./synthesizer/openai
-	./synthesizer/volcengine
+	./synthesizer/aws
 	./synthesizer/azure
+	./synthesizer/baidu
+	./synthesizer/coqui
 	./synthesizer/elevenlabs
 	./synthesizer/fishaudio
 	./synthesizer/fishspeech
-	./synthesizer/coqui
-	./synthesizer/qcloud
-	./synthesizer/minimax
-	./synthesizer/qiniu
-	./synthesizer/xunfei
-	./synthesizer/local
 	./synthesizer/google
-	./synthesizer/aws
-	./recognizer
-	./recognizer/qcloud
-	./recognizer/volcengine
-	./recognizer/volcengine_llm
-	./recognizer/whisper
-	./recognizer/google
-	./recognizer/funasr
-	./recognizer/baidu
-	./recognizer/aws
-	./recognizer/local
-	./recognizer/voiceapi
-	./recognizer/gladia
-	./recognizer/deepgram
+	./synthesizer/local
+	./synthesizer/minimax
+	./synthesizer/openai
+	./synthesizer/qcloud
+	./synthesizer/qiniu
+	./synthesizer/volcengine
+	./synthesizer/xunfei
+	./system
 	./version
 )
 
