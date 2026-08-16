@@ -43,6 +43,7 @@ import (
 	memoryQueue "github.com/LingByte/ling-base/queue/memory"
 	"github.com/LingByte/ling-base/retry"
 	"github.com/LingByte/ling-base/search"
+	"github.com/LingByte/ling-base/search/bleve"
 	"github.com/LingByte/ling-base/version"
 	"github.com/gin-gonic/gin"
 	goredis "github.com/redis/go-redis/v9"
@@ -657,9 +658,9 @@ func NewSearchEngine(indexPath string, batchSize int, queryTimeout time.Duration
 	var eng search.Engine
 	var err error
 	if indexPath == "" || indexPath == "memory" {
-		eng, err = search.NewMemory()
+		eng, err = bleve.NewMemory()
 	} else {
-		eng, err = search.NewDefault(indexPath)
+		eng, err = bleve.NewDefault(indexPath)
 	}
 	if err != nil {
 		logger.Warn("search engine init failed, continuing without search", zap.String("path", indexPath), zap.Error(err))

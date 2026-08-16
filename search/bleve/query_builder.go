@@ -1,21 +1,22 @@
-package search
-
 // Copyright (c) 2026 LingByte. All rights reserved.
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT
+
+package bleve
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/search"
+
 	"github.com/blevesearch/bleve/v2"
 	q "github.com/blevesearch/bleve/v2/search/query"
 )
 
-func buildQuery(req SearchRequest, defaultFields []string) q.Query {
+func buildQuery(req search.SearchRequest, defaultFields []string) q.Query {
 	var must, should, mustNot []q.Query
 
-	// 0) 兼容旧 Keyword（按字段 OR）
 	keyword := strings.TrimSpace(req.Keyword)
 	if keyword != "" {
 		fields := req.SearchFields
@@ -43,7 +44,6 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		}
 	}
 
-	// 1) QueryString 子句
 	if req.QueryString != nil {
 		qs := req.QueryString.Query
 		if len(req.QueryString.Fields) > 0 {
@@ -57,10 +57,9 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		if req.QueryString.Boost != nil {
 			qq.SetBoost(*req.QueryString.Boost)
 		}
-		should = append(should, qq) // 放入 should，利于相关性提升
+		should = append(should, qq)
 	}
 
-	// 2) Term 等值过滤
 	for f, vs := range req.MustTerms {
 		if len(vs) == 1 {
 			tq := bleve.NewTermQuery(vs[0])
@@ -91,7 +90,6 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		}
 	}
 
-	// 3) 高级子句
 	for _, m := range req.Matches {
 		mq := bleve.NewMatchQuery(m.Query)
 		if m.Field != "" {
@@ -113,7 +111,6 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		if p.Boost != nil {
 			pq.SetBoost(*p.Boost)
 		}
-		// 不再设置 Slop
 		should = append(should, pq)
 	}
 	for _, pr := range req.Prefixes {
@@ -163,14 +160,12 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		should = append(should, fq)
 	}
 
-	// 4) 数值范围
 	for _, r := range req.NumericRanges {
 		rq := bleve.NewNumericRangeQuery(rMin(r), rMax(r))
 		rq.SetField(r.Field)
 		must = append(must, rq)
 	}
 
-	// 5) 时间范围
 	for _, r := range req.TimeRanges {
 		var start, end time.Time
 		if r.From != nil {
@@ -184,7 +179,6 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 		must = append(must, drq)
 	}
 
-	// 6) 组装 Boolean
 	boolQ := bleve.NewBooleanQuery()
 	if len(must) > 0 {
 		boolQ.AddMust(must...)
@@ -195,20 +189,17 @@ func buildQuery(req SearchRequest, defaultFields []string) q.Query {
 
 	if len(should) > 0 {
 		if req.MinShould > 0 {
-			// 把所有 should 子句放进一个 DisjunctionQuery，并设置最小匹配数
 			disj := bleve.NewDisjunctionQuery(should...)
 			disj.SetMin(float64(req.MinShould))
-			// 把这个“至少命中 N 个 should”的条件当作 MUST 条件加入
 			boolQ.AddMust(disj)
 		} else {
-			// 普通 should（没有最小匹配数要求）
 			boolQ.AddShould(should...)
 		}
 	}
 	return boolQ
 }
 
-func rMin(n NumericRangeFilter) *float64 {
+func rMin(n search.NumericRangeFilter) *float64 {
 	if n.GT != nil {
 		return n.GT
 	}
@@ -217,7 +208,7 @@ func rMin(n NumericRangeFilter) *float64 {
 	}
 	return nil
 }
-func rMax(n NumericRangeFilter) *float64 {
+func rMax(n search.NumericRangeFilter) *float64 {
 	if n.LT != nil {
 		return n.LT
 	}

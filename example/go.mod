@@ -5,16 +5,18 @@ go 1.26.2
 require (
 	github.com/LingByte/ling-base v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/bootstrap v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/cache v0.0.0
+	github.com/LingByte/ling-base/cache v0.1.0
 	github.com/LingByte/ling-base/cache/redis v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/circuitbreaker v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common v0.3.0
 	github.com/LingByte/ling-base/common/config v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/convert v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/idgen v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/response v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/idgen v0.1.0
+	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/validate v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/eventbus v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/constants v0.1.0
+	github.com/LingByte/ling-base/eventbus v0.1.0
 	github.com/LingByte/ling-base/limiter v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/limiter/count v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/limiter/tokenbucket v0.0.0-00010101000000-000000000000
@@ -27,15 +29,17 @@ require (
 	github.com/LingByte/ling-base/queue/memory v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/retry v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/sandbox v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/search v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/version v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/search v0.1.0
+	github.com/LingByte/ling-base/search/bleve v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/version v0.1.0
 	github.com/gin-gonic/gin v1.12.0
-	github.com/redis/go-redis/v9 v9.21.0
+	github.com/redis/go-redis/v9 v9.22.0
 	go.uber.org/zap v1.28.0
 	gorm.io/gorm v1.31.2
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/alphacep/vosk-api/go v0.3.50 // indirect
@@ -63,20 +67,30 @@ require (
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emersion/go-imap/v2 v2.0.0-20251216103119-7ac47a9cfd9a // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.10.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -92,8 +106,10 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/xuri/efp v0.0.0-20240408161823-9ad904a10d6d // indirect
@@ -107,12 +123,17 @@ require (
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/image v0.45.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/mysql v1.6.0 // indirect
+	gorm.io/driver/postgres v1.6.2 // indirect
+	modernc.org/libc v1.22.5 // indirect
+	modernc.org/mathutil v1.5.0 // indirect
+	modernc.org/memory v1.5.0 // indirect
+	modernc.org/sqlite v1.23.1 // indirect
 )
 
 replace (
@@ -141,5 +162,6 @@ replace (
 	github.com/LingByte/ling-base/retry => ../retry
 	github.com/LingByte/ling-base/sandbox => ../sandbox
 	github.com/LingByte/ling-base/search => ../search
+	github.com/LingByte/ling-base/search/bleve => ../search/bleve
 	github.com/LingByte/ling-base/version => ../version
 )

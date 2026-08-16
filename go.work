@@ -91,6 +91,8 @@ use (
 	./retry
 	./sandbox
 	./search
+	./search/bleve
+	./search/elasticsearch
 	./stores
 	./stores/cos
 	./stores/kodo

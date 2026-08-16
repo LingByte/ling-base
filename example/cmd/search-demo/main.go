@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/search"
+	"github.com/LingByte/ling-base/search/bleve"
 )
 
 const usage = `search-demo: 全文搜索引擎演示工具
@@ -134,7 +135,7 @@ func runIndex(indexPath string, batchSize int, jsonOut bool) {
 	// Remove old index if exists
 	os.RemoveAll(indexPath)
 
-	eng, err := search.NewDefault(indexPath)
+	eng, err := bleve.NewDefault(indexPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "创建索引失败: %v\n", err)
 		os.Exit(1)
@@ -193,7 +194,7 @@ func runIndex(indexPath string, batchSize int, jsonOut bool) {
 func runSearch(indexPath, keyword string, size int, jsonOut bool) {
 	ctx := context.Background()
 
-	eng, err := search.NewDefault(indexPath)
+	eng, err := bleve.NewDefault(indexPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "打开索引失败: %v\n", err)
 		os.Exit(1)
@@ -262,7 +263,7 @@ func runBench(indexPath string, docCount, batchSize, size int, jsonOut bool) {
 	ctx := context.Background()
 	os.RemoveAll(indexPath)
 
-	eng, err := search.NewDefault(indexPath)
+	eng, err := bleve.NewDefault(indexPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "创建索引失败: %v\n", err)
 		os.Exit(1)
@@ -372,7 +373,7 @@ func runBench(indexPath string, docCount, batchSize, size int, jsonOut bool) {
 func runMemoryDemo(jsonOut bool) {
 	ctx := context.Background()
 
-	eng, err := search.NewMemory()
+	eng, err := bleve.NewMemory()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "创建内存索引失败: %v\n", err)
 		os.Exit(1)
@@ -446,7 +447,7 @@ func runMemoryDemo(jsonOut bool) {
 func runInteractive(indexPath string, size int) {
 	ctx := context.Background()
 
-	eng, err := search.NewDefault(indexPath)
+	eng, err := bleve.NewDefault(indexPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "打开索引失败: %v\n", err)
 		os.Exit(1)

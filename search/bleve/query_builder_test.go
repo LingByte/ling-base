@@ -1,15 +1,16 @@
-package search
+package bleve
 
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: AGPL-3.0
 
 import (
+	"github.com/LingByte/ling-base/search"
 	"testing"
 	"time"
 )
 
 func TestBuildQuery_Keyword(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword:      "test",
 		SearchFields: []string{"title", "body"},
 	}
@@ -21,7 +22,7 @@ func TestBuildQuery_Keyword(t *testing.T) {
 }
 
 func TestBuildQuery_Keyword_EmptyFields(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "test",
 	}
 
@@ -32,7 +33,7 @@ func TestBuildQuery_Keyword_EmptyFields(t *testing.T) {
 }
 
 func TestBuildQuery_Keyword_WithDefaultFields(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "test",
 	}
 
@@ -45,8 +46,8 @@ func TestBuildQuery_Keyword_WithDefaultFields(t *testing.T) {
 
 func TestBuildQuery_QueryString(t *testing.T) {
 	boost := 2.0
-	req := SearchRequest{
-		QueryString: &ClauseQueryString{
+	req := search.SearchRequest{
+		QueryString: &search.ClauseQueryString{
 			Query:  "test query",
 			Fields: []string{"title"},
 			Boost:  &boost,
@@ -60,7 +61,7 @@ func TestBuildQuery_QueryString(t *testing.T) {
 }
 
 func TestBuildQuery_MustTerms(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		MustTerms: map[string][]string{
 			"status": {"active"},
 		},
@@ -73,7 +74,7 @@ func TestBuildQuery_MustTerms(t *testing.T) {
 }
 
 func TestBuildQuery_MustTerms_Multiple(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		MustTerms: map[string][]string{
 			"status": {"active", "published"},
 		},
@@ -86,7 +87,7 @@ func TestBuildQuery_MustTerms_Multiple(t *testing.T) {
 }
 
 func TestBuildQuery_MustNotTerms(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		MustNotTerms: map[string][]string{
 			"status": {"deleted"},
 		},
@@ -99,7 +100,7 @@ func TestBuildQuery_MustNotTerms(t *testing.T) {
 }
 
 func TestBuildQuery_ShouldTerms(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		ShouldTerms: map[string][]string{
 			"tags": {"go", "python"},
 		},
@@ -113,8 +114,8 @@ func TestBuildQuery_ShouldTerms(t *testing.T) {
 
 func TestBuildQuery_Matches(t *testing.T) {
 	boost := 1.5
-	req := SearchRequest{
-		Matches: []ClauseMatch{
+	req := search.SearchRequest{
+		Matches: []search.ClauseMatch{
 			{
 				Field:    "title",
 				Query:    "test",
@@ -131,8 +132,8 @@ func TestBuildQuery_Matches(t *testing.T) {
 }
 
 func TestBuildQuery_Matches_OrOperator(t *testing.T) {
-	req := SearchRequest{
-		Matches: []ClauseMatch{
+	req := search.SearchRequest{
+		Matches: []search.ClauseMatch{
 			{
 				Field:    "title",
 				Query:    "test",
@@ -149,8 +150,8 @@ func TestBuildQuery_Matches_OrOperator(t *testing.T) {
 
 func TestBuildQuery_Phrases(t *testing.T) {
 	boost := 2.0
-	req := SearchRequest{
-		Phrases: []ClausePhrase{
+	req := search.SearchRequest{
+		Phrases: []search.ClausePhrase{
 			{
 				Field:  "body",
 				Phrase: "exact phrase",
@@ -168,8 +169,8 @@ func TestBuildQuery_Phrases(t *testing.T) {
 
 func TestBuildQuery_Prefixes(t *testing.T) {
 	boost := 1.5
-	req := SearchRequest{
-		Prefixes: []ClausePrefix{
+	req := search.SearchRequest{
+		Prefixes: []search.ClausePrefix{
 			{
 				Field:  "title",
 				Prefix: "test",
@@ -186,8 +187,8 @@ func TestBuildQuery_Prefixes(t *testing.T) {
 
 func TestBuildQuery_Wildcards(t *testing.T) {
 	boost := 1.5
-	req := SearchRequest{
-		Wildcards: []ClauseWildcard{
+	req := search.SearchRequest{
+		Wildcards: []search.ClauseWildcard{
 			{
 				Field:   "title",
 				Pattern: "test*",
@@ -204,8 +205,8 @@ func TestBuildQuery_Wildcards(t *testing.T) {
 
 func TestBuildQuery_Regexps(t *testing.T) {
 	boost := 1.5
-	req := SearchRequest{
-		Regexps: []ClauseRegex{
+	req := search.SearchRequest{
+		Regexps: []search.ClauseRegex{
 			{
 				Field:   "title",
 				Pattern: "test.*",
@@ -222,8 +223,8 @@ func TestBuildQuery_Regexps(t *testing.T) {
 
 func TestBuildQuery_Fuzzies(t *testing.T) {
 	boost := 1.5
-	req := SearchRequest{
-		Fuzzies: []ClauseFuzzy{
+	req := search.SearchRequest{
+		Fuzzies: []search.ClauseFuzzy{
 			{
 				Field:     "title",
 				Term:      "test",
@@ -243,8 +244,8 @@ func TestBuildQuery_Fuzzies(t *testing.T) {
 func TestBuildQuery_NumericRanges(t *testing.T) {
 	min := 10.0
 	max := 100.0
-	req := SearchRequest{
-		NumericRanges: []NumericRangeFilter{
+	req := search.SearchRequest{
+		NumericRanges: []search.NumericRangeFilter{
 			{
 				Field: "price",
 				GTE:   &min,
@@ -262,8 +263,8 @@ func TestBuildQuery_NumericRanges(t *testing.T) {
 func TestBuildQuery_NumericRanges_GT_LT(t *testing.T) {
 	gt := 10.0
 	lt := 100.0
-	req := SearchRequest{
-		NumericRanges: []NumericRangeFilter{
+	req := search.SearchRequest{
+		NumericRanges: []search.NumericRangeFilter{
 			{
 				Field: "price",
 				GT:    &gt,
@@ -281,8 +282,8 @@ func TestBuildQuery_NumericRanges_GT_LT(t *testing.T) {
 func TestBuildQuery_TimeRanges(t *testing.T) {
 	now := time.Now()
 	past := now.Add(-24 * time.Hour)
-	req := SearchRequest{
-		TimeRanges: []TimeRangeFilter{
+	req := search.SearchRequest{
+		TimeRanges: []search.TimeRangeFilter{
 			{
 				Field:   "createdAt",
 				From:    &past,
@@ -301,8 +302,8 @@ func TestBuildQuery_TimeRanges(t *testing.T) {
 
 func TestBuildQuery_TimeRanges_OnlyFrom(t *testing.T) {
 	past := time.Now().Add(-24 * time.Hour)
-	req := SearchRequest{
-		TimeRanges: []TimeRangeFilter{
+	req := search.SearchRequest{
+		TimeRanges: []search.TimeRangeFilter{
 			{
 				Field:   "createdAt",
 				From:    &past,
@@ -318,7 +319,7 @@ func TestBuildQuery_TimeRanges_OnlyFrom(t *testing.T) {
 }
 
 func TestBuildQuery_MinShould(t *testing.T) {
-	req := SearchRequest{
+	req := search.SearchRequest{
 		ShouldTerms: map[string][]string{
 			"tags": {"go", "python"},
 		},
@@ -337,7 +338,7 @@ func TestBuildQuery_Complex(t *testing.T) {
 	past := now.Add(-24 * time.Hour)
 	min := 10.0
 
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "test",
 		MustTerms: map[string][]string{
 			"status": {"active"},
@@ -345,20 +346,20 @@ func TestBuildQuery_Complex(t *testing.T) {
 		ShouldTerms: map[string][]string{
 			"tags": {"go"},
 		},
-		Matches: []ClauseMatch{
+		Matches: []search.ClauseMatch{
 			{
 				Field: "title",
 				Query: "test",
 				Boost: &boost,
 			},
 		},
-		NumericRanges: []NumericRangeFilter{
+		NumericRanges: []search.NumericRangeFilter{
 			{
 				Field: "price",
 				GTE:   &min,
 			},
 		},
-		TimeRanges: []TimeRangeFilter{
+		TimeRanges: []search.TimeRangeFilter{
 			{
 				Field:   "createdAt",
 				From:    &past,
@@ -376,7 +377,7 @@ func TestBuildQuery_Complex(t *testing.T) {
 }
 
 func TestBuildQuery_EmptyRequest(t *testing.T) {
-	req := SearchRequest{}
+	req := search.SearchRequest{}
 
 	query := buildQuery(req, []string{})
 	if query == nil {
@@ -389,21 +390,21 @@ func TestRMin(t *testing.T) {
 	gte := 20.0
 
 	// Test GT
-	filter := NumericRangeFilter{GT: &gt}
+	filter := search.NumericRangeFilter{GT: &gt}
 	result := rMin(filter)
 	if result == nil || *result != 10.0 {
 		t.Fatalf("Expected 10.0, got %v", result)
 	}
 
 	// Test GTE when GT is nil
-	filter = NumericRangeFilter{GTE: &gte}
+	filter = search.NumericRangeFilter{GTE: &gte}
 	result = rMin(filter)
 	if result == nil || *result != 20.0 {
 		t.Fatalf("Expected 20.0, got %v", result)
 	}
 
 	// Test nil when both are nil
-	filter = NumericRangeFilter{}
+	filter = search.NumericRangeFilter{}
 	result = rMin(filter)
 	if result != nil {
 		t.Fatalf("Expected nil, got %v", result)
@@ -415,21 +416,21 @@ func TestRMax(t *testing.T) {
 	lte := 200.0
 
 	// Test LT
-	filter := NumericRangeFilter{LT: &lt}
+	filter := search.NumericRangeFilter{LT: &lt}
 	result := rMax(filter)
 	if result == nil || *result != 100.0 {
 		t.Fatalf("Expected 100.0, got %v", result)
 	}
 
 	// Test LTE when LT is nil
-	filter = NumericRangeFilter{LTE: &lte}
+	filter = search.NumericRangeFilter{LTE: &lte}
 	result = rMax(filter)
 	if result == nil || *result != 200.0 {
 		t.Fatalf("Expected 200.0, got %v", result)
 	}
 
 	// Test nil when both are nil
-	filter = NumericRangeFilter{}
+	filter = search.NumericRangeFilter{}
 	result = rMax(filter)
 	if result != nil {
 		t.Fatalf("Expected nil, got %v", result)

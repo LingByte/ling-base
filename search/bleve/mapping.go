@@ -1,7 +1,7 @@
-package search
-
 // Copyright (c) 2026 LingByte. All rights reserved.
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT
+
+package bleve
 
 import (
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
@@ -9,6 +9,8 @@ import (
 	"github.com/blevesearch/bleve/v2/mapping"
 )
 
+// BuildIndexMapping creates a default Bleve index mapping with common
+// field mappings for text, keyword, numeric, and datetime fields.
 func BuildIndexMapping(defaultAnalyzer string) *mapping.IndexMappingImpl {
 	if defaultAnalyzer == "" {
 		defaultAnalyzer = standard.Name
@@ -20,21 +22,18 @@ func BuildIndexMapping(defaultAnalyzer string) *mapping.IndexMappingImpl {
 	idx.DefaultAnalyzer = defaultAnalyzer
 	idx.TypeField = "type"
 
-	// 文本
 	text := mapping.NewTextFieldMapping()
 	text.Store = true
 	text.Index = true
 	text.Analyzer = defaultAnalyzer
 	text.IncludeInAll = true
-	text.IncludeTermVectors = true // 高亮更精准
+	text.IncludeTermVectors = true
 
-	// 关键词
 	kw := mapping.NewTextFieldMapping()
 	kw.Store = true
 	kw.Index = true
 	kw.Analyzer = keyword.Name
 
-	// 数值/时间
 	num := mapping.NewNumericFieldMapping()
 	num.Store = true
 	num.Index = true
@@ -53,16 +52,15 @@ func BuildIndexMapping(defaultAnalyzer string) *mapping.IndexMappingImpl {
 	idx.AddDocumentMapping("article", article)
 
 	def := mapping.NewDocumentMapping()
-	def.Dynamic = true // 允许动态字段，支持用户自定义字段
-	// 添加通用字段映射
-	def.AddFieldMappingsAt("userId", kw)        // 用户ID，用于用户区分
-	def.AddFieldMappingsAt("type", kw)          // 文档类型
-	def.AddFieldMappingsAt("title", text)       // 标题
-	def.AddFieldMappingsAt("description", text) // 描述
-	def.AddFieldMappingsAt("content", text)     // 内容
-	def.AddFieldMappingsAt("url", kw)           // URL
-	def.AddFieldMappingsAt("icon", kw)          // 图标
-	def.AddFieldMappingsAt("category", kw)      // 分类
+	def.Dynamic = true
+	def.AddFieldMappingsAt("userId", kw)
+	def.AddFieldMappingsAt("type", kw)
+	def.AddFieldMappingsAt("title", text)
+	def.AddFieldMappingsAt("description", text)
+	def.AddFieldMappingsAt("content", text)
+	def.AddFieldMappingsAt("url", kw)
+	def.AddFieldMappingsAt("icon", kw)
+	def.AddFieldMappingsAt("category", kw)
 	idx.DefaultMapping = def
 	return idx
 }

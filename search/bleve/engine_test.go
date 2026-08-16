@@ -1,4 +1,4 @@
-package search
+package bleve
 
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: AGPL-3.0
@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/LingByte/ling-base/search"
 )
 
-func setupTestEngine(t *testing.T) (Engine, string) {
+func setupTestEngine(t *testing.T) (search.Engine, string) {
 	tmpDir := os.TempDir()
 	indexPath := filepath.Join(tmpDir, "test_search_index_"+t.Name())
 
@@ -24,7 +25,6 @@ func setupTestEngine(t *testing.T) (Engine, string) {
 		IndexPath:           indexPath,
 		DefaultAnalyzer:     "standard",
 		DefaultSearchFields: []string{"title", "body"},
-		OpenTimeout:         5 * time.Second,
 		QueryTimeout:        5 * time.Second,
 		BatchSize:           100,
 	}
@@ -38,7 +38,7 @@ func setupTestEngine(t *testing.T) (Engine, string) {
 	return engine, indexPath
 }
 
-func cleanupTestEngine(t *testing.T, engine Engine, indexPath string) {
+func cleanupTestEngine(t *testing.T, engine search.Engine, indexPath string) {
 	if engine != nil {
 		_ = engine.Close()
 	}
@@ -65,7 +65,7 @@ func TestNew_OpenExistingIndex(t *testing.T) {
 	}
 
 	// Index a document
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -86,7 +86,7 @@ func TestNew_OpenExistingIndex(t *testing.T) {
 	defer engine2.Close()
 
 	// Verify document exists
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "Test",
 		Size:    10,
 	}
@@ -103,7 +103,7 @@ func TestBleveEngine_Index(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "doc1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -122,7 +122,7 @@ func TestBleveEngine_IndexBatch(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "doc1",
 			Type: "article",
@@ -152,7 +152,7 @@ func TestBleveEngine_IndexBatch(t *testing.T) {
 	}
 
 	// Verify documents were indexed
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "Article",
 		Size:    10,
 	}
@@ -170,7 +170,7 @@ func TestBleveEngine_Delete(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Index a document
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "doc1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -189,7 +189,7 @@ func TestBleveEngine_Delete(t *testing.T) {
 	}
 
 	// Verify document is deleted
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "Test",
 		Size:    10,
 	}
@@ -207,7 +207,7 @@ func TestBleveEngine_Search(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Index documents
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "doc1",
 			Type: "article",
@@ -233,7 +233,7 @@ func TestBleveEngine_Search(t *testing.T) {
 	}
 
 	// Search
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "programming",
 		Size:    10,
 	}
@@ -256,7 +256,7 @@ func TestBleveEngine_SearchWithPagination(t *testing.T) {
 
 	// Index multiple documents
 	for i := 0; i < 5; i++ {
-		doc := Doc{
+		doc := search.Doc{
 			ID:   "doc" + string(rune('0'+i)),
 			Type: "article",
 			Fields: map[string]interface{}{
@@ -270,7 +270,7 @@ func TestBleveEngine_SearchWithPagination(t *testing.T) {
 	}
 
 	// Search with pagination
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "Article",
 		From:    0,
 		Size:    2,
@@ -290,7 +290,7 @@ func TestBleveEngine_SearchWithFacets(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Index documents with tags
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "doc1",
 			Type: "article",
@@ -316,10 +316,10 @@ func TestBleveEngine_SearchWithFacets(t *testing.T) {
 	}
 
 	// Search with facets
-	req := SearchRequest{
+	req := search.SearchRequest{
 		Keyword: "Article",
 		Size:    10,
-		Facets: []FacetRequest{
+		Facets: []search.FacetRequest{
 			{
 				Name:  "tags",
 				Field: "tags",
@@ -342,7 +342,7 @@ func TestBleveEngine_GetAutoCompleteSuggestions(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Index documents
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "apple",
 			Type: "article",
@@ -395,7 +395,7 @@ func TestBleveEngine_GetSearchSuggestions(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Index documents
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -442,9 +442,9 @@ func TestBleveEngine_Close(t *testing.T) {
 	}
 
 	// Try to use closed engine
-	err = engine.Index(context.Background(), Doc{ID: "test"})
-	if err != ErrClosed {
-		t.Fatalf("Expected ErrClosed, got %v", err)
+	err = engine.Index(context.Background(), search.Doc{ID: "test"})
+	if err != search.ErrClosed {
+		t.Fatalf("Expected search.ErrClosed, got %v", err)
 	}
 }
 
@@ -502,23 +502,23 @@ func TestBleveEngine_Guard_Closed(t *testing.T) {
 	engine.Close()
 
 	// Try to index after close
-	err := engine.Index(context.Background(), Doc{ID: "test"})
-	assert.Equal(t, ErrClosed, err)
+	err := engine.Index(context.Background(), search.Doc{ID: "test"})
+	assert.Equal(t, search.ErrClosed, err)
 
 	// Try to search after close
-	_, err = engine.Search(context.Background(), SearchRequest{})
-	assert.Equal(t, ErrClosed, err)
+	_, err = engine.Search(context.Background(), search.SearchRequest{})
+	assert.Equal(t, search.ErrClosed, err)
 
 	// Try to delete after close
 	err = engine.Delete(context.Background(), "test")
-	assert.Equal(t, ErrClosed, err)
+	assert.Equal(t, search.ErrClosed, err)
 
 	// Try to get suggestions after close
 	_, err = engine.GetAutoCompleteSuggestions(context.Background(), "test")
-	assert.Equal(t, ErrClosed, err)
+	assert.Equal(t, search.ErrClosed, err)
 
 	_, err = engine.GetSearchSuggestions(context.Background(), "test")
-	assert.Equal(t, ErrClosed, err)
+	assert.Equal(t, search.ErrClosed, err)
 }
 
 func TestBleveEngine_Close_Idempotent(t *testing.T) {
@@ -537,7 +537,7 @@ func TestBleveEngine_IndexBatch_Empty(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	err := engine.IndexBatch(context.Background(), []Doc{})
+	err := engine.IndexBatch(context.Background(), []search.Doc{})
 	assert.Nil(t, err)
 }
 
@@ -546,9 +546,9 @@ func TestBleveEngine_IndexBatch_LargeBatch(t *testing.T) {
 	defer cleanupTestEngine(t, engine, indexPath)
 
 	// Create docs larger than default batch size
-	docs := make([]Doc, 300)
+	docs := make([]search.Doc, 300)
 	for i := 0; i < 300; i++ {
-		docs[i] = Doc{
+		docs[i] = search.Doc{
 			ID:   string(rune(i)),
 			Type: "article",
 			Fields: map[string]interface{}{
@@ -561,7 +561,7 @@ func TestBleveEngine_IndexBatch_LargeBatch(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify some documents were indexed
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Document",
 		Size:    10,
 	})
@@ -573,7 +573,7 @@ func TestBleveEngine_Search_WithHighlight(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -583,7 +583,7 @@ func TestBleveEngine_Search_WithHighlight(t *testing.T) {
 	}
 	engine.Index(context.Background(), doc)
 
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword:         "Machine",
 		Highlight:       true,
 		HighlightFields: []string{"title", "body"},
@@ -597,7 +597,7 @@ func TestBleveEngine_Search_WithFacets(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "1",
 			Type: "article",
@@ -625,9 +625,9 @@ func TestBleveEngine_Search_WithFacets(t *testing.T) {
 	}
 	engine.IndexBatch(context.Background(), docs)
 
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Guide",
-		Facets: []FacetRequest{
+		Facets: []search.FacetRequest{
 			{
 				Name:  "categories",
 				Field: "category",
@@ -644,7 +644,7 @@ func TestBleveEngine_Search_WithSort(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	docs := []Doc{
+	docs := []search.Doc{
 		{
 			ID:   "1",
 			Type: "article",
@@ -664,7 +664,7 @@ func TestBleveEngine_Search_WithSort(t *testing.T) {
 	}
 	engine.IndexBatch(context.Background(), docs)
 
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Article",
 		SortBy:  []string{"-views"},
 		Size:    10,
@@ -679,7 +679,7 @@ func TestBleveEngine_Search_WithPagination(t *testing.T) {
 
 	// Index multiple documents
 	for i := 0; i < 20; i++ {
-		doc := Doc{
+		doc := search.Doc{
 			ID:   string(rune(i)),
 			Type: "article",
 			Fields: map[string]interface{}{
@@ -690,7 +690,7 @@ func TestBleveEngine_Search_WithPagination(t *testing.T) {
 	}
 
 	// Test pagination
-	result1, err := engine.Search(context.Background(), SearchRequest{
+	result1, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Article",
 		From:    0,
 		Size:    5,
@@ -698,7 +698,7 @@ func TestBleveEngine_Search_WithPagination(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(result1.Hits))
 
-	result2, err := engine.Search(context.Background(), SearchRequest{
+	result2, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Article",
 		From:    5,
 		Size:    5,
@@ -711,7 +711,7 @@ func TestBleveEngine_Search_DefaultSize(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -721,7 +721,7 @@ func TestBleveEngine_Search_DefaultSize(t *testing.T) {
 	engine.Index(context.Background(), doc)
 
 	// Search with size 0 should default to 10
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Test",
 		Size:    0,
 	})
@@ -733,7 +733,7 @@ func TestBleveEngine_Search_WithIncludeFields(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -743,7 +743,7 @@ func TestBleveEngine_Search_WithIncludeFields(t *testing.T) {
 	}
 	engine.Index(context.Background(), doc)
 
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword:       "Test",
 		IncludeFields: []string{"title"},
 		Size:          10,
@@ -765,7 +765,7 @@ func TestBleveEngine_GetAutoCompleteSuggestions_WithData(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -793,7 +793,7 @@ func TestBleveEngine_GetSearchSuggestions_WithData(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -811,7 +811,7 @@ func TestBleveEngine_Delete_Extra(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test2",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -821,7 +821,7 @@ func TestBleveEngine_Delete_Extra(t *testing.T) {
 	engine.Index(context.Background(), doc)
 
 	// Verify document exists
-	result, _ := engine.Search(context.Background(), SearchRequest{
+	result, _ := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Test",
 		Size:    10,
 	})
@@ -832,7 +832,7 @@ func TestBleveEngine_Delete_Extra(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify document is deleted
-	result, _ = engine.Search(context.Background(), SearchRequest{
+	result, _ = engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Document 2",
 		Size:    10,
 	})
@@ -859,7 +859,7 @@ func TestBleveEngine_WithDeadline_Timeout_Extra(t *testing.T) {
 	defer cancel()
 
 	// This should timeout
-	err := engine.Index(ctx, Doc{ID: "test"})
+	err := engine.Index(ctx, search.Doc{ID: "test"})
 	assert.NotNil(t, err)
 }
 
@@ -867,7 +867,7 @@ func TestBleveEngine_Index_WithoutType(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID: "test1",
 		Fields: map[string]interface{}{
 			"title": "Test Document",
@@ -876,7 +876,7 @@ func TestBleveEngine_Index_WithoutType(t *testing.T) {
 	err := engine.Index(context.Background(), doc)
 	assert.Nil(t, err)
 
-	result, _ := engine.Search(context.Background(), SearchRequest{
+	result, _ := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Test",
 		Size:    10,
 	})
@@ -887,7 +887,7 @@ func TestBleveEngine_Search_NegativeFrom(t *testing.T) {
 	engine, indexPath := setupTestEngine(t)
 	defer cleanupTestEngine(t, engine, indexPath)
 
-	doc := Doc{
+	doc := search.Doc{
 		ID:   "test1",
 		Type: "article",
 		Fields: map[string]interface{}{
@@ -897,7 +897,7 @@ func TestBleveEngine_Search_NegativeFrom(t *testing.T) {
 	engine.Index(context.Background(), doc)
 
 	// Negative From should be treated as 0
-	result, err := engine.Search(context.Background(), SearchRequest{
+	result, err := engine.Search(context.Background(), search.SearchRequest{
 		Keyword: "Test",
 		From:    -5,
 		Size:    10,
@@ -914,7 +914,7 @@ func TestNewMemory_BasicIndex(t *testing.T) {
 	defer eng.Close()
 
 	ctx := context.Background()
-	docs := []Doc{
+	docs := []search.Doc{
 		{ID: "1", Type: "article", Fields: map[string]any{"title": "Go programming", "content": "Learn Go basics"}},
 		{ID: "2", Type: "article", Fields: map[string]any{"title": "Python tutorial", "content": "Python for beginners"}},
 		{ID: "3", Type: "article", Fields: map[string]any{"title": "Rust guide", "content": "Systems programming in Rust"}},
@@ -937,13 +937,13 @@ func TestNewMemory_Search(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	eng.IndexBatch(ctx, []Doc{
+	eng.IndexBatch(ctx, []search.Doc{
 		{ID: "1", Type: "article", Fields: map[string]any{"title": "Go programming language", "content": "Go is a statically typed compiled language"}},
 		{ID: "2", Type: "article", Fields: map[string]any{"title": "Python for data science", "content": "Python is great for data analysis"}},
 		{ID: "3", Type: "article", Fields: map[string]any{"title": "Rust systems programming", "content": "Rust is memory safe"}},
 	})
 
-	res, err := eng.Search(ctx, NewKeywordSearch("Go", 10))
+	res, err := eng.Search(ctx, search.NewKeywordSearch("Go", 10))
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -957,7 +957,7 @@ func TestNewMemory_Delete(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	eng.Index(ctx, Doc{ID: "1", Type: "article", Fields: map[string]any{"title": "test"}})
+	eng.Index(ctx, search.Doc{ID: "1", Type: "article", Fields: map[string]any{"title": "test"}})
 
 	count, _ := eng.DocCount(ctx)
 	if count != 1 {
@@ -977,8 +977,8 @@ func TestNewMemory_Stats(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	eng.Index(ctx, Doc{ID: "1", Type: "article", Fields: map[string]any{"title": "test"}})
-	eng.Search(ctx, NewKeywordSearch("test", 10))
+	eng.Index(ctx, search.Doc{ID: "1", Type: "article", Fields: map[string]any{"title": "test"}})
+	eng.Search(ctx, search.NewKeywordSearch("test", 10))
 
 	stats := eng.Stats()
 	if stats["indexOps"].(uint64) < 1 {
@@ -994,7 +994,7 @@ func TestNewMemory_AutoComplete(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	eng.IndexBatch(ctx, []Doc{
+	eng.IndexBatch(ctx, []search.Doc{
 		{ID: "1", Fields: map[string]any{"title": "Go programming", "content": "Learn Go"}},
 		{ID: "2", Fields: map[string]any{"title": "Go testing", "content": "Test Go code"}},
 		{ID: "3", Fields: map[string]any{"title": "Python", "content": "Learn Python"}},
@@ -1015,7 +1015,7 @@ func TestNewMemory_SearchSuggestions(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	eng.IndexBatch(ctx, []Doc{
+	eng.IndexBatch(ctx, []search.Doc{
 		{ID: "1", Fields: map[string]any{"title": "Go programming", "content": "Learn Go basics"}},
 		{ID: "2", Fields: map[string]any{"title": "Advanced Go", "content": "Go concurrency patterns"}},
 	})
@@ -1034,9 +1034,9 @@ func TestNewMemory_EmptyDocID(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	err := eng.Index(ctx, Doc{ID: "", Fields: map[string]any{"title": "test"}})
-	if err != ErrEmptyDocID {
-		t.Errorf("expected ErrEmptyDocID, got %v", err)
+	err := eng.Index(ctx, search.Doc{ID: "", Fields: map[string]any{"title": "test"}})
+	if err != search.ErrEmptyDocID {
+		t.Errorf("expected search.ErrEmptyDocID, got %v", err)
 	}
 }
 
@@ -1045,7 +1045,7 @@ func TestNewMemory_BatchEmptyID(t *testing.T) {
 	defer eng.Close()
 	ctx := context.Background()
 
-	err := eng.IndexBatch(ctx, []Doc{
+	err := eng.IndexBatch(ctx, []search.Doc{
 		{ID: "1", Fields: map[string]any{"title": "ok"}},
 		{ID: "", Fields: map[string]any{"title": "bad"}},
 	})
@@ -1069,9 +1069,9 @@ func TestNewMemory_SearchAfterClose(t *testing.T) {
 	eng.Close()
 	ctx := context.Background()
 
-	_, err := eng.Search(ctx, NewKeywordSearch("test", 10))
-	if err != ErrClosed {
-		t.Errorf("expected ErrClosed, got %v", err)
+	_, err := eng.Search(ctx, search.NewKeywordSearch("test", 10))
+	if err != search.ErrClosed {
+		t.Errorf("expected search.ErrClosed, got %v", err)
 	}
 }
 
@@ -1089,36 +1089,36 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestNewDoc(t *testing.T) {
-	doc := NewDoc("1", "article", map[string]any{"title": "test"})
+	doc := search.NewDoc("1", "article", map[string]any{"title": "test"})
 	if doc.ID != "1" || doc.Type != "article" {
-		t.Error("NewDoc fields mismatch")
+		t.Error("search.NewDoc fields mismatch")
 	}
 }
 
 func TestNewKeywordSearch(t *testing.T) {
-	req := NewKeywordSearch("hello", 5)
+	req := search.NewKeywordSearch("hello", 5)
 	if req.Keyword != "hello" || req.Size != 5 {
-		t.Error("NewKeywordSearch fields mismatch")
+		t.Error("search.NewKeywordSearch fields mismatch")
 	}
 }
 
 func TestNewTermSearch(t *testing.T) {
-	req := NewTermSearch("category", "tech", 10)
+	req := search.NewTermSearch("category", "tech", 10)
 	if req.MustTerms["category"][0] != "tech" {
-		t.Error("NewTermSearch fields mismatch")
+		t.Error("search.NewTermSearch fields mismatch")
 	}
 }
 
 func TestNewMatchSearch(t *testing.T) {
-	req := NewMatchSearch("title", "hello", 10)
+	req := search.NewMatchSearch("title", "hello", 10)
 	if len(req.Matches) != 1 || req.Matches[0].Field != "title" {
-		t.Error("NewMatchSearch fields mismatch")
+		t.Error("search.NewMatchSearch fields mismatch")
 	}
 }
 
 func TestNewPhraseSearch(t *testing.T) {
-	req := NewPhraseSearch("content", "hello world", 10)
+	req := search.NewPhraseSearch("content", "hello world", 10)
 	if len(req.Phrases) != 1 || req.Phrases[0].Phrase != "hello world" {
-		t.Error("NewPhraseSearch fields mismatch")
+		t.Error("search.NewPhraseSearch fields mismatch")
 	}
 }
