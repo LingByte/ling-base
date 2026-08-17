@@ -31,6 +31,7 @@ use (
 	./common/crypto
 	./common/hash
 	./common/idgen
+	./common/jwtutil
 	./common/imageutil
 	./common/mathutil
 	./common/netutil
@@ -118,6 +119,7 @@ use (
 	./recognizer/volcengine_llm
 	./recognizer/whisper
 	./retry
+	./scheduler
 	./search
 	./search/bleve
 	./search/elasticsearch
