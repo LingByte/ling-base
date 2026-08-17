@@ -41,7 +41,7 @@ import (
 	"github.com/LingByte/ling-base/pool"
 	"github.com/LingByte/ling-base/queue"
 	memoryQueue "github.com/LingByte/ling-base/queue/memory"
-	"github.com/LingByte/ling-base/retry"
+	"github.com/LingByte/ling-base/common/retry"
 	"github.com/LingByte/ling-base/search"
 	"github.com/LingByte/ling-base/search/bleve"
 	"github.com/LingByte/ling-base/version"

@@ -118,7 +118,7 @@ use (
 	./recognizer/volcengine
 	./recognizer/volcengine_llm
 	./recognizer/whisper
-	./retry
+	./common/retry
 	./scheduler
 	./search
 	./search/bleve

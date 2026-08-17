@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/retry
+module github.com/LingByte/ling-base/common/retry
 
 go 1.26.2
 

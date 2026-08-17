@@ -37,7 +37,7 @@ require (
 	github.com/LingByte/ling-base/pool v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/queue/memory v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/retry v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/retry v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/search v0.1.0
 	github.com/LingByte/ling-base/search/bleve v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/version v0.1.0
@@ -183,7 +183,7 @@ replace (
 	github.com/LingByte/ling-base/queue => ../queue
 	github.com/LingByte/ling-base/queue/memory => ../queue/memory
 	github.com/LingByte/ling-base/recognizer => ../recognizer
-	github.com/LingByte/ling-base/retry => ../retry
+	github.com/LingByte/ling-base/common/retry => ../common/retry
 	github.com/LingByte/ling-base/search => ../search
 	github.com/LingByte/ling-base/search/bleve => ../search/bleve
 	github.com/LingByte/ling-base/version => ../version
