@@ -23,6 +23,7 @@ use (
 	./circuitbreaker
 	./common
 	./common/audioutil
+	./common/barcode
 	./common/compress
 	./common/config
 	./common/convert
@@ -35,6 +36,7 @@ use (
 	./common/netutil
 	./common/nltime
 	./common/pinyin
+	./common/qrcode
 	./common/random
 	./common/response
 	./common/response/gin
@@ -75,6 +77,7 @@ use (
 	./notification/email
 	./notification/im
 	./notification/inbox
+	./notification/push
 	./notification/sms
 	./notification/webhook
 	./ocr

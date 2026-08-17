@@ -12,6 +12,9 @@ require (
 	github.com/LingByte/ling-base/common/config v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/convert v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/idgen v0.1.0
+	github.com/LingByte/ling-base/common/imageutil v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/qrcode v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/barcode v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/validate v0.0.0-00010101000000-000000000000
@@ -148,6 +151,9 @@ replace (
 	github.com/LingByte/ling-base/common/config => ../common/config
 	github.com/LingByte/ling-base/common/convert => ../common/convert
 	github.com/LingByte/ling-base/common/idgen => ../common/idgen
+	github.com/LingByte/ling-base/common/imageutil => ../common/imageutil
+	github.com/LingByte/ling-base/common/qrcode => ../common/qrcode
+	github.com/LingByte/ling-base/common/barcode => ../common/barcode
 	github.com/LingByte/ling-base/common/response => ../common/response
 	github.com/LingByte/ling-base/common/response/gin => ../common/response/gin
 	github.com/LingByte/ling-base/common/validate => ../common/validate
