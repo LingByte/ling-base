@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/pool
+module github.com/LingByte/ling-base/common/pool
 
 go 1.26.2
 

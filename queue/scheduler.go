@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/LingByte/ling-base/pool"
+	"github.com/LingByte/ling-base/common/pool"
 )
 
 // SchedulingMode controls how the scheduler manages worker concurrency.

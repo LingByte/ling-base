@@ -34,7 +34,7 @@ require (
 	github.com/LingByte/ling-base/notification/email v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/notification/inbox v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/parser v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/pool v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/queue/memory v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/retry v0.0.0-00010101000000-000000000000
@@ -179,7 +179,7 @@ replace (
 	github.com/LingByte/ling-base/notification/email => ../notification/email
 	github.com/LingByte/ling-base/notification/inbox => ../notification/inbox
 	github.com/LingByte/ling-base/parser => ../parser
-	github.com/LingByte/ling-base/pool => ../pool
+	github.com/LingByte/ling-base/common/pool => ../common/pool
 	github.com/LingByte/ling-base/queue => ../queue
 	github.com/LingByte/ling-base/queue/memory => ../queue/memory
 	github.com/LingByte/ling-base/recognizer => ../recognizer

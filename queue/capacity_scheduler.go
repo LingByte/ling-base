@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/LingByte/ling-base/pool"
+	"github.com/LingByte/ling-base/common/pool"
 )
 
 // CapacitySchedulerConfig configures the capacity-aware scheduler.

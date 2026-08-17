@@ -92,7 +92,7 @@ use (
 	./ocr/google
 	./ocr/qcloud
 	./parser
-	./pool
+	./common/pool
 	./queue
 	./queue/memory
 	./queue/redis

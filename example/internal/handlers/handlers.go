@@ -38,7 +38,7 @@ import (
 	"github.com/LingByte/ling-base/logger"
 	"github.com/LingByte/ling-base/notification"
 	"github.com/LingByte/ling-base/notification/inbox"
-	"github.com/LingByte/ling-base/pool"
+	"github.com/LingByte/ling-base/common/pool"
 	"github.com/LingByte/ling-base/queue"
 	memoryQueue "github.com/LingByte/ling-base/queue/memory"
 	"github.com/LingByte/ling-base/common/retry"
