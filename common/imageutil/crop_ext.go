@@ -158,9 +158,9 @@ func RoundCorners(img image.Image, radius int) image.Image {
 	rf := float64(radius)
 	r2 := rf * rf
 	corners := [4][2]float64{
-		{rf, rf},                       // top-left
-		{float64(w) - 1 - rf, rf},      // top-right
-		{rf, float64(h) - 1 - rf},      // bottom-left
+		{rf, rf},                                   // top-left
+		{float64(w) - 1 - rf, rf},                  // top-right
+		{rf, float64(h) - 1 - rf},                  // bottom-left
 		{float64(w) - 1 - rf, float64(h) - 1 - rf}, // bottom-right
 	}
 

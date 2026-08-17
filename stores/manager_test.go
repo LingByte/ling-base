@@ -19,11 +19,15 @@ type mockManagerStore struct {
 func (m *mockManagerStore) ListBuckets(req *ListBucketsRequest) (*ListBucketsResponse, error) {
 	return &ListBucketsResponse{Buckets: m.buckets}, nil
 }
-func (m *mockManagerStore) CreateBucket(req *CreateBucketRequest) error       { return nil }
-func (m *mockManagerStore) DeleteBucket(bucket string) error                  { return nil }
-func (m *mockManagerStore) GetBucketInfo(bucket string) (*BucketInfo, error)  { return &BucketInfo{Name: bucket}, nil }
-func (m *mockManagerStore) SetBucketPrivate(bucket string, p bool) error      { return nil }
-func (m *mockManagerStore) GetBucketDomains(bucket string) ([]string, error)  { return []string{"a.com"}, nil }
+func (m *mockManagerStore) CreateBucket(req *CreateBucketRequest) error { return nil }
+func (m *mockManagerStore) DeleteBucket(bucket string) error            { return nil }
+func (m *mockManagerStore) GetBucketInfo(bucket string) (*BucketInfo, error) {
+	return &BucketInfo{Name: bucket}, nil
+}
+func (m *mockManagerStore) SetBucketPrivate(bucket string, p bool) error { return nil }
+func (m *mockManagerStore) GetBucketDomains(bucket string) ([]string, error) {
+	return []string{"a.com"}, nil
+}
 func (m *mockManagerStore) ListFiles(bucket string, req *ListFilesRequest) (*ListFilesResponse, error) {
 	return &ListFilesResponse{Files: m.files}, nil
 }

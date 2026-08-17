@@ -100,8 +100,8 @@ type Claims struct {
 	ID        string `json:"jti,omitempty"`
 
 	// Auth-specific claims.
-	TokenType TokenType   `json:"type,omitempty"`
-	Roles     []string    `json:"roles,omitempty"`
+	TokenType   TokenType `json:"type,omitempty"`
+	Roles       []string  `json:"roles,omitempty"`
 	Permissions []string  `json:"perms,omitempty"`
 
 	// Extra holds any additional non-standard claims.
@@ -200,8 +200,8 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Algorithm: crypto.JWTAlgHS256,
-		AccessTTL: 15 * time.Minute,
+		Algorithm:  crypto.JWTAlgHS256,
+		AccessTTL:  15 * time.Minute,
 		RefreshTTL: 168 * time.Hour,
 	}
 }

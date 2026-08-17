@@ -28,13 +28,16 @@ func (m *mockEngine) Init(tr base.ResultFunc, er base.ErrorFunc) {
 	tr(m.result, true, 0, "test-dialog")
 }
 
-func (m *mockEngine) Vendor() string                    { return "mock" }
+func (m *mockEngine) Vendor() string                       { return "mock" }
 func (m *mockEngine) ConnAndReceive(dialogID string) error { m.started = true; return nil }
-func (m *mockEngine) Activity() bool                    { return m.started }
-func (m *mockEngine) RestartClient()                    {}
-func (m *mockEngine) SendAudioBytes(data []byte) error  { m.audio = append(m.audio, data...); return nil }
-func (m *mockEngine) SendEnd() error                    { return nil }
-func (m *mockEngine) StopConn() error                   { return nil }
+func (m *mockEngine) Activity() bool                       { return m.started }
+func (m *mockEngine) RestartClient()                       {}
+func (m *mockEngine) SendAudioBytes(data []byte) error {
+	m.audio = append(m.audio, data...)
+	return nil
+}
+func (m *mockEngine) SendEnd() error  { return nil }
+func (m *mockEngine) StopConn() error { return nil }
 
 func TestASRParser_NoEngine(t *testing.T) {
 	p := &ASRParser{}

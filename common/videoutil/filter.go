@@ -86,10 +86,10 @@ func OverlayExpr(pos Position, margin int) (xExpr, yExpr string) {
 
 // WatermarkOptions configures how a watermark is applied.
 type WatermarkOptions struct {
-	Position   Position // corner/center (default: bottom-right)
-	Margin     int      // pixel margin from edge (default: 10)
-	Scale      float64  // scale factor relative to video width (0 = no scaling, default: 0)
-	Opacity    float64  // 0.0-1.0, 1 = fully opaque (default: 1)
+	Position Position // corner/center (default: bottom-right)
+	Margin   int      // pixel margin from edge (default: 10)
+	Scale    float64  // scale factor relative to video width (0 = no scaling, default: 0)
+	Opacity  float64  // 0.0-1.0, 1 = fully opaque (default: 1)
 }
 
 // DefaultWatermarkOptions returns sensible defaults.

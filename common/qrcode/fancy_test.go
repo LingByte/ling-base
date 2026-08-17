@@ -94,10 +94,10 @@ func TestGenerateFancy_Gradient(t *testing.T) {
 
 func TestGenerateFancy_TransparentBg(t *testing.T) {
 	opts := FancyOptions{
-		Module:       ShapeCircle,
-		FgColor:      color.Black,
+		Module:        ShapeCircle,
+		FgColor:       color.Black,
 		BgTransparent: true,
-		ModuleWidth:  21,
+		ModuleWidth:   21,
 	}
 	data, err := GenerateFancy("transparent test", ECLHigh, opts)
 	require.NoError(t, err)

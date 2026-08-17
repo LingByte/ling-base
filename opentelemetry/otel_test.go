@@ -79,11 +79,11 @@ func TestInit_WithPrometheus(t *testing.T) {
 func TestInit_WithStdoutTrace(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:   "stdout-trace-test",
-		TraceExporter: TraceExporterStdout,
+		ServiceName:     "stdout-trace-test",
+		TraceExporter:   TraceExporterStdout,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:   LogExporterNoop,
-		SetGlobal:     false,
+		LogExporter:     LogExporterNoop,
+		SetGlobal:       false,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)
@@ -99,11 +99,11 @@ func TestInit_WithStdoutTrace(t *testing.T) {
 func TestInit_WithStdoutLog(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:   "stdout-log-test",
-		TraceExporter: TraceExporterNoop,
+		ServiceName:     "stdout-log-test",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:   LogExporterStdout,
-		SetGlobal:     false,
+		LogExporter:     LogExporterStdout,
+		SetGlobal:       false,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)
@@ -145,10 +145,10 @@ func TestInit_UnknownLogExporter(t *testing.T) {
 func TestSDK_ShutdownMultipleCalls(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:   "multi-shutdown-test",
-		TraceExporter: TraceExporterNoop,
+		ServiceName:     "multi-shutdown-test",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:   LogExporterNoop,
+		LogExporter:     LogExporterNoop,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)
@@ -190,11 +190,11 @@ func TestLogProvider_Noop(t *testing.T) {
 func TestZapOTelCore(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:   "zap-bridge-test",
-		TraceExporter: TraceExporterNoop,
+		ServiceName:     "zap-bridge-test",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:   LogExporterStdout,
-		SetGlobal:     false,
+		LogExporter:     LogExporterStdout,
+		SetGlobal:       false,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)
@@ -216,11 +216,11 @@ func TestZapOTelCore(t *testing.T) {
 func TestZapOTelCore_WithLevel(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:   "zap-level-test",
-		TraceExporter: TraceExporterNoop,
+		ServiceName:     "zap-level-test",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:   LogExporterStdout,
-		SetGlobal:     false,
+		LogExporter:     LogExporterStdout,
+		SetGlobal:       false,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)
@@ -344,10 +344,10 @@ func TestZapFieldToOTel_Float32Value(t *testing.T) {
 func TestInit_ResourceAttributes(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:    "resource-attr-test",
-		TraceExporter:  TraceExporterNoop,
+		ServiceName:     "resource-attr-test",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:    LogExporterNoop,
+		LogExporter:     LogExporterNoop,
 		ResourceAttributes: map[string]string{
 			"custom.otel.attr": "otel-value",
 		},
@@ -382,12 +382,12 @@ func TestInit_LogOTLPEndpointDefaultsToOTLPEndpoint(t *testing.T) {
 	// is used correctly.
 	ctx := context.Background()
 	cfg := Config{
-		ServiceName:    "log-endpoint-default-test",
-		OTLPEndpoint:   "my-collector:4317",
-		TraceExporter:  TraceExporterNoop,
+		ServiceName:     "log-endpoint-default-test",
+		OTLPEndpoint:    "my-collector:4317",
+		TraceExporter:   TraceExporterNoop,
 		MetricsExporter: MetricsExporterNoop,
-		LogExporter:    LogExporterNoop, // noop so we don't need a real endpoint
-		SetGlobal:      false,
+		LogExporter:     LogExporterNoop, // noop so we don't need a real endpoint
+		SetGlobal:       false,
 	}
 	sdk, err := Init(ctx, cfg)
 	require.NoError(t, err)

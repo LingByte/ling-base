@@ -152,11 +152,11 @@ type mockEngine struct {
 	vendor string
 }
 
-func (m *mockEngine) Init(_ ResultFunc, _ ErrorFunc)      {}
-func (m *mockEngine) Vendor() string                       { return m.vendor }
-func (m *mockEngine) ConnAndReceive(_ string) error        { return nil }
-func (m *mockEngine) Activity() bool                       { return false }
-func (m *mockEngine) RestartClient()                       {}
-func (m *mockEngine) SendAudioBytes(_ []byte) error        { return nil }
-func (m *mockEngine) SendEnd() error                       { return nil }
-func (m *mockEngine) StopConn() error                      { return nil }
+func (m *mockEngine) Init(_ ResultFunc, _ ErrorFunc) {}
+func (m *mockEngine) Vendor() string                 { return m.vendor }
+func (m *mockEngine) ConnAndReceive(_ string) error  { return nil }
+func (m *mockEngine) Activity() bool                 { return false }
+func (m *mockEngine) RestartClient()                 {}
+func (m *mockEngine) SendAudioBytes(_ []byte) error  { return nil }
+func (m *mockEngine) SendEnd() error                 { return nil }
+func (m *mockEngine) StopConn() error                { return nil }

@@ -16,23 +16,23 @@ import (
 
 // TranscodeOptions configures a transcoding operation.
 type TranscodeOptions struct {
-	VideoCodec   string // default "libx264"
-	AudioCodec   string // default "aac"
-	CRF          int    // 0 = use default (23)
-	Preset       string // default "medium"
-	Tune         string // e.g. "film", "animation"; "" = none
-	ScaleWidth   int    // 0 = no scaling
-	ScaleHeight  int    // 0 = keep aspect
-	PadToSize    bool   // if true, pad with black bars to exact ScaleWidth x ScaleHeight
-	FrameRate    string // e.g. "30"; "" = keep original
-	PixelFormat  string // default "yuv420p"
-	VideoBitRate string // e.g. "2M"; "" = use CRF
-	AudioBitRate string // e.g. "128k"; "" = default
-	SampleRate   int    // 0 = keep original
-	AudioChannels int   // 0 = keep original
-	FastStart    bool   // default true (for MP4)
-	NoAudio      bool   // drop audio
-	NoVideo      bool   // drop video (audio only)
+	VideoCodec    string // default "libx264"
+	AudioCodec    string // default "aac"
+	CRF           int    // 0 = use default (23)
+	Preset        string // default "medium"
+	Tune          string // e.g. "film", "animation"; "" = none
+	ScaleWidth    int    // 0 = no scaling
+	ScaleHeight   int    // 0 = keep aspect
+	PadToSize     bool   // if true, pad with black bars to exact ScaleWidth x ScaleHeight
+	FrameRate     string // e.g. "30"; "" = keep original
+	PixelFormat   string // default "yuv420p"
+	VideoBitRate  string // e.g. "2M"; "" = use CRF
+	AudioBitRate  string // e.g. "128k"; "" = default
+	SampleRate    int    // 0 = keep original
+	AudioChannels int    // 0 = keep original
+	FastStart     bool   // default true (for MP4)
+	NoAudio       bool   // drop audio
+	NoVideo       bool   // drop video (audio only)
 }
 
 // DefaultTranscodeOptions returns sensible defaults for H.264/AAC MP4.
@@ -54,16 +54,22 @@ type TranscodeOption func(*TranscodeOptions)
 func WithCRF(crf int) TranscodeOption { return func(o *TranscodeOptions) { o.CRF = crf } }
 
 // WithPreset sets the encoding preset.
-func WithPreset(preset string) TranscodeOption { return func(o *TranscodeOptions) { o.Preset = preset } }
+func WithPreset(preset string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.Preset = preset }
+}
 
 // WithTune sets the encoding tune.
 func WithTune(tune string) TranscodeOption { return func(o *TranscodeOptions) { o.Tune = tune } }
 
 // WithVideoCodec sets the video codec.
-func WithVideoCodec(codec string) TranscodeOption { return func(o *TranscodeOptions) { o.VideoCodec = codec } }
+func WithVideoCodec(codec string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.VideoCodec = codec }
+}
 
 // WithAudioCodec sets the audio codec.
-func WithAudioCodec(codec string) TranscodeOption { return func(o *TranscodeOptions) { o.AudioCodec = codec } }
+func WithAudioCodec(codec string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.AudioCodec = codec }
+}
 
 // WithScale sets the output resolution.
 func WithScale(width, height int) TranscodeOption {
@@ -80,22 +86,32 @@ func WithPad(width, height int) TranscodeOption {
 }
 
 // WithFrameRate sets the output frame rate.
-func WithFrameRate(fps string) TranscodeOption { return func(o *TranscodeOptions) { o.FrameRate = fps } }
+func WithFrameRate(fps string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.FrameRate = fps }
+}
 
 // WithPixelFormat sets the output pixel format.
-func WithPixelFormat(pf string) TranscodeOption { return func(o *TranscodeOptions) { o.PixelFormat = pf } }
+func WithPixelFormat(pf string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.PixelFormat = pf }
+}
 
 // WithVideoBitRate sets the video bitrate (overrides CRF).
-func WithVideoBitRate(br string) TranscodeOption { return func(o *TranscodeOptions) { o.VideoBitRate = br } }
+func WithVideoBitRate(br string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.VideoBitRate = br }
+}
 
 // WithAudioBitRate sets the audio bitrate.
-func WithAudioBitRate(br string) TranscodeOption { return func(o *TranscodeOptions) { o.AudioBitRate = br } }
+func WithAudioBitRate(br string) TranscodeOption {
+	return func(o *TranscodeOptions) { o.AudioBitRate = br }
+}
 
 // WithSampleRate sets the audio sample rate.
 func WithSampleRate(hz int) TranscodeOption { return func(o *TranscodeOptions) { o.SampleRate = hz } }
 
 // WithAudioChannels sets the number of audio channels.
-func WithAudioChannels(n int) TranscodeOption { return func(o *TranscodeOptions) { o.AudioChannels = n } }
+func WithAudioChannels(n int) TranscodeOption {
+	return func(o *TranscodeOptions) { o.AudioChannels = n }
+}
 
 // WithFastStart enables MP4 faststart.
 func WithFastStart() TranscodeOption { return func(o *TranscodeOptions) { o.FastStart = true } }
@@ -346,7 +362,9 @@ func WithClipStart(seconds float64) ClipOption { return func(o *ClipOptions) { o
 func WithClipEnd(seconds float64) ClipOption { return func(o *ClipOptions) { o.End = seconds } }
 
 // WithClipDuration sets the clip duration.
-func WithClipDuration(seconds float64) ClipOption { return func(o *ClipOptions) { o.Duration = seconds } }
+func WithClipDuration(seconds float64) ClipOption {
+	return func(o *ClipOptions) { o.Duration = seconds }
+}
 
 // WithClipCopy uses stream copy (no re-encoding).
 func WithClipCopy() ClipOption { return func(o *ClipOptions) { o.Copy = true } }

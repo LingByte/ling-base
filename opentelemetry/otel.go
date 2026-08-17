@@ -42,10 +42,10 @@ import (
 	"time"
 
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/attribute"
 	otlploggrpc "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	otlploghttp "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	stdoutlog "go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
-	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	otellognoop "go.opentelemetry.io/otel/log/noop"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -151,9 +151,9 @@ type SDK struct {
 
 // LogProvider wraps an SDK LoggerProvider.
 type LogProvider struct {
-	lp        *sdklog.LoggerProvider
-	logger    otellog.Logger
-	shutdown  func(context.Context) error
+	lp         *sdklog.LoggerProvider
+	logger     otellog.Logger
+	shutdown   func(context.Context) error
 	shutdownMu sync.Mutex
 }
 

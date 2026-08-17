@@ -349,11 +349,11 @@ type baiduASRRequest struct {
 
 // BaiduASRResponse is the parsed recognition response from Baidu.
 type BaiduASRResponse struct {
-	ErrNo  int      `json:"err_no"`
-	ErrMsg string   `json:"err_msg"`
-	Sn     string   `json:"sn"`
-	CorpusNo string `json:"corpus_no"`
-	Result  []string `json:"result"`
+	ErrNo    int      `json:"err_no"`
+	ErrMsg   string   `json:"err_msg"`
+	Sn       string   `json:"sn"`
+	CorpusNo string   `json:"corpus_no"`
+	Result   []string `json:"result"`
 }
 
 // recognizeAudio POSTs the accumulated audio to the Baidu server_api endpoint

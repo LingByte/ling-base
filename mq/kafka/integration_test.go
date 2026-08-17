@@ -98,7 +98,7 @@ func TestIntegrationBroker(t *testing.T) {
 	}
 
 	// Stop.
-	assert.NoError(t, consumer.Stop(5 * time.Second))
+	assert.NoError(t, consumer.Stop(5*time.Second))
 	assert.False(t, consumer.IsRunning())
 }
 

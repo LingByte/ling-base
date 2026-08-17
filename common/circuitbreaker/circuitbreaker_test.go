@@ -406,11 +406,11 @@ func TestState_String(t *testing.T) {
 
 func TestCircuit_AllowMarkSuccessMarkFailed(t *testing.T) {
 	cb := New(Config{
-		FailureThreshold:   0.5,
-		MinRequests:        2,
-		SlidingWindowSize:  10,
-		RecoveryTimeout:    50 * time.Millisecond,
-		MaxRequests:        1,
+		FailureThreshold:  0.5,
+		MinRequests:       2,
+		SlidingWindowSize: 10,
+		RecoveryTimeout:   50 * time.Millisecond,
+		MaxRequests:       1,
 	})
 
 	// Closed: allow

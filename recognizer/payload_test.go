@@ -71,8 +71,8 @@ func TestBuildAuthHeader(t *testing.T) {
 
 func TestRequestPayloadJSON(t *testing.T) {
 	payload := RequestPayload{
-		User: UserMeta{UID: "test-uid", Platform: "test"},
-		Audio: AudioMeta{Format: "pcm", Rate: 16000, Bits: 16, Channel: 1},
+		User:    UserMeta{UID: "test-uid", Platform: "test"},
+		Audio:   AudioMeta{Format: "pcm", Rate: 16000, Bits: 16, Channel: 1},
 		Request: RequestMeta{ModelName: "bigmodel", EnableITN: true, EnablePUNC: true},
 	}
 	data, err := json.Marshal(payload)

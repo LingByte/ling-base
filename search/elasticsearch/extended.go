@@ -357,9 +357,9 @@ func (e *engine) Scroll(ctx context.Context, req search.SearchRequest, keepAlive
 	bodyBytes, _ := json.Marshal(body)
 
 	r := esapi.SearchRequest{
-		Index:     []string{e.cfg.IndexName},
-		Body:      bytes.NewReader(bodyBytes),
-		Scroll:    keepAlive,
+		Index:  []string{e.cfg.IndexName},
+		Body:   bytes.NewReader(bodyBytes),
+		Scroll: keepAlive,
 	}
 	resp, err := r.Do(c, e.client)
 	if err != nil {
@@ -442,7 +442,9 @@ func (e *engine) ClearScroll(ctx context.Context, scrollID string) error {
 	return nil
 }
 
-func parseScrollResponse(body interface{ Read(p []byte) (n int, err error) }) (search.ScrollResult, error) {
+func parseScrollResponse(body interface {
+	Read(p []byte) (n int, err error)
+}) (search.ScrollResult, error) {
 	var esResp struct {
 		ScrollID string `json:"_scroll_id"`
 		Took     int64  `json:"took"`
@@ -785,7 +787,7 @@ func (e *engine) CompletionSuggest(ctx context.Context, req search.CompletionSug
 
 	var esResp struct {
 		Suggest map[string][]struct {
-			Text string `json:"text"`
+			Text    string `json:"text"`
 			Options []struct {
 				Text  string  `json:"text"`
 				Score float64 `json:"_score"`
@@ -834,7 +836,7 @@ func (e *engine) TermSuggest(ctx context.Context, req search.TermSuggestionReque
 	}
 
 	term := map[string]any{
-		"text":          req.Text,
+		"text": req.Text,
 		"term": map[string]any{
 			"field":        req.Field,
 			"size":         size,
@@ -1171,7 +1173,9 @@ func (e *engine) MultiIndexSearch(ctx context.Context, indices []string, req sea
 }
 
 // parseSearchResponse parses an ES search response body into SearchResult.
-func parseSearchResponse(body interface{ Read(p []byte) (n int, err error) }) (search.SearchResult, error) {
+func parseSearchResponse(body interface {
+	Read(p []byte) (n int, err error)
+}) (search.SearchResult, error) {
 	var esResp struct {
 		Took int64 `json:"took"`
 		Hits struct {
@@ -1179,13 +1183,13 @@ func parseSearchResponse(body interface{ Read(p []byte) (n int, err error) }) (s
 				Value uint64 `json:"value"`
 			} `json:"total"`
 			MaxScore *float64 `json:"max_score"`
-			Hits []struct {
-				ID      string          `json:"_id"`
-				Score   *float64        `json:"_score"`
-				Source  map[string]any  `json:"_source"`
-				Index   string          `json:"_index"`
-				Sort    []any           `json:"sort"`
-				Version int64           `json:"_version,omitempty"`
+			Hits     []struct {
+				ID        string              `json:"_id"`
+				Score     *float64            `json:"_score"`
+				Source    map[string]any      `json:"_source"`
+				Index     string              `json:"_index"`
+				Sort      []any               `json:"sort"`
+				Version   int64               `json:"_version,omitempty"`
 				Highlight map[string][]string `json:"highlight"`
 			} `json:"hits"`
 		} `json:"hits"`

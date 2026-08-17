@@ -99,7 +99,7 @@ func TestConvertResponseToResult(t *testing.T) {
 
 	// Test successful response
 	resp := &Response{
-		Code: 0,
+		Code:          0,
 		IsLastPackage: false,
 		PayloadMsg: &ResponsePayload{
 			Result: struct {

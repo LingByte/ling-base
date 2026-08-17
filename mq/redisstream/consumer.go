@@ -222,10 +222,10 @@ func (c *Consumer) readStandalone(ctx context.Context) ([]redis.XMessage, error)
 // process handles a single delivery.
 func (c *Consumer) process(ctx context.Context, m redis.XMessage) {
 	delivery := &streamDelivery{
-		msg:        m,
-		stream:     c.stream,
-		group:      c.group,
-		consumer:   c,
+		msg:      m,
+		stream:   c.stream,
+		group:    c.group,
+		consumer: c,
 	}
 
 	c.broker.metrics.RecordConsume()

@@ -16,9 +16,9 @@ import (
 
 // stubWSServer is a minimal WS echo server for BaseAgent lifecycle tests.
 type stubWSServer struct {
-	t        *testing.T
-	server   *httptest.Server
-	url      string
+	t         *testing.T
+	server    *httptest.Server
+	url       string
 	onConnect func(conn *websocket.Conn)
 	onMessage func(conn *websocket.Conn, msg []byte)
 }

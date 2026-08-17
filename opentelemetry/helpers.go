@@ -7,8 +7,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // setGlobalTracerProvider registers the tracer provider globally.

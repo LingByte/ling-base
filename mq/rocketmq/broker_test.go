@@ -42,11 +42,11 @@ func TestNew_Defaults(t *testing.T) {
 
 func TestNew_WithConfig(t *testing.T) {
 	cfg := Config{
-		NameServer:    []string{"127.0.0.1:9876"},
-		GroupName:     "my-group",
-		InstanceName:  "my-instance",
-		RetryCount:    5,
-		Credentials:   Credentials{AccessKey: "ak", SecretKey: "sk"},
+		NameServer:   []string{"127.0.0.1:9876"},
+		GroupName:    "my-group",
+		InstanceName: "my-instance",
+		RetryCount:   5,
+		Credentials:  Credentials{AccessKey: "ak", SecretKey: "sk"},
 	}
 	b, err := New(cfg)
 	assert.NoError(t, err)

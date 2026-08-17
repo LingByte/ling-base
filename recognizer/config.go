@@ -9,12 +9,12 @@ type AuthConfig struct {
 
 // Config represents the configuration for ASR client.
 type Config struct {
-	URL     string     `json:"url" yaml:"url"`
-	Auth    AuthConfig `json:"auth" yaml:"auth"`
-	User    UserConfig `json:"user" yaml:"user"`
-	Audio   AudioConfig `json:"audio" yaml:"audio"`
+	URL     string        `json:"url" yaml:"url"`
+	Auth    AuthConfig    `json:"auth" yaml:"auth"`
+	User    UserConfig    `json:"user" yaml:"user"`
+	Audio   AudioConfig   `json:"audio" yaml:"audio"`
 	Request RequestConfig `json:"request" yaml:"request"`
-	Buffer  BufferConfig `json:"buffer" yaml:"buffer"`
+	Buffer  BufferConfig  `json:"buffer" yaml:"buffer"`
 }
 
 // UserConfig represents user metadata configuration.

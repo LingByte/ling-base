@@ -434,12 +434,12 @@ func TestValidateBucketName(t *testing.T) {
 		name    string
 		wantErr bool
 	}{
-		{"ab", true},           // too short
-		{"valid-bucket", false}, // valid
+		{"ab", true},                           // too short
+		{"valid-bucket", false},                // valid
 		{"a" + strings.Repeat("b", 62), false}, // exactly 63 chars
 		{"a" + strings.Repeat("b", 63), true},  // too long
-		{"has..dots", true},    // consecutive dots
-		{"has//slashes", true}, // consecutive slashes
+		{"has..dots", true},                    // consecutive dots
+		{"has//slashes", true},                 // consecutive slashes
 	}
 	for _, tt := range tests {
 		err := validateBucketName(tt.name)

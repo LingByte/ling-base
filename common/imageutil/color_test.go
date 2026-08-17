@@ -185,14 +185,14 @@ func TestThreshold_AllWhite(t *testing.T) {
 func TestRGBToHSV_KnownValues(t *testing.T) {
 	// h is in sector units [0,6), so green=2, blue=4 (not 120/240 degrees).
 	tests := []struct {
-		r, g, b     uint8
-		h, s, v     float64
+		r, g, b uint8
+		h, s, v float64
 	}{
-		{255, 0, 0, 0, 1, 1},       // red
-		{0, 255, 0, 2, 1, 1},       // green (sector 2)
-		{0, 0, 255, 4, 1, 1},       // blue (sector 4)
-		{0, 0, 0, 0, 0, 0},         // black
-		{255, 255, 255, 0, 0, 1},   // white
+		{255, 0, 0, 0, 1, 1},     // red
+		{0, 255, 0, 2, 1, 1},     // green (sector 2)
+		{0, 0, 255, 4, 1, 1},     // blue (sector 4)
+		{0, 0, 0, 0, 0, 0},       // black
+		{255, 255, 255, 0, 0, 1}, // white
 	}
 	for _, tt := range tests {
 		h, s, v := rgbToHSV(tt.r, tt.g, tt.b)

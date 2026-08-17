@@ -64,11 +64,11 @@ func TestNormalizeFramePeriod(t *testing.T) {
 		{"50ms", 50 * time.Millisecond},
 		{"100ms", 100 * time.Millisecond},
 		{"300ms", 300 * time.Millisecond},
-		{"5ms", 20 * time.Millisecond},      // too small → default
-		{"350ms", 20 * time.Millisecond},    // too large → default
-		{"0ms", 20 * time.Millisecond},      // zero → default
-		{"invalid", 20 * time.Millisecond},  // parse error → default
-		{"", 20 * time.Millisecond},         // empty → default
+		{"5ms", 20 * time.Millisecond},     // too small → default
+		{"350ms", 20 * time.Millisecond},   // too large → default
+		{"0ms", 20 * time.Millisecond},     // zero → default
+		{"invalid", 20 * time.Millisecond}, // parse error → default
+		{"", 20 * time.Millisecond},        // empty → default
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -213,9 +213,9 @@ type mockEngine struct {
 	format   StreamFormat
 }
 
-func (m *mockEngine) Provider() Provider             { return m.provider }
-func (m *mockEngine) Format() StreamFormat            { return m.format }
-func (m *mockEngine) CacheKey(text string) string     { return "mock-" + HashText(text) }
+func (m *mockEngine) Provider() Provider          { return m.provider }
+func (m *mockEngine) Format() StreamFormat        { return m.format }
+func (m *mockEngine) CacheKey(text string) string { return "mock-" + HashText(text) }
 func (m *mockEngine) Synthesize(_ context.Context, h Handler, _ string) error {
 	h.OnMessage([]byte("mock audio"))
 	return nil

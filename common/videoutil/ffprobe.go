@@ -135,22 +135,22 @@ type ffprobeFormat struct {
 }
 
 type ffprobeStream struct {
-	Index          int               `json:"index"`
-	CodecName      string            `json:"codec_name"`
-	CodecLongName  string            `json:"codec_long_name"`
-	CodecType      string            `json:"codec_type"`
-	Profile        string            `json:"profile"`
-	Width          int               `json:"width"`
-	Height         int               `json:"height"`
-	PixFmt         string            `json:"pix_fmt"`
-	RFrameRate     string            `json:"r_frame_rate"`
-	AvgFrameRate   string            `json:"avg_frame_rate"`
-	BitRate        string            `json:"bit_rate"`
-	SampleRate     string            `json:"sample_rate"`
-	Channels       int               `json:"channels"`
-	ChannelLayout  string            `json:"channel_layout"`
-	Duration       string            `json:"duration"`
-	Tags           map[string]string `json:"tags"`
+	Index         int               `json:"index"`
+	CodecName     string            `json:"codec_name"`
+	CodecLongName string            `json:"codec_long_name"`
+	CodecType     string            `json:"codec_type"`
+	Profile       string            `json:"profile"`
+	Width         int               `json:"width"`
+	Height        int               `json:"height"`
+	PixFmt        string            `json:"pix_fmt"`
+	RFrameRate    string            `json:"r_frame_rate"`
+	AvgFrameRate  string            `json:"avg_frame_rate"`
+	BitRate       string            `json:"bit_rate"`
+	SampleRate    string            `json:"sample_rate"`
+	Channels      int               `json:"channels"`
+	ChannelLayout string            `json:"channel_layout"`
+	Duration      string            `json:"duration"`
+	Tags          map[string]string `json:"tags"`
 }
 
 // ProbeRaw executes ffprobe and returns the raw JSON output.

@@ -43,15 +43,15 @@ func init() {
 
 // Config is the typed shape of the credential JSON.
 type Config struct {
-	AppID          string
-	APIKey         string
-	APISecret      string
-	BaseURL        string
-	Voice          string
-	SystemPrompt   string
-	InteractMode   string // "continuous" (全双工) or "continuous_vad" (单工)
-	DialTimeoutMs  int
-	InputRate      int
+	AppID         string
+	APIKey        string
+	APISecret     string
+	BaseURL       string
+	Voice         string
+	SystemPrompt  string
+	InteractMode  string // "continuous" (全双工) or "continuous_vad" (单工)
+	DialTimeoutMs int
+	InputRate     int
 }
 
 // New is the realtime.Provider entry point.

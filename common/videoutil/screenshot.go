@@ -215,12 +215,12 @@ func (t *FFmpegTool) AddTextWatermark(ctx context.Context, input, output, text, 
 
 // GIFOptions configures GIF creation from a video.
 type GIFOptions struct {
-	Start      float64 // start time in seconds (default: 0)
-	Duration   float64 // duration in seconds (default: 3)
-	Width      int     // 0 = original width
-	Height     int     // 0 = original height
-	FPS        int      // frames per second (default: 10)
-	Optimize   bool     // if true, use palettegen + paletteuse for better quality
+	Start    float64 // start time in seconds (default: 0)
+	Duration float64 // duration in seconds (default: 3)
+	Width    int     // 0 = original width
+	Height   int     // 0 = original height
+	FPS      int     // frames per second (default: 10)
+	Optimize bool    // if true, use palettegen + paletteuse for better quality
 }
 
 // DefaultGIFOptions returns sensible defaults.

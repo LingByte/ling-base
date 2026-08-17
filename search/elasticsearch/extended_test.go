@@ -92,8 +92,8 @@ func TestES_BulkDelete(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		eng.Index(ctx, search.Doc{
-			ID:   fmt.Sprintf("bd-%d", i),
-			Type: "article",
+			ID:     fmt.Sprintf("bd-%d", i),
+			Type:   "article",
 			Fields: map[string]any{"title": fmt.Sprintf("Bulk Delete %d", i)},
 		})
 	}
@@ -116,8 +116,8 @@ func TestES_BulkUpdate(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		eng.Index(ctx, search.Doc{
-			ID:   fmt.Sprintf("bu-%d", i),
-			Type: "article",
+			ID:     fmt.Sprintf("bu-%d", i),
+			Type:   "article",
 			Fields: map[string]any{"title": fmt.Sprintf("Bulk Update %d", i), "views": 0},
 		})
 	}
@@ -207,8 +207,8 @@ func TestES_Scroll(t *testing.T) {
 	// Index 25 docs
 	for i := 0; i < 25; i++ {
 		eng.Index(ctx, search.Doc{
-			ID:   fmt.Sprintf("sc-%d", i),
-			Type: "article",
+			ID:     fmt.Sprintf("sc-%d", i),
+			Type:   "article",
 			Fields: map[string]any{"title": fmt.Sprintf("Scroll Doc %d", i)},
 		})
 	}
@@ -249,8 +249,8 @@ func TestES_SearchAfter(t *testing.T) {
 
 	for i := 0; i < 15; i++ {
 		eng.Index(ctx, search.Doc{
-			ID:   fmt.Sprintf("sa-%02d", i),
-			Type: "article",
+			ID:     fmt.Sprintf("sa-%02d", i),
+			Type:   "article",
 			Fields: map[string]any{"title": fmt.Sprintf("SearchAfter %d", i)},
 		})
 	}
@@ -405,7 +405,6 @@ func TestES_HealthCheck(t *testing.T) {
 func TestES_IndexManagement(t *testing.T) {
 	eng := newTestEngine(t)
 	ctx := context.Background()
-	
 
 	testIdx := fmt.Sprintf("test_mgmt_%d", time.Now().UnixNano())
 
@@ -435,7 +434,6 @@ func TestES_IndexManagement(t *testing.T) {
 func TestES_AliasManagement(t *testing.T) {
 	eng := newTestEngine(t)
 	ctx := context.Background()
-	
 
 	aliasName := fmt.Sprintf("test_alias_%d", time.Now().UnixNano())
 
@@ -455,7 +453,6 @@ func TestES_AliasManagement(t *testing.T) {
 func TestES_ClusterHealth(t *testing.T) {
 	eng := newTestEngine(t)
 	ctx := context.Background()
-	
 
 	health, err := eng.(*engine).ClusterHealth(ctx)
 	require.NoError(t, err)
@@ -467,7 +464,6 @@ func TestES_ClusterHealth(t *testing.T) {
 func TestES_IndexStats(t *testing.T) {
 	eng := newTestEngine(t)
 	ctx := context.Background()
-	
 
 	eng.Index(ctx, search.Doc{ID: "is-1", Type: "article", Fields: map[string]any{"title": "Stats"}})
 
@@ -483,7 +479,6 @@ func TestES_IndexStats(t *testing.T) {
 func TestES_MultiIndexSearch(t *testing.T) {
 	eng := newTestEngine(t)
 	ctx := context.Background()
-	
 
 	// Create a second index
 	secondIdx := fmt.Sprintf("test_multi_%d", time.Now().UnixNano())

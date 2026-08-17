@@ -24,14 +24,14 @@ type fakeDelivery struct {
 	tag         uint64
 }
 
-func (f *fakeDelivery) Message() *Message      { return f.msg }
-func (f *fakeDelivery) Body() []byte           { return f.msg.Body }
+func (f *fakeDelivery) Message() *Message       { return f.msg }
+func (f *fakeDelivery) Body() []byte            { return f.msg.Body }
 func (f *fakeDelivery) Headers() map[string]any { return f.msg.Headers }
-func (f *fakeDelivery) RoutingKey() string     { return f.msg.RoutingKey }
-func (f *fakeDelivery) Exchange() string       { return f.msg.Exchange }
-func (f *fakeDelivery) Redelivered() bool      { return f.redelivered }
-func (f *fakeDelivery) DeliveryTag() uint64    { return f.tag }
-func (f *fakeDelivery) Ack() error             { f.acked = true; return nil }
+func (f *fakeDelivery) RoutingKey() string      { return f.msg.RoutingKey }
+func (f *fakeDelivery) Exchange() string        { return f.msg.Exchange }
+func (f *fakeDelivery) Redelivered() bool       { return f.redelivered }
+func (f *fakeDelivery) DeliveryTag() uint64     { return f.tag }
+func (f *fakeDelivery) Ack() error              { f.acked = true; return nil }
 func (f *fakeDelivery) Nack(requeue bool) error {
 	f.nacked = true
 	f.nackRequeue = requeue

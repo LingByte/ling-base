@@ -53,9 +53,9 @@ func (g *CounterIDGenerator) NewID() (string, error) {
 // MemoryTokenStore is an in-process TokenStore. Useful for single-instance
 // deployments and testing. Not suitable for multi-instance setups.
 type MemoryTokenStore struct {
-	mu       sync.RWMutex
-	revoked  map[string]time.Time // jti -> expiry
-	used     map[string]time.Time // jti -> expiry (for refresh replay prevention)
+	mu      sync.RWMutex
+	revoked map[string]time.Time // jti -> expiry
+	used    map[string]time.Time // jti -> expiry (for refresh replay prevention)
 }
 
 // NewMemoryTokenStore creates an in-memory token store.
@@ -128,7 +128,7 @@ func (s *MemoryTokenStore) Len() (revoked, used int) {
 
 // Compile-time interface checks.
 var (
-	_ TokenStore   = (*MemoryTokenStore)(nil)
-	_ IDGenerator  = defaultIDGenerator{}
-	_ IDGenerator  = (*CounterIDGenerator)(nil)
+	_ TokenStore  = (*MemoryTokenStore)(nil)
+	_ IDGenerator = defaultIDGenerator{}
+	_ IDGenerator = (*CounterIDGenerator)(nil)
 )

@@ -217,9 +217,9 @@ type Hit struct {
 	Score     float64             `json:"score"`
 	Fields    map[string]any      `json:"fields"`
 	Fragments map[string][]string `json:"fragments,omitempty"`
-	Sort      []any               `json:"sort,omitempty"`  // sort values for SearchAfter
+	Sort      []any               `json:"sort,omitempty"` // sort values for SearchAfter
 	Version   int64               `json:"version,omitempty"`
-	Index     string              `json:"index,omitempty"`  // source index (multi-index search)
+	Index     string              `json:"index,omitempty"` // source index (multi-index search)
 }
 
 // FacetTerm is a single term in a facet result.
@@ -236,12 +236,12 @@ type FacetResult struct {
 
 // SearchResult is the response to a SearchRequest.
 type SearchResult struct {
-	Total        uint64                      `json:"total"`
-	Took         time.Duration               `json:"took"`
-	Hits         []Hit                       `json:"hits"`
-	Facets       map[string]FacetResult      `json:"facets,omitempty"`
+	Total        uint64                       `json:"total"`
+	Took         time.Duration                `json:"took"`
+	Hits         []Hit                        `json:"hits"`
+	Facets       map[string]FacetResult       `json:"facets,omitempty"`
 	Aggregations map[string]AggregationResult `json:"aggregations,omitempty"`
-	MaxScore     float64                     `json:"maxScore,omitempty"`
+	MaxScore     float64                      `json:"maxScore,omitempty"`
 }
 
 // -------- Helper constructors --------

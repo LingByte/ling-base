@@ -87,9 +87,9 @@ func TestNewAgentFromCredentialPreservesSampleRates(t *testing.T) {
 	defer Unregister("dummy_test")
 
 	_, _ = NewAgentFromCredential(map[string]any{"provider": "dummy_test"}, Options{
-		OnEvent:           func(Event) {},
-		InputSampleRate:   8000,
-		OutputSampleRate:  48000,
+		OnEvent:          func(Event) {},
+		InputSampleRate:  8000,
+		OutputSampleRate: 48000,
 	})
 	if captured.InputSampleRate != 8000 {
 		t.Errorf("InputSampleRate = %d, want 8000", captured.InputSampleRate)

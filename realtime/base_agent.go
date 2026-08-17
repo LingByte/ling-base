@@ -71,9 +71,9 @@ func NewBaseAgent(vendor string, opts Options, sendBuf int) *BaseAgent {
 		sendBuf = 64
 	}
 	return &BaseAgent{
-		vendor:  vendor,
-		opts:    opts,
-		sendCh:  make(chan []byte, sendBuf),
+		vendor: vendor,
+		opts:   opts,
+		sendCh: make(chan []byte, sendBuf),
 	}
 }
 

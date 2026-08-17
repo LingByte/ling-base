@@ -26,22 +26,22 @@ import (
 	"github.com/LingByte/ling-base/common/config"
 	"github.com/LingByte/ling-base/common/convert"
 	"github.com/LingByte/ling-base/common/idgen"
+	"github.com/LingByte/ling-base/common/limiter"
+	"github.com/LingByte/ling-base/common/limiter/count"
+	"github.com/LingByte/ling-base/common/limiter/tokenbucket"
+	"github.com/LingByte/ling-base/common/pool"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
+	"github.com/LingByte/ling-base/common/retry"
 	"github.com/LingByte/ling-base/common/validate"
 	"github.com/LingByte/ling-base/eventbus"
 	"github.com/LingByte/ling-base/example/internal/listeners"
 	"github.com/LingByte/ling-base/example/internal/models"
-	"github.com/LingByte/ling-base/common/limiter"
-	"github.com/LingByte/ling-base/common/limiter/count"
-	"github.com/LingByte/ling-base/common/limiter/tokenbucket"
 	"github.com/LingByte/ling-base/logger"
 	"github.com/LingByte/ling-base/notification"
 	"github.com/LingByte/ling-base/notification/inbox"
-	"github.com/LingByte/ling-base/common/pool"
 	"github.com/LingByte/ling-base/queue"
 	memoryQueue "github.com/LingByte/ling-base/queue/memory"
-	"github.com/LingByte/ling-base/common/retry"
 	"github.com/LingByte/ling-base/search"
 	"github.com/LingByte/ling-base/search/bleve"
 	"github.com/LingByte/ling-base/version"
@@ -55,7 +55,7 @@ import (
 // gin HTTP server lifecycle as a bootstrap.Lifecycle component.
 type Handlers struct {
 	db              *gorm.DB                       // optional, nil in env-only mode
-	cache           cache.Cache[string, []byte]                    // optional, nil in no-redis mode
+	cache           cache.Cache[string, []byte]    // optional, nil in no-redis mode
 	search          search.Engine                  // optional, nil in no-search mode
 	cb              *circuitbreaker.CircuitBreaker // circuit breaker for demo endpoint
 	taskQueue       queue.Queue                    // task queue backend

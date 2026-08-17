@@ -45,7 +45,7 @@ type VoiceAPIASR struct {
 
 	isStreaming bool
 
-	mu        sync.Mutex
+	mu         sync.Mutex
 	audioQueue chan []byte
 }
 
@@ -229,8 +229,8 @@ func (vapi *VoiceAPIASR) SendEnd() error {
 
 	// Send a text "end" marker so the server can flush its final result.
 	endMsg, _ := json.Marshal(map[string]interface{}{
-		"type":    "end",
-		"idx":     0,
+		"type":     "end",
+		"idx":      0,
 		"finished": true,
 	})
 	if err := vapi.writeMessage(websocket.TextMessage, endMsg); err != nil {
@@ -361,9 +361,9 @@ func (vapi *VoiceAPIASR) handleReadLoop() {
 					}).Info("voiceapi asr: recv close message, connection closed")
 				} else {
 					logrus.WithFields(logrus.Fields{
-						"dialogID":     vapi.dialogID,
-						"messageType":  messageType,
-						"message":      string(message),
+						"dialogID":    vapi.dialogID,
+						"messageType": messageType,
+						"message":     string(message),
 					}).WithError(err).Error("voiceapi asr: recv error, connection closed")
 					vapi.causeErr(err)
 				}

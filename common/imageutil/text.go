@@ -20,6 +20,7 @@ import (
 	"os"
 	"sync"
 
+	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goitalic"
@@ -27,9 +28,8 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
-	xdraw "golang.org/x/image/draw"
-	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/math/f64"
+	"golang.org/x/image/math/fixed"
 )
 
 // ──────────────────────────────────────────────
@@ -97,8 +97,8 @@ func (o *TextWatermarkOptions) withDefaults() TextWatermarkOptions {
 // ──────────────────────────────────────────────
 
 var (
-	fontMu  sync.RWMutex
-	fonts   = map[string]*opentype.Font{}
+	fontMu    sync.RWMutex
+	fonts     = map[string]*opentype.Font{}
 	fontsOnce sync.Once
 )
 

@@ -4,7 +4,7 @@
 //	wss://mps.cloud.tencent.com/sts/v1/?{query-params}
 //
 // The STS service provides a full-duplex WebSocket pipeline:
-//上行流式音频 → ASR → LLM → TTS → 下行流式音频.
+// 上行流式音频 → ASR → LLM → TTS → 下行流式音频.
 //
 // Auth: signed URL query parameters (secretid, signature, etc.) or token-based.
 // The protocol uses JSON text frames for control messages and binary frames
@@ -40,18 +40,18 @@ func init() {
 
 // Config is the typed shape of the credential JSON.
 type Config struct {
-	SecretID       string
-	SecretKey      string
-	AppID          string
-	Token          string
-	BaseURL        string
-	VoiceID        string
-	SourceLang     string
-	SystemPrompt   string
-	LLMModel       string
-	DialTimeoutMs  int
-	InputRate      int
-	OutputRate     int
+	SecretID      string
+	SecretKey     string
+	AppID         string
+	Token         string
+	BaseURL       string
+	VoiceID       string
+	SourceLang    string
+	SystemPrompt  string
+	LLMModel      string
+	DialTimeoutMs int
+	InputRate     int
+	OutputRate    int
 }
 
 // New is the realtime.Provider entry point.

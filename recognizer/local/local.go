@@ -45,12 +45,12 @@ type LocalASR struct {
 
 // LocalASROption configures the local ASR engine.
 type LocalASROption struct {
-	Command    string `json:"command" yaml:"command"`
-	Model      string `json:"model" yaml:"model"`
-	Language   string `json:"language" yaml:"language" default:"en"`
-	SampleRate int    `json:"sampleRate" yaml:"sample_rate" default:"16000"`
-	Format     string `json:"format" yaml:"format" default:"wav"`
-	ReqChanSize int   `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
+	Command     string `json:"command" yaml:"command"`
+	Model       string `json:"model" yaml:"model"`
+	Language    string `json:"language" yaml:"language" default:"en"`
+	SampleRate  int    `json:"sampleRate" yaml:"sample_rate" default:"16000"`
+	Format      string `json:"format" yaml:"format" default:"wav"`
+	ReqChanSize int    `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
 }
 
 // GetVendor returns the vendor identifier.
@@ -64,10 +64,10 @@ func NewLocalASROption(command string) LocalASROption {
 		command = DetectLocalASRCommand()
 	}
 	return LocalASROption{
-		Command:    command,
-		Language:   "en",
-		SampleRate: 16000,
-		Format:     "wav",
+		Command:     command,
+		Language:    "en",
+		SampleRate:  16000,
+		Format:      "wav",
 		ReqChanSize: 128,
 	}
 }

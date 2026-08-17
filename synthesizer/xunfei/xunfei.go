@@ -218,7 +218,7 @@ func (xs *XunfeiService) Synthesize(ctx context.Context, handler base.Handler, t
 				Reg:      2, // 音色调节
 				Rdn:      2, // 随机化
 				Audio: WSAudio{
-					Encoding:   "raw",     // 使用 raw 编码
+					Encoding:   "raw",      // 使用 raw 编码
 					SampleRate: sampleRate, // 采样率
 				},
 			},

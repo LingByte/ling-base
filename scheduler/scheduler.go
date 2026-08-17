@@ -151,26 +151,26 @@ type Job struct {
 	Tags        []string      // optional tags for grouping/filtering
 
 	// Internal state (managed by scheduler).
-	mu        sync.Mutex
-	status    JobStatus
-	expr      *cron.Expression
-	interval  time.Duration // for @every jobs
-	nextRun   time.Time
-	stopCh    chan struct{}
-	doneCh    chan struct{}
-	running   bool // is the job function currently executing?
+	mu       sync.Mutex
+	status   JobStatus
+	expr     *cron.Expression
+	interval time.Duration // for @every jobs
+	nextRun  time.Time
+	stopCh   chan struct{}
+	doneCh   chan struct{}
+	running  bool // is the job function currently executing?
 }
 
 // JobStatus holds the runtime status of a job.
 type JobStatus struct {
-	LastRun      time.Time
-	LastEnd      time.Time
-	NextRun      time.Time
-	LastError    error
-	LastErrorAt  time.Time
-	RunCount     int64
-	ErrorCount   int64
-	Running      bool
+	LastRun     time.Time
+	LastEnd     time.Time
+	NextRun     time.Time
+	LastError   error
+	LastErrorAt time.Time
+	RunCount    int64
+	ErrorCount  int64
+	Running     bool
 }
 
 // Status returns a snapshot of the job's runtime status.

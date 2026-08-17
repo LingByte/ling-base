@@ -89,13 +89,13 @@ func main() {
 	var node1Count, node2Count int32
 
 	node1 := scheduler.New(scheduler.Config{
-		LockFactory:        scheduler.LockFactoryFunc(factory),
-		LockTTL:            10 * time.Second,
+		LockFactory:         scheduler.LockFactoryFunc(factory),
+		LockTTL:             10 * time.Second,
 		LockRefreshInterval: 3 * time.Second,
 	})
 	node2 := scheduler.New(scheduler.Config{
-		LockFactory:        scheduler.LockFactoryFunc(factory),
-		LockTTL:            10 * time.Second,
+		LockFactory:         scheduler.LockFactoryFunc(factory),
+		LockTTL:             10 * time.Second,
 		LockRefreshInterval: 3 * time.Second,
 	})
 

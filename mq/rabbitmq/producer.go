@@ -20,10 +20,10 @@ type Producer struct {
 	exchange string
 	opts     mq.PublishOptions
 
-	mu   sync.Mutex
-	ch   *amqp.Channel
+	mu       sync.Mutex
+	ch       *amqp.Channel
 	confirms chan amqp.Confirmation
-	closed bool
+	closed   bool
 }
 
 // reopen (re)opens the publishing channel.

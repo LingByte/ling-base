@@ -9,8 +9,8 @@ import "sync/atomic"
 type atomicCounter struct{ v atomic.Int64 }
 
 func (c *atomicCounter) add(n int64) { c.v.Add(n) }
-func (c *atomicCounter) inc()         { c.v.Add(1) }
-func (c *atomicCounter) load() int64  { return c.v.Load() }
+func (c *atomicCounter) inc()        { c.v.Add(1) }
+func (c *atomicCounter) load() int64 { return c.v.Load() }
 
 // MetricsCollector methods — defined here to keep mq.go focused on
 // the public API.

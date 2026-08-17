@@ -61,13 +61,13 @@ type BrokerConfig struct {
 
 // BackendInfo describes a backend implementation's capabilities.
 type BackendInfo struct {
-	Type        BrokerType
-	Name        string
-	Persistent  bool // survives broker restart
-	Ordered     bool // preserves message ordering
-	Transaction bool // supports transactions
+	Type          BrokerType
+	Name          string
+	Persistent    bool // survives broker restart
+	Ordered       bool // preserves message ordering
+	Transaction   bool // supports transactions
 	ConsumerGroup bool // supports consumer groups
-	PubSub      bool // supports pub/sub pattern
+	PubSub        bool // supports pub/sub pattern
 }
 
 // SupportedBrokers lists all broker types the factory can create.

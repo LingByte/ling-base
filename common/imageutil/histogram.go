@@ -21,8 +21,8 @@ type Histogram struct {
 	Height int
 	Total  int // total pixel count
 
-	R, G, B, A      [256]uint32 // per-channel counts
-	Lum             [256]uint32 // luminance histogram (per-pixel weighted sum)
+	R, G, B, A [256]uint32 // per-channel counts
+	Lum        [256]uint32 // luminance histogram (per-pixel weighted sum)
 
 	// Statistics (over luminance).
 	Mean   float64

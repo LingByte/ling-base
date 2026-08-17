@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	promclient "github.com/prometheus/client_golang/prometheus"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
@@ -52,9 +52,9 @@ func TestNewProvider_MissingServiceName(t *testing.T) {
 func TestNewProvider_WithCustomRegistry(t *testing.T) {
 	reg := promclient.NewRegistry()
 	cfg := Config{
-		ServiceName:         "custom-reg-test",
-		PrometheusRegistry:  reg,
-		PrometheusGatherer:  reg,
+		ServiceName:        "custom-reg-test",
+		PrometheusRegistry: reg,
+		PrometheusGatherer: reg,
 	}
 	p, err := NewProvider(cfg)
 	require.NoError(t, err)

@@ -5,8 +5,8 @@ package metrics
 
 import (
 	"go.opentelemetry.io/otel"
-	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 // otelSetGlobalMeterProvider registers the provider globally.

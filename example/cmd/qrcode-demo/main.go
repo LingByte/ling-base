@@ -395,7 +395,6 @@ func main() {
 	fmt.Printf("\n=== Done! All QR codes saved to %s/ ===\n", *outDir)
 }
 
-
 // mustOpen opens a file for reading, panicking on error. Used for
 // loading logo/source images in the demo.
 func mustOpen(path string) *os.File {

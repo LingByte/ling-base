@@ -42,9 +42,9 @@ func SREBreakerFactory(opts ...circuitbreaker.SREOption) BreakerFactory {
 // noopBreaker is a Breaker that never rejects.
 type noopBreaker struct{}
 
-func (noopBreaker) Allow() error       { return nil }
-func (noopBreaker) MarkSuccess()       {}
-func (noopBreaker) MarkFailed()        {}
+func (noopBreaker) Allow() error { return nil }
+func (noopBreaker) MarkSuccess() {}
+func (noopBreaker) MarkFailed()  {}
 
 // NoopBreakerFactory returns a factory that creates breakers which never
 // reject. Useful for disabling circuit breaking while keeping the

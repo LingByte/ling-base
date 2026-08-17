@@ -127,10 +127,10 @@ func DefaultConfig() Config {
 
 // Provider wraps an sdktrace.TracerProvider with its shutdown function.
 type Provider struct {
-	tp        *sdktrace.TracerProvider
-	tracer    trace.Tracer
-	resource  *resource.Resource
-	shutdown  func(context.Context) error
+	tp         *sdktrace.TracerProvider
+	tracer     trace.Tracer
+	resource   *resource.Resource
+	shutdown   func(context.Context) error
 	shutdownMu sync.Mutex
 }
 
@@ -292,9 +292,9 @@ func isLocalhost(endpoint string) bool {
 // newResource constructs an OTel Resource from the config.
 func newResource(ctx context.Context, cfg Config) (*resource.Resource, error) {
 	opts := []resource.Option{
-		resource.WithFromEnv(),      // Pull OTEL_RESOURCE_ATTRIBUTES from env.
-		resource.WithHost(),         // Add host.name.
-		resource.WithProcessPID(),   // Add process.pid.
+		resource.WithFromEnv(),    // Pull OTEL_RESOURCE_ATTRIBUTES from env.
+		resource.WithHost(),       // Add host.name.
+		resource.WithProcessPID(), // Add process.pid.
 		resource.WithProcessRuntimeName(),
 		resource.WithProcessRuntimeVersion(),
 		resource.WithTelemetrySDK(), // Add telemetry.sdk.* attributes.

@@ -403,15 +403,15 @@ func DefaultQueueOptions() QueueOptions {
 
 // Metrics is a point-in-time snapshot of broker observability data.
 type Metrics struct {
-	Published     int64
-	Consumed      int64
-	Acked         int64
-	Nacked        int64
-	Rejected      int64
-	Redelivered   int64
-	Errors        int64
-	AvgPublishMs  float64
-	AvgConsumeMs  float64
+	Published    int64
+	Consumed     int64
+	Acked        int64
+	Nacked       int64
+	Rejected     int64
+	Redelivered  int64
+	Errors       int64
+	AvgPublishMs float64
+	AvgConsumeMs float64
 }
 
 // MetricsCollector is a thread-safe metrics collector.

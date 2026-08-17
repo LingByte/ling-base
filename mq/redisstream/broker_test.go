@@ -119,19 +119,19 @@ func TestBroker_Consumer_NoHandler(t *testing.T) {
 
 func TestBuildStreamValues(t *testing.T) {
 	msg := &mq.Message{
-		ID:              "msg-1",
-		Body:            []byte("hello"),
-		ContentType:     "application/json",
-		CorrelationID:   "corr-1",
-		ReplyTo:         "reply.q",
-		Type:            "user.created",
-		UserID:          "u1",
-		AppID:           "app1",
-		RoutingKey:      "rk",
-		Priority:        5,
-		DeliveryMode:    mq.Persistent,
-		Timestamp:       time.Unix(0, 1700000000000000000),
-		Headers:         map[string]any{"x-custom": "val"},
+		ID:            "msg-1",
+		Body:          []byte("hello"),
+		ContentType:   "application/json",
+		CorrelationID: "corr-1",
+		ReplyTo:       "reply.q",
+		Type:          "user.created",
+		UserID:        "u1",
+		AppID:         "app1",
+		RoutingKey:    "rk",
+		Priority:      5,
+		DeliveryMode:  mq.Persistent,
+		Timestamp:     time.Unix(0, 1700000000000000000),
+		Headers:       map[string]any{"x-custom": "val"},
 	}
 	values := buildStreamValues(msg)
 	assert.Equal(t, "hello", values["body"])

@@ -95,11 +95,11 @@ var DefaultHTTPBuckets = []float64{
 // Provider wraps an SDK MeterProvider with its Prometheus exporter and
 // HTTP handler.
 type Provider struct {
-	mp        *metric.MeterProvider
-	meter     otelmetric.Meter
-	exporter  *otelprom.Exporter
-	handler   http.Handler
-	shutdown  func(context.Context) error
+	mp         *metric.MeterProvider
+	meter      otelmetric.Meter
+	exporter   *otelprom.Exporter
+	handler    http.Handler
+	shutdown   func(context.Context) error
 	shutdownMu sync.Mutex
 }
 
