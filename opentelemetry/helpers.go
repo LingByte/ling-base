@@ -4,9 +4,28 @@
 package opentelemetry
 
 import (
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
+
+// setGlobalTracerProvider registers the tracer provider globally.
+func setGlobalTracerProvider(tp *sdktrace.TracerProvider) {
+	if tp == nil {
+		return
+	}
+	otel.SetTracerProvider(tp)
+}
+
+// setGlobalTextMapPropagator sets the W3C Trace Context + Baggage propagator.
+func setGlobalTextMapPropagator() {
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+}
 
 // setGlobalLoggerProvider registers the logger provider globally.
 func setGlobalLoggerProvider(lp *sdklog.LoggerProvider) {

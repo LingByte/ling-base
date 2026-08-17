@@ -151,9 +151,10 @@ type SDK struct {
 
 // LogProvider wraps an SDK LoggerProvider.
 type LogProvider struct {
-	lp       *sdklog.LoggerProvider
-	logger   otellog.Logger
-	shutdown func(context.Context) error
+	lp        *sdklog.LoggerProvider
+	logger    otellog.Logger
+	shutdown  func(context.Context) error
+	shutdownMu sync.Mutex
 }
 
 // LoggerProvider returns the underlying SDK LoggerProvider.
@@ -166,8 +167,11 @@ func (p *LogProvider) Logger() otellog.Logger {
 	return p.logger
 }
 
-// Shutdown flushes and shuts down the log provider.
+// Shutdown flushes and shuts down the log provider. It is safe to call
+// multiple times and from concurrent goroutines.
 func (p *LogProvider) Shutdown(ctx context.Context) error {
+	p.shutdownMu.Lock()
+	defer p.shutdownMu.Unlock()
 	if p.shutdown == nil {
 		return nil
 	}
@@ -239,20 +243,21 @@ func Init(ctx context.Context, cfg Config) (*SDK, error) {
 		SpanMaxExportBatchSize: cfg.SpanMaxExportBatchSize,
 		SetGlobal:              cfg.SetGlobal,
 	}
-	traceShutdown, err := tracing.Init(ctx, traceCfg)
+	// Create a single tracing provider. We use NewProvider (not Init) to
+	// get the Provider handle, then set the global ourselves if needed.
+	// This avoids creating two separate providers.
+	tp, err := tracing.NewProvider(ctx, traceCfg)
 	if err != nil {
 		_ = sdk.Shutdown(ctx)
 		return nil, fmt.Errorf("opentelemetry: init tracing: %w", err)
 	}
-	shutdowns = append(shutdowns, traceShutdown)
-
-	// Build the tracing provider separately to get the Provider handle.
-	tp, _, err := buildTracingProvider(ctx, traceCfg)
-	if err != nil {
-		_ = sdk.Shutdown(ctx)
-		return nil, fmt.Errorf("opentelemetry: build tracing provider: %w", err)
-	}
 	sdk.Traces = tp
+	shutdowns = append(shutdowns, tp.Shutdown)
+
+	if cfg.SetGlobal {
+		setGlobalTracerProvider(tp.TracerProvider())
+		setGlobalTextMapPropagator()
+	}
 
 	// ── Metrics ──
 	if cfg.MetricsExporter == MetricsExporterPrometheus {
@@ -300,15 +305,6 @@ func Init(ctx context.Context, cfg Config) (*SDK, error) {
 	}
 
 	return sdk, nil
-}
-
-// buildTracingProvider creates a tracing.Provider for the SDK handle.
-func buildTracingProvider(ctx context.Context, cfg tracing.Config) (*tracing.Provider, func(context.Context) error, error) {
-	p, err := tracing.NewProvider(ctx, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return p, p.Shutdown, nil
 }
 
 // ──────────────────────────────────────────────

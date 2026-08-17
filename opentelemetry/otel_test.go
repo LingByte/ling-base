@@ -325,6 +325,22 @@ func TestZapFieldToOTel(t *testing.T) {
 	}
 }
 
+func TestZapFieldToOTel_FloatValue(t *testing.T) {
+	// Verify that float64 values are correctly recovered from bit-packing.
+	kv := zapFieldToOTel(zap.Float64("pi", 3.14159))
+	assert.Equal(t, "pi", string(kv.Key))
+	// The value should be the original float, not a bit-reinterpretation.
+	val := kv.Value.AsFloat64()
+	assert.InDelta(t, 3.14159, val, 0.00001)
+}
+
+func TestZapFieldToOTel_Float32Value(t *testing.T) {
+	kv := zapFieldToOTel(zap.Float32("f", 2.5))
+	assert.Equal(t, "f", string(kv.Key))
+	val := kv.Value.AsFloat64()
+	assert.InDelta(t, 2.5, val, 0.001)
+}
+
 func TestInit_ResourceAttributes(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{

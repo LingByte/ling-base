@@ -209,7 +209,6 @@ func NewProvider(cfg Config) (*Provider, error) {
 		exporter: exporter,
 		handler:  handler,
 		shutdown: func(ctx context.Context) error {
-			_ = ctx
 			return mp.Shutdown(ctx)
 		},
 	}, nil

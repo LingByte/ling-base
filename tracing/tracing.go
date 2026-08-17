@@ -46,6 +46,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -126,10 +127,11 @@ func DefaultConfig() Config {
 
 // Provider wraps an sdktrace.TracerProvider with its shutdown function.
 type Provider struct {
-	tp       *sdktrace.TracerProvider
-	tracer   trace.Tracer
-	resource *resource.Resource
-	shutdown func(context.Context) error
+	tp        *sdktrace.TracerProvider
+	tracer    trace.Tracer
+	resource  *resource.Resource
+	shutdown  func(context.Context) error
+	shutdownMu sync.Mutex
 }
 
 // TracerProvider returns the underlying SDK TracerProvider.
@@ -147,8 +149,11 @@ func (p *Provider) Tracer() trace.Tracer {
 	return p.tracer
 }
 
-// Shutdown flushes and shuts down the provider. It is safe to call multiple times.
+// Shutdown flushes and shuts down the provider. It is safe to call
+// multiple times and from concurrent goroutines.
 func (p *Provider) Shutdown(ctx context.Context) error {
+	p.shutdownMu.Lock()
+	defer p.shutdownMu.Unlock()
 	if p.shutdown == nil {
 		return nil
 	}

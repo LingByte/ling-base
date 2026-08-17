@@ -6,6 +6,7 @@ package opentelemetry
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	otellog "go.opentelemetry.io/otel/log"
@@ -138,16 +139,12 @@ func zapFieldToOTel(f zapcore.Field) otellog.KeyValue {
 		return otellog.Int64(f.Key, f.Integer)
 	case zapcore.Uint64Type, zapcore.Uint32Type, zapcore.Uint16Type, zapcore.Uint8Type:
 		return otellog.Int64(f.Key, f.Integer)
-	case zapcore.Float64Type, zapcore.Float32Type:
-		// zap stores float64 in Integer as bits; use Interface for the value.
-		if v, ok := f.Interface.(float64); ok {
-			return otellog.Float64(f.Key, v)
-		}
-		if v, ok := f.Interface.(float32); ok {
-			return otellog.Float64(f.Key, float64(v))
-		}
-		// Fallback: interpret Integer as float64 bits.
-		return otellog.Float64(f.Key, float64(f.Integer))
+	case zapcore.Float64Type:
+		// zap stores float64 as math.Float64bits in Integer.
+		return otellog.Float64(f.Key, math.Float64frombits(uint64(f.Integer)))
+	case zapcore.Float32Type:
+		// zap stores float32 as math.Float32bits in Integer.
+		return otellog.Float64(f.Key, float64(math.Float32frombits(uint32(f.Integer))))
 	case zapcore.BoolType:
 		return otellog.Bool(f.Key, f.Integer == 1)
 	case zapcore.DurationType:
