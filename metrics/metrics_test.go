@@ -233,7 +233,7 @@ func TestHTTPMiddleware(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Verify metrics were recorded.
+	// Verify metrics were recorded with attributes.
 	metricReq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	mw2 := httptest.NewRecorder()
 	p.HTTPHandler().ServeHTTP(mw2, metricReq)
@@ -241,6 +241,72 @@ func TestHTTPMiddleware(t *testing.T) {
 	body := mw2.Body.String()
 	assert.Contains(t, body, "http_requests_total")
 	assert.Contains(t, body, "http_request_duration_seconds")
+	// Verify status label is present.
+	assert.Contains(t, body, `status="2xx"`)
+	assert.Contains(t, body, `method="GET"`)
+	assert.Contains(t, body, `path="/test"`)
+}
+
+func TestHTTPMiddleware_DifferentStatuses(t *testing.T) {
+	cfg := Config{
+		ServiceName: "status-test",
+	}
+	p, err := NewProvider(cfg)
+	require.NoError(t, err)
+	defer p.Shutdown(context.Background())
+
+	mw, err := NewHTTPMiddleware(p)
+	require.NoError(t, err)
+
+	handler := mw.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ok":
+			w.WriteHeader(http.StatusOK)
+		case "/notfound":
+			w.WriteHeader(http.StatusNotFound)
+		case "/error":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+
+	for _, path := range []string{"/ok", "/notfound", "/error"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
+
+	// Verify metrics have different status labels.
+	metricReq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+	p.HTTPHandler().ServeHTTP(w, metricReq)
+
+	body := w.Body.String()
+	assert.Contains(t, body, `status="2xx"`)
+	assert.Contains(t, body, `status="4xx"`)
+	assert.Contains(t, body, `status="5xx"`)
+}
+
+func TestStatusLabel(t *testing.T) {
+	tests := []struct {
+		status int
+		expect string
+	}{
+		{100, "1xx"},
+		{200, "2xx"},
+		{201, "2xx"},
+		{301, "3xx"},
+		{404, "4xx"},
+		{500, "5xx"},
+		{503, "5xx"},
+		{0, "unknown"},
+		{-1, "unknown"},
+	}
+	for _, tt := range tests {
+		got := statusLabel(tt.status)
+		assert.Equal(t, tt.expect, got, "status=%d", tt.status)
+	}
 }
 
 func TestKeyValueHelpers(t *testing.T) {

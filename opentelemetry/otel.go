@@ -282,14 +282,20 @@ func Init(ctx context.Context, cfg Config) (*SDK, error) {
 	}
 
 	// ── Logs ──
+	// LogOTLPEndpoint defaults to OTLPEndpoint if not explicitly set.
+	logEndpoint := cfg.LogOTLPEndpoint
+	if logEndpoint == "" {
+		logEndpoint = cfg.OTLPEndpoint
+	}
 	logCfg := logConfig{
-		ServiceName:      cfg.ServiceName,
-		ServiceVersion:   cfg.ServiceVersion,
-		Environment:      cfg.Environment,
-		Exporter:         cfg.LogExporter,
-		OTLPEndpoint:     cfg.LogOTLPEndpoint,
-		OTLPInsecure:     cfg.LogOTLPInsecure,
-		OTLPHeaders:      cfg.LogOTLPHeaders,
+		ServiceName:        cfg.ServiceName,
+		ServiceVersion:     cfg.ServiceVersion,
+		ServiceNamespace:   cfg.ServiceNamespace,
+		Environment:        cfg.Environment,
+		Exporter:           cfg.LogExporter,
+		OTLPEndpoint:       logEndpoint,
+		OTLPInsecure:       cfg.LogOTLPInsecure,
+		OTLPHeaders:        cfg.LogOTLPHeaders,
 		ResourceAttributes: cfg.ResourceAttributes,
 	}
 	lp, err := newLogProvider(ctx, logCfg)
@@ -314,6 +320,7 @@ func Init(ctx context.Context, cfg Config) (*SDK, error) {
 type logConfig struct {
 	ServiceName        string
 	ServiceVersion     string
+	ServiceNamespace   string
 	Environment        string
 	Exporter           LogExporterKind
 	OTLPEndpoint       string
@@ -433,6 +440,9 @@ func toLogKeyValues(cfg logConfig) []attribute.KeyValue {
 	}
 	if cfg.ServiceVersion != "" {
 		attrs = append(attrs, semconv.ServiceVersionKey.String(cfg.ServiceVersion))
+	}
+	if cfg.ServiceNamespace != "" {
+		attrs = append(attrs, semconv.ServiceNamespaceKey.String(cfg.ServiceNamespace))
 	}
 	if cfg.Environment != "" {
 		attrs = append(attrs, semconv.DeploymentEnvironmentKey.String(cfg.Environment))

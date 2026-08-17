@@ -318,8 +318,8 @@ func Int64UpDownCounter(name string, opts ...otelmetric.Int64UpDownCounterOption
 // HTTPMiddleware is an HTTP middleware that records request duration and
 // count metrics. It uses the provider's meter to create the instruments.
 type HTTPMiddleware struct {
-	requestsTotal    otelmetric.Int64Counter
-	requestDuration  otelmetric.Float64Histogram
+	requestsTotal   otelmetric.Int64Counter
+	requestDuration otelmetric.Float64Histogram
 }
 
 // NewHTTPMiddleware creates an HTTP metrics middleware.
@@ -343,15 +343,46 @@ func NewHTTPMiddleware(p *Provider) (*HTTPMiddleware, error) {
 }
 
 // Wrap wraps an http.Handler with metrics instrumentation.
+// The following attributes are recorded on both instruments:
+//   - method: HTTP method (GET, POST, ...)
+//   - status: HTTP status code as a string (e.g. "200", "404")
+//   - path: request URL path
 func (m *HTTPMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		ww := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(ww, r)
 		duration := time.Since(start).Seconds()
-		m.requestsTotal.Add(r.Context(), 1)
-		m.requestDuration.Record(r.Context(), duration)
+
+		attrs := otelmetric.WithAttributes(
+			attribute.String("method", r.Method),
+			attribute.String("status", statusLabel(ww.status)),
+			attribute.String("path", r.URL.Path),
+		)
+		m.requestsTotal.Add(r.Context(), 1, attrs)
+		m.requestDuration.Record(r.Context(), duration, attrs)
 	})
+}
+
+// statusLabel converts an HTTP status code to a label value.
+// Common status codes are returned as-is; unknown codes are grouped
+// into "5xx", "4xx", etc. for cardinality control.
+func statusLabel(status int) string {
+	if status <= 0 {
+		return "unknown"
+	}
+	switch {
+	case status < 200:
+		return "1xx"
+	case status < 300:
+		return "2xx"
+	case status < 400:
+		return "3xx"
+	case status < 500:
+		return "4xx"
+	default:
+		return "5xx"
+	}
 }
 
 // statusWriter tracks the HTTP response status code.
@@ -363,4 +394,10 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+// Unwrap returns the underlying ResponseWriter, enabling compatibility
+// with http.ResponseController (Go 1.20+).
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }

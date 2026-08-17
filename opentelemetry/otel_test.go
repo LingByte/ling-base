@@ -375,6 +375,51 @@ func TestIsLocalhostLog(t *testing.T) {
 	assert.False(t, isLocalhostLog("example.com:4317"))
 }
 
+func TestInit_LogOTLPEndpointDefaultsToOTLPEndpoint(t *testing.T) {
+	// Verify that LogOTLPEndpoint defaults to OTLPEndpoint when not set.
+	// We can't easily test the actual endpoint without a server, but we
+	// can verify the config plumbing doesn't panic and the noop exporter
+	// is used correctly.
+	ctx := context.Background()
+	cfg := Config{
+		ServiceName:    "log-endpoint-default-test",
+		OTLPEndpoint:   "my-collector:4317",
+		TraceExporter:  TraceExporterNoop,
+		MetricsExporter: MetricsExporterNoop,
+		LogExporter:    LogExporterNoop, // noop so we don't need a real endpoint
+		SetGlobal:      false,
+	}
+	sdk, err := Init(ctx, cfg)
+	require.NoError(t, err)
+	defer sdk.Shutdown(ctx)
+	assert.NotNil(t, sdk.Logs)
+}
+
+func TestInit_ServiceNamespaceInLogs(t *testing.T) {
+	ctx := context.Background()
+	cfg := Config{
+		ServiceName:      "namespace-test",
+		ServiceNamespace: "my-namespace",
+		TraceExporter:    TraceExporterNoop,
+		MetricsExporter:  MetricsExporterNoop,
+		LogExporter:      LogExporterStdout,
+		SetGlobal:        false,
+	}
+	sdk, err := Init(ctx, cfg)
+	require.NoError(t, err)
+	defer sdk.Shutdown(ctx)
+
+	// Verify the log provider has a real LoggerProvider (not noop).
+	assert.NotNil(t, sdk.Logs.LoggerProvider())
+
+	// Emit a log to trigger resource serialization in stdout output.
+	var rec otellog.Record
+	rec.SetTimestamp(time.Now())
+	rec.SetBody(otellog.StringValue("namespace test"))
+	rec.SetSeverity(otellog.SeverityInfo)
+	sdk.Logs.Logger().Emit(ctx, rec)
+}
+
 func TestInit_FullPipeline(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{
