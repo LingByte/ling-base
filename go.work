@@ -42,6 +42,7 @@ use (
 	./common/response/gin
 	./common/timeutil
 	./common/validate
+	./common/videoutil
 	./constants
 	./eventbus
 	./example
