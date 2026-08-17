@@ -14,6 +14,7 @@ const (
 	TypeIM      MessageType = "im"
 	TypeWebhook MessageType = "webhook"
 	TypeInbox   MessageType = "inbox"
+	TypePush    MessageType = "push"
 )
 
 // Message is the unified notification payload. Not all fields are
@@ -107,5 +108,20 @@ func NewInboxMessage(userID, title, content string) Message {
 		Title:   title,
 		Body:    content,
 		Content: content,
+	}
+}
+
+// NewPushMessage is a convenience constructor for mobile push messages.
+// The device token is placed in both To and Data so the push channel can
+// recover it from either field.
+func NewPushMessage(token, title, body string) Message {
+	return Message{
+		Type:    TypePush,
+		To:      token,
+		Subject: title,
+		Title:   title,
+		Body:    body,
+		Content: body,
+		Data:    map[string]any{"token": token},
 	}
 }
