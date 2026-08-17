@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultRotateSize      = 200
-	defaultRotateTolerance = 15 // degrees
+	defaultRotateTolerance = 12 // degrees
 )
 
 // rotateStored holds the target rotation angle (degrees, 0-359).
@@ -55,7 +55,8 @@ func NewRotateCaptcha(size, tolerance int, expiration time.Duration, store Store
 func (rc *RotateCaptcha) Generate() (*Result, error) {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	angle := rng.Intn(360)
+	// Avoid near-upright starts so the challenge is always obvious.
+	angle := rng.Intn(300) + 30 // 30..329
 
 	img := rc.generateImage(rng)
 	rotated := rc.rotate(img, float64(angle))
@@ -104,79 +105,149 @@ func (rc *RotateCaptcha) compare(stored, input interface{}) bool {
 	return residual <= rc.tolerance || residual >= 360-rc.tolerance
 }
 
-// generateImage creates a simple circular image with a distinctive top marker
-// so the user can tell which way is up.
+// generateImage creates a circular mini-landscape with a clear upright cue
+// (sky on top, ground on bottom, sun + arrow).
 func (rc *RotateCaptcha) generateImage(rng *rand.Rand) image.Image {
 	size := rc.size
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 	center := float64(size) / 2
 	radius := float64(size)/2 - 2
 
-	// Fill with a gradient circle.
-	top := color.RGBA{
-		uint8(rng.Intn(80) + 100),
-		uint8(rng.Intn(80) + 100),
-		uint8(rng.Intn(80) + 150),
-		255,
-	}
-	bottom := color.RGBA{
-		uint8(rng.Intn(60) + 60),
-		uint8(rng.Intn(60) + 120),
-		uint8(rng.Intn(60) + 140),
-		255,
-	}
+	skyTop := color.RGBA{70, 150, 255, 255}
+	skyBot := color.RGBA{160, 210, 255, 255}
+	groundTop := color.RGBA{90, 180, 70, 255}
+	groundBot := color.RGBA{50, 120, 45, 255}
+	horizon := int(float64(size) * 0.58)
+
+	outside := color.RGBA{0, 0, 0, 0}
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
 			dx := float64(x) - center
 			dy := float64(y) - center
 			dist := math.Sqrt(dx*dx + dy*dy)
-			if dist <= radius {
-				t := (float64(y) + 1) / float64(size)
-				r := clampByte(int(float64(top.R)*(1-t)+float64(bottom.R)*t), 0)
-				g := clampByte(int(float64(top.G)*(1-t)+float64(bottom.G)*t), 0)
-				b := clampByte(int(float64(top.B)*(1-t)+float64(bottom.B)*t), 0)
-				img.Set(x, y, color.RGBA{r, g, b, 255})
+			if dist > radius {
+				img.Set(x, y, outside)
+				continue
+			}
+			if y < horizon {
+				t := float64(y) / float64(max(1, horizon))
+				img.Set(x, y, lerpRGBA(skyTop, skyBot, t))
 			} else {
-				img.Set(x, y, color.RGBA{240, 240, 240, 255})
+				t := float64(y-horizon) / float64(max(1, size-horizon))
+				img.Set(x, y, lerpRGBA(groundTop, groundBot, t))
 			}
 		}
 	}
 
-	// Draw a distinctive arrow/triangle at the top so the user can identify
-	// the correct orientation.
-	arrowColor := color.RGBA{255, 80, 80, 255}
-	arrowHeight := size / 5
-	arrowWidth := size / 8
+	// Sun in the upper-left quadrant — strong orientation cue.
+	sunCX := size / 3
+	sunCY := size / 4
+	sunR := size / 10
+	sunCol := color.RGBA{255, 210, 60, 255}
+	fillCircleOpaque(img, sunCX, sunCY, sunR, sunCol, center, radius)
+
+	// Simple house near the horizon for extra upright signal.
+	houseW := size / 5
+	houseH := size / 6
+	hx := size/2 - houseW/4
+	hy := horizon - houseH/3
+	roof := color.RGBA{200, 70, 60, 255}
+	wall := color.RGBA{240, 230, 200, 255}
+	for y := hy; y < hy+houseH; y++ {
+		for x := hx; x < hx+houseW; x++ {
+			if insideCircle(x, y, center, radius) {
+				img.Set(x, y, wall)
+			}
+		}
+	}
+	// Triangular roof.
+	apexY := hy - houseH/2
+	for y := apexY; y < hy; y++ {
+		progress := float64(y-apexY) / float64(max(1, hy-apexY))
+		half := int(float64(houseW/2) * progress)
+		for x := hx + houseW/2 - half; x <= hx+houseW/2+half; x++ {
+			if insideCircle(x, y, center, radius) {
+				img.Set(x, y, roof)
+			}
+		}
+	}
+
+	// Large upward arrow at the top — unmistakable "this way is up".
+	arrow := color.RGBA{255, 50, 50, 255}
+	arrowOutline := color.RGBA{255, 255, 255, 255}
 	cx := size / 2
-	for dy := 0; dy < arrowHeight; dy++ {
-		halfW := arrowWidth * (arrowHeight - dy) / arrowHeight / 2
-		for dx := -halfW; dx <= halfW; dx++ {
+	arrowH := size / 4
+	arrowW := size / 6
+	for dy := 0; dy < arrowH; dy++ {
+		halfW := arrowW * (arrowH - dy) / arrowH / 2
+		if halfW < 1 {
+			halfW = 1
+		}
+		for dx := -halfW - 1; dx <= halfW+1; dx++ {
 			px := cx + dx
-			py := 4 + dy
-			if px >= 0 && px < size && py >= 0 && py < size {
-				img.Set(px, py, arrowColor)
+			py := 10 + dy
+			if !insideCircle(px, py, center, radius) {
+				continue
+			}
+			if abs(dx) <= halfW {
+				img.Set(px, py, arrow)
+			} else {
+				img.Set(px, py, arrowOutline)
 			}
 		}
 	}
 
-	// Add a few decorative dots for visual texture.
-	for i := 0; i < 20; i++ {
-		px := rng.Intn(size)
-		py := rng.Intn(size)
-		dx := float64(px) - center
-		dy := float64(py) - center
-		if dx*dx+dy*dy <= radius*radius {
-			img.Set(px, py, color.RGBA{
-				uint8(rng.Intn(100) + 100),
-				uint8(rng.Intn(100) + 100),
-				uint8(rng.Intn(100) + 100),
-				255,
-			})
+	// Thin white rim so the disc reads clearly on any page background.
+	rim := color.RGBA{255, 255, 255, 220}
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := float64(x) - center
+			dy := float64(y) - center
+			dist := math.Sqrt(dx*dx + dy*dy)
+			if dist <= radius && dist >= radius-2.5 {
+				img.Set(x, y, rim)
+			}
 		}
 	}
 
+	_ = rng // kept for API symmetry / future variation
 	return img
+}
+
+func lerpRGBA(a, b color.RGBA, t float64) color.RGBA {
+	if t < 0 {
+		t = 0
+	}
+	if t > 1 {
+		t = 1
+	}
+	return color.RGBA{
+		clampByte(int(float64(a.R)*(1-t)+float64(b.R)*t), 0),
+		clampByte(int(float64(a.G)*(1-t)+float64(b.G)*t), 0),
+		clampByte(int(float64(a.B)*(1-t)+float64(b.B)*t), 0),
+		255,
+	}
+}
+
+func insideCircle(x, y int, center, radius float64) bool {
+	dx := float64(x) - center
+	dy := float64(y) - center
+	return dx*dx+dy*dy <= radius*radius
+}
+
+func fillCircleOpaque(img *image.RGBA, cx, cy, rad int, c color.RGBA, center, radius float64) {
+	r2 := rad * rad
+	for y := cy - rad; y <= cy+rad; y++ {
+		for x := cx - rad; x <= cx+rad; x++ {
+			if (x-cx)*(x-cx)+(y-cy)*(y-cy) > r2 {
+				continue
+			}
+			if insideCircle(x, y, center, radius) {
+				img.Set(x, y, c)
+			}
+		}
+	}
 }
 
 // rotate rotates img by angle degrees clockwise and returns a new image of
@@ -186,23 +257,29 @@ func (rc *RotateCaptcha) rotate(img image.Image, angle float64) image.Image {
 	size := rc.size
 	dst := image.NewRGBA(image.Rect(0, 0, size, size))
 	center := float64(size) / 2
+	radius := float64(size)/2 - 2
 
 	rad := angle * math.Pi / 180
 	cos := math.Cos(rad)
 	sin := math.Sin(rad)
+
+	transparent := color.RGBA{0, 0, 0, 0}
 
 	// Inverse rotation: for each destination pixel, find the source pixel.
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
 			dx := float64(x) - center
 			dy := float64(y) - center
-			// Inverse rotation matrix.
+			if dx*dx+dy*dy > radius*radius {
+				dst.Set(x, y, transparent)
+				continue
+			}
 			sx := dx*cos + dy*sin + center
 			sy := -dx*sin + dy*cos + center
 			if sx >= 0 && sx < float64(size) && sy >= 0 && sy < float64(size) {
 				dst.Set(x, y, img.At(int(sx), int(sy)))
 			} else {
-				dst.Set(x, y, color.RGBA{240, 240, 240, 255})
+				dst.Set(x, y, transparent)
 			}
 		}
 	}

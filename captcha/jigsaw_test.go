@@ -29,6 +29,13 @@ func TestJigsawCaptcha_Generate(t *testing.T) {
 	if result.Data["pieceSize"].(int) != 40 {
 		t.Fatal("pieceSize should be 40")
 	}
+	if _, ok := result.Data["pieceY"].(int); !ok {
+		t.Fatal("pieceY should be set")
+	}
+	pw, _ := result.Data["pieceWidth"].(int)
+	if pw < 40 {
+		t.Fatalf("pieceWidth should include tab, got %d", pw)
+	}
 }
 
 func TestJigsawCaptcha_Verify_Correct(t *testing.T) {

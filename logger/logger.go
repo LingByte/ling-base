@@ -484,6 +484,11 @@ func ErrorfCtx(ctx context.Context, format string, args ...interface{}) {
 	ErrorCtx(ctx, fmt.Sprintf(format, args...))
 }
 
+// DebugfCtx logs at debug level with context and fmt.Sprintf-style formatting.
+func DebugfCtx(ctx context.Context, format string, args ...interface{}) {
+	DebugCtx(ctx, fmt.Sprintf(format, args...))
+}
+
 func wrapLogCore(inner zapcore.Core, r *redactor) zapcore.Core {
 	return WrapCoreWithReqIDPrefix(wrapCoreWithRedact(inner, r))
 }
