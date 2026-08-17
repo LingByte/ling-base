@@ -176,12 +176,9 @@ func NewHandlers(db *gorm.DB, cache cache.Cache[string, []byte], searchEng searc
 		connRL: count.New(maxConns),
 	}
 
-	// Auto-migrate the request_logs table if DB is available.
-	if db != nil {
-		if err := db.AutoMigrate(&models.RequestLog{}); err != nil {
-			logger.Warn("auto-migrate request_logs table failed", zap.Error(err))
-		}
-	}
+	// Note: DB schema migration (including the request_logs table) is now
+	// handled by bootstrap during the init phase via WithMigration (prod)
+	// or WithAutoMigrate (dev/test). See cmd/app-demo/main.go.
 
 	return h
 }
