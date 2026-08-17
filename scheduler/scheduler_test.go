@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/lock"
-	"github.com/LingByte/ling-base/lock/memory"
+	"github.com/LingByte/ling-base/common/lock"
+	"github.com/LingByte/ling-base/common/lock/memory"
 )
 
 // ──────────────────────────────────────────────

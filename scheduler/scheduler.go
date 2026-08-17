@@ -75,7 +75,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/common/cron"
-	"github.com/LingByte/ling-base/lock"
+	"github.com/LingByte/ling-base/common/lock"
 )
 
 // ──────────────────────────────────────────────

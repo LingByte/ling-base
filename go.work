@@ -60,15 +60,15 @@ use (
 	./limiter/null
 	./limiter/redis
 	./limiter/tokenbucket
-	./lock
+	./common/lock
 	./metrics
-	./lock/consul
-	./lock/etcd
-	./lock/mysql
-	./lock/postgres
-	./lock/redis
-	./lock/redlock
-	./lock/zookeeper
+	./common/lock/consul
+	./common/lock/etcd
+	./common/lock/mysql
+	./common/lock/postgres
+	./common/lock/redis
+	./common/lock/redlock
+	./common/lock/zookeeper
 	./mq
 	./mq/activemq
 	./mq/factory

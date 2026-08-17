@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/LingByte/ling-base/lock"
-	"github.com/LingByte/ling-base/lock/memory"
+	"github.com/LingByte/ling-base/common/lock"
+	"github.com/LingByte/ling-base/common/lock/memory"
 	"github.com/LingByte/ling-base/scheduler"
 )
 

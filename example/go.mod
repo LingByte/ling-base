@@ -17,7 +17,7 @@ require (
 	github.com/LingByte/ling-base/common/barcode v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/jwtutil v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/videoutil v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/lock v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/lock v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/metrics v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/opentelemetry v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/scheduler v0.0.0-00010101000000-000000000000
@@ -163,7 +163,7 @@ replace (
 	github.com/LingByte/ling-base/common/barcode => ../common/barcode
 	github.com/LingByte/ling-base/common/jwtutil => ../common/jwtutil
 	github.com/LingByte/ling-base/common/videoutil => ../common/videoutil
-	github.com/LingByte/ling-base/lock => ../lock
+	github.com/LingByte/ling-base/common/lock => ../common/lock
 	github.com/LingByte/ling-base/metrics => ../metrics
 	github.com/LingByte/ling-base/opentelemetry => ../opentelemetry
 	github.com/LingByte/ling-base/scheduler => ../scheduler
