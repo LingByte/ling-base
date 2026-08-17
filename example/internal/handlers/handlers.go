@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/cache"
 	redisCache "github.com/LingByte/ling-base/cache/redis"
-	"github.com/LingByte/ling-base/circuitbreaker"
+	"github.com/LingByte/ling-base/common/circuitbreaker"
 	"github.com/LingByte/ling-base/common/config"
 	"github.com/LingByte/ling-base/common/convert"
 	"github.com/LingByte/ling-base/common/idgen"

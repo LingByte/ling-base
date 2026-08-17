@@ -7,7 +7,7 @@ require (
 	github.com/LingByte/ling-base/bootstrap v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/cache v0.1.0
 	github.com/LingByte/ling-base/cache/redis v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/circuitbreaker v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/circuitbreaker v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common v0.3.0
 	github.com/LingByte/ling-base/common/config v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/convert v0.0.0-00010101000000-000000000000
@@ -154,7 +154,7 @@ replace (
 	github.com/LingByte/ling-base/bootstrap => ../bootstrap
 	github.com/LingByte/ling-base/cache => ../cache
 	github.com/LingByte/ling-base/cache/redis => ../cache/redis
-	github.com/LingByte/ling-base/circuitbreaker => ../circuitbreaker
+	github.com/LingByte/ling-base/common/circuitbreaker => ../common/circuitbreaker
 	github.com/LingByte/ling-base/common/config => ../common/config
 	github.com/LingByte/ling-base/common/convert => ../common/convert
 	github.com/LingByte/ling-base/common/idgen => ../common/idgen

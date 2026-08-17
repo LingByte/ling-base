@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/circuitbreaker"
+	"github.com/LingByte/ling-base/common/circuitbreaker"
 	"github.com/LingByte/ling-base/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

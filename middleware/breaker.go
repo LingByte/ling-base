@@ -4,7 +4,7 @@
 package middleware
 
 import (
-	"github.com/LingByte/ling-base/circuitbreaker"
+	"github.com/LingByte/ling-base/common/circuitbreaker"
 )
 
 // Breaker is the circuit-breaker interface used by the timeout/circuit

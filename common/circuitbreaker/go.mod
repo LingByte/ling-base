@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/circuitbreaker
+module github.com/LingByte/ling-base/common/circuitbreaker
 
 go 1.26.2
 

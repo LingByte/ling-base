@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/circuitbreaker v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/circuitbreaker v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/constants v0.0.0-00010101000000-000000000000
@@ -24,7 +24,7 @@ require (
 )
 
 replace (
-	github.com/LingByte/ling-base/circuitbreaker => ./circuitbreaker
+	github.com/LingByte/ling-base/common/circuitbreaker => ./common/circuitbreaker
 	github.com/LingByte/ling-base/common/response => ./common/response
 	github.com/LingByte/ling-base/common/response/gin => ./common/response/gin
 	github.com/LingByte/ling-base/constants => ./constants

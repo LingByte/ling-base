@@ -20,7 +20,7 @@ use (
 	./censor/aliyun
 	./censor/qcloud
 	./censor/qiniu
-	./circuitbreaker
+	./common/circuitbreaker
 	./common
 	./common/audioutil
 	./common/barcode
