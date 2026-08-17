@@ -27,9 +27,9 @@ require (
 	github.com/LingByte/ling-base/common/validate v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/constants v0.1.0
 	github.com/LingByte/ling-base/eventbus v0.1.0
-	github.com/LingByte/ling-base/limiter v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/limiter/count v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/limiter/tokenbucket v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/limiter v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/limiter/count v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/limiter/tokenbucket v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/notification v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/notification/email v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/notification/inbox v0.0.0-00010101000000-000000000000
@@ -172,9 +172,9 @@ replace (
 	github.com/LingByte/ling-base/common/response/gin => ../common/response/gin
 	github.com/LingByte/ling-base/common/validate => ../common/validate
 	github.com/LingByte/ling-base/eventbus => ../eventbus
-	github.com/LingByte/ling-base/limiter => ../limiter
-	github.com/LingByte/ling-base/limiter/count => ../limiter/count
-	github.com/LingByte/ling-base/limiter/tokenbucket => ../limiter/tokenbucket
+	github.com/LingByte/ling-base/common/limiter => ../common/limiter
+	github.com/LingByte/ling-base/common/limiter/count => ../common/limiter/count
+	github.com/LingByte/ling-base/common/limiter/tokenbucket => ../common/limiter/tokenbucket
 	github.com/LingByte/ling-base/notification => ../notification
 	github.com/LingByte/ling-base/notification/email => ../notification/email
 	github.com/LingByte/ling-base/notification/inbox => ../notification/inbox

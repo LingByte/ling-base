@@ -50,16 +50,16 @@ use (
 	./i18n
 	./i18n/gin
 	./i18n/mymemory
-	./limiter
-	./limiter/count
-	./limiter/etcd
-	./limiter/keycount
-	./limiter/keysize
-	./limiter/memcached
-	./limiter/mongodb
-	./limiter/null
-	./limiter/redis
-	./limiter/tokenbucket
+	./common/limiter
+	./common/limiter/count
+	./common/limiter/etcd
+	./common/limiter/keycount
+	./common/limiter/keysize
+	./common/limiter/memcached
+	./common/limiter/mongodb
+	./common/limiter/null
+	./common/limiter/redis
+	./common/limiter/tokenbucket
 	./common/lock
 	./metrics
 	./common/lock/consul
