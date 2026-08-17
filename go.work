@@ -34,6 +34,8 @@ use (
 	./common/jwtutil
 	./common/imageutil
 	./common/mathutil
+	./common/migration
+	./common/migration/gormmigrator
 	./common/netutil
 	./common/nltime
 	./common/pinyin
