@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/LingByte/ling-base/stores"
 )
@@ -22,9 +23,14 @@ type Config struct {
 }
 
 // Store implements stores.Store using the local filesystem.
+// It also implements stores.ObjectStorageManager for bucket & object
+// management (see manager.go).
 type Store struct {
 	root       string
 	newDirPerm os.FileMode
+
+	bsOnce sync.Once
+	bs     *bucketStore
 }
 
 // New creates a local filesystem store.
