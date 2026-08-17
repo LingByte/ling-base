@@ -60,6 +60,7 @@ use (
 	./limiter/redis
 	./limiter/tokenbucket
 	./lock
+	./metrics
 	./lock/consul
 	./lock/etcd
 	./lock/mysql
@@ -78,6 +79,7 @@ use (
 	./notification/email
 	./notification/im
 	./notification/inbox
+	./opentelemetry
 	./notification/push
 	./notification/sms
 	./notification/webhook
@@ -147,6 +149,7 @@ use (
 	./synthesizer/volcengine
 	./synthesizer/xunfei
 	./system
+	./tracing
 	./version
 )
 
