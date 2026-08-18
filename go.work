@@ -20,7 +20,6 @@ use (
 	./censor/aliyun
 	./censor/qcloud
 	./censor/qiniu
-	./cli
 	./common
 	./common/audioutil
 	./common/barcode
@@ -73,6 +72,7 @@ use (
 	./i18n
 	./i18n/gin
 	./i18n/mymemory
+	./lingcli
 	./metrics
 	./mq
 	./mq/activemq

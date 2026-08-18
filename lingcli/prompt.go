@@ -38,6 +38,29 @@ func (p *Prompt) Input(label, defaultVal string) string {
 	return line
 }
 
+// InputInt 读取一个整数。如果用户直接回车，返回 defaultVal。
+func (p *Prompt) InputInt(label string, defaultVal int) int {
+	if defaultVal != 0 {
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m [\x1b[38;5;245m%d\x1b[0m]: ", label, defaultVal)
+	} else {
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m: ", label)
+	}
+	line, err := p.reader.ReadString('\n')
+	if err != nil {
+		return defaultVal
+	}
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return defaultVal
+	}
+	var val int
+	if _, err := fmt.Sscanf(line, "%d", &val); err != nil {
+		fmt.Printf("  \x1b[31m无效数字，使用默认值 %d\x1b[0m\n", defaultVal)
+		return defaultVal
+	}
+	return val
+}
+
 // Select 呈现编号菜单，返回选中的索引（0-based）。
 func (p *Prompt) Select(label string, count int) int {
 	for {
@@ -72,48 +95,6 @@ func (p *Prompt) Confirm(label string) bool {
 			return false
 		default:
 			fmt.Println("  \x1b[31m请输入 y 或 n\x1b[0m")
-		}
-	}
-}
-
-// MultiSelect 呈现多选列表，返回选中的索引。
-func (p *Prompt) MultiSelect(label string, options []string) []int {
-	fmt.Printf("  \x1b[38;5;117m%s\x1b[0m\n", label)
-	fmt.Println("  \x1b[38;5;245m（逗号分隔数字，如 1,3,5；输入 all 全选）\x1b[0m")
-	for i, opt := range options {
-		fmt.Printf("    \x1b[38;5;39m[%d]\x1b[0m %s\n", i+1, opt)
-	}
-	for {
-		fmt.Printf("  请选择: ")
-		line, err := p.reader.ReadString('\n')
-		if err != nil {
-			return nil
-		}
-		line = strings.ToLower(strings.TrimSpace(line))
-		if line == "all" {
-			result := make([]int, len(options))
-			for i := range options {
-				result[i] = i
-			}
-			return result
-		}
-		if line == "" {
-			return nil
-		}
-		var result []int
-		parts := strings.Split(line, ",")
-		valid := true
-		for _, part := range parts {
-			var idx int
-			if _, err := fmt.Sscanf(strings.TrimSpace(part), "%d", &idx); err != nil || idx < 1 || idx > len(options) {
-				fmt.Printf("  \x1b[31m无效: %s\x1b[0m\n", part)
-				valid = false
-				break
-			}
-			result = append(result, idx-1)
-		}
-		if valid && len(result) > 0 {
-			return result
 		}
 	}
 }
