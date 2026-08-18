@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/pool"
+	"github.com/LingByte/ling-base/common/pool"
 )
 
 // ===== weightedFairScore tests =====

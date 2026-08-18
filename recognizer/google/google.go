@@ -141,9 +141,9 @@ func (g *GoogleASR) getAccessToken() (string, error) {
 	}
 
 	var creds struct {
-		ClientEmail  string `json:"client_email"`
-		PrivateKey   string `json:"private_key"`
-		TokenURI     string `json:"token_uri"`
+		ClientEmail string `json:"client_email"`
+		PrivateKey  string `json:"private_key"`
+		TokenURI    string `json:"token_uri"`
 	}
 	if err := json.Unmarshal([]byte(g.opt.CredentialsJSON), &creds); err != nil {
 		return "", fmt.Errorf("google asr: parse credentials: %w", err)
@@ -175,10 +175,10 @@ func (g *GoogleASR) handleStream() {
 	// Initial streaming config
 	config := map[string]interface{}{
 		"config": map[string]interface{}{
-			"encoding":          g.opt.Encoding,
-			"sampleRateHertz":   g.opt.SampleRate,
-			"languageCode":      g.opt.LanguageCode,
-			"model":             g.opt.Model,
+			"encoding":                   g.opt.Encoding,
+			"sampleRateHertz":            g.opt.SampleRate,
+			"languageCode":               g.opt.LanguageCode,
+			"model":                      g.opt.Model,
 			"enableAutomaticPunctuation": true,
 		},
 		"interimResults": true,
@@ -312,7 +312,7 @@ func (g *GoogleASR) StopConn() error {
 type GoogleStreamingResponse struct {
 	Results []struct {
 		Alternatives []struct {
-			Transcript string `json:"transcript"`
+			Transcript string  `json:"transcript"`
 			Confidence float64 `json:"confidence"`
 		} `json:"alternatives"`
 		IsFinal bool `json:"isFinal"`

@@ -22,11 +22,11 @@ import (
 // ConsumeResult. When AutoAck is enabled the framework ignores these
 // flags entirely.
 type Delivery struct {
-	msg            *primitive.MessageExt
-	ackedManually  bool
-	nacked         bool
-	rejected       bool
-	requeue        bool
+	msg           *primitive.MessageExt
+	ackedManually bool
+	nacked        bool
+	rejected      bool
+	requeue       bool
 }
 
 // newDelivery constructs a Delivery from a RocketMQ message extension.

@@ -16,14 +16,14 @@ import (
 
 // streamDelivery adapts a redis.XMessage to the mq.Delivery interface.
 type streamDelivery struct {
-	msg       redis.XMessage
-	stream    string
-	group     string
-	consumer  *Consumer
+	msg         redis.XMessage
+	stream      string
+	group       string
+	consumer    *Consumer
 	redelivered bool
 
-	mu             sync.Mutex
-	ackedManually  bool
+	mu            sync.Mutex
+	ackedManually bool
 }
 
 // Message returns the underlying mq.Message reconstructed from the stream

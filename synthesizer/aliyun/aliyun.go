@@ -27,18 +27,18 @@ const (
 
 // AliyunTTSConfig 阿里云 DashScope Qwen-TTS realtime 配置
 type AliyunTTSConfig struct {
-	APIKey              string `json:"apiKey" yaml:"api_key" env:"DASHSCOPE_API_KEY"`
-	BaseURL             string `json:"baseUrl" yaml:"base_url"`
-	Model               string `json:"model" yaml:"model" default:"qwen3-tts-flash-realtime"`
-	Voice               string `json:"voice" yaml:"voice" default:"Cherry"`
-	LanguageType        string `json:"languageType" yaml:"language_type" default:"Auto"`
-	Mode                string `json:"mode" yaml:"mode" default:"server_commit"` // commit | server_commit
-	SampleRate          int    `json:"sampleRate" yaml:"sample_rate" default:"24000"`
-	Channels            int    `json:"channels" yaml:"channels" default:"1"`
-	BitDepth            int    `json:"bitDepth" yaml:"bit_depth" default:"16"`
-	FrameDuration       string `json:"frameDuration" yaml:"frame_duration" default:"20ms"`
-	DialTimeoutMs       int    `json:"dialTimeoutMs" yaml:"dial_timeout_ms" default:"10000"`
-	Instructions        string `json:"instructions" yaml:"instructions"`
+	APIKey               string `json:"apiKey" yaml:"api_key" env:"DASHSCOPE_API_KEY"`
+	BaseURL              string `json:"baseUrl" yaml:"base_url"`
+	Model                string `json:"model" yaml:"model" default:"qwen3-tts-flash-realtime"`
+	Voice                string `json:"voice" yaml:"voice" default:"Cherry"`
+	LanguageType         string `json:"languageType" yaml:"language_type" default:"Auto"`
+	Mode                 string `json:"mode" yaml:"mode" default:"server_commit"` // commit | server_commit
+	SampleRate           int    `json:"sampleRate" yaml:"sample_rate" default:"24000"`
+	Channels             int    `json:"channels" yaml:"channels" default:"1"`
+	BitDepth             int    `json:"bitDepth" yaml:"bit_depth" default:"16"`
+	FrameDuration        string `json:"frameDuration" yaml:"frame_duration" default:"20ms"`
+	DialTimeoutMs        int    `json:"dialTimeoutMs" yaml:"dial_timeout_ms" default:"10000"`
+	Instructions         string `json:"instructions" yaml:"instructions"`
 	OptimizeInstructions bool   `json:"optimizeInstructions" yaml:"optimize_instructions"`
 }
 
@@ -50,15 +50,15 @@ func (c *AliyunTTSConfig) GetProvider() base.Provider {
 // NewAliyunTTSConfig 创建阿里云 TTS 配置
 func NewAliyunTTSConfig(apiKey string) AliyunTTSConfig {
 	return AliyunTTSConfig{
-		APIKey:       apiKey,
-		BaseURL:      aliyunDefaultEndpoint,
-		Model:        aliyunDefaultModel,
-		Voice:        aliyunDefaultVoice,
-		LanguageType: aliyunDefaultLanguage,
-		Mode:         aliyunDefaultMode,
-		SampleRate:   24000,
-		Channels:     1,
-		BitDepth:     16,
+		APIKey:        apiKey,
+		BaseURL:       aliyunDefaultEndpoint,
+		Model:         aliyunDefaultModel,
+		Voice:         aliyunDefaultVoice,
+		LanguageType:  aliyunDefaultLanguage,
+		Mode:          aliyunDefaultMode,
+		SampleRate:    24000,
+		Channels:      1,
+		BitDepth:      16,
 		FrameDuration: "20ms",
 		DialTimeoutMs: 10000,
 	}
@@ -173,17 +173,17 @@ func (as *AliyunService) Synthesize(ctx context.Context, handler base.Handler, t
 		"event_id": fmt.Sprintf("evt_session_%d", time.Now().UnixNano()),
 		"type":     "session.update",
 		"session": map[string]interface{}{
-			"model":              opt.Model,
-			"voice":              opt.Voice,
-			"language":           opt.LanguageType,
-			"modalities":         []string{"text", "audio"},
-			"output_format":      "pcm",
-			"sample_rate":        opt.SampleRate,
-			"channels":           opt.Channels,
-			"bit_depth":          opt.BitDepth,
-			"mode":               opt.Mode,
-			"input_modalities":   []string{"text"},
-			"instructions":       opt.Instructions,
+			"model":                 opt.Model,
+			"voice":                 opt.Voice,
+			"language":              opt.LanguageType,
+			"modalities":            []string{"text", "audio"},
+			"output_format":         "pcm",
+			"sample_rate":           opt.SampleRate,
+			"channels":              opt.Channels,
+			"bit_depth":             opt.BitDepth,
+			"mode":                  opt.Mode,
+			"input_modalities":      []string{"text"},
+			"instructions":          opt.Instructions,
 			"optimize_instructions": opt.OptimizeInstructions,
 		},
 	}

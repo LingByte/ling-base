@@ -11,10 +11,10 @@ require (
 
 replace github.com/LingByte/ling-base/queue => ../
 
-replace github.com/LingByte/ling-base/pool => ../../pool
+replace github.com/LingByte/ling-base/common/pool => ../../common/pool
 
 require (
-	github.com/LingByte/ling-base/pool v0.0.0-00010101000000-000000000000 // indirect
+	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

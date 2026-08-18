@@ -525,7 +525,7 @@ func (s *LocalGoSpeechService) synthesizeWithEspeak(ctx context.Context, text st
 	args := []string{
 		"-w", outputFile,
 		"-s", fmt.Sprintf("%.0f", s.config.Speed*175), // espeak 默认速度是 175 wpm
-		"-p", fmt.Sprintf("%.0f", s.config.Pitch*50),  // espeak 音调范围 0-99
+		"-p", fmt.Sprintf("%.0f", s.config.Pitch*50), // espeak 音调范围 0-99
 		"-a", fmt.Sprintf("%.0f", s.config.Volume*200), // espeak 音量范围 0-200
 	}
 

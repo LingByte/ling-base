@@ -9,10 +9,10 @@ require (
 
 replace github.com/LingByte/ling-base/queue => ../
 
-replace github.com/LingByte/ling-base/pool => ../../pool
+replace github.com/LingByte/ling-base/common/pool => ../../common/pool
 
 require (
-	github.com/LingByte/ling-base/pool v0.0.0-00010101000000-000000000000 // indirect
+	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

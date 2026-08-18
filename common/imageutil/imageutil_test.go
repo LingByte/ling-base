@@ -30,6 +30,14 @@ func createTestImage() image.Image {
 	return img
 }
 
+// abs returns the absolute value of x.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // writeTestPNG writes a test image to a temp file as PNG.
 func writeTestPNG(t *testing.T, img image.Image) string {
 	t.Helper()
@@ -663,3 +671,300 @@ func TestDecodeConfig_InvalidData(t *testing.T) {
 
 // Ensure png import is used.
 var _ = png.Encode
+
+// ──────────────────────────────────────────────
+// Additional coverage for imageutil.go
+// ──────────────────────────────────────────────
+
+func TestResizeCatmullRom(t *testing.T) {
+	img := createTestImage()
+	resized := ResizeCatmullRom(img, 50, 50)
+	w, h := Dimensions(resized)
+	if w != 50 || h != 50 {
+		t.Fatalf("ResizeCatmullRom dimensions = %dx%d, want 50x50", w, h)
+	}
+}
+
+func TestResizeCatmullRom_AspectRatio(t *testing.T) {
+	img := createTestImage()
+	resized := ResizeCatmullRom(img, 200, 0)
+	w, h := Dimensions(resized)
+	if w != 200 || h != 200 {
+		t.Fatalf("ResizeCatmullRom(200, 0) = %dx%d, want 200x200", w, h)
+	}
+}
+
+func TestResizeCatmullRom_SameSize(t *testing.T) {
+	img := createTestImage()
+	if out := ResizeCatmullRom(img, 100, 100); out != img {
+		t.Fatal("ResizeCatmullRom same size should return original")
+	}
+}
+
+func TestSaveTIFF(t *testing.T) {
+	img := createTestImage()
+	path := filepath.Join(t.TempDir(), "test.tiff")
+	if err := SaveTIFF(img, path); err != nil {
+		t.Fatalf("SaveTIFF failed: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal("tiff file not created")
+	}
+}
+
+func TestSaveTIFF_DecodeRoundTrip(t *testing.T) {
+	img := createTestImage()
+	path := filepath.Join(t.TempDir(), "rt.tiff")
+	if err := SaveTIFF(img, path); err != nil {
+		t.Fatalf("SaveTIFF failed: %v", err)
+	}
+	decoded, format, err := DecodeFile(path)
+	if err != nil {
+		t.Fatalf("DecodeFile tiff failed: %v", err)
+	}
+	if format != FormatTIFF {
+		t.Fatalf("format = %q, want tiff", format)
+	}
+	if w, h := Dimensions(decoded); w != 100 || h != 100 {
+		t.Fatalf("tiff round-trip dims = %dx%d", w, h)
+	}
+}
+
+func TestEncode_TIFF(t *testing.T) {
+	var buf bytes.Buffer
+	err := Encode(&buf, createTestImage(), FormatTIFF, 0)
+	if err != nil {
+		t.Fatalf("Encode TIFF failed: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("Encode TIFF produced empty output")
+	}
+}
+
+func TestEncode_WebP(t *testing.T) {
+	var buf bytes.Buffer
+	err := Encode(&buf, createTestImage(), FormatWebP, 0)
+	if err == nil {
+		t.Fatal("Encode WebP should fail (decode-only)")
+	}
+}
+
+func TestSave_WebP(t *testing.T) {
+	err := Save(createTestImage(), filepath.Join(t.TempDir(), "test.webp"), FormatWebP, 0)
+	if err == nil {
+		t.Fatal("Save WebP should fail (decode-only)")
+	}
+}
+
+func TestSave_TIFF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "save.tiff")
+	if err := Save(createTestImage(), path, FormatTIFF, 0); err != nil {
+		t.Fatalf("Save TIFF failed: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal("tiff file not created via Save")
+	}
+}
+
+func TestSave_GIF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "save.gif")
+	if err := Save(createTestImage(), path, FormatGIF, 0); err != nil {
+		t.Fatalf("Save GIF failed: %v", err)
+	}
+}
+
+func TestSave_PNG(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "save.png")
+	if err := Save(createTestImage(), path, FormatPNG, 0); err != nil {
+		t.Fatalf("Save PNG failed: %v", err)
+	}
+}
+
+func TestSave_JPEG(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "save.jpg")
+	if err := Save(createTestImage(), path, FormatJPEG, 90); err != nil {
+		t.Fatalf("Save JPEG failed: %v", err)
+	}
+}
+
+func TestSave_UnsupportedFormat2(t *testing.T) {
+	err := Save(createTestImage(), "test.xyz", FormatBMP, 90)
+	if err == nil {
+		t.Fatal("Save with unsupported format should fail")
+	}
+}
+
+func TestSaveJPEG_Error(t *testing.T) {
+	// Write to a directory that doesn't exist.
+	err := SaveJPEG(createTestImage(), "/nonexistent/dir/test.jpg", 90)
+	if err == nil {
+		t.Fatal("SaveJPEG to nonexistent dir should fail")
+	}
+}
+
+func TestSavePNG_Error(t *testing.T) {
+	err := SavePNG(createTestImage(), "/nonexistent/dir/test.png")
+	if err == nil {
+		t.Fatal("SavePNG to nonexistent dir should fail")
+	}
+}
+
+func TestSaveGIF_Error(t *testing.T) {
+	err := SaveGIF(createTestImage(), "/nonexistent/dir/test.gif")
+	if err == nil {
+		t.Fatal("SaveGIF to nonexistent dir should fail")
+	}
+}
+
+func TestSaveTIFF_Error(t *testing.T) {
+	err := SaveTIFF(createTestImage(), "/nonexistent/dir/test.tiff")
+	if err == nil {
+		t.Fatal("SaveTIFF to nonexistent dir should fail")
+	}
+}
+
+func TestGetInfo_NotExist(t *testing.T) {
+	_, err := GetInfo("/nonexistent/file.png")
+	if err == nil {
+		t.Fatal("GetInfo on nonexistent file should fail")
+	}
+}
+
+func TestConvertFormat_Error(t *testing.T) {
+	err := ConvertFormat("/nonexistent/in.png", filepath.Join(t.TempDir(), "out.jpg"), 90)
+	if err == nil {
+		t.Fatal("ConvertFormat with nonexistent input should fail")
+	}
+}
+
+func TestConvertFormat_TIFFToJPEG(t *testing.T) {
+	// Create a TIFF input.
+	tiffPath := filepath.Join(t.TempDir(), "in.tiff")
+	if err := SaveTIFF(createTestImage(), tiffPath); err != nil {
+		t.Fatalf("SaveTIFF: %v", err)
+	}
+	jpgPath := filepath.Join(t.TempDir(), "out.jpg")
+	if err := ConvertFormat(tiffPath, jpgPath, 85); err != nil {
+		t.Fatalf("ConvertFormat tiff->jpg failed: %v", err)
+	}
+}
+
+func TestReduceQuality_ClampLow(t *testing.T) {
+	data, err := ReduceQuality(createTestImage(), -5)
+	if err != nil {
+		t.Fatalf("ReduceQuality(-5) failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("ReduceQuality returned empty")
+	}
+}
+
+func TestReduceQuality_ClampHigh(t *testing.T) {
+	data, err := ReduceQuality(createTestImage(), 200)
+	if err != nil {
+		t.Fatalf("ReduceQuality(200) failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("ReduceQuality returned empty")
+	}
+}
+
+func TestReduceQualityFile_Error(t *testing.T) {
+	err := ReduceQualityFile("/nonexistent/in.jpg", filepath.Join(t.TempDir(), "out.jpg"), 50)
+	if err == nil {
+		t.Fatal("ReduceQualityFile with nonexistent input should fail")
+	}
+}
+
+func TestOptimizeForWebFile_Error(t *testing.T) {
+	err := OptimizeForWebFile("/nonexistent/in.png", filepath.Join(t.TempDir(), "out.jpg"), 50, 80)
+	if err == nil {
+		t.Fatal("OptimizeForWebFile with nonexistent input should fail")
+	}
+}
+
+func TestCalcDimensions_BothZero(t *testing.T) {
+	w, h := calcDimensions(100, 50, 0, 0)
+	if w != 100 || h != 50 {
+		t.Fatalf("calcDimensions(0,0) = %dx%d, want 100x50", w, h)
+	}
+}
+
+func TestCalcDimensions_WidthZero(t *testing.T) {
+	w, h := calcDimensions(100, 50, 0, 25)
+	if w != 50 || h != 25 {
+		t.Fatalf("calcDimensions(0,25) = %dx%d, want 50x25", w, h)
+	}
+}
+
+func TestCalcDimensions_HeightZero(t *testing.T) {
+	w, h := calcDimensions(100, 50, 50, 0)
+	if w != 50 || h != 25 {
+		t.Fatalf("calcDimensions(50,0) = %dx%d, want 50x25", w, h)
+	}
+}
+
+func TestCalcDimensions_ClampToOne(t *testing.T) {
+	// Very small target should clamp to 1.
+	w, h := calcDimensions(100, 50, 0, 1)
+	if h != 1 {
+		t.Fatalf("calcDimensions height should clamp to 1, got %d", h)
+	}
+	_ = w
+}
+
+func TestFormatFromExtension_TIFF(t *testing.T) {
+	got, err := FormatFromExtension("tiff")
+	if err != nil || got != FormatTIFF {
+		t.Fatalf("FormatFromExtension(tiff) = %v, %v, want tiff, nil", got, err)
+	}
+	got, err = FormatFromExtension("tif")
+	if err != nil || got != FormatTIFF {
+		t.Fatalf("FormatFromExtension(tif) = %v, %v, want tiff, nil", got, err)
+	}
+}
+
+func TestFormatFromExtension_WebP(t *testing.T) {
+	got, err := FormatFromExtension("webp")
+	if err != nil || got != FormatWebP {
+		t.Fatalf("FormatFromExtension(webp) = %v, %v, want webp, nil", got, err)
+	}
+}
+
+func TestSaveByExtension_TIFF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "out.tiff")
+	if err := SaveByExtension(createTestImage(), path, 0); err != nil {
+		t.Fatalf("SaveByExtension tiff failed: %v", err)
+	}
+}
+
+func TestSaveByExtension_GIF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "out.gif")
+	if err := SaveByExtension(createTestImage(), path, 0); err != nil {
+		t.Fatalf("SaveByExtension gif failed: %v", err)
+	}
+}
+
+func TestSaveByExtension_BMP(t *testing.T) {
+	err := SaveByExtension(createTestImage(), filepath.Join(t.TempDir(), "out.bmp"), 0)
+	if err == nil {
+		t.Fatal("SaveByExtension bmp should fail (BMP encode not supported)")
+	}
+}
+
+func TestToBytes_TIFF(t *testing.T) {
+	data, err := ToBytes(createTestImage(), FormatTIFF, 0)
+	if err != nil {
+		t.Fatalf("ToBytes TIFF failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("ToBytes TIFF produced empty output")
+	}
+}
+
+func TestToBytes_WebP(t *testing.T) {
+	_, err := ToBytes(createTestImage(), FormatWebP, 0)
+	if err == nil {
+		t.Fatal("ToBytes WebP should fail (decode-only)")
+	}
+}

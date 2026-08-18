@@ -131,7 +131,7 @@ func TestNewBroker_RedisStream_NilConfig(t *testing.T) {
 
 func TestNewBroker_RedisStream_WrongType(t *testing.T) {
 	_, err := NewBroker(mq.BrokerConfig{
-		Type:             mq.BrokerRedisStream,
+		Type:              mq.BrokerRedisStream,
 		RedisStreamConfig: "not a config",
 	})
 	assert.Error(t, err)
@@ -140,7 +140,7 @@ func TestNewBroker_RedisStream_WrongType(t *testing.T) {
 
 func TestNewBroker_RedisStream_Success(t *testing.T) {
 	broker, err := NewBroker(mq.BrokerConfig{
-		Type:             mq.BrokerRedisStream,
+		Type:              mq.BrokerRedisStream,
 		RedisStreamConfig: &redisstream.Config{Addr: "localhost:6379"},
 	})
 	require.NoError(t, err)

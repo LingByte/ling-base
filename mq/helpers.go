@@ -86,11 +86,11 @@ type HealthChecker interface {
 
 // HealthStatus describes the health of a broker.
 type HealthStatus struct {
-	Healthy    bool          `json:"healthy"`
-	Backend    string        `json:"backend"`
-	Error      string        `json:"error,omitempty"`
-	Latency    time.Duration `json:"latency,omitempty"`
-	Connected  bool          `json:"connected"`
+	Healthy   bool          `json:"healthy"`
+	Backend   string        `json:"backend"`
+	Error     string        `json:"error,omitempty"`
+	Latency   time.Duration `json:"latency,omitempty"`
+	Connected bool          `json:"connected"`
 }
 
 // String returns a human-readable health status.

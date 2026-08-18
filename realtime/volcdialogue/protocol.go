@@ -25,7 +25,7 @@ const (
 	eventStartSession  = 100
 	eventFinishSession = 102
 
-	eventTaskRequest = 200
+	eventTaskRequest  = 200
 	eventUpdateConfig = 201
 
 	eventConnectionStarted = 50

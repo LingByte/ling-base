@@ -144,18 +144,18 @@ type mockHealthChecker struct {
 	checkErr  error
 }
 
-func (m *mockHealthChecker) Connect() error                    { return nil }
-func (m *mockHealthChecker) IsConnected() bool                 { return m.connected }
-func (m *mockHealthChecker) Close() error                       { return nil }
+func (m *mockHealthChecker) Connect() error                                    { return nil }
+func (m *mockHealthChecker) IsConnected() bool                                 { return m.connected }
+func (m *mockHealthChecker) Close() error                                      { return nil }
 func (m *mockHealthChecker) Producer(string, PublishOptions) (Producer, error) { return nil, nil }
 func (m *mockHealthChecker) Consumer(string, ConsumeOptions) (Consumer, error) { return nil, nil }
 func (m *mockHealthChecker) DeclareExchange(string, ExchangeOptions) error     { return nil }
 func (m *mockHealthChecker) DeclareQueue(string, QueueOptions) error           { return nil }
 func (m *mockHealthChecker) Bind(string, string, string) error                 { return nil }
 func (m *mockHealthChecker) Unbind(string, string, string) error               { return nil }
-func (m *mockHealthChecker) DeleteQueue(string) error                           { return nil }
-func (m *mockHealthChecker) DeleteExchange(string) error                        { return nil }
-func (m *mockHealthChecker) Check(ctx context.Context) error                    { return m.checkErr }
+func (m *mockHealthChecker) DeleteQueue(string) error                          { return nil }
+func (m *mockHealthChecker) DeleteExchange(string) error                       { return nil }
+func (m *mockHealthChecker) Check(ctx context.Context) error                   { return m.checkErr }
 
 func TestCheckHealth_Healthy(t *testing.T) {
 	b := &mockHealthChecker{connected: true}
@@ -204,17 +204,17 @@ func TestHealthStatus_String(t *testing.T) {
 // fallbackBroker implements Broker but NOT HealthChecker
 type fallbackBroker struct{ connected bool }
 
-func (f *fallbackBroker) Connect() error                    { return nil }
-func (f *fallbackBroker) IsConnected() bool                 { return f.connected }
-func (f *fallbackBroker) Close() error                       { return nil }
+func (f *fallbackBroker) Connect() error                                    { return nil }
+func (f *fallbackBroker) IsConnected() bool                                 { return f.connected }
+func (f *fallbackBroker) Close() error                                      { return nil }
 func (f *fallbackBroker) Producer(string, PublishOptions) (Producer, error) { return nil, nil }
 func (f *fallbackBroker) Consumer(string, ConsumeOptions) (Consumer, error) { return nil, nil }
 func (f *fallbackBroker) DeclareExchange(string, ExchangeOptions) error     { return nil }
 func (f *fallbackBroker) DeclareQueue(string, QueueOptions) error           { return nil }
 func (f *fallbackBroker) Bind(string, string, string) error                 { return nil }
 func (f *fallbackBroker) Unbind(string, string, string) error               { return nil }
-func (f *fallbackBroker) DeleteQueue(string) error                           { return nil }
-func (f *fallbackBroker) DeleteExchange(string) error                        { return nil }
+func (f *fallbackBroker) DeleteQueue(string) error                          { return nil }
+func (f *fallbackBroker) DeleteExchange(string) error                       { return nil }
 
 // ============================================================
 // Topology builder tests
@@ -227,9 +227,9 @@ type recordingBroker struct {
 	failAt    string
 }
 
-func (r *recordingBroker) Connect() error                    { return nil }
-func (r *recordingBroker) IsConnected() bool                 { return true }
-func (r *recordingBroker) Close() error                       { return nil }
+func (r *recordingBroker) Connect() error                                    { return nil }
+func (r *recordingBroker) IsConnected() bool                                 { return true }
+func (r *recordingBroker) Close() error                                      { return nil }
 func (r *recordingBroker) Producer(string, PublishOptions) (Producer, error) { return nil, nil }
 func (r *recordingBroker) Consumer(string, ConsumeOptions) (Consumer, error) { return nil, nil }
 func (r *recordingBroker) DeclareExchange(name string, _ ExchangeOptions) error {
@@ -254,8 +254,8 @@ func (r *recordingBroker) Bind(queue, exchange, routingKey string) error {
 	return nil
 }
 func (r *recordingBroker) Unbind(string, string, string) error { return nil }
-func (r *recordingBroker) DeleteQueue(string) error             { return nil }
-func (r *recordingBroker) DeleteExchange(string) error          { return nil }
+func (r *recordingBroker) DeleteQueue(string) error            { return nil }
+func (r *recordingBroker) DeleteExchange(string) error         { return nil }
 
 func TestTopology_FullChain(t *testing.T) {
 	b := &recordingBroker{}

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	base "github.com/LingByte/ling-base/synthesizer"
 	"cloud.google.com/go/texttospeech/apiv1/texttospeechpb"
+	base "github.com/LingByte/ling-base/synthesizer"
 )
 
 func TestNewGoogleTTSOption(t *testing.T) {

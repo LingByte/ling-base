@@ -401,10 +401,10 @@ func (a *Agent) dispatch(raw []byte) {
 type geminiServerMessage struct {
 	SetupComplete *json.RawMessage `json:"setupComplete"`
 	ServerContent *struct {
-		Interrupted          bool `json:"interrupted"`
-		TurnComplete         bool `json:"turnComplete"`
-		GenerationComplete   bool `json:"generationComplete"`
-		ModelTurn            *struct {
+		Interrupted        bool `json:"interrupted"`
+		TurnComplete       bool `json:"turnComplete"`
+		GenerationComplete bool `json:"generationComplete"`
+		ModelTurn          *struct {
 			Parts []struct {
 				Text       string `json:"text"`
 				InlineData *struct {

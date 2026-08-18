@@ -32,18 +32,18 @@ type VolcengineLLMASR struct {
 
 // VolcengineLLMOption configures the Volcengine big-model ASR.
 type VolcengineLLMOption struct {
-	Url           string           `json:"url" yaml:"url" default:"wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"`
-	ResourceId    string           `json:"resourceId" yaml:"resource_id" default:"volc.bigasr.sauc.duration"`
-	AppID         string           `json:"appId" yaml:"app_id" env:"ASR_VOLC_LLM_APPID"`
-	AccessToken   string           `json:"accessToken" yaml:"access_token" env:"ASR_VOLC_LLM_ACCESS_TOKEN"`
-	Format        string           `json:"format" yaml:"format" default:"pcm"`
-	SampleRate    int              `json:"sampleRate" yaml:"sample_rate" default:"16000"`
-	BitDepth      int              `json:"bitDepth" yaml:"bit_depth" default:"16"`
-	Channel       int              `json:"channel" yaml:"channel" default:"1"`
-	Codec         string           `json:"codec" yaml:"codec" default:"raw"`
-	ReqChanSize   int              `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
-	HotWords      []base.HotWord   `json:"hotWords" yaml:"hot_words"`
-	EndWindowSize int              `json:"endWindowSize" yaml:"end_window_size"`
+	Url           string         `json:"url" yaml:"url" default:"wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"`
+	ResourceId    string         `json:"resourceId" yaml:"resource_id" default:"volc.bigasr.sauc.duration"`
+	AppID         string         `json:"appId" yaml:"app_id" env:"ASR_VOLC_LLM_APPID"`
+	AccessToken   string         `json:"accessToken" yaml:"access_token" env:"ASR_VOLC_LLM_ACCESS_TOKEN"`
+	Format        string         `json:"format" yaml:"format" default:"pcm"`
+	SampleRate    int            `json:"sampleRate" yaml:"sample_rate" default:"16000"`
+	BitDepth      int            `json:"bitDepth" yaml:"bit_depth" default:"16"`
+	Channel       int            `json:"channel" yaml:"channel" default:"1"`
+	Codec         string         `json:"codec" yaml:"codec" default:"raw"`
+	ReqChanSize   int            `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
+	HotWords      []base.HotWord `json:"hotWords" yaml:"hot_words"`
+	EndWindowSize int            `json:"endWindowSize" yaml:"end_window_size"`
 }
 
 // GetVendor returns the vendor identifier.

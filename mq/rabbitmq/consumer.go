@@ -202,8 +202,8 @@ func (c *Consumer) restart(ctx context.Context) error {
 
 // amqpDelivery adapts amqp.Delivery to the mq.Delivery interface.
 type amqpDelivery struct {
-	d              amqp.Delivery
-	ackedManually  bool
+	d             amqp.Delivery
+	ackedManually bool
 }
 
 func (a *amqpDelivery) Message() *mq.Message {

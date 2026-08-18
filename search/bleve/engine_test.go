@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/LingByte/ling-base/search"
+	"github.com/stretchr/testify/assert"
 )
 
 func setupTestEngine(t *testing.T) (search.Engine, string) {

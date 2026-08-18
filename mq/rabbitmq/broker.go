@@ -52,10 +52,10 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults for localhost.
 func DefaultConfig() Config {
 	return Config{
-		URL:             "amqp://guest:guest@localhost:5672/",
-		DialerTimeout:   10 * time.Second,
-		ReconnectDelay:  5 * time.Second,
-		Heartbeat:       10 * time.Second,
+		URL:              "amqp://guest:guest@localhost:5672/",
+		DialerTimeout:    10 * time.Second,
+		ReconnectDelay:   5 * time.Second,
+		Heartbeat:        10 * time.Second,
 		ChannelCacheSize: 16,
 	}
 }
@@ -80,11 +80,11 @@ type Broker struct {
 	consumers sync.Map // map[string]*Consumer
 
 	// reconnection.
-	reconnectMu   sync.Mutex
-	reconnecting  atomic.Bool
-	closeCh       chan struct{}
-	closed        atomic.Bool
-	notifyClose   chan *amqp.Error
+	reconnectMu  sync.Mutex
+	reconnecting atomic.Bool
+	closeCh      chan struct{}
+	closed       atomic.Bool
+	notifyClose  chan *amqp.Error
 
 	// metrics.
 	metrics *mq.MetricsCollector
@@ -407,9 +407,9 @@ func (b *Broker) Producer(exchange string, opts mq.PublishOptions) (mq.Producer,
 	}
 
 	p := &Producer{
-		broker:  b,
+		broker:   b,
 		exchange: exchange,
-		opts:    opts,
+		opts:     opts,
 	}
 	if err := p.reopen(); err != nil {
 		return nil, err

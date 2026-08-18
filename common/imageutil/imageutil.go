@@ -1,27 +1,41 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package imageutil provides image processing utilities using only the
-// Go standard library:
+// Package imageutil provides image processing utilities built on top of the
+// Go standard library and the official golang.org/x/image subrepository plus
+// the widely-used disintegration/imaging package:
 //
-//   - Decode/Encode: JPEG, PNG, GIF, BMP
-//   - Resize: nearest-neighbor, bilinear interpolation
-//   - Crop: rectangular region extraction
+//   - Decode/Encode: JPEG, PNG, GIF, BMP, TIFF, WebP (WebP decode only)
+//   - Resize: nearest-neighbor, bilinear, CatmullRom (Lanczos-quality),
+//     Lanczos — via golang.org/x/image/draw kernels and imaging filters;
+//     plus fit-with-padding (letterbox)
+//   - Crop: rectangular, center, smart, aspect-ratio with 9-grid anchor,
+//     circular, rounded corners
 //   - Rotate: 90/180/270 degrees
 //   - Flip: horizontal, vertical
 //   - Grayscale: luminance-based conversion
-//   - Adjust: brightness, contrast, gamma, saturation
+//   - Adjust: brightness, contrast, gamma, saturation, hue, color
+//     temperature, tint
+//   - Filters: box blur, gaussian blur (imaging), sharpen (imaging unsharp
+//     mask), edge detect (Sobel), emboss
+//   - Effects: invert, sepia, posterize, threshold (binarize)
 //   - Quality: JPEG re-encode with quality control
-//   - Thumbnail: proportional downscale
-//   - Watermark: overlay one image onto another
-//   - Info: dimensions, format detection
+//   - Thumbnail: proportional downscale (with optional padding)
+//   - Watermark: image overlay (center/bottom-right/tiled) and text watermark
+//     (center/bottom-right/tiled-rotated, built-in Go font — no .ttf needed)
+//   - Composite: blend modes (multiply/screen/overlay/add/...), border,
+//     padding
+//   - Info: dimensions, format detection, histogram & statistics
 //   - Convert: format conversion (e.g. PNG → JPEG)
 //
 // # Quick start
 //
 //	img, _, _ := imageutil.DecodeFile("input.png")
-//	resized := imageutil.ResizeBilinear(img, 200, 0)   // width=200, auto height
+//	resized := imageutil.ResizeBilinear(img, 200, 0)    // width=200, auto height
+//	hq     := imageutil.ResizeLanczos(img, 200, 0)      // high-quality
 //	cropped := imageutil.Crop(img, image.Rect(10, 10, 110, 110))
+//	blurred := imageutil.GaussianBlur(img, 3, 0)
+//	rounded := imageutil.RoundCorners(img, 24)
 //	imageutil.SaveJPEG(resized, "output.jpg", 85)
 package imageutil
 
@@ -39,6 +53,14 @@ import (
 	"math"
 	"os"
 	"strings"
+
+	// Register the WebP decoder with the image package so image.Decode
+	// recognizes it. (TIFF is imported below as xtiff for encoding, which
+	// also registers its decoder.)
+	_ "golang.org/x/image/webp"
+
+	xdraw "golang.org/x/image/draw"
+	xtiff "golang.org/x/image/tiff"
 )
 
 // ──────────────────────────────────────────────
@@ -53,6 +75,8 @@ const (
 	FormatPNG  Format = "png"
 	FormatGIF  Format = "gif"
 	FormatBMP  Format = "bmp"
+	FormatTIFF Format = "tiff"
+	FormatWebP Format = "webp"
 )
 
 // FormatFromExtension returns the format for a file extension.
@@ -66,6 +90,10 @@ func FormatFromExtension(ext string) (Format, error) {
 		return FormatGIF, nil
 	case "bmp":
 		return FormatBMP, nil
+	case "tif", "tiff":
+		return FormatTIFF, nil
+	case "webp":
+		return FormatWebP, nil
 	default:
 		return "", fmt.Errorf("imageutil: unknown extension %q", ext)
 	}
@@ -104,6 +132,8 @@ func DecodeFile(path string) (image.Image, Format, error) {
 }
 
 // Encode encodes an image to the specified format and writes to w.
+// WebP is not supported for encoding (golang.org/x/image/webp is decode-only);
+// use a dedicated WebP encoder if needed.
 func Encode(w io.Writer, img image.Image, format Format, quality int) error {
 	switch format {
 	case FormatJPEG:
@@ -112,6 +142,10 @@ func Encode(w io.Writer, img image.Image, format Format, quality int) error {
 		return png.Encode(w, img)
 	case FormatGIF:
 		return gif.Encode(w, img, &gif.Options{NumColors: 256})
+	case FormatTIFF:
+		return xtiff.Encode(w, img, &xtiff.Options{Compression: xtiff.Deflate})
+	case FormatWebP:
+		return fmt.Errorf("imageutil: webp encode is not supported (decode-only)")
 	default:
 		return fmt.Errorf("imageutil: unsupported encode format %q", format)
 	}
@@ -147,7 +181,18 @@ func SaveGIF(img image.Image, path string) error {
 	return gif.Encode(f, img, &gif.Options{NumColors: 256})
 }
 
-// Save saves an image in the specified format.
+// SaveTIFF saves an image as TIFF (Deflate-compressed).
+func SaveTIFF(img image.Image, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("imageutil: create %s: %w", path, err)
+	}
+	defer f.Close()
+	return xtiff.Encode(f, img, &xtiff.Options{Compression: xtiff.Deflate})
+}
+
+// Save saves an image in the specified format. WebP is not supported for
+// encoding (decode-only); use a dedicated WebP encoder if needed.
 func Save(img image.Image, path string, format Format, quality int) error {
 	switch format {
 	case FormatJPEG:
@@ -156,6 +201,10 @@ func Save(img image.Image, path string, format Format, quality int) error {
 		return SavePNG(img, path)
 	case FormatGIF:
 		return SaveGIF(img, path)
+	case FormatTIFF:
+		return SaveTIFF(img, path)
+	case FormatWebP:
+		return fmt.Errorf("imageutil: webp encode is not supported (decode-only)")
 	default:
 		return fmt.Errorf("imageutil: unsupported format %q", format)
 	}
@@ -223,9 +272,9 @@ func Dimensions(img image.Image) (int, int) {
 // Resize
 // ──────────────────────────────────────────────
 
-// ResizeNearest resizes an image using nearest-neighbor interpolation.
-// If width or height is 0, it is computed to preserve aspect ratio.
-// If both are 0, the original image is returned.
+// ResizeNearest resizes an image using nearest-neighbor interpolation via
+// golang.org/x/image/draw. If width or height is 0, it is computed to
+// preserve aspect ratio. If both are 0, the original image is returned.
 func ResizeNearest(img image.Image, width, height int) image.Image {
 	srcW, srcH := Dimensions(img)
 	width, height = calcDimensions(srcW, srcH, width, height)
@@ -233,18 +282,13 @@ func ResizeNearest(img image.Image, width, height int) image.Image {
 		return img
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		srcY := y * srcH / height
-		for x := 0; x < width; x++ {
-			srcX := x * srcW / width
-			dst.Set(x, y, img.At(srcX, srcY))
-		}
-	}
+	xdraw.NearestNeighbor.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Src, nil)
 	return dst
 }
 
-// ResizeBilinear resizes an image using bilinear interpolation.
-// If width or height is 0, it is computed to preserve aspect ratio.
+// ResizeBilinear resizes an image using bilinear interpolation via
+// golang.org/x/image/draw. If width or height is 0, it is computed to
+// preserve aspect ratio. If both are 0, the original image is returned.
 func ResizeBilinear(img image.Image, width, height int) image.Image {
 	srcW, srcH := Dimensions(img)
 	width, height = calcDimensions(srcW, srcH, width, height)
@@ -252,37 +296,22 @@ func ResizeBilinear(img image.Image, width, height int) image.Image {
 		return img
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, width, height))
-	xRatio := float64(srcW-1) / float64(width-1)
-	yRatio := float64(srcH-1) / float64(height-1)
-	if width == 1 {
-		xRatio = 0
+	xdraw.BiLinear.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Src, nil)
+	return dst
+}
+
+// ResizeCatmullRom resizes an image using the CatmullRom cubic kernel via
+// golang.org/x/image/draw. This is a high-quality interpolation suitable
+// for downscaling photos. If width or height is 0, it is computed to
+// preserve aspect ratio. If both are 0, the original image is returned.
+func ResizeCatmullRom(img image.Image, width, height int) image.Image {
+	srcW, srcH := Dimensions(img)
+	width, height = calcDimensions(srcW, srcH, width, height)
+	if width == srcW && height == srcH {
+		return img
 	}
-	if height == 1 {
-		yRatio = 0
-	}
-	for y := 0; y < height; y++ {
-		srcY := float64(y) * yRatio
-		y0 := int(math.Floor(srcY))
-		y1 := int(math.Ceil(srcY))
-		if y1 >= srcH {
-			y1 = srcH - 1
-		}
-		dy := srcY - float64(y0)
-		for x := 0; x < width; x++ {
-			srcX := float64(x) * xRatio
-			x0 := int(math.Floor(srcX))
-			x1 := int(math.Ceil(srcX))
-			if x1 >= srcW {
-				x1 = srcW - 1
-			}
-			dx := srcX - float64(x0)
-			c00 := img.At(x0, y0)
-			c01 := img.At(x0, y1)
-			c10 := img.At(x1, y0)
-			c11 := img.At(x1, y1)
-			dst.Set(x, y, bilinearInterp(c00, c01, c10, c11, dx, dy))
-		}
-	}
+	dst := image.NewRGBA(image.Rect(0, 0, width, height))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Src, nil)
 	return dst
 }
 
@@ -324,26 +353,6 @@ func calcDimensions(srcW, srcH, width, height int) (int, int) {
 		height = 1
 	}
 	return width, height
-}
-
-// bilinearInterp performs bilinear interpolation between four colors.
-func bilinearInterp(c00, c01, c10, c11 color.Color, dx, dy float64) color.Color {
-	r00, g00, b00, a00 := c00.RGBA()
-	r01, g01, b01, a01 := c01.RGBA()
-	r10, g10, b10, a10 := c10.RGBA()
-	r11, g11, b11, a11 := c11.RGBA()
-	interp := func(v00, v01, v10, v11 uint32) uint8 {
-		top := float64(v00)*(1-dx) + float64(v10)*dx
-		bottom := float64(v01)*(1-dx) + float64(v11)*dx
-		val := top*(1-dy) + bottom*dy
-		return uint8(val / 256)
-	}
-	return color.RGBA{
-		R: interp(r00, r01, r10, r11),
-		G: interp(g00, g01, g10, g11),
-		B: interp(b00, b01, b10, b11),
-		A: interp(a00, a01, a10, a11),
-	}
 }
 
 // ──────────────────────────────────────────────

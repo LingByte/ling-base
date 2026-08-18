@@ -518,15 +518,15 @@ func (dg *DeepgramASR) keepAlive(ctx context.Context) {
 
 // DeepgramResponse is the parsed JSON response from the Deepgram streaming API.
 type DeepgramResponse struct {
-	Type         string  `json:"type"`
-	Duration     float64 `json:"duration"`
-	Start        float64 `json:"start"`
-	IsFinal      bool    `json:"is_final"`
-	Channel      Channel `json:"channel"`
-	ErrCode      string  `json:"err_code,omitempty"`
-	ErrMsg       string  `json:"err_msg,omitempty"`
-	Description  string  `json:"description,omitempty"`
-	RequestID    string  `json:"request_id,omitempty"`
+	Type        string  `json:"type"`
+	Duration    float64 `json:"duration"`
+	Start       float64 `json:"start"`
+	IsFinal     bool    `json:"is_final"`
+	Channel     Channel `json:"channel"`
+	ErrCode     string  `json:"err_code,omitempty"`
+	ErrMsg      string  `json:"err_msg,omitempty"`
+	Description string  `json:"description,omitempty"`
+	RequestID   string  `json:"request_id,omitempty"`
 }
 
 // Channel holds the recognition alternatives for a Deepgram response.

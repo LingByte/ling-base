@@ -72,6 +72,11 @@ type Application struct {
 	bannerFile      string
 	output          io.Writer
 	shutdownTimeout time.Duration
+
+	// Migration support.
+	migrationRunner   MigrationRunner
+	autoMigrator      AutoMigrator
+	autoMigrateModels []any
 }
 
 // Option is a functional option for configuring an Application.
@@ -243,6 +248,13 @@ func (a *Application) Run() error {
 	a.setStatus(StatusInitializing)
 	a.events.Publish(ctx, eventbus.New(EventAppStarting, a))
 
+	// Run database migrations (if configured) before init hooks.
+	if err := a.runMigrations(ctx); err != nil {
+		a.setStatus(StatusFailed)
+		a.events.Publish(ctx, eventbus.New(EventAppFailed, a))
+		return fmt.Errorf("migration phase failed: %w", err)
+	}
+
 	if err := a.lifecycle.Init(ctx); err != nil {
 		a.setStatus(StatusFailed)
 		a.events.Publish(ctx, eventbus.New(EventAppFailed, a))
@@ -296,6 +308,13 @@ func (a *Application) RunAsync() <-chan error {
 
 		a.setStatus(StatusInitializing)
 		a.events.Publish(ctx, eventbus.New(EventAppStarting, a))
+
+		// Run database migrations (if configured) before init hooks.
+		if err := a.runMigrations(ctx); err != nil {
+			a.setStatus(StatusFailed)
+			errCh <- fmt.Errorf("migration phase failed: %w", err)
+			return
+		}
 
 		if err := a.lifecycle.Init(ctx); err != nil {
 			a.setStatus(StatusFailed)

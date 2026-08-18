@@ -3,8 +3,12 @@
 
 // Command app-demo is a full application example demonstrating bootstrap +
 // config (file + DB store) + eventbus + idgen + limiter + logger + gin + gorm
-// + redis cache + full-text search working together as a realistic ling-base
-// application.
+// + redis cache + full-text search + DB schema migrations working together as
+// a realistic ling-base application.
+//
+// Migration strategy:
+//   - dev/test:  GORM AutoMigrate (schema auto-syncs from struct definitions)
+//   - prod:      Versioned SQL migrations (embedded .sql files, reviewable)
 //
 // Usage:
 //
@@ -29,6 +33,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
 	"net/http"
@@ -38,14 +43,22 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/common/migration"
+	gormmigrator "github.com/LingByte/ling-base/common/migration/gormmigrator"
 	"github.com/LingByte/ling-base/constants"
 	"github.com/LingByte/ling-base/eventbus"
 	"github.com/LingByte/ling-base/example/internal/config"
 	"github.com/LingByte/ling-base/example/internal/handlers"
 	"github.com/LingByte/ling-base/example/internal/listeners"
+	"github.com/LingByte/ling-base/example/internal/models"
 	"github.com/LingByte/ling-base/logger"
 	"go.uber.org/zap"
 )
+
+// migrationFS embeds the SQL migration files for production use.
+//
+//go:embed migrations/*.sql
+var migrationFS embed.FS
 
 func main() {
 	envFlag := flag.String("env", "", "environment name (dev/prod/test, default: $APP_ENV or dev)")
@@ -83,10 +96,34 @@ func main() {
 	if shutdownTimeout <= 0 {
 		shutdownTimeout = 10 * time.Second
 	}
-	app := bootstrap.New("app-demo",
+
+	appOpts := []bootstrap.Option{
 		bootstrap.WithProfile(env),
 		bootstrap.WithShutdownTimeout(shutdownTimeout),
-	)
+	}
+
+	// Configure migration strategy based on profile.
+	//   - prod:      Versioned SQL migrations (embedded .sql files)
+	//   - dev/test:  GORM AutoMigrate (auto-sync from struct definitions)
+	if db != nil {
+		if env == bootstrap.ProfileProd || env == bootstrap.ProfileStaging {
+			// Production: use versioned SQL migrations for controlled,
+			// reviewable schema changes.
+			src := migration.NewEmbedSource(migrationFS, "migrations")
+			migrator, err := gormmigrator.New(db, src)
+			if err != nil {
+				logger.Fatal("create migrator failed", zap.Error(err))
+			}
+			appOpts = append(appOpts, bootstrap.WithMigration(migrator))
+			logger.Info("migration strategy: versioned SQL (prod/staging)")
+		} else {
+			// Dev/test: use GORM AutoMigrate for rapid iteration.
+			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.RequestLog{}))
+			logger.Info("migration strategy: auto-migrate (dev/test)")
+		}
+	}
+
+	app := bootstrap.New("app-demo", appOpts...)
 
 	// 4. Subscribe to lifecycle events.
 	app.OnEvent(bootstrap.EventAppStarting, func(ctx context.Context, e *eventbus.Event) error {

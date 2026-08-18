@@ -89,10 +89,10 @@ type Broker struct {
 
 // Compile-time interface checks.
 var (
-	_ mq.Broker    = (*Broker)(nil)
-	_ mq.Producer  = (*Producer)(nil)
-	_ mq.Consumer  = (*Consumer)(nil)
-	_ mq.Delivery  = (*kafkaDelivery)(nil)
+	_ mq.Broker   = (*Broker)(nil)
+	_ mq.Producer = (*Producer)(nil)
+	_ mq.Consumer = (*Consumer)(nil)
+	_ mq.Delivery = (*kafkaDelivery)(nil)
 )
 
 // New creates a new Kafka broker. Call Connect() to verify broker

@@ -385,9 +385,9 @@ func (w *WhisperASR) handleReadLoop(ctx context.Context) {
 				logrus.Info("whisper asr: recv close message, connection closed")
 			} else {
 				logrus.WithFields(logrus.Fields{
-					"dialogID":   w.dialogID,
-					"err":        err,
-					"message":    string(message),
+					"dialogID":    w.dialogID,
+					"err":         err,
+					"message":     string(message),
 					"messageType": messageType,
 				}).WithError(err).Error("whisper asr: recv error, connection closed")
 				w.causeErr(err)

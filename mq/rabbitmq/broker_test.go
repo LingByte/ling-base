@@ -35,7 +35,7 @@ func TestNew_Defaults(t *testing.T) {
 func TestNew_WithConfig(t *testing.T) {
 	cfg := Config{
 		URL:              "amqp://localhost:5672/",
-		DialerTimeout:    5_000_000_000,  // 5s in ns
+		DialerTimeout:    5_000_000_000, // 5s in ns
 		ReconnectDelay:   3_000_000_000,
 		Heartbeat:        15_000_000_000,
 		ChannelCacheSize: 32,
@@ -80,7 +80,7 @@ func TestFormatExpiration(t *testing.T) {
 	assert.Equal(t, "", formatExpiration(0))
 	assert.Equal(t, "", formatExpiration(-1))
 	assert.Equal(t, "1000", formatExpiration(1_000_000_000)) // 1s = 1000ms
-	assert.Equal(t, "500", formatExpiration(500_000_000))   // 0.5s = 500ms
+	assert.Equal(t, "500", formatExpiration(500_000_000))    // 0.5s = 500ms
 }
 
 func TestDialer(t *testing.T) {

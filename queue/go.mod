@@ -3,11 +3,11 @@ module github.com/LingByte/ling-base/queue
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/pool v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 )
 
-replace github.com/LingByte/ling-base/pool => ../pool
+replace github.com/LingByte/ling-base/common/pool => ../common/pool
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

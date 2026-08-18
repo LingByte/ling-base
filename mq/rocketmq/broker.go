@@ -66,9 +66,9 @@ type Config struct {
 // before calling New.
 func DefaultConfig() Config {
 	return Config{
-		NameServer:  []string{"127.0.0.1:9876"},
-		GroupName:   "DEFAULT_PRODUCER",
-		RetryCount:  2,
+		NameServer: []string{"127.0.0.1:9876"},
+		GroupName:  "DEFAULT_PRODUCER",
+		RetryCount: 2,
 	}
 }
 

@@ -322,8 +322,8 @@ func (g *GladiaASR) emitFinal(text string) {
 
 // GladiaResponse represents the JSON response from Gladia.
 type GladiaResponse struct {
-	Type   string `json:"type"`
-	Text   string `json:"text"`
-	Error  string `json:"error,omitempty"`
-	Event  string `json:"event,omitempty"`
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Error string `json:"error,omitempty"`
+	Event string `json:"event,omitempty"`
 }

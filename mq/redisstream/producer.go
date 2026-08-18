@@ -20,7 +20,7 @@ type Producer struct {
 	stream string
 	opts   mq.PublishOptions
 
-	mu    sync.Mutex
+	mu     sync.Mutex
 	closed atomic.Bool
 }
 

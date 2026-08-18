@@ -35,13 +35,13 @@ type QCloudASR struct {
 
 // QCloudASROption configures the QCloud streaming ASR.
 type QCloudASROption struct {
-	AppID       string          `json:"appId" yaml:"app_id" env:"QCLOUD_APP_ID"`
-	SecretID    string          `json:"secretId" yaml:"secret_id" env:"QCLOUD_SECRET_ID"`
-	SecretKey   string          `json:"secret" yaml:"secret" env:"QCLOUD_SECRET"`
-	Format      int             `json:"format" yaml:"format" default:"1"`
-	ModelType   string          `json:"modelType" yaml:"model_type" env:"QCLOUD_MODEL_TYPE" default:"16k_zh"`
-	ReqChanSize int             `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
-	HotWords    []base.HotWord  `json:"hotWords" yaml:"hot_words"`
+	AppID       string         `json:"appId" yaml:"app_id" env:"QCLOUD_APP_ID"`
+	SecretID    string         `json:"secretId" yaml:"secret_id" env:"QCLOUD_SECRET_ID"`
+	SecretKey   string         `json:"secret" yaml:"secret" env:"QCLOUD_SECRET"`
+	Format      int            `json:"format" yaml:"format" default:"1"`
+	ModelType   string         `json:"modelType" yaml:"model_type" env:"QCLOUD_MODEL_TYPE" default:"16k_zh"`
+	ReqChanSize int            `json:"reqChanSize" yaml:"req_chan_size" default:"128"`
+	HotWords    []base.HotWord `json:"hotWords" yaml:"hot_words"`
 	// VadSilenceTime is cloud endpointing silence (ms) before OnSentenceEnd.
 	// Vendor default is 1000 when omitted from the WS query; we apply
 	// defaultQCloudVadSilenceMs when unset so contact-center turns cut faster.

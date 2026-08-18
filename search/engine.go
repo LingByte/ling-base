@@ -183,7 +183,7 @@ type CompletionSuggestionRequest struct {
 
 // CompletionSuggestion is a single completion suggestion result.
 type CompletionSuggestion struct {
-	Text string
+	Text  string
 	Score float64
 }
 
@@ -204,7 +204,6 @@ type TermSuggestionRequest struct {
 
 // TermSuggestion is a single term suggestion result.
 type TermSuggestion struct {
-	Text       string
+	Text        string
 	Suggestions []string
 }
-

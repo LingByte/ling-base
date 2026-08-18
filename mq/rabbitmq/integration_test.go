@@ -100,7 +100,7 @@ func TestIntegrationBroker(t *testing.T) {
 	}
 
 	// Stop.
-	assert.NoError(t, consumer.Stop(5 * time.Second))
+	assert.NoError(t, consumer.Stop(5*time.Second))
 	assert.False(t, consumer.IsRunning())
 }
 
@@ -146,8 +146,8 @@ func TestIntegrationBroker_Reconnect(t *testing.T) {
 	}
 
 	b, err := New(Config{
-		URL:             rabbitmqURL(),
-		ReconnectDelay:  500 * time.Millisecond,
+		URL:            rabbitmqURL(),
+		ReconnectDelay: 500 * time.Millisecond,
 	})
 	require.NoError(t, err)
 	defer b.Close()
