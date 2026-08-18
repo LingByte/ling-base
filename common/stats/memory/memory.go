@@ -26,8 +26,12 @@ type Collector struct {
 	persist PersistFunc
 
 	// Optimization options
-	timerCapacity   int  // reservoir size for timers (0 = unlimited)
-	bloomSetConfig  *bloomConfig // if set, Set() returns Bloom filter
+	timerCapacity  int          // reservoir size for timers (0 = unlimited)
+	bloomSetConfig *bloomConfig // if set, Set() returns Bloom filter
+
+	// TTL
+	ttlConfig   *TTLConfig
+	ttlManager  *ttlManager
 }
 
 // bloomConfig configures Bloom filter sets.
@@ -82,6 +86,11 @@ func New(opts ...Option) *Collector {
 	}
 	for _, opt := range opts {
 		opt(c)
+	}
+	// Start TTL cleanup goroutine if configured.
+	if c.ttlConfig != nil {
+		c.ttlManager = newTTLManager(c, *c.ttlConfig)
+		c.ttlManager.start()
 	}
 	return c
 }
@@ -202,6 +211,9 @@ func (c *Collector) Flush() error {
 }
 
 func (c *Collector) Close() error {
+	if c.ttlManager != nil {
+		c.ttlManager.stop()
+	}
 	return c.Flush()
 }
 
