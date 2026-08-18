@@ -63,6 +63,10 @@ use (
 	./common/response
 	./common/response/gin
 	./common/retry
+	./common/stats
+	./common/stats/file
+	./common/stats/memory
+	./common/stats/redis
 	./common/timeutil
 	./common/validate
 	./common/videoutil
