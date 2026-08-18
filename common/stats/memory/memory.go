@@ -24,6 +24,16 @@ type Collector struct {
 	timers   map[string]*timer
 
 	persist PersistFunc
+
+	// Optimization options
+	timerCapacity   int  // reservoir size for timers (0 = unlimited)
+	bloomSetConfig  *bloomConfig // if set, Set() returns Bloom filter
+}
+
+// bloomConfig configures Bloom filter sets.
+type bloomConfig struct {
+	expectedN      int
+	falsePosRate   float64
 }
 
 // PersistFunc is called during Flush to serialize state.
@@ -35,6 +45,30 @@ type Option func(*Collector)
 // WithPersistence sets a persistence function called on Flush().
 func WithPersistence(fn PersistFunc) Option {
 	return func(c *Collector) { c.persist = fn }
+}
+
+// WithReservoirTimer sets a fixed capacity for all Timers, using reservoir
+// sampling instead of storing all samples. This bounds memory usage.
+//
+// Default (0): store all samples (unbounded).
+// Recommended: 4096 (32 KB per timer, P95 error < 1%).
+func WithReservoirTimer(capacity int) Option {
+	return func(c *Collector) { c.timerCapacity = capacity }
+}
+
+// WithBloomSet configures all Set() calls to return Bloom filter sets
+// instead of exact map-based sets. This dramatically reduces memory for
+// large-scale deduplication (e.g. 1M users → 1.4 MB vs 80 MB).
+//
+// Trade-off: Count() is approximate, Members() returns nil, Intersect() returns 0.
+// Has() has no false negatives but may have false positives (~falsePositiveRate).
+func WithBloomSet(expectedN int, falsePositiveRate float64) Option {
+	return func(c *Collector) {
+		c.bloomSetConfig = &bloomConfig{
+			expectedN:    expectedN,
+			falsePosRate: falsePositiveRate,
+		}
+	}
 }
 
 // New creates a new in-memory collector.
@@ -101,7 +135,18 @@ func (c *Collector) Set(key string) stats.Set {
 	if s, ok := c.sets[key]; ok {
 		return s
 	}
-	s := &set{members: make(map[string]bool)}
+	var s *set
+	if c.bloomSetConfig != nil {
+		// Bloom filter mode — wrap in a set adapter.
+		// Note: bloomSet doesn't implement stats.Set directly because
+		// Intersect needs stats.Set. We use a wrapper.
+		s = &set{
+			members: make(map[string]bool),
+			bloom:   newBloomSet(c.bloomSetConfig.expectedN, c.bloomSetConfig.falsePosRate),
+		}
+	} else {
+		s = &set{members: make(map[string]bool)}
+	}
 	c.sets[key] = s
 	return s
 }
@@ -137,7 +182,14 @@ func (c *Collector) Timer(key string) stats.Timer {
 	if t, ok := c.timers[key]; ok {
 		return t
 	}
-	t := &timer{}
+	var t *timer
+	if c.timerCapacity > 0 {
+		// Reservoir sampling mode — fixed memory.
+		t = &timer{reservoir: newReservoirTimer(c.timerCapacity)}
+	} else {
+		// Unbounded mode — stores all samples.
+		t = &timer{}
+	}
 	c.timers[key] = t
 	return t
 }
@@ -220,9 +272,13 @@ func (g *gauge) Get() int64 {
 type set struct {
 	mu      sync.RWMutex
 	members map[string]bool
+	bloom   *bloomSet // if set, uses Bloom filter for approximate dedup
 }
 
 func (s *set) Add(element string) bool {
+	if s.bloom != nil {
+		return s.bloom.Add(element)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.members[element] {
@@ -232,16 +288,25 @@ func (s *set) Add(element string) bool {
 	return true
 }
 func (s *set) Has(element string) bool {
+	if s.bloom != nil {
+		return s.bloom.Has(element)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.members[element]
 }
 func (s *set) Count() int {
+	if s.bloom != nil {
+		return s.bloom.Count()
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.members)
 }
 func (s *set) Members() []string {
+	if s.bloom != nil {
+		return nil // Bloom filters don't support enumeration
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]string, 0, len(s.members))
@@ -251,6 +316,9 @@ func (s *set) Members() []string {
 	return out
 }
 func (s *set) Intersect(other stats.Set) int {
+	if s.bloom != nil {
+		return 0 // Bloom filters don't support intersection
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	o, ok := other.(*set)
@@ -280,6 +348,9 @@ func (s *set) Intersect(other stats.Set) int {
 	return count
 }
 func (s *set) Reset() error {
+	if s.bloom != nil {
+		return s.bloom.Reset()
+	}
 	s.mu.Lock()
 	s.members = make(map[string]bool)
 	s.mu.Unlock()
@@ -342,14 +413,19 @@ func (h *hll) Reset() error {
 // ──────────────────────────────────────────────
 
 type timer struct {
-	mu      sync.RWMutex
-	samples []int64
+	mu        sync.RWMutex
+	samples   []int64        // unbounded mode (nil if reservoir)
+	reservoir *reservoirTimer // bounded mode (nil if unbounded)
 }
 
 func (t *timer) Record(duration int64) {
+	if t.reservoir != nil {
+		t.reservoir.Record(duration)
+		return
+	}
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	t.samples = append(t.samples, duration)
+	t.mu.Unlock()
 }
 
 func (t *timer) RecordMs(ms float64) {
@@ -357,12 +433,18 @@ func (t *timer) RecordMs(ms float64) {
 }
 
 func (t *timer) Count() int64 {
+	if t.reservoir != nil {
+		return t.reservoir.Count()
+	}
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return int64(len(t.samples))
 }
 
 func (t *timer) Mean() float64 {
+	if t.reservoir != nil {
+		return t.reservoir.Mean()
+	}
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if len(t.samples) == 0 {
@@ -376,12 +458,18 @@ func (t *timer) Mean() float64 {
 }
 
 func (t *timer) Percentile(p float64) float64 {
+	if t.reservoir != nil {
+		return t.reservoir.Percentile(p)
+	}
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return percentile(t.samples, p)
 }
 
 func (t *timer) Reset() error {
+	if t.reservoir != nil {
+		return t.reservoir.Reset()
+	}
 	t.mu.Lock()
 	t.samples = nil
 	t.mu.Unlock()
