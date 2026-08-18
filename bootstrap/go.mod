@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/constants v0.1.0
-	github.com/LingByte/ling-base/eventbus v0.1.0
+	github.com/LingByte/ling-base/eventbus v0.1.1
 	github.com/LingByte/ling-base/version v0.1.0
 	github.com/stretchr/testify v1.11.1
 )
