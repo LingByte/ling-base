@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/stores/kodo
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/stores v0.0.0
+	github.com/LingByte/ling-base/stores v0.1.1
 	github.com/qiniu/go-sdk/v7 v7.27.0
 )
 
@@ -17,4 +17,3 @@ require (
 	modernc.org/fileutil v1.0.0 // indirect
 )
 
-replace github.com/LingByte/ling-base/stores => ../

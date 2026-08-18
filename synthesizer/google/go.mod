@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	cloud.google.com/go/texttospeech v1.21.0
-	github.com/LingByte/ling-base/synthesizer v0.0.0
+	github.com/LingByte/ling-base/synthesizer v0.1.0
 	github.com/sirupsen/logrus v1.9.3
 )
 
@@ -41,4 +41,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/LingByte/ling-base/synthesizer => ../
