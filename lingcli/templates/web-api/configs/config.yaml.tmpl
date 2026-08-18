@@ -8,7 +8,7 @@ server:
 
 database:
   driver: sqlite          # mysql | postgres | sqlite
-  dsn: data/app.db        # SQLite
+  dsn: ""                 # 留空则不连接数据库；SQLite 示例: data/app.db
   # dsn: root:password@tcp(127.0.0.1:3306)/{{.ProjectName}}?charset=utf8mb4&parseTime=True  # MySQL
   # dsn: host=localhost user=postgres password=secret dbname={{.ProjectName}} port=5432 sslmode=disable  # PostgreSQL
   maxOpenConns: 25

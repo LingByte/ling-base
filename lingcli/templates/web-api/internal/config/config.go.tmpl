@@ -77,7 +77,7 @@ func Default() *Config {
 		},
 		Database: DatabaseConfig{
 			Driver:          "sqlite",
-			DSN:             "data/app.db",
+			DSN:             "",
 			MaxOpenConns:    25,
 			MaxIdleConns:    10,
 			ConnMaxLifetime: 5 * time.Minute,
