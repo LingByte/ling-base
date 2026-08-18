@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/LingByte/ling-base/common/stats"
 )
 
 // TTLConfig configures time-to-live based automatic cleanup for the
@@ -14,13 +16,22 @@ import (
 // are eligible for expiration.
 //
 // When a key expires:
-//  1. The onExpire callback is invoked with the key and its current value,
-//     allowing the caller to persist the data to a database before removal.
+//  1. The OnExpire callback is invoked with the key and its final value.
 //  2. The key is removed from all in-memory maps.
 //
 // This ensures bounded memory usage for long-running services: only the
 // most recent `retentionDays` of data stays in memory, while older data
-// is flushed to external storage (SQLite, MySQL, etc.).
+// is flushed to external storage via the callback.
+//
+// OnExpire is a pure callback — implement it however you like:
+//
+//	memory.WithTTL(memory.TTLConfig{
+//	    RetentionDays: 7,
+//	    OnExpire: func(ek stats.ExpiredKey) error {
+//	        // Write to SQLite, MySQL, Postgres, Kafka, file, HTTP API...
+//	        return db.Save(ek)
+//	    },
+//	})
 type TTLConfig struct {
 	// RetentionDays is the number of days of data to keep in memory.
 	// Keys with dates older than this are expired.
@@ -32,21 +43,14 @@ type TTLConfig struct {
 	CheckInterval time.Duration
 
 	// OnExpire is called for each expired key before removal.
-	// It receives the key and a SnapshotEntry containing all primitive values.
-	// If OnExpire returns an error, the key is NOT removed (will retry next cycle).
-	// If OnExpire is nil, keys are removed without callback.
-	OnExpire func(key string, entry SnapshotEntry) error
+	// If it returns an error, the key is NOT removed (will retry next cycle).
+	// If nil, keys are removed silently.
+	OnExpire stats.ExpireFunc
 
 	// KeyDateExtractor extracts a date from a key string.
 	// If it returns ok=false, the key is never expired.
 	// Default: extracts "YYYY-MM-DD" from any position in the key.
 	KeyDateExtractor func(key string) (date string, ok bool)
-}
-
-// SnapshotEntry represents the value of a single key at expiration time.
-type SnapshotEntry struct {
-	Type  string // "counter", "gauge", "set", "hll", "timer"
-	Value any    // type-specific value
 }
 
 // DefaultKeyDateExtractor extracts a "YYYY-MM-DD" date from a key.
@@ -132,135 +136,114 @@ func (m *ttlManager) loop() {
 func (m *ttlManager) cleanup() {
 	cutoff := time.Now().AddDate(0, 0, -m.config.RetentionDays)
 	cutoffStr := cutoff.Format("2006-01-02")
+	now := time.Now().Format(time.RFC3339)
 
 	m.collector.mu.Lock()
 	defer m.collector.mu.Unlock()
 
-	// Collect expired keys from all maps.
-	var expired []string
-	var entries []SnapshotEntry
-
+	// Counters
 	for key, ctr := range m.collector.counters {
 		date, ok := m.config.KeyDateExtractor(key)
 		if !ok || date >= cutoffStr {
 			continue
 		}
 		if m.config.OnExpire != nil {
-			if err := m.config.OnExpire(key, SnapshotEntry{Type: "counter", Value: ctr.Get()}); err != nil {
-				continue // skip removal on error
+			ek := stats.ExpiredKey{Key: key, Type: "counter", Value: ctr.Get(), Date: date, ExpiredAt: now}
+			if err := m.config.OnExpire(ek); err != nil {
+				continue
 			}
 		}
-		expired = append(expired, key)
-		entries = append(entries, SnapshotEntry{})
-	}
-	for _, key := range expired {
 		delete(m.collector.counters, key)
 	}
 
 	// Gauges
-	expired = expired[:0]
 	for key, g := range m.collector.gauges {
 		date, ok := m.config.KeyDateExtractor(key)
 		if !ok || date >= cutoffStr {
 			continue
 		}
 		if m.config.OnExpire != nil {
-			if err := m.config.OnExpire(key, SnapshotEntry{Type: "gauge", Value: g.Get()}); err != nil {
+			ek := stats.ExpiredKey{Key: key, Type: "gauge", Value: g.Get(), Date: date, ExpiredAt: now}
+			if err := m.config.OnExpire(ek); err != nil {
 				continue
 			}
 		}
-		expired = append(expired, key)
-	}
-	for _, key := range expired {
 		delete(m.collector.gauges, key)
 	}
 
 	// Sets
-	expired = expired[:0]
 	for key, s := range m.collector.sets {
 		date, ok := m.config.KeyDateExtractor(key)
 		if !ok || date >= cutoffStr {
 			continue
 		}
 		if m.config.OnExpire != nil {
-			if err := m.config.OnExpire(key, SnapshotEntry{Type: "set", Value: s.Count()}); err != nil {
+			ek := stats.ExpiredKey{Key: key, Type: "set", Value: s.Count(), Date: date, ExpiredAt: now}
+			if err := m.config.OnExpire(ek); err != nil {
 				continue
 			}
 		}
-		expired = append(expired, key)
-	}
-	for _, key := range expired {
 		delete(m.collector.sets, key)
 	}
 
 	// HLLs
-	expired = expired[:0]
 	for key, h := range m.collector.hlls {
 		date, ok := m.config.KeyDateExtractor(key)
 		if !ok || date >= cutoffStr {
 			continue
 		}
 		if m.config.OnExpire != nil {
-			if err := m.config.OnExpire(key, SnapshotEntry{Type: "hll", Value: h.Estimate()}); err != nil {
+			ek := stats.ExpiredKey{Key: key, Type: "hll", Value: h.Estimate(), Date: date, ExpiredAt: now}
+			if err := m.config.OnExpire(ek); err != nil {
 				continue
 			}
 		}
-		expired = append(expired, key)
-	}
-	for _, key := range expired {
 		delete(m.collector.hlls, key)
 	}
 
 	// Timers
-	expired = expired[:0]
 	for key, t := range m.collector.timers {
 		date, ok := m.config.KeyDateExtractor(key)
 		if !ok || date >= cutoffStr {
 			continue
 		}
 		if m.config.OnExpire != nil {
-			entry := SnapshotEntry{Type: "timer", Value: TimerSnapshot{
-				Count:      t.Count(),
-				Mean:       t.Mean(),
-				P50:        t.Percentile(50),
-				P95:        t.Percentile(95),
-				P99:        t.Percentile(99),
-			}}
-			if err := m.config.OnExpire(key, SnapshotEntry{Type: "timer", Value: entry.Value}); err != nil {
+			ek := stats.ExpiredKey{
+				Key:       key,
+				Type:      "timer",
+				Date:      date,
+				ExpiredAt: now,
+				Value: stats.TimerSummary{
+					Count: t.Count(),
+					Mean:  t.Mean(),
+					P50:   t.Percentile(50),
+					P95:   t.Percentile(95),
+					P99:   t.Percentile(99),
+				},
+			}
+			if err := m.config.OnExpire(ek); err != nil {
 				continue
 			}
 		}
-		expired = append(expired, key)
-	}
-	for _, key := range expired {
 		delete(m.collector.timers, key)
 	}
-}
-
-// TimerSnapshot is a summary of a Timer at expiration time.
-type TimerSnapshot struct {
-	Count int64
-	Mean  float64
-	P50   float64
-	P95   float64
-	P99   float64
 }
 
 // WithTTL enables automatic TTL-based cleanup of old keys.
 //
 // Keys containing a date prefix (e.g. "pv:2026-08-18:/home") older than
 // RetentionDays are automatically expired. Before removal, OnExpire is
-// called so the caller can persist data to a database.
+// called so the caller can persist data anywhere.
 //
-// Example:
+// OnExpire is a pure callback — no implementation class required:
 //
 //	c := memory.New(
-//	    memory.WithReservoirTimer(4096),
 //	    memory.WithTTL(memory.TTLConfig{
 //	        RetentionDays: 7,
-//	        CheckInterval: time.Hour,
-//	        OnExpire: func(key string, entry memory.SnapshotEntry) error {
-//	            return dbStore.Save(key, entry)
+//	        OnExpire: func(ek stats.ExpiredKey) error {
+//	            // Write to any database, file, Kafka, HTTP API...
+//	            _, err := db.Exec("INSERT INTO archive ...", ek.Key, ek.Value)
+//	            return err
 //	        },
 //	    }),
 //	)

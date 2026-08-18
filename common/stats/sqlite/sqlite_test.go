@@ -4,7 +4,6 @@
 package sqlite
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ import (
 )
 
 func TestSQLiteStore(t *testing.T) {
-	path := "/tmp/test_stats_sqlite2.db"
+	path := "/tmp/test_stats_sqlite3.db"
 	defer os.Remove(path)
 
 	store, err := New(path)
@@ -24,20 +23,21 @@ func TestSQLiteStore(t *testing.T) {
 	defer store.Close()
 
 	oldDate := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+	now := time.Now().Format(time.RFC3339)
 
-	// Save various record types.
-	require.NoError(t, store.Save(stats.ArchiveRecord{
+	// Save various record types — Save is a stats.ExpireFunc.
+	require.NoError(t, store.Save(stats.ExpiredKey{
 		Key: "pv:" + oldDate + ":/home", Type: "counter",
-		Value: int64(1000), Date: oldDate, Archived: time.Now().Format(time.RFC3339),
+		Value: int64(1000), Date: oldDate, ExpiredAt: now,
 	}))
-	require.NoError(t, store.Save(stats.ArchiveRecord{
+	require.NoError(t, store.Save(stats.ExpiredKey{
 		Key: "uv:" + oldDate, Type: "hll",
-		Value: uint64(5000), Date: oldDate, Archived: time.Now().Format(time.RFC3339),
+		Value: uint64(5000), Date: oldDate, ExpiredAt: now,
 	}))
-	require.NoError(t, store.Save(stats.ArchiveRecord{
+	require.NoError(t, store.Save(stats.ExpiredKey{
 		Key: "response_time:" + oldDate, Type: "timer",
 		Value: stats.TimerSummary{Count: 1000, Mean: 50e6, P50: 45e6, P95: 95e6, P99: 99e6},
-		Date: oldDate, Archived: time.Now().Format(time.RFC3339),
+		Date: oldDate, ExpiredAt: now,
 	}))
 
 	// Query by date range.
@@ -51,32 +51,32 @@ func TestSQLiteStore(t *testing.T) {
 	assert.Equal(t, 1, len(counterRecords))
 	assert.Equal(t, "pv:"+oldDate+":/home", counterRecords[0].Key)
 
-	// Upsert test — same key should replace.
-	require.NoError(t, store.Save(stats.ArchiveRecord{
+	// Upsert test.
+	require.NoError(t, store.Save(stats.ExpiredKey{
 		Key: "pv:" + oldDate + ":/home", Type: "counter",
-		Value: int64(2000), Date: oldDate, Archived: time.Now().Format(time.RFC3339),
+		Value: int64(2000), Date: oldDate, ExpiredAt: now,
 	}))
 	pv, err := store.GetPV(oldDate)
 	require.NoError(t, err)
-	assert.Equal(t, int64(2000), pv, "upserted value should be 2000")
+	assert.Equal(t, int64(2000), pv)
 
 	t.Logf("Archived %d records for date %s", len(records), oldDate)
 }
 
 func TestSQLiteTTLIntegration(t *testing.T) {
-	path := "/tmp/test_stats_ttl_sqlite2.db"
+	path := "/tmp/test_stats_ttl_sqlite3.db"
 	defer os.Remove(path)
 
 	store, err := New(path)
 	require.NoError(t, err)
 	defer store.Close()
 
-	// Use ArchiveAdapter to bridge TTL → ArchiveStore.
+	// OnExpire: store.Save — directly, no adapter needed!
 	c := memory.New(
 		memory.WithReservoirTimer(4096),
 		memory.WithTTL(memory.TTLConfig{
 			RetentionDays: 1,
-			OnExpire:      memory.ArchiveAdapter(store),
+			OnExpire:      store.Save, // ← direct
 		}),
 	)
 	defer c.Close()
@@ -91,7 +91,6 @@ func TestSQLiteTTLIntegration(t *testing.T) {
 	removed := c.CleanupNow()
 	assert.Equal(t, 3, removed)
 
-	// Verify in SQLite.
 	pv, err := store.GetPV(oldDate)
 	require.NoError(t, err)
 	assert.Equal(t, int64(60), pv)
@@ -103,18 +102,32 @@ func TestSQLiteTTLIntegration(t *testing.T) {
 	t.Logf("TTL → SQLite: %d keys expired, PV=%d, UV=%d", removed, pv, uv)
 }
 
-func TestSQLiteInterfaceCompliance(t *testing.T) {
-	var _ stats.ArchiveStore = (*Store)(nil)
-}
+func TestCustomCallback(t *testing.T) {
+	// Demonstrate that OnExpire is a pure callback — no store needed.
+	var saved []stats.ExpiredKey
 
-func TestArchiveRecordJSON(t *testing.T) {
-	// Verify TimerSummary serializes correctly.
-	r := stats.ArchiveRecord{
-		Key:   "rt:2026-08-18",
-		Type:  "timer",
-		Value: stats.TimerSummary{Count: 100, Mean: 50, P50: 45, P95: 95, P99: 99},
-	}
-	data, err := json.Marshal(r.Value)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), `"p95":95`)
+	c := memory.New(
+		memory.WithTTL(memory.TTLConfig{
+			RetentionDays: 1,
+			OnExpire: func(ek stats.ExpiredKey) error {
+				saved = append(saved, ek)
+				return nil
+			},
+		}),
+	)
+	defer c.Close()
+
+	oldDate := time.Now().AddDate(0, 0, -5).Format("2006-01-02")
+	c.Counter("pv:" + oldDate + ":/home").IncrBy(99)
+
+	c.CleanupNow()
+
+	require.Equal(t, 1, len(saved))
+	assert.Equal(t, "pv:"+oldDate+":/home", saved[0].Key)
+	assert.Equal(t, "counter", saved[0].Type)
+	assert.Equal(t, int64(99), saved[0].Value)
+	assert.Equal(t, oldDate, saved[0].Date)
+
+	t.Logf("Custom callback received: key=%s type=%s value=%v date=%s",
+		saved[0].Key, saved[0].Type, saved[0].Value, saved[0].Date)
 }

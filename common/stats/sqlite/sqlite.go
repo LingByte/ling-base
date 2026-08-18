@@ -1,8 +1,9 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package sqlite provides a SQLite-based implementation of stats.ArchiveStore.
-// Expired metrics keys are persisted to SQLite for long-term historical queries.
+// Package sqlite provides a SQLite-based persistence helper for expired
+// stats keys. The Save method is a stats.ExpireFunc — pass it directly
+// to memory.WithTTL without any adapter.
 //
 // # Schema
 //
@@ -11,7 +12,7 @@
 //	    type      TEXT NOT NULL,
 //	    value     TEXT NOT NULL,   -- JSON-encoded
 //	    date      TEXT,
-//	    archived  TEXT NOT NULL
+//	    expired   TEXT NOT NULL
 //	);
 //
 // # Usage
@@ -21,7 +22,7 @@
 //	c := memory.New(
 //	    memory.WithTTL(memory.TTLConfig{
 //	        RetentionDays: 7,
-//	        OnExpire:      memory.ArchiveAdapter(store),
+//	        OnExpire:      store.Save,   // ← directly, no adapter
 //	    }),
 //	)
 package sqlite
@@ -31,23 +32,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/LingByte/ling-base/common/stats"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// Store implements stats.ArchiveStore backed by SQLite.
+// Store is a SQLite-backed persistence helper for expired stats keys.
+// Save implements stats.ExpireFunc, so it can be passed directly to
+// memory.TTLConfig.OnExpire.
 type Store struct {
 	db *sql.DB
 	mu sync.Mutex
 }
 
-// Compile-time interface check.
-var _ stats.ArchiveStore = (*Store)(nil)
-
-// New creates a new SQLite archive store.
-// WAL mode is enabled for better concurrent read/write performance.
+// New creates a new SQLite store. WAL mode is enabled for concurrent access.
 func New(path string) (*Store, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal=WAL&_busy_timeout=5000")
 	if err != nil {
@@ -60,7 +58,7 @@ func New(path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// NewFromDB creates a store from an existing *sql.DB (for testing or shared connections).
+// NewFromDB creates a store from an existing *sql.DB.
 func NewFromDB(db *sql.DB) (*Store, error) {
 	if err := createSchema(db); err != nil {
 		return nil, err
@@ -75,7 +73,7 @@ func createSchema(db *sql.DB) error {
 			type      TEXT NOT NULL,
 			value     TEXT NOT NULL,
 			date      TEXT,
-			archived  TEXT NOT NULL
+			expired   TEXT NOT NULL
 		);
 		CREATE INDEX IF NOT EXISTS idx_stats_date ON stats_archive(date);
 		CREATE INDEX IF NOT EXISTS idx_stats_type ON stats_archive(type);
@@ -83,64 +81,53 @@ func createSchema(db *sql.DB) error {
 	return err
 }
 
-// Save implements stats.ArchiveStore.
-func (s *Store) Save(record stats.ArchiveRecord) error {
+// Save persists an expired key to SQLite. It implements stats.ExpireFunc,
+// so it can be passed directly as memory.TTLConfig.OnExpire.
+func (s *Store) Save(ek stats.ExpiredKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	valueJSON, err := json.Marshal(record.Value)
+	valueJSON, err := json.Marshal(ek.Value)
 	if err != nil {
 		return fmt.Errorf("marshal value: %w", err)
 	}
 
 	_, err = s.db.Exec(
-		`INSERT OR REPLACE INTO stats_archive (key, type, value, date, archived) VALUES (?, ?, ?, ?, ?)`,
-		record.Key, record.Type, string(valueJSON), record.Date, record.Archived,
+		`INSERT OR REPLACE INTO stats_archive (key, type, value, date, expired) VALUES (?, ?, ?, ?, ?)`,
+		ek.Key, ek.Type, string(valueJSON), ek.Date, ek.ExpiredAt,
 	)
-	if err != nil {
-		return fmt.Errorf("insert: %w", err)
-	}
-	return nil
+	return err
 }
 
-// Query implements stats.ArchiveStore.
-func (s *Store) Query(dateFrom, dateTo string) ([]stats.ArchiveRecord, error) {
+// Query retrieves archived records by date range (inclusive).
+func (s *Store) Query(dateFrom, dateTo string) ([]ArchiveRow, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	rows, err := s.db.Query(
-		`SELECT key, type, value, date, archived FROM stats_archive WHERE date >= ? AND date <= ? ORDER BY date, key`,
+		`SELECT key, type, value, date, expired FROM stats_archive WHERE date >= ? AND date <= ? ORDER BY date, key`,
 		dateFrom, dateTo,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return scanRecords(rows)
+	return scanRows(rows)
 }
 
-// QueryByType implements stats.ArchiveStore.
-func (s *Store) QueryByType(entryType, dateFrom, dateTo string) ([]stats.ArchiveRecord, error) {
+// QueryByType retrieves archived records by type and date range.
+func (s *Store) QueryByType(typ, dateFrom, dateTo string) ([]ArchiveRow, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	rows, err := s.db.Query(
-		`SELECT key, type, value, date, archived FROM stats_archive WHERE type = ? AND date >= ? AND date <= ? ORDER BY date, key`,
-		entryType, dateFrom, dateTo,
+		`SELECT key, type, value, date, expired FROM stats_archive WHERE type = ? AND date >= ? AND date <= ? ORDER BY date, key`,
+		typ, dateFrom, dateTo,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return scanRecords(rows)
+	return scanRows(rows)
 }
-
-// Close implements stats.ArchiveStore.
-func (s *Store) Close() error {
-	return s.db.Close()
-}
-
-// ──────────────────────────────────────────────
-// Convenience query helpers (SQLite-specific, not part of the interface)
-// ──────────────────────────────────────────────
 
 // GetPV returns the total PV for a date (sum across all paths).
 func (s *Store) GetPV(date string) (int64, error) {
@@ -191,26 +178,32 @@ func (s *Store) GetUV(date string) (uint64, error) {
 	return val, nil
 }
 
-// ──────────────────────────────────────────────
-// Internal helpers
-// ──────────────────────────────────────────────
-
-func scanRecords(rows *sql.Rows) ([]stats.ArchiveRecord, error) {
-	defer rows.Close()
-
-	var records []stats.ArchiveRecord
-	for rows.Next() {
-		var r stats.ArchiveRecord
-		var valueStr string
-		if err := rows.Scan(&r.Key, &r.Type, &valueStr, &r.Date, &r.Archived); err != nil {
-			return nil, err
-		}
-		// Value is stored as JSON; keep it as raw for the caller to decode.
-		r.Value = json.RawMessage(valueStr)
-		records = append(records, r)
-	}
-	return records, nil
+// Close closes the database connection.
+func (s *Store) Close() error {
+	return s.db.Close()
 }
 
-// suppress unused import
-var _ = time.Now
+// ArchiveRow is a row in the stats_archive table.
+type ArchiveRow struct {
+	Key     string
+	Type    string
+	Value   json.RawMessage
+	Date    string
+	Expired string
+}
+
+func scanRows(rows *sql.Rows) ([]ArchiveRow, error) {
+	defer rows.Close()
+
+	var out []ArchiveRow
+	for rows.Next() {
+		var r ArchiveRow
+		var valStr string
+		if err := rows.Scan(&r.Key, &r.Type, &valStr, &r.Date, &r.Expired); err != nil {
+			return nil, err
+		}
+		r.Value = json.RawMessage(valStr)
+		out = append(out, r)
+	}
+	return out, nil
+}

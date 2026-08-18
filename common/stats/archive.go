@@ -3,18 +3,32 @@
 
 package stats
 
-// ArchiveRecord represents a single archived metrics record.
-// This is the unit of data that gets persisted when a key expires
-// from the in-memory store.
-type ArchiveRecord struct {
-	Key      string `json:"key"`      // e.g. "pv:2026-08-18:/home"
-	Type     string `json:"type"`     // "counter", "gauge", "set", "hll", "timer"
-	Value    any    `json:"value"`    // type-specific value (int64, uint64, TimerSummary, etc.)
-	Date     string `json:"date"`     // extracted "YYYY-MM-DD"
-	Archived string `json:"archived"` // ISO timestamp of when it was archived
+// ExpiredKey represents a single key that has been evicted from the
+// in-memory store by the TTL cleanup mechanism. It is passed to the
+// ExpireFunc callback so the caller can persist it to any destination
+// (SQLite, MySQL, PostgreSQL, Kafka, file, remote API, etc.).
+//
+// Fields:
+//   - Key:      the full stats key, e.g. "pv:2026-08-18:/home"
+//   - Type:     primitive type: "counter", "gauge", "set", "hll", "timer"
+//   - Value:    type-specific value:
+//               counter → int64
+//               gauge   → int64
+//               set     → int (count)
+//               hll     → uint64 (estimated cardinality)
+//               timer   → TimerSummary
+//   - Date:     extracted "YYYY-MM-DD" from the key (empty if no date found)
+//   - ExpiredAt: ISO 8601 timestamp of when the key was expired
+type ExpiredKey struct {
+	Key       string `json:"key"`
+	Type      string `json:"type"`
+	Value     any    `json:"value"`
+	Date      string `json:"date"`
+	ExpiredAt string `json:"expiredAt"`
 }
 
-// TimerSummary is a summary of a Timer at archive time.
+// TimerSummary is a summary of a Timer at expiration time.
+// It is the Value field of ExpiredKey when Type == "timer".
 type TimerSummary struct {
 	Count int64   `json:"count"`
 	Mean  float64 `json:"mean"`
@@ -23,29 +37,26 @@ type TimerSummary struct {
 	P99   float64 `json:"p99"`
 }
 
-// ArchiveStore is the abstraction for long-term metrics persistence.
-// Implementations include SQLite, MySQL, PostgreSQL, etc.
+// ExpireFunc is the callback invoked when a key expires from the
+// in-memory store. The implementation is entirely up to the caller —
+// write to a database, send to a message queue, append to a file, or
+// simply ignore it.
 //
-// The flow is:
-//  1. In-memory collector holds hot data (recent N days).
-//  2. When a key expires (TTL), Save is called with the key's final value.
-//  3. Historical data can be queried via Query/QueryByType.
+// If the function returns an error, the key is NOT removed from memory
+// and will be retried on the next cleanup cycle.
 //
-// All methods must be goroutine-safe.
-type ArchiveStore interface {
-	// Save persists a single expired key's value.
-	// If the key already exists in the archive, it should be upserted
-	// (replaced with the new value).
-	Save(record ArchiveRecord) error
-
-	// Query retrieves archived records by date range (inclusive).
-	// dateFrom and dateTo are "YYYY-MM-DD" format.
-	// Returns records ordered by date, then key.
-	Query(dateFrom, dateTo string) ([]ArchiveRecord, error)
-
-	// QueryByType retrieves archived records by type and date range.
-	QueryByType(entryType, dateFrom, dateTo string) ([]ArchiveRecord, error)
-
-	// Close releases resources held by the store.
-	Close() error
-}
+// Example (write to any database):
+//
+//	c := memory.New(
+//	    memory.WithTTL(memory.TTLConfig{
+//	        RetentionDays: 7,
+//	        OnExpire: func(ek stats.ExpiredKey) error {
+//	            _, err := db.Exec(
+//	                "INSERT INTO stats_archive (key, type, value, date) VALUES (?, ?, ?, ?)",
+//	                ek.Key, ek.Type, toJSON(ek.Value), ek.Date,
+//	            )
+//	            return err
+//	        },
+//	    }),
+//	)
+type ExpireFunc func(ek ExpiredKey) error

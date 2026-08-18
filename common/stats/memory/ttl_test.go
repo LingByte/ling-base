@@ -4,33 +4,29 @@
 package memory
 
 import (
-	"os"
 	"testing"
 	"time"
 
+	"github.com/LingByte/ling-base/common/stats"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTTLExpiration(t *testing.T) {
-	// Create collector with 1-day retention and fast check interval.
-	var expiredKeys []string
-	var expiredEntries []SnapshotEntry
+	var expiredKeys []stats.ExpiredKey
 
 	c := New(
 		WithReservoirTimer(4096),
 		WithTTL(TTLConfig{
 			RetentionDays:  1,
 			CheckInterval:  100 * time.Millisecond,
-			OnExpire: func(key string, entry SnapshotEntry) error {
-				expiredKeys = append(expiredKeys, key)
-				expiredEntries = append(expiredEntries, entry)
+			OnExpire: func(ek stats.ExpiredKey) error {
+				expiredKeys = append(expiredKeys, ek)
 				return nil
 			},
 		}),
 	)
 	defer c.Close()
 
-	// Record data with an OLD date (2 days ago — should expire).
 	oldDate := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
 	c.Counter("pv:" + oldDate + ":/home").IncrBy(100)
 	c.HLL("uv:" + oldDate).Add("user1")
@@ -38,34 +34,36 @@ func TestTTLExpiration(t *testing.T) {
 	c.Set("daily_users:" + oldDate).Add("user1")
 	c.Timer("response_time:" + oldDate).Record(50000000)
 
-	// Record data with TODAY's date — should NOT expire.
 	today := time.Now().Format("2006-01-02")
 	c.Counter("pv:" + today + ":/home").IncrBy(50)
 	c.HLL("uv:" + today).Add("user3")
 
-	// Wait for TTL cleanup to run.
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify old keys were expired.
-	assert.Contains(t, expiredKeys, "pv:"+oldDate+":/home")
-	assert.Contains(t, expiredKeys, "uv:"+oldDate)
+	// Verify old keys expired.
+	keyNames := make([]string, len(expiredKeys))
+	for i, ek := range expiredKeys {
+		keyNames[i] = ek.Key
+	}
+	assert.Contains(t, keyNames, "pv:"+oldDate+":/home")
+	assert.Contains(t, keyNames, "uv:"+oldDate)
 
-	// Verify old keys are gone from memory.
+	// Old keys gone from memory.
 	assert.Equal(t, int64(0), c.Counter("pv:"+oldDate+":/home").Get())
 	assert.Equal(t, uint64(0), c.HLL("uv:"+oldDate).Estimate())
 
-	// Verify today's keys are still present.
+	// Today's keys still present.
 	assert.Equal(t, int64(50), c.Counter("pv:"+today+":/home").Get())
 	assert.Equal(t, uint64(1), c.HLL("uv:"+today).Estimate())
 
-	t.Logf("Expired %d keys: %v", len(expiredKeys), expiredKeys)
+	t.Logf("Expired %d keys: %v", len(expiredKeys), keyNames)
 }
 
 func TestTTLManualCleanup(t *testing.T) {
 	c := New(
 		WithTTL(TTLConfig{
 			RetentionDays: 1,
-			OnExpire:      func(key string, entry SnapshotEntry) error { return nil },
+			OnExpire:      func(ek stats.ExpiredKey) error { return nil },
 		}),
 	)
 	defer c.Close()
@@ -81,50 +79,98 @@ func TestTTLManualCleanup(t *testing.T) {
 	removed := c.CleanupNow()
 	after := c.KeyCount()
 
-	assert.Equal(t, 2, removed, "2 old keys should be removed")
-	assert.Equal(t, before-2, after, "key count should decrease by 2")
+	assert.Equal(t, 2, removed)
+	assert.Equal(t, before-2, after)
 	t.Logf("KeyCount: before=%d, removed=%d, after=%d", before, removed, after)
 }
 
-func TestTTLWithSQLite(t *testing.T) {
-	// This test verifies the OnExpire callback pattern works with SQLite.
-	// We simulate the SQLite store with an in-memory map.
-	path := "/tmp/test_stats_ttl_sqlite.db"
-	defer os.Remove(path)
-
-	// Use a simple map as a mock store.
-	store := &mockStore{data: make(map[string]string)}
+func TestTTLCallbackReceivesValue(t *testing.T) {
+	var received []stats.ExpiredKey
 
 	c := New(
-		WithReservoirTimer(4096),
 		WithTTL(TTLConfig{
 			RetentionDays: 1,
-			OnExpire:      store.save,
+			OnExpire: func(ek stats.ExpiredKey) error {
+				received = append(received, ek)
+				return nil
+			},
 		}),
 	)
 	defer c.Close()
 
 	oldDate := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
 	c.Counter("pv:" + oldDate + ":/home").IncrBy(42)
-	c.HLL("uv:" + oldDate).Add("user1")
-	c.HLL("uv:" + oldDate).Add("user2")
+	c.HLL("uv:" + oldDate).Add("u1")
+	c.HLL("uv:" + oldDate).Add("u2")
+	c.Timer("rt:" + oldDate).Record(1000000)
 
-	// Trigger cleanup.
-	removed := c.CleanupNow()
-	assert.Equal(t, 2, removed, "2 keys should be expired and saved")
+	c.CleanupNow()
 
-	// Verify data was saved to store.
-	assert.Contains(t, store.data, "pv:"+oldDate+":/home")
-	assert.Contains(t, store.data, "uv:"+oldDate)
+	assert.Equal(t, 3, len(received))
 
-	t.Logf("Saved to store: %v", store.data)
+	// Verify each entry has correct type and value.
+	for _, ek := range received {
+		switch ek.Type {
+		case "counter":
+			assert.Equal(t, int64(42), ek.Value)
+		case "hll":
+			assert.Equal(t, uint64(2), ek.Value)
+		case "timer":
+			ts, ok := ek.Value.(stats.TimerSummary)
+			assert.True(t, ok)
+			assert.Equal(t, int64(1), ts.Count)
+		}
+		assert.Equal(t, oldDate, ek.Date)
+		assert.NotEmpty(t, ek.ExpiredAt)
+	}
+
+	t.Logf("Received %d expired keys with values", len(received))
 }
+
+func TestTTLCallbackErrorRetries(t *testing.T) {
+	var attempts int
+
+	c := New(
+		WithTTL(TTLConfig{
+			RetentionDays: 1,
+			OnExpire: func(ek stats.ExpiredKey) error {
+				attempts++
+				if attempts == 1 {
+					return errFake // first attempt fails
+				}
+				return nil
+			},
+		}),
+	)
+	defer c.Close()
+
+	oldDate := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+	c.Counter("pv:" + oldDate + ":/home").Incr()
+
+	// First cleanup — callback returns error, key should NOT be removed.
+	c.CleanupNow()
+	assert.Equal(t, 1, c.KeyCount(), "key should remain after callback error")
+
+	// Second cleanup — callback succeeds, key should be removed.
+	c.CleanupNow()
+	assert.Equal(t, 0, c.KeyCount(), "key should be removed after callback success")
+
+	t.Logf("attempts=%d (1 error + 1 success)", attempts)
+}
+
+var errFake = newFakeError()
+
+type fakeError struct{}
+
+func (e *fakeError) Error() string { return "fake error" }
+
+func newFakeError() error { return &fakeError{} }
 
 func TestDefaultKeyDateExtractor(t *testing.T) {
 	tests := []struct {
-		key     string
-		date    string
-		ok      bool
+		key  string
+		date string
+		ok   bool
 	}{
 		{"pv:2026-08-18:/home", "2026-08-18", true},
 		{"uv:2026-08-18", "2026-08-18", true},
@@ -142,31 +188,6 @@ func TestDefaultKeyDateExtractor(t *testing.T) {
 		if ok {
 			assert.Equal(t, tt.date, date, "date mismatch for key %q", tt.key)
 		}
-	}
-}
-
-// mockStore simulates a database store for testing.
-type mockStore struct {
-	data map[string]string
-}
-
-func (m *mockStore) save(key string, entry SnapshotEntry) error {
-	m.data[key] = entry.Type + ":" + formatValue(entry.Value)
-	return nil
-}
-
-func formatValue(v any) string {
-	switch val := v.(type) {
-	case int64:
-		return string(rune(val)) // simplified
-	case uint64:
-		_ = val
-		return "uint64"
-	case int:
-		_ = val
-		return "int"
-	default:
-		return "other"
 	}
 }
 

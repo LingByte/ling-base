@@ -3,41 +3,6 @@
 
 package memory
 
-import (
-	"fmt"
-	"time"
-
-	"github.com/LingByte/ling-base/common/stats"
-)
-
-// ArchiveAdapter wraps a stats.ArchiveStore and provides an OnExpire
-// callback function compatible with TTLConfig.OnExpire.
-//
-// This bridges the in-memory TTL expiration to any ArchiveStore
-// implementation (SQLite, MySQL, PostgreSQL, etc.).
-//
-// Usage:
-//
-//	store, _ := sqlite.New("data/stats.db")     // or mysql.New(dsn)
-//	c := memory.New(
-//	    memory.WithTTL(memory.TTLConfig{
-//	        RetentionDays: 7,
-//	        OnExpire:      memory.ArchiveAdapter(store),
-//	    }),
-//	)
-func ArchiveAdapter(store stats.ArchiveStore) func(key string, entry SnapshotEntry) error {
-	return func(key string, entry SnapshotEntry) error {
-		record := stats.ArchiveRecord{
-			Key:      key,
-			Type:     entry.Type,
-			Value:    entry.Value,
-			Date:     extractDateFromKey(key),
-			Archived: time.Now().Format(time.RFC3339),
-		}
-		return store.Save(record)
-	}
-}
-
 // extractDateFromKey extracts "YYYY-MM-DD" from a key string.
 func extractDateFromKey(key string) string {
 	for i := 0; i <= len(key)-10; i++ {
@@ -51,6 +16,3 @@ func extractDateFromKey(key string) string {
 	}
 	return ""
 }
-
-// suppress unused import
-var _ = fmt.Sprintf
