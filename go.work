@@ -67,9 +67,7 @@ use (
 	./common/stats/file
 	./common/stats/gin
 	./common/stats/memory
-	./common/stats/mysql
 	./common/stats/redis
-	./common/stats/sqlite
 	./common/timeutil
 	./common/validate
 	./common/videoutil
