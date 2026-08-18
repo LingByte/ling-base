@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -16,6 +15,9 @@ import (
 	"{{.Module}}/internal/model"
 
 	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 // AppInfo 持有应用元信息。
@@ -32,12 +34,26 @@ func Run(info *AppInfo) {
 	// 加载配置
 	cfg, err := config.Load("configs/config.yaml")
 	if err != nil {
-		slog.Error("加载配置失败", "error", err)
+		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 初始化日志
-	initLogger(cfg.Logging)
+	// 初始化时区
+	logger.InitTimezone(constants.TimezoneShanghai)
+
+	// 初始化日志（zap + lumberjack 轮转 + 脱敏）
+	if err := logger.Init(&logger.LogConfig{
+		Level:           cfg.Logging.Level,
+		Filename:        cfg.Logging.Filename,
+		MaxSize:         cfg.Logging.MaxSize,
+		MaxAge:          cfg.Logging.MaxAge,
+		MaxBackups:      cfg.Logging.MaxBackups,
+		Daily:           cfg.Logging.Daily,
+		SensitiveFields: cfg.Logging.SensitiveFields,
+	}, cfg.App.Environment); err != nil {
+		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		os.Exit(1)
+	}
 
 	// 创建 bootstrap 应用
 	appOpts := []bootstrap.Option{
@@ -50,7 +66,7 @@ func Run(info *AppInfo) {
 	if cfg.Database.DSN != "" {
 		db, err := config.InitDB(cfg.Database)
 		if err != nil {
-			slog.Error("数据库初始化失败", "error", err)
+			logger.Lg.Error("数据库初始化失败", zap.Error(err))
 			os.Exit(1)
 		}
 		// dev/test: AutoMigrate; prod: 手动 SQL 迁移
@@ -66,7 +82,7 @@ func Run(info *AppInfo) {
 
 	// 启动（阻塞直到收到关闭信号）
 	if err := app.Run(); err != nil {
-		slog.Error("应用启动失败", "error", err)
+		logger.Lg.Error("应用启动失败", zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -109,9 +125,11 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	}
 
 	go func() {
-		slog.Info("HTTP 服务已启动", "addr", c.server.Addr, "version", c.info.Version)
+		logger.Lg.Info("HTTP 服务已启动",
+			zap.String("addr", c.server.Addr),
+			zap.String("version", c.info.Version))
 		if err := c.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("HTTP 服务异常", "error", err)
+			logger.Lg.Error("HTTP 服务异常", zap.Error(err))
 		}
 	}()
 
@@ -119,29 +137,6 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 }
 
 func (c *httpServerComponent) Stop(ctx context.Context) error {
-	slog.Info("正在关闭 HTTP 服务...")
+	logger.Lg.Info("正在关闭 HTTP 服务...")
 	return c.server.Shutdown(ctx)
-}
-
-// initLogger 初始化结构化日志。
-func initLogger(cfg config.LoggingConfig) {
-	var level slog.Level
-	switch cfg.Level {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-
-	var handler slog.Handler
-	if cfg.Format == "json" {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	} else {
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	}
-	slog.SetDefault(slog.New(handler))
 }

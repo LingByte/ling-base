@@ -6,6 +6,7 @@ package middleware
 import (
 	"strings"
 
+	ginlogger "github.com/LingByte/ling-base/logger/gin"
 	"github.com/LingByte/ling-base/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -27,7 +28,7 @@ func RequestIDMiddleware() gin.HandlerFunc {
 	}
 }
 
-// ReqIDFromGin is a convenience alias for logger.ReqIDFromGin.
+// ReqIDFromGin is a convenience alias for ginlogger.ReqIDFromGin.
 func ReqIDFromGin(c *gin.Context) string {
-	return logger.ReqIDFromGin(c)
+	return ginlogger.ReqIDFromGin(c)
 }

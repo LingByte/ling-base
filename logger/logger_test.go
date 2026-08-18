@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,15 +15,10 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/constants"
-	"github.com/gin-gonic/gin"
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
-
-func init() {
-	gin.SetMode(gin.TestMode)
-}
 
 // ===== GenReqID =====
 
@@ -129,108 +122,6 @@ func TestZapReqIDString_Empty(t *testing.T) {
 	field := ZapReqIDString("")
 	if field.Key != "" {
 		t.Fatalf("empty ZapReqIDString should return Skip")
-	}
-}
-
-func TestReqIDFromGin_FromContext(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "ctx-req-id")
-
-	id := ReqIDFromGin(c)
-	if id != "ctx-req-id" {
-		t.Fatalf("want 'ctx-req-id', got %q", id)
-	}
-}
-
-func TestReqIDFromGin_Empty(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	id := ReqIDFromGin(c)
-	if id != "" {
-		t.Fatalf("want empty, got %q", id)
-	}
-}
-
-func TestReqIDFromGin_Nil(t *testing.T) {
-	id := ReqIDFromGin(nil)
-	if id != "" {
-		t.Fatalf("want empty, got %q", id)
-	}
-}
-
-// ===== FromGin =====
-
-func TestFromGin_NilLogger(t *testing.T) {
-	oldLg := Lg
-	Lg = nil
-	defer func() { Lg = oldLg }()
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	lg := FromGin(c)
-	if lg == nil {
-		t.Fatal("should return nop logger")
-	}
-}
-
-func TestFromGin_WithReqID(t *testing.T) {
-	if Lg == nil {
-		Lg = zap.NewNop()
-	}
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "test-req-id")
-
-	lg := FromGin(c)
-	if lg == nil {
-		t.Fatal("should return logger")
-	}
-}
-
-func TestFromGin_WithoutReqID(t *testing.T) {
-	if Lg == nil {
-		Lg = zap.NewNop()
-	}
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	lg := FromGin(c)
-	if lg == nil {
-		t.Fatal("should return logger")
-	}
-}
-
-func TestGinZapFields(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/test?foo=bar", nil)
-
-	fields := GinZapFields(c)
-	if len(fields) < 3 {
-		t.Fatalf("want at least 3 fields, got %d", len(fields))
-	}
-}
-
-func TestGinZapFields_Nil(t *testing.T) {
-	fields := GinZapFields(nil)
-	if fields != nil {
-		t.Fatalf("want nil, got %v", fields)
-	}
-}
-
-func TestGinZapFields_NoQuery(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/test", nil)
-
-	fields := GinZapFields(c)
-	if len(fields) != 3 {
-		t.Fatalf("want 3 fields, got %d", len(fields))
 	}
 }
 
@@ -708,98 +599,6 @@ func TestPanic_NilLogger(t *testing.T) {
 		}
 	}()
 	Panic("test panic")
-}
-
-// ===== ReqIDFromGin with request context =====
-
-func TestReqIDFromGin_FromRequestContext(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	ctx := WithRequestID(context.Background(), "req-from-rctx")
-	c.Request, _ = http.NewRequest("GET", "/", nil)
-	c.Request = c.Request.WithContext(ctx)
-
-	id := ReqIDFromGin(c)
-	if id != "req-from-rctx" {
-		t.Fatalf("want 'req-from-rctx', got %q", id)
-	}
-}
-
-func TestReqIDFromGin_NonStringValue(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, 12345)
-
-	id := ReqIDFromGin(c)
-	if id != "" {
-		t.Fatalf("want empty for non-string value, got %q", id)
-	}
-}
-
-func TestReqIDFromGin_EmptyStringValue(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "")
-
-	id := ReqIDFromGin(c)
-	if id != "" {
-		t.Fatalf("want empty for empty string, got %q", id)
-	}
-}
-
-// ===== IncomingReqID =====
-
-func TestIncomingReqID_FromHeader(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/", nil)
-	c.Request.Header.Set("X-Reqid", "my-req-id")
-
-	id := IncomingReqID(c)
-	if id != "my-req-id" {
-		t.Fatalf("want 'my-req-id', got %q", id)
-	}
-}
-
-func TestIncomingReqID_Empty(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/", nil)
-
-	id := IncomingReqID(c)
-	if id != "" {
-		t.Fatalf("want empty, got %q", id)
-	}
-}
-
-func TestIncomingReqID_Nil(t *testing.T) {
-	id := IncomingReqID(nil)
-	if id != "" {
-		t.Fatalf("want empty, got %q", id)
-	}
-}
-
-func TestIncomingReqID_NilRequest(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = nil
-
-	id := IncomingReqID(c)
-	if id != "" {
-		t.Fatalf("want empty, got %q", id)
-	}
-}
-
-func TestIncomingReqID_TrimSpace(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/", nil)
-	c.Request.Header.Set("X-Reqid", "  padded-id  ")
-
-	id := IncomingReqID(c)
-	if id != "padded-id" {
-		t.Fatalf("want 'padded-id', got %q", id)
-	}
 }
 
 func TestInit_LocalMode(t *testing.T) {

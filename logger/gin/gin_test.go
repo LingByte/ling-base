@@ -1,10 +1,11 @@
-package logger
+package gin
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/LingByte/ling-base/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -15,7 +16,7 @@ func TestIncomingReqID_WithHeader(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest("GET", "/", nil)
-	c.Request.Header.Set(HeaderXReqID, "header-req-123")
+	c.Request.Header.Set(logger.HeaderXReqID, "header-req-123")
 
 	if got := IncomingReqID(c); got != "header-req-123" {
 		t.Fatalf("want 'header-req-123', got %q", got)
@@ -42,7 +43,7 @@ func TestIncomingReqID_WhitespaceTrim(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest("GET", "/", nil)
-	c.Request.Header.Set(HeaderXReqID, "  padded  ")
+	c.Request.Header.Set(logger.HeaderXReqID, "  padded  ")
 
 	if got := IncomingReqID(c); got != "padded" {
 		t.Fatalf("want 'padded', got %q", got)
@@ -54,7 +55,7 @@ func TestIncomingReqID_WhitespaceTrim(t *testing.T) {
 func TestReqIDFromGin_ValueFromContext(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "ctx-value")
+	c.Set(logger.GinCtxReqIDKey, "ctx-value")
 
 	if got := ReqIDFromGin(c); got != "ctx-value" {
 		t.Fatalf("want 'ctx-value', got %q", got)
@@ -79,7 +80,7 @@ func TestReqIDFromGin_NilContext(t *testing.T) {
 func TestReqIDFromGin_EmptyString(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "")
+	c.Set(logger.GinCtxReqIDKey, "")
 
 	if got := ReqIDFromGin(c); got != "" {
 		t.Fatalf("want '', got %q", got)
@@ -89,9 +90,9 @@ func TestReqIDFromGin_EmptyString(t *testing.T) {
 // ===== FromGin =====
 
 func TestFromGin_NilLogger_ReturnsNop(t *testing.T) {
-	oldLg := Lg
-	Lg = nil
-	defer func() { Lg = oldLg }()
+	oldLg := logger.Lg
+	logger.Lg = nil
+	defer func() { logger.Lg = oldLg }()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -104,15 +105,15 @@ func TestFromGin_NilLogger_ReturnsNop(t *testing.T) {
 }
 
 func TestFromGin_WithReqID_ReturnsEnrichedLogger(t *testing.T) {
-	oldLg := Lg
-	if Lg == nil {
-		Lg = zap.NewNop()
+	oldLg := logger.Lg
+	if logger.Lg == nil {
+		logger.Lg = zap.NewNop()
 	}
-	defer func() { Lg = oldLg }()
+	defer func() { logger.Lg = oldLg }()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Set(GinCtxReqIDKey, "enriched-id")
+	c.Set(logger.GinCtxReqIDKey, "enriched-id")
 	c.Request, _ = http.NewRequest("GET", "/", nil)
 
 	lg := FromGin(c)
@@ -122,11 +123,11 @@ func TestFromGin_WithReqID_ReturnsEnrichedLogger(t *testing.T) {
 }
 
 func TestFromGin_NoReqID_ReturnsBaseLogger(t *testing.T) {
-	oldLg := Lg
-	if Lg == nil {
-		Lg = zap.NewNop()
+	oldLg := logger.Lg
+	if logger.Lg == nil {
+		logger.Lg = zap.NewNop()
 	}
-	defer func() { Lg = oldLg }()
+	defer func() { logger.Lg = oldLg }()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -144,7 +145,7 @@ func TestGinZapFields_WithQuery(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest("GET", "/test?key=value", nil)
-	c.Set(GinCtxReqIDKey, "zap-req-id")
+	c.Set(logger.GinCtxReqIDKey, "zap-req-id")
 
 	fields := GinZapFields(c)
 	if len(fields) != 4 {

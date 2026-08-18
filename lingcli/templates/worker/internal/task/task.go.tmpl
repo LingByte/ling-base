@@ -4,18 +4,22 @@ package task
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 type TaskFunc func(ctx context.Context) error
 
 func SampleTask(ctx context.Context) error {
-	slog.Info("执行示例任务", "time", time.Now().Format(time.RFC3339))
+	logger.Lg.Info("执行示例任务", zap.String("time", time.Now().Format(time.RFC3339)))
 	return nil
 }
 
 func HealthCheck(ctx context.Context) error {
-	slog.Info("健康检查", "status", "ok", "time", time.Now().Format(time.RFC3339))
+	logger.Lg.Info("健康检查",
+		zap.String("status", "ok"),
+		zap.String("time", time.Now().Format(time.RFC3339)))
 	return nil
 }

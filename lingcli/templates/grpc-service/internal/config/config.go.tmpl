@@ -4,7 +4,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"time"
 
@@ -25,8 +24,13 @@ type ServerConfig struct {
 }
 
 type LoggingConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
+	Level           string `yaml:"level"`
+	Filename        string `yaml:"filename"`
+	MaxSize         int    `yaml:"maxSize"`
+	MaxAge          int    `yaml:"maxAge"`
+	MaxBackups      int    `yaml:"maxBackups"`
+	Daily           bool   `yaml:"daily"`
+	SensitiveFields string `yaml:"sensitiveFields"`
 }
 
 type AppConfig struct {
@@ -42,15 +46,21 @@ func Default() *Config {
 			MaxSendMsgSize: 4 * 1024 * 1024,
 			Timeout:        30 * time.Second,
 		},
-		Logging: LoggingConfig{Level: "info", Format: "json"},
-		App:     AppConfig{Name: "{{.ProjectName}}", Environment: "dev"},
+		Logging: LoggingConfig{
+			Level:    "info",
+			Filename: "logs/grpc.log",
+			MaxSize:  100,
+			MaxAge:   30,
+			MaxBackups: 10,
+			Daily:    true,
+		},
+		App: AppConfig{Name: "{{.ProjectName}}", Environment: "dev"},
 	}
 }
 
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		slog.Info("配置文件未找到，使用默认配置", "path", path)
 		return Default(), nil
 	}
 	cfg := Default()

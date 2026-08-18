@@ -4,9 +4,11 @@ package service
 
 import (
 	"context"
-	"log/slog"
 	"net"
 	"sync"
+
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 // Server 简化的 gRPC 服务容器。
@@ -31,7 +33,7 @@ func (s *Server) UseInterceptor(i Interceptor) {
 
 func (s *Server) Serve(lis net.Listener) error {
 	s.listener = lis
-	slog.Info("gRPC 服务监听中", "addr", lis.Addr().String())
+	logger.Lg.Info("gRPC 服务监听中", zap.String("addr", lis.Addr().String()))
 	for {
 		conn, err := lis.Accept()
 		if err != nil {

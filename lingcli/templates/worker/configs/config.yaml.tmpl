@@ -6,7 +6,12 @@ app:
 
 logging:
   level: info
-  format: json
+  filename: logs/worker.log
+  maxSize: 100
+  maxAge: 30
+  maxBackups: 10
+  daily: true
+  sensitiveFields: ""
 
 tasks:
   sampleInterval: 30s

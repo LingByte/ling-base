@@ -4,7 +4,7 @@ package app
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"os"
 	"time"
 
@@ -13,6 +13,9 @@ import (
 	"{{.Module}}/internal/task"
 
 	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 type AppInfo struct {
@@ -25,11 +28,26 @@ type AppInfo struct {
 func Run(info *AppInfo) {
 	cfg, err := config.Load("configs/config.yaml")
 	if err != nil {
-		slog.Error("加载配置失败", "error", err)
+		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
 		os.Exit(1)
 	}
 
-	initLogger(cfg.Logging)
+	// 初始化时区
+	logger.InitTimezone(constants.TimezoneShanghai)
+
+	// 初始化日志
+	if err := logger.Init(&logger.LogConfig{
+		Level:           cfg.Logging.Level,
+		Filename:        cfg.Logging.Filename,
+		MaxSize:         cfg.Logging.MaxSize,
+		MaxAge:          cfg.Logging.MaxAge,
+		MaxBackups:      cfg.Logging.MaxBackups,
+		Daily:           cfg.Logging.Daily,
+		SensitiveFields: cfg.Logging.SensitiveFields,
+	}, cfg.App.Environment); err != nil {
+		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		os.Exit(1)
+	}
 
 	appOpts := []bootstrap.Option{
 		bootstrap.WithProfile(cfg.App.Environment),
@@ -41,15 +59,15 @@ func Run(info *AppInfo) {
 	app.Register("scheduler", &schedulerComponent{cfg: cfg})
 
 	if err := app.Run(); err != nil {
-		slog.Error("应用启动失败", "error", err)
+		logger.Lg.Error("应用启动失败", zap.Error(err))
 		os.Exit(1)
 	}
 }
 
 type schedulerComponent struct {
-	cfg   *config.Config
-	sched *scheduler.Scheduler
-	ctx   context.Context
+	cfg    *config.Config
+	sched  *scheduler.Scheduler
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
@@ -71,20 +89,4 @@ func (c *schedulerComponent) Stop(ctx context.Context) error {
 		c.sched.Stop()
 	}
 	return nil
-}
-
-func initLogger(cfg config.LoggingConfig) {
-	var level slog.Level
-	switch cfg.Level {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	slog.SetDefault(slog.New(handler))
 }

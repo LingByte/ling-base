@@ -8,7 +8,12 @@ server:
 
 logging:
   level: info
-  format: json
+  filename: logs/grpc.log
+  maxSize: 100
+  maxAge: 30
+  maxBackups: 10
+  daily: true
+  sensitiveFields: ""
 
 app:
   name: {{.ProjectName}}

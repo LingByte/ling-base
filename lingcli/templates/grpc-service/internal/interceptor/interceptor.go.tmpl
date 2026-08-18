@@ -5,18 +5,22 @@ package interceptor
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"runtime/debug"
 	"time"
 
 	"{{.Module}}/internal/service"
+
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 // Logging 日志拦截器。
 func Logging(ctx context.Context, req interface{}, handler service.Handler) (interface{}, error) {
 	start := time.Now()
 	resp, err := handler(ctx, req)
-	slog.Info("gRPC 请求", "duration", time.Since(start).String(), "error", err)
+	logger.Lg.Info("gRPC 请求",
+		zap.String("duration", time.Since(start).String()),
+		zap.Error(err))
 	return resp, err
 }
 
@@ -24,7 +28,9 @@ func Logging(ctx context.Context, req interface{}, handler service.Handler) (int
 func Recover(ctx context.Context, req interface{}, handler service.Handler) (resp interface{}, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			slog.Error("panic recovered", "error", rec, "stack", string(debug.Stack()))
+			logger.Lg.Error("panic recovered",
+				zap.Any("error", rec),
+				zap.String("stack", string(debug.Stack())))
 			err = fmt.Errorf("internal error")
 		}
 	}()

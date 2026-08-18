@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"os"
 	"time"
@@ -15,6 +14,9 @@ import (
 	"{{.Module}}/internal/service"
 
 	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 type AppInfo struct {
@@ -28,11 +30,26 @@ type AppInfo struct {
 func Run(info *AppInfo) {
 	cfg, err := config.Load("configs/config.yaml")
 	if err != nil {
-		slog.Error("加载配置失败", "error", err)
+		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
 		os.Exit(1)
 	}
 
-	initLogger(cfg.Logging)
+	// 初始化时区
+	logger.InitTimezone(constants.TimezoneShanghai)
+
+	// 初始化日志
+	if err := logger.Init(&logger.LogConfig{
+		Level:           cfg.Logging.Level,
+		Filename:        cfg.Logging.Filename,
+		MaxSize:         cfg.Logging.MaxSize,
+		MaxAge:          cfg.Logging.MaxAge,
+		MaxBackups:      cfg.Logging.MaxBackups,
+		Daily:           cfg.Logging.Daily,
+		SensitiveFields: cfg.Logging.SensitiveFields,
+	}, cfg.App.Environment); err != nil {
+		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		os.Exit(1)
+	}
 
 	appOpts := []bootstrap.Option{
 		bootstrap.WithProfile(cfg.App.Environment),
@@ -44,7 +61,7 @@ func Run(info *AppInfo) {
 	app.Register("grpc-server", &grpcServerComponent{info: info, cfg: cfg})
 
 	if err := app.Run(); err != nil {
-		slog.Error("应用启动失败", "error", err)
+		logger.Lg.Error("应用启动失败", zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -68,9 +85,11 @@ func (c *grpcServerComponent) Start(ctx context.Context) error {
 	c.srv.UseInterceptor(interceptor.Recover)
 
 	go func() {
-		slog.Info("gRPC 服务已启动", "addr", lis.Addr().String(), "version", c.info.Version)
+		logger.Lg.Info("gRPC 服务已启动",
+			zap.String("addr", lis.Addr().String()),
+			zap.String("version", c.info.Version))
 		if err := c.srv.Serve(lis); err != nil {
-			slog.Error("gRPC 服务异常", "error", err)
+			logger.Lg.Error("gRPC 服务异常", zap.Error(err))
 		}
 	}()
 
@@ -78,23 +97,7 @@ func (c *grpcServerComponent) Start(ctx context.Context) error {
 }
 
 func (c *grpcServerComponent) Stop(ctx context.Context) error {
-	slog.Info("正在关闭 gRPC 服务...")
+	logger.Lg.Info("正在关闭 gRPC 服务...")
 	c.srv.GracefulStop()
 	return nil
-}
-
-func initLogger(cfg config.LoggingConfig) {
-	var level slog.Level
-	switch cfg.Level {
-	case "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	slog.SetDefault(slog.New(handler))
 }

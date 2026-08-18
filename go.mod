@@ -7,6 +7,8 @@ require (
 	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/constants v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/logger v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/logger/gin v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.12.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/redis/go-redis/v9 v9.22.0
@@ -28,6 +30,8 @@ replace (
 	github.com/LingByte/ling-base/common/response => ./common/response
 	github.com/LingByte/ling-base/common/response/gin => ./common/response/gin
 	github.com/LingByte/ling-base/constants => ./constants
+	github.com/LingByte/ling-base/logger => ./logger
+	github.com/LingByte/ling-base/logger/gin => ./logger/gin
 )
 
 require (

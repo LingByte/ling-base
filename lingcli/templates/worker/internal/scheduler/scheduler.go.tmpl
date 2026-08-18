@@ -4,11 +4,13 @@ package scheduler
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"time"
 
 	"{{.Module}}/internal/task"
+
+	"github.com/LingByte/ling-base/logger"
+	"go.uber.org/zap"
 )
 
 type Scheduler struct {
@@ -30,7 +32,9 @@ func (s *Scheduler) Register(name string, fn task.TaskFunc, interval time.Durati
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tasks = append(s.tasks, &scheduledTask{name: name, fn: fn, interval: interval})
-	slog.Info("注册任务", "name", name, "interval", interval.String())
+	logger.Lg.Info("注册任务",
+		zap.String("name", name),
+		zap.String("interval", interval.String()))
 }
 
 func (s *Scheduler) Start(ctx context.Context) error {
@@ -54,15 +58,17 @@ func (s *Scheduler) runTask(ctx context.Context, t *scheduledTask) {
 	ticker := time.NewTicker(t.interval)
 	defer ticker.Stop()
 
-	slog.Info("任务已启动", "name", t.name)
+	logger.Lg.Info("任务已启动", zap.String("name", t.name))
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("任务已停止", "name", t.name)
+			logger.Lg.Info("任务已停止", zap.String("name", t.name))
 			return
 		case <-ticker.C:
 			if err := t.fn(ctx); err != nil {
-				slog.Error("任务执行失败", "name", t.name, "error", err)
+				logger.Lg.Error("任务执行失败",
+					zap.String("name", t.name),
+					zap.Error(err))
 			}
 		}
 	}

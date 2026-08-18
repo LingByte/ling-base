@@ -73,6 +73,8 @@ use (
 	./i18n/gin
 	./i18n/mymemory
 	./lingcli
+	./logger
+	./logger/gin
 	./metrics
 	./mq
 	./mq/activemq

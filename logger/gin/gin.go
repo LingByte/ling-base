@@ -1,8 +1,9 @@
-package logger
+package gin
 
 import (
 	"strings"
 
+	"github.com/LingByte/ling-base/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -12,7 +13,7 @@ func IncomingReqID(c *gin.Context) string {
 	if c == nil || c.Request == nil {
 		return ""
 	}
-	return strings.TrimSpace(c.GetHeader(HeaderXReqID))
+	return strings.TrimSpace(c.GetHeader(logger.HeaderXReqID))
 }
 
 // ReqIDFromGin returns request id from Gin context or request context.
@@ -20,13 +21,13 @@ func ReqIDFromGin(c *gin.Context) string {
 	if c == nil {
 		return ""
 	}
-	if v, ok := c.Get(GinCtxReqIDKey); ok {
+	if v, ok := c.Get(logger.GinCtxReqIDKey); ok {
 		if s, ok := v.(string); ok && s != "" {
 			return s
 		}
 	}
 	if c.Request != nil {
-		if id := RequestIDFromContext(c.Request.Context()); id != "" {
+		if id := logger.RequestIDFromContext(c.Request.Context()); id != "" {
 			return id
 		}
 	}
@@ -35,13 +36,13 @@ func ReqIDFromGin(c *gin.Context) string {
 
 // FromGin returns the global logger with x-reqid field when the request carries an id.
 func FromGin(c *gin.Context) *zap.Logger {
-	if Lg == nil {
+	if logger.Lg == nil {
 		return zap.NewNop()
 	}
 	if id := ReqIDFromGin(c); id != "" {
-		return Lg.With(zap.String("x-reqid", id))
+		return logger.Lg.With(zap.String("x-reqid", id))
 	}
-	return Lg
+	return logger.Lg
 }
 
 // GinZapFields returns zap fields for HTTP handlers (x-reqid, method, path).
@@ -50,7 +51,7 @@ func GinZapFields(c *gin.Context) []zap.Field {
 		return nil
 	}
 	fields := []zap.Field{
-		ZapReqIDString(ReqIDFromGin(c)),
+		logger.ZapReqIDString(ReqIDFromGin(c)),
 		zap.String("method", c.Request.Method),
 		zap.String("path", c.Request.URL.Path),
 	}

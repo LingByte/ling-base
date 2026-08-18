@@ -4,7 +4,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"time"
 
@@ -23,8 +22,13 @@ type AppConfig struct {
 }
 
 type LoggingConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
+	Level           string `yaml:"level"`
+	Filename        string `yaml:"filename"`
+	MaxSize         int    `yaml:"maxSize"`
+	MaxAge          int    `yaml:"maxAge"`
+	MaxBackups      int    `yaml:"maxBackups"`
+	Daily           bool   `yaml:"daily"`
+	SensitiveFields string `yaml:"sensitiveFields"`
 }
 
 type TasksConfig struct {
@@ -34,16 +38,22 @@ type TasksConfig struct {
 
 func Default() *Config {
 	return &Config{
-		App:     AppConfig{Name: "{{.ProjectName}}", Environment: "dev"},
-		Logging: LoggingConfig{Level: "info", Format: "json"},
-		Tasks:   TasksConfig{SampleInterval: 30 * time.Second, HealthInterval: 60 * time.Second},
+		App: AppConfig{Name: "{{.ProjectName}}", Environment: "dev"},
+		Logging: LoggingConfig{
+			Level:    "info",
+			Filename: "logs/worker.log",
+			MaxSize:  100,
+			MaxAge:   30,
+			MaxBackups: 10,
+			Daily:    true,
+		},
+		Tasks: TasksConfig{SampleInterval: 30 * time.Second, HealthInterval: 60 * time.Second},
 	}
 }
 
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		slog.Info("配置文件未找到，使用默认配置", "path", path)
 		return Default(), nil
 	}
 	cfg := Default()
