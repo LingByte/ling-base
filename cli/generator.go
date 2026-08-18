@@ -42,14 +42,14 @@ func (g *Generator) Generate(spec *ModuleSpec) error {
 		}
 	}
 	if template == nil {
-		return fmt.Errorf("no template found for type: %s", spec.Type)
+		return fmt.Errorf("未找到类型 %s 的模板", spec.Type)
 	}
 
 	// Generate files.
 	files := template.Generate(spec)
 
-	fmt.Printf("\n=== Generating module: %s ===\n", spec.ModulePath())
-	fmt.Println(spec.Summary())
+	fmt.Printf("\n\x1b[38;5;117m━━━ 正在生成模块: %s ━━━\x1b[0m\n", spec.ModulePath())
+	fmt.Print(spec.Summary())
 	fmt.Println()
 
 	for _, f := range files {
@@ -58,52 +58,49 @@ func (g *Generator) Generate(spec *ModuleSpec) error {
 		// Check if file exists.
 		if !f.Overwrite {
 			if _, err := os.Stat(fullPath); err == nil {
-				fmt.Printf("  [SKIP] %s (already exists)\n", f.Path)
+				fmt.Printf("  \x1b[33m[跳过]\x1b[0m %s \x1b[38;5;245m（文件已存在）\x1b[0m\n", f.Path)
 				continue
 			}
 		}
 
 		if spec.DryRun {
-			fmt.Printf("  [DRY]  %s (%d bytes)\n", f.Path, len(f.Content))
+			fmt.Printf("  \x1b[38;5;39m[预览]\x1b[0m %s \x1b[38;5;245m(%d 字节)\x1b[0m\n", f.Path, len(f.Content))
 			continue
 		}
 
 		// Create directory.
 		dir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create dir %s: %w", dir, err)
+			return fmt.Errorf("创建目录 %s: %w", dir, err)
 		}
 
 		// Write file.
 		if err := os.WriteFile(fullPath, []byte(f.Content), 0644); err != nil {
-			return fmt.Errorf("write %s: %w", f.Path, err)
+			return fmt.Errorf("写入 %s: %w", f.Path, err)
 		}
 
-		fmt.Printf("  [OK]   %s (%d bytes)\n", f.Path, len(f.Content))
+		fmt.Printf("  \x1b[32m[完成]\x1b[0m %s \x1b[38;5;245m(%d 字节)\x1b[0m\n", f.Path, len(f.Content))
 	}
 
 	// Register in go.work.
 	if !spec.DryRun {
 		if err := g.registerInGoWork(spec); err != nil {
-			fmt.Printf("  [WARN] could not register in go.work: %v\n", err)
+			fmt.Printf("  \x1b[33m[警告]\x1b[0m 无法注册到 go.work: %v\n", err)
 		} else {
-			fmt.Printf("  [OK]   go.work (added ./%s)\n", spec.ModulePath())
+			fmt.Printf("  \x1b[32m[完成]\x1b[0m go.work \x1b[38;5;245m（已添加 ./%s）\x1b[0m\n", spec.ModulePath())
 		}
 	}
 
 	fmt.Println()
 	if spec.DryRun {
-		fmt.Println("Dry run complete. No files were written.")
+		fmt.Println("\x1b[38;5;245m预览完成，未写入任何文件。\x1b[0m")
 	} else {
-		fmt.Printf("Module created at: %s\n", filepath.Join(g.rootDir, spec.ModulePath()))
+		fmt.Printf("\x1b[32m✓ 模块已创建: %s\x1b[0m\n", filepath.Join(g.rootDir, spec.ModulePath()))
 		fmt.Println()
-		fmt.Println("Next steps:")
-		fmt.Printf("  cd %s\n", spec.ModulePath())
-		fmt.Println("  go mod tidy")
-		fmt.Println("  go test ./...")
-		fmt.Println()
-		fmt.Println("  # Register in go.work (if not done automatically):")
-		fmt.Printf("  # Add './%s' to go.work\n", spec.ModulePath())
+		fmt.Println("\x1b[38;5;117m后续步骤:\x1b[0m")
+		fmt.Printf("  \x1b[38;5;245mcd\x1b[0m %s\n", spec.ModulePath())
+		fmt.Println("  \x1b[38;5;245mgo mod tidy\x1b[0m")
+		fmt.Println("  \x1b[38;5;245mgo test ./...\x1b[0m")
 	}
 
 	return nil

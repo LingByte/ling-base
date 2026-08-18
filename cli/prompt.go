@@ -10,23 +10,22 @@ import (
 	"strings"
 )
 
-// Prompt provides interactive input helpers for the CLI.
+// Prompt 提供交互式输入工具。
 type Prompt struct {
 	reader *bufio.Reader
 }
 
-// NewPrompt creates a new interactive prompt.
+// NewPrompt 创建交互式输入器。
 func NewPrompt() *Prompt {
 	return &Prompt{reader: bufio.NewReader(os.Stdin)}
 }
 
-// Input reads a line of text with a prompt. If defaultVal is non-empty,
-// it is used when the user presses Enter without typing anything.
+// Input 读取一行文本。如果用户直接回车，返回 defaultVal。
 func (p *Prompt) Input(label, defaultVal string) string {
 	if defaultVal != "" {
-		fmt.Printf("  %s [%s]: ", label, defaultVal)
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m [\x1b[38;5;245m%s\x1b[0m]: ", label, defaultVal)
 	} else {
-		fmt.Printf("  %s: ", label)
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m: ", label)
 	}
 	line, err := p.reader.ReadString('\n')
 	if err != nil {
@@ -39,10 +38,10 @@ func (p *Prompt) Input(label, defaultVal string) string {
 	return line
 }
 
-// Select presents a numbered menu and returns the selected index (0-based).
+// Select 呈现编号菜单，返回选中的索引（0-based）。
 func (p *Prompt) Select(label string, count int) int {
 	for {
-		fmt.Printf("  %s (1-%d): ", label, count)
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m (\x1b[38;5;245m1-%d\x1b[0m): ", label, count)
 		line, err := p.reader.ReadString('\n')
 		if err != nil {
 			return 0
@@ -50,17 +49,17 @@ func (p *Prompt) Select(label string, count int) int {
 		line = strings.TrimSpace(line)
 		var idx int
 		if _, err := fmt.Sscanf(line, "%d", &idx); err != nil || idx < 1 || idx > count {
-			fmt.Printf("  Invalid choice. Please enter a number between 1 and %d.\n", count)
+			fmt.Printf("  \x1b[31m无效选择，请输入 1 到 %d 之间的数字\x1b[0m\n", count)
 			continue
 		}
 		return idx - 1
 	}
 }
 
-// Confirm asks a yes/no question.
+// Confirm 询问是/否问题。
 func (p *Prompt) Confirm(label string) bool {
 	for {
-		fmt.Printf("  %s [y/N]: ", label)
+		fmt.Printf("  \x1b[38;5;117m%s\x1b[0m [\x1b[38;5;245m回车=否\x1b[0m] (y/n): ", label)
 		line, err := p.reader.ReadString('\n')
 		if err != nil {
 			return false
@@ -72,19 +71,20 @@ func (p *Prompt) Confirm(label string) bool {
 		case "n", "no", "":
 			return false
 		default:
-			fmt.Println("  Please enter y or n.")
+			fmt.Println("  \x1b[31m请输入 y 或 n\x1b[0m")
 		}
 	}
 }
 
-// MultiSelect presents a list of options and returns the selected indices.
+// MultiSelect 呈现多选列表，返回选中的索引。
 func (p *Prompt) MultiSelect(label string, options []string) []int {
-	fmt.Printf("  %s (comma-separated numbers, e.g. 1,3,5, or 'all'):\n", label)
+	fmt.Printf("  \x1b[38;5;117m%s\x1b[0m\n", label)
+	fmt.Println("  \x1b[38;5;245m（逗号分隔数字，如 1,3,5；输入 all 全选）\x1b[0m")
 	for i, opt := range options {
-		fmt.Printf("    [%d] %s\n", i+1, opt)
+		fmt.Printf("    \x1b[38;5;39m[%d]\x1b[0m %s\n", i+1, opt)
 	}
 	for {
-		fmt.Printf("  Select: ")
+		fmt.Printf("  请选择: ")
 		line, err := p.reader.ReadString('\n')
 		if err != nil {
 			return nil
@@ -106,11 +106,11 @@ func (p *Prompt) MultiSelect(label string, options []string) []int {
 		for _, part := range parts {
 			var idx int
 			if _, err := fmt.Sscanf(strings.TrimSpace(part), "%d", &idx); err != nil || idx < 1 || idx > len(options) {
-				fmt.Printf("  Invalid: %s\n", part)
+				fmt.Printf("  \x1b[31m无效: %s\x1b[0m\n", part)
 				valid = false
 				break
 			}
-			result = append(result, idx - 1)
+			result = append(result, idx-1)
 		}
 		if valid && len(result) > 0 {
 			return result
