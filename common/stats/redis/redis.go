@@ -318,7 +318,7 @@ func (t *timer) Percentile(p float64) float64 {
 		p = 100
 	}
 
-	// Fetch all scores (sorted by ZRange).
+	// Fetch all scores (ZRangeWithScores returns sorted by score).
 	scores, err := t.client.ZRangeWithScores(t.ctx, t.key, 0, -1).Result()
 	if err != nil || len(scores) == 0 {
 		return 0
@@ -329,8 +329,16 @@ func (t *timer) Percentile(p float64) float64 {
 		return scores[i].Score < scores[j].Score
 	})
 
-	idx := int(float64(len(scores)-1) * p / 100)
-	return scores[idx].Score
+	// Linear interpolation (same method as memory implementation).
+	n := len(scores)
+	rank := p / 100 * float64(n-1)
+	lower := int(rank)
+	upper := lower + 1
+	if upper >= n {
+		return scores[n-1].Score
+	}
+	frac := rank - float64(lower)
+	return scores[lower].Score + frac*(scores[upper].Score-scores[lower].Score)
 }
 
 func (t *timer) Reset() error {
