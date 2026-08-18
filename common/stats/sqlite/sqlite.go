@@ -1,29 +1,27 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package sqlite provides a SQLite-based persistent store for expired
-// stats keys. It implements the OnExpire callback interface used by
-// memory.WithTTL, so that data is automatically saved to SQLite before
-// being evicted from memory.
+// Package sqlite provides a SQLite-based implementation of stats.ArchiveStore.
+// Expired metrics keys are persisted to SQLite for long-term historical queries.
 //
 // # Schema
 //
 //	CREATE TABLE stats_archive (
-//	    key       TEXT PRIMARY KEY,  -- e.g. "pv:2026-08-18:/home"
-//	    type      TEXT,               -- "counter", "gauge", "set", "hll", "timer"
-//	    value     TEXT,               -- JSON-encoded value
-//	    date      TEXT,               -- extracted date "YYYY-MM-DD"
-//	    archived  TEXT                -- ISO timestamp
+//	    key       TEXT PRIMARY KEY,
+//	    type      TEXT NOT NULL,
+//	    value     TEXT NOT NULL,   -- JSON-encoded
+//	    date      TEXT,
+//	    archived  TEXT NOT NULL
 //	);
 //
 // # Usage
 //
 //	store, _ := sqlite.New("data/stats.db")
+//	defer store.Close()
 //	c := memory.New(
-//	    memory.WithReservoirTimer(4096),
 //	    memory.WithTTL(memory.TTLConfig{
 //	        RetentionDays: 7,
-//	        OnExpire:      store.OnExpire,
+//	        OnExpire:      memory.ArchiveAdapter(store),
 //	    }),
 //	)
 package sqlite
@@ -32,30 +30,46 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/LingByte/ling-base/common/stats/memory"
+	"github.com/LingByte/ling-base/common/stats"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// Store is a SQLite-backed archive for expired stats keys.
+// Store implements stats.ArchiveStore backed by SQLite.
 type Store struct {
 	db *sql.DB
 	mu sync.Mutex
 }
 
-// New creates a new SQLite store. The database file is created if it
-// doesn't exist. WAL mode is enabled for better concurrent read/write.
+// Compile-time interface check.
+var _ stats.ArchiveStore = (*Store)(nil)
+
+// New creates a new SQLite archive store.
+// WAL mode is enabled for better concurrent read/write performance.
 func New(path string) (*Store, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
+	if err := createSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &Store{db: db}, nil
+}
 
-	// Create schema.
-	_, err = db.Exec(`
+// NewFromDB creates a store from an existing *sql.DB (for testing or shared connections).
+func NewFromDB(db *sql.DB) (*Store, error) {
+	if err := createSchema(db); err != nil {
+		return nil, err
+	}
+	return &Store{db: db}, nil
+}
+
+func createSchema(db *sql.DB) error {
+	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS stats_archive (
 			key       TEXT PRIMARY KEY,
 			type      TEXT NOT NULL,
@@ -66,32 +80,22 @@ func New(path string) (*Store, error) {
 		CREATE INDEX IF NOT EXISTS idx_stats_date ON stats_archive(date);
 		CREATE INDEX IF NOT EXISTS idx_stats_type ON stats_archive(type);
 	`)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create schema: %w", err)
-	}
-
-	return &Store{db: db}, nil
+	return err
 }
 
-// OnExpire is the callback for memory.WithTTL. It saves the expired key's
-// value to SQLite before it's removed from memory.
-func (s *Store) OnExpire(key string, entry memory.SnapshotEntry) error {
+// Save implements stats.ArchiveStore.
+func (s *Store) Save(record stats.ArchiveRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Extract date from key.
-	date := extractDate(key)
-
-	// Serialize value to JSON.
-	valueJSON, err := json.Marshal(entry.Value)
+	valueJSON, err := json.Marshal(record.Value)
 	if err != nil {
 		return fmt.Errorf("marshal value: %w", err)
 	}
 
 	_, err = s.db.Exec(
 		`INSERT OR REPLACE INTO stats_archive (key, type, value, date, archived) VALUES (?, ?, ?, ?, ?)`,
-		key, entry.Type, string(valueJSON), date, time.Now().Format(time.RFC3339),
+		record.Key, record.Type, string(valueJSON), record.Date, record.Archived,
 	)
 	if err != nil {
 		return fmt.Errorf("insert: %w", err)
@@ -99,18 +103,8 @@ func (s *Store) OnExpire(key string, entry memory.SnapshotEntry) error {
 	return nil
 }
 
-// ArchiveRecord represents a row in the stats_archive table.
-type ArchiveRecord struct {
-	Key      string
-	Type     string
-	Value    string
-	Date     string
-	Archived string
-}
-
-// Query retrieves archived records by date range.
-// dateFrom and dateTo are inclusive, format "YYYY-MM-DD".
-func (s *Store) Query(dateFrom, dateTo string) ([]ArchiveRecord, error) {
+// Query implements stats.ArchiveStore.
+func (s *Store) Query(dateFrom, dateTo string) ([]stats.ArchiveRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -121,21 +115,11 @@ func (s *Store) Query(dateFrom, dateTo string) ([]ArchiveRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var records []ArchiveRecord
-	for rows.Next() {
-		var r ArchiveRecord
-		if err := rows.Scan(&r.Key, &r.Type, &r.Value, &r.Date, &r.Archived); err != nil {
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	return records, nil
+	return scanRecords(rows)
 }
 
-// QueryByType retrieves archived records by type and date range.
-func (s *Store) QueryByType(entryType, dateFrom, dateTo string) ([]ArchiveRecord, error) {
+// QueryByType implements stats.ArchiveStore.
+func (s *Store) QueryByType(entryType, dateFrom, dateTo string) ([]stats.ArchiveRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -146,18 +130,17 @@ func (s *Store) QueryByType(entryType, dateFrom, dateTo string) ([]ArchiveRecord
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var records []ArchiveRecord
-	for rows.Next() {
-		var r ArchiveRecord
-		if err := rows.Scan(&r.Key, &r.Type, &r.Value, &r.Date, &r.Archived); err != nil {
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	return records, nil
+	return scanRecords(rows)
 }
+
+// Close implements stats.ArchiveStore.
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
+// ──────────────────────────────────────────────
+// Convenience query helpers (SQLite-specific, not part of the interface)
+// ──────────────────────────────────────────────
 
 // GetPV returns the total PV for a date (sum across all paths).
 func (s *Store) GetPV(date string) (int64, error) {
@@ -208,28 +191,26 @@ func (s *Store) GetUV(date string) (uint64, error) {
 	return val, nil
 }
 
-// Close closes the database connection.
-func (s *Store) Close() error {
-	return s.db.Close()
-}
+// ──────────────────────────────────────────────
+// Internal helpers
+// ──────────────────────────────────────────────
 
-// extractDate extracts "YYYY-MM-DD" from a key string.
-func extractDate(key string) string {
-	for i := 0; i <= len(key)-10; i++ {
-		if isDigit(key[i]) && isDigit(key[i+1]) && isDigit(key[i+2]) && isDigit(key[i+3]) &&
-			key[i+4] == '-' &&
-			isDigit(key[i+5]) && isDigit(key[i+6]) &&
-			key[i+7] == '-' &&
-			isDigit(key[i+8]) && isDigit(key[i+9]) {
-			return key[i : i+10]
+func scanRecords(rows *sql.Rows) ([]stats.ArchiveRecord, error) {
+	defer rows.Close()
+
+	var records []stats.ArchiveRecord
+	for rows.Next() {
+		var r stats.ArchiveRecord
+		var valueStr string
+		if err := rows.Scan(&r.Key, &r.Type, &valueStr, &r.Date, &r.Archived); err != nil {
+			return nil, err
 		}
+		// Value is stored as JSON; keep it as raw for the caller to decode.
+		r.Value = json.RawMessage(valueStr)
+		records = append(records, r)
 	}
-	return ""
+	return records, nil
 }
 
-func isDigit(b byte) bool {
-	return b >= '0' && b <= '9'
-}
-
-// suppress unused import warning
-var _ = strings.Contains
+// suppress unused import
+var _ = time.Now
