@@ -20,10 +20,11 @@ use (
 	./censor/aliyun
 	./censor/qcloud
 	./censor/qiniu
-	./common/circuitbreaker
+	./cli
 	./common
 	./common/audioutil
 	./common/barcode
+	./common/circuitbreaker
 	./common/compress
 	./common/config
 	./common/convert
@@ -31,27 +32,8 @@ use (
 	./common/crypto
 	./common/hash
 	./common/idgen
-	./common/jwtutil
 	./common/imageutil
-	./common/mathutil
-	./common/migration
-	./common/migration/gormmigrator
-	./common/netutil
-	./common/nltime
-	./common/pinyin
-	./common/qrcode
-	./common/random
-	./common/response
-	./common/response/gin
-	./common/timeutil
-	./common/validate
-	./common/videoutil
-	./constants
-	./eventbus
-	./example
-	./i18n
-	./i18n/gin
-	./i18n/mymemory
+	./common/jwtutil
 	./common/limiter
 	./common/limiter/count
 	./common/limiter/etcd
@@ -63,7 +45,6 @@ use (
 	./common/limiter/redis
 	./common/limiter/tokenbucket
 	./common/lock
-	./metrics
 	./common/lock/consul
 	./common/lock/etcd
 	./common/lock/mysql
@@ -71,6 +52,28 @@ use (
 	./common/lock/redis
 	./common/lock/redlock
 	./common/lock/zookeeper
+	./common/mathutil
+	./common/migration
+	./common/migration/gormmigrator
+	./common/netutil
+	./common/nltime
+	./common/pinyin
+	./common/pool
+	./common/qrcode
+	./common/random
+	./common/response
+	./common/response/gin
+	./common/retry
+	./common/timeutil
+	./common/validate
+	./common/videoutil
+	./constants
+	./eventbus
+	./example
+	./i18n
+	./i18n/gin
+	./i18n/mymemory
+	./metrics
 	./mq
 	./mq/activemq
 	./mq/factory
@@ -82,7 +85,6 @@ use (
 	./notification/email
 	./notification/im
 	./notification/inbox
-	./opentelemetry
 	./notification/push
 	./notification/sms
 	./notification/webhook
@@ -93,8 +95,8 @@ use (
 	./ocr/baidu
 	./ocr/google
 	./ocr/qcloud
+	./opentelemetry
 	./parser
-	./common/pool
 	./queue
 	./queue/memory
 	./queue/redis
@@ -120,7 +122,6 @@ use (
 	./recognizer/volcengine
 	./recognizer/volcengine_llm
 	./recognizer/whisper
-	./common/retry
 	./scheduler
 	./search
 	./search/bleve
