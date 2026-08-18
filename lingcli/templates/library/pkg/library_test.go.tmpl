@@ -1,0 +1,35 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package {{.PackageName}}
+
+import "testing"
+
+func TestDoSomething(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"普通", "hello", "hello"},
+		{"空", "", ""},
+		{"中文", "你好", "你好"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DoSomething(tt.input); got != tt.want {
+				t.Errorf("DoSomething(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyOptions(t *testing.T) {
+	opts := ApplyOptions(WithVerbose(true))
+	if !opts.Verbose {
+		t.Error("Verbose 应为 true")
+	}
+	opts = ApplyOptions()
+	if opts.Verbose {
+		t.Error("默认 Verbose 应为 false")
+	}
+}

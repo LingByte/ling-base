@@ -1,0 +1,15 @@
+# {{.ProjectName}} gRPC 配置
+
+server:
+  port: {{.Port}}
+  maxRecvMsgSize: 4194304
+  maxSendMsgSize: 4194304
+  timeout: 30s
+
+logging:
+  level: info
+  format: json
+
+app:
+  name: {{.ProjectName}}
+  environment: dev

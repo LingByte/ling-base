@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package {{.ProjectName}}.v1;
+
+option go_package = "{{.Module}}/api/proto/v1;{{.ProjectName}}_v1";
+
+// Greeter 服务定义
+service Greeter {
+  rpc SayHello(HelloRequest) returns (HelloResponse);
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloResponse {
+  string message = 1;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string version = 2;
+}

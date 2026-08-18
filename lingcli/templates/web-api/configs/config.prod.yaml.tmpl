@@ -1,0 +1,31 @@
+# {{.ProjectName}} 生产环境配置覆盖
+
+server:
+  port: {{.Port}}
+  readTimeout: 10s
+  writeTimeout: 10s
+
+database:
+  driver: mysql
+  dsn: root:password@tcp(mysql:3306)/{{.ProjectName}}?charset=utf8mb4&parseTime=True
+  maxOpenConns: 100
+  maxIdleConns: 20
+  connMaxLifetime: 3m
+
+redis:
+  addr: redis:6379
+  password: ""
+  db: 0
+
+logging:
+  level: info
+  format: json
+
+rateLimit:
+  enabled: true
+  rps: 200
+  burst: 500
+
+app:
+  name: {{.ProjectName}}
+  environment: prod

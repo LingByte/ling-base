@@ -1,0 +1,147 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package app
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"time"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/handler"
+	"{{.Module}}/internal/middleware"
+	"{{.Module}}/internal/model"
+
+	"github.com/LingByte/ling-base/bootstrap"
+)
+
+// AppInfo 持有应用元信息。
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+	GitCommit string
+	Port      int
+}
+
+// Run 启动应用。
+func Run(info *AppInfo) {
+	// 加载配置
+	cfg, err := config.Load("configs/config.yaml")
+	if err != nil {
+		slog.Error("加载配置失败", "error", err)
+		os.Exit(1)
+	}
+
+	// 初始化日志
+	initLogger(cfg.Logging)
+
+	// 创建 bootstrap 应用
+	appOpts := []bootstrap.Option{
+		bootstrap.WithProfile(cfg.App.Environment),
+		bootstrap.WithBannerText(info.Name),
+		bootstrap.WithShutdownTimeout(15 * time.Second),
+	}
+
+	// 数据库迁移
+	if cfg.Database.DSN != "" {
+		db, err := config.InitDB(cfg.Database)
+		if err != nil {
+			slog.Error("数据库初始化失败", "error", err)
+			os.Exit(1)
+		}
+		// dev/test: AutoMigrate; prod: 手动 SQL 迁移
+		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
+			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &model.User{}))
+		}
+	}
+
+	app := bootstrap.New(info.Name, appOpts...)
+
+	// 注册 HTTP 服务器为生命周期组件
+	app.Register("http-server", &httpServerComponent{info: info, cfg: cfg})
+
+	// 启动（阻塞直到收到关闭信号）
+	if err := app.Run(); err != nil {
+		slog.Error("应用启动失败", "error", err)
+		os.Exit(1)
+	}
+}
+
+// httpServerComponent 管理 HTTP 服务器的生命周期。
+type httpServerComponent struct {
+	info   *AppInfo
+	cfg    *config.Config
+	server *http.Server
+}
+
+func (c *httpServerComponent) Start(ctx context.Context) error {
+	mux := http.NewServeMux()
+
+	// 中间件链
+	var h http.Handler = mux
+	h = middleware.RequestID(h)
+	h = middleware.Logging(h)
+	h = middleware.Recover(h)
+	h = middleware.CORS(h)
+	h = middleware.RateLimit(c.cfg.RateLimit)(h)
+
+	// 注册路由
+	apiHandler := handler.New(c.cfg)
+	mux.HandleFunc("/health", apiHandler.Health)
+	mux.HandleFunc("/api/v1/users", apiHandler.Users)
+	mux.HandleFunc("/api/v1/version", apiHandler.Version(handler.AppInfo{
+		Name:      c.info.Name,
+		Version:   c.info.Version,
+		BuildTime: c.info.BuildTime,
+		GitCommit: c.info.GitCommit,
+	}))
+
+	c.server = &http.Server{
+		Addr:         fmt.Sprintf(":%d", c.info.Port),
+		Handler:      h,
+		ReadTimeout:  c.cfg.Server.ReadTimeout,
+		WriteTimeout: c.cfg.Server.WriteTimeout,
+		IdleTimeout:  c.cfg.Server.IdleTimeout,
+	}
+
+	go func() {
+		slog.Info("HTTP 服务已启动", "addr", c.server.Addr, "version", c.info.Version)
+		if err := c.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("HTTP 服务异常", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func (c *httpServerComponent) Stop(ctx context.Context) error {
+	slog.Info("正在关闭 HTTP 服务...")
+	return c.server.Shutdown(ctx)
+}
+
+// initLogger 初始化结构化日志。
+func initLogger(cfg config.LoggingConfig) {
+	var level slog.Level
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	var handler slog.Handler
+	if cfg.Format == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	}
+	slog.SetDefault(slog.New(handler))
+}

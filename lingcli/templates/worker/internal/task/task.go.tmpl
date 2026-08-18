@@ -1,0 +1,21 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package task
+
+import (
+	"context"
+	"log/slog"
+	"time"
+)
+
+type TaskFunc func(ctx context.Context) error
+
+func SampleTask(ctx context.Context) error {
+	slog.Info("执行示例任务", "time", time.Now().Format(time.RFC3339))
+	return nil
+}
+
+func HealthCheck(ctx context.Context) error {
+	slog.Info("健康检查", "status", "ok", "time", time.Now().Format(time.RFC3339))
+	return nil
+}

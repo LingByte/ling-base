@@ -1,0 +1,144 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package config
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v3"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+// Config 持有应用的所有配置。
+type Config struct {
+	Server    ServerConfig    `yaml:"server"`
+	Database  DatabaseConfig  `yaml:"database"`
+	Redis     RedisConfig     `yaml:"redis"`
+	Logging   LoggingConfig   `yaml:"logging"`
+	RateLimit RateLimitConfig `yaml:"rateLimit"`
+	App       AppConfig       `yaml:"app"`
+}
+
+type ServerConfig struct {
+	Port         int           `yaml:"port"`
+	ReadTimeout  time.Duration `yaml:"readTimeout"`
+	WriteTimeout time.Duration `yaml:"writeTimeout"`
+	IdleTimeout  time.Duration `yaml:"idleTimeout"`
+}
+
+type DatabaseConfig struct {
+	Driver          string        `yaml:"driver"` // mysql, postgres, sqlite
+	DSN             string        `yaml:"dsn"`
+	MaxOpenConns    int           `yaml:"maxOpenConns"`
+	MaxIdleConns    int           `yaml:"maxIdleConns"`
+	ConnMaxLifetime time.Duration `yaml:"connMaxLifetime"`
+}
+
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}
+
+type LoggingConfig struct {
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+}
+
+type RateLimitConfig struct {
+	Enabled bool `yaml:"enabled"`
+	RPS     int  `yaml:"rps"`
+	Burst   int  `yaml:"burst"`
+}
+
+type AppConfig struct {
+	Name        string `yaml:"name"`
+	Environment string `yaml:"environment"` // dev, test, staging, prod
+}
+
+// Default 返回默认配置。
+func Default() *Config {
+	return &Config{
+		Server: ServerConfig{
+			Port:         {{.Port}},
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		},
+		Database: DatabaseConfig{
+			Driver:          "sqlite",
+			DSN:             "data/app.db",
+			MaxOpenConns:    25,
+			MaxIdleConns:    10,
+			ConnMaxLifetime: 5 * time.Minute,
+		},
+		Redis: RedisConfig{
+			Addr: "localhost:6379",
+			DB:   0,
+		},
+		Logging: LoggingConfig{
+			Level:  "info",
+			Format: "json",
+		},
+		RateLimit: RateLimitConfig{
+			Enabled: false,
+			RPS:     100,
+			Burst:   200,
+		},
+		App: AppConfig{
+			Name:        "{{.ProjectName}}",
+			Environment: "dev",
+		},
+	}
+}
+
+// Load 从 YAML 文件加载配置。文件不存在时使用默认配置。
+func Load(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		slog.Info("配置文件未找到，使用默认配置", "path", path)
+		return Default(), nil
+	}
+	cfg := Default()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("解析配置文件失败: %w", err)
+	}
+	return cfg, nil
+}
+
+// InitDB 根据配置创建数据库连接。
+func InitDB(cfg DatabaseConfig) (*gorm.DB, error) {
+	var dialector gorm.Dialector
+	switch cfg.Driver {
+	case "mysql":
+		dialector = mysql.Open(cfg.DSN)
+	case "postgres":
+		dialector = postgres.Open(cfg.DSN)
+	case "sqlite":
+		dialector = sqlite.Open(cfg.DSN)
+	default:
+		return nil, fmt.Errorf("不支持的数据库驱动: %s", cfg.Driver)
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("连接数据库失败: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+
+	slog.Info("数据库已连接", "driver", cfg.Driver)
+	return db, nil
+}

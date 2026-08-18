@@ -1,0 +1,30 @@
+# ---- 构建阶段 ----
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /build
+
+# 缓存依赖
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 复制源码
+COPY . .
+
+# 构建
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app ./cmd/...
+
+# ---- 运行阶段 ----
+FROM alpine:3.20
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+COPY --from=builder /app /app/app
+COPY --from=builder /build/configs /app/configs
+
+ENV TZ=Asia/Shanghai
+ENV APP_ENV=production
+
+EXPOSE {{.Port}}
+
+ENTRYPOINT ["/app/app"]

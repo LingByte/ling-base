@@ -1,0 +1,48 @@
+# {{.ProjectName}}
+
+{{.Description}}
+
+![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)
+
+## 功能特性
+
+{{range .Features}}- {{.}}
+{{end}}
+
+## 快速开始
+
+```bash
+# 克隆项目
+git clone <repo-url>
+cd {{.ProjectName}}
+
+# 安装依赖
+go mod tidy
+
+# 运行
+make run
+
+# 测试
+make test
+```
+
+## 目录结构
+
+```
+{{.ProjectName}}/
+{{.Structure}}
+```
+
+## Make 命令
+
+| 命令 | 说明 |
+|------|------|
+| `make build` | 编译项目 |
+| `make run` | 本地运行 |
+| `make test` | 运行测试 |
+| `make vet` | 静态检查 |
+| `make fmt` | 格式化代码 |
+
+## License
+
+{{if .Author}}Copyright (c) {{.Year}} {{.Author}}. {{end}}MIT License.

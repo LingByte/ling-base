@@ -1,0 +1,34 @@
+# {{.ProjectName}} 配置文件
+
+server:
+  port: {{.Port}}
+  readTimeout: 15s
+  writeTimeout: 15s
+  idleTimeout: 60s
+
+database:
+  driver: sqlite          # mysql | postgres | sqlite
+  dsn: data/app.db        # SQLite
+  # dsn: root:password@tcp(127.0.0.1:3306)/{{.ProjectName}}?charset=utf8mb4&parseTime=True  # MySQL
+  # dsn: host=localhost user=postgres password=secret dbname={{.ProjectName}} port=5432 sslmode=disable  # PostgreSQL
+  maxOpenConns: 25
+  maxIdleConns: 10
+  connMaxLifetime: 5m
+
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+
+logging:
+  level: info             # debug | info | warn | error
+  format: json            # json | text
+
+rateLimit:
+  enabled: false
+  rps: 100
+  burst: 200
+
+app:
+  name: {{.ProjectName}}
+  environment: dev        # dev | test | staging | prod

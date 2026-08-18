@@ -1,0 +1,61 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package config
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Server  ServerConfig  `yaml:"server"`
+	Logging LoggingConfig `yaml:"logging"`
+	App     AppConfig     `yaml:"app"`
+}
+
+type ServerConfig struct {
+	Port           int           `yaml:"port"`
+	MaxRecvMsgSize int           `yaml:"maxRecvMsgSize"`
+	MaxSendMsgSize int           `yaml:"maxSendMsgSize"`
+	Timeout        time.Duration `yaml:"timeout"`
+}
+
+type LoggingConfig struct {
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+}
+
+type AppConfig struct {
+	Name        string `yaml:"name"`
+	Environment string `yaml:"environment"`
+}
+
+func Default() *Config {
+	return &Config{
+		Server: ServerConfig{
+			Port:           {{.Port}},
+			MaxRecvMsgSize: 4 * 1024 * 1024,
+			MaxSendMsgSize: 4 * 1024 * 1024,
+			Timeout:        30 * time.Second,
+		},
+		Logging: LoggingConfig{Level: "info", Format: "json"},
+		App:     AppConfig{Name: "{{.ProjectName}}", Environment: "dev"},
+	}
+}
+
+func Load(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		slog.Info("配置文件未找到，使用默认配置", "path", path)
+		return Default(), nil
+	}
+	cfg := Default()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("解析配置失败: %w", err)
+	}
+	return cfg, nil
+}

@@ -1,0 +1,78 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package scheduler
+
+import (
+	"context"
+	"log/slog"
+	"sync"
+	"time"
+
+	"{{.Module}}/internal/task"
+)
+
+type Scheduler struct {
+	mu      sync.Mutex
+	tasks   []*scheduledTask
+	cancel  context.CancelFunc
+	running bool
+}
+
+type scheduledTask struct {
+	name     string
+	fn       task.TaskFunc
+	interval time.Duration
+}
+
+func New() *Scheduler { return &Scheduler{} }
+
+func (s *Scheduler) Register(name string, fn task.TaskFunc, interval time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tasks = append(s.tasks, &scheduledTask{name: name, fn: fn, interval: interval})
+	slog.Info("注册任务", "name", name, "interval", interval.String())
+}
+
+func (s *Scheduler) Start(ctx context.Context) error {
+	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		return nil
+	}
+	s.running = true
+	ctx, s.cancel = context.WithCancel(ctx)
+	s.mu.Unlock()
+
+	for _, t := range s.tasks {
+		t := t
+		go s.runTask(ctx, t)
+	}
+	return nil
+}
+
+func (s *Scheduler) runTask(ctx context.Context, t *scheduledTask) {
+	ticker := time.NewTicker(t.interval)
+	defer ticker.Stop()
+
+	slog.Info("任务已启动", "name", t.name)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("任务已停止", "name", t.name)
+			return
+		case <-ticker.C:
+			if err := t.fn(ctx); err != nil {
+				slog.Error("任务执行失败", "name", t.name, "error", err)
+			}
+		}
+	}
+}
+
+func (s *Scheduler) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.running = false
+}

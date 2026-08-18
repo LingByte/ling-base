@@ -1,0 +1,15 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package version
+
+import "fmt"
+
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "none"
+)
+
+func Info() string {
+	return fmt.Sprintf("{{.ProjectName}} %s (built: %s, commit: %s)", Version, BuildTime, GitCommit)
+}

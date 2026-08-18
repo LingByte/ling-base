@@ -1,0 +1,59 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package service
+
+import (
+	"context"
+	"log/slog"
+	"net"
+	"sync"
+)
+
+// Server 简化的 gRPC 服务容器。
+// 实际使用时请替换为 google.golang.org/grpc.Server。
+type Server struct {
+	mu           sync.Mutex
+	listener     net.Listener
+	interceptors []Interceptor
+	closed       bool
+}
+
+type Interceptor func(ctx context.Context, req interface{}, handler Handler) (interface{}, error)
+type Handler func(ctx context.Context, req interface{}) (interface{}, error)
+
+func NewServer() *Server { return &Server{} }
+
+func (s *Server) UseInterceptor(i Interceptor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.interceptors = append(s.interceptors, i)
+}
+
+func (s *Server) Serve(lis net.Listener) error {
+	s.listener = lis
+	slog.Info("gRPC 服务监听中", "addr", lis.Addr().String())
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			if s.closed {
+				return nil
+			}
+			return err
+		}
+		go s.handleConn(conn)
+	}
+}
+
+func (s *Server) handleConn(conn net.Conn) {
+	defer conn.Close()
+	// TODO: 接入 google.golang.org/grpc 处理连接
+}
+
+func (s *Server) GracefulStop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+	if s.listener != nil {
+		_ = s.listener.Close()
+	}
+}

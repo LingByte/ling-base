@@ -1,0 +1,85 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/model"
+)
+
+// Handler HTTP 请求处理器。
+type Handler struct {
+	cfg       *config.Config
+	startTime time.Time
+}
+
+// New 创建处理器。
+func New(cfg *config.Config) *Handler {
+	return &Handler{cfg: cfg, startTime: time.Now()}
+}
+
+// AppInfo 应用信息（供 Version handler 使用）。
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+	GitCommit string
+}
+
+// Health 健康检查。
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status": "healthy",
+		"uptime": time.Since(h.startTime).String(),
+		"env":    h.cfg.App.Environment,
+	})
+}
+
+// Version 版本信息。
+func (h *Handler) Version(info AppInfo) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"name":      info.Name,
+			"version":   info.Version,
+			"buildTime": info.BuildTime,
+			"gitCommit": info.GitCommit,
+		})
+	}
+}
+
+// Users 用户列表（示例 CRUD）。
+func (h *Handler) Users(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		// TODO: 从数据库查询用户列表
+		users := []model.User{
+			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
+			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{"users": users})
+
+	case http.MethodPost:
+		var user model.User
+		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": "无效的请求体"})
+			return
+		}
+		// TODO: 保存到数据库
+		user.ID = time.Now().Unix()
+		user.CreatedAt = time.Now()
+		writeJSON(w, http.StatusCreated, user)
+
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]interface{}{"error": "方法不允许"})
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}

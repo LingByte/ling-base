@@ -1,0 +1,49 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package service
+
+import (
+	"context"
+	"errors"
+
+	"{{.Module}}/internal/model"
+)
+
+// UserService 用户业务逻辑层。
+type UserService struct {
+	// TODO: 注入 repository / db
+}
+
+func NewUserService() *UserService { return &UserService{} }
+
+var ErrUserNotFound = errors.New("user not found")
+
+// List 返回用户列表。
+func (s *UserService) List(ctx context.Context, page, size int) ([]model.User, int64, error) {
+	// TODO: 实现数据库查询
+	return []model.User{}, 0, nil
+}
+
+// Get 根据 ID 查询用户。
+func (s *UserService) Get(ctx context.Context, id int64) (*model.User, error) {
+	// TODO: 实现数据库查询
+	return nil, ErrUserNotFound
+}
+
+// Create 创建用户。
+func (s *UserService) Create(ctx context.Context, user *model.User) error {
+	// TODO: 实现数据库插入
+	return nil
+}
+
+// Update 更新用户。
+func (s *UserService) Update(ctx context.Context, user *model.User) error {
+	// TODO: 实现数据库更新
+	return nil
+}
+
+// Delete 删除用户。
+func (s *UserService) Delete(ctx context.Context, id int64) error {
+	// TODO: 实现数据库删除
+	return nil
+}

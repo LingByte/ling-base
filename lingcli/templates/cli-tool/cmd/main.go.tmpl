@@ -1,0 +1,53 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"{{.Module}}/internal/command"
+	"{{.Module}}/pkg/version"
+)
+
+func main() {
+	showVersion := flag.Bool("version", false, "显示版本信息")
+	flag.Usage = printUsage
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version.Info())
+		return
+	}
+
+	args := flag.Args()
+	if len(args) == 0 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	cmd := command.New()
+	if err := cmd.Run(args); err != nil {
+		fmt.Fprintf(os.Stderr, "\x1b[31m错误: %v\x1b[0m\n", err)
+		os.Exit(1)
+	}
+}
+
+func printUsage() {
+	fmt.Printf(`{{.ProjectName}} — 命令行工具
+
+用法:
+  {{.ProjectName}} [命令] [参数]
+
+命令:
+  hello       打印问候语
+  help        显示帮助
+
+全局参数:
+  --version   显示版本信息
+
+示例:
+  {{.ProjectName}} hello --name World
+`)
+}

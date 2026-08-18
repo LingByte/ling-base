@@ -1,0 +1,34 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package {{.PackageName}} 提供示例功能。
+// 请根据实际需求修改此文件。
+package {{.PackageName}}
+
+// DoSomething 示例函数。
+func DoSomething(input string) string {
+	return input
+}
+
+// Options 配置选项。
+type Options struct {
+	Verbose bool
+}
+
+// Option 函数式选项。
+type Option func(*Options)
+
+// WithVerbose 设置详细模式。
+func WithVerbose(v bool) Option {
+	return func(o *Options) { o.Verbose = v }
+}
+
+// ApplyOptions 应用选项。
+func ApplyOptions(opts ...Option) Options {
+	var o Options
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&o)
+		}
+	}
+	return o
+}

@@ -1,0 +1,32 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package interceptor
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"runtime/debug"
+	"time"
+
+	"{{.Module}}/internal/service"
+)
+
+// Logging 日志拦截器。
+func Logging(ctx context.Context, req interface{}, handler service.Handler) (interface{}, error) {
+	start := time.Now()
+	resp, err := handler(ctx, req)
+	slog.Info("gRPC 请求", "duration", time.Since(start).String(), "error", err)
+	return resp, err
+}
+
+// Recover 恢复拦截器。
+func Recover(ctx context.Context, req interface{}, handler service.Handler) (resp interface{}, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			slog.Error("panic recovered", "error", rec, "stack", string(debug.Stack()))
+			err = fmt.Errorf("internal error")
+		}
+	}()
+	return handler(ctx, req)
+}

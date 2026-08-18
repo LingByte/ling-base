@@ -1,0 +1,100 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package app
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"time"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/interceptor"
+	"{{.Module}}/internal/service"
+
+	"github.com/LingByte/ling-base/bootstrap"
+)
+
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+	GitCommit string
+	Port      int
+}
+
+func Run(info *AppInfo) {
+	cfg, err := config.Load("configs/config.yaml")
+	if err != nil {
+		slog.Error("加载配置失败", "error", err)
+		os.Exit(1)
+	}
+
+	initLogger(cfg.Logging)
+
+	appOpts := []bootstrap.Option{
+		bootstrap.WithProfile(cfg.App.Environment),
+		bootstrap.WithBannerText(info.Name),
+		bootstrap.WithShutdownTimeout(15 * time.Second),
+	}
+
+	app := bootstrap.New(info.Name, appOpts...)
+	app.Register("grpc-server", &grpcServerComponent{info: info, cfg: cfg})
+
+	if err := app.Run(); err != nil {
+		slog.Error("应用启动失败", "error", err)
+		os.Exit(1)
+	}
+}
+
+type grpcServerComponent struct {
+	info     *AppInfo
+	cfg      *config.Config
+	listener net.Listener
+	srv      *service.Server
+}
+
+func (c *grpcServerComponent) Start(ctx context.Context) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", c.info.Port))
+	if err != nil {
+		return fmt.Errorf("监听失败: %w", err)
+	}
+	c.listener = lis
+
+	c.srv = service.NewServer()
+	c.srv.UseInterceptor(interceptor.Logging)
+	c.srv.UseInterceptor(interceptor.Recover)
+
+	go func() {
+		slog.Info("gRPC 服务已启动", "addr", lis.Addr().String(), "version", c.info.Version)
+		if err := c.srv.Serve(lis); err != nil {
+			slog.Error("gRPC 服务异常", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func (c *grpcServerComponent) Stop(ctx context.Context) error {
+	slog.Info("正在关闭 gRPC 服务...")
+	c.srv.GracefulStop()
+	return nil
+}
+
+func initLogger(cfg config.LoggingConfig) {
+	var level slog.Level
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	slog.SetDefault(slog.New(handler))
+}

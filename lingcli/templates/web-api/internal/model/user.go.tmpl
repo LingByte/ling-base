@@ -1,0 +1,19 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package model
+
+import "time"
+
+// User 用户模型。
+type User struct {
+	ID        int64     `json:"id" gorm:"primaryKey;autoIncrement"`
+	Name      string    `json:"name" gorm:"size:100;not null"`
+	Email     string    `json:"email" gorm:"size:200;uniqueIndex"`
+	Phone     string    `json:"phone,omitempty" gorm:"size:20"`
+	Avatar    string    `json:"avatar,omitempty" gorm:"size:500"`
+	Status    int       `json:"status" gorm:"default:1"` // 1=active, 0=disabled
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
+}
+
+func (User) TableName() string { return "users" }

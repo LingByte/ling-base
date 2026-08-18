@@ -1,0 +1,57 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package command
+
+import (
+	"flag"
+	"fmt"
+)
+
+type Command struct {
+	name  string
+	usage string
+	run   func(args []string) error
+}
+
+type Commander struct {
+	commands map[string]*Command
+}
+
+func New() *Commander {
+	c := &Commander{commands: make(map[string]*Command)}
+	c.register("hello", "打印问候语", c.runHello)
+	c.register("help", "显示帮助", c.runHelp)
+	return c
+}
+
+func (c *Commander) register(name, usage string, run func(args []string) error) {
+	c.commands[name] = &Command{name: name, usage: usage, run: run}
+}
+
+func (c *Commander) Run(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("请指定子命令")
+	}
+	name := args[0]
+	cmd, ok := c.commands[name]
+	if !ok {
+		return fmt.Errorf("未知命令: %s", name)
+	}
+	return cmd.run(args[1:])
+}
+
+func (c *Commander) runHello(args []string) error {
+	fs := flag.NewFlagSet("hello", flag.ExitOnError)
+	name := fs.String("name", "World", "名称")
+	fs.Parse(args)
+	fmt.Printf("Hello, %s! 👋\n", *name)
+	return nil
+}
+
+func (c *Commander) runHelp(args []string) error {
+	fmt.Println("可用命令:")
+	for name, cmd := range c.commands {
+		fmt.Printf("  %-10s %s\n", name, cmd.usage)
+	}
+	return nil
+}

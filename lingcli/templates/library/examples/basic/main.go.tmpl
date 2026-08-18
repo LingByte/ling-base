@@ -1,0 +1,14 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package main
+
+import (
+	"fmt"
+
+	"{{.Module}}/pkg"
+)
+
+func main() {
+	result := {{.PackageName}}.DoSomething("Hello, World!")
+	fmt.Println(result)
+}

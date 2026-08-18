@@ -1,0 +1,24 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package main
+
+import (
+	"{{.Module}}/internal/app"
+)
+
+// Version / BuildTime / GitCommit 由 ldflags 注入。
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "none"
+)
+
+func main() {
+	app.Run(&app.AppInfo{
+		Name:      "{{.ProjectName}}",
+		Version:   Version,
+		BuildTime: BuildTime,
+		GitCommit: GitCommit,
+		Port:      {{.Port}},
+	})
+}

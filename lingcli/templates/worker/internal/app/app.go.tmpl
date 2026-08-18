@@ -1,0 +1,90 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package app
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/scheduler"
+	"{{.Module}}/internal/task"
+
+	"github.com/LingByte/ling-base/bootstrap"
+)
+
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+	GitCommit string
+}
+
+func Run(info *AppInfo) {
+	cfg, err := config.Load("configs/config.yaml")
+	if err != nil {
+		slog.Error("加载配置失败", "error", err)
+		os.Exit(1)
+	}
+
+	initLogger(cfg.Logging)
+
+	appOpts := []bootstrap.Option{
+		bootstrap.WithProfile(cfg.App.Environment),
+		bootstrap.WithBannerText(info.Name),
+		bootstrap.WithShutdownTimeout(15 * time.Second),
+	}
+
+	app := bootstrap.New(info.Name, appOpts...)
+	app.Register("scheduler", &schedulerComponent{cfg: cfg})
+
+	if err := app.Run(); err != nil {
+		slog.Error("应用启动失败", "error", err)
+		os.Exit(1)
+	}
+}
+
+type schedulerComponent struct {
+	cfg   *config.Config
+	sched *scheduler.Scheduler
+	ctx   context.Context
+	cancel context.CancelFunc
+}
+
+func (c *schedulerComponent) Start(ctx context.Context) error {
+	c.ctx, c.cancel = context.WithCancel(ctx)
+	c.sched = scheduler.New()
+
+	c.sched.Register("示例任务", task.SampleTask, c.cfg.Tasks.SampleInterval)
+	c.sched.Register("健康检查", task.HealthCheck, c.cfg.Tasks.HealthInterval)
+
+	return c.sched.Start(c.ctx)
+}
+
+func (c *schedulerComponent) Stop(ctx context.Context) error {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	if c.sched != nil {
+		c.sched.Stop()
+	}
+	return nil
+}
+
+func initLogger(cfg config.LoggingConfig) {
+	var level slog.Level
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	slog.SetDefault(slog.New(handler))
+}

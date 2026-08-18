@@ -1,0 +1,13 @@
+# {{.ProjectName}} Worker 配置
+
+app:
+  name: {{.ProjectName}}
+  environment: dev
+
+logging:
+  level: info
+  format: json
+
+tasks:
+  sampleInterval: 30s
+  healthInterval: 60s

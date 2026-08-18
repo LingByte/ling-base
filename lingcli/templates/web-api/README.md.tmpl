@@ -1,0 +1,105 @@
+# {{.ProjectName}}
+
+HTTP REST API 服务，基于 ling-base bootstrap 框架。
+
+![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
+
+## 功能特性
+
+- HTTP REST API 路由 (net/http)
+- 中间件链 (RequestID / 日志 / 恢复 / CORS / 限流)
+- 配置文件管理 (YAML，多环境)
+- 数据库支持 (MySQL / PostgreSQL / SQLite，GORM)
+- 优雅关闭 (Graceful Shutdown)
+- 健康检查接口 (/health)
+- 版本信息接口 (/api/v1/version)
+- 结构化日志 (slog)
+- Docker 容器化部署 (多阶段构建)
+- Docker Compose 一键编排 (App + MySQL + Redis)
+- Bootstrap 启动框架 (Banner / 生命周期 / 事件)
+
+## 快速开始
+
+```bash
+# 克隆项目
+git clone <repo-url>
+cd {{.ProjectName}}
+
+# 安装依赖
+go mod tidy
+
+# 运行（开发模式）
+make run
+
+# 测试
+curl http://localhost:{{.Port}}/health
+curl http://localhost:{{.Port}}/api/v1/users
+curl http://localhost:{{.Port}}/api/v1/version
+```
+
+## 目录结构
+
+```
+{{.ProjectName}}/
+├── cmd/
+│   └── server/
+│       └── main.go              # 程序入口
+├── internal/
+│   ├── app/
+│   │   └── app.go               # 应用启动 (bootstrap 集成)
+│   ├── config/
+│   │   └── config.go            # 配置定义与加载
+│   ├── handler/
+│   │   └── handler.go           # HTTP 处理器
+│   ├── middleware/
+│   │   └── middleware.go        # 中间件 (RequestID/日志/恢复/CORS/限流)
+│   ├── model/
+│   │   └── user.go              # 数据模型
+│   └── service/
+│       └── user_service.go      # 业务逻辑层
+├── pkg/
+│   └── response/
+│       └── response.go          # 统一响应封装
+├── configs/
+│   ├── config.yaml              # 开发环境配置
+│   └── config.prod.yaml         # 生产环境配置
+├── Dockerfile                   # 多阶段构建
+├── docker-compose.yml           # App + MySQL + Redis
+├── Makefile                     # 构建命令
+├── .gitignore
+├── go.mod
+└── README.md
+```
+
+## Docker 部署
+
+```bash
+# 构建镜像
+docker build -t {{.ProjectName}} .
+
+# 运行容器
+docker run -p {{.Port}}:{{.Port}} --rm {{.ProjectName}}
+
+# 或使用 Docker Compose（含 MySQL + Redis）
+docker compose up -d
+```
+
+## Make 命令
+
+| 命令 | 说明 |
+|------|------|
+| `make build` | 编译项目 |
+| `make run` | 本地运行 |
+| `make test` | 运行测试 |
+| `make test-cover` | 测试覆盖率 |
+| `make vet` | 静态检查 |
+| `make fmt` | 格式化代码 |
+| `make clean` | 清理产物 |
+| `make docker-build` | 构建 Docker 镜像 |
+| `make docker-up` | 启动 Docker Compose |
+| `make docker-down` | 停止 Docker Compose |
+
+## License
+
+{{if .Author}}Copyright (c) {{.Year}} {{.Author}}. {{end}}MIT License.

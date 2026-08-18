@@ -1,0 +1,42 @@
+# {{.ProjectName}} Makefile
+
+APP := {{.ProjectName}}
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)
+
+.PHONY: all build run test vet fmt fmt-check clean help
+
+all: build
+
+## build: 编译项目
+build:
+	go build -ldflags "$(LDFLAGS)" -o bin/$(APP) ./cmd/...
+
+## run: 本地运行
+run:
+	go run ./cmd/...
+
+## test: 运行测试
+test:
+	go test -v -race -count=1 ./...
+
+## vet: 静态检查
+vet:
+	go vet ./...
+
+## fmt: 格式化代码
+fmt:
+	go fmt ./...
+
+## fmt-check: 检查格式化
+fmt-check:
+	@test -z "$$(gofmt -l .)" || (echo "需要运行 make fmt" && exit 1)
+
+## clean: 清理构建产物
+clean:
+	rm -rf bin/ dist/ coverage.txt
+
+## help: 显示帮助
+help:
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## //'

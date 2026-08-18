@@ -1,0 +1,123 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package middleware
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"log/slog"
+	"net/http"
+	"runtime/debug"
+	"sync"
+	"time"
+
+	"{{.Module}}/internal/config"
+)
+
+type contextKey string
+
+const RequestIDKey contextKey = "requestID"
+
+// RequestID 为每个请求生成唯一 ID。
+func RequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqID := r.Header.Get("X-Request-ID")
+		if reqID == "" {
+			b := make([]byte, 8)
+			_, _ = rand.Read(b)
+			reqID = hex.EncodeToString(b)
+		}
+		w.Header().Set("X-Request-ID", reqID)
+		ctx := context.WithValue(r.Context(), RequestIDKey, reqID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// Logging 请求日志。
+func Logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		wrapped := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(wrapped, r)
+		reqID, _ := r.Context().Value(RequestIDKey).(string)
+		slog.Info("HTTP 请求",
+			"requestID", reqID,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", wrapped.status,
+			"duration", time.Since(start).String(),
+			"ip", r.RemoteAddr,
+		)
+	})
+}
+
+// Recover panic 恢复。
+func Recover(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				slog.Error("panic recovered", "error", rec, "stack", string(debug.Stack()))
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// CORS 跨域。
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RateLimit 简单的内存令牌桶限流。
+func RateLimit(cfg config.RateLimitConfig) func(http.Handler) http.Handler {
+	if !cfg.Enabled || cfg.RPS <= 0 {
+		return func(next http.Handler) http.Handler { return next }
+	}
+
+	var mu sync.Mutex
+	tokens := cfg.Burst
+	lastRefill := time.Now()
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			now := time.Now()
+			elapsed := now.Sub(lastRefill).Seconds()
+			tokens += int(elapsed * float64(cfg.RPS))
+			if tokens > cfg.Burst {
+				tokens = cfg.Burst
+			}
+			lastRefill = now
+			if tokens <= 0 {
+				mu.Unlock()
+				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				return
+			}
+			tokens--
+			mu.Unlock()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
