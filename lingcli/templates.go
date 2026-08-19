@@ -299,14 +299,20 @@ func getStructureTree(templateID, projectName string) string {
 │   └── models/
 │       └── user.go              # 数据模型
 ├── configs/
+│   ├── .env.example             # 环境变量参考
 │   ├── config.yaml              # 开发环境配置
 │   └── config.prod.yaml         # 生产环境配置
 ├── docker/
 │   ├── Dockerfile               # 多阶段构建 + HEALTHCHECK
 │   └── docker-compose.yml       # App + MySQL + Redis
+├── docs/
+│   └── README.md                # 项目文档
+├── scripts/
+│   └── migrate.sh               # 数据库迁移脚本
 ├── .github/workflows/ci.yml     # GitHub Actions CI
 ├── .dockerignore
 ├── .golangci.yml
+├── LICENSE                      # MIT 许可证
 ├── Makefile
 ├── .gitignore
 ├── go.mod

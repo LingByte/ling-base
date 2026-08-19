@@ -83,6 +83,7 @@ open http://localhost:{{.Port}}/docs
 │   └── models/
 │       └── user.go              # 数据模型
 ├── configs/
+│   ├── .env.example             # 环境变量参考（始终生成）
 {{- if .IsEnvConfig}}
 │   ├── .env                     # 开发环境配置
 │   └── .env.prod                # 生产环境配置
@@ -93,6 +94,10 @@ open http://localhost:{{.Port}}/docs
 ├── docker/
 │   ├── Dockerfile               # 多阶段构建 + HEALTHCHECK
 │   └── docker-compose.yml       # App + MySQL + Redis
+├── docs/
+│   └── README.md                # 项目文档（架构说明 + 依赖模块）
+├── scripts/
+│   └── migrate.sh               # 数据库迁移辅助脚本
 {{- if eq .CIPlatform "github"}}
 ├── .github/
 │   └── workflows/
@@ -102,6 +107,7 @@ open http://localhost:{{.Port}}/docs
 {{- end}}
 ├── .dockerignore                # Docker 构建忽略文件
 ├── .golangci.yml                # golangci-lint 配置
+├── LICENSE                      # MIT 许可证
 ├── Makefile                     # 构建命令
 ├── .gitignore
 ├── go.mod
