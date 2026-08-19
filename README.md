@@ -193,6 +193,167 @@ agent.Cancel()
 agent.UpdateInstructions("请用更简短的回答")
 ```
 
+## lingcli 脚手架
+
+`lingcli` 是 ling-base 自带的项目脚手架工具，类似 `create-vue` / `create-react-app`，
+一键生成完整的 Go 项目骨架（目录结构 + Docker + Makefile + CI + 测试 + README），
+并支持按需集成 ling-base 模块。
+
+### 安装
+
+```bash
+go install github.com/LingByte/ling-base/lingcli@latest
+```
+
+或从源码构建：
+
+```bash
+git clone https://github.com/LingByte/ling-base.git
+cd ling-base/lingcli
+go build -o /usr/local/bin/lingcli .
+```
+
+### 快速开始
+
+```bash
+# 交互模式（推荐，会引导你逐步选择模板、模块路径、端口、ling-base 模块等）
+lingcli create myapp
+
+# 在当前目录初始化
+lingcli create .
+
+# 非交互模式：一步到位
+lingcli create myapp \
+    --template web-api \
+    --module github.com/me/myapp \
+    --modules apidocs,limiter,circuitbreaker,middleware,jwt \
+    --port 8080 \
+    --author "Your Name"
+```
+
+### 可用模板
+
+| 模板 | 说明 |
+|------|------|
+| `web-api` | HTTP REST API 服务（Gin + GORM + Bootstrap + 可选 JWT/APIDocs/限流/熔断） |
+| `grpc-service` | gRPC 服务 |
+| `cli-tool` | 命令行工具 |
+| `library` | 可复用 Go 库 |
+| `worker` | 后台任务 / 消费者服务 |
+
+```bash
+lingcli list   # 查看所有模板
+```
+
+### 可集成的 ling-base 模块
+
+生成 `web-api` 项目时可按需勾选以下模块，脚手架会自动生成对应的集成代码、
+配置项、中间件和路由（未选的模块不会引入任何依赖）：
+
+| 模块 ID | 说明 |
+|---------|------|
+| `apidocs` | API 文档 UI（Scalar 主题）+ OpenAPI 3.1 spec 自动生成 |
+| `limiter` | 令牌桶限流（ling-base/common/limiter/tokenbucket） |
+| `circuitbreaker` | 熔断 + 超时中间件（ling-base/middleware） |
+| `middleware` | HTTP 中间件合集（RequestID / Logging / Recover / CORS） |
+| `jwt` | JWT 鉴权（ling-base/common/jwtutil）+ 登录/刷新路由 |
+| `cache` | 缓存抽象（memory / redis / bigcache ...） |
+| `lock` | 分布式锁（memory / redis / etcd / zookeeper ...） |
+| `retry` | 重试策略（指数退避 / 固定间隔） |
+| `scheduler` | 分布式定时任务（分布式锁 + 任务分发） |
+| `eventbus` | 本地事件总线 |
+| `stats` | 统计采集（PV/UV/QPS/延迟 ...，memory / redis 实现） |
+| `notification` | 通知调度（邮件 / 短信 / IM / Webhook） |
+| `mq` | 消息队列（Kafka / RabbitMQ / Redis Stream ...） |
+| `stores` | 对象存储（S3 / OSS / COS / MinIO / 本地 ...） |
+| `search` | 全文搜索（Bleve / Elasticsearch） |
+| `bloom` | 布隆过滤器（memory / redis / counting / scalable） |
+| `captcha` | 验证码（滑块 / 点选 / 拼图 / 算术 / 旋转） |
+| `opentelemetry` | OpenTelemetry 链路追踪 |
+| `i18n` | 国际化（翻译 + 格式化 + locale 检测） |
+
+### 生成后的项目结构（web-api 示例）
+
+```
+myapp/
+├── cmd/server/main.go              # 入口（ldflags 注入版本信息）
+├── internal/
+│   ├── app/app.go                  # 启动 + 路由注册 + 生命周期
+│   ├── auth/auth.go                # JWT 鉴权（选 jwt 时生成）
+│   ├── config/config.go            # 配置（YAML + 环境变量覆盖）
+│   ├── handler/handler.go          # HTTP 处理器（DTO 校验）
+│   ├── middleware/middleware.go    # 中间件（限流/熔断/CORS...）
+│   ├── model/user.go               # 数据模型
+│   ├── repository/user_repository  # DAO 层
+│   └── service/user_service.go     # 业务逻辑层
+├── pkg/response/response.go        # 统一响应封装
+├── configs/
+│   ├── config.yaml                 # 开发环境
+│   └── config.prod.yaml            # 生产环境
+├── .github/workflows/ci.yml        # GitHub Actions CI
+├── Dockerfile                      # 多阶段构建 + HEALTHCHECK
+├── docker-compose.yml              # App + MySQL + Redis
+├── Makefile                        # build/test/lint/coverage/benchmark
+├── go.mod
+└── README.md
+```
+
+### 生成后操作
+
+```bash
+cd myapp
+
+# 安装依赖
+go mod tidy
+
+# 本地运行
+make run
+
+# 测试
+make test           # 单元测试
+make test-race      # 竞态检测
+make test-cover     # 覆盖率
+
+# 代码质量
+make vet            # go vet
+make lint           # golangci-lint
+make fmt            # 格式化
+
+# Docker 部署
+make docker-build
+make docker-up      # 启动 App + MySQL + Redis
+
+# 验证服务
+curl http://localhost:8080/health
+curl http://localhost:8080/live    # K8s liveness
+curl http://localhost:8080/ready   # K8s readiness
+curl http://localhost:8080/docs    # API 文档 UI（选 apidocs 时）
+```
+
+### 环境变量覆盖
+
+生成的项目支持 `APP_` 前缀环境变量覆盖 YAML 配置（优先级最高）：
+
+```bash
+APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(host:3306)/db" \
+    ./myapp
+```
+
+| 环境变量 | 说明 |
+|----------|------|
+| `APP_APP_NAME` | 应用名称 |
+| `APP_APP_ENVIRONMENT` | 运行环境（dev/test/staging/prod） |
+| `APP_SERVER_PORT` | 服务端口 |
+| `APP_DATABASE_DRIVER` | 数据库驱动（mysql/postgres/sqlite） |
+| `APP_DATABASE_DSN` | 数据库连接串 |
+| `APP_REDIS_ADDR` | Redis 地址 |
+| `APP_JWT_SECRET` | JWT 密钥 |
+| `APP_JWT_ENABLED` | 启用 JWT（true/1） |
+| `APP_DOCS_ENABLED` | 启用 API 文档（true/1） |
+| `APP_RATELIMIT_ENABLED` | 启用限流（true/1） |
+
+更多细节见 [lingcli/README.md](lingcli/README.md)。
+
 ## 文档
 
 - [cache/README.md](cache/README.md)

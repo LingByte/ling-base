@@ -19,6 +19,27 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 - `CONTRIBUTING.md` — 贡献指南
 - `Makefile` 新增 `vuln` target — 本地运行 govulncheck
 
+## [lingcli] v0.1.0 — 2026-08-19
+
+### Added
+- `lingcli` 项目脚手架工具 — 一键生成完整 Go 项目骨架
+- 交互模式 + 非交互模式（`--template`/`--module`/`--modules`/`--port`/`--author`）
+- 5 个项目模板：`web-api` / `grpc-service` / `cli-tool` / `library` / `worker`
+- 19 个可选 ling-base 模块集成：apidocs / limiter / circuitbreaker / middleware / jwt / cache / lock / retry / scheduler / eventbus / stats / notification / mq / stores / search / bloom / captcha / opentelemetry / i18n
+- `web-api` 模板特性：
+  - Gin + GORM + Bootstrap 生命周期管理
+  - 分层架构：Handler → Service → Repository
+  - 请求 DTO 校验（Gin binding）
+  - 健康检查分级：`/health` / `/live` / `/ready`
+  - 配置：YAML + 环境变量覆盖（`APP_` 前缀）
+  - 条件渲染：未选模块不生成对应代码和依赖
+  - 单元测试：handler / config / repository
+  - CI：`.github/workflows/ci.yml`（test + lint + build）
+  - Docker：多阶段构建 + ldflags 注入 + HEALTHCHECK
+  - Makefile：build / test / test-race / test-cover / benchmark / lint / vet / fmt
+  - README：完整 API 端点文档 + 环境变量表 + Docker 部署指南
+- `.devin/skills/ling-base-modules/SKILL.md` — AI 辅助集成参考文档
+
 ## [common/stats] v0.3.0 — 2026-08-19
 
 ### Added
