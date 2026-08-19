@@ -179,6 +179,37 @@ type Options struct {
 	// Set to false to disable the meta endpoint entirely.
 	EnableMeta *bool
 
+	// EnabledFunc controls whether the docs UI is mounted at all.
+	// If nil, docs are always enabled.
+	// If it returns false:
+	//   - The docs UI page (<DocsPath>) is NOT mounted
+	//   - The meta endpoint is NOT mounted
+	//   - /openapi.json and /openapi.yaml are NOT served (unless ExposeSpec is true)
+	//   - huma.API is still returned so huma.Register works normally
+	//
+	// Use this for environment-based control, e.g. disable docs in production:
+	//
+	//	apidocs.Mount(r, apidocs.Options{
+	//	    Title: "My API",
+	//	    EnabledFunc: func() bool {
+	//	        return os.Getenv("APP_ENV") != "prod"
+	//	    },
+	//	})
+	//
+	// Or with a config struct:
+	//
+	//	apidocs.Mount(r, apidocs.Options{
+	//	    EnabledFunc: func() bool { return cfg.Env != "prod" },
+	//	})
+	EnabledFunc func() bool
+
+	// ExposeSpec controls whether /openapi.json and /openapi.yaml are served
+	// when EnabledFunc returns false.
+	// Default: false (spec is hidden when docs are disabled).
+	// Set to true to keep the spec accessible to tooling even when the
+	// interactive docs UI is disabled.
+	ExposeSpec *bool
+
 	// Theme is the docs UI theme.
 	// Default: ThemeScalar
 	Theme Theme

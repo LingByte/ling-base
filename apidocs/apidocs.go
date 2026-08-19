@@ -54,11 +54,29 @@ import (
 func Mount(r *gin.Engine, opts Options) huma.API {
 	opts.applyDefaults()
 
+	// Determine if docs should be enabled.
+	docsEnabled := true
+	if opts.EnabledFunc != nil {
+		docsEnabled = opts.EnabledFunc()
+	}
+
+	// Determine if the OpenAPI spec should be exposed.
+	specEnabled := docsEnabled
+	if opts.ExposeSpec != nil {
+		specEnabled = *opts.ExposeSpec
+	}
+
 	cfg := huma.DefaultConfig(opts.Title, opts.Version)
 	// Disable built-in docs — we serve our own customizable UI.
 	cfg.DocsPath = ""
-	cfg.OpenAPIPath = "/openapi"
-	cfg.SchemasPath = "/schemas"
+	if specEnabled {
+		cfg.OpenAPIPath = "/openapi"
+		cfg.SchemasPath = "/schemas"
+	} else {
+		// Hide the spec entirely.
+		cfg.OpenAPIPath = ""
+		cfg.SchemasPath = ""
+	}
 
 	if opts.Description != "" {
 		cfg.Info.Description = opts.Description
@@ -104,13 +122,14 @@ func Mount(r *gin.Engine, opts Options) huma.API {
 		}
 	}
 
-	// Mount the docs UI.
-	ui := newUIRenderer(opts)
-	ui.mount(r)
+	// Only mount docs UI and meta endpoint when enabled.
+	if docsEnabled {
+		ui := newUIRenderer(opts)
+		ui.mount(r)
 
-	// Mount meta endpoint if enabled.
-	if opts.EnableMeta != nil && *opts.EnableMeta {
-		mountMeta(api, opts)
+		if opts.EnableMeta != nil && *opts.EnableMeta {
+			mountMeta(api, opts)
+		}
 	}
 
 	return api

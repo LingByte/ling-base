@@ -715,3 +715,136 @@ func BenchmarkDocsRequest(b *testing.B) {
 		r.ServeHTTP(w, req)
 	}
 }
+
+// ──────────────────────────────────────────────
+// EnabledFunc tests
+// ──────────────────────────────────────────────
+
+func TestEnabledFunc_Disabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	api := Mount(r, Options{
+		Title:       "Disabled Docs",
+		Version:     "1.0.0",
+		EnabledFunc: func() bool { return false },
+	})
+
+	if api == nil {
+		t.Fatal("API should still be returned even when docs are disabled")
+	}
+
+	// /docs should NOT be served.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("docs should be disabled, got %d", w.Code)
+	}
+
+	// /openapi.json should NOT be served.
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("openapi.json should be disabled, got %d", w.Code)
+	}
+
+	// /api/v1/meta should NOT be served.
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/meta", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("meta should be disabled, got %d", w.Code)
+	}
+}
+
+func TestEnabledFunc_Enabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	Mount(r, Options{
+		Title:       "Enabled Docs",
+		EnabledFunc: func() bool { return true },
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("docs should be enabled, got %d", w.Code)
+	}
+}
+
+func TestEnabledFunc_DisabledButExposeSpec(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	tr := true
+	Mount(r, Options{
+		Title:       "Spec Exposed",
+		EnabledFunc: func() bool { return false },
+		ExposeSpec:  &tr,
+	})
+
+	// /docs should NOT be served.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("docs UI should be disabled, got %d", w.Code)
+	}
+
+	// /openapi.json SHOULD be served.
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("openapi.json should be exposed, got %d", w.Code)
+	}
+}
+
+func TestEnabledFunc_RoutesStillWork(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	api := Mount(r, Options{
+		Title:       "Routes Work",
+		EnabledFunc: func() bool { return false },
+	})
+
+	type helloOutput struct {
+		Body struct {
+			Msg string `json:"msg"`
+		}
+	}
+	huma.Register(api, huma.Operation{
+		OperationID: "hello",
+		Method:      http.MethodGet,
+		Path:        "/hello",
+	}, func(ctx context.Context, _ *struct{}) (*helloOutput, error) {
+		return &helloOutput{Body: struct {
+			Msg string `json:"msg"`
+		}{Msg: "hi"}}, nil
+	})
+
+	// Route should work even when docs are disabled.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/hello", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("route should work, got %d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestEnabledFunc_NilDefaultsToEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	Mount(r, Options{
+		Title:       "Nil EnabledFunc",
+		EnabledFunc: nil,
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("nil EnabledFunc should default to enabled, got %d", w.Code)
+	}
+}

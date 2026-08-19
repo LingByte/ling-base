@@ -11,6 +11,7 @@
 - **深度自定义**：CSS / JS / Logo / topbar / 环境标识 / 暗黑模式
 - **安全方案**：Bearer JWT / API Key / OAuth2 (4 种 flow) / OpenID Connect
 - **OpenAPI 元信息**：Contact / License / TermsOfService / ExternalDocs / GlobalSecurity
+- **环境控制**：`EnabledFunc` 按环境开关文档（生产关闭 / 开发开启）
 - **元信息端点**：自动注册 `/api/v1/meta` 返回文档入口
 - **OpenAPI 导出**：JSON / YAML 下载
 
@@ -144,6 +145,40 @@ apidocs.Mount(r, apidocs.Options{
 
 ## 安全方案
 
+### 环境控制（生产关闭文档）
+
+```go
+// 用环境变量控制
+apidocs.Mount(r, apidocs.Options{
+    Title: "My API",
+    EnabledFunc: func() bool {
+        return os.Getenv("APP_ENV") != "prod"
+    },
+})
+```
+
+```go
+// 用 config 模块控制
+apidocs.Mount(r, apidocs.Options{
+    EnabledFunc: func() bool { return cfg.Env != "prod" },
+})
+```
+
+`EnabledFunc` 返回 false 时：
+- `/docs` 文档 UI 不挂载
+- `/api/v1/meta` 元信息端点不挂载
+- `/openapi.json` 和 `/openapi.yaml` 不暴露（除非 `ExposeSpec: &true`）
+- `huma.API` 仍正常返回，`huma.Register` 注册的路由正常工作
+
+```go
+// 生产环境关闭文档 UI，但保留 OpenAPI spec 给工具用
+tr := true
+apidocs.Mount(r, apidocs.Options{
+    EnabledFunc: func() bool { return os.Getenv("APP_ENV") != "prod" },
+    ExposeSpec:  &tr,
+})
+```
+
 ### Bearer JWT
 
 ```go
@@ -249,6 +284,8 @@ apidocs.Mount(r, apidocs.Options{
 | APIPrefix | string | "" | API 前缀 |
 | MetaPath | string | "/api/v1/meta" | 元信息端点路径 |
 | EnableMeta | *bool | true | 是否注册元信息端点 |
+| EnabledFunc | func() bool | nil(始终开启) | 环境控制：返回 false 关闭文档 UI + meta + spec |
+| ExposeSpec | *bool | false | EnabledFunc=false 时是否仍暴露 /openapi.json |
 | Theme | Theme | ThemeScalar | UI 主题 |
 | DarkMode | bool | false | 暗黑模式 |
 | Logo | []byte | 内置 SVG | Logo 图片 |
