@@ -27,6 +27,7 @@ type Config struct {
 	CircuitBreaker CircuitBreakerConfig `yaml:"circuitBreaker"`
 	Docs           DocsConfig           `yaml:"docs"`
 	JWT            JWTConfig            `yaml:"jwt"`
+	I18n           I18nConfig           `yaml:"i18n"`
 	App            AppConfig            `yaml:"app"`
 }
 
@@ -91,6 +92,14 @@ type JWTConfig struct {
 	RefreshTTL string `yaml:"refreshTTL"`
 }
 
+type I18nConfig struct {
+	Enabled          bool     `yaml:"enabled"`
+	DefaultLocale    string   `yaml:"defaultLocale"`    // 默认语言，如 zh-CN
+	SupportedLocales []string `yaml:"supportedLocales"` // 支持的语言列表
+	FallbackLocale   string   `yaml:"fallbackLocale"`   // 回退语言
+	TranslationsPath string   `yaml:"translationsPath"` // 翻译文件目录
+}
+
 type AppConfig struct {
 	Name        string `yaml:"name"`
 	Environment string `yaml:"environment"` // dev, test, prod（对应 constants.ENV_DEV / ENV_PROD）
@@ -148,6 +157,13 @@ func Default() *Config {
 			Issuer:     "{{.ProjectName}}",
 			AccessTTL:  "15m",
 			RefreshTTL: "168h",
+		},
+		I18n: I18nConfig{
+			Enabled:          {{.HasI18n}},
+			DefaultLocale:    "zh-CN",
+			SupportedLocales: []string{"en", "zh-CN"},
+			FallbackLocale:   "en",
+			TranslationsPath: "i18n/translations",
 		},
 		App: AppConfig{
 			Name:        "{{.ProjectName}}",
@@ -270,6 +286,19 @@ func applyEnvOverrides(cfg *Config) {
 		if rps, err := strconv.Atoi(v); err == nil {
 			cfg.RateLimit.RPS = rps
 		}
+	}
+	// I18n
+	if v := os.Getenv("APP_I18N_ENABLED"); v != "" {
+		cfg.I18n.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("APP_I18N_DEFAULT_LOCALE"); v != "" {
+		cfg.I18n.DefaultLocale = v
+	}
+	if v := os.Getenv("APP_I18N_FALLBACK_LOCALE"); v != "" {
+		cfg.I18n.FallbackLocale = v
+	}
+	if v := os.Getenv("APP_I18N_TRANSLATIONS_PATH"); v != "" {
+		cfg.I18n.TranslationsPath = v
 	}
 }
 

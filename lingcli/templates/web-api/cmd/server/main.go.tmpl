@@ -83,12 +83,16 @@ func main() {
 
 	{{- if .HasI18n}}
 
-	// 初始化 i18n（多语言翻译）
+	// 初始化 i18n（多语言翻译，配置来自 configs/config.yaml）
+	supportedLocales := make([]i18n.Locale, len(cfg.I18n.SupportedLocales))
+	for i, loc := range cfg.I18n.SupportedLocales {
+		supportedLocales[i] = i18n.Locale(loc)
+	}
 	i18nManager := i18n.NewManager(&i18n.Config{
-		DefaultLocale:    i18n.LocaleZhCN,
-		SupportedLocales: []i18n.Locale{i18n.LocaleEn, i18n.LocaleZhCN},
-		FallbackLocale:   i18n.LocaleEn,
-		TranslationsPath: "i18n/translations",
+		DefaultLocale:    i18n.Locale(cfg.I18n.DefaultLocale),
+		SupportedLocales: supportedLocales,
+		FallbackLocale:   i18n.Locale(cfg.I18n.FallbackLocale),
+		TranslationsPath: cfg.I18n.TranslationsPath,
 	})
 	// 设置 response 包的 i18n resolver，让统一响应封装自动翻译消息
 	// 实际 locale 由 i18ngin.Middleware 在请求时检测，这里用默认 locale 作为 fallback

@@ -6,7 +6,7 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)
 
-.PHONY: all build run test test-race test-cover benchmark vet lint fmt fmt-check clean docker-build docker-up docker-down help
+.PHONY: all build run test test-race test-cover benchmark vet lint fmt fmt-check tidy clean docker-build docker-up docker-down migrate release release-patch release-minor release-major help
 
 all: build
 
@@ -52,6 +52,10 @@ fmt:
 fmt-check:
 	@test -z "$$(gofmt -l .)" || (echo "需要运行 make fmt" && exit 1)
 
+## tidy: 整理依赖
+tidy:
+	go mod tidy
+
 ## clean: 清理构建产物
 clean:
 	rm -rf bin/ dist/ coverage.txt data/
@@ -67,6 +71,54 @@ docker-up:
 ## docker-down: 停止 Docker Compose
 docker-down:
 	docker compose -f docker/docker-compose.yml down
+
+## migrate: 执行数据库迁移
+migrate:
+	@bash scripts/migrate.sh up
+
+## migrate-down: 回滚数据库迁移
+migrate-down:
+	@bash scripts/migrate.sh down
+
+## migrate-status: 查看迁移状态
+migrate-status:
+	@bash scripts/migrate.sh status
+
+## release: 打 tag 并推送（用法: make release v=v1.0.0）
+release:
+	@test -n "$(v)" || (echo "用法: make release v=v1.0.0" && exit 1)
+	git tag -a $(v) -m "Release $(v)"
+	git push origin $(v)
+
+## release-patch: 自动打 patch 版本 tag（v1.0.0 → v1.0.1）
+release-patch:
+	@bash -c 'CURRENT=$$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"); \
+	MAJOR=$$(echo $$CURRENT | sed "s/v//;s/\..*//"); \
+	MINOR=$$(echo $$CURRENT | sed "s/v[0-9]*\.//;s/\..*//"); \
+	PATCH=$$(echo $$CURRENT | sed "s/v[0-9]*\.[0-9]*\.//"); \
+	NEXT=v$$MAJOR.$$MINOR.$$((PATCH+1)); \
+	echo "→ 打 tag: $$NEXT"; \
+	git tag -a $$NEXT -m "Release $$NEXT"; \
+	git push origin $$NEXT'
+
+## release-minor: 自动打 minor 版本 tag（v1.0.0 → v1.1.0）
+release-minor:
+	@bash -c 'CURRENT=$$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"); \
+	MAJOR=$$(echo $$CURRENT | sed "s/v//;s/\..*//"); \
+	MINOR=$$(echo $$CURRENT | sed "s/v[0-9]*\.//;s/\..*//"); \
+	NEXT=v$$MAJOR.$$((MINOR+1)).0; \
+	echo "→ 打 tag: $$NEXT"; \
+	git tag -a $$NEXT -m "Release $$NEXT"; \
+	git push origin $$NEXT'
+
+## release-major: 自动打 major 版本 tag（v1.0.0 → v2.0.0）
+release-major:
+	@bash -c 'CURRENT=$$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"); \
+	MAJOR=$$(echo $$CURRENT | sed "s/v//;s/\..*//"); \
+	NEXT=v$$((MAJOR+1)).0.0; \
+	echo "→ 打 tag: $$NEXT"; \
+	git tag -a $$NEXT -m "Release $$NEXT"; \
+	git push origin $$NEXT'
 
 ## help: 显示帮助
 help:

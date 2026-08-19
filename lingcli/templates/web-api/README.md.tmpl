@@ -107,6 +107,10 @@ open http://localhost:{{.Port}}/docs
 │   └── docker-compose.yml       # App + MySQL + Redis
 ├── docs/
 │   └── README.md                # 项目文档（架构说明 + 依赖模块）
+├── migrations/
+│   ├── 001_init.up.sql          # 初始迁移（正向）
+│   ├── 001_init.down.sql        # 初始迁移（回滚）
+│   └── README.md                # 迁移说明
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移辅助脚本
 {{- if .HasI18n}}
@@ -123,7 +127,10 @@ open http://localhost:{{.Port}}/docs
 ├── Jenkinsfile                  # Jenkins 声明式 Pipeline (test + lint + build + docker)
 {{- end}}
 ├── .dockerignore                # Docker 构建忽略文件
+├── .editorconfig                # 编辑器一致性配置
 ├── .golangci.yml                # golangci-lint 配置
+├── CHANGELOG.md                 # 版本变更记录
+├── CONTRIBUTING.md              # 贡献指南
 ├── LICENSE                      # MIT 许可证
 ├── Makefile                     # 构建命令
 ├── .gitignore

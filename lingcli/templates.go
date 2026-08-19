@@ -313,13 +313,19 @@ func getStructureTree(templateID, projectName string) string {
 │   └── docker-compose.yml       # App + MySQL + Redis
 ├── docs/
 │   └── README.md                # 项目文档
+├── migrations/
+│   ├── 001_init.up.sql          # 初始迁移
+│   └── 001_init.down.sql        # 回滚迁移
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移脚本
 ├── i18n/
 │   └── translations/            # 翻译文件
 ├── .github/workflows/ci.yml     # GitHub Actions CI（或 .gitlab-ci.yml / Jenkinsfile）
 ├── .dockerignore
+├── .editorconfig                # 编辑器一致性配置
 ├── .golangci.yml
+├── CHANGELOG.md                 # 版本变更记录
+├── CONTRIBUTING.md              # 贡献指南
 ├── LICENSE                      # MIT 许可证
 ├── Makefile
 ├── .gitignore
