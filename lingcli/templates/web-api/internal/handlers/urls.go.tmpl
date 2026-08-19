@@ -7,7 +7,7 @@ import (
 
 	"{{.Module}}/internal/configs"
 	{{- if .HasJWT}}
-	"{{.Module}}/internal/auth"
+	"github.com/LingByte/ling-base/common/jwtutil"
 	{{- end}}
 
 	{{- if .HasAPIDocs}}
@@ -25,7 +25,7 @@ type AppInfo struct {
 	BuildTime string
 	GitCommit string
 	{{- if .HasJWT}}
-	JWTAuth  *auth.Auth
+	JWTAuth  *jwtutil.Auth
 	{{- end}}
 }
 
@@ -36,7 +36,7 @@ type Handlers struct {
 	db        *gorm.DB
 	startTime time.Time
 	{{- if .HasJWT}}
-	jwtAuth   *auth.Auth
+	jwtAuth   *jwtutil.Auth
 	{{- end}}
 }
 

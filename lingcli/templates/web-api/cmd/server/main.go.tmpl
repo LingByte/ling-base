@@ -15,15 +15,16 @@ import (
 	localmw "{{.Module}}/internal/middlewares"
 	{{- end}}
 	"{{.Module}}/internal/models"
-	{{- if .HasJWT}}
-	"{{.Module}}/internal/auth"
-	{{- end}}
 
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs"
 	{{- end}}
 	"github.com/LingByte/ling-base/bootstrap"
 	"github.com/LingByte/ling-base/constants"
+	{{- if .HasJWT}}
+	"github.com/LingByte/ling-base/common/jwtutil"
+	jwtingin "github.com/LingByte/ling-base/common/jwtutil/gin"
+	{{- end}}
 	"github.com/LingByte/ling-base/logger"
 	"github.com/LingByte/ling-base/middleware"
 	"github.com/gin-gonic/gin"
@@ -120,7 +121,12 @@ func main() {
 	// 初始化 JWT 鉴权（ling-base/common/jwtutil）
 	accessTTL, _ := time.ParseDuration(cfg.JWT.AccessTTL)
 	refreshTTL, _ := time.ParseDuration(cfg.JWT.RefreshTTL)
-	jwtAuth, err := auth.New(cfg.JWT, accessTTL, refreshTTL)
+	jwtAuth, err := jwtutil.New(jwtutil.Config{
+		Secret:     []byte(cfg.JWT.Secret),
+		Issuer:     cfg.JWT.Issuer,
+		AccessTTL:  accessTTL,
+		RefreshTTL: refreshTTL,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "初始化 JWT 失败: %v\n", err)
 		os.Exit(1)
@@ -135,6 +141,9 @@ func main() {
 		info: info,
 		cfg:  cfg,
 		db:   db,
+		{{- if .HasJWT}}
+		jwtAuth: jwtAuth,
+		{{- end}}
 	})
 
 	// 启动（阻塞直到收到关闭信号）
@@ -153,6 +162,9 @@ type httpServerComponent struct {
 	cfg    *configs.Config
 	db     *gorm.DB
 	server *http.Server
+	{{- if .HasJWT}}
+	jwtAuth *jwtutil.Auth
+	{{- end}}
 }
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
@@ -176,9 +188,13 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	r.Use(middleware.CircuitBreakerMiddleware())
 	{{- end}}
 	{{- if .HasJWT}}
-	// JWT 鉴权中间件（公开路径自动跳过）
-	if c.info.JWTAuth != nil && c.info.JWTAuth.Enabled() {
-		r.Use(c.info.JWTAuth.GinMiddleware())
+	// JWT 鉴权中间件（ling-base/common/jwtutil/gin，公开路径自动跳过）
+	if c.jwtAuth != nil {
+		r.Use(jwtingin.Middleware(c.jwtAuth, jwtingin.WithPublicPaths(
+			"/health", "/live", "/ready", "/api/v1/version",
+			"/api/v1/auth/login", "/api/v1/auth/refresh",
+			"/docs", "/openapi",
+		)))
 	}
 	{{- end}}
 

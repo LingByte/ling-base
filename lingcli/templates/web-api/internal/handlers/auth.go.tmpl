@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"github.com/LingByte/ling-base/common/jwtutil"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ type LoginRequest struct {
 
 // Login 用户登录，签发 JWT access/refresh token。
 func (h *Handlers) Login(c *gin.Context) {
-	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+	if h.jwtAuth == nil {
 		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
 		return
 	}
@@ -29,7 +30,9 @@ func (h *Handlers) Login(c *gin.Context) {
 		return
 	}
 
-	pair, err := h.jwtAuth.Login(req.Username, "user")
+	// TODO: 实际项目中这里应该验证用户名/密码（查数据库）
+	// 示例仅签发 token，不验证凭证
+	pair, err := h.jwtAuth.Login(req.Username)
 	if err != nil {
 		respgin.WriteError(c, response.New(response.CodeInternal, "签发 token 失败"))
 		return
@@ -49,7 +52,7 @@ type RefreshRequest struct {
 
 // Refresh 用 refresh token 换取新的 access/refresh token。
 func (h *Handlers) Refresh(c *gin.Context) {
-	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+	if h.jwtAuth == nil {
 		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
 		return
 	}
@@ -71,5 +74,15 @@ func (h *Handlers) Refresh(c *gin.Context) {
 		"expires_in":    pair.ExpiresIn,
 		"token_type":    pair.TokenType,
 	})
+}
+
+// ClaimsFromContext 从 gin.Context 提取 JWT claims（需在 jwtingin.Middleware 之后）。
+func ClaimsFromContext(c *gin.Context) *jwtutil.Claims {
+	if v, ok := c.Get("jwt_claims"); ok {
+		if claims, ok := v.(*jwtutil.Claims); ok {
+			return claims
+		}
+	}
+	return nil
 }
 {{- end}}

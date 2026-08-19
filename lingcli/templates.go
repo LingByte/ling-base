@@ -286,15 +286,13 @@ func getStructureTree(templateID, projectName string) string {
 │   └── server/
 │       └── main.go              # 程序入口 + 应用启动逻辑
 ├── internal/
-│   ├── auth/                    # JWT 鉴权（可选）
-│   │   └── auth.go
 │   ├── configs/
 │   │   ├── config.go            # 配置定义与加载
 │   │   └── config_test.go
 │   ├── handlers/
 │   │   ├── urls.go              # 路由注册（humax.Group / Gin）
 │   │   ├── handler.go           # HTTP 处理器实现
-│   │   ├── auth.go              # JWT 鉴权处理器（可选）
+│   │   ├── auth.go              # JWT 鉴权 handler（可选）
 │   │   └── handler_test.go
 │   ├── middlewares/
 │   │   └── middleware.go        # 项目特定中间件（限流配置等）
