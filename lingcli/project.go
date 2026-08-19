@@ -223,15 +223,16 @@ type LingBaseModule struct {
 	Name        string // 显示名称
 	Description string // 简短说明
 	ImportPath  string // Go import 路径
+	Core        bool   // 是否核心模块（基础版会询问）
 }
 
 // LingBaseModules 是可选的 ling-base 模块列表。
 var LingBaseModules = []LingBaseModule{
-	{ID: "apidocs", Name: "API 文档", Description: "Huma + OpenAPI 3.1 文档 UI（Scalar/Swagger/Redoc）", ImportPath: "github.com/LingByte/ling-base/apidocs"},
-	{ID: "limiter", Name: "限流", Description: "令牌桶 / 并发数 / 按 key 限流（内存/Redis）", ImportPath: "github.com/LingByte/ling-base/common/limiter"},
-	{ID: "circuitbreaker", Name: "熔断器", Description: "滑动窗口熔断器（Closed/Open/Half-Open）", ImportPath: "github.com/LingByte/ling-base/common/circuitbreaker"},
-	{ID: "middleware", Name: "Gin 中间件", Description: "超时 + 熔断 + 恢复 + CORS 等中间件", ImportPath: "github.com/LingByte/ling-base/middleware"},
-	{ID: "jwt", Name: "JWT 鉴权", Description: "Access/Refresh token + 黑名单 + 中间件", ImportPath: "github.com/LingByte/ling-base/common/jwtutil"},
+	{ID: "apidocs", Name: "API 文档", Description: "Huma + OpenAPI 3.1 文档 UI（Scalar/Swagger/Redoc）", ImportPath: "github.com/LingByte/ling-base/apidocs", Core: true},
+	{ID: "middleware", Name: "Gin 中间件", Description: "超时 + 熔断 + 恢复 + CORS 等中间件", ImportPath: "github.com/LingByte/ling-base/middleware", Core: true},
+	{ID: "jwt", Name: "JWT 鉴权", Description: "Access/Refresh token + 黑名单 + 中间件", ImportPath: "github.com/LingByte/ling-base/common/jwtutil", Core: true},
+	{ID: "limiter", Name: "限流", Description: "令牌桶 / 并发数 / 按 key 限流（内存/Redis）", ImportPath: "github.com/LingByte/ling-base/common/limiter", Core: true},
+	{ID: "circuitbreaker", Name: "熔断器", Description: "滑动窗口熔断器（Closed/Open/Half-Open）", ImportPath: "github.com/LingByte/ling-base/common/circuitbreaker", Core: true},
 	{ID: "cache", Name: "缓存", Description: "统一缓存接口（Redis/Memcache/FreeCache/Ristretto）", ImportPath: "github.com/LingByte/ling-base/cache"},
 	{ID: "lock", Name: "分布式锁", Description: "Redis/MySQL/PostgreSQL/Etcd/Zookeeper 锁", ImportPath: "github.com/LingByte/ling-base/common/lock"},
 	{ID: "retry", Name: "重试", Description: "指数退避/固定间隔重试 + 熔断组合", ImportPath: "github.com/LingByte/ling-base/common/retry"},

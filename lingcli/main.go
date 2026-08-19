@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-const cliVersion = "v0.5.0"
+const cliVersion = "v0.6.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -248,16 +248,22 @@ func runInteractive(spec *ProjectSpec) {
 	}
 
 	// 选择 ling-base 模块。
-	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 6/6: 集成 ling-base 模块（可选）━━━\x1b[0m")
-	fmt.Println("  \x1b[38;5;245m输入模块编号（逗号分隔），回车跳过。如: 1,2,3\x1b[0m")
-	for i, m := range LingBaseModules {
-		fmt.Printf("  \x1b[38;5;39m[%d]\x1b[0m %-16s %s\n", i+1, m.Name, m.Description)
-	}
+	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 6/6: 集成 ling-base 模块 ━━━\x1b[0m")
+	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断）")
+	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 19 个模块")
+	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成任何模块")
 	fmt.Println()
-	selected := p.Input("请选择要集成的模块", "")
-	if selected != "" {
-		spec.Modules = parseModuleSelection(selected)
+	mode := p.Select("请选择模式", 3)
+
+	switch mode {
+	case 0: // 基础版
+		spec.Modules = askModulesOneByOne(p, true)
+	case 1: // 完整版
+		spec.Modules = askModulesOneByOne(p, false)
+	default: // 跳过
+		spec.Modules = nil
 	}
+
 	if len(spec.Modules) > 0 {
 		var names []string
 		for _, id := range spec.Modules {
@@ -289,17 +295,19 @@ func runInteractive(spec *ProjectSpec) {
 	}
 }
 
-// parseModuleSelection 解析用户输入的模块编号列表（如 "1,3,5"）。
-func parseModuleSelection(input string) []string {
-	var ids []string
-	parts := strings.Split(input, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		var idx int
-		if _, err := fmt.Sscanf(part, "%d", &idx); err != nil || idx < 1 || idx > len(LingBaseModules) {
+// askModulesOneByOne 逐个询问用户是否集成每个模块。
+// coreOnly=true 时只询问核心模块，false 时询问全部模块。
+// 每个模块：回车=否，y=是。
+func askModulesOneByOne(p *Prompt, coreOnly bool) []string {
+	var selected []string
+	for i := range LingBaseModules {
+		m := &LingBaseModules[i]
+		if coreOnly && !m.Core {
 			continue
 		}
-		ids = append(ids, LingBaseModules[idx-1].ID)
+		if p.ConfirmModule(m.Name, m.Description) {
+			selected = append(selected, m.ID)
+		}
 	}
-	return ids
+	return selected
 }

@@ -98,3 +98,27 @@ func (p *Prompt) Confirm(label string) bool {
 		}
 	}
 }
+
+// ConfirmModule 逐个询问是否集成某个模块。
+// 显示模块名称和描述，回车=否，y=是。
+func (p *Prompt) ConfirmModule(name, desc string) bool {
+	for {
+		fmt.Printf("  \x1b[38;5;39m%-16s\x1b[0m \x1b[38;5;245m%s\x1b[0m\n", name, desc)
+		fmt.Printf("  \x1b[38;5;117m是否集成？\x1b[0m [\x1b[38;5;245m回车=否\x1b[0m] (y/n): ")
+		line, err := p.reader.ReadString('\n')
+		if err != nil {
+			return false
+		}
+		line = strings.ToLower(strings.TrimSpace(line))
+		switch line {
+		case "y", "yes":
+			fmt.Printf("  \x1b[32m✓ %s 已选中\x1b[0m\n\n", name)
+			return true
+		case "n", "no", "":
+			fmt.Printf("  \x1b[38;5;245m✗ %s 跳过\x1b[0m\n\n", name)
+			return false
+		default:
+			fmt.Println("  \x1b[31m请输入 y 或 n\x1b[0m")
+		}
+	}
+}
