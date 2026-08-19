@@ -1,14 +1,16 @@
 # apidocs — API 文档基础库
 
 基于 [Huma](https://github.com/danielgtaylor/huma) (OpenAPI 3.1) 封装的 API 文档库，
-一行代码挂载到 Gin 引擎，支持多种 UI 主题和自定义样式。
+一行代码挂载到 Gin 引擎，支持多种 UI 主题、CDN/自托管资源、深度自定义样式。
 
 ## 特性
 
 - **一行挂载**：`apidocs.Mount(r, apidocs.Options{...})`
-- **多种 UI**：Scalar（默认）、Swagger UI、Redoc、Stoplight Elements
-- **自定义样式**：CSS / Logo / 暗黑模式 / 品牌名称
-- **安全方案**：Bearer JWT / API Key / OAuth2
+- **4 种 UI**：Scalar（默认）、Swagger UI、Redoc、Stoplight Elements
+- **CDN + 自托管**：公网 CDN / 自托管 BaseURL / 逐个 URL 自定义（支持离线/内网）
+- **深度自定义**：CSS / JS / Logo / topbar / 环境标识 / 暗黑模式
+- **安全方案**：Bearer JWT / API Key / OAuth2 (4 种 flow) / OpenID Connect
+- **OpenAPI 元信息**：Contact / License / TermsOfService / ExternalDocs / GlobalSecurity
 - **元信息端点**：自动注册 `/api/v1/meta` 返回文档入口
 - **OpenAPI 导出**：JSON / YAML 下载
 
@@ -39,7 +41,6 @@ func main() {
         Version: "1.0.0",
     })
 
-    // 注册路由
     type helloOutput struct {
         Body struct {
             Msg string `json:"msg"`
@@ -57,92 +58,242 @@ func main() {
     })
 
     r.Run(":8080")
-    // 访问 http://localhost:8080/docs 查看文档
+    // 访问 http://localhost:8080/docs
 }
 ```
 
 ## UI 主题
 
 ```go
-// Scalar（默认，现代风格，支持暗黑模式）
-apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeScalar})
+apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeScalar})    // 默认，现代风格
+apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeSwagger})   // 经典风格
+apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeRedoc})     // 三栏布局
+apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeStoplight}) // 设计优先
+```
 
-// Swagger UI（经典风格）
-apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeSwagger})
+## CDN 模式（离线/内网支持）
 
-// Redoc（三栏布局，适合大量 API）
-apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeRedoc})
+### 公网 CDN（默认）
 
-// Stoplight Elements（设计优先）
-apidocs.Mount(r, apidocs.Options{Theme: apidocs.ThemeStoplight})
+```go
+apidocs.Mount(r, apidocs.Options{
+    CDN: apidocs.CDNConfig{Mode: apidocs.CDNModePublic},
+})
+```
+
+### 自托管（内网/离线）
+
+```go
+apidocs.Mount(r, apidocs.Options{
+    CDN: apidocs.CDNConfig{
+        Mode:    apidocs.CDNModeSelfHosted,
+        BaseURL: "https://assets.internal.company.com/openapi-ui",
+    },
+})
+```
+
+资源路径规则：
+- Scalar: `<BaseURL>/scalar/api-reference.js`
+- Swagger: `<BaseURL>/swagger-ui/swagger-ui-bundle.js` + `swagger-ui.css`
+- Redoc: `<BaseURL>/redoc/redoc.standalone.js`
+- Stoplight: `<BaseURL>/stoplight/elements.min.js` + `styles.min.css`
+
+### 逐个 URL 自定义
+
+```go
+apidocs.Mount(r, apidocs.Options{
+    CDN: apidocs.CDNConfig{
+        Mode:     apidocs.CDNModeCustom,
+        ScalarJS: "https://cdn.mycompany.com/scalar.js",
+        SwaggerJS: "https://cdn.mycompany.com/swagger.js",
+    },
+})
 ```
 
 ## 自定义样式
 
 ```go
 apidocs.Mount(r, apidocs.Options{
-    Title:   "My API",
-    Version: "1.0.0",
-    Theme:   apidocs.ThemeScalar,
-    DarkMode: true,                    // 暗黑模式
-    CSS:     ".topbar { background: #1a1a2e; }", // 自定义 CSS
-    Logo:    logoPNG,                  // []byte, 自定义 Logo
+    Title:    "My API",
+    Version:  "1.0.0",
+    DarkMode: true,
+    CSS:      ".topbar { background: #1a1a2e; }",
+    Logo:     logoPNG,               // []byte
     LogoContentType: "image/png",
+    CustomJS: "console.log('docs loaded');",
     CustomHeadHTML: `<meta name="author" content="MyCorp">`,
+})
+```
+
+## 自定义 TopBar
+
+```go
+apidocs.Mount(r, apidocs.Options{
+    Title: "My API",
+    TopBar: apidocs.TopBarConfig{
+        Subtitle:    "API Reference",           // 默认 "接口文档"
+        EnvLabel:    "STAGING",                 // 环境标识
+        EnvLabelColor: "#ef4444",               // 红色
+        ExtraButtons: `<a href="/">返回首页</a>`,
+        // HideTopBar:       true,              // 完全隐藏 topbar
+        // CustomHTML:       "<header>...</header>", // 完全自定义
+        // ShowExportButtons: &f,               // false 隐藏导出按钮
+    },
 })
 ```
 
 ## 安全方案
 
+### Bearer JWT
+
 ```go
 apidocs.Mount(r, apidocs.Options{
-    Title:   "My API",
-    Version: "1.0.0",
     SecuritySchemes: map[string]apidocs.SecurityScheme{
         "BearerAuth": {
             Type:         "http",
             Scheme:       "bearer",
             BearerFormat: "JWT",
-            Description:  "JWT Bearer token",
         },
-        "ApiKey": {
-            Type:        "apiKey",
-            In:          "header",
-            Name:        "X-API-Key",
-            Description: "API Key in header",
+    },
+    GlobalSecurity: []map[string][]string{
+        {"BearerAuth": {}},
+    },
+})
+```
+
+### API Key
+
+```go
+SecuritySchemes: map[string]apidocs.SecurityScheme{
+    "ApiKey": {Type: "apiKey", In: "header", Name: "X-API-Key"},
+}
+```
+
+### OAuth2
+
+```go
+SecuritySchemes: map[string]apidocs.SecurityScheme{
+    "OAuth2": {
+        Type: "oauth2",
+        Flows: &huma.OAuthFlows{
+            AuthorizationCode: &huma.OAuthFlow{
+                AuthorizationURL: "https://example.com/oauth/authorize",
+                TokenURL:         "https://example.com/oauth/token",
+                Scopes: map[string]string{
+                    "read":  "read access",
+                    "write": "write access",
+                },
+            },
         },
+    },
+}
+```
+
+## OpenAPI 元信息
+
+```go
+apidocs.Mount(r, apidocs.Options{
+    Title:          "My API",
+    Version:        "1.0.0",
+    Description:    "## My API\n\n支持 **Markdown**。",
+    TermsOfService: "https://example.com/terms",
+    Contact: &huma.Contact{
+        Name:  "API Support",
+        Email: "support@example.com",
+        URL:   "https://example.com/support",
+    },
+    License: &huma.License{
+        Name: "MIT",
+        URL:  "https://opensource.org/licenses/MIT",
+    },
+    ExternalDocs: &huma.ExternalDocs{
+        URL:         "https://example.com/docs",
+        Description: "更多文档",
+    },
+})
+```
+
+## 主题专属配置
+
+```go
+apidocs.Mount(r, apidocs.Options{
+    Theme: apidocs.ThemeScalar,
+    ScalarConfig: map[string]any{
+        "hideModels":  true,
+        "layout":      "classic",
+    },
+})
+
+apidocs.Mount(r, apidocs.Options{
+    Theme: apidocs.ThemeSwagger,
+    SwaggerConfig: map[string]any{
+        "docExpansion": "none",
+        "filter":       true,
     },
 })
 ```
 
 ## 配置项
 
+### Options
+
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | Title | string | "API" | API 标题 |
 | Version | string | "1.0.0" | API 版本 |
-| Description | string | "" | API 描述（支持 Markdown） |
+| Description | string | "" | API 描述（Markdown） |
+| Contact | *huma.Contact | nil | 联系信息 |
+| License | *huma.License | nil | 许可证 |
+| TermsOfService | string | "" | 服务条款 URL |
 | DocsPath | string | "/docs" | 文档 UI 路径 |
-| APIPrefix | string | "" | API 前缀（影响 server URL 显示） |
+| APIPrefix | string | "" | API 前缀 |
 | MetaPath | string | "/api/v1/meta" | 元信息端点路径 |
 | EnableMeta | *bool | true | 是否注册元信息端点 |
 | Theme | Theme | ThemeScalar | UI 主题 |
 | DarkMode | bool | false | 暗黑模式 |
 | Logo | []byte | 内置 SVG | Logo 图片 |
-| LogoContentType | string | "image/png" | Logo MIME 类型 |
+| LogoContentType | string | "image/png" | Logo MIME |
 | CSS | string | 内置 CSS | 自定义 CSS |
-| SecuritySchemes | map | nil | OpenAPI 安全方案 |
-| Servers | []*huma.Server | 自动 | OpenAPI servers |
-| ScalarConfig | map | nil | Scalar 专属配置 |
+| CustomJS | string | "" | 注入 `<body>` 末尾的 JS |
 | CustomHeadHTML | string | "" | 注入 `<head>` 的 HTML |
+| CDN | CDNConfig | 公网 CDN | 资源加载方式 |
+| TopBar | TopBarConfig | 默认 topbar | 顶部导航栏 |
+| SecuritySchemes | map | nil | 安全方案 |
+| GlobalSecurity | []map | nil | 全局安全要求 |
+| Servers | []*huma.Server | 自动 | OpenAPI servers |
+| ExternalDocs | *huma.ExternalDocs | nil | 外部文档链接 |
+| ScalarConfig | map | nil | Scalar 专属配置 |
+| SwaggerConfig | map | nil | Swagger 专属配置 |
+| RedocConfig | map | nil | Redoc 专属配置 |
+| StoplightConfig | map | nil | Stoplight 专属配置 |
+
+### CDNConfig
+
+| 选项 | 说明 |
+|------|------|
+| Mode | `CDNModePublic` / `CDNModeSelfHosted` / `CDNModeCustom` |
+| BaseURL | 自托管基址（Mode=SelfHosted 时） |
+| ScalarJS / SwaggerJS / SwaggerCSS / RedocJS / StoplightJS / StoplightCSS | 逐个覆盖 |
+
+### TopBarConfig
+
+| 选项 | 说明 |
+|------|------|
+| HideTopBar | 完全隐藏 topbar |
+| CustomHTML | 完全自定义 topbar HTML |
+| Subtitle | 副标题（默认"接口文档"） |
+| ShowExportButtons | 是否显示导出按钮（默认 true） |
+| ExtraButtons | 额外按钮 HTML |
+| EnvLabel | 环境标识（DEV/STAGING/PROD） |
+| EnvLabelColor | 环境标识颜色 |
 
 ## 自动生成的端点
 
 | 路径 | 说明 |
 |------|------|
-| `<DocsPath>` | 文档 UI 页面 |
-| `<DocsPath>/assets/docs.css` | CSS 样式文件 |
-| `<DocsPath>/assets/logo` | Logo 图片 |
+| `<DocsPath>` | 文档 UI |
+| `<DocsPath>/assets/docs.css` | CSS |
+| `<DocsPath>/assets/logo` | Logo |
 | `/openapi.json` | OpenAPI 3.1 JSON |
 | `/openapi.yaml` | OpenAPI 3.1 YAML |
 | `/api/v1/meta` | 文档元信息（可禁用） |

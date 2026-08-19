@@ -71,6 +71,18 @@
   color: var(--apidocs-muted);
 }
 
+.apidocs-env-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 4px;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
 .apidocs-actions {
   display: flex;
   gap: 8px;

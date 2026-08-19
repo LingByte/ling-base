@@ -12,21 +12,132 @@ type Theme string
 
 const (
 	// ThemeScalar uses Scalar API Reference (modern, light/dark, customizable).
-	// Default theme. CDN: https://unpkg.com/@scalar/api-reference
+	// Default theme.
 	ThemeScalar Theme = "scalar"
 
 	// ThemeSwagger uses Swagger UI (classic, widely recognized).
-	// CDN: https://unpkg.com/swagger-ui-dist
 	ThemeSwagger Theme = "swagger"
 
 	// ThemeRedoc uses Redoc (clean, responsive, three-panel layout).
-	// CDN: https://cdn.jsdelivr.net/npm/redoc
 	ThemeRedoc Theme = "redoc"
 
 	// ThemeStoplight uses Stoplight Elements (modern, good for design-first).
-	// CDN: https://unpkg.com/@stoplight/elements
 	ThemeStoplight Theme = "stoplight"
 )
+
+// CDNConfig controls where UI assets (JS/CSS) are loaded from.
+//
+// Default: public CDN (unpkg/jsdelivr). For offline/intranet deployment,
+// set BaseURL to your self-hosted asset server, or set individual URLs.
+//
+// # Self-hosted example
+//
+//	apidocs.Mount(r, apidocs.Options{
+//	    CDN: apidocs.CDNConfig{
+//	        Mode:    apidocs.CDNModeSelfHosted,
+//	        BaseURL: "https://assets.internal.company.com/openapi-ui",
+//	    },
+//	})
+//
+// This will load:
+//   - Scalar:  <BaseURL>/scalar/api-reference.js
+//   - Swagger: <BaseURL>/swagger-ui/swagger-ui-bundle.js
+//   - Redoc:   <BaseURL>/redoc/redoc.standalone.js
+//   - Stoplight: <BaseURL>/stoplight/elements.min.js
+//
+// You can also override individual asset URLs:
+//
+//	apidocs.Mount(r, apidocs.Options{
+//	    CDN: apidocs.CDNConfig{
+//	        Mode:          apidocs.CDNModeCustom,
+//	        ScalarJS:      "https://cdn.mycompany.com/scalar.js",
+//	        SwaggerJS:     "https://cdn.mycompany.com/swagger.js",
+//	        SwaggerCSS:    "https://cdn.mycompany.com/swagger.css",
+//	        RedocJS:       "https://cdn.mycompany.com/redoc.js",
+//	        StoplightJS:   "https://cdn.mycompany.com/stoplight.js",
+//	        StoplightCSS:  "https://cdn.mycompany.com/stoplight.css",
+//	    },
+//	})
+type CDNConfig struct {
+	// Mode controls how assets are loaded.
+	// Default: CDNModePublic
+	Mode CDNMode
+
+	// BaseURL is the base URL for self-hosted assets.
+	// Only used when Mode == CDNModeSelfHosted.
+	// e.g. "https://assets.internal.company.com/openapi-ui"
+	BaseURL string
+
+	// ScalarJS is the URL for Scalar standalone JS.
+	// If empty, uses default based on Mode.
+	ScalarJS string
+
+	// SwaggerJS is the URL for Swagger UI Bundle JS.
+	SwaggerJS string
+
+	// SwaggerCSS is the URL for Swagger UI CSS.
+	SwaggerCSS string
+
+	// RedocJS is the URL for Redoc standalone JS.
+	RedocJS string
+
+	// StoplightJS is the URL for Stoplight Elements JS.
+	StoplightJS string
+
+	// StoplightCSS is the URL for Stoplight Elements CSS.
+	StoplightCSS string
+}
+
+// CDNMode controls how UI assets are loaded.
+type CDNMode string
+
+const (
+	// CDNModePublic loads assets from public CDNs (unpkg, jsdelivr).
+	// Default. Requires internet access.
+	CDNModePublic CDNMode = "public"
+
+	// CDNModeSelfHosted loads assets from a user-specified BaseURL.
+	// For intranet/offline deployment.
+	CDNModeSelfHosted CDNMode = "selfhosted"
+
+	// CDNModeCustom uses individually specified URLs for each asset.
+	CDNModeCustom CDNMode = "custom"
+)
+
+// TopBarConfig configures the top navigation bar.
+//
+// Set HideTopBar to true to completely remove the topbar and use the
+// UI's native header. Set CustomHTML to fully replace the topbar.
+type TopBarConfig struct {
+	// HideTopBar removes the topbar entirely.
+	// Default: false
+	HideTopBar bool
+
+	// CustomHTML replaces the entire topbar with user-provided HTML.
+	// If set, all other TopBar fields are ignored.
+	CustomHTML string
+
+	// Subtitle is the text shown below the title.
+	// Default: "接口文档"
+	Subtitle string
+
+	// ShowExportButtons controls whether JSON/YAML export buttons are shown.
+	// Default: true. Set to false to hide.
+	ShowExportButtons *bool
+
+	// ExtraButtons is additional HTML for the actions area.
+	// e.g. `<a class="apidocs-btn-ghost" href="/">返回首页</a>`
+	ExtraButtons string
+
+	// EnvLabel is an environment badge shown next to the title.
+	// e.g. "DEV", "STAGING", "PROD"
+	// If empty, no badge is shown.
+	EnvLabel string
+
+	// EnvLabelColor is the CSS color for the env badge.
+	// Default: "#f59e0b" (amber)
+	EnvLabelColor string
+}
 
 // Options configures the API docs surface.
 type Options struct {
@@ -42,6 +153,15 @@ type Options struct {
 	// Supports Markdown.
 	Description string
 
+	// Contact is the API contact information.
+	Contact *huma.Contact
+
+	// License is the API license information.
+	License *huma.License
+
+	// TermsOfService is the URL to the terms of service.
+	TermsOfService string
+
 	// DocsPath is the path where the docs UI is served.
 	// Default: "/docs"
 	DocsPath string
@@ -52,11 +172,11 @@ type Options struct {
 
 	// MetaPath is the path for the meta endpoint.
 	// Default: "/api/v1/meta"
-	// Set to "" to disable the meta endpoint.
 	MetaPath string
 
 	// EnableMeta controls whether the meta endpoint is registered.
 	// Default: true
+	// Set to false to disable the meta endpoint entirely.
 	EnableMeta *bool
 
 	// Theme is the docs UI theme.
@@ -72,29 +192,62 @@ type Options struct {
 	Logo []byte
 
 	// LogoContentType is the MIME type for the logo, e.g. "image/png".
-	// Default: "image/png"
+	// Default: "image/png" (or "image/svg+xml" for the default logo)
 	LogoContentType string
 
 	// CSS is custom CSS injected into the docs page.
 	// If empty, a default theme CSS is used.
 	CSS string
 
+	// CustomJS is JavaScript injected at the end of <body>.
+	// Useful for analytics, custom auth logic, etc.
+	CustomJS string
+
+	// CustomHeadHTML is injected into the <head> of the docs page.
+	// Use for additional meta tags, preconnect, etc.
+	CustomHeadHTML string
+
+	// CDN controls where UI assets are loaded from.
+	// Default: public CDN. Set to self-hosted for offline/intranet use.
+	CDN CDNConfig
+
+	// TopBar configures the top navigation bar.
+	// Set HideTopBar to true to use the UI's native header instead.
+	TopBar TopBarConfig
+
 	// SecuritySchemes registers OpenAPI security schemes.
 	// Key is the scheme name (e.g. "BearerAuth"), value is the scheme config.
 	SecuritySchemes map[string]SecurityScheme
 
+	// GlobalSecurity sets the default security requirement for all operations.
+	// e.g. []map[string][]string{{"BearerAuth": {}}}
+	GlobalSecurity []map[string][]string
+
 	// Servers overrides the OpenAPI servers list.
 	// If nil, a default server is generated from APIPrefix.
 	Servers []*huma.Server
+
+	// ExternalDocs is a link to external documentation.
+	ExternalDocs *huma.ExternalDocs
 
 	// ScalarConfig is additional Scalar-specific configuration.
 	// Only used when Theme == ThemeScalar.
 	// See: https://github.com/scalar/scalar/blob/main/docs/configuration.md
 	ScalarConfig map[string]any
 
-	// CustomHeadHTML is injected into the <head> of the docs page.
-	// Use for additional meta tags, preconnect, etc.
-	CustomHeadHTML string
+	// SwaggerConfig is additional Swagger UI configuration.
+	// Only used when Theme == ThemeSwagger.
+	// See: https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/
+	SwaggerConfig map[string]any
+
+	// RedocConfig is additional Redoc configuration.
+	// Only used when Theme == ThemeRedoc.
+	// See: https://redocly.com/docs/api-reference-docs/configuration/functions/
+	RedocConfig map[string]any
+
+	// StoplightConfig is additional Stoplight Elements configuration.
+	// Only used when Theme == ThemeStoplight.
+	StoplightConfig map[string]any
 }
 
 func (o *Options) applyDefaults() {
@@ -110,11 +263,24 @@ func (o *Options) applyDefaults() {
 	if o.Theme == "" {
 		o.Theme = ThemeScalar
 	}
-	if o.LogoContentType == "" {
+	if o.LogoContentType == "" && o.Logo != nil {
 		o.LogoContentType = "image/png"
 	}
 	if o.EnableMeta == nil {
 		t := true
 		o.EnableMeta = &t
+	}
+	if o.CDN.Mode == "" {
+		o.CDN.Mode = CDNModePublic
+	}
+	if o.TopBar.Subtitle == "" {
+		o.TopBar.Subtitle = "接口文档"
+	}
+	if o.TopBar.EnvLabelColor == "" {
+		o.TopBar.EnvLabelColor = "#f59e0b"
+	}
+	if o.TopBar.ShowExportButtons == nil {
+		t := true
+		o.TopBar.ShowExportButtons = &t
 	}
 }

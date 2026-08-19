@@ -7,8 +7,9 @@
 // Features:
 //   - One-line mount: apidocs.Mount(r, apidocs.Options{...})
 //   - Multiple UI themes: Scalar (default), Swagger UI, Redoc, Stoplight
-//   - Custom CSS / logo / branding
-//   - Security scheme helpers (Bearer, APIKey, OAuth2)
+//   - CDN + self-hosted asset modes (for offline/intranet deployment)
+//   - Custom CSS / JS / logo / branding / topbar
+//   - Security scheme helpers (Bearer, APIKey, OAuth2, OpenID Connect)
 //   - Meta endpoint for doc discovery
 //   - OpenAPI JSON/YAML export
 //
@@ -26,12 +27,22 @@
 //	}, func(ctx context.Context, _ *struct{}) (*HelloOutput, error) {
 //	    return &HelloOutput{Body: struct{ Msg string `json:"msg"` }{Msg: "hi"}}, nil
 //	})
+//
+// # Self-hosted assets (offline/intranet)
+//
+//	api := apidocs.Mount(r, apidocs.Options{
+//	    Title:   "Internal API",
+//	    Version: "1.0.0",
+//	    CDN: apidocs.CDNConfig{
+//	        Mode:    apidocs.CDNModeSelfHosted,
+//	        BaseURL: "https://assets.internal.company.com/openapi-ui",
+//	    },
+//	})
 package apidocs
 
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
@@ -40,23 +51,6 @@ import (
 
 // Mount wires Huma OpenAPI 3.1 onto the Gin engine with a customizable
 // docs UI. Returns the huma.API for registering typed operations.
-//
-// One line is enough:
-//
-//	api := apidocs.Mount(r, apidocs.Options{Title: "My API", Version: "1.0.0"})
-//
-// Custom theme + logo + security:
-//
-//	api := apidocs.Mount(r, apidocs.Options{
-//	    Title:   "My API",
-//	    Version: "1.0.0",
-//	    Theme:   apidocs.ThemeSwagger,
-//	    Logo:    myLogoPNG,        // []byte
-//	    CSS:     myCustomCSS,      // string
-//	    SecuritySchemes: map[string]apidocs.SecurityScheme{
-//	        "BearerAuth": {Type: "http", Scheme: "bearer"},
-//	    },
-//	})
 func Mount(r *gin.Engine, opts Options) huma.API {
 	opts.applyDefaults()
 
@@ -69,6 +63,18 @@ func Mount(r *gin.Engine, opts Options) huma.API {
 	if opts.Description != "" {
 		cfg.Info.Description = opts.Description
 	}
+	if opts.Contact != nil {
+		cfg.Info.Contact = opts.Contact
+	}
+	if opts.License != nil {
+		cfg.Info.License = opts.License
+	}
+	if opts.TermsOfService != "" {
+		cfg.Info.TermsOfService = opts.TermsOfService
+	}
+	if opts.ExternalDocs != nil {
+		cfg.ExternalDocs = opts.ExternalDocs
+	}
 	if len(opts.Servers) > 0 {
 		cfg.Servers = opts.Servers
 	} else if opts.APIPrefix != "" {
@@ -79,6 +85,11 @@ func Mount(r *gin.Engine, opts Options) huma.API {
 	}
 
 	api := humagin.New(r, cfg)
+
+	// Apply global security after API creation.
+	if len(opts.GlobalSecurity) > 0 {
+		api.OpenAPI().Security = opts.GlobalSecurity
+	}
 
 	// Register security schemes directly on the OpenAPI spec.
 	if len(opts.SecuritySchemes) > 0 {
@@ -105,7 +116,7 @@ func Mount(r *gin.Engine, opts Options) huma.API {
 	return api
 }
 
-// mountMeta registers a /api/v1/meta endpoint that returns doc metadata.
+// mountMeta registers a meta endpoint that returns doc metadata.
 func mountMeta(api huma.API, opts Options) {
 	type metaBody struct {
 		Name        string `json:"name" example:"My API" doc:"API name"`
@@ -147,21 +158,35 @@ func mountMeta(api huma.API, opts Options) {
 }
 
 // SecurityScheme defines an OpenAPI security scheme.
+//
+// For OAuth2, set Type="oauth2" and Flows.
+// For OpenID Connect, set Type="openIdConnect" and OpenIDConnectURL.
 type SecurityScheme struct {
-	// Type is the scheme type: "http", "apiKey", "oauth2", "openIdConnect".
+	// Type is the scheme type: "http", "apiKey", "oauth2", "openIdConnect", "mutualTLS".
 	Type string
 
 	// Scheme is the HTTP auth scheme: "bearer", "basic".
+	// Required when Type == "http".
 	Scheme string
 
 	// In is where the API key is located: "header", "query", "cookie".
+	// Required when Type == "apiKey".
 	In string
 
 	// Name is the header/query parameter name for apiKey.
+	// Required when Type == "apiKey".
 	Name string
 
 	// BearerFormat is the format hint for bearer tokens, e.g. "JWT".
 	BearerFormat string
+
+	// Flows is the OAuth2 flow configuration.
+	// Required when Type == "oauth2".
+	Flows *huma.OAuthFlows
+
+	// OpenIDConnectURL is the OpenID Connect discovery URL.
+	// Required when Type == "openIdConnect".
+	OpenIDConnectURL string
 
 	// Description is a human-readable description.
 	Description string
@@ -169,12 +194,14 @@ type SecurityScheme struct {
 
 func (s SecurityScheme) toHuma() *huma.SecurityScheme {
 	return &huma.SecurityScheme{
-		Type:         s.Type,
-		Scheme:       s.Scheme,
-		In:           s.In,
-		Name:         s.Name,
-		BearerFormat: s.BearerFormat,
-		Description:  s.Description,
+		Type:             s.Type,
+		Scheme:           s.Scheme,
+		In:               s.In,
+		Name:             s.Name,
+		BearerFormat:     s.BearerFormat,
+		Flows:            s.Flows,
+		OpenIDConnectURL: s.OpenIDConnectURL,
+		Description:      s.Description,
 	}
 }
 
@@ -183,7 +210,6 @@ func EnsureTag(api huma.API, name, description string) {
 	if description == "" {
 		description = name
 	}
-	// Check if tag already exists.
 	for _, t := range api.OpenAPI().Tags {
 		if t.Name == name {
 			return
@@ -194,7 +220,3 @@ func EnsureTag(api huma.API, name, description string) {
 		Description: description,
 	})
 }
-
-// suppress unused import
-var _ = context.Background
-var _ = strings.TrimSpace
