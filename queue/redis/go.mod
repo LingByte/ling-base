@@ -3,18 +3,16 @@ module github.com/LingByte/ling-base/queue/redis
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/queue v0.1.0
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1
 )
 
-replace github.com/LingByte/ling-base/queue => ../
 
-replace github.com/LingByte/ling-base/common/pool => ../../common/pool
 
 require (
-	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000 // indirect
+	github.com/LingByte/ling-base/common/pool v0.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

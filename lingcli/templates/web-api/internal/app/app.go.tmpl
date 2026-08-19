@@ -12,10 +12,19 @@ import (
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/handler"
 	"{{.Module}}/internal/model"
+	{{- if .HasJWT}}
+	"{{.Module}}/internal/auth"
+	{{- end}}
 
 	"github.com/LingByte/ling-base/bootstrap"
 	"github.com/LingByte/ling-base/constants"
 	"github.com/LingByte/ling-base/logger"
+	{{- if or .HasAPIDocs .HasMiddleware .HasCircuitBreaker}}
+	"github.com/LingByte/ling-base/middleware"
+	{{- end}}
+	{{- if .HasAPIDocs}}
+	"github.com/LingByte/ling-base/apidocs"
+	{{- end}}
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -75,10 +84,48 @@ func Run(info *AppInfo) {
 		}
 	}
 
+	{{- if .HasCircuitBreaker}}
+
+	// 初始化超时+熔断管理器（ling-base/middleware）
+	recoveryTimeout, _ := time.ParseDuration(cfg.CircuitBreaker.RecoveryTimeout)
+	middleware.InitTimeoutCircuitManager(
+		middleware.TimeoutConfig{
+			DefaultTimeout:   30 * time.Second,
+			FallbackResponse: map[string]interface{}{"error": "service_unavailable", "message": "服务暂时不可用"},
+		},
+		middleware.CircuitBreakerConfig{
+			FailureThreshold:      cfg.CircuitBreaker.FailureThreshold,
+			SuccessThreshold:      3,
+			OpenTimeout:           recoveryTimeout,
+			MaxConcurrentRequests: cfg.CircuitBreaker.MinRequests,
+		},
+		true,  // enableTimeout
+		cfg.CircuitBreaker.Enabled, // enableCircuitBreaker
+	)
+	{{- end}}
+
+	{{- if .HasJWT}}
+
+	// 初始化 JWT 鉴权（ling-base/common/jwtutil）
+	accessTTL, _ := time.ParseDuration(cfg.JWT.AccessTTL)
+	refreshTTL, _ := time.ParseDuration(cfg.JWT.RefreshTTL)
+	jwtAuth, err := auth.New(cfg.JWT, accessTTL, refreshTTL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "初始化 JWT 失败: %v\n", err)
+		os.Exit(1)
+	}
+	{{- end}}
+
 	app := bootstrap.New(info.Name, appOpts...)
 
 	// 注册 HTTP 服务器为生命周期组件
-	app.Register("http-server", &httpServerComponent{info: info, cfg: cfg})
+	app.Register("http-server", &httpServerComponent{
+		info:    info,
+		cfg:     cfg,
+		{{- if .HasJWT}}
+		jwtAuth: jwtAuth,
+		{{- end}}
+	})
 
 	// 启动（阻塞直到收到关闭信号）
 	if err := app.Run(); err != nil {
@@ -93,6 +140,9 @@ type httpServerComponent struct {
 	cfg     *config.Config
 	server  *http.Server
 	running bool
+	{{- if .HasJWT}}
+	jwtAuth *auth.Auth
+	{{- end}}
 }
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
@@ -109,7 +159,24 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		Version:   c.info.Version,
 		BuildTime: c.info.BuildTime,
 		GitCommit: c.info.GitCommit,
+		{{- if .HasJWT}}
+		JWTAuth:  c.jwtAuth,
+		{{- end}}
 	})
+
+	{{- if .HasAPIDocs}}
+	// 挂载 API 文档 UI（ling-base/apidocs）
+	// 生产环境通过 EnabledFunc 自动关闭文档 UI
+	docsEnabled := c.cfg.Docs.Enabled
+	apidocs.Mount(r, apidocs.Options{
+		Title:       c.info.Name + " API",
+		Version:     c.info.Version,
+		Description: "{{.ProjectName}} RESTful API 文档",
+		DocsPath:    c.cfg.Docs.Path,
+		DarkMode:    c.cfg.Docs.DarkMode,
+		EnabledFunc: func() bool { return docsEnabled },
+	})
+	{{- end}}
 
 	c.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", c.info.Port),

@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/stats/gin
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/stats v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/stats v0.3.0
 	github.com/LingByte/ling-base/common/stats/memory v0.1.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/stretchr/testify v1.12.0
@@ -47,7 +47,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/LingByte/ling-base/common/stats => ../
-	github.com/LingByte/ling-base/common/stats/memory => ../memory
-)

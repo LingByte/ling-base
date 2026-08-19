@@ -3,45 +3,45 @@ module github.com/LingByte/ling-base/example
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/bootstrap v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base v0.5.0
+	github.com/LingByte/ling-base/bootstrap v0.1.3
 	github.com/LingByte/ling-base/cache v0.1.0
-	github.com/LingByte/ling-base/cache/redis v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/circuitbreaker v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/cache/redis v0.1.0
+	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0
 	github.com/LingByte/ling-base/common v0.3.0
-	github.com/LingByte/ling-base/common/config v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/convert v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/config v0.1.1
+	github.com/LingByte/ling-base/common/convert v0.1.0
 	github.com/LingByte/ling-base/common/idgen v0.1.0
-	github.com/LingByte/ling-base/common/imageutil v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/qrcode v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/barcode v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/jwtutil v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/videoutil v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/lock v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/migration v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/migration/gormmigrator v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/metrics v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/opentelemetry v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/scheduler v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/tracing v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/imageutil v0.1.0
+	github.com/LingByte/ling-base/common/qrcode v0.1.0
+	github.com/LingByte/ling-base/common/barcode v0.1.0
+	github.com/LingByte/ling-base/common/jwtutil v0.2.0
+	github.com/LingByte/ling-base/common/videoutil v0.1.0
+	github.com/LingByte/ling-base/common/lock v0.1.0
+	github.com/LingByte/ling-base/common/migration v0.1.0
+	github.com/LingByte/ling-base/common/migration/gormmigrator v0.1.0
+	github.com/LingByte/ling-base/metrics v0.1.0
+	github.com/LingByte/ling-base/opentelemetry v0.1.0
+	github.com/LingByte/ling-base/scheduler v0.1.1
+	github.com/LingByte/ling-base/tracing v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.0
-	github.com/LingByte/ling-base/common/response/gin v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/validate v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/response/gin v0.1.1
+	github.com/LingByte/ling-base/common/validate v0.1.0
 	github.com/LingByte/ling-base/constants v0.1.0
 	github.com/LingByte/ling-base/eventbus v0.1.0
-	github.com/LingByte/ling-base/common/limiter v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/limiter/count v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/limiter/tokenbucket v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/notification v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/notification/email v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/notification/inbox v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/parser v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/pool v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/queue v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/queue/memory v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/common/retry v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/common/limiter v0.1.0
+	github.com/LingByte/ling-base/common/limiter/count v0.1.0
+	github.com/LingByte/ling-base/common/limiter/tokenbucket v0.1.0
+	github.com/LingByte/ling-base/notification v0.1.1
+	github.com/LingByte/ling-base/notification/email v0.1.0
+	github.com/LingByte/ling-base/notification/inbox v0.1.1
+	github.com/LingByte/ling-base/parser v0.1.0
+	github.com/LingByte/ling-base/common/pool v0.1.0
+	github.com/LingByte/ling-base/queue v0.1.0
+	github.com/LingByte/ling-base/queue/memory v0.1.0
+	github.com/LingByte/ling-base/common/retry v0.1.0
 	github.com/LingByte/ling-base/search v0.1.0
-	github.com/LingByte/ling-base/search/bleve v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/search/bleve v0.1.0
 	github.com/LingByte/ling-base/version v0.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.22.0
@@ -151,44 +151,3 @@ require (
 	modernc.org/sqlite v1.23.1 // indirect
 )
 
-replace (
-	github.com/LingByte/ling-base => ../
-	github.com/LingByte/ling-base/bootstrap => ../bootstrap
-	github.com/LingByte/ling-base/cache => ../cache
-	github.com/LingByte/ling-base/cache/redis => ../cache/redis
-	github.com/LingByte/ling-base/common/circuitbreaker => ../common/circuitbreaker
-	github.com/LingByte/ling-base/common/config => ../common/config
-	github.com/LingByte/ling-base/common/convert => ../common/convert
-	github.com/LingByte/ling-base/common/idgen => ../common/idgen
-	github.com/LingByte/ling-base/common/imageutil => ../common/imageutil
-	github.com/LingByte/ling-base/common/qrcode => ../common/qrcode
-	github.com/LingByte/ling-base/common/barcode => ../common/barcode
-	github.com/LingByte/ling-base/common/jwtutil => ../common/jwtutil
-	github.com/LingByte/ling-base/common/videoutil => ../common/videoutil
-	github.com/LingByte/ling-base/common/lock => ../common/lock
-	github.com/LingByte/ling-base/common/migration => ../common/migration
-	github.com/LingByte/ling-base/common/migration/gormmigrator => ../common/migration/gormmigrator
-	github.com/LingByte/ling-base/metrics => ../metrics
-	github.com/LingByte/ling-base/opentelemetry => ../opentelemetry
-	github.com/LingByte/ling-base/scheduler => ../scheduler
-	github.com/LingByte/ling-base/tracing => ../tracing
-	github.com/LingByte/ling-base/common/response => ../common/response
-	github.com/LingByte/ling-base/common/response/gin => ../common/response/gin
-	github.com/LingByte/ling-base/common/validate => ../common/validate
-	github.com/LingByte/ling-base/eventbus => ../eventbus
-	github.com/LingByte/ling-base/common/limiter => ../common/limiter
-	github.com/LingByte/ling-base/common/limiter/count => ../common/limiter/count
-	github.com/LingByte/ling-base/common/limiter/tokenbucket => ../common/limiter/tokenbucket
-	github.com/LingByte/ling-base/notification => ../notification
-	github.com/LingByte/ling-base/notification/email => ../notification/email
-	github.com/LingByte/ling-base/notification/inbox => ../notification/inbox
-	github.com/LingByte/ling-base/parser => ../parser
-	github.com/LingByte/ling-base/common/pool => ../common/pool
-	github.com/LingByte/ling-base/queue => ../queue
-	github.com/LingByte/ling-base/queue/memory => ../queue/memory
-	github.com/LingByte/ling-base/recognizer => ../recognizer
-	github.com/LingByte/ling-base/common/retry => ../common/retry
-	github.com/LingByte/ling-base/search => ../search
-	github.com/LingByte/ling-base/search/bleve => ../search/bleve
-	github.com/LingByte/ling-base/version => ../version
-)

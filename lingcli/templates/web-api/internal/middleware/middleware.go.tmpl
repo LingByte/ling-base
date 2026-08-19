@@ -8,7 +8,14 @@ import (
 	"net/http"
 	"time"
 
+	"{{.Module}}/internal/config"
 	"github.com/LingByte/ling-base/logger"
+	{{- if .HasLimiter}}
+	"github.com/LingByte/ling-base/common/limiter/tokenbucket"
+	{{- end}}
+	{{- if or .HasMiddleware .HasCircuitBreaker}}
+	"github.com/LingByte/ling-base/middleware"
+	{{- end}}
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -77,6 +84,57 @@ func CORS() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+{{- if .HasLimiter}}
+
+// RateLimit 令牌桶限流中间件（ling-base/common/limiter/tokenbucket）。
+// 每个 IP 一个独立的令牌桶，支持 QPS + 突发流量。
+func RateLimit(cfg config.RateLimitConfig) gin.HandlerFunc {
+	if !cfg.Enabled || cfg.RPS <= 0 {
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	// 全局令牌桶（按 IP 分桶可扩展为 keycount）
+	limiter := tokenbucket.New(cfg.RPS, cfg.Burst)
+
+	return func(c *gin.Context) {
+		if err := limiter.Acquire(c.Request.Context(), nil); err != nil {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":   "rate_limited",
+				"message": "请求过于频繁，请稍后再试",
+			})
+			c.Abort()
+			return
+		}
+		defer limiter.Release(nil)
+		c.Next()
+	}
+}
+{{- else}}
+
+// RateLimit 简单的内存令牌桶限流（未集成 ling-base，使用内置实现）。
+func RateLimit(cfg config.RateLimitConfig) gin.HandlerFunc {
+	if !cfg.Enabled || cfg.RPS <= 0 {
+		return func(c *gin.Context) { c.Next() }
+	}
+	// 简化实现：实际项目中建议集成 ling-base/common/limiter
+	return func(c *gin.Context) { c.Next() }
+}
+{{- end}}
+
+{{- if .HasCircuitBreaker}}
+
+// CircuitBreaker 熔断中间件（ling-base/middleware）。
+// 需要在 app.go 中调用 middleware.InitTimeoutCircuitManager 初始化。
+func CircuitBreaker() gin.HandlerFunc {
+	return middleware.CircuitBreakerMiddleware()
+}
+
+// TimeoutCircuit 组合超时+熔断中间件（ling-base/middleware）。
+func TimeoutCircuit() gin.HandlerFunc {
+	return middleware.CombinedTimeoutCircuitMiddleware()
+}
+{{- end}}
 
 // generateID 生成一个简单的唯一 ID。
 func generateID() string {

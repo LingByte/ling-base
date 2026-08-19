@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/mq/activemq
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/mq v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/mq v0.1.0
 	github.com/go-stomp/stomp/v3 v3.1.5
 	github.com/stretchr/testify v1.11.1
 )
@@ -16,4 +16,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/LingByte/ling-base/mq => ../

@@ -3,8 +3,8 @@ module github.com/LingByte/ling-base/opentelemetry
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/metrics v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/tracing v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/metrics v0.1.0
+	github.com/LingByte/ling-base/tracing v0.1.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.16.0
@@ -49,7 +49,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace (
-	github.com/LingByte/ling-base/metrics => ../metrics
-	github.com/LingByte/ling-base/tracing => ../tracing
-)

@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/mq/rocketmq
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/mq v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/mq v0.1.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/stretchr/testify v1.11.1
 )
@@ -33,4 +33,3 @@ require (
 	stathat.com/c/consistent v1.0.0 // indirect
 )
 
-replace github.com/LingByte/ling-base/mq => ../

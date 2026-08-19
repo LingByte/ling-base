@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/notification/webhook
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/notification v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/notification v0.1.1
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -14,4 +14,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/LingByte/ling-base/notification => ../

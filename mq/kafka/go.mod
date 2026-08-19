@@ -2,10 +2,9 @@ module github.com/LingByte/ling-base/mq/kafka
 
 go 1.26.2
 
-replace github.com/LingByte/ling-base/mq => ../
 
 require (
-	github.com/LingByte/ling-base/mq v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/mq v0.1.0
 	github.com/segmentio/kafka-go v0.4.50
 	github.com/stretchr/testify v1.11.1
 )

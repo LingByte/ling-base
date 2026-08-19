@@ -28,6 +28,13 @@ type TemplateData struct {
 	Features    []string
 	Structure   string
 	Modules     []string // 选中的 ling-base 模块 ID
+
+	// 条件渲染标志（根据 Modules 计算）
+	HasAPIDocs        bool
+	HasLimiter        bool
+	HasCircuitBreaker bool
+	HasMiddleware     bool
+	HasJWT            bool
 }
 
 // RenderTemplate 渲染单个 .tmpl 文件，返回输出路径和内容。
@@ -120,6 +127,11 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		Features:    getFeatures(templateID),
 		Structure:   getStructureTree(templateID, spec.ProjectName()),
 		Modules:     spec.Modules,
+		HasAPIDocs:        spec.HasModule("apidocs"),
+		HasLimiter:        spec.HasModule("limiter"),
+		HasCircuitBreaker: spec.HasModule("circuitbreaker"),
+		HasMiddleware:     spec.HasModule("middleware"),
+		HasJWT:            spec.HasModule("jwt"),
 	}
 
 	var files []FileEntry

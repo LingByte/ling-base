@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/notification/inbox
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/notification v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/notification v0.1.1
 	github.com/glebarez/sqlite v1.11.0
 	github.com/stretchr/testify v1.11.1
 	gorm.io/gorm v1.31.2
@@ -29,4 +29,3 @@ require (
 	modernc.org/sqlite v1.23.1 // indirect
 )
 
-replace github.com/LingByte/ling-base/notification => ../

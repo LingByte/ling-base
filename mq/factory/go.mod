@@ -3,12 +3,12 @@ module github.com/LingByte/ling-base/mq/factory
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/mq v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/mq/activemq v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/mq/kafka v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/mq/rabbitmq v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/mq/redisstream v0.0.0-00010101000000-000000000000
-	github.com/LingByte/ling-base/mq/rocketmq v0.0.0-00010101000000-000000000000
+	github.com/LingByte/ling-base/mq v0.1.0
+	github.com/LingByte/ling-base/mq/activemq v0.1.0
+	github.com/LingByte/ling-base/mq/kafka v0.1.0
+	github.com/LingByte/ling-base/mq/rabbitmq v0.1.0
+	github.com/LingByte/ling-base/mq/redisstream v0.1.0
+	github.com/LingByte/ling-base/mq/rocketmq v0.1.0
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -42,11 +42,3 @@ require (
 	stathat.com/c/consistent v1.0.0 // indirect
 )
 
-replace (
-	github.com/LingByte/ling-base/mq => ../
-	github.com/LingByte/ling-base/mq/activemq => ../activemq
-	github.com/LingByte/ling-base/mq/kafka => ../kafka
-	github.com/LingByte/ling-base/mq/rabbitmq => ../rabbitmq
-	github.com/LingByte/ling-base/mq/redisstream => ../redisstream
-	github.com/LingByte/ling-base/mq/rocketmq => ../rocketmq
-)
