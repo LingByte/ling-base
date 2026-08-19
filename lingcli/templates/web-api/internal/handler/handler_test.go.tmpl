@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"{{.Module}}/internal/config"
-
+	{{- if .HasAPIDocs}}
+	"github.com/LingByte/ling-base/apidocs"
+	{{- end}}
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,10 +24,12 @@ func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	cfg := config.Default()
 	r := gin.New()
-	RegisterRoutes(r, cfg, AppInfo{
-		Name:    "test",
-		Version: "0.0.0-test",
-	})
+	{{- if .HasAPIDocs}}
+	api := apidocs.Mount(r, apidocs.Options{Title: "test", Version: "0.0.0-test"})
+	RegisterRoutes(api, cfg, AppInfo{Name: "test", Version: "0.0.0-test"})
+	{{- else}}
+	RegisterRoutes(r, cfg, AppInfo{Name: "test", Version: "0.0.0-test"})
+	{{- end}}
 	return r
 }
 
@@ -114,9 +118,16 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
+	// Huma returns 422 for validation errors
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for invalid email, got %d", w.Code)
+	}
+	{{- else}}
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid email, got %d", w.Code)
 	}
+	{{- end}}
 }
 
 func TestCreateUser_MissingName(t *testing.T) {
@@ -128,9 +139,16 @@ func TestCreateUser_MissingName(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
+	// Huma returns 422 for validation errors
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for missing name, got %d", w.Code)
+	}
+	{{- else}}
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for missing name, got %d", w.Code)
 	}
+	{{- end}}
 }
 
 func TestCreateUser_Valid(t *testing.T) {
@@ -154,9 +172,16 @@ func TestGetUser_InvalidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/abc", nil)
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
+	// Huma returns 422 for invalid path param type
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for invalid id, got %d", w.Code)
+	}
+	{{- else}}
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid id, got %d", w.Code)
 	}
+	{{- end}}
 }
 
 {{- if .HasJWT}}
@@ -186,6 +211,39 @@ func TestRefresh_JWTDisabled(t *testing.T) {
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
+	}
+}
+{{- end}}
+
+{{- if .HasAPIDocs}}
+
+func TestOpenAPIContainsRoutes(t *testing.T) {
+	r := newTestRouter(t)
+
+	// OpenAPI spec should contain all registered routes
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var spec map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	paths, ok := spec["paths"].(map[string]interface{})
+	if !ok {
+		t.Fatal("no paths in OpenAPI spec")
+	}
+
+	expectedPaths := []string{"/health", "/live", "/ready", "/api/v1/version", "/api/v1/users", "/api/v1/users/{id}"}
+	for _, p := range expectedPaths {
+		if _, ok := paths[p]; !ok {
+			t.Errorf("OpenAPI spec missing path: %s", p)
+		}
 	}
 }
 {{- end}}

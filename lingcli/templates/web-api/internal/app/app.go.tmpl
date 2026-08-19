@@ -11,6 +11,7 @@ import (
 
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/handler"
+	localmw "{{.Module}}/internal/middleware"
 	"{{.Module}}/internal/model"
 	"{{.Module}}/internal/repository"
 	"{{.Module}}/internal/service"
@@ -161,8 +162,25 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 
 	r := gin.New()
 
-	// 注册路由和中间件
-	h := handler.RegisterRoutes(r, c.cfg, handler.AppInfo{
+	// 全局中间件（必须在 apidocs.Mount 之前注册）
+	r.Use(localmw.RequestID())
+	r.Use(localmw.Logging())
+	r.Use(localmw.Recover())
+	r.Use(localmw.CORS())
+	{{- if .HasLimiter}}
+	r.Use(localmw.RateLimit(c.cfg.RateLimit))
+	{{- end}}
+	{{- if .HasCircuitBreaker}}
+	r.Use(localmw.CircuitBreaker())
+	{{- end}}
+	{{- if .HasJWT}}
+	// JWT 鉴权中间件（公开路径自动跳过）
+	if c.jwtAuth != nil && c.jwtAuth.Enabled() {
+		r.Use(c.jwtAuth.GinMiddleware())
+	}
+	{{- end}}
+
+	appInfo := handler.AppInfo{
 		Name:      c.info.Name,
 		Version:   c.info.Version,
 		BuildTime: c.info.BuildTime,
@@ -170,18 +188,12 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		{{- if .HasJWT}}
 		JWTAuth:  c.jwtAuth,
 		{{- end}}
-	})
-
-	// 注入用户服务（如果有数据库连接）
-	if c.userSvc != nil {
-		h.SetUserService(c.userSvc)
 	}
 
 	{{- if .HasAPIDocs}}
-	// 挂载 API 文档 UI（ling-base/apidocs）
-	// 生产环境通过 EnabledFunc 自动关闭文档 UI
+	// 先挂载 apidocs，拿到 huma.API（用于注册带 OpenAPI 文档的路由）
 	docsEnabled := c.cfg.Docs.Enabled
-	apidocs.Mount(r, apidocs.Options{
+	api := apidocs.Mount(r, apidocs.Options{
 		Title:       c.info.Name + " API",
 		Version:     c.info.Version,
 		Description: "{{.ProjectName}} RESTful API 文档",
@@ -189,7 +201,18 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		DarkMode:    c.cfg.Docs.DarkMode,
 		EnabledFunc: func() bool { return docsEnabled },
 	})
+
+	// 通过 Huma 注册路由（同时出现在 Gin 路由表和 OpenAPI spec 中）
+	h := handler.RegisterRoutes(api, c.cfg, appInfo)
+	{{- else}}
+	// 通过 Gin 注册路由
+	h := handler.RegisterRoutes(r, c.cfg, appInfo)
 	{{- end}}
+
+	// 注入用户服务（如果有数据库连接）
+	if c.userSvc != nil {
+		h.SetUserService(c.userSvc)
+	}
 
 	c.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", c.info.Port),
