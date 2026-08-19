@@ -5,6 +5,7 @@ package apidocs
 
 import (
 	_ "embed"
+	"encoding/json"
 	"html"
 	"net/http"
 	"strings"
@@ -154,7 +155,8 @@ func darkModeAttr(dark bool) string {
 
 func (u *uiRenderer) scalarHTML(ref, title string) string {
 	cfg := u.scalarConfig()
-	cfgJSON := jsonMarshalString(cfg)
+	cfgBytes, _ := json.Marshal(cfg)
+	cfgJSON := string(cfgBytes)
 	return `    <script id="api-reference" data-url="` + ref + `" data-configuration="` + html.EscapeString(cfgJSON) + `"></script>
     <script src="https://unpkg.com/@scalar/api-reference@1.44.20/dist/browser/standalone.js"
       crossorigin></script>`
@@ -242,5 +244,3 @@ func (u *uiRenderer) stoplightHTML(ref, title string) string {
     <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements@8.3.0/styles.min.css" />
     <script src="https://unpkg.com/@stoplight/elements@8.3.0/web-components.min.js"></script>`
 }
-
-// jsonString is in helpers.go.
