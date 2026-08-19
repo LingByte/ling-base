@@ -102,7 +102,7 @@ func AuthRateLimiter(perWindow int, window time.Duration, burst int) gin.Handler
 			c.Header("Retry-After", itoa(retryAfter))
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"code": http.StatusTooManyRequests,
-				"msg":  "请求过于频繁，请稍后再试",
+				"msg":  "Too many requests; please try again later",
 			})
 			return
 		}
