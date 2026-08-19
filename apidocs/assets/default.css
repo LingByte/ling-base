@@ -108,7 +108,7 @@
 
 .apidocs-main {
   height: calc(100vh - var(--apidocs-topbar-h));
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Scalar fills .apidocs-main automatically */

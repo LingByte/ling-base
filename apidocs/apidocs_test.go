@@ -354,7 +354,7 @@ func TestMount_DefaultLogo(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/docs/assets/logo", nil)
 	r.ServeHTTP(w, req)
-	if w.Header().Get("Content-Type") != "image/svg+xml" {
+	if w.Header().Get("Content-Type") != "image/png" {
 		t.Fatalf("default logo content-type=%s", w.Header().Get("Content-Type"))
 	}
 }

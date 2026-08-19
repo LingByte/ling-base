@@ -23,6 +23,9 @@ var defaultCSS string
 //go:embed assets/logo.svg
 var defaultLogoSVG []byte
 
+//go:embed assets/logo.png
+var defaultLogoPNG []byte
+
 // ──────────────────────────────────────────────
 // CDN asset URLs
 // ──────────────────────────────────────────────
@@ -145,8 +148,8 @@ func newUIRenderer(opts Options) *uiRenderer {
 	logo := opts.Logo
 	logoCT := opts.LogoContentType
 	if logo == nil {
-		logo = defaultLogoSVG
-		logoCT = "image/svg+xml"
+		logo = defaultLogoPNG
+		logoCT = "image/png"
 	}
 
 	docsPath := strings.TrimSuffix(opts.DocsPath, "/")
