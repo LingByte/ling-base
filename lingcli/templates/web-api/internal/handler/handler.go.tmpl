@@ -137,6 +137,11 @@ func (h *Handler) CreateUser(c *gin.Context) {
 
 // Login 用户登录，签发 JWT token 对。
 func (h *Handler) Login(c *gin.Context) {
+	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "JWT 鉴权未启用"})
+		return
+	}
+
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
@@ -170,6 +175,11 @@ func (h *Handler) Login(c *gin.Context) {
 
 // Refresh 刷新 access token。
 func (h *Handler) Refresh(c *gin.Context) {
+	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "JWT 鉴权未启用"})
+		return
+	}
+
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}

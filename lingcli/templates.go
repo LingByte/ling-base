@@ -117,16 +117,16 @@ func generateWorker(spec *ProjectSpec) []FileEntry {
 // 同时自动包含 shared/ 下的公共文件（.gitignore, Makefile, Dockerfile, README.md）。
 func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 	data := &TemplateData{
-		Module:      spec.Module,
-		ProjectName: spec.ProjectName(),
-		PackageName: spec.PackageName(),
-		Author:      spec.Author,
-		Year:        time.Now().Year(),
-		Port:        spec.Port,
-		Description: getTemplateDescription(templateID),
-		Features:    getFeatures(templateID),
-		Structure:   getStructureTree(templateID, spec.ProjectName()),
-		Modules:     spec.Modules,
+		Module:            spec.Module,
+		ProjectName:       spec.ProjectName(),
+		PackageName:       spec.PackageName(),
+		Author:            spec.Author,
+		Year:              time.Now().Year(),
+		Port:              spec.Port,
+		Description:       getTemplateDescription(templateID),
+		Features:          getFeatures(templateID),
+		Structure:         getStructureTree(templateID, spec.ProjectName()),
+		Modules:           spec.Modules,
 		HasAPIDocs:        spec.HasModule("apidocs"),
 		HasLimiter:        spec.HasModule("limiter"),
 		HasCircuitBreaker: spec.HasModule("circuitbreaker"),
@@ -147,6 +147,10 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		outPath, content, err := RenderTemplate(tmplFile, data)
 		if err != nil {
 			fmt.Fprintf(stderr(), "警告: 渲染 %s 失败: %v\n", tmplFile, err)
+			continue
+		}
+		// 如果渲染后内容为空（条件模板未满足），跳过此文件
+		if strings.TrimSpace(content) == "" {
 			continue
 		}
 		// 去掉模板 ID 前缀（如 "web-api/cmd/server/main.go" → "cmd/server/main.go"）

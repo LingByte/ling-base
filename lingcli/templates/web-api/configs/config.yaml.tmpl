@@ -38,7 +38,7 @@ rateLimit:
 # 熔断器（ling-base/common/circuitbreaker）
 circuitBreaker:
   enabled: false
-  failureThreshold: 0.5   # 50% 失败率触发熔断
+  failureThreshold: 5     # 失败次数阈值
   minRequests: 10         # 最少请求数才开始评估
   recoveryTimeout: 30s    # 熔断后恢复探测时间
 

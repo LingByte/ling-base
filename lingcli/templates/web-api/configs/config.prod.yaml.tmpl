@@ -30,7 +30,7 @@ rateLimit:
 # 生产环境开启熔断
 circuitBreaker:
   enabled: true
-  failureThreshold: 0.5
+  failureThreshold: 5
   minRequests: 20
   recoveryTimeout: 30s
 

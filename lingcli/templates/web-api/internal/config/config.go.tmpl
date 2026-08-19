@@ -65,10 +65,10 @@ type RateLimitConfig struct {
 }
 
 type CircuitBreakerConfig struct {
-	Enabled          bool    `yaml:"enabled"`
-	FailureThreshold float64 `yaml:"failureThreshold"`
-	MinRequests      int     `yaml:"minRequests"`
-	RecoveryTimeout  string  `yaml:"recoveryTimeout"`
+	Enabled          bool   `yaml:"enabled"`
+	FailureThreshold int    `yaml:"failureThreshold"`
+	MinRequests      int    `yaml:"minRequests"`
+	RecoveryTimeout  string `yaml:"recoveryTimeout"`
 }
 
 type DocsConfig struct {
@@ -128,7 +128,7 @@ func Default() *Config {
 		},
 		CircuitBreaker: CircuitBreakerConfig{
 			Enabled:          false,
-			FailureThreshold: 0.5,
+			FailureThreshold: 5,
 			MinRequests:      10,
 			RecoveryTimeout:  "30s",
 		},
