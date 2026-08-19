@@ -29,10 +29,35 @@ logging:
   daily: true             # 按天轮转
   sensitiveFields: ""     # 脱敏字段（逗号分隔）
 
+# 限流（ling-base/common/limiter）
 rateLimit:
   enabled: false
   rps: 100
   burst: 200
+
+# 熔断器（ling-base/common/circuitbreaker）
+circuitBreaker:
+  enabled: false
+  failureThreshold: 0.5   # 50% 失败率触发熔断
+  minRequests: 10         # 最少请求数才开始评估
+  recoveryTimeout: 30s    # 熔断后恢复探测时间
+
+# API 文档（ling-base/apidocs）
+docs:
+  enabled: true           # 生产环境可设为 false
+  path: /docs
+  theme: scalar           # scalar | swagger | redoc | stoplight
+  darkMode: false
+  cdnMode: public         # public | selfhosted | custom
+  cdnBaseUrl: ""          # selfhosted 模式下的资源基址
+
+# JWT 鉴权（ling-base/common/jwtutil）
+jwt:
+  enabled: false
+  secret: "change-me-in-production-32bytes!"
+  issuer: {{.ProjectName}}
+  accessTTL: 15m
+  refreshTTL: 168h        # 7 天
 
 app:
   name: {{.ProjectName}}

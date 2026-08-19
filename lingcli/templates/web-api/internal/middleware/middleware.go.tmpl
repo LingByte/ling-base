@@ -3,121 +3,98 @@
 package middleware
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"log/slog"
 	"net/http"
-	"runtime/debug"
-	"sync"
 	"time"
 
-	"{{.Module}}/internal/config"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-type contextKey string
-
-const RequestIDKey contextKey = "requestID"
-
 // RequestID 为每个请求生成唯一 ID。
-func RequestID(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := r.Header.Get("X-Request-ID")
+func RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		reqID := c.GetHeader("X-Request-ID")
 		if reqID == "" {
-			b := make([]byte, 8)
-			_, _ = rand.Read(b)
-			reqID = hex.EncodeToString(b)
+			reqID = generateID()
 		}
-		w.Header().Set("X-Request-ID", reqID)
-		ctx := context.WithValue(r.Context(), RequestIDKey, reqID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+		c.Header("X-Request-ID", reqID)
+		c.Set("requestID", reqID)
+		c.Next()
+	}
 }
 
 // Logging 请求日志。
-func Logging(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func Logging() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		start := time.Now()
-		wrapped := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(wrapped, r)
-		reqID, _ := r.Context().Value(RequestIDKey).(string)
-		slog.Info("HTTP 请求",
-			"requestID", reqID,
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", wrapped.status,
-			"duration", time.Since(start).String(),
-			"ip", r.RemoteAddr,
-		)
-	})
+		c.Next()
+		reqID, _ := c.Get("requestID")
+		if logger.Lg != nil {
+			logger.Lg.Info("HTTP 请求",
+				zap.Any("requestID", reqID),
+				zap.String("method", c.Request.Method),
+				zap.String("path", c.Request.URL.Path),
+				zap.Int("status", c.Writer.Status()),
+				zap.Duration("duration", time.Since(start)),
+				zap.String("ip", c.ClientIP()),
+			)
+		}
+	}
 }
 
 // Recover panic 恢复。
-func Recover(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func Recover() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("panic recovered", "error", rec, "stack", string(debug.Stack()))
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				if logger.Lg != nil {
+					logger.Lg.Error("panic recovered",
+						zap.Any("error", rec),
+						zap.String("path", c.Request.URL.Path),
+					)
+				}
+				c.AbortWithStatus(http.StatusInternalServerError)
 			}
 		}()
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
 }
 
 // CORS 跨域。
-func CORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+func CORS() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+		c.Header("Access-Control-Max-Age", "86400")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// RateLimit 简单的内存令牌桶限流。
-func RateLimit(cfg config.RateLimitConfig) func(http.Handler) http.Handler {
-	if !cfg.Enabled || cfg.RPS <= 0 {
-		return func(next http.Handler) http.Handler { return next }
-	}
-
-	var mu sync.Mutex
-	tokens := cfg.Burst
-	lastRefill := time.Now()
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			mu.Lock()
-			now := time.Now()
-			elapsed := now.Sub(lastRefill).Seconds()
-			tokens += int(elapsed * float64(cfg.RPS))
-			if tokens > cfg.Burst {
-				tokens = cfg.Burst
-			}
-			lastRefill = now
-			if tokens <= 0 {
-				mu.Unlock()
-				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-				return
-			}
-			tokens--
-			mu.Unlock()
-			next.ServeHTTP(w, r)
-		})
+		c.Next()
 	}
 }
 
-type statusWriter struct {
-	http.ResponseWriter
-	status int
+// generateID 生成一个简单的唯一 ID。
+func generateID() string {
+	return time.Now().Format("20060102150405.000000") + randomHex(4)
 }
 
-func (w *statusWriter) WriteHeader(status int) {
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
+func randomHex(n int) string {
+	// 简化实现，实际项目中可用 common/idgen
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(time.Now().UnixNano() >> uint(i*8))
+	}
+	return hexEncode(b)
+}
+
+func hexEncode(b []byte) string {
+	const hexChars = "0123456789abcdef"
+	s := make([]byte, len(b)*2)
+	for i, v := range b {
+		s[i*2] = hexChars[v>>4]
+		s[i*2+1] = hexChars[v&0xf]
+	}
+	return string(s)
 }

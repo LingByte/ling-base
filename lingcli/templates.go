@@ -27,6 +27,7 @@ type TemplateData struct {
 	Description string
 	Features    []string
 	Structure   string
+	Modules     []string // 选中的 ling-base 模块 ID
 }
 
 // RenderTemplate 渲染单个 .tmpl 文件，返回输出路径和内容。
@@ -118,6 +119,7 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		Description: getTemplateDescription(templateID),
 		Features:    getFeatures(templateID),
 		Structure:   getStructureTree(templateID, spec.ProjectName()),
+		Modules:     spec.Modules,
 	}
 
 	var files []FileEntry
@@ -191,14 +193,17 @@ func getFeatures(id string) []string {
 	switch id {
 	case "web-api":
 		return []string{
-			"HTTP REST API 路由 (net/http)",
-			"中间件链 (RequestID / 日志 / 恢复 / CORS / 限流)",
+			"HTTP REST API 路由 (Gin)",
+			"中间件链 (RequestID / 日志 / 恢复 / CORS)",
 			"配置文件管理 (YAML，多环境)",
 			"数据库支持 (MySQL / PostgreSQL / SQLite，GORM)",
 			"优雅关闭 (Graceful Shutdown)",
 			"健康检查接口 (/health)",
 			"Bootstrap 启动框架 (Banner / 生命周期 / 事件)",
-			"结构化日志 (slog)",
+			"结构化日志 (zap + lumberjack 轮转)",
+			"API 文档集成 (apidocs / Huma / OpenAPI 3.1)",
+			"限流 + 熔断配置 (ling-base limiter / circuitbreaker)",
+			"JWT 鉴权配置 (ling-base jwtutil)",
 			"Docker 容器化部署 (多阶段构建)",
 			"Docker Compose 编排 (App + MySQL + Redis)",
 		}

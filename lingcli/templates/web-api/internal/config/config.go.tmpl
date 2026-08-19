@@ -16,12 +16,15 @@ import (
 
 // Config 持有应用的所有配置。
 type Config struct {
-	Server    ServerConfig    `yaml:"server"`
-	Database  DatabaseConfig  `yaml:"database"`
-	Redis     RedisConfig     `yaml:"redis"`
-	Logging   LoggingConfig   `yaml:"logging"`
-	RateLimit RateLimitConfig `yaml:"rateLimit"`
-	App       AppConfig       `yaml:"app"`
+	Server         ServerConfig         `yaml:"server"`
+	Database       DatabaseConfig       `yaml:"database"`
+	Redis          RedisConfig          `yaml:"redis"`
+	Logging        LoggingConfig        `yaml:"logging"`
+	RateLimit      RateLimitConfig      `yaml:"rateLimit"`
+	CircuitBreaker CircuitBreakerConfig `yaml:"circuitBreaker"`
+	Docs           DocsConfig           `yaml:"docs"`
+	JWT            JWTConfig            `yaml:"jwt"`
+	App            AppConfig            `yaml:"app"`
 }
 
 type ServerConfig struct {
@@ -61,6 +64,30 @@ type RateLimitConfig struct {
 	Burst   int  `yaml:"burst"`
 }
 
+type CircuitBreakerConfig struct {
+	Enabled          bool    `yaml:"enabled"`
+	FailureThreshold float64 `yaml:"failureThreshold"`
+	MinRequests      int     `yaml:"minRequests"`
+	RecoveryTimeout  string  `yaml:"recoveryTimeout"`
+}
+
+type DocsConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Path       string `yaml:"path"`
+	Theme      string `yaml:"theme"`      // scalar, swagger, redoc, stoplight
+	DarkMode   bool   `yaml:"darkMode"`
+	CDNMode    string `yaml:"cdnMode"`    // public, selfhosted, custom
+	CDNBaseURL string `yaml:"cdnBaseUrl"` // selfhosted 模式的基址
+}
+
+type JWTConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Secret     string `yaml:"secret"`
+	Issuer     string `yaml:"issuer"`
+	AccessTTL  string `yaml:"accessTTL"`
+	RefreshTTL string `yaml:"refreshTTL"`
+}
+
 type AppConfig struct {
 	Name        string `yaml:"name"`
 	Environment string `yaml:"environment"` // dev, test, staging, prod
@@ -87,17 +114,37 @@ func Default() *Config {
 			DB:   0,
 		},
 		Logging: LoggingConfig{
-			Level:    "info",
-			Filename: "logs/app.log",
-			MaxSize:  100,
-			MaxAge:   30,
+			Level:      "info",
+			Filename:   "logs/app.log",
+			MaxSize:    100,
+			MaxAge:     30,
 			MaxBackups: 10,
-			Daily:    true,
+			Daily:      true,
 		},
 		RateLimit: RateLimitConfig{
 			Enabled: false,
 			RPS:     100,
 			Burst:   200,
+		},
+		CircuitBreaker: CircuitBreakerConfig{
+			Enabled:          false,
+			FailureThreshold: 0.5,
+			MinRequests:      10,
+			RecoveryTimeout:  "30s",
+		},
+		Docs: DocsConfig{
+			Enabled:  true,
+			Path:     "/docs",
+			Theme:    "scalar",
+			DarkMode: false,
+			CDNMode:  "public",
+		},
+		JWT: JWTConfig{
+			Enabled:    false,
+			Secret:     "change-me-in-production-32bytes!",
+			Issuer:     "{{.ProjectName}}",
+			AccessTTL:  "15m",
+			RefreshTTL: "168h",
 		},
 		App: AppConfig{
 			Name:        "{{.ProjectName}}",

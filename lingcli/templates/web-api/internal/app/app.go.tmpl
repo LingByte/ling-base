@@ -11,12 +11,12 @@ import (
 
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/handler"
-	"{{.Module}}/internal/middleware"
 	"{{.Module}}/internal/model"
 
 	"github.com/LingByte/ling-base/bootstrap"
 	"github.com/LingByte/ling-base/constants"
 	"github.com/LingByte/ling-base/logger"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
@@ -95,30 +95,24 @@ type httpServerComponent struct {
 }
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
-	mux := http.NewServeMux()
+	// 生产环境用 Release 模式
+	if c.cfg.App.Environment == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
-	// 中间件链
-	var h http.Handler = mux
-	h = middleware.RequestID(h)
-	h = middleware.Logging(h)
-	h = middleware.Recover(h)
-	h = middleware.CORS(h)
-	h = middleware.RateLimit(c.cfg.RateLimit)(h)
+	r := gin.New()
 
-	// 注册路由
-	apiHandler := handler.New(c.cfg)
-	mux.HandleFunc("/health", apiHandler.Health)
-	mux.HandleFunc("/api/v1/users", apiHandler.Users)
-	mux.HandleFunc("/api/v1/version", apiHandler.Version(handler.AppInfo{
+	// 注册路由和中间件
+	handler.RegisterRoutes(r, c.cfg, handler.AppInfo{
 		Name:      c.info.Name,
 		Version:   c.info.Version,
 		BuildTime: c.info.BuildTime,
 		GitCommit: c.info.GitCommit,
-	}))
+	})
 
 	c.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", c.info.Port),
-		Handler:      h,
+		Handler:      r,
 		ReadTimeout:  c.cfg.Server.ReadTimeout,
 		WriteTimeout: c.cfg.Server.WriteTimeout,
 		IdleTimeout:  c.cfg.Server.IdleTimeout,

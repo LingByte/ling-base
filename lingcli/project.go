@@ -11,13 +11,14 @@ import (
 
 // ProjectSpec 持有新项目的完整规格。
 type ProjectSpec struct {
-	Name     string // 项目名称 / 目录名
-	Module   string // Go module 路径 (如 github.com/me/myapp)
-	Template string // 项目模板 ID
-	Author   string // 作者
-	Port     int    // 服务端口 (web-api / grpc-service)
-	Docker   bool   // 是否生成 Docker 部署文件
-	Git      bool   // 是否初始化 git
+	Name     string   // 项目名称 / 目录名
+	Module   string   // Go module 路径 (如 github.com/me/myapp)
+	Template string   // 项目模板 ID
+	Author   string   // 作者
+	Port     int      // 服务端口 (web-api / grpc-service)
+	Docker   bool     // 是否生成 Docker 部署文件
+	Git      bool     // 是否初始化 git
+	Modules  []string // 要集成的 ling-base 模块 ID 列表
 }
 
 // FillDefaults 填充未设置的字段。
@@ -118,6 +119,15 @@ func (s *ProjectSpec) Summary() string {
 	}
 	sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mDocker:\x1b[0m      %s\n", boolYesNo(s.Docker)))
 	sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mGit 初始化:\x1b[0m  %s\n", boolYesNo(s.Git)))
+	if len(s.Modules) > 0 {
+		var moduleNames []string
+		for _, id := range s.Modules {
+			if m := findLingBaseModule(id); m != nil {
+				moduleNames = append(moduleNames, m.Name)
+			}
+		}
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m集成模块:\x1b[0m    %s\n", strings.Join(moduleNames, ", ")))
+	}
 	sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m目标目录:\x1b[0m    %s\n", s.TargetDir()))
 	return sb.String()
 }
@@ -201,4 +211,59 @@ func findTemplate(id string) *ProjectTemplate {
 // joinPath 连接路径片段。
 func joinPath(parts ...string) string {
 	return filepath.Join(parts...)
+}
+
+// ──────────────────────────────────────────────
+// ling-base 模块注册表
+// ──────────────────────────────────────────────
+
+// LingBaseModule 描述一个可集成到生成项目中的 ling-base 模块。
+type LingBaseModule struct {
+	ID          string // 唯一标识
+	Name        string // 显示名称
+	Description string // 简短说明
+	ImportPath  string // Go import 路径
+}
+
+// LingBaseModules 是可选的 ling-base 模块列表。
+var LingBaseModules = []LingBaseModule{
+	{ID: "apidocs", Name: "API 文档", Description: "Huma + OpenAPI 3.1 文档 UI（Scalar/Swagger/Redoc）", ImportPath: "github.com/LingByte/ling-base/apidocs"},
+	{ID: "limiter", Name: "限流", Description: "令牌桶 / 并发数 / 按 key 限流（内存/Redis）", ImportPath: "github.com/LingByte/ling-base/common/limiter"},
+	{ID: "circuitbreaker", Name: "熔断器", Description: "滑动窗口熔断器（Closed/Open/Half-Open）", ImportPath: "github.com/LingByte/ling-base/common/circuitbreaker"},
+	{ID: "middleware", Name: "Gin 中间件", Description: "超时 + 熔断 + 恢复 + CORS 等中间件", ImportPath: "github.com/LingByte/ling-base/middleware"},
+	{ID: "jwt", Name: "JWT 鉴权", Description: "Access/Refresh token + 黑名单 + 中间件", ImportPath: "github.com/LingByte/ling-base/common/jwtutil"},
+	{ID: "cache", Name: "缓存", Description: "统一缓存接口（Redis/Memcache/FreeCache/Ristretto）", ImportPath: "github.com/LingByte/ling-base/cache"},
+	{ID: "lock", Name: "分布式锁", Description: "Redis/MySQL/PostgreSQL/Etcd/Zookeeper 锁", ImportPath: "github.com/LingByte/ling-base/common/lock"},
+	{ID: "retry", Name: "重试", Description: "指数退避/固定间隔重试 + 熔断组合", ImportPath: "github.com/LingByte/ling-base/common/retry"},
+	{ID: "scheduler", Name: "分布式定时任务", Description: "分布式锁 + 任务分发（区别于 cron）", ImportPath: "github.com/LingByte/ling-base/scheduler"},
+	{ID: "eventbus", Name: "事件总线", Description: "进程内事件发布/订阅 + 通配符匹配", ImportPath: "github.com/LingByte/ling-base/eventbus"},
+	{ID: "i18n", Name: "国际化", Description: "多语言翻译（Gin 中间件 + MyMemory）", ImportPath: "github.com/LingByte/ling-base/i18n"},
+	{ID: "notification", Name: "通知", Description: "Email/SMS/Push/Webhook/IM 多渠道通知", ImportPath: "github.com/LingByte/ling-base/notification"},
+	{ID: "mq", Name: "消息队列", Description: "Kafka/RabbitMQ/Redis Stream/RocketMQ 统一接口", ImportPath: "github.com/LingByte/ling-base/mq"},
+	{ID: "search", Name: "搜索引擎", Description: "Elasticsearch/Bleve 统一搜索接口", ImportPath: "github.com/LingByte/ling-base/search"},
+	{ID: "stores", Name: "对象存储", Description: "S3/OSS/COS/MinIO/Kodo 等统一存储接口", ImportPath: "github.com/LingByte/ling-base/stores"},
+	{ID: "stats", Name: "统计", Description: "PV/UV/VV/QPS/延迟分位等指标采集", ImportPath: "github.com/LingByte/ling-base/common/stats"},
+	{ID: "opentelemetry", Name: "OpenTelemetry", Description: "链路追踪 + Metrics + Logs", ImportPath: "github.com/LingByte/ling-base/opentelemetry"},
+	{ID: "bloom", Name: "布隆过滤器", Description: "内存/Redis/Scalable 布隆过滤器", ImportPath: "github.com/LingByte/ling-base/bloom"},
+	{ID: "captcha", Name: "验证码", Description: "图形/短信/行为验证码", ImportPath: "github.com/LingByte/ling-base/captcha"},
+}
+
+// HasModule 检查 spec 是否选了某个模块。
+func (s *ProjectSpec) HasModule(id string) bool {
+	for _, m := range s.Modules {
+		if m == id {
+			return true
+		}
+	}
+	return false
+}
+
+// findLingBaseModule 根据 ID 查找模块定义。
+func findLingBaseModule(id string) *LingBaseModule {
+	for i := range LingBaseModules {
+		if LingBaseModules[i].ID == id {
+			return &LingBaseModules[i]
+		}
+	}
+	return nil
 }

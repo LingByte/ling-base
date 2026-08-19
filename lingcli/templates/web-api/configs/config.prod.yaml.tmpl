@@ -21,10 +21,31 @@ logging:
   level: info
   format: json
 
+# 生产环境开启限流
 rateLimit:
   enabled: true
   rps: 200
   burst: 500
+
+# 生产环境开启熔断
+circuitBreaker:
+  enabled: true
+  failureThreshold: 0.5
+  minRequests: 20
+  recoveryTimeout: 30s
+
+# 生产环境关闭文档 UI（保留 spec 可选）
+docs:
+  enabled: false
+  cdnMode: selfhosted
+  cdnBaseUrl: "https://assets.internal.company.com/openapi-ui"
+
+# 生产环境开启 JWT
+jwt:
+  enabled: true
+  secret: "set-via-env-var-in-production"
+  accessTTL: 15m
+  refreshTTL: 168h
 
 app:
   name: {{.ProjectName}}

@@ -3,8 +3,9 @@
 package response
 
 import (
-	"encoding/json"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // APIResponse 统一 API 响应结构。
@@ -17,25 +18,21 @@ type APIResponse struct {
 }
 
 // Success 成功响应。
-func Success(w http.ResponseWriter, data interface{}) {
-	writeJSON(w, http.StatusOK, APIResponse{Code: 0, Message: "success", Data: data})
+func Success(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, APIResponse{Code: 0, Message: "success", Data: data})
 }
 
 // Created 创建成功。
-func Created(w http.ResponseWriter, data interface{}) {
-	writeJSON(w, http.StatusCreated, APIResponse{Code: 0, Message: "created", Data: data})
+func Created(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusCreated, APIResponse{Code: 0, Message: "created", Data: data})
 }
 
 // Error 错误响应。
-func Error(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, APIResponse{Code: -1, Message: message})
+func Error(c *gin.Context, status int, message string) {
+	c.JSON(status, APIResponse{Code: -1, Message: message})
 }
 
 // NoContent 无内容。
-func NoContent(w http.ResponseWriter) { w.WriteHeader(http.StatusNoContent) }
-
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+func NoContent(c *gin.Context) {
+	c.Status(http.StatusNoContent)
 }

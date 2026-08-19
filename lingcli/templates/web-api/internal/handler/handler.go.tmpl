@@ -3,24 +3,15 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/middleware"
 	"{{.Module}}/internal/model"
+
+	"github.com/gin-gonic/gin"
 )
-
-// Handler HTTP 请求处理器。
-type Handler struct {
-	cfg       *config.Config
-	startTime time.Time
-}
-
-// New 创建处理器。
-func New(cfg *config.Config) *Handler {
-	return &Handler{cfg: cfg, startTime: time.Now()}
-}
 
 // AppInfo 应用信息（供 Version handler 使用）。
 type AppInfo struct {
@@ -30,9 +21,38 @@ type AppInfo struct {
 	GitCommit string
 }
 
+// Handler HTTP 请求处理器。
+type Handler struct {
+	cfg       *config.Config
+	info      AppInfo
+	startTime time.Time
+}
+
+// New 创建处理器。
+func New(cfg *config.Config, info AppInfo) *Handler {
+	return &Handler{cfg: cfg, info: info, startTime: time.Now()}
+}
+
+// RegisterRoutes 注册所有路由和中间件。
+func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) {
+	h := New(cfg, info)
+
+	// 全局中间件
+	r.Use(middleware.RequestID())
+	r.Use(middleware.Logging())
+	r.Use(middleware.Recover())
+	r.Use(middleware.CORS())
+
+	// 健康检查
+	r.GET("/health", h.Health)
+	r.GET("/api/v1/version", h.Version)
+	r.GET("/api/v1/users", h.ListUsers)
+	r.POST("/api/v1/users", h.CreateUser)
+}
+
 // Health 健康检查。
-func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+func (h *Handler) Health(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
 		"status": "healthy",
 		"uptime": time.Since(h.startTime).String(),
 		"env":    h.cfg.App.Environment,
@@ -40,46 +60,34 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // Version 版本信息。
-func (h *Handler) Version(info AppInfo) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"name":      info.Name,
-			"version":   info.Version,
-			"buildTime": info.BuildTime,
-			"gitCommit": info.GitCommit,
-		})
-	}
+func (h *Handler) Version(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"name":      h.info.Name,
+		"version":   h.info.Version,
+		"buildTime": h.info.BuildTime,
+		"gitCommit": h.info.GitCommit,
+	})
 }
 
-// Users 用户列表（示例 CRUD）。
-func (h *Handler) Users(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		// TODO: 从数据库查询用户列表
-		users := []model.User{
-			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
-			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
-		}
-		writeJSON(w, http.StatusOK, map[string]interface{}{"users": users})
-
-	case http.MethodPost:
-		var user model.User
-		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": "无效的请求体"})
-			return
-		}
-		// TODO: 保存到数据库
-		user.ID = time.Now().Unix()
-		user.CreatedAt = time.Now()
-		writeJSON(w, http.StatusCreated, user)
-
-	default:
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]interface{}{"error": "方法不允许"})
+// ListUsers 用户列表（示例）。
+func (h *Handler) ListUsers(c *gin.Context) {
+	// TODO: 从数据库查询用户列表
+	users := []model.User{
+		{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
+		{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
 	}
+	c.JSON(http.StatusOK, gin.H{"users": users})
 }
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+// CreateUser 创建用户（示例）。
+func (h *Handler) CreateUser(c *gin.Context) {
+	var user model.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
+		return
+	}
+	// TODO: 保存到数据库
+	user.ID = time.Now().Unix()
+	user.CreatedAt = time.Now()
+	c.JSON(http.StatusCreated, user)
 }
