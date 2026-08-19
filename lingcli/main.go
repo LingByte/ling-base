@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-const cliVersion = "v0.4.0"
+const cliVersion = "v0.5.0"
 
 func main() {
 	if len(os.Args) < 2 {
