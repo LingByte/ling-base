@@ -77,11 +77,11 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 	var users []models.User
 	var total int64
 	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).Count(&total).Error; err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	if err := h.db.WithContext(c.Request.Context()).Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	respgin.Success(c, response.NewPage(users, total, page, size))
@@ -91,7 +91,7 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 func (h *Handlers) GetUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
 
@@ -103,10 +103,10 @@ func (h *Handlers) GetUser(c *gin.Context) {
 	var user models.User
 	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
 			return
 		}
-		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	respgin.Success(c, user)
@@ -123,7 +123,7 @@ type CreateUserRequest struct {
 func (h *Handlers) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 	}
 
 	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "创建失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	respgin.Created(c, user)
@@ -153,13 +153,13 @@ type UpdateUserRequest struct {
 func (h *Handlers) UpdateUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
 
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
 	}
 
@@ -171,10 +171,10 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 	var user models.User
 	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
 			return
 		}
-		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 	}
 
 	if err := h.db.WithContext(c.Request.Context()).Save(&user).Error; err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "更新失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	respgin.Success(c, user)
@@ -199,7 +199,7 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 func (h *Handlers) DeleteUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
 
@@ -210,11 +210,11 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 
 	result := h.db.WithContext(c.Request.Context()).Delete(&models.User{}, id)
 	if result.Error != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "删除失败"))
+		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 	if result.RowsAffected == 0 {
-		respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
 	respgin.NoContent(c)

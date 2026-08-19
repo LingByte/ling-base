@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -64,11 +65,33 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 			return fmt.Errorf("创建目录 %s: %w", dir, err)
 		}
 
-		if err := os.WriteFile(fullPath, []byte(f.Content), 0644); err != nil {
+		// full 模式下重写模板中的 ling-base import 路径
+		content := f.Content
+		if isFullMode(spec) && strings.HasSuffix(f.Path, ".go") {
+			content = rewriteTemplateImports(content, spec.Module)
+		}
+
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("写入 %s: %w", f.Path, err)
 		}
 
 		fmt.Printf("  \x1b[32m[完成]\x1b[0m %s\n", f.Path)
+	}
+
+	// full 模式：复制 ling-base 源码到 pkg/
+	if isFullMode(spec) {
+		fmt.Println()
+		fmt.Println("\x1b[38;5;117m━━━ 复制 ling-base 源码到 pkg/ ━━━\x1b[0m")
+		lingBaseRoot := findLingBaseRoot()
+		if lingBaseRoot == "" {
+			fmt.Printf("  \x1b[33m[警告] 无法定位 ling-base 根目录，跳过源码复制\x1b[0m\n")
+			fmt.Println("  \x1b[38;5;245m请手动复制所需模块源码到 pkg/ 目录\x1b[0m")
+		} else {
+			if err := generateFullMode(spec, lingBaseRoot, targetDir); err != nil {
+				fmt.Printf("  \x1b[33m[警告] 源码复制失败: %v\x1b[0m\n", err)
+				fmt.Println("  \x1b[38;5;245m请手动复制所需模块源码到 pkg/ 目录\x1b[0m")
+			}
+		}
 	}
 
 	// 运行 go mod init + tidy。

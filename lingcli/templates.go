@@ -38,8 +38,12 @@ type TemplateData struct {
 	HasMiddleware     bool
 	HasJWT            bool
 	HasResponse       bool
+	HasI18n           bool
 	IsEnvConfig       bool
 	IsYAMLConfig      bool
+
+	// 生成模式: "lib"（引入 ling-base 库）或 "full"（复制源码到 pkg/）
+	Mode string
 }
 
 // RenderTemplate 渲染单个 .tmpl 文件，返回输出路径和内容。
@@ -140,8 +144,10 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		HasMiddleware:     spec.HasModule("middleware"),
 		HasJWT:            spec.HasModule("jwt"),
 		HasResponse:       spec.HasModule("response"),
+		HasI18n:           spec.HasModule("i18n"),
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
+		Mode:              spec.Mode,
 	}
 
 	var files []FileEntry
@@ -309,6 +315,8 @@ func getStructureTree(templateID, projectName string) string {
 │   └── README.md                # 项目文档
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移脚本
+├── i18n/
+│   └── translations/            # 翻译文件
 ├── .github/workflows/ci.yml     # GitHub Actions CI
 ├── .dockerignore
 ├── .golangci.yml

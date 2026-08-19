@@ -25,6 +25,12 @@ import (
 	"github.com/LingByte/ling-base/common/jwtutil"
 	jwtingin "github.com/LingByte/ling-base/common/jwtutil/gin"
 	{{- end}}
+	{{- if .HasI18n}}
+	"github.com/LingByte/ling-base/i18n"
+	i18ngin "github.com/LingByte/ling-base/i18n/gin"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	"github.com/LingByte/ling-base/common/response"
+	{{- end}}
 	"github.com/LingByte/ling-base/logger"
 	"github.com/LingByte/ling-base/middleware"
 	"github.com/gin-gonic/gin"
@@ -74,6 +80,22 @@ func main() {
 		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
 		os.Exit(1)
 	}
+
+	{{- if .HasI18n}}
+
+	// 初始化 i18n（多语言翻译）
+	i18nManager := i18n.NewManager(&i18n.Config{
+		DefaultLocale:    i18n.LocaleZhCN,
+		SupportedLocales: []i18n.Locale{i18n.LocaleEn, i18n.LocaleZhCN},
+		FallbackLocale:   i18n.LocaleEn,
+		TranslationsPath: "i18n/translations",
+	})
+	// 设置 response 包的 i18n resolver，让统一响应封装自动翻译消息
+	// 实际 locale 由 i18ngin.Middleware 在请求时检测，这里用默认 locale 作为 fallback
+	respgin.Resolver = response.ResolverFunc(func(key string, args ...any) string {
+		return i18nManager.T(i18nManager.GetDefaultLocale(), key, args...)
+	})
+	{{- end}}
 
 	// 创建 bootstrap 应用
 	appOpts := []bootstrap.Option{
@@ -144,6 +166,9 @@ func main() {
 		{{- if .HasJWT}}
 		jwtAuth: jwtAuth,
 		{{- end}}
+		{{- if .HasI18n}}
+		i18nManager: i18nManager,
+		{{- end}}
 	})
 
 	// 启动（阻塞直到收到关闭信号）
@@ -165,6 +190,9 @@ type httpServerComponent struct {
 	{{- if .HasJWT}}
 	jwtAuth *jwtutil.Auth
 	{{- end}}
+	{{- if .HasI18n}}
+	i18nManager *i18n.Manager
+	{{- end}}
 }
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
@@ -181,6 +209,10 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	r.Use(middleware.LoggerMiddleware(logger.Lg))
 	r.Use(middleware.PanicRecovery())
 	r.Use(middleware.CORS())
+	{{- if .HasI18n}}
+	// i18n 中间件（从 Accept-Language / query param / cookie 检测语言）
+	r.Use(i18ngin.Middleware(c.i18nManager))
+	{{- end}}
 	{{- if .HasLimiter}}
 	r.Use(localmw.RateLimit(c.cfg.RateLimit))
 	{{- end}}

@@ -21,6 +21,7 @@ type ProjectSpec struct {
 	Modules      []string // 要集成的 ling-base 模块 ID 列表
 	ConfigFormat string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
 	CIPlatform   string   // CI 平台: "github" 或 "gitlab"（默认 github）
+	Mode         string   // 生成模式: "lib"（引入库）或 "full"（复制源码到 pkg/）
 }
 
 // FillDefaults 填充未设置的字段。
@@ -43,6 +44,9 @@ func (s *ProjectSpec) FillDefaults() {
 	}
 	if s.CIPlatform == "" {
 		s.CIPlatform = "github"
+	}
+	if s.Mode == "" {
+		s.Mode = "lib"
 	}
 	// web-api 模板自动集成 response 模块（统一响应封装）
 	if s.Template == "web-api" && !s.HasModule("response") {
@@ -136,6 +140,15 @@ func (s *ProjectSpec) Summary() string {
 	}
 	if s.CIPlatform != "" {
 		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mCI 平台:\x1b[0m      %s\n", s.CIPlatform))
+	}
+	if s.Mode != "" {
+		modeDesc := s.Mode
+		if s.Mode == "full" {
+			modeDesc = "full（复制源码到 pkg/）"
+		} else if s.Mode == "lib" {
+			modeDesc = "lib（引入 ling-base 库）"
+		}
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m生成模式:\x1b[0m    %s\n", modeDesc))
 	}
 	if len(s.Modules) > 0 {
 		var moduleNames []string

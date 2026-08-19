@@ -2,6 +2,14 @@
 
 HTTP REST API 服务，基于 ling-base bootstrap 框架。
 
+{{- if eq .Mode "full"}}
+
+> **生成模式: full** — ling-base 源码已复制到 `pkg/` 目录，代码由本项目维护，无外部 ling-base 依赖。
+{{- else}}
+
+> **生成模式: lib** — 通过 go 引入 ling-base 库，库由 LingByte 维护。
+{{- end}}
+
 ![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
 
@@ -20,7 +28,10 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 - Docker Compose 一键编排 (App + MySQL + Redis)
 - Bootstrap 启动框架 (Banner / 生命周期 / 事件)
 {{- if .HasJWT}}
-- JWT 鉴权 (ling-base/common/jwtutil)
+- JWT 鉴权 (ling-base/common/jwtutil + jwtutil/gin)
+{{- end}}
+{{- if .HasI18n}}
+- 国际化 i18n (ling-base/i18n，Accept-Language 自动检测 + 翻译文件)
 {{- end}}
 {{- if .HasAPIDocs}}
 - API 文档 UI (ling-base/apidocs，Scalar 主题)
@@ -98,6 +109,10 @@ open http://localhost:{{.Port}}/docs
 │   └── README.md                # 项目文档（架构说明 + 依赖模块）
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移辅助脚本
+{{- if .HasI18n}}
+├── i18n/
+│   └── translations/            # 翻译文件（messages.en.json / messages.zh-CN.json）
+{{- end}}
 {{- if eq .CIPlatform "github"}}
 ├── .github/
 │   └── workflows/
