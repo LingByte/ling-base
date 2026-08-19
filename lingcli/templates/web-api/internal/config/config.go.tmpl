@@ -93,7 +93,7 @@ type JWTConfig struct {
 
 type AppConfig struct {
 	Name        string `yaml:"name"`
-	Environment string `yaml:"environment"` // dev, test, staging, prod
+	Environment string `yaml:"environment"` // dev, test, prod（对应 constants.ENV_DEV / ENV_PROD）
 }
 
 // Default 返回默认配置。
@@ -144,7 +144,7 @@ func Default() *Config {
 		},
 		JWT: JWTConfig{
 			Enabled:    false,
-			Secret:     "change-me-in-production-32bytes!",
+			Secret:     "change-me-in-prod-32bytes!",
 			Issuer:     "{{.ProjectName}}",
 			AccessTTL:  "15m",
 			RefreshTTL: "168h",

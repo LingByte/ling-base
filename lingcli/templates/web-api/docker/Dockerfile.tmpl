@@ -33,7 +33,7 @@ COPY --from=builder /app /app/app
 COPY --from=builder /build/configs /app/configs
 
 ENV TZ=Asia/Shanghai
-ENV APP_APP_ENVIRONMENT=production
+ENV APP_APP_ENVIRONMENT=prod
 
 EXPOSE {{.Port}}
 

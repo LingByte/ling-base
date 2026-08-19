@@ -131,7 +131,7 @@ database:
 
 func TestEnvOverrides(t *testing.T) {
 	t.Setenv("APP_SERVER_PORT", "7777")
-	t.Setenv("APP_APP_ENVIRONMENT", "staging")
+	t.Setenv("APP_APP_ENVIRONMENT", "test")
 	t.Setenv("APP_DATABASE_DSN", "env-dsn")
 	t.Setenv("APP_JWT_ENABLED", "true")
 	t.Setenv("APP_DOCS_ENABLED", "false")
@@ -143,8 +143,8 @@ func TestEnvOverrides(t *testing.T) {
 	if cfg.Server.Port != 7777 {
 		t.Errorf("expected port=7777 from env, got %d", cfg.Server.Port)
 	}
-	if cfg.App.Environment != "staging" {
-		t.Errorf("expected env=staging from env, got %s", cfg.App.Environment)
+	if cfg.App.Environment != "test" {
+		t.Errorf("expected env=test from env, got %s", cfg.App.Environment)
 	}
 	if cfg.Database.DSN != "env-dsn" {
 		t.Errorf("expected dsn=env-dsn from env, got %s", cfg.Database.DSN)

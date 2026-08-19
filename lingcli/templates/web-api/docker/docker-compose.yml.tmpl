@@ -13,7 +13,7 @@ services:
       - configs/.env.prod
     {{- else}}
     environment:
-      - APP_APP_ENVIRONMENT=production
+      - APP_APP_ENVIRONMENT=prod
     volumes:
       - ./configs:/app/configs
     {{- end}}

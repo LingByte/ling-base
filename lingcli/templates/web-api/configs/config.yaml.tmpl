@@ -55,12 +55,12 @@ docs:
 # JWT 鉴权（ling-base/common/jwtutil）
 jwt:
   enabled: false
-  secret: "change-me-in-production-32bytes!"
+  secret: "change-me-in-prod-32bytes!"
   issuer: {{.ProjectName}}
   accessTTL: 15m
   refreshTTL: 168h        # 7 天
 
 app:
   name: {{.ProjectName}}
-  environment: dev        # dev | test | staging | prod
+  environment: dev        # dev | test | prod（对应 constants.ENV_DEV / ENV_PROD）
 {{- end}}
