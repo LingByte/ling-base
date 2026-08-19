@@ -14,8 +14,8 @@ import (
 
 // mockMigrationRunner is a test MigrationRunner.
 type mockMigrationRunner struct {
-	called  int32
-	err     error
+	called int32
+	err    error
 }
 
 func (m *mockMigrationRunner) RunMigrations(ctx context.Context) error {
@@ -25,9 +25,9 @@ func (m *mockMigrationRunner) RunMigrations(ctx context.Context) error {
 
 // mockAutoMigrator is a test AutoMigrator.
 type mockAutoMigrator struct {
-	called  int32
-	models  []any
-	err     error
+	called int32
+	models []any
+	err    error
 }
 
 func (m *mockAutoMigrator) AutoMigrate(dst ...any) error {

@@ -8,11 +8,11 @@ import "github.com/axiomhq/hyperloglog"
 // Snapshot is a serializable representation of the in-memory collector's state.
 // It can be used with gob/json for file persistence.
 type Snapshot struct {
-	Counters map[string]int64             `json:"counters"`
-	Gauges   map[string]int64             `json:"gauges"`
-	Sets     map[string][]string          `json:"sets"`
-	HLLs     map[string][]byte            `json:"hlls"`
-	Timers   map[string][]int64           `json:"timers"`
+	Counters map[string]int64    `json:"counters"`
+	Gauges   map[string]int64    `json:"gauges"`
+	Sets     map[string][]string `json:"sets"`
+	HLLs     map[string][]byte   `json:"hlls"`
+	Timers   map[string][]int64  `json:"timers"`
 }
 
 // Snapshot takes a consistent snapshot of all primitives.

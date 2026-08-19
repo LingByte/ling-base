@@ -29,13 +29,13 @@ import (
 //   - Intersect is not supported (Bloom filters don't support intersection
 //     directly; use HLL for approximate intersection instead).
 type bloomSet struct {
-	mu          sync.RWMutex
-	bits        []uint64 // bit array (packed into uint64 words)
-	numWords    int     // len(bits)
-	numHashes   int     // k
-	expectedN   int     // expected number of elements
-	count       int64   // number of Add calls
-	falsePosRate float64 // target false positive rate
+	mu           sync.RWMutex
+	bits         []uint64 // bit array (packed into uint64 words)
+	numWords     int      // len(bits)
+	numHashes    int      // k
+	expectedN    int      // expected number of elements
+	count        int64    // number of Add calls
+	falsePosRate float64  // target false positive rate
 }
 
 // newBloomSet creates a Bloom filter set for `expectedN` elements with
@@ -60,11 +60,11 @@ func newBloomSet(expectedN int, falsePositiveRate float64) *bloomSet {
 	numWords := (numBits + 63) / 64
 
 	return &bloomSet{
-		bits:          make([]uint64, numWords),
-		numWords:      numWords,
-		numHashes:     k,
-		expectedN:     expectedN,
-		falsePosRate:  falsePositiveRate,
+		bits:         make([]uint64, numWords),
+		numWords:     numWords,
+		numHashes:    k,
+		expectedN:    expectedN,
+		falsePosRate: falsePositiveRate,
 	}
 }
 

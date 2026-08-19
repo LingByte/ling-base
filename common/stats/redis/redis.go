@@ -4,11 +4,11 @@
 // Package redis provides a Redis-backed implementation of stats.Collector.
 // All primitives map to native Redis data structures:
 //
-//	- Counter → INCR / INCRBY (string key)
-//	- Gauge   → SET / INCR / DECR (string key)
-//	- Set     → SADD / SISMEMBER / SCARD / SINTER (set key)
-//	- HLL     → PFADD / PFCOUNT / PFMERGE (HyperLogLog key)
-//	- Timer   → Sorted set (ZADD) + Lua script for percentiles
+//   - Counter → INCR / INCRBY (string key)
+//   - Gauge   → SET / INCR / DECR (string key)
+//   - Set     → SADD / SISMEMBER / SCARD / SINTER (set key)
+//   - HLL     → PFADD / PFCOUNT / PFMERGE (HyperLogLog key)
+//   - Timer   → Sorted set (ZADD) + Lua script for percentiles
 package redis
 
 import (

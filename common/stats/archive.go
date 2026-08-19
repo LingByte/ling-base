@@ -12,11 +12,11 @@ package stats
 //   - Key:      the full stats key, e.g. "pv:2026-08-18:/home"
 //   - Type:     primitive type: "counter", "gauge", "set", "hll", "timer"
 //   - Value:    type-specific value:
-//               counter → int64
-//               gauge   → int64
-//               set     → int (count)
-//               hll     → uint64 (estimated cardinality)
-//               timer   → TimerSummary
+//     counter → int64
+//     gauge   → int64
+//     set     → int (count)
+//     hll     → uint64 (estimated cardinality)
+//     timer   → TimerSummary
 //   - Date:     extracted "YYYY-MM-DD" from the key (empty if no date found)
 //   - ExpiredAt: ISO 8601 timestamp of when the key was expired
 type ExpiredKey struct {

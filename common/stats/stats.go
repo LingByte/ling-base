@@ -39,11 +39,11 @@
 //
 // # Primitives
 //
-//	- Counter: monotonic increment (PV, clicks, errors, requests)
-//	- Gauge:   arbitrary value (queue depth, active connections)
-//	- Set:     exact deduplication (retention, new users — small scale)
-//	- HLL:     probabilistic deduplication (UV, IP, DAU — large scale, ~12 KB)
-//	- Timer:   latency samples + percentiles (response time, first screen)
+//   - Counter: monotonic increment (PV, clicks, errors, requests)
+//   - Gauge:   arbitrary value (queue depth, active connections)
+//   - Set:     exact deduplication (retention, new users — small scale)
+//   - HLL:     probabilistic deduplication (UV, IP, DAU — large scale, ~12 KB)
+//   - Timer:   latency samples + percentiles (response time, first screen)
 package stats
 
 // Collector is the root abstraction for all metrics backends.

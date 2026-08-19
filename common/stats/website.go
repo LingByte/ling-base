@@ -91,7 +91,7 @@ func (w *WebsiteMetrics) RecordSessionDuration(date string, durationSeconds int6
 
 // GetAvgSessionDuration returns the average session duration in seconds.
 func (w *WebsiteMetrics) GetAvgSessionDuration(date string) float64 {
-	return w.c.Timer("session_duration:" + date).Mean() / float64(time.Second)
+	return w.c.Timer("session_duration:"+date).Mean() / float64(time.Second)
 }
 
 // GetPagesPerVisit returns the average pages per visit = total PV / total VV.
@@ -127,11 +127,11 @@ func (w *WebsiteMetrics) RecordImpression(date, event string) {
 
 // GetCTR returns the click-through rate = clicks / impressions.
 func (w *WebsiteMetrics) GetCTR(date, event string) float64 {
-	impressions := w.c.Counter("impression:"+date+":"+event).Get()
+	impressions := w.c.Counter("impression:" + date + ":" + event).Get()
 	if impressions == 0 {
 		return 0
 	}
-	clicks := w.c.Counter("click:"+date+":"+event).Get()
+	clicks := w.c.Counter("click:" + date + ":" + event).Get()
 	return float64(clicks) / float64(impressions)
 }
 
@@ -146,7 +146,7 @@ func (w *WebsiteMetrics) GetCVR(date, goal string) float64 {
 	if visits == 0 {
 		return 0
 	}
-	conversions := w.c.Counter("conversion:"+date+":"+goal).Get()
+	conversions := w.c.Counter("conversion:" + date + ":" + goal).Get()
 	return float64(conversions) / float64(visits)
 }
 
@@ -221,17 +221,17 @@ func (w *WebsiteMetrics) RecordResponseTimeMs(date string, ms float64) {
 
 // GetResponseTimeP50 returns the P50 response time in milliseconds.
 func (w *WebsiteMetrics) GetResponseTimeP50(date string) float64 {
-	return w.c.Timer("response_time:" + date).Percentile(50) / float64(time.Millisecond)
+	return w.c.Timer("response_time:"+date).Percentile(50) / float64(time.Millisecond)
 }
 
 // GetResponseTimeP95 returns the P95 response time in milliseconds.
 func (w *WebsiteMetrics) GetResponseTimeP95(date string) float64 {
-	return w.c.Timer("response_time:" + date).Percentile(95) / float64(time.Millisecond)
+	return w.c.Timer("response_time:"+date).Percentile(95) / float64(time.Millisecond)
 }
 
 // GetResponseTimeP99 returns the P99 response time in milliseconds.
 func (w *WebsiteMetrics) GetResponseTimeP99(date string) float64 {
-	return w.c.Timer("response_time:" + date).Percentile(99) / float64(time.Millisecond)
+	return w.c.Timer("response_time:"+date).Percentile(99) / float64(time.Millisecond)
 }
 
 // RecordRequest increments the total request counter for the given date.
@@ -267,10 +267,10 @@ func (w *WebsiteMetrics) RecordFirstScreen(date string, ms float64) {
 
 // GetFirstScreenP50 returns the P50 first screen load time in milliseconds.
 func (w *WebsiteMetrics) GetFirstScreenP50(date string) float64 {
-	return w.c.Timer("first_screen:" + date).Percentile(50) / float64(time.Millisecond)
+	return w.c.Timer("first_screen:"+date).Percentile(50) / float64(time.Millisecond)
 }
 
 // GetFirstScreenP95 returns the P95 first screen load time in milliseconds.
 func (w *WebsiteMetrics) GetFirstScreenP95(date string) float64 {
-	return w.c.Timer("first_screen:" + date).Percentile(95) / float64(time.Millisecond)
+	return w.c.Timer("first_screen:"+date).Percentile(95) / float64(time.Millisecond)
 }

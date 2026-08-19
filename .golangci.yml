@@ -1,0 +1,107 @@
+run:
+  timeout: 10m
+  go: "1.26"
+  # Allow building with replace directives in go.work
+  modules-download-mode: mod
+
+linters:
+  enable:
+    - errcheck          # 检查未处理的 error
+    - gosimple          # 简化代码建议
+    - govet             # go vet 检查
+    - ineffassign       # 无效赋值
+    - staticcheck       # 综合静态分析
+    - typecheck         # 类型检查
+    - unused            # 未使用的代码
+    - gofmt             # 格式检查
+    - goimports         # import 顺序
+    - misspell          # 拼写检查
+    - revive            # golint 替代
+    - bodyclose         # http.Response.Body.Close 检查
+    - dupl              # 重复代码检测
+    - errorlint         # error 相关最佳实践
+    - exportloopref     # 循环变量引用检查
+    - gocritic          # 代码审查建议
+    - nilerr            # nil error 检查
+    - prealloc          # 切片预分配建议
+    - rowserrcheck      # sql.Rows.Err 检查
+    - sqlclosecheck     # sql.Rows.Close 检查
+    - unconvert         # 不必要的类型转换
+    - unparam           # 未使用的函数参数
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - diagnostic
+    disabled-checks:
+      - hugeParam       # 大参数警告（库代码经常需要完整 struct）
+      - rangeValCopy    # range 值拷贝（有时需要）
+  revive:
+    severity: warning
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-naming
+      - name: error-strings
+      - name: error-return
+      - name: errorf
+      - name: exported
+        disabled: true   # 库代码导出注释要求太严
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: var-declaration
+      - name: var-naming
+  dupl:
+    threshold: 200       # 只报告超过 200 行的重复
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # 测试文件放宽检查
+    - path: _test\.go
+      linters:
+        - dupl
+        - errcheck
+        - gocritic
+        - gosec
+        - prealloc
+        - revive
+    # _test.go 中允许未处理的 error
+    - path: _test\.go
+      text: "this value of error is never used"
+    # main.go 允许未处理的 error（通常是 log.Fatal）
+    - path: main\.go
+      linters:
+        - errcheck
+    # embed 文件允许未使用变量
+    - path: ".*embed.*"
+      linters:
+        - unused
+    # 排除 generated 文件
+    - path: ".*generated.*"
+      linters:
+        - all
+  exclude:
+    # 排除常见的误报
+    - "comment on exported"
+    - "should have comment"
+    - "always discarded"

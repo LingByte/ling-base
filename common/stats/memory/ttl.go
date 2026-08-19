@@ -78,10 +78,10 @@ func isDigit(b byte) bool {
 // ttlManager runs a background goroutine that periodically checks for
 // expired keys and invokes the OnExpire callback before removing them.
 type ttlManager struct {
-	config  TTLConfig
+	config    TTLConfig
 	collector *Collector
-	stopCh  chan struct{}
-	wg      sync.WaitGroup
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
 }
 
 func newTTLManager(c *Collector, config TTLConfig) *ttlManager {

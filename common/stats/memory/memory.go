@@ -30,14 +30,14 @@ type Collector struct {
 	bloomSetConfig *bloomConfig // if set, Set() returns Bloom filter
 
 	// TTL
-	ttlConfig   *TTLConfig
-	ttlManager  *ttlManager
+	ttlConfig  *TTLConfig
+	ttlManager *ttlManager
 }
 
 // bloomConfig configures Bloom filter sets.
 type bloomConfig struct {
-	expectedN      int
-	falsePosRate   float64
+	expectedN    int
+	falsePosRate float64
 }
 
 // PersistFunc is called during Flush to serialize state.
@@ -226,7 +226,7 @@ type counter struct {
 	value int64
 }
 
-func (c *counter) Incr() int64         { return c.IncrBy(1) }
+func (c *counter) Incr() int64 { return c.IncrBy(1) }
 func (c *counter) IncrBy(d int64) int64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -426,7 +426,7 @@ func (h *hll) Reset() error {
 
 type timer struct {
 	mu        sync.RWMutex
-	samples   []int64        // unbounded mode (nil if reservoir)
+	samples   []int64         // unbounded mode (nil if reservoir)
 	reservoir *reservoirTimer // bounded mode (nil if unbounded)
 }
 

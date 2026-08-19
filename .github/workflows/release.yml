@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      # Match all module tags: "common/stats/v0.1.0", "scheduler/v1.2.3", "v0.1.0"
+      - '*/v*'
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Extract tag info
+        id: info
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Extract module path and version
+          if echo "$TAG" | grep -q '/v'; then
+            MODULE=$(echo "$TAG" | sed 's|/v[^/]*$||')
+            VERSION=$(echo "$TAG" | sed 's|.*/v||')
+          else
+            MODULE="."
+            VERSION=$(echo "$TAG" | sed 's|^v||')
+          fi
+          echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG, Module: $MODULE, Version: $VERSION"
+
+      - name: Verify module builds
+        working-directory: ${{ steps.info.outputs.module }}
+        run: |
+          echo "==> Building ${{ steps.info.outputs.module }}@v${{ steps.info.outputs.version }}"
+          go build ./...
+
+      - name: Run module tests
+        working-directory: ${{ steps.info.outputs.module }}
+        run: go test -count=1 -race -timeout 5m ./...
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.info.outputs.tag }}
+          name: ${{ steps.info.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            ## ${{ steps.info.outputs.module }} v${{ steps.info.outputs.version }}
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false

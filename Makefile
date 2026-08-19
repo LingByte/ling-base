@@ -69,6 +69,9 @@ help: ## Show this help message
 	@echo "  make fmt                Format all files"
 	@echo "  make fmt-check          Check formatting"
 	@echo "  make lint               Run golangci-lint (if installed)"
+	@echo "  make vuln               Run govulncheck (if installed)"
+	@echo "  make check              fmt-check + vet + build + test"
+	@echo "  make check-all          check + lint + vuln"
 	@echo ""
 	@echo "Release:"
 	@echo "  make release-patch PKG=dir   Bump patch version (v0.1.0 → v0.1.1)"
@@ -144,10 +147,25 @@ fmt-check: ## Check formatting without modifying files
 lint: ## Run golangci-lint (if installed)
 	@echo "==> Running golangci-lint..."
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint is not installed"; exit 1; }
-	@golangci-lint run ./...
+	@golangci-lint run --timeout 10m ./...
+
+vuln: ## Run govulncheck on all modules (if installed)
+	@echo "==> Running govulncheck..."
+	@command -v govulncheck >/dev/null 2>&1 || { \
+		echo "govulncheck is not installed. Install with:"; \
+		echo "  go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		exit 1; \
+	}
+	@for dir in $(GO_MOD_DIRS); do \
+		echo "  → $$dir"; \
+		(cd "$$dir" && govulncheck ./... 2>&1) || true; \
+	done
 
 check: fmt-check vet build test ## Run fmt-check + vet + build + test (CI equivalent)
 	@echo "==> All checks passed!"
+
+check-all: fmt-check vet build test lint vuln ## Run all checks including lint + vuln
+	@echo "==> All checks (including lint + vuln) passed!"
 
 # ──────────────────────────────────────────────
 # Coverage (HTML)

@@ -286,8 +286,8 @@ func (m *Migrator) Status(ctx context.Context) ([]migration.MigrationStatus, err
 	statuses := make([]migration.MigrationStatus, len(migrations))
 	for i, mig := range migrations {
 		statuses[i] = migration.MigrationStatus{
-			Migration:  mig,
-			Applied:    applied[mig.Version],
+			Migration: mig,
+			Applied:   applied[mig.Version],
 			AppliedAt: appliedAtMap[mig.Version],
 		}
 	}

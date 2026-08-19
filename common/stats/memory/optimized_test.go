@@ -40,8 +40,8 @@ func TestOptimizedMemoryFootprint(t *testing.T) {
 	runtime.ReadMemStats(&before2)
 
 	c2 := New(
-		WithReservoirTimer(4096),                         // 32 KB/timer 固定
-		WithBloomSet(100000, 0.001),                      // 1.4 MB/set 固定
+		WithReservoirTimer(4096),    // 32 KB/timer 固定
+		WithBloomSet(100000, 0.001), // 1.4 MB/set 固定
 	)
 	// 30天 × 100K 用户的 Bloom Set
 	for d := 0; d < 30; d++ {
@@ -145,13 +145,13 @@ func TestReservoirTimerAccuracy(t *testing.T) {
 
 	// With uniform distribution, percentiles should be close to expected.
 	tests := []struct {
-		p        float64
-		expected float64
+		p         float64
+		expected  float64
 		tolerance float64
 	}{
-		{50, 500000, 50000},  // ±10%
-		{95, 950000, 50000},  // ±5%
-		{99, 990000, 50000},  // ±5%
+		{50, 500000, 50000}, // ±10%
+		{95, 950000, 50000}, // ±5%
+		{99, 990000, 50000}, // ±5%
 	}
 
 	for _, tt := range tests {

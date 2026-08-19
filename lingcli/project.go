@@ -135,18 +135,18 @@ func boolYesNo(b bool) string {
 
 // ProjectTemplate 定义一个项目模板。
 type ProjectTemplate struct {
-	ID          string   // 模板标识
-	Description string   // 模板描述
-	Structure   string   // 目录结构摘要
-	NeedsPort   bool     // 是否需要端口配置
+	ID          string                              // 模板标识
+	Description string                              // 模板描述
+	Structure   string                              // 目录结构摘要
+	NeedsPort   bool                                // 是否需要端口配置
 	Generate    func(spec *ProjectSpec) []FileEntry // 生成文件列表
 }
 
 // FileEntry 表示一个待生成的文件。
 type FileEntry struct {
-	Path     string // 相对于项目根目录的路径
-	Content  string // 文件内容
-	NoFmt    bool   // 如果为 true，不运行 gofmt
+	Path    string // 相对于项目根目录的路径
+	Content string // 文件内容
+	NoFmt   bool   // 如果为 true，不运行 gofmt
 }
 
 // ProjectTemplates 是所有可用项目模板的注册表。

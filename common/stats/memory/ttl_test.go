@@ -17,8 +17,8 @@ func TestTTLExpiration(t *testing.T) {
 	c := New(
 		WithReservoirTimer(4096),
 		WithTTL(TTLConfig{
-			RetentionDays:  1,
-			CheckInterval:  100 * time.Millisecond,
+			RetentionDays: 1,
+			CheckInterval: 100 * time.Millisecond,
 			OnExpire: func(ek stats.ExpiredKey) error {
 				expiredKeys = append(expiredKeys, ek)
 				return nil

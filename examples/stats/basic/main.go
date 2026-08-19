@@ -45,7 +45,7 @@ func main() {
 	wm.RecordVV(date)
 
 	// 4. 会话指标
-	wm.RecordBounce(date) // 一次跳出
+	wm.RecordBounce(date)               // 一次跳出
 	wm.RecordSessionDuration(date, 30)  // 30 秒
 	wm.RecordSessionDuration(date, 120) // 2 分钟
 
