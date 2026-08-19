@@ -1,0 +1,103 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package handlers
+
+import (
+	"time"
+
+	"{{.Module}}/internal/configs"
+	{{- if .HasJWT}}
+	"{{.Module}}/internal/auth"
+	{{- end}}
+
+	{{- if .HasAPIDocs}}
+	"github.com/LingByte/ling-base/apidocs/humax"
+	"github.com/danielgtaylor/huma/v2"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// AppInfo 应用信息。
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+	GitCommit string
+	{{- if .HasJWT}}
+	JWTAuth  *auth.Auth
+	{{- end}}
+}
+
+// Handlers HTTP 请求处理器集合（直接操作 db，无 service/repository 层）。
+type Handlers struct {
+	cfg       *configs.Config
+	info      AppInfo
+	db        *gorm.DB
+	startTime time.Time
+	{{- if .HasJWT}}
+	jwtAuth   *auth.Auth
+	{{- end}}
+}
+
+// New 创建 Handlers。
+func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
+	return &Handlers{
+		cfg:       cfg,
+		info:      info,
+		db:        db,
+		startTime: time.Now(),
+		{{- if .HasJWT}}
+		jwtAuth:   info.JWTAuth,
+		{{- end}}
+	}
+}
+
+{{- if .HasAPIDocs}}
+
+// Register 通过 humax.Group 注册所有路由（Gin 执行 + OpenAPI 文档）。
+func (h *Handlers) Register(engine *gin.Engine, api huma.API) {
+	r := humax.NewGroup(api, engine, "")
+	h.registerRoutes(r)
+}
+
+{{- else}}
+
+// Register 通过 Gin 注册所有路由。
+func (h *Handlers) Register(engine *gin.Engine) {
+	h.registerRoutes(engine)
+}
+
+{{- end}}
+
+// registerRoutes 注册所有路由（系统端点 + 用户 CRUD{{if .HasJWT}} + 鉴权{{end}}）。
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerRoutes(r gin.IRouter) {
+{{- end}}
+	// ── 系统端点（公开）──
+	r.GET("/health", h.Health)
+	r.GET("/live", h.Liveness)
+	r.GET("/ready", h.Readiness)
+	r.GET("/api/v1/version", h.Version)
+
+	{{- if .HasJWT}}
+	// ── 鉴权（公开）──
+	authGroup := r.Group("/api/v1/auth")
+	{
+		authGroup.POST("/login", h.Login)
+		authGroup.POST("/refresh", h.Refresh)
+	}
+	{{- end}}
+
+	// ── 用户 CRUD ──
+	users := r.Group("/api/v1/users")
+	{
+		users.GET("", h.ListUsers)
+		users.GET("/:id", h.GetUser)
+		users.POST("", h.CreateUser)
+		users.PUT("/:id", h.UpdateUser)
+		users.DELETE("/:id", h.DeleteUser)
+	}
+}

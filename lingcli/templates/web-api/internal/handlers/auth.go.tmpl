@@ -1,0 +1,75 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+{{- if .HasJWT}}
+
+package handlers
+
+import (
+	"github.com/LingByte/ling-base/common/response"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	"github.com/gin-gonic/gin"
+)
+
+// LoginRequest 登录请求体。
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// Login 用户登录，签发 JWT access/refresh token。
+func (h *Handlers) Login(c *gin.Context) {
+	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
+		return
+	}
+
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体"))
+		return
+	}
+
+	pair, err := h.jwtAuth.Login(req.Username, "user")
+	if err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "签发 token 失败"))
+		return
+	}
+	respgin.Success(c, gin.H{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"expires_in":    pair.ExpiresIn,
+		"token_type":    pair.TokenType,
+	})
+}
+
+// RefreshRequest 刷新 token 请求体。
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// Refresh 用 refresh token 换取新的 access/refresh token。
+func (h *Handlers) Refresh(c *gin.Context) {
+	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
+		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
+		return
+	}
+
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体"))
+		return
+	}
+
+	pair, err := h.jwtAuth.Refresh(req.RefreshToken)
+	if err != nil {
+		respgin.WriteError(c, response.New(response.CodeUnauthorized, "refresh token 无效或已过期"))
+		return
+	}
+	respgin.Success(c, gin.H{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"expires_in":    pair.ExpiresIn,
+		"token_type":    pair.TokenType,
+	})
+}
+{{- end}}

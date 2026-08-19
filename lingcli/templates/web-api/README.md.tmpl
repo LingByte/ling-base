@@ -76,7 +76,9 @@ open http://localhost:{{.Port}}/docs
 │   │   ├── config.go            # 配置定义与加载（{{if .IsEnvConfig}}.env{{else}}YAML{{end}} + 环境变量覆盖）
 │   │   └── config_test.go
 │   ├── handlers/
-│   │   ├── handler.go           # HTTP 处理器（直接操作 db，统一响应封装）
+│   │   ├── urls.go              # 路由注册（humax.Group / Gin）
+│   │   ├── handler.go           # HTTP 处理器实现（系统端点 + 用户 CRUD）
+│   │   ├── auth.go              # JWT 鉴权处理器（可选）
 │   │   └── handler_test.go
 │   ├── middlewares/
 │   │   └── middleware.go        # 项目特定中间件（限流配置等）

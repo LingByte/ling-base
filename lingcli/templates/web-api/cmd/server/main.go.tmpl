@@ -194,11 +194,13 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		EnabledFunc: func() bool { return docsEnabled },
 	})
 
-	// 通过 Huma 注册路由（同时出现在 Gin 路由表和 OpenAPI spec 中）
-	handlers.RegisterRoutes(api, c.cfg, *c.info, c.db)
+	// 创建 Handlers 并注册路由（humax.Group: Gin 执行 + OpenAPI 文档）
+	h := handlers.New(c.cfg, *c.info, c.db)
+	h.Register(r, api)
 	{{- else}}
-	// 通过 Gin 注册路由
-	handlers.RegisterRoutes(r, c.cfg, *c.info, c.db)
+	// 创建 Handlers 并注册路由（纯 Gin）
+	h := handlers.New(c.cfg, *c.info, c.db)
+	h.Register(r)
 	{{- end}}
 
 	c.server = &http.Server{

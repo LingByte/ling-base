@@ -24,11 +24,12 @@ func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	cfg := configs.Default()
 	r := gin.New()
+	h := New(cfg, AppInfo{Name: "test", Version: "0.0.0-test"}, nil)
 	{{- if .HasAPIDocs}}
 	api := apidocs.Mount(r, apidocs.Options{Title: "test", Version: "0.0.0-test"})
-	RegisterRoutes(api, cfg, AppInfo{Name: "test", Version: "0.0.0-test"}, nil)
+	h.Register(r, api)
 	{{- else}}
-	RegisterRoutes(r, cfg, AppInfo{Name: "test", Version: "0.0.0-test"}, nil)
+	h.Register(r)
 	{{- end}}
 	return r
 }
@@ -44,12 +45,11 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	// common/response envelope: {"code": 200, "msg": "success", "data": {...}}
-	data, ok := body["data"].(map[string]interface{})
+	data, ok := body["data"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected data object, got %v", body["data"])
 	}
@@ -60,11 +60,9 @@ func TestHealth(t *testing.T) {
 
 func TestLiveness(t *testing.T) {
 	r := newTestRouter(t)
-
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/live", nil)
 	r.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -72,11 +70,9 @@ func TestLiveness(t *testing.T) {
 
 func TestReadiness(t *testing.T) {
 	r := newTestRouter(t)
-
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	r.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -84,23 +80,15 @@ func TestReadiness(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	r := newTestRouter(t)
-
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/version", nil)
 	r.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-
-	var body map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	data, ok := body["data"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected data object, got %v", body["data"])
-	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	data := body["data"].(map[string]any)
 	if data["version"] != "0.0.0-test" {
 		t.Errorf("expected version=0.0.0-test, got %v", data["version"])
 	}
@@ -108,11 +96,9 @@ func TestVersion(t *testing.T) {
 
 func TestListUsers(t *testing.T) {
 	r := newTestRouter(t)
-
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users?page=1&size=10", nil)
 	r.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -120,151 +106,106 @@ func TestListUsers(t *testing.T) {
 
 func TestCreateUser_InvalidEmail(t *testing.T) {
 	r := newTestRouter(t)
-
 	body := `{"name":"test","email":"not-an-email"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	{{- if .HasAPIDocs}}
-	// Huma returns 422 for validation errors
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 for invalid email, got %d", w.Code)
-	}
-	{{- else}}
-	// common/response returns HTTP 200 with error code in body
+	// humax 走 Gin handler，common/response 返回 HTTP 200 + error in body
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["error"] != "BAD_REQUEST" {
 		t.Errorf("expected error=BAD_REQUEST, got %v", resp["error"])
 	}
-	{{- end}}
 }
 
 func TestCreateUser_MissingName(t *testing.T) {
 	r := newTestRouter(t)
-
 	body := `{"email":"test@example.com"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	{{- if .HasAPIDocs}}
-	// Huma returns 422 for validation errors
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 for missing name, got %d", w.Code)
-	}
-	{{- else}}
-	// common/response returns HTTP 200 with error code in body
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["error"] != "BAD_REQUEST" {
 		t.Errorf("expected error=BAD_REQUEST, got %v", resp["error"])
 	}
-	{{- end}}
 }
 
 func TestCreateUser_Valid(t *testing.T) {
 	r := newTestRouter(t)
-
 	body := `{"name":"Charlie","email":"charlie@example.com"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
-
-	{{- if .HasAPIDocs}}
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
 	}
-	{{- else}}
-	if w.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
-	}
-	{{- end}}
 }
 
 func TestGetUser_InvalidID(t *testing.T) {
 	r := newTestRouter(t)
-
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/abc", nil)
 	r.ServeHTTP(w, req)
 
-	{{- if .HasAPIDocs}}
-	// Huma returns 422 for invalid path param type
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 for invalid id, got %d", w.Code)
-	}
-	{{- else}}
 	if w.Code != http.StatusOK {
-		// common/response returns HTTP 200 with error code in body
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
-	var body map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
 	if body["error"] != "BAD_REQUEST" {
 		t.Errorf("expected error=BAD_REQUEST, got %v", body["error"])
 	}
-	{{- end}}
 }
 
 {{- if .HasJWT}}
 
 func TestLogin_JWTDisabled(t *testing.T) {
 	r := newTestRouter(t) // JWT disabled in default config
-
 	body := `{"username":"admin","password":"pass"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	{{- if .HasAPIDocs}}
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
-	}
-	{{- else}}
-	// common/response returns HTTP 200 with error code in body
+	// humax 走 Gin handler，common/response 返回 HTTP 200 + error in body
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["error"] != "SERVICE_UNAVAILABLE" {
 		t.Errorf("expected error=SERVICE_UNAVAILABLE, got %v", resp["error"])
 	}
-	{{- end}}
 }
 
 func TestRefresh_JWTDisabled(t *testing.T) {
 	r := newTestRouter(t)
-
 	body := `{"refresh_token":"some-token"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	{{- if .HasAPIDocs}}
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
-	}
-	{{- else}}
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
-	{{- end}}
+	var resp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["error"] != "SERVICE_UNAVAILABLE" {
+		t.Errorf("expected error=SERVICE_UNAVAILABLE, got %v", resp["error"])
+	}
 }
 {{- end}}
 
@@ -272,8 +213,6 @@ func TestRefresh_JWTDisabled(t *testing.T) {
 
 func TestOpenAPIContainsRoutes(t *testing.T) {
 	r := newTestRouter(t)
-
-	// OpenAPI spec should contain all registered routes
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
 	r.ServeHTTP(w, req)
@@ -282,12 +221,12 @@ func TestOpenAPIContainsRoutes(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	var spec map[string]interface{}
+	var spec map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &spec); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
-	paths, ok := spec["paths"].(map[string]interface{})
+	paths, ok := spec["paths"].(map[string]any)
 	if !ok {
 		t.Fatal("no paths in OpenAPI spec")
 	}

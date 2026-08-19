@@ -159,8 +159,12 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 			fmt.Fprintf(stderr(), "警告: 渲染 %s 失败: %v\n", tmplFile, err)
 			continue
 		}
-		// 如果渲染后内容为空（条件模板未满足），跳过此文件
+		// 如果渲染后内容为空或只有注释（条件模板未满足），跳过此文件
 		if strings.TrimSpace(content) == "" {
+			continue
+		}
+		// Go 文件如果没有 package 声明，说明条件不满足，跳过
+		if strings.HasSuffix(outPath, ".go") && !strings.Contains(content, "package ") {
 			continue
 		}
 		// 去掉模板 ID 前缀（如 "web-api/cmd/server/main.go" → "cmd/server/main.go"）
@@ -288,7 +292,9 @@ func getStructureTree(templateID, projectName string) string {
 │   │   ├── config.go            # 配置定义与加载
 │   │   └── config_test.go
 │   ├── handlers/
-│   │   ├── handler.go           # HTTP 处理器（直接操作 db）
+│   │   ├── urls.go              # 路由注册（humax.Group / Gin）
+│   │   ├── handler.go           # HTTP 处理器实现
+│   │   ├── auth.go              # JWT 鉴权处理器（可选）
 │   │   └── handler_test.go
 │   ├── middlewares/
 │   │   └── middleware.go        # 项目特定中间件（限流配置等）
