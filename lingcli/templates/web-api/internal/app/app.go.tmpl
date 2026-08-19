@@ -89,9 +89,10 @@ func Run(info *AppInfo) {
 
 // httpServerComponent 管理 HTTP 服务器的生命周期。
 type httpServerComponent struct {
-	info   *AppInfo
-	cfg    *config.Config
-	server *http.Server
+	info    *AppInfo
+	cfg     *config.Config
+	server  *http.Server
+	running bool
 }
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
@@ -127,10 +128,16 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		}
 	}()
 
+	c.running = true
 	return nil
 }
 
 func (c *httpServerComponent) Stop(ctx context.Context) error {
 	logger.Lg.Info("正在关闭 HTTP 服务...")
+	c.running = false
 	return c.server.Shutdown(ctx)
+}
+
+func (c *httpServerComponent) IsRunning() bool {
+	return c.running
 }

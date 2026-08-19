@@ -36,4 +36,7 @@ go.work.sum
 .vscode/
 dump.rdb
 apidocs/assets/.DS_Store
-/lingcli
+*.DS_Store
+
+# lingcli: only ignore the compiled binary, not the source directory
+/lingcli/lingcli

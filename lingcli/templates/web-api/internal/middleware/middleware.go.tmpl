@@ -3,9 +3,12 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"time"
 
+	"github.com/LingByte/ling-base/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -77,24 +80,7 @@ func CORS() gin.HandlerFunc {
 
 // generateID 生成一个简单的唯一 ID。
 func generateID() string {
-	return time.Now().Format("20060102150405.000000") + randomHex(4)
-}
-
-func randomHex(n int) string {
-	// 简化实现，实际项目中可用 common/idgen
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = byte(time.Now().UnixNano() >> uint(i*8))
-	}
-	return hexEncode(b)
-}
-
-func hexEncode(b []byte) string {
-	const hexChars = "0123456789abcdef"
-	s := make([]byte, len(b)*2)
-	for i, v := range b {
-		s[i*2] = hexChars[v>>4]
-		s[i*2+1] = hexChars[v&0xf]
-	}
-	return string(s)
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
