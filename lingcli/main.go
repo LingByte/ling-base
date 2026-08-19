@@ -79,7 +79,7 @@ func printHelp() {
 	fmt.Println("  --port <端口>           服务端口（web-api / grpc-service）")
 	fmt.Println("  --modules <模块列表>    要集成的 ling-base 模块（逗号分隔，如 apidocs,limiter,jwt）")
 	fmt.Println("  --config-format <格式>  配置文件格式: yaml 或 env（默认 yaml）")
-	fmt.Println("  --ci <平台>             CI 平台: github 或 gitlab（默认 github）")
+	fmt.Println("  --ci <平台>             CI 平台: github, gitlab 或 jenkins（默认 github）")
 	fmt.Println("  --mode <模式>           生成模式: lib（引入库，默认）或 full（复制源码到 pkg/）")
 	fmt.Println("  --docker                生成 Docker 部署文件（默认 true）")
 	fmt.Println("  --no-docker             不生成 Docker 部署文件")
@@ -101,7 +101,7 @@ func runCreate(args []string) {
 	port := fs.Int("port", 0, "服务端口")
 	modules := fs.String("modules", "", "要集成的 ling-base 模块（逗号分隔）")
 	configFormat := fs.String("config-format", "", "配置文件格式: yaml 或 env")
-	ciPlatform := fs.String("ci", "", "CI 平台: github 或 gitlab")
+	ciPlatform := fs.String("ci", "", "CI 平台: github, gitlab 或 jenkins")
 	mode := fs.String("mode", "", "生成模式: lib 或 full")
 	docker := fs.Bool("docker", true, "生成 Docker 部署文件")
 	git := fs.Bool("git", true, "初始化 git 仓库")
@@ -279,14 +279,17 @@ func runInteractive(spec *ProjectSpec) {
 		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 7/9: CI/CD 平台 ━━━\x1b[0m")
 		fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1mGitHub Actions\x1b[0m  — .github/workflows/ci.yml")
 		fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1mGitLab CI\x1b[0m       — .gitlab-ci.yml")
-		fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m           — 不生成 CI 配置")
+		fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1mJenkins\x1b[0m         — Jenkinsfile (声明式 Pipeline)")
+		fmt.Println("  \x1b[38;5;39m[4]\x1b[0m \x1b[1m跳过\x1b[0m           — 不生成 CI 配置")
 		fmt.Println()
-		idx := p.Select("请选择 CI 平台", 3)
+		idx := p.Select("请选择 CI 平台", 4)
 		switch idx {
 		case 0:
 			spec.CIPlatform = "github"
 		case 1:
 			spec.CIPlatform = "gitlab"
+		case 2:
+			spec.CIPlatform = "jenkins"
 		default:
 			spec.CIPlatform = "none"
 		}

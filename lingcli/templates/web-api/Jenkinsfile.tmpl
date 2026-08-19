@@ -1,0 +1,156 @@
+{{- if eq .CIPlatform "jenkins"}}
+// {{.ProjectName}} Jenkins Pipeline
+//
+// 需要 Jenkins 插件:
+//   - Pipeline (workflow-aggregator)
+//   - Docker Pipeline (docker-workflow)
+//
+// 使用方式:
+//   1. 在 Jenkins 中创建 Pipeline 任务
+//   2. Pipeline script from SCM → 指向本仓库的 Jenkinsfile
+//   3. 触发构建
+
+pipeline {
+    agent any
+
+    environment {
+        GO_VERSION = '1.23'
+        GOPATH     = "${env.WORKSPACE}/.go"
+        GOCACHE    = "${env.WORKSPACE}/.cache/go-build"
+        GOMODCACHE = "${env.WORKSPACE}/.cache/go-mod"
+    }
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    triggers {
+        // 每 5 分钟轮询 SCM 变更（如未配置 Webhook）
+        pollSCM('H/5 * * * *')
+    }
+
+    stages {
+        // ── 检出代码 ──
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // ── 准备 Go 环境 ──
+        stage('Setup Go') {
+            steps {
+                sh '''
+                    mkdir -p ${GOPATH} ${GOCACHE} ${GOMODCACHE}
+                    go version
+                    go mod download
+                '''
+            }
+        }
+
+        // ── 代码检查 ──
+        stage('Vet') {
+            steps {
+                sh 'go vet ./...'
+            }
+        }
+
+        // ── 单元测试 ──
+        stage('Test') {
+            steps {
+                sh '''
+                    go test -v -race -count=1 \
+                        -coverprofile=coverage.txt \
+                        -covermode=atomic \
+                        ./...
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'coverage.txt', allowEmptyArchive: true
+                    // 可选: 上传覆盖率到 SonarQube / Codecov
+                    // sh 'curl -s https://codecov.io/bash | bash -s -- -f coverage.txt'
+                }
+            }
+        }
+
+        // ── 代码规范检查 ──
+        stage('Lint') {
+            steps {
+                sh '''
+                    if ! command -v golangci-lint &>/dev/null; then
+                        echo "golangci-lint 未安装，跳过 lint"
+                        exit 0
+                    fi
+                    golangci-lint run --timeout 5m ./...
+                '''
+            }
+        }
+
+        // ── 构建 ──
+        stage('Build') {
+            steps {
+                sh '''
+                    VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+                    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                    GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+                    LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT}"
+                    mkdir -p bin
+                    go build -ldflags "${LDFLAGS}" -o bin/{{.ProjectName}} ./cmd/...
+                '''
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'bin/{{.ProjectName}}', allowEmptyArchive: false
+                }
+            }
+        }
+
+        // ── Docker 镜像构建（可选，需要 Docker 环境）──
+        stage('Docker Build') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    buildingTag()
+                }
+            }
+            steps {
+                sh '''
+                    if [ ! -f docker/Dockerfile ]; then
+                        echo "未找到 docker/Dockerfile，跳过 Docker 构建"
+                        exit 0
+                    fi
+                    VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+                    docker build -f docker/Dockerfile -t {{.ProjectName}}:${VERSION} .
+                    docker tag {{.ProjectName}}:${VERSION} {{.ProjectName}}:latest
+                '''
+            }
+        }
+    }
+
+    // ── 构建后通知 ──
+    post {
+        success {
+            echo "✓ 构建成功: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        }
+        unstable {
+            echo "⚠ 构建不稳定: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo "✗ 构建失败: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            // 可选: 发送通知
+            // mail to: 'team@example.com',
+            //      subject: "构建失败: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            //      body: "查看详情: ${env.BUILD_URL}"
+        }
+        always {
+            // 清理工作空间（可选）
+            // cleanWs()
+        }
+    }
+}
+{{- end}}

@@ -119,6 +119,8 @@ open http://localhost:{{.Port}}/docs
 │       └── ci.yml               # GitHub Actions CI (test + lint + build)
 {{- else if eq .CIPlatform "gitlab"}}
 ├── .gitlab-ci.yml               # GitLab CI (test + lint + build)
+{{- else if eq .CIPlatform "jenkins"}}
+├── Jenkinsfile                  # Jenkins 声明式 Pipeline (test + lint + build + docker)
 {{- end}}
 ├── .dockerignore                # Docker 构建忽略文件
 ├── .golangci.yml                # golangci-lint 配置

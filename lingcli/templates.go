@@ -29,7 +29,7 @@ type TemplateData struct {
 	Structure    string
 	Modules      []string // 选中的 ling-base 模块 ID
 	ConfigFormat string   // "yaml" 或 "env"
-	CIPlatform   string   // "github" 或 "gitlab"
+	CIPlatform   string   // "github", "gitlab" 或 "jenkins"
 
 	// 条件渲染标志（根据 Modules 计算）
 	HasAPIDocs        bool
@@ -317,7 +317,7 @@ func getStructureTree(templateID, projectName string) string {
 │   └── migrate.sh               # 数据库迁移脚本
 ├── i18n/
 │   └── translations/            # 翻译文件
-├── .github/workflows/ci.yml     # GitHub Actions CI
+├── .github/workflows/ci.yml     # GitHub Actions CI（或 .gitlab-ci.yml / Jenkinsfile）
 ├── .dockerignore
 ├── .golangci.yml
 ├── LICENSE                      # MIT 许可证
