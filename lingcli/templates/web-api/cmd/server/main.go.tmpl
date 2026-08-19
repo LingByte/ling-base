@@ -9,23 +9,23 @@ import (
 	"os"
 	"time"
 
-	"{{.Module}}/internal/config"
-	"{{.Module}}/internal/handler"
-	localmw "{{.Module}}/internal/middleware"
-	"{{.Module}}/internal/model"
+	"{{.Module}}/internal/configs"
+	"{{.Module}}/internal/handlers"
+	{{- if .HasLimiter}}
+	localmw "{{.Module}}/internal/middlewares"
+	{{- end}}
+	"{{.Module}}/internal/models"
 	{{- if .HasJWT}}
 	"{{.Module}}/internal/auth"
 	{{- end}}
 
-	"github.com/LingByte/ling-base/bootstrap"
-	"github.com/LingByte/ling-base/constants"
-	"github.com/LingByte/ling-base/logger"
-	{{- if or .HasMiddleware .HasCircuitBreaker}}
-	"github.com/LingByte/ling-base/middleware"
-	{{- end}}
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs"
 	{{- end}}
+	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/middleware"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -39,7 +39,7 @@ var (
 )
 
 func main() {
-	info := &handler.AppInfo{
+	info := &handlers.AppInfo{
 		Name:      "{{.ProjectName}}",
 		Version:   Version,
 		BuildTime: BuildTime,
@@ -48,9 +48,9 @@ func main() {
 
 	// 加载配置
 	{{- if .IsEnvConfig}}
-	cfg, err := config.Load("configs/.env")
+	cfg, err := configs.Load("configs/.env")
 	{{- else}}
-	cfg, err := config.Load("configs/config.yaml")
+	cfg, err := configs.Load("configs/config.yaml")
 	{{- end}}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
@@ -84,14 +84,14 @@ func main() {
 	// 数据库初始化 + 迁移
 	var db *gorm.DB
 	if cfg.Database.DSN != "" {
-		db, err = config.InitDB(cfg.Database)
+		db, err = configs.InitDB(cfg.Database)
 		if err != nil {
 			logger.Lg.Error("数据库初始化失败", zap.Error(err))
 			os.Exit(1)
 		}
 		// dev/test: AutoMigrate; prod: 手动 SQL 迁移
 		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
-			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &model.User{}))
+			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.User{}))
 		}
 	}
 
@@ -149,8 +149,8 @@ func main() {
 // ──────────────────────────────────────────────
 
 type httpServerComponent struct {
-	info   *handler.AppInfo
-	cfg    *config.Config
+	info   *handlers.AppInfo
+	cfg    *configs.Config
 	db     *gorm.DB
 	server *http.Server
 }
@@ -163,16 +163,17 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 
 	r := gin.New()
 
-	// 全局中间件（必须在 apidocs.Mount 之前注册）
-	r.Use(localmw.RequestID())
-	r.Use(localmw.Logging())
-	r.Use(localmw.Recover())
-	r.Use(localmw.CORS())
+	// 全局中间件（ling-base/middleware 库）
+	// RequestID → Logger → PanicRecovery → CORS（顺序重要）
+	r.Use(middleware.RequestIDMiddleware())
+	r.Use(middleware.LoggerMiddleware(logger.Lg))
+	r.Use(middleware.PanicRecovery())
+	r.Use(middleware.CORS())
 	{{- if .HasLimiter}}
 	r.Use(localmw.RateLimit(c.cfg.RateLimit))
 	{{- end}}
 	{{- if .HasCircuitBreaker}}
-	r.Use(localmw.CircuitBreaker())
+	r.Use(middleware.CircuitBreakerMiddleware())
 	{{- end}}
 	{{- if .HasJWT}}
 	// JWT 鉴权中间件（公开路径自动跳过）
@@ -194,10 +195,10 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	})
 
 	// 通过 Huma 注册路由（同时出现在 Gin 路由表和 OpenAPI spec 中）
-	handler.RegisterRoutes(api, c.cfg, *c.info, c.db)
+	handlers.RegisterRoutes(api, c.cfg, *c.info, c.db)
 	{{- else}}
 	// 通过 Gin 注册路由
-	handler.RegisterRoutes(r, c.cfg, *c.info, c.db)
+	handlers.RegisterRoutes(r, c.cfg, *c.info, c.db)
 	{{- end}}
 
 	c.server = &http.Server{

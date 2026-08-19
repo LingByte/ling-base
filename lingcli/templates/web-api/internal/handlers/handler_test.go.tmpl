@@ -1,6 +1,6 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-package handler
+package handlers
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/configs"
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs"
 	{{- end}}
@@ -22,7 +22,7 @@ func init() {
 
 func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
-	cfg := config.Default()
+	cfg := configs.Default()
 	r := gin.New()
 	{{- if .HasAPIDocs}}
 	api := apidocs.Mount(r, apidocs.Options{Title: "test", Version: "0.0.0-test"})

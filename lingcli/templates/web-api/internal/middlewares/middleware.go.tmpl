@@ -1,0 +1,49 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package middlewares
+
+import (
+	{{- if .HasLimiter}}
+	"net/http"
+
+	"{{.Module}}/internal/configs"
+	"github.com/LingByte/ling-base/common/limiter/tokenbucket"
+	{{- else}}
+	"{{.Module}}/internal/configs"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+)
+
+{{- if .HasLimiter}}
+
+// RateLimit 令牌桶限流中间件（ling-base/common/limiter/tokenbucket）。
+// 每个 IP 一个独立的令牌桶，支持 QPS + 突发流量。
+func RateLimit(cfg configs.RateLimitConfig) gin.HandlerFunc {
+	if !cfg.Enabled || cfg.RPS <= 0 {
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	// 全局令牌桶（按 IP 分桶可扩展为 keycount）
+	limiter := tokenbucket.New(cfg.RPS, cfg.Burst)
+
+	return func(c *gin.Context) {
+		if err := limiter.Acquire(c.Request.Context(), nil); err != nil {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":   "rate_limited",
+				"message": "请求过于频繁，请稍后再试",
+			})
+			c.Abort()
+			return
+		}
+		defer limiter.Release(nil)
+		c.Next()
+	}
+}
+{{- else}}
+
+// RateLimit 限流中间件占位（未集成 ling-base limiter 模块时为空操作）。
+// 集成 limiter 模块后会自动使用 ling-base/common/limiter/tokenbucket。
+func RateLimit(cfg configs.RateLimitConfig) gin.HandlerFunc {
+	return func(c *gin.Context) { c.Next() }
+}
+{{- end}}

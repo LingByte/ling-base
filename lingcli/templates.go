@@ -284,15 +284,15 @@ func getStructureTree(templateID, projectName string) string {
 ├── internal/
 │   ├── auth/                    # JWT 鉴权（可选）
 │   │   └── auth.go
-│   ├── config/
+│   ├── configs/
 │   │   ├── config.go            # 配置定义与加载
 │   │   └── config_test.go
-│   ├── handler/
+│   ├── handlers/
 │   │   ├── handler.go           # HTTP 处理器（直接操作 db）
 │   │   └── handler_test.go
-│   ├── middleware/
-│   │   └── middleware.go        # 中间件
-│   └── model/
+│   ├── middlewares/
+│   │   └── middleware.go        # 项目特定中间件（限流配置等）
+│   └── models/
 │       └── user.go              # 数据模型
 ├── configs/
 │   ├── config.yaml              # 开发环境配置

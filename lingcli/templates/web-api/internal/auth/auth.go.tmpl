@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/configs"
 
 	"github.com/LingByte/ling-base/common/jwtutil"
 	"github.com/gin-gonic/gin"
@@ -17,11 +17,11 @@ import (
 // Auth 封装 jwtutil.Auth，提供 JWT 鉴权能力。
 type Auth struct {
 	manager *jwtutil.Auth
-	cfg     config.JWTConfig
+	cfg     configs.JWTConfig
 }
 
 // New 根据 JWT 配置创建鉴权管理器。
-func New(cfg config.JWTConfig, accessTTL, refreshTTL time.Duration) (*Auth, error) {
+func New(cfg configs.JWTConfig, accessTTL, refreshTTL time.Duration) (*Auth, error) {
 	if !cfg.Enabled {
 		return &Auth{cfg: cfg}, nil
 	}

@@ -1,13 +1,13 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-package handler
+package handlers
 
 import (
 	"errors"
 	"time"
 
-	"{{.Module}}/internal/config"
-	"{{.Module}}/internal/model"
+	"{{.Module}}/internal/configs"
+	"{{.Module}}/internal/models"
 	{{- if .HasJWT}}
 	"{{.Module}}/internal/auth"
 	{{- end}}
@@ -39,7 +39,7 @@ type AppInfo struct {
 
 // Handler HTTP 请求处理器（直接操作 db，无 service/repository 层）。
 type Handler struct {
-	cfg       *config.Config
+	cfg       *configs.Config
 	info      AppInfo
 	startTime time.Time
 	db        *gorm.DB
@@ -49,7 +49,7 @@ type Handler struct {
 }
 
 // New 创建处理器。
-func New(cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
+func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handler {
 	return &Handler{
 		cfg:       cfg,
 		info:      info,
@@ -68,7 +68,7 @@ func New(cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
 // ──────────────────────────────────────────────
 
 // RegisterRoutes 通过 Huma 注册所有路由（同时生成 OpenAPI 文档）。
-func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
+func RegisterRoutes(api huma.API, cfg *configs.Config, info AppInfo, db *gorm.DB) *Handler {
 	h := New(cfg, info, db)
 
 	// ── 系统端点 ──
@@ -147,7 +147,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 		page := input.Query.Page
 		size := input.Query.Size
 		if h.db == nil {
-			users := []model.User{
+			users := []models.User{
 				{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
 				{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
 			}
@@ -157,9 +157,9 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 			}}, nil
 		}
 		offset := (page - 1) * size
-		var users []model.User
+		var users []models.User
 		var total int64
-		if err := h.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
+		if err := h.db.WithContext(ctx).Model(&models.User{}).Count(&total).Error; err != nil {
 			return nil, huma.Error500InternalServerError("查询失败")
 		}
 		if err := h.db.WithContext(ctx).Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
@@ -181,7 +181,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		var user model.User
+		var user models.User
 		if err := h.db.WithContext(ctx).First(&user, input.ID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, huma.Error404NotFound("用户不存在")
@@ -201,7 +201,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 		Tags:          []string{"用户"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, input *CreateUserInput) (*CreateUserOutput, error) {
-		user := model.User{
+		user := models.User{
 			Name:  input.Body.Name,
 			Email: input.Body.Email,
 			Phone: input.Body.Phone,
@@ -231,7 +231,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		var user model.User
+		var user models.User
 		if err := h.db.WithContext(ctx).First(&user, input.ID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, huma.Error404NotFound("用户不存在")
@@ -266,7 +266,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB)
 		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		result := h.db.WithContext(ctx).Delete(&model.User{}, input.ID)
+		result := h.db.WithContext(ctx).Delete(&models.User{}, input.ID)
 		if result.Error != nil {
 			return nil, huma.Error500InternalServerError("删除失败")
 		}
@@ -420,7 +420,7 @@ type RefreshOutput struct{ Body response.Response }
 // ──────────────────────────────────────────────
 
 // RegisterRoutes 通过 Gin 注册所有路由。
-func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
+func RegisterRoutes(r *gin.Engine, cfg *configs.Config, info AppInfo, db *gorm.DB) *Handler {
 	h := New(cfg, info, db)
 
 	// 健康检查（公开）—— 分级探针
@@ -493,7 +493,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		size = 20
 	}
 	if h.db == nil {
-		users := []model.User{
+		users := []models.User{
 			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
 			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
 		}
@@ -501,9 +501,9 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		return
 	}
 	offset := (page - 1) * size
-	var users []model.User
+	var users []models.User
 	var total int64
-	if err := h.db.WithContext(c.Request.Context()).Model(&model.User{}).Count(&total).Error; err != nil {
+	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).Count(&total).Error; err != nil {
 		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
 		return
 	}
@@ -524,7 +524,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	var user model.User
+	var user models.User
 	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
@@ -548,7 +548,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
-	user := model.User{Name: req.Name, Email: req.Email, Phone: req.Phone}
+	user := models.User{Name: req.Name, Email: req.Email, Phone: req.Phone}
 	if h.db == nil {
 		user.ID = time.Now().Unix()
 		user.CreatedAt = time.Now()
@@ -583,7 +583,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	var user model.User
+	var user models.User
 	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
@@ -618,7 +618,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	result := h.db.WithContext(c.Request.Context()).Delete(&model.User{}, id)
+	result := h.db.WithContext(c.Request.Context()).Delete(&models.User{}, id)
 	if result.Error != nil {
 		respgin.WriteError(c, response.New(response.CodeInternal, "删除失败"))
 		return
