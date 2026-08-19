@@ -33,6 +33,7 @@ use (
 	./common/idgen
 	./common/imageutil
 	./common/jwtutil
+	./common/jwtutil/gin
 	./common/limiter
 	./common/limiter/count
 	./common/limiter/etcd
