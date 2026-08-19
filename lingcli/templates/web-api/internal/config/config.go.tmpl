@@ -5,6 +5,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -154,17 +156,78 @@ func Default() *Config {
 }
 
 // Load 从 YAML 文件加载配置。文件不存在时使用默认配置。
+// 加载后用环境变量覆盖对应字段（env 优先级最高）。
+// 环境变量格式：APP_<SECTION>_<FIELD>，例如 APP_SERVER_PORT、APP_DATABASE_DSN。
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		// 配置文件未找到，使用默认配置
-		return Default(), nil
+		data = nil
 	}
 	cfg := Default()
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("解析配置文件失败: %w", err)
+	if data != nil {
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("解析配置文件失败: %w", err)
+		}
 	}
+	// 环境变量覆盖
+	applyEnvOverrides(cfg)
 	return cfg, nil
+}
+
+// applyEnvOverrides 用 APP_ 前缀的环境变量覆盖配置。
+// 支持：APP_APP_ENVIRONMENT / APP_APP_NAME / APP_SERVER_PORT /
+//   APP_DATABASE_DRIVER / APP_DATABASE_DSN / APP_REDIS_ADDR /
+//   APP_REDIS_PASSWORD / APP_JWT_SECRET / APP_JWT_ENABLED /
+//   APP_DOCS_ENABLED / APP_RATELIMIT_ENABLED / APP_RATELIMIT_RPS
+func applyEnvOverrides(cfg *Config) {
+	// App
+	if v := os.Getenv("APP_APP_NAME"); v != "" {
+		cfg.App.Name = v
+	}
+	if v := os.Getenv("APP_APP_ENVIRONMENT"); v != "" {
+		cfg.App.Environment = v
+	}
+	// Server
+	if v := os.Getenv("APP_SERVER_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			cfg.Server.Port = port
+		}
+	}
+	// Database
+	if v := os.Getenv("APP_DATABASE_DRIVER"); v != "" {
+		cfg.Database.Driver = v
+	}
+	if v := os.Getenv("APP_DATABASE_DSN"); v != "" {
+		cfg.Database.DSN = v
+	}
+	// Redis
+	if v := os.Getenv("APP_REDIS_ADDR"); v != "" {
+		cfg.Redis.Addr = v
+	}
+	if v := os.Getenv("APP_REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
+	}
+	// JWT
+	if v := os.Getenv("APP_JWT_SECRET"); v != "" {
+		cfg.JWT.Secret = v
+	}
+	if v := os.Getenv("APP_JWT_ENABLED"); v != "" {
+		cfg.JWT.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	// Docs
+	if v := os.Getenv("APP_DOCS_ENABLED"); v != "" {
+		cfg.Docs.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	// RateLimit
+	if v := os.Getenv("APP_RATELIMIT_ENABLED"); v != "" {
+		cfg.RateLimit.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("APP_RATELIMIT_RPS"); v != "" {
+		if rps, err := strconv.Atoi(v); err == nil {
+			cfg.RateLimit.RPS = rps
+		}
+	}
 }
 
 // InitDB 根据配置创建数据库连接。

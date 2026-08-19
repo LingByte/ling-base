@@ -1,0 +1,191 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"{{.Module}}/internal/config"
+
+	"github.com/gin-gonic/gin"
+)
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+func newTestRouter(t *testing.T) *gin.Engine {
+	t.Helper()
+	cfg := config.Default()
+	r := gin.New()
+	RegisterRoutes(r, cfg, AppInfo{
+		Name:    "test",
+		Version: "0.0.0-test",
+	})
+	return r
+}
+
+func TestHealth(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body["status"] != "healthy" {
+		t.Errorf("expected status=healthy, got %v", body["status"])
+	}
+}
+
+func TestLiveness(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/live", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestReadiness(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestVersion(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/version", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body["version"] != "0.0.0-test" {
+		t.Errorf("expected version=0.0.0-test, got %v", body["version"])
+	}
+}
+
+func TestListUsers(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users?page=1&size=10", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestCreateUser_InvalidEmail(t *testing.T) {
+	r := newTestRouter(t)
+
+	body := `{"name":"test","email":"not-an-email"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid email, got %d", w.Code)
+	}
+}
+
+func TestCreateUser_MissingName(t *testing.T) {
+	r := newTestRouter(t)
+
+	body := `{"email":"test@example.com"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing name, got %d", w.Code)
+	}
+}
+
+func TestCreateUser_Valid(t *testing.T) {
+	r := newTestRouter(t)
+
+	body := `{"name":"Charlie","email":"charlie@example.com"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGetUser_InvalidID(t *testing.T) {
+	r := newTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/abc", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid id, got %d", w.Code)
+	}
+}
+
+{{- if .HasJWT}}
+
+func TestLogin_JWTDisabled(t *testing.T) {
+	r := newTestRouter(t) // JWT disabled in default config
+
+	body := `{"username":"admin","password":"pass"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
+	}
+}
+
+func TestRefresh_JWTDisabled(t *testing.T) {
+	r := newTestRouter(t)
+
+	body := `{"refresh_token":"some-token"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
+	}
+}
+{{- end}}

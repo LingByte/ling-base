@@ -12,6 +12,8 @@ import (
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/handler"
 	"{{.Module}}/internal/model"
+	"{{.Module}}/internal/repository"
+	"{{.Module}}/internal/service"
 	{{- if .HasJWT}}
 	"{{.Module}}/internal/auth"
 	{{- end}}
@@ -72,6 +74,7 @@ func Run(info *AppInfo) {
 	}
 
 	// 数据库迁移
+	var userSvc *service.UserService
 	if cfg.Database.DSN != "" {
 		db, err := config.InitDB(cfg.Database)
 		if err != nil {
@@ -82,6 +85,9 @@ func Run(info *AppInfo) {
 		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
 			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &model.User{}))
 		}
+		// 初始化 repository + service
+		userRepo := repository.NewUserRepository(db)
+		userSvc = service.NewUserService(userRepo)
 	}
 
 	{{- if .HasCircuitBreaker}}
@@ -122,6 +128,7 @@ func Run(info *AppInfo) {
 	app.Register("http-server", &httpServerComponent{
 		info:    info,
 		cfg:     cfg,
+		userSvc: userSvc,
 		{{- if .HasJWT}}
 		jwtAuth: jwtAuth,
 		{{- end}}
@@ -140,6 +147,7 @@ type httpServerComponent struct {
 	cfg     *config.Config
 	server  *http.Server
 	running bool
+	userSvc *service.UserService
 	{{- if .HasJWT}}
 	jwtAuth *auth.Auth
 	{{- end}}
@@ -154,7 +162,7 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	r := gin.New()
 
 	// 注册路由和中间件
-	handler.RegisterRoutes(r, c.cfg, handler.AppInfo{
+	h := handler.RegisterRoutes(r, c.cfg, handler.AppInfo{
 		Name:      c.info.Name,
 		Version:   c.info.Version,
 		BuildTime: c.info.BuildTime,
@@ -163,6 +171,11 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 		JWTAuth:  c.jwtAuth,
 		{{- end}}
 	})
+
+	// 注入用户服务（如果有数据库连接）
+	if c.userSvc != nil {
+		h.SetUserService(c.userSvc)
+	}
 
 	{{- if .HasAPIDocs}}
 	// 挂载 API 文档 UI（ling-base/apidocs）

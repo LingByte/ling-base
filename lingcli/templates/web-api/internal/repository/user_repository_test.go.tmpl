@@ -1,0 +1,138 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package repository
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/model"
+)
+
+func newTestRepo(t *testing.T) *UserRepository {
+	t.Helper()
+	db, err := config.InitDB(config.DatabaseConfig{
+		Driver:          "sqlite",
+		DSN:             t.TempDir() + "/test.db",
+		MaxOpenConns:    1,
+		MaxIdleConns:    1,
+	})
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		t.Fatalf("AutoMigrate failed: %v", err)
+	}
+	return NewUserRepository(db)
+}
+
+func TestUserRepository_CreateAndGet(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	user := &model.User{Name: "Alice", Email: "alice@example.com"}
+	if err := repo.Create(ctx, user); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if user.ID == 0 {
+		t.Fatal("expected non-zero ID after Create")
+	}
+
+	got, err := repo.Get(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Name != "Alice" {
+		t.Errorf("expected name=Alice, got %s", got.Name)
+	}
+}
+
+func TestUserRepository_GetByEmail(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	_ = repo.Create(ctx, &model.User{Name: "Bob", Email: "bob@example.com"})
+
+	got, err := repo.GetByEmail(ctx, "bob@example.com")
+	if err != nil {
+		t.Fatalf("GetByEmail failed: %v", err)
+	}
+	if got.Name != "Bob" {
+		t.Errorf("expected name=Bob, got %s", got.Name)
+	}
+}
+
+func TestUserRepository_Get_NotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	_, err := repo.Get(ctx, 99999)
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestUserRepository_List(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		_ = repo.Create(ctx, &model.User{Name: "user", Email: fmt.Sprintf("u%d@example.com", i)})
+	}
+
+	users, total, err := repo.List(ctx, 1, 10)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if total != 5 {
+		t.Errorf("expected total=5, got %d", total)
+	}
+	if len(users) != 5 {
+		t.Errorf("expected 5 users, got %d", len(users))
+	}
+}
+
+func TestUserRepository_Update(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	user := &model.User{Name: "Old", Email: "old@example.com"}
+	_ = repo.Create(ctx, user)
+
+	user.Name = "New"
+	if err := repo.Update(ctx, user); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	got, _ := repo.Get(ctx, user.ID)
+	if got.Name != "New" {
+		t.Errorf("expected name=New, got %s", got.Name)
+	}
+}
+
+func TestUserRepository_Delete(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	user := &model.User{Name: "ToDelete", Email: "del@example.com"}
+	_ = repo.Create(ctx, user)
+
+	if err := repo.Delete(ctx, user.ID); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	if _, err := repo.Get(ctx, user.ID); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound after delete, got %v", err)
+	}
+}
+
+func TestUserRepository_Delete_NotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	if err := repo.Delete(ctx, 99999); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}

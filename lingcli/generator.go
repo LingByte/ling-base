@@ -119,7 +119,9 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 
 // runGoMod 在目标目录运行 go mod init + tidy。
 func (g *Generator) runGoMod(dir, module string) error {
-	cmd := exec.Command("go", "mod", "init", module)
+	goBin := findGoBin()
+
+	cmd := exec.Command(goBin, "mod", "init", module)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -127,7 +129,7 @@ func (g *Generator) runGoMod(dir, module string) error {
 		return err
 	}
 
-	cmd = exec.Command("go", "mod", "tidy")
+	cmd = exec.Command(goBin, "mod", "tidy")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -136,11 +138,35 @@ func (g *Generator) runGoMod(dir, module string) error {
 	return nil
 }
 
+// findGoBin 查找 go 可执行文件路径。
+// 优先用 PATH 中的 go，找不到时尝试常见路径。
+func findGoBin() string {
+	if path, err := exec.LookPath("go"); err == nil {
+		return path
+	}
+	for _, candidate := range []string{
+		"/usr/local/bin/go",
+		"/usr/local/go/bin/go",
+		"/opt/homebrew/bin/go",
+		"/usr/lib/go/bin/go",
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return "go" // fallback
+}
+
 // runGitInit 在目标目录初始化 git 并创建首次提交。
 func (g *Generator) runGitInit(dir string) error {
+	gitBin := "git"
+	if path, err := exec.LookPath("git"); err == nil {
+		gitBin = path
+	}
+
 	for _, args := range [][]string{
-		{"git", "init"},
-		{"git", "add", "-A"},
+		{gitBin, "init"},
+		{gitBin, "add", "-A"},
 	} {
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Dir = dir
@@ -151,7 +177,7 @@ func (g *Generator) runGitInit(dir string) error {
 		}
 	}
 
-	cmd := exec.Command("git", "commit", "-m", fmt.Sprintf("Initial commit via lingcli at %s", time.Now().Format("2006-01-02")))
+	cmd := exec.Command(gitBin, "commit", "-m", fmt.Sprintf("Initial commit via lingcli at %s", time.Now().Format("2006-01-02")))
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

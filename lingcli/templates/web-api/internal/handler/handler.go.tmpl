@@ -4,11 +4,13 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/middleware"
 	"{{.Module}}/internal/model"
+	"{{.Module}}/internal/service"
 	{{- if .HasJWT}}
 	"{{.Module}}/internal/auth"
 	{{- end}}
@@ -32,6 +34,7 @@ type Handler struct {
 	cfg       *config.Config
 	info      AppInfo
 	startTime time.Time
+	userSvc   *service.UserService
 	{{- if .HasJWT}}
 	jwtAuth   *auth.Auth
 	{{- end}}
@@ -49,8 +52,13 @@ func New(cfg *config.Config, info AppInfo) *Handler {
 	}
 }
 
+// SetUserService 注入用户服务（由 app.go 调用）。
+func (h *Handler) SetUserService(svc *service.UserService) {
+	h.userSvc = svc
+}
+
 // RegisterRoutes 注册所有路由和中间件。
-func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) {
+func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) *Handler {
 	h := New(cfg, info)
 
 	// 全局中间件
@@ -79,25 +87,47 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) {
 	}
 	{{- end}}
 
-	// 健康检查（公开）
-	r.GET("/health", h.Health)
+	// 健康检查（公开）—— 分级探针
+	r.GET("/health", h.Health)   // 综合健康状态
+	r.GET("/live", h.Liveness)   // 存活探针（进程是否活着）
+	r.GET("/ready", h.Readiness) // 就绪探针（是否可以接收流量）
 	r.GET("/api/v1/version", h.Version)
 
 	// 用户路由
-	{{- if .HasJWT}}
-	// JWT 启用时，/api/v1/users 需要鉴权（GinMiddleware 已全局注册，公开路径自动跳过）
-	{{- end}}
-	r.GET("/api/v1/users", h.ListUsers)
-	r.POST("/api/v1/users", h.CreateUser)
+	users := r.Group("/api/v1/users")
+	{
+		users.GET("", h.ListUsers)
+		users.GET("/:id", h.GetUser)
+		users.POST("", h.CreateUser)
+		users.PUT("/:id", h.UpdateUser)
+		users.DELETE("/:id", h.DeleteUser)
+	}
+
+	return h
 }
 
-// Health 健康检查。
+// Health 综合健康检查。
 func (h *Handler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
-		"uptime": time.Since(h.startTime).String(),
-		"env":    h.cfg.App.Environment,
+		"status":  "healthy",
+		"uptime":  time.Since(h.startTime).String(),
+		"env":     h.cfg.App.Environment,
+		"version": h.info.Version,
 	})
+}
+
+// Liveness 存活探针（K8s liveness probe）。
+// 只要进程能响应就返回 200。
+func (h *Handler) Liveness(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
+}
+
+// Readiness 就绪探针（K8s readiness probe）。
+// 检查依赖（数据库等）是否就绪。
+func (h *Handler) Readiness(c *gin.Context) {
+	// TODO: 检查数据库连接、Redis 连接等
+	// 如果依赖未就绪返回 503，K8s 会从负载均衡中移除该 Pod
+	c.JSON(http.StatusOK, gin.H{"status": "ready"})
 }
 
 // Version 版本信息。
@@ -110,30 +140,169 @@ func (h *Handler) Version(c *gin.Context) {
 	})
 }
 
-// ListUsers 用户列表（示例）。
-func (h *Handler) ListUsers(c *gin.Context) {
-	// TODO: 从数据库查询用户列表
-	users := []model.User{
-		{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
-		{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
-	}
-	c.JSON(http.StatusOK, gin.H{"users": users})
-}
+// ──────────────────────────────────────────────
+// 用户 CRUD
+// ──────────────────────────────────────────────
 
-// CreateUser 创建用户（示例）。
-func (h *Handler) CreateUser(c *gin.Context) {
-	var user model.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
+// ListUsers 用户列表（分页）。
+func (h *Handler) ListUsers(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
+
+	if h.userSvc == nil {
+		// 未连接数据库时返回示例数据
+		users := []model.User{
+			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
+			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
+		}
+		c.JSON(http.StatusOK, gin.H{"users": users, "total": len(users), "page": page, "size": size})
 		return
 	}
-	// TODO: 保存到数据库
-	user.ID = time.Now().Unix()
-	user.CreatedAt = time.Now()
+
+	users, total, err := h.userSvc.List(c.Request.Context(), page, size)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"users": users, "total": total, "page": page, "size": size})
+}
+
+// GetUser 查询单个用户。
+func (h *Handler) GetUser(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		return
+	}
+
+	if h.userSvc == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+
+	user, err := h.userSvc.Get(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, user)
+}
+
+// createUserRequest 创建用户请求 DTO。
+type createUserRequest struct {
+	Name  string `json:"name" binding:"required,min=1,max=100"`
+	Email string `json:"email" binding:"required,email"`
+	Phone string `json:"phone" binding:"omitempty,max=20"`
+}
+
+// CreateUser 创建用户。
+func (h *Handler) CreateUser(c *gin.Context) {
+	var req createUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体", "detail": err.Error()})
+		return
+	}
+
+	user := model.User{
+		Name:  req.Name,
+		Email: req.Email,
+		Phone: req.Phone,
+	}
+
+	if h.userSvc == nil {
+		user.ID = time.Now().Unix()
+		user.CreatedAt = time.Now()
+		c.JSON(http.StatusCreated, user)
+		return
+	}
+
+	if err := h.userSvc.Create(c.Request.Context(), &user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
+		return
+	}
 	c.JSON(http.StatusCreated, user)
 }
 
+// updateUserRequest 更新用户请求 DTO。
+type updateUserRequest struct {
+	Name  *string `json:"name" binding:"omitempty,min=1,max=100"`
+	Email *string `json:"email" binding:"omitempty,email"`
+	Phone *string `json:"phone" binding:"omitempty,max=20"`
+}
+
+// UpdateUser 更新用户。
+func (h *Handler) UpdateUser(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		return
+	}
+
+	var req updateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体", "detail": err.Error()})
+		return
+	}
+
+	if h.userSvc == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+
+	user, err := h.userSvc.Get(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+
+	if req.Name != nil {
+		user.Name = *req.Name
+	}
+	if req.Email != nil {
+		user.Email = *req.Email
+	}
+	if req.Phone != nil {
+		user.Phone = *req.Phone
+	}
+
+	if err := h.userSvc.Update(c.Request.Context(), user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, user)
+}
+
+// DeleteUser 删除用户。
+func (h *Handler) DeleteUser(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		return
+	}
+
+	if h.userSvc == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+
+	if err := h.userSvc.Delete(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 {{- if .HasJWT}}
+
+// ──────────────────────────────────────────────
+// JWT 鉴权
+// ──────────────────────────────────────────────
+
+// loginRequest 登录请求 DTO。
+type loginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
 
 // Login 用户登录，签发 JWT token 对。
 func (h *Handler) Login(c *gin.Context) {
@@ -142,23 +311,14 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Username string `json:"username" binding:"required"`
-		Password string `json:"password" binding:"required"`
-	}
+	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
 		return
 	}
 
-	// TODO: 验证用户名密码（查数据库）
-	// 这里只是示例，实际项目中应该查数据库并校验密码哈希
-	if req.Username == "" || req.Password == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
-		return
-	}
-
-	// 签发 token 对
+	// TODO: 通过 service.Authenticate 验证用户名密码
+	// 这里直接签发 token 作为示例
 	pair, err := h.jwtAuth.Login(req.Username, "user")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "签发 token 失败"})
@@ -173,6 +333,11 @@ func (h *Handler) Login(c *gin.Context) {
 	})
 }
 
+// refreshRequest 刷新 token 请求 DTO。
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
 // Refresh 刷新 access token。
 func (h *Handler) Refresh(c *gin.Context) {
 	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
@@ -180,9 +345,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		RefreshToken string `json:"refresh_token" binding:"required"`
-	}
+	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
 		return

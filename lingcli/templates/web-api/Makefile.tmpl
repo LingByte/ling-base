@@ -3,9 +3,10 @@
 APP := {{.ProjectName}}
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)
 
-.PHONY: all build run test vet fmt fmt-check clean docker-build docker-up docker-down help
+.PHONY: all build run test test-race test-cover benchmark vet lint fmt fmt-check clean docker-build docker-up docker-down help
 
 all: build
 
@@ -15,10 +16,14 @@ build:
 
 ## run: 本地运行
 run:
-	go run ./cmd/... -config configs/config.yaml
+	go run -ldflags "$(LDFLAGS)" ./cmd/... -config configs/config.yaml
 
 ## test: 运行测试
 test:
+	go test -v -count=1 ./...
+
+## test-race: 竞态检测
+test-race:
 	go test -v -race -count=1 ./...
 
 ## test-cover: 测试覆盖率
@@ -26,9 +31,18 @@ test-cover:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool cover -func=coverage.txt
 
+## benchmark: 基准测试
+benchmark:
+	go test -bench=. -benchmem -count=3 ./...
+
 ## vet: 静态检查
 vet:
 	go vet ./...
+
+## lint: golangci-lint（需先安装）
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "请先安装 golangci-lint: https://golangci-lint.run/usage/install/"; exit 1; }
+	golangci-lint run ./...
 
 ## fmt: 格式化代码
 fmt:
