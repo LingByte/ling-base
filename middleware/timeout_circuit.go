@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"runtime/debug"
@@ -16,6 +17,80 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+// timeoutResponseWriter wraps gin.ResponseWriter to make writes thread-safe
+// and ignore writes from the handler goroutine after a timeout has fired.
+// This prevents data races between the timeout response and the still-running
+// handler's writes, since gin.ResponseWriter is not concurrency-safe.
+type timeoutResponseWriter struct {
+	gin.ResponseWriter
+	mu       sync.Mutex
+	timedOut bool
+}
+
+func (w *timeoutResponseWriter) Write(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timedOut {
+		return 0, nil
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *timeoutResponseWriter) WriteString(s string) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timedOut {
+		return 0, nil
+	}
+	return w.ResponseWriter.WriteString(s)
+}
+
+func (w *timeoutResponseWriter) WriteHeader(code int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timedOut {
+		return
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *timeoutResponseWriter) WriteHeaderNow() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timedOut {
+		return
+	}
+	w.ResponseWriter.WriteHeaderNow()
+}
+
+func (w *timeoutResponseWriter) Written() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseWriter.Written()
+}
+
+func (w *timeoutResponseWriter) Status() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseWriter.Status()
+}
+
+func (w *timeoutResponseWriter) Size() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseWriter.Size()
+}
+
+// writeTimeoutResponse writes the given status + JSON body directly to the
+// underlying writer, bypassing the timedOut check. Must be called with mu held.
+func (w *timeoutResponseWriter) writeTimeoutResponse(status int, body map[string]interface{}) {
+	w.timedOut = true
+	w.ResponseWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.ResponseWriter.WriteHeader(status)
+	data, _ := json.Marshal(body)
+	w.ResponseWriter.Write(data)
+}
 
 // TimeoutConfig 超时配置
 type TimeoutConfig struct {
@@ -386,6 +461,11 @@ func TimeoutMiddleware() gin.HandlerFunc {
 		// 替换请求上下文
 		c.Request = c.Request.WithContext(ctx)
 
+		// 用线程安全的 wrapper 替换 c.Writer，防止超时后 handler goroutine
+		// 的写操作与超时响应竞争（gin.ResponseWriter 非线程安全）。
+		tw := &timeoutResponseWriter{ResponseWriter: c.Writer}
+		c.Writer = tw
+
 		// 使用通道来检测请求是否完成
 		done := make(chan struct{})
 		go func() {
@@ -404,15 +484,21 @@ func TimeoutMiddleware() gin.HandlerFunc {
 				zap.Duration("timeout", timeout),
 				zap.String("method", c.Request.Method))
 
-			// 返回超时错误
-			if !c.Writer.Written() {
-				c.JSON(http.StatusRequestTimeout, map[string]interface{}{
+			// 返回超时错误（线程安全地写入）
+			tw.mu.Lock()
+			if !tw.ResponseWriter.Written() {
+				tw.writeTimeoutResponse(http.StatusRequestTimeout, map[string]interface{}{
 					"error":   "request_timeout",
 					"message": fmt.Sprintf("请求超时，超过 %v", timeout),
 					"timeout": timeout.String(),
 				})
 			}
-			c.Abort()
+			tw.mu.Unlock()
+
+			// 等待 goroutine 结束，避免 c.Next() 与 gin handleHTTPRequest
+			// 的 c.Next() 循环竞争 c.index（gin.Context 非线程安全）。
+			// handler 的后续写操作已被 tw.timedOut 屏蔽。
+			<-done
 			return
 		}
 	}
@@ -519,6 +605,10 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 
 		c.Request = c.Request.WithContext(ctx)
 
+		// 用线程安全的 wrapper 替换 c.Writer（同 TimeoutMiddleware）。
+		tw := &timeoutResponseWriter{ResponseWriter: c.Writer}
+		c.Writer = tw
+
 		done := make(chan struct{})
 		var requestPanic interface{}
 
@@ -544,12 +634,14 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 				if cb != nil {
 					cb.MarkFailed()
 				}
-				if !c.Writer.Written() {
-					c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				tw.mu.Lock()
+				if !tw.ResponseWriter.Written() {
+					tw.writeTimeoutResponse(http.StatusInternalServerError, map[string]interface{}{
 						"error":   "internal_server_error",
 						"message": "服务器内部错误",
 					})
 				}
+				tw.mu.Unlock()
 				return
 			}
 
@@ -568,14 +660,18 @@ func CombinedTimeoutCircuitMiddleware() gin.HandlerFunc {
 				zap.String("endpoint", endpoint),
 				zap.Duration("timeout", timeout))
 
-			if !c.Writer.Written() {
-				c.JSON(http.StatusRequestTimeout, map[string]interface{}{
+			tw.mu.Lock()
+			if !tw.ResponseWriter.Written() {
+				tw.writeTimeoutResponse(http.StatusRequestTimeout, map[string]interface{}{
 					"error":   "request_timeout",
 					"message": fmt.Sprintf("请求超时，超过 %v", timeout),
 					"timeout": timeout.String(),
 				})
 			}
-			c.Abort()
+			tw.mu.Unlock()
+
+			// 等待 goroutine 结束，避免 c.index data race。
+			<-done
 		}
 	}
 }

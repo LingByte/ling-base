@@ -4,6 +4,7 @@
 package memory
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 )
 
 func TestTTLExpiration(t *testing.T) {
+	var mu sync.Mutex
 	var expiredKeys []stats.ExpiredKey
 
 	c := New(
@@ -20,7 +22,9 @@ func TestTTLExpiration(t *testing.T) {
 			RetentionDays: 1,
 			CheckInterval: 100 * time.Millisecond,
 			OnExpire: func(ek stats.ExpiredKey) error {
+				mu.Lock()
 				expiredKeys = append(expiredKeys, ek)
+				mu.Unlock()
 				return nil
 			},
 		}),
@@ -40,11 +44,13 @@ func TestTTLExpiration(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify old keys expired.
+	// Verify old keys expired (lock-protected read).
+	mu.Lock()
 	keyNames := make([]string, len(expiredKeys))
 	for i, ek := range expiredKeys {
 		keyNames[i] = ek.Key
 	}
+	mu.Unlock()
 	assert.Contains(t, keyNames, "pv:"+oldDate+":/home")
 	assert.Contains(t, keyNames, "uv:"+oldDate)
 

@@ -653,33 +653,31 @@ func TestInit_InvalidLevel(t *testing.T) {
 }
 
 func TestInitTimezone_Valid(t *testing.T) {
-	oldLocal := time.Local
-	defer func() { time.Local = oldLocal }()
-
 	InitTimezone("America/New_York")
-	if time.Local.String() != "America/New_York" {
-		t.Fatalf("expected America/New_York, got %s", time.Local.String())
+	loc := getLocalLoc()
+	if loc.String() != "America/New_York" {
+		t.Fatalf("expected America/New_York, got %s", loc.String())
 	}
+	// Reset for other tests.
+	InitTimezone("")
 }
 
 func TestInitTimezone_Empty(t *testing.T) {
-	oldLocal := time.Local
-	defer func() { time.Local = oldLocal }()
-
 	InitTimezone("")
-	if time.Local.String() != DefaultTimezone {
-		t.Fatalf("expected default %s, got %s", DefaultTimezone, time.Local.String())
+	loc := getLocalLoc()
+	if loc.String() != DefaultTimezone {
+		t.Fatalf("expected default %s, got %s", DefaultTimezone, loc.String())
 	}
 }
 
 func TestInitTimezone_Invalid(t *testing.T) {
-	oldLocal := time.Local
-	defer func() { time.Local = oldLocal }()
-
 	InitTimezone("Not/A/Real/Timezone")
-	if time.Local.String() != DefaultTimezone {
-		t.Fatalf("expected fallback to %s, got %s", DefaultTimezone, time.Local.String())
+	loc := getLocalLoc()
+	if loc.String() != DefaultTimezone {
+		t.Fatalf("expected fallback to %s, got %s", DefaultTimezone, loc.String())
 	}
+	// Reset for other tests.
+	InitTimezone("")
 }
 
 func testInitMode(t *testing.T, mode string) {
@@ -2210,7 +2208,7 @@ func TestErrorWithRedactedFields_NilLogger(t *testing.T) {
 
 func TestBusinessTimeEncoder_UsesConfiguredTimezone(t *testing.T) {
 	InitTimezone(constants.TimezoneShanghai)
-	loc := time.Local
+	loc := getLocalLoc()
 
 	enc := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		TimeKey:    "time",
@@ -2235,7 +2233,7 @@ func TestBusinessTimeEncoder_UsesConfiguredTimezone(t *testing.T) {
 
 func TestTodayDateString_UsesBusinessTimezone(t *testing.T) {
 	InitTimezone(constants.TimezoneShanghai)
-	loc := time.Local
+	loc := getLocalLoc()
 	now := time.Date(2026, 6, 24, 1, 0, 0, 0, loc)
 	want := now.In(loc).Format("2006-01-02")
 

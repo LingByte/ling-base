@@ -23,7 +23,7 @@ func PurgeExpiredLogFiles(logDir string, retentionDays int) (removed int, err er
 		return 0, nil
 	}
 
-	cutoff := time.Now().In(time.Local).AddDate(0, 0, -retentionDays)
+	cutoff := time.Now().In(getLocalLoc()).AddDate(0, 0, -retentionDays)
 	entries, err := os.ReadDir(logDir)
 	if err != nil {
 		return 0, err

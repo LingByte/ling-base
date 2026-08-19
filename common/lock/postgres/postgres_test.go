@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,11 +12,14 @@ import (
 )
 
 type fakeRow struct {
+	mu  sync.RWMutex
 	err error
 	ok  bool
 }
 
 func (r *fakeRow) Scan(dest ...any) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.err != nil {
 		return r.err
 	}
@@ -30,14 +34,23 @@ func (r *fakeRow) Scan(dest ...any) error {
 }
 
 type fakeDB struct {
+	mu        sync.RWMutex
 	responses map[string]*fakeRow
 }
 
 func (f *fakeDB) QueryRowContext(_ context.Context, query string, _ ...any) lockpostgres.Row {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if r, ok := f.responses[query]; ok {
 		return r
 	}
 	return &fakeRow{}
+}
+
+func (f *fakeDB) setResponse(query string, row *fakeRow) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.responses[query] = row
 }
 
 func TestNewMutexValidation(t *testing.T) {
@@ -127,8 +140,8 @@ func TestLockSuccessAfterRetry(t *testing.T) {
 
 	go func() {
 		time.Sleep(15 * time.Millisecond)
-		db.responses["SELECT pg_try_advisory_lock($1)"] = &fakeRow{ok: true}
-		db.responses["SELECT pg_advisory_unlock($1)"] = &fakeRow{ok: true}
+		db.setResponse("SELECT pg_try_advisory_lock($1)", &fakeRow{ok: true})
+		db.setResponse("SELECT pg_advisory_unlock($1)", &fakeRow{ok: true})
 	}()
 
 	if err := m.Lock(ctx); err != nil {

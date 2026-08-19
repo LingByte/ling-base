@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,12 +13,14 @@ import (
 )
 
 type fakeRow struct {
-	err   error
-	valid bool
-	val   int64
+	mu  sync.RWMutex
+	err error
+	val int64
 }
 
 func (r *fakeRow) Scan(dest ...any) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.err != nil {
 		return r.err
 	}
@@ -26,7 +29,7 @@ func (r *fakeRow) Scan(dest ...any) error {
 	}
 	switch d := dest[0].(type) {
 	case *sql.NullInt64:
-		d.Valid = r.valid
+		d.Valid = true
 		d.Int64 = r.val
 	default:
 		return errors.New("unexpected scan type")
@@ -35,16 +38,27 @@ func (r *fakeRow) Scan(dest ...any) error {
 }
 
 type fakeDB struct {
+	mu        sync.RWMutex
 	responses map[string]*fakeRow
 	lastQuery string
 }
 
 func (f *fakeDB) QueryRowContext(_ context.Context, query string, _ ...any) lockmysql.Row {
+	f.mu.Lock()
 	f.lastQuery = query
+	f.mu.Unlock()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if r, ok := f.responses[query]; ok {
 		return r
 	}
 	return &fakeRow{}
+}
+
+func (f *fakeDB) setResponse(query string, row *fakeRow) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.responses[query] = row
 }
 
 func TestNewMutexValidation(t *testing.T) {
@@ -59,8 +73,8 @@ func TestNewMutexValidation(t *testing.T) {
 
 func TestTryLockUnlockRefresh(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)":  {valid: true, val: 1},
-		"SELECT RELEASE_LOCK(?)": {valid: true, val: 1},
+		"SELECT GET_LOCK(?, 0)":  {val: 1},
+		"SELECT RELEASE_LOCK(?)": {val: 1},
 	}}
 	ctx := context.Background()
 	m, err := lockmysql.NewMutex(db, "my-lock")
@@ -80,7 +94,7 @@ func TestTryLockUnlockRefresh(t *testing.T) {
 
 func TestTryLockNotObtained(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)": {valid: true, val: 0},
+		"SELECT GET_LOCK(?, 0)": {val: 0},
 	}}
 	m, _ := lockmysql.NewMutex(db, "k")
 	if err := m.TryLock(context.Background()); !errors.Is(err, lock.ErrNotObtained) {
@@ -112,8 +126,8 @@ func TestUnlockNotHeld(t *testing.T) {
 
 func TestUnlockReleaseFail(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)":  {valid: true, val: 1},
-		"SELECT RELEASE_LOCK(?)": {valid: true, val: 0},
+		"SELECT GET_LOCK(?, 0)":  {val: 1},
+		"SELECT RELEASE_LOCK(?)": {val: 0},
 	}}
 	ctx := context.Background()
 	m, _ := lockmysql.NewMutex(db, "k")
@@ -127,15 +141,15 @@ func TestUnlockReleaseFail(t *testing.T) {
 
 func TestLockSuccessAfterRetry(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)": {valid: true, val: 0},
+		"SELECT GET_LOCK(?, 0)": {val: 0},
 	}}
 	ctx := context.Background()
 	m, _ := lockmysql.NewMutex(db, "k", lock.WithRetryDelay(5*time.Millisecond))
 
 	go func() {
 		time.Sleep(15 * time.Millisecond)
-		db.responses["SELECT GET_LOCK(?, 0)"] = &fakeRow{valid: true, val: 1}
-		db.responses["SELECT RELEASE_LOCK(?)"] = &fakeRow{valid: true, val: 1}
+		db.setResponse("SELECT GET_LOCK(?, 0)", &fakeRow{val: 1})
+		db.setResponse("SELECT RELEASE_LOCK(?)", &fakeRow{val: 1})
 	}()
 
 	if err := m.Lock(ctx); err != nil {
@@ -148,7 +162,7 @@ func TestLockSuccessAfterRetry(t *testing.T) {
 
 func TestUnlockScanError(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)":  {valid: true, val: 1},
+		"SELECT GET_LOCK(?, 0)":  {val: 1},
 		"SELECT RELEASE_LOCK(?)": {err: errors.New("release scan fail")},
 	}}
 	ctx := context.Background()
@@ -166,7 +180,7 @@ func TestLockRetryCancel(t *testing.T) {
 	db := &fakeDB{responses: map[string]*fakeRow{}}
 	orig := db.responses
 	db.responses = map[string]*fakeRow{
-		"SELECT GET_LOCK(?, 0)": {valid: true, val: 0},
+		"SELECT GET_LOCK(?, 0)": {val: 0},
 	}
 	_ = orig
 	ctx := context.Background()
@@ -175,7 +189,7 @@ func TestLockRetryCancel(t *testing.T) {
 	// Flip to success after first failure
 	go func() {
 		time.Sleep(15 * time.Millisecond)
-		db.responses["SELECT GET_LOCK(?, 0)"] = &fakeRow{valid: true, val: 1}
+		db.setResponse("SELECT GET_LOCK(?, 0)", &fakeRow{val: 1})
 		call++
 	}()
 

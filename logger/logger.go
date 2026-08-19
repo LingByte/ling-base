@@ -18,14 +18,28 @@ import (
 const consoleTimeLayout = "2006-01-02 15:04:05.000"
 
 // DefaultTimezone is used when InitTimezone is not called or the given name is invalid.
-// Mirrors constants.DefaultTimezone to avoid an import cycle if logger is ever split
-// into its own module; keep them in sync.
 const DefaultTimezone = constants.DefaultTimezone
 
-// InitTimezone loads the IANA timezone name and sets the process-global time.Local.
-// Call once at startup before any goroutine calls time.Now(); concurrent writes to
-// time.Local race with time.Now() reads. After this, all time.Now() calls return
-// time in the configured timezone automatically.
+// localLoc is the package-level timezone used by all time encoders.
+// We avoid modifying time.Local to prevent data races with time.Now()
+// calls in background goroutines (e.g. lumberjack's mill loop).
+var (
+	localLocMu sync.RWMutex
+	localLoc   *time.Location
+)
+
+func getLocalLoc() *time.Location {
+	localLocMu.RLock()
+	defer localLocMu.RUnlock()
+	if localLoc == nil {
+		return time.Local
+	}
+	return localLoc
+}
+
+// InitTimezone loads the IANA timezone name and sets the package-level timezone.
+// Call once at startup. Unlike modifying time.Local directly, this is safe to
+// call concurrently with time.Now() in background goroutines.
 func InitTimezone(name string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -36,21 +50,22 @@ func InitTimezone(name string) {
 		fmt.Fprintf(os.Stderr, "logger: invalid timezone %q: %v; falling back to %s\n", name, err, DefaultTimezone)
 		loc, _ = time.LoadLocation(DefaultTimezone)
 	}
-	time.Local = loc
+	localLocMu.Lock()
+	localLoc = loc
+	localLocMu.Unlock()
 }
 
 // businessTimeEncoder writes timestamps in the configured business timezone.
-// JSON logs therefore align with console output and business-day rotation.
 func businessTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(t.In(time.Local).Format("2006-01-02T15:04:05.000Z07:00"))
+	enc.AppendString(t.In(getLocalLoc()).Format("2006-01-02T15:04:05.000Z07:00"))
 }
 
 func formatConsoleTime(t time.Time) string {
-	return t.In(time.Local).Format(consoleTimeLayout)
+	return t.In(getLocalLoc()).Format(consoleTimeLayout)
 }
 
 func todayDateString() string {
-	return time.Now().In(time.Local).Format("2006-01-02")
+	return time.Now().In(getLocalLoc()).Format("2006-01-02")
 }
 
 type LogConfig struct {
