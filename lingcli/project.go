@@ -20,6 +20,7 @@ type ProjectSpec struct {
 	Git          bool     // 是否初始化 git
 	Modules      []string // 要集成的 ling-base 模块 ID 列表
 	ConfigFormat string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
+	CIPlatform   string   // CI 平台: "github" 或 "gitlab"（默认 github）
 }
 
 // FillDefaults 填充未设置的字段。
@@ -39,6 +40,9 @@ func (s *ProjectSpec) FillDefaults() {
 	}
 	if s.ConfigFormat == "" {
 		s.ConfigFormat = "yaml"
+	}
+	if s.CIPlatform == "" {
+		s.CIPlatform = "github"
 	}
 	// web-api 模板自动集成 response 模块（统一响应封装）
 	if s.Template == "web-api" && !s.HasModule("response") {
@@ -130,6 +134,9 @@ func (s *ProjectSpec) Summary() string {
 	if s.ConfigFormat != "" {
 		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m配置格式:\x1b[0m    %s\n", s.ConfigFormat))
 	}
+	if s.CIPlatform != "" {
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mCI 平台:\x1b[0m      %s\n", s.CIPlatform))
+	}
 	if len(s.Modules) > 0 {
 		var moduleNames []string
 		for _, id := range s.Modules {
@@ -175,7 +182,7 @@ var ProjectTemplates = []ProjectTemplate{
 	{
 		ID:          "web-api",
 		Description: "HTTP REST API 服务（路由、中间件、配置、优雅关闭）",
-		Structure:   "cmd/ internal/ pkg/ configs/ Dockerfile docker-compose.yml",
+		Structure:   "cmd/ internal/ configs/ docker/ .github/ Makefile",
 		NeedsPort:   true,
 		Generate:    generateWebAPI,
 	},

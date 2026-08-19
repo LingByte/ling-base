@@ -1,3 +1,4 @@
+{{- if eq .CIPlatform "github"}}
 name: CI
 
 on:
@@ -78,3 +79,4 @@ jobs:
         with:
           name: binary
           path: bin/{{.ProjectName}}
+{{- end}}

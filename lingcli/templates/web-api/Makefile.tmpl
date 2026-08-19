@@ -58,15 +58,15 @@ clean:
 
 ## docker-build: 构建 Docker 镜像
 docker-build:
-	docker build -t $(APP):$(VERSION) .
+	docker build -f docker/Dockerfile -t $(APP):$(VERSION) .
 
 ## docker-up: 启动 Docker Compose
 docker-up:
-	docker compose up -d
+	docker compose -f docker/docker-compose.yml up -d
 
 ## docker-down: 停止 Docker Compose
 docker-down:
-	docker compose down
+	docker compose -f docker/docker-compose.yml down
 
 ## help: 显示帮助
 help:

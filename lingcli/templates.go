@@ -29,6 +29,7 @@ type TemplateData struct {
 	Structure    string
 	Modules      []string // 选中的 ling-base 模块 ID
 	ConfigFormat string   // "yaml" 或 "env"
+	CIPlatform   string   // "github" 或 "gitlab"
 
 	// 条件渲染标志（根据 Modules 计算）
 	HasAPIDocs        bool
@@ -132,6 +133,7 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		Structure:         getStructureTree(templateID, spec.ProjectName()),
 		Modules:           spec.Modules,
 		ConfigFormat:      spec.ConfigFormat,
+		CIPlatform:        spec.CIPlatform,
 		HasAPIDocs:        spec.HasModule("apidocs"),
 		HasLimiter:        spec.HasModule("limiter"),
 		HasCircuitBreaker: spec.HasModule("circuitbreaker"),
@@ -229,8 +231,10 @@ func getFeatures(id string) []string {
 			"API 文档集成 (apidocs / Huma / OpenAPI 3.1)",
 			"限流 + 熔断配置 (ling-base limiter / circuitbreaker)",
 			"JWT 鉴权配置 (ling-base jwtutil)",
-			"Docker 容器化部署 (多阶段构建)",
+			"Docker 容器化部署 (docker/ 目录，多阶段构建)",
 			"Docker Compose 编排 (App + MySQL + Redis)",
+			"CI/CD 配置 (GitHub Actions 或 GitLab CI)",
+			"代码质量工具 (.golangci.yml + .dockerignore)",
 		}
 	case "grpc-service":
 		return []string{
@@ -293,8 +297,12 @@ func getStructureTree(templateID, projectName string) string {
 ├── configs/
 │   ├── config.yaml              # 开发环境配置
 │   └── config.prod.yaml         # 生产环境配置
-├── Dockerfile
-├── docker-compose.yml
+├── docker/
+│   ├── Dockerfile               # 多阶段构建 + HEALTHCHECK
+│   └── docker-compose.yml       # App + MySQL + Redis
+├── .github/workflows/ci.yml     # GitHub Actions CI
+├── .dockerignore
+├── .golangci.yml
 ├── Makefile
 ├── .gitignore
 ├── go.mod

@@ -90,11 +90,18 @@ open http://localhost:{{.Port}}/docs
 │   ├── config.yaml              # 开发环境配置
 │   └── config.prod.yaml         # 生产环境配置
 {{- end}}
+├── docker/
+│   ├── Dockerfile               # 多阶段构建 + HEALTHCHECK
+│   └── docker-compose.yml       # App + MySQL + Redis
+{{- if eq .CIPlatform "github"}}
 ├── .github/
 │   └── workflows/
 │       └── ci.yml               # GitHub Actions CI (test + lint + build)
-├── Dockerfile                   # 多阶段构建 + HEALTHCHECK
-├── docker-compose.yml           # App + MySQL + Redis
+{{- else if eq .CIPlatform "gitlab"}}
+├── .gitlab-ci.yml               # GitLab CI (test + lint + build)
+{{- end}}
+├── .dockerignore                # Docker 构建忽略文件
+├── .golangci.yml                # golangci-lint 配置
 ├── Makefile                     # 构建命令
 ├── .gitignore
 ├── go.mod
@@ -130,7 +137,7 @@ open http://localhost:{{.Port}}/docs
 
 ```bash
 # 构建镜像（注入版本信息）
-docker build \
+docker build -f docker/Dockerfile \
     --build-arg VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev") \
     --build-arg BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
     --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
@@ -140,7 +147,7 @@ docker build \
 docker run -p {{.Port}}:{{.Port}} --rm {{.ProjectName}}
 
 # 或使用 Docker Compose（含 MySQL + Redis）
-docker compose up -d
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ## Make 命令
@@ -158,8 +165,8 @@ docker compose up -d
 | `make fmt` | 格式化代码 |
 | `make fmt-check` | 检查格式化 |
 | `make clean` | 清理产物 |
-| `make docker-build` | 构建 Docker 镜像 |
-| `make docker-up` | 启动 Docker Compose |
+| `make docker-build` | 构建 Docker 镜像（docker/Dockerfile） |
+| `make docker-up` | 启动 Docker Compose（docker/docker-compose.yml） |
 | `make docker-down` | 停止 Docker Compose |
 
 ## API 端点

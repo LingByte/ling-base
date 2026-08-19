@@ -1,0 +1,67 @@
+{{- if eq .CIPlatform "gitlab"}}
+# {{.ProjectName}} GitLab CI
+
+stages:
+  - test
+  - lint
+  - build
+
+variables:
+  GO_VERSION: "1.23"
+
+# ── 缓存模板 ──
+.go-cache: &go-cache
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/go-build/
+      - .cache/go-mod/
+  before_script:
+    - export GOPATH="$CI_PROJECT_DIR/.cache/go"
+    - export GOCACHE="$CI_PROJECT_DIR/.cache/go-build"
+    - export GOMODCACHE="$CI_PROJECT_DIR/.cache/go-mod"
+    - go version
+    - go mod download
+
+# ── 测试 ──
+test:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  <<: *go-cache
+  script:
+    - go vet ./...
+    - go test -v -race -count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+  artifacts:
+    paths:
+      - coverage.txt
+    expire_in: 7 days
+
+# ── 代码检查 ──
+lint:
+  stage: lint
+  image: golangci/golangci-lint:latest
+  script:
+    - golangci-lint run --timeout 5m ./...
+  allow_failure: true
+
+# ── 构建 ──
+build:
+  stage: build
+  image: golang:${GO_VERSION}-alpine
+  <<: *go-cache
+  script:
+    - |
+      VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+      BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+      GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+      LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT}"
+      go build -ldflags "${LDFLAGS}" -o bin/{{.ProjectName}} ./cmd/...
+  artifacts:
+    paths:
+      - bin/{{.ProjectName}}
+    expire_in: 30 days
+  only:
+    - main
+    - master
+    - tags
+{{- end}}
