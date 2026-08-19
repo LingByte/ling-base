@@ -11,14 +11,15 @@ import (
 
 // ProjectSpec 持有新项目的完整规格。
 type ProjectSpec struct {
-	Name     string   // 项目名称 / 目录名
-	Module   string   // Go module 路径 (如 github.com/me/myapp)
-	Template string   // 项目模板 ID
-	Author   string   // 作者
-	Port     int      // 服务端口 (web-api / grpc-service)
-	Docker   bool     // 是否生成 Docker 部署文件
-	Git      bool     // 是否初始化 git
-	Modules  []string // 要集成的 ling-base 模块 ID 列表
+	Name         string   // 项目名称 / 目录名
+	Module       string   // Go module 路径 (如 github.com/me/myapp)
+	Template     string   // 项目模板 ID
+	Author       string   // 作者
+	Port         int      // 服务端口 (web-api / grpc-service)
+	Docker       bool     // 是否生成 Docker 部署文件
+	Git          bool     // 是否初始化 git
+	Modules      []string // 要集成的 ling-base 模块 ID 列表
+	ConfigFormat string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
 }
 
 // FillDefaults 填充未设置的字段。
@@ -35,6 +36,13 @@ func (s *ProjectSpec) FillDefaults() {
 		case "worker":
 			s.Port = 8080
 		}
+	}
+	if s.ConfigFormat == "" {
+		s.ConfigFormat = "yaml"
+	}
+	// web-api 模板自动集成 response 模块（统一响应封装）
+	if s.Template == "web-api" && !s.HasModule("response") {
+		s.Modules = append(s.Modules, "response")
 	}
 }
 
@@ -119,6 +127,9 @@ func (s *ProjectSpec) Summary() string {
 	}
 	sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mDocker:\x1b[0m      %s\n", boolYesNo(s.Docker)))
 	sb.WriteString(fmt.Sprintf("  \x1b[38;5;117mGit 初始化:\x1b[0m  %s\n", boolYesNo(s.Git)))
+	if s.ConfigFormat != "" {
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m配置格式:\x1b[0m    %s\n", s.ConfigFormat))
+	}
 	if len(s.Modules) > 0 {
 		var moduleNames []string
 		for _, id := range s.Modules {
@@ -233,6 +244,7 @@ var LingBaseModules = []LingBaseModule{
 	{ID: "jwt", Name: "JWT 鉴权", Description: "Access/Refresh token + 黑名单 + 中间件", ImportPath: "github.com/LingByte/ling-base/common/jwtutil", Core: true},
 	{ID: "limiter", Name: "限流", Description: "令牌桶 / 并发数 / 按 key 限流（内存/Redis）", ImportPath: "github.com/LingByte/ling-base/common/limiter", Core: true},
 	{ID: "circuitbreaker", Name: "熔断器", Description: "滑动窗口熔断器（Closed/Open/Half-Open）", ImportPath: "github.com/LingByte/ling-base/common/circuitbreaker", Core: true},
+	{ID: "response", Name: "统一响应", Description: "统一 JSON 响应封装 + 错误码 + Gin 集成", ImportPath: "github.com/LingByte/ling-base/common/response", Core: true},
 	{ID: "cache", Name: "缓存", Description: "统一缓存接口（Redis/Memcache/FreeCache/Ristretto）", ImportPath: "github.com/LingByte/ling-base/cache"},
 	{ID: "lock", Name: "分布式锁", Description: "Redis/MySQL/PostgreSQL/Etcd/Zookeeper 锁", ImportPath: "github.com/LingByte/ling-base/common/lock"},
 	{ID: "retry", Name: "重试", Description: "指数退避/固定间隔重试 + 熔断组合", ImportPath: "github.com/LingByte/ling-base/common/retry"},

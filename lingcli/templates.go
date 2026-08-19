@@ -13,21 +13,22 @@ import (
 	"time"
 )
 
-//go:embed templates/*
+//go:embed all:templates
 var templateFS embed.FS
 
 // TemplateData 传递给 .tmpl 模板的渲染数据。
 type TemplateData struct {
-	Module      string
-	ProjectName string
-	PackageName string
-	Author      string
-	Year        int
-	Port        int
-	Description string
-	Features    []string
-	Structure   string
-	Modules     []string // 选中的 ling-base 模块 ID
+	Module       string
+	ProjectName  string
+	PackageName  string
+	Author       string
+	Year         int
+	Port         int
+	Description  string
+	Features     []string
+	Structure    string
+	Modules      []string // 选中的 ling-base 模块 ID
+	ConfigFormat string   // "yaml" 或 "env"
 
 	// 条件渲染标志（根据 Modules 计算）
 	HasAPIDocs        bool
@@ -35,6 +36,9 @@ type TemplateData struct {
 	HasCircuitBreaker bool
 	HasMiddleware     bool
 	HasJWT            bool
+	HasResponse       bool
+	IsEnvConfig       bool
+	IsYAMLConfig      bool
 }
 
 // RenderTemplate 渲染单个 .tmpl 文件，返回输出路径和内容。
@@ -127,11 +131,15 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		Features:          getFeatures(templateID),
 		Structure:         getStructureTree(templateID, spec.ProjectName()),
 		Modules:           spec.Modules,
+		ConfigFormat:      spec.ConfigFormat,
 		HasAPIDocs:        spec.HasModule("apidocs"),
 		HasLimiter:        spec.HasModule("limiter"),
 		HasCircuitBreaker: spec.HasModule("circuitbreaker"),
 		HasMiddleware:     spec.HasModule("middleware"),
 		HasJWT:            spec.HasModule("jwt"),
+		HasResponse:       spec.HasModule("response"),
+		IsEnvConfig:       spec.ConfigFormat == "env",
+		IsYAMLConfig:      spec.ConfigFormat != "env",
 	}
 
 	var files []FileEntry
@@ -211,8 +219,9 @@ func getFeatures(id string) []string {
 		return []string{
 			"HTTP REST API 路由 (Gin)",
 			"中间件链 (RequestID / 日志 / 恢复 / CORS)",
-			"配置文件管理 (YAML，多环境)",
+			"配置文件管理 (YAML / .env，多环境，支持环境变量覆盖)",
 			"数据库支持 (MySQL / PostgreSQL / SQLite，GORM)",
+			"统一响应封装 (ling-base/common/response)",
 			"优雅关闭 (Graceful Shutdown)",
 			"健康检查接口 (/health)",
 			"Bootstrap 启动框架 (Banner / 生命周期 / 事件)",
@@ -267,23 +276,20 @@ func getStructureTree(templateID, projectName string) string {
 	case "web-api":
 		return projectName + `/├── cmd/
 │   └── server/
-│       └── main.go              # 程序入口
+│       └── main.go              # 程序入口 + 应用启动逻辑
 ├── internal/
-│   ├── app/
-│   │   └── app.go               # 应用启动 (bootstrap 集成)
+│   ├── auth/                    # JWT 鉴权（可选）
+│   │   └── auth.go
 │   ├── config/
-│   │   └── config.go            # 配置定义与加载
+│   │   ├── config.go            # 配置定义与加载
+│   │   └── config_test.go
 │   ├── handler/
-│   │   └── handler.go           # HTTP 处理器
+│   │   ├── handler.go           # HTTP 处理器（直接操作 db）
+│   │   └── handler_test.go
 │   ├── middleware/
 │   │   └── middleware.go        # 中间件
-│   ├── model/
-│   │   └── user.go              # 数据模型
-│   └── service/
-│       └── user_service.go      # 业务逻辑层
-├── pkg/
-│   └── response/
-│       └── response.go          # 统一响应封装
+│   └── model/
+│       └── user.go              # 数据模型
 ├── configs/
 │   ├── config.yaml              # 开发环境配置
 │   └── config.prod.yaml         # 生产环境配置

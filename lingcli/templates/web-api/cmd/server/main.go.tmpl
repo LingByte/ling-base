@@ -3,7 +3,32 @@
 package main
 
 import (
-	"{{.Module}}/internal/app"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/handler"
+	localmw "{{.Module}}/internal/middleware"
+	"{{.Module}}/internal/model"
+	{{- if .HasJWT}}
+	"{{.Module}}/internal/auth"
+	{{- end}}
+
+	"github.com/LingByte/ling-base/bootstrap"
+	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/logger"
+	{{- if or .HasMiddleware .HasCircuitBreaker}}
+	"github.com/LingByte/ling-base/middleware"
+	{{- end}}
+	{{- if .HasAPIDocs}}
+	"github.com/LingByte/ling-base/apidocs"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // Version / BuildTime / GitCommit 由 ldflags 注入。
@@ -14,11 +39,192 @@ var (
 )
 
 func main() {
-	app.Run(&app.AppInfo{
+	info := &handler.AppInfo{
 		Name:      "{{.ProjectName}}",
 		Version:   Version,
 		BuildTime: BuildTime,
 		GitCommit: GitCommit,
-		Port:      {{.Port}},
+	}
+
+	// 加载配置
+	{{- if .IsEnvConfig}}
+	cfg, err := config.Load("configs/.env")
+	{{- else}}
+	cfg, err := config.Load("configs/config.yaml")
+	{{- end}}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 初始化时区
+	logger.InitTimezone(constants.TimezoneShanghai)
+
+	// 初始化日志（zap + lumberjack 轮转 + 脱敏）
+	if err := logger.Init(&logger.LogConfig{
+		Level:           cfg.Logging.Level,
+		Filename:        cfg.Logging.Filename,
+		MaxSize:         cfg.Logging.MaxSize,
+		MaxAge:          cfg.Logging.MaxAge,
+		MaxBackups:      cfg.Logging.MaxBackups,
+		Daily:           cfg.Logging.Daily,
+		SensitiveFields: cfg.Logging.SensitiveFields,
+	}, cfg.App.Environment); err != nil {
+		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 创建 bootstrap 应用
+	appOpts := []bootstrap.Option{
+		bootstrap.WithProfile(cfg.App.Environment),
+		bootstrap.WithBannerText(info.Name),
+		bootstrap.WithShutdownTimeout(15 * time.Second),
+	}
+
+	// 数据库初始化 + 迁移
+	var db *gorm.DB
+	if cfg.Database.DSN != "" {
+		db, err = config.InitDB(cfg.Database)
+		if err != nil {
+			logger.Lg.Error("数据库初始化失败", zap.Error(err))
+			os.Exit(1)
+		}
+		// dev/test: AutoMigrate; prod: 手动 SQL 迁移
+		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
+			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &model.User{}))
+		}
+	}
+
+	{{- if .HasCircuitBreaker}}
+
+	// 初始化超时+熔断管理器（ling-base/middleware）
+	recoveryTimeout, _ := time.ParseDuration(cfg.CircuitBreaker.RecoveryTimeout)
+	middleware.InitTimeoutCircuitManager(
+		middleware.TimeoutConfig{
+			DefaultTimeout:   30 * time.Second,
+			FallbackResponse: map[string]interface{}{"error": "service_unavailable", "message": "服务暂时不可用"},
+		},
+		middleware.CircuitBreakerConfig{
+			FailureThreshold:      cfg.CircuitBreaker.FailureThreshold,
+			SuccessThreshold:      3,
+			OpenTimeout:           recoveryTimeout,
+			MaxConcurrentRequests: cfg.CircuitBreaker.MinRequests,
+		},
+		true,                        // enableTimeout
+		cfg.CircuitBreaker.Enabled,  // enableCircuitBreaker
+	)
+	{{- end}}
+
+	{{- if .HasJWT}}
+
+	// 初始化 JWT 鉴权（ling-base/common/jwtutil）
+	accessTTL, _ := time.ParseDuration(cfg.JWT.AccessTTL)
+	refreshTTL, _ := time.ParseDuration(cfg.JWT.RefreshTTL)
+	jwtAuth, err := auth.New(cfg.JWT, accessTTL, refreshTTL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "初始化 JWT 失败: %v\n", err)
+		os.Exit(1)
+	}
+	info.JWTAuth = jwtAuth
+	{{- end}}
+
+	app := bootstrap.New(info.Name, appOpts...)
+
+	// 注册 HTTP 服务器为生命周期组件
+	app.Register("http-server", &httpServerComponent{
+		info: info,
+		cfg:  cfg,
+		db:   db,
 	})
+
+	// 启动（阻塞直到收到关闭信号）
+	if err := app.Run(); err != nil {
+		logger.Lg.Error("应用启动失败", zap.Error(err))
+		os.Exit(1)
+	}
+}
+
+// ──────────────────────────────────────────────
+// HTTP 服务器生命周期组件
+// ──────────────────────────────────────────────
+
+type httpServerComponent struct {
+	info   *handler.AppInfo
+	cfg    *config.Config
+	db     *gorm.DB
+	server *http.Server
+}
+
+func (c *httpServerComponent) Start(ctx context.Context) error {
+	// 生产环境用 Release 模式
+	if c.cfg.App.Environment == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+
+	// 全局中间件（必须在 apidocs.Mount 之前注册）
+	r.Use(localmw.RequestID())
+	r.Use(localmw.Logging())
+	r.Use(localmw.Recover())
+	r.Use(localmw.CORS())
+	{{- if .HasLimiter}}
+	r.Use(localmw.RateLimit(c.cfg.RateLimit))
+	{{- end}}
+	{{- if .HasCircuitBreaker}}
+	r.Use(localmw.CircuitBreaker())
+	{{- end}}
+	{{- if .HasJWT}}
+	// JWT 鉴权中间件（公开路径自动跳过）
+	if c.info.JWTAuth != nil && c.info.JWTAuth.Enabled() {
+		r.Use(c.info.JWTAuth.GinMiddleware())
+	}
+	{{- end}}
+
+	{{- if .HasAPIDocs}}
+	// 先挂载 apidocs，拿到 huma.API（用于注册带 OpenAPI 文档的路由）
+	docsEnabled := c.cfg.Docs.Enabled
+	api := apidocs.Mount(r, apidocs.Options{
+		Title:       c.info.Name + " API",
+		Version:     c.info.Version,
+		Description: "{{.ProjectName}} RESTful API 文档",
+		DocsPath:    c.cfg.Docs.Path,
+		DarkMode:    c.cfg.Docs.DarkMode,
+		EnabledFunc: func() bool { return docsEnabled },
+	})
+
+	// 通过 Huma 注册路由（同时出现在 Gin 路由表和 OpenAPI spec 中）
+	handler.RegisterRoutes(api, c.cfg, *c.info, c.db)
+	{{- else}}
+	// 通过 Gin 注册路由
+	handler.RegisterRoutes(r, c.cfg, *c.info, c.db)
+	{{- end}}
+
+	c.server = &http.Server{
+		Addr:         fmt.Sprintf(":%d", c.cfg.Server.Port),
+		Handler:      r,
+		ReadTimeout:  c.cfg.Server.ReadTimeout,
+		WriteTimeout: c.cfg.Server.WriteTimeout,
+		IdleTimeout:  c.cfg.Server.IdleTimeout,
+	}
+
+	go func() {
+		logger.Lg.Info("HTTP 服务已启动",
+			zap.String("addr", c.server.Addr),
+			zap.String("version", c.info.Version))
+		if err := c.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Lg.Error("HTTP 服务异常", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+func (c *httpServerComponent) Stop(ctx context.Context) error {
+	logger.Lg.Info("正在关闭 HTTP 服务...")
+	return c.server.Shutdown(ctx)
+}
+
+func (c *httpServerComponent) IsRunning() bool {
+	return c.server != nil
 }

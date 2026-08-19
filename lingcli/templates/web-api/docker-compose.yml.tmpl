@@ -6,10 +6,15 @@ services:
     container_name: {{.ProjectName}}
     ports:
       - "{{.Port}}:{{.Port}}"
+    {{- if .IsEnvConfig}}
+    env_file:
+      - configs/.env.prod
+    {{- else}}
     environment:
-      - APP_ENV=production
+      - APP_APP_ENVIRONMENT=production
     volumes:
       - ./configs:/app/configs
+    {{- end}}
     restart: unless-stopped
     depends_on:
       - mysql

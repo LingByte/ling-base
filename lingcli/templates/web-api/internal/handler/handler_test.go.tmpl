@@ -26,9 +26,9 @@ func newTestRouter(t *testing.T) *gin.Engine {
 	r := gin.New()
 	{{- if .HasAPIDocs}}
 	api := apidocs.Mount(r, apidocs.Options{Title: "test", Version: "0.0.0-test"})
-	RegisterRoutes(api, cfg, AppInfo{Name: "test", Version: "0.0.0-test"})
+	RegisterRoutes(api, cfg, AppInfo{Name: "test", Version: "0.0.0-test"}, nil)
 	{{- else}}
-	RegisterRoutes(r, cfg, AppInfo{Name: "test", Version: "0.0.0-test"})
+	RegisterRoutes(r, cfg, AppInfo{Name: "test", Version: "0.0.0-test"}, nil)
 	{{- end}}
 	return r
 }
@@ -48,8 +48,13 @@ func TestHealth(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	if body["status"] != "healthy" {
-		t.Errorf("expected status=healthy, got %v", body["status"])
+	// common/response envelope: {"code": 200, "msg": "success", "data": {...}}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data object, got %v", body["data"])
+	}
+	if data["status"] != "healthy" {
+		t.Errorf("expected status=healthy, got %v", data["status"])
 	}
 }
 
@@ -92,8 +97,12 @@ func TestVersion(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	if body["version"] != "0.0.0-test" {
-		t.Errorf("expected version=0.0.0-test, got %v", body["version"])
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data object, got %v", body["data"])
+	}
+	if data["version"] != "0.0.0-test" {
+		t.Errorf("expected version=0.0.0-test, got %v", data["version"])
 	}
 }
 
@@ -124,8 +133,14 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		t.Fatalf("expected 422 for invalid email, got %d", w.Code)
 	}
 	{{- else}}
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for invalid email, got %d", w.Code)
+	// common/response returns HTTP 200 with error code in body
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (error in body), got %d", w.Code)
+	}
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["error"] != "BAD_REQUEST" {
+		t.Errorf("expected error=BAD_REQUEST, got %v", resp["error"])
 	}
 	{{- end}}
 }
@@ -145,8 +160,14 @@ func TestCreateUser_MissingName(t *testing.T) {
 		t.Fatalf("expected 422 for missing name, got %d", w.Code)
 	}
 	{{- else}}
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for missing name, got %d", w.Code)
+	// common/response returns HTTP 200 with error code in body
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (error in body), got %d", w.Code)
+	}
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["error"] != "BAD_REQUEST" {
+		t.Errorf("expected error=BAD_REQUEST, got %v", resp["error"])
 	}
 	{{- end}}
 }
@@ -160,9 +181,15 @@ func TestCreateUser_Valid(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
 	}
+	{{- else}}
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
+	}
+	{{- end}}
 }
 
 func TestGetUser_InvalidID(t *testing.T) {
@@ -178,8 +205,16 @@ func TestGetUser_InvalidID(t *testing.T) {
 		t.Fatalf("expected 422 for invalid id, got %d", w.Code)
 	}
 	{{- else}}
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for invalid id, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		// common/response returns HTTP 200 with error code in body
+		t.Fatalf("expected 200 (error in body), got %d", w.Code)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body["error"] != "BAD_REQUEST" {
+		t.Errorf("expected error=BAD_REQUEST, got %v", body["error"])
 	}
 	{{- end}}
 }
@@ -195,9 +230,21 @@ func TestLogin_JWTDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
 	}
+	{{- else}}
+	// common/response returns HTTP 200 with error code in body
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (error in body), got %d", w.Code)
+	}
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["error"] != "SERVICE_UNAVAILABLE" {
+		t.Errorf("expected error=SERVICE_UNAVAILABLE, got %v", resp["error"])
+	}
+	{{- end}}
 }
 
 func TestRefresh_JWTDisabled(t *testing.T) {
@@ -209,9 +256,15 @@ func TestRefresh_JWTDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	{{- if .HasAPIDocs}}
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 when JWT disabled, got %d", w.Code)
 	}
+	{{- else}}
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (error in body), got %d", w.Code)
+	}
+	{{- end}}
 }
 {{- end}}
 

@@ -22,7 +22,7 @@ func TestDefault(t *testing.T) {
 }
 
 func TestLoad_MissingFile(t *testing.T) {
-	cfg, err := Load("/nonexistent/path/config.yaml")
+	cfg, err := Load("/nonexistent/path/config.{{if .IsEnvConfig}}env{{else}}yaml{{end}}")
 	if err != nil {
 		t.Fatalf("expected no error for missing file, got %v", err)
 	}
@@ -33,6 +33,69 @@ func TestLoad_MissingFile(t *testing.T) {
 		t.Errorf("expected default port, got %d", cfg.Server.Port)
 	}
 }
+
+{{- if .IsEnvConfig}}
+
+func TestLoad_ValidEnv(t *testing.T) {
+	tmp := t.TempDir() + "/.env"
+	content := `APP_SERVER_PORT=9999
+APP_APP_ENVIRONMENT=prod
+APP_DATABASE_DRIVER=mysql
+APP_DATABASE_DSN=user:pass@tcp(localhost:3306)/db
+`
+	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 清理可能存在的环境变量
+	t.Setenv("APP_SERVER_PORT", "")
+	t.Setenv("APP_APP_ENVIRONMENT", "")
+	t.Setenv("APP_DATABASE_DRIVER", "")
+	t.Setenv("APP_DATABASE_DSN", "")
+	os.Unsetenv("APP_SERVER_PORT")
+	os.Unsetenv("APP_APP_ENVIRONMENT")
+	os.Unsetenv("APP_DATABASE_DRIVER")
+	os.Unsetenv("APP_DATABASE_DSN")
+
+	cfg, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.Server.Port != 9999 {
+		t.Errorf("expected port=9999, got %d", cfg.Server.Port)
+	}
+	if cfg.App.Environment != "prod" {
+		t.Errorf("expected env=prod, got %s", cfg.App.Environment)
+	}
+	if cfg.Database.Driver != "mysql" {
+		t.Errorf("expected driver=mysql, got %s", cfg.Database.Driver)
+	}
+}
+
+func TestLoad_EnvWithQuotes(t *testing.T) {
+	tmp := t.TempDir() + "/.env"
+	content := `APP_DATABASE_DSN="root:pass@tcp(host:3306)/db"
+APP_JWT_SECRET='my-secret'
+`
+	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	os.Unsetenv("APP_DATABASE_DSN")
+	os.Unsetenv("APP_JWT_SECRET")
+
+	cfg, err := Load(tmp)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.Database.DSN != "root:pass@tcp(host:3306)/db" {
+		t.Errorf("expected unquoted DSN, got %s", cfg.Database.DSN)
+	}
+	if cfg.JWT.Secret != "my-secret" {
+		t.Errorf("expected unquoted secret, got %s", cfg.JWT.Secret)
+	}
+}
+
+{{- else}}
 
 func TestLoad_ValidYAML(t *testing.T) {
 	tmp := t.TempDir() + "/config.yaml"
@@ -63,6 +126,8 @@ database:
 		t.Errorf("expected driver=mysql, got %s", cfg.Database.Driver)
 	}
 }
+
+{{- end}}
 
 func TestEnvOverrides(t *testing.T) {
 	t.Setenv("APP_SERVER_PORT", "7777")

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strconv"
@@ -155,24 +156,66 @@ func Default() *Config {
 	}
 }
 
-// Load 从 YAML 文件加载配置。文件不存在时使用默认配置。
+// Load 从配置文件加载配置。
+// 文件不存在时使用默认配置。
+// 支持 YAML (.yaml/.yml) 和 .env 两种格式。
 // 加载后用环境变量覆盖对应字段（env 优先级最高）。
 // 环境变量格式：APP_<SECTION>_<FIELD>，例如 APP_SERVER_PORT、APP_DATABASE_DSN。
 func Load(path string) (*Config, error) {
+	cfg := Default()
+
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// 配置文件未找到，使用默认配置
-		data = nil
+		// 配置文件未找到，使用默认配置 + 环境变量
+		applyEnvOverrides(cfg)
+		return cfg, nil
 	}
-	cfg := Default()
-	if data != nil {
+
+	if strings.HasSuffix(path, ".env") || strings.HasSuffix(path, ".env.prod") {
+		// .env 格式：解析 KEY=VALUE 并设为环境变量，然后走 env 覆盖
+		if err := loadDotEnv(data); err != nil {
+			return nil, fmt.Errorf("解析 .env 配置失败: %w", err)
+		}
+		applyEnvOverrides(cfg)
+	} else {
+		// YAML 格式
 		if err := yaml.Unmarshal(data, cfg); err != nil {
-			return nil, fmt.Errorf("解析配置文件失败: %w", err)
+			return nil, fmt.Errorf("解析 YAML 配置失败: %w", err)
+		}
+		applyEnvOverrides(cfg)
+	}
+
+	return cfg, nil
+}
+
+// loadDotEnv 解析 .env 文件内容（KEY=VALUE 格式），
+// 将键值对设置为环境变量（不覆盖已存在的环境变量）。
+func loadDotEnv(data []byte) error {
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// 跳过空行和注释
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// 解析 KEY=VALUE
+		idx := strings.Index(line, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		// 去除引号
+		if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') ||
+			(val[0] == '\'' && val[len(val)-1] == '\'')) {
+			val = val[1 : len(val)-1]
+		}
+		// 不覆盖已存在的环境变量
+		if _, exists := os.LookupEnv(key); !exists {
+			os.Setenv(key, val)
 		}
 	}
-	// 环境变量覆盖
-	applyEnvOverrides(cfg)
-	return cfg, nil
+	return scanner.Err()
 }
 
 // applyEnvOverrides 用 APP_ 前缀的环境变量覆盖配置。

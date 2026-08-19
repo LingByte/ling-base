@@ -1,3 +1,4 @@
+{{- if .IsYAMLConfig}}
 # {{.ProjectName}} 生产环境配置覆盖
 
 server:
@@ -50,3 +51,4 @@ jwt:
 app:
   name: {{.ProjectName}}
   environment: prod
+{{- end}}

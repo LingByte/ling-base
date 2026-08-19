@@ -1,3 +1,4 @@
+{{- if .IsYAMLConfig}}
 # {{.ProjectName}} 配置文件
 
 server:
@@ -62,3 +63,4 @@ jwt:
 app:
   name: {{.ProjectName}}
   environment: dev        # dev | test | staging | prod
+{{- end}}

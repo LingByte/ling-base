@@ -3,23 +3,26 @@
 package handler
 
 import (
-	"net/http"
+	"errors"
 	"time"
 
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/model"
-	"{{.Module}}/internal/service"
 	{{- if .HasJWT}}
 	"{{.Module}}/internal/auth"
 	{{- end}}
+
+	"github.com/LingByte/ling-base/common/response"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	{{- if .HasAPIDocs}}
 	"context"
+	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
 	{{- else}}
+	respgin "github.com/LingByte/ling-base/common/response/gin"
 	"strconv"
-
-	"github.com/gin-gonic/gin"
 	{{- end}}
 )
 
@@ -34,32 +37,28 @@ type AppInfo struct {
 	{{- end}}
 }
 
-// Handler HTTP 请求处理器。
+// Handler HTTP 请求处理器（直接操作 db，无 service/repository 层）。
 type Handler struct {
 	cfg       *config.Config
 	info      AppInfo
 	startTime time.Time
-	userSvc   *service.UserService
+	db        *gorm.DB
 	{{- if .HasJWT}}
 	jwtAuth   *auth.Auth
 	{{- end}}
 }
 
 // New 创建处理器。
-func New(cfg *config.Config, info AppInfo) *Handler {
+func New(cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
 	return &Handler{
 		cfg:       cfg,
 		info:      info,
 		startTime: time.Now(),
+		db:        db,
 		{{- if .HasJWT}}
 		jwtAuth:   info.JWTAuth,
 		{{- end}}
 	}
-}
-
-// SetUserService 注入用户服务（由 app.go 调用）。
-func (h *Handler) SetUserService(svc *service.UserService) {
-	h.userSvc = svc
 }
 
 {{- if .HasAPIDocs}}
@@ -69,8 +68,8 @@ func (h *Handler) SetUserService(svc *service.UserService) {
 // ──────────────────────────────────────────────
 
 // RegisterRoutes 通过 Huma 注册所有路由（同时生成 OpenAPI 文档）。
-func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
-	h := New(cfg, info)
+func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
+	h := New(cfg, info, db)
 
 	// ── 系统端点 ──
 
@@ -82,14 +81,13 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Description: "综合健康状态，包含 uptime、环境、版本。",
 		Tags:        []string{"系统"},
 	}, func(ctx context.Context, _ *struct{}) (*HealthOutput, error) {
-		return &HealthOutput{
-			Body: HealthBody{
-				Status:  "healthy",
-				Uptime:  time.Since(h.startTime).String(),
-				Env:     h.cfg.App.Environment,
-				Version: h.info.Version,
+		return &HealthOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success",
+			Data: HealthData{
+				Status: "healthy", Uptime: time.Since(h.startTime).String(),
+				Env: h.cfg.App.Environment, Version: h.info.Version,
 			},
-		}, nil
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -100,7 +98,10 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Description: "K8s liveness probe，进程能响应即 200。",
 		Tags:        []string{"系统"},
 	}, func(ctx context.Context, _ *struct{}) (*LiveOutput, error) {
-		return &LiveOutput{Body: LiveBody{Status: "alive"}}, nil
+		return &LiveOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "alive",
+			Data: gin.H{"status": "alive"},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -111,7 +112,10 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Description: "K8s readiness probe，检查依赖是否就绪。",
 		Tags:        []string{"系统"},
 	}, func(ctx context.Context, _ *struct{}) (*ReadyOutput, error) {
-		return &ReadyOutput{Body: ReadyBody{Status: "ready"}}, nil
+		return &ReadyOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "ready",
+			Data: gin.H{"status": "ready"},
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -121,9 +125,12 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Summary:     "版本信息",
 		Tags:        []string{"系统"},
 	}, func(ctx context.Context, _ *struct{}) (*VersionOutput, error) {
-		return &VersionOutput{Body: VersionBody{
-			Name: h.info.Name, Version: h.info.Version,
-			BuildTime: h.info.BuildTime, GitCommit: h.info.GitCommit,
+		return &VersionOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success",
+			Data: VersionData{
+				Name: h.info.Name, Version: h.info.Version,
+				BuildTime: h.info.BuildTime, GitCommit: h.info.GitCommit,
+			},
 		}}, nil
 	})
 
@@ -139,21 +146,28 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 	}, func(ctx context.Context, input *ListUsersInput) (*ListUsersOutput, error) {
 		page := input.Query.Page
 		size := input.Query.Size
-		if h.userSvc == nil {
+		if h.db == nil {
 			users := []model.User{
 				{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
 				{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
 			}
-			return &ListUsersOutput{Body: ListUsersBody{
-				Users: users, Total: int64(len(users)), Page: page, Size: size,
+			return &ListUsersOutput{Body: response.Response{
+				Code: response.CodeSuccess, Message: "success",
+				Data: response.NewPage(users, int64(len(users)), page, size),
 			}}, nil
 		}
-		users, total, err := h.userSvc.List(ctx, page, size)
-		if err != nil {
+		offset := (page - 1) * size
+		var users []model.User
+		var total int64
+		if err := h.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
 			return nil, huma.Error500InternalServerError("查询失败")
 		}
-		return &ListUsersOutput{Body: ListUsersBody{
-			Users: users, Total: total, Page: page, Size: size,
+		if err := h.db.WithContext(ctx).Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
+			return nil, huma.Error500InternalServerError("查询失败")
+		}
+		return &ListUsersOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success",
+			Data: response.NewPage(users, total, page, size),
 		}}, nil
 	})
 
@@ -164,14 +178,19 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Summary:     "查询用户",
 		Tags:        []string{"用户"},
 	}, func(ctx context.Context, input *GetUserInput) (*GetUserOutput, error) {
-		if h.userSvc == nil {
+		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		user, err := h.userSvc.Get(ctx, input.ID)
-		if err != nil {
-			return nil, huma.Error404NotFound("用户不存在")
+		var user model.User
+		if err := h.db.WithContext(ctx).First(&user, input.ID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, huma.Error404NotFound("用户不存在")
+			}
+			return nil, huma.Error500InternalServerError("查询失败")
 		}
-		return &GetUserOutput{Body: *user}, nil
+		return &GetUserOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success", Data: user,
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -187,15 +206,19 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 			Email: input.Body.Email,
 			Phone: input.Body.Phone,
 		}
-		if h.userSvc == nil {
+		if h.db == nil {
 			user.ID = time.Now().Unix()
 			user.CreatedAt = time.Now()
-			return &CreateUserOutput{Body: user}, nil
+			return &CreateUserOutput{Body: response.Response{
+				Code: response.CodeSuccess, Message: "created", Data: user,
+			}}, nil
 		}
-		if err := h.userSvc.Create(ctx, &user); err != nil {
+		if err := h.db.WithContext(ctx).Create(&user).Error; err != nil {
 			return nil, huma.Error500InternalServerError("创建失败")
 		}
-		return &CreateUserOutput{Body: user}, nil
+		return &CreateUserOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "created", Data: user,
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -205,12 +228,15 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Summary:     "更新用户",
 		Tags:        []string{"用户"},
 	}, func(ctx context.Context, input *UpdateUserInput) (*UpdateUserOutput, error) {
-		if h.userSvc == nil {
+		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		user, err := h.userSvc.Get(ctx, input.ID)
-		if err != nil {
-			return nil, huma.Error404NotFound("用户不存在")
+		var user model.User
+		if err := h.db.WithContext(ctx).First(&user, input.ID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, huma.Error404NotFound("用户不存在")
+			}
+			return nil, huma.Error500InternalServerError("查询失败")
 		}
 		if input.Body.Name != nil {
 			user.Name = *input.Body.Name
@@ -221,10 +247,12 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		if input.Body.Phone != nil {
 			user.Phone = *input.Body.Phone
 		}
-		if err := h.userSvc.Update(ctx, user); err != nil {
+		if err := h.db.WithContext(ctx).Save(&user).Error; err != nil {
 			return nil, huma.Error500InternalServerError("更新失败")
 		}
-		return &UpdateUserOutput{Body: *user}, nil
+		return &UpdateUserOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success", Data: user,
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -235,10 +263,14 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		Tags:          []string{"用户"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, input *DeleteUserInput) (*struct{}, error) {
-		if h.userSvc == nil {
+		if h.db == nil {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
-		if err := h.userSvc.Delete(ctx, input.ID); err != nil {
+		result := h.db.WithContext(ctx).Delete(&model.User{}, input.ID)
+		if result.Error != nil {
+			return nil, huma.Error500InternalServerError("删除失败")
+		}
+		if result.RowsAffected == 0 {
 			return nil, huma.Error404NotFound("用户不存在")
 		}
 		return nil, nil
@@ -263,9 +295,12 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("签发 token 失败")
 		}
-		return &LoginOutput{Body: TokenBody{
-			AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken,
-			ExpiresIn: pair.ExpiresIn, TokenType: pair.TokenType,
+		return &LoginOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success",
+			Data: TokenData{
+				AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken,
+				ExpiresIn: pair.ExpiresIn, TokenType: pair.TokenType,
+			},
 		}}, nil
 	})
 
@@ -284,9 +319,12 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 		if err != nil {
 			return nil, huma.Error401Unauthorized("refresh token 无效或已过期")
 		}
-		return &RefreshOutput{Body: TokenBody{
-			AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken,
-			ExpiresIn: pair.ExpiresIn, TokenType: pair.TokenType,
+		return &RefreshOutput{Body: response.Response{
+			Code: response.CodeSuccess, Message: "success",
+			Data: TokenData{
+				AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken,
+				ExpiresIn: pair.ExpiresIn, TokenType: pair.TokenType,
+			},
 		}}, nil
 	})
 	{{- end}}
@@ -294,33 +332,26 @@ func RegisterRoutes(api huma.API, cfg *config.Config, info AppInfo) *Handler {
 	return h
 }
 
-// ── Huma 输入/输出类型 ──
+// ── Huma 输入/输出类型（统一使用 response.Response 信封） ──
 
-type HealthBody struct {
+type HealthData struct {
 	Status  string `json:"status" example:"healthy"`
 	Uptime  string `json:"uptime"`
 	Env     string `json:"env"`
 	Version string `json:"version"`
 }
-type HealthOutput struct{ Body HealthBody }
+type HealthOutput struct{ Body response.Response }
 
-type LiveBody struct {
-	Status string `json:"status" example:"alive"`
-}
-type LiveOutput struct{ Body LiveBody }
+type LiveOutput struct{ Body response.Response }
+type ReadyOutput struct{ Body response.Response }
 
-type ReadyBody struct {
-	Status string `json:"status" example:"ready"`
-}
-type ReadyOutput struct{ Body ReadyBody }
-
-type VersionBody struct {
+type VersionData struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	BuildTime string `json:"buildTime"`
 	GitCommit string `json:"gitCommit"`
 }
-type VersionOutput struct{ Body VersionBody }
+type VersionOutput struct{ Body response.Response }
 
 type ListUsersInput struct {
 	Query struct {
@@ -328,18 +359,12 @@ type ListUsersInput struct {
 		Size int `query:"size" default:"20" minimum:"1" maximum:"100"`
 	}
 }
-type ListUsersBody struct {
-	Users []model.User `json:"users"`
-	Total int64        `json:"total"`
-	Page  int          `json:"page"`
-	Size  int          `json:"size"`
-}
-type ListUsersOutput struct{ Body ListUsersBody }
+type ListUsersOutput struct{ Body response.Response }
 
 type GetUserInput struct {
 	ID int64 `path:"id"`
 }
-type GetUserOutput struct{ Body model.User }
+type GetUserOutput struct{ Body response.Response }
 
 type CreateUserInput struct {
 	Body struct {
@@ -348,7 +373,7 @@ type CreateUserInput struct {
 		Phone string `json:"phone,omitempty" maxLength:"20"`
 	}
 }
-type CreateUserOutput struct{ Body model.User }
+type CreateUserOutput struct{ Body response.Response }
 
 type UpdateUserInput struct {
 	ID   int64 `path:"id"`
@@ -358,7 +383,7 @@ type UpdateUserInput struct {
 		Phone *string `json:"phone,omitempty" maxLength:"20"`
 	}
 }
-type UpdateUserOutput struct{ Body model.User }
+type UpdateUserOutput struct{ Body response.Response }
 
 type DeleteUserInput struct {
 	ID int64 `path:"id"`
@@ -372,31 +397,31 @@ type LoginInput struct {
 		Password string `json:"password" minLength:"1"`
 	}
 }
-type TokenBody struct {
+type TokenData struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 }
-type LoginOutput struct{ Body TokenBody }
+type LoginOutput struct{ Body response.Response }
 
 type RefreshInput struct {
 	Body struct {
 		RefreshToken string `json:"refresh_token" minLength:"1"`
 	}
 }
-type RefreshOutput struct{ Body TokenBody }
+type RefreshOutput struct{ Body response.Response }
 {{- end}}
 
 {{- else}}
 
 // ──────────────────────────────────────────────
-// Gin 注册（无 apidocs 时使用）
+// Gin 注册（无 apidocs 时使用，统一用 common/response/gin）
 // ──────────────────────────────────────────────
 
 // RegisterRoutes 通过 Gin 注册所有路由。
-func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) *Handler {
-	h := New(cfg, info)
+func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo, db *gorm.DB) *Handler {
+	h := New(cfg, info, db)
 
 	// 健康检查（公开）—— 分级探针
 	r.GET("/health", h.Health)
@@ -428,7 +453,7 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config, info AppInfo) *Handler {
 
 // Health 综合健康检查。
 func (h *Handler) Health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	respgin.Success(c, gin.H{
 		"status":  "healthy",
 		"uptime":  time.Since(h.startTime).String(),
 		"env":     h.cfg.App.Environment,
@@ -438,17 +463,17 @@ func (h *Handler) Health(c *gin.Context) {
 
 // Liveness 存活探针（K8s liveness probe）。
 func (h *Handler) Liveness(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	respgin.Success(c, gin.H{"status": "alive"})
 }
 
 // Readiness 就绪探针（K8s readiness probe）。
 func (h *Handler) Readiness(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+	respgin.Success(c, gin.H{"status": "ready"})
 }
 
 // Version 版本信息。
 func (h *Handler) Version(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	respgin.Success(c, gin.H{
 		"name":      h.info.Name,
 		"version":   h.info.Version,
 		"buildTime": h.info.BuildTime,
@@ -461,38 +486,54 @@ func (h *Handler) Version(c *gin.Context) {
 func (h *Handler) ListUsers(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
-	if h.userSvc == nil {
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
+	if h.db == nil {
 		users := []model.User{
 			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
 			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
 		}
-		c.JSON(http.StatusOK, gin.H{"users": users, "total": len(users), "page": page, "size": size})
+		respgin.Success(c, response.NewPage(users, int64(len(users)), page, size))
 		return
 	}
-	users, total, err := h.userSvc.List(c.Request.Context(), page, size)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+	offset := (page - 1) * size
+	var users []model.User
+	var total int64
+	if err := h.db.WithContext(c.Request.Context()).Model(&model.User{}).Count(&total).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"users": users, "total": total, "page": page, "size": size})
+	if err := h.db.WithContext(c.Request.Context()).Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
+		return
+	}
+	respgin.Success(c, response.NewPage(users, total, page, size))
 }
 
 func (h *Handler) GetUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
 		return
 	}
-	if h.userSvc == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	user, err := h.userSvc.Get(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	var user model.User
+	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+			return
+		}
+		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	respgin.Success(c, user)
 }
 
 type createUserRequest struct {
@@ -504,21 +545,21 @@ type createUserRequest struct {
 func (h *Handler) CreateUser(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体", "detail": err.Error()})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
 	user := model.User{Name: req.Name, Email: req.Email, Phone: req.Phone}
-	if h.userSvc == nil {
+	if h.db == nil {
 		user.ID = time.Now().Unix()
 		user.CreatedAt = time.Now()
-		c.JSON(http.StatusCreated, user)
+		respgin.Created(c, user)
 		return
 	}
-	if err := h.userSvc.Create(c.Request.Context(), &user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
+	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "创建失败"))
 		return
 	}
-	c.JSON(http.StatusCreated, user)
+	respgin.Created(c, user)
 }
 
 type updateUserRequest struct {
@@ -530,21 +571,25 @@ type updateUserRequest struct {
 func (h *Handler) UpdateUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
 		return
 	}
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体", "detail": err.Error()})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
-	if h.userSvc == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	user, err := h.userSvc.Get(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	var user model.User
+	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+			return
+		}
+		respgin.WriteError(c, response.New(response.CodeInternal, "查询失败"))
 		return
 	}
 	if req.Name != nil {
@@ -556,28 +601,33 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	if req.Phone != nil {
 		user.Phone = *req.Phone
 	}
-	if err := h.userSvc.Update(c.Request.Context(), user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败"})
+	if err := h.db.WithContext(c.Request.Context()).Save(&user).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "更新失败"))
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	respgin.Success(c, user)
 }
 
 func (h *Handler) DeleteUser(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户 ID"})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的用户 ID"))
 		return
 	}
-	if h.userSvc == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
-	if err := h.userSvc.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+	result := h.db.WithContext(c.Request.Context()).Delete(&model.User{}, id)
+	if result.Error != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "删除失败"))
 		return
 	}
-	c.Status(http.StatusNoContent)
+	if result.RowsAffected == 0 {
+		respgin.WriteError(c, response.New(response.CodeNotFound, "用户不存在"))
+		return
+	}
+	respgin.NoContent(c)
 }
 
 {{- if .HasJWT}}
@@ -591,20 +641,20 @@ type loginRequest struct {
 
 func (h *Handler) Login(c *gin.Context) {
 	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "JWT 鉴权未启用"})
+		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
 		return
 	}
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体"))
 		return
 	}
 	pair, err := h.jwtAuth.Login(req.Username, "user")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "签发 token 失败"})
+		respgin.WriteError(c, response.New(response.CodeInternal, "签发 token 失败"))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	respgin.Success(c, gin.H{
 		"access_token":  pair.AccessToken,
 		"refresh_token": pair.RefreshToken,
 		"expires_in":    pair.ExpiresIn,
@@ -618,20 +668,20 @@ type refreshRequest struct {
 
 func (h *Handler) Refresh(c *gin.Context) {
 	if h.jwtAuth == nil || !h.jwtAuth.Enabled() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "JWT 鉴权未启用"})
+		respgin.WriteError(c, response.New(response.CodeServiceUnavail, "JWT 鉴权未启用"))
 		return
 	}
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "无效的请求体"))
 		return
 	}
 	pair, err := h.jwtAuth.Refresh(req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "refresh token 无效或已过期"})
+		respgin.WriteError(c, response.New(response.CodeUnauthorized, "refresh token 无效或已过期"))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	respgin.Success(c, gin.H{
 		"access_token":  pair.AccessToken,
 		"refresh_token": pair.RefreshToken,
 		"expires_in":    pair.ExpiresIn,

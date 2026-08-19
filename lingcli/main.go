@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-const cliVersion = "v0.6.0"
+const cliVersion = "v0.7.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -78,6 +78,7 @@ func printHelp() {
 	fmt.Println("  --author <作者>         作者名称")
 	fmt.Println("  --port <端口>           服务端口（web-api / grpc-service）")
 	fmt.Println("  --modules <模块列表>    要集成的 ling-base 模块（逗号分隔，如 apidocs,limiter,jwt）")
+	fmt.Println("  --config-format <格式>  配置文件格式: yaml 或 env（默认 yaml）")
 	fmt.Println("  --docker                生成 Docker 部署文件（默认 true）")
 	fmt.Println("  --no-docker             不生成 Docker 部署文件")
 	fmt.Println("  --git                   初始化 git 仓库（默认 true）")
@@ -97,6 +98,7 @@ func runCreate(args []string) {
 	author := fs.String("author", "", "作者名称")
 	port := fs.Int("port", 0, "服务端口")
 	modules := fs.String("modules", "", "要集成的 ling-base 模块（逗号分隔）")
+	configFormat := fs.String("config-format", "", "配置文件格式: yaml 或 env")
 	docker := fs.Bool("docker", true, "生成 Docker 部署文件")
 	git := fs.Bool("git", true, "初始化 git 仓库")
 
@@ -138,13 +140,14 @@ func runCreate(args []string) {
 	}
 
 	spec := &ProjectSpec{
-		Name:     target,
-		Module:   *module,
-		Author:   *author,
-		Port:     *port,
-		Docker:   *docker,
-		Git:      *git,
-		Template: *tmpl,
+		Name:         target,
+		Module:       *module,
+		Author:       *author,
+		Port:         *port,
+		Docker:       *docker,
+		Git:          *git,
+		Template:     *tmpl,
+		ConfigFormat: *configFormat,
 	}
 
 	// 解析 --modules
@@ -196,7 +199,7 @@ func runInteractive(spec *ProjectSpec) {
 
 	// 项目名称。
 	if spec.Name == "." || spec.Name == "" {
-		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 1/6: 项目名称 ━━━\x1b[0m")
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 1/7: 项目名称 ━━━\x1b[0m")
 		fmt.Println("  \x1b[38;5;245m提示: 小写英文，不含空格，如 myapp、my-service\x1b[0m")
 		spec.Name = p.Input("请输入项目名称", "myapp")
 	} else {
@@ -205,7 +208,7 @@ func runInteractive(spec *ProjectSpec) {
 
 	// 选择模板。
 	if spec.Template == "" {
-		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 2/6: 选择项目模板 ━━━\x1b[0m")
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 2/7: 选择项目模板 ━━━\x1b[0m")
 		for i, t := range ProjectTemplates {
 			fmt.Printf("  \x1b[38;5;39m[%d]\x1b[0m \x1b[1m%-15s\x1b[0m %s\n", i+1, t.ID, t.Description)
 		}
@@ -218,7 +221,7 @@ func runInteractive(spec *ProjectSpec) {
 
 	// Module 路径。
 	if spec.Module == "" {
-		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 3/6: Go Module 路径 ━━━\x1b[0m")
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 3/7: Go Module 路径 ━━━\x1b[0m")
 		fmt.Println("  \x1b[38;5;245m提示: 通常为 github.com/<用户>/<项目名>\x1b[0m")
 		defaultMod := fmt.Sprintf("github.com/yourname/%s", spec.Name)
 		spec.Module = p.Input("请输入 module 路径", defaultMod)
@@ -228,7 +231,7 @@ func runInteractive(spec *ProjectSpec) {
 
 	// 作者。
 	if spec.Author == "" {
-		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 4/6: 作者信息 ━━━\x1b[0m")
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 4/7: 作者信息 ━━━\x1b[0m")
 		spec.Author = p.Input("请输入作者名称（可选，回车跳过）", "")
 	}
 
@@ -236,7 +239,7 @@ func runInteractive(spec *ProjectSpec) {
 	tmpl := findTemplate(spec.Template)
 	if tmpl != nil && tmpl.NeedsPort {
 		if spec.Port == 0 {
-			fmt.Println("\n\x1b[38;5;117m━━━ 步骤 5/6: 服务端口 ━━━\x1b[0m")
+			fmt.Println("\n\x1b[38;5;117m━━━ 步骤 5/7: 服务端口 ━━━\x1b[0m")
 			defaultPort := 8080
 			if spec.Template == "grpc-service" {
 				defaultPort = 50051
@@ -244,13 +247,31 @@ func runInteractive(spec *ProjectSpec) {
 			spec.Port = p.InputInt("请输入监听端口", defaultPort)
 		}
 	} else {
-		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 5/6: 跳过（此模板无需端口）━━━\x1b[0m")
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 5/7: 跳过（此模板无需端口）━━━\x1b[0m")
+	}
+
+	// 配置文件格式。
+	if spec.ConfigFormat == "" {
+		fmt.Println("\n\x1b[38;5;117m━━━ 步骤 6/7: 配置文件格式 ━━━\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1mYAML\x1b[0m  — 结构化配置，多环境分离（config.yaml / config.prod.yaml）")
+		fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m.env\x1b[0m   — 简单键值对，适合容器化部署（.env / .env.prod）")
+		fmt.Println()
+		idx := p.Select("请选择配置格式", 2)
+		switch idx {
+		case 0:
+			spec.ConfigFormat = "yaml"
+		case 1:
+			spec.ConfigFormat = "env"
+		}
+		fmt.Printf("  \x1b[32m✓ 配置格式: %s\x1b[0m\n", spec.ConfigFormat)
+	} else {
+		fmt.Printf("\x1b[32m✓ 配置格式: %s\x1b[0m\n", spec.ConfigFormat)
 	}
 
 	// 选择 ling-base 模块。
-	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 6/6: 集成 ling-base 模块 ━━━\x1b[0m")
-	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断）")
-	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 19 个模块")
+	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 7/7: 集成 ling-base 模块 ━━━\x1b[0m")
+	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断/统一响应）")
+	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 20 个模块")
 	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成任何模块")
 	fmt.Println()
 	mode := p.Select("请选择模式", 3)
