@@ -113,28 +113,28 @@ use (
 	./common/queue
 	./common/queue/memory
 	./common/queue/redis
-	./realtime
-	./realtime/aliyunomni
-	./realtime/gemini
-	./realtime/iflytek
-	./realtime/minimax
-	./realtime/openai
-	./realtime/stepfun
-	./realtime/tencentsts
-	./realtime/volcdialogue
-	./recognizer
-	./recognizer/aws
-	./recognizer/baidu
-	./recognizer/deepgram
-	./recognizer/funasr
-	./recognizer/gladia
-	./recognizer/google
-	./recognizer/local
-	./recognizer/qcloud
-	./recognizer/voiceapi
-	./recognizer/volcengine
-	./recognizer/volcengine_llm
-	./recognizer/whisper
+	./voice/realtime
+	./voice/realtime/aliyunomni
+	./voice/realtime/gemini
+	./voice/realtime/iflytek
+	./voice/realtime/minimax
+	./voice/realtime/openai
+	./voice/realtime/stepfun
+	./voice/realtime/tencentsts
+	./voice/realtime/volcdialogue
+	./voice/recognizer
+	./voice/recognizer/aws
+	./voice/recognizer/baidu
+	./voice/recognizer/deepgram
+	./voice/recognizer/funasr
+	./voice/recognizer/gladia
+	./voice/recognizer/google
+	./voice/recognizer/local
+	./voice/recognizer/qcloud
+	./voice/recognizer/voiceapi
+	./voice/recognizer/volcengine
+	./voice/recognizer/volcengine_llm
+	./voice/recognizer/whisper
 	./stores
 	./stores/cos
 	./stores/kodo
@@ -145,23 +145,23 @@ use (
 	./stores/oss
 	./stores/s3
 	./stores/tos
-	./synthesizer
-	./synthesizer/aliyun
-	./synthesizer/aws
-	./synthesizer/azure
-	./synthesizer/baidu
-	./synthesizer/coqui
-	./synthesizer/elevenlabs
-	./synthesizer/fishaudio
-	./synthesizer/fishspeech
-	./synthesizer/google
-	./synthesizer/local
-	./synthesizer/minimax
-	./synthesizer/openai
-	./synthesizer/qcloud
-	./synthesizer/qiniu
-	./synthesizer/volcengine
-	./synthesizer/xunfei
+	./voice/synthesizer
+	./voice/synthesizer/aliyun
+	./voice/synthesizer/aws
+	./voice/synthesizer/azure
+	./voice/synthesizer/baidu
+	./voice/synthesizer/coqui
+	./voice/synthesizer/elevenlabs
+	./voice/synthesizer/fishaudio
+	./voice/synthesizer/fishspeech
+	./voice/synthesizer/google
+	./voice/synthesizer/local
+	./voice/synthesizer/minimax
+	./voice/synthesizer/openai
+	./voice/synthesizer/qcloud
+	./voice/synthesizer/qiniu
+	./voice/synthesizer/volcengine
+	./voice/synthesizer/xunfei
 	./system
 	./common/tracing
 	./version

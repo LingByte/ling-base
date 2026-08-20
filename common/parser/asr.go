@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	base "github.com/LingByte/ling-base/recognizer"
+	base "github.com/LingByte/ling-base/voice/recognizer"
 )
 
 // ASRParser transcribes audio files using the ling-base recognizer package.

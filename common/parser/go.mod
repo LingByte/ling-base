@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/LingByte/ling-base/ocr v0.0.0
-	github.com/LingByte/ling-base/recognizer v0.0.0
+	github.com/LingByte/ling-base/voice/recognizer v0.0.0
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
@@ -39,4 +39,4 @@ replace github.com/LingByte/ling-base => ../../
 
 replace github.com/LingByte/ling-base/ocr => ../../ocr
 
-replace github.com/LingByte/ling-base/recognizer => ../../recognizer
+replace github.com/LingByte/ling-base/voice/recognizer => ../../voice/recognizer

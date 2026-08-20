@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	base "github.com/LingByte/ling-base/recognizer"
+	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
