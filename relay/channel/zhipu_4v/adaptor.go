@@ -92,7 +92,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return request, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {

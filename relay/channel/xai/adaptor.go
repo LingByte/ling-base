@@ -93,8 +93,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	//not available
-	return nil, errors.New("not available")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -114,6 +113,9 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 		adaptor := openai2.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)
 	case constant.RelayModeResponses:
+		adaptor := openai2.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	case constant.RelayModeEmbeddings:
 		adaptor := openai2.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)
 	default:

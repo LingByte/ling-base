@@ -40,6 +40,8 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 	if info.RelayMode == relaymode.RelayModeRerank {
 		return fmt.Sprintf("%s/v1/rerank", info.ChannelBaseUrl), nil
+	} else if info.RelayMode == relaymode.RelayModeEmbeddings {
+		return fmt.Sprintf("%s/v1/embed", info.ChannelBaseUrl), nil
 	} else {
 		return fmt.Sprintf("%s/v1/chat", info.ChannelBaseUrl), nil
 	}
@@ -71,12 +73,14 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return requestOpenAI2CohereEmbedding(request), nil
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
 	if info.RelayMode == relaymode.RelayModeRerank {
 		usage, err = cohereRerankHandler(c, resp, info, w)
+	} else if info.RelayMode == relaymode.RelayModeEmbeddings {
+		usage, err = cohereEmbeddingHandler(c, resp, info, w)
 	} else {
 		if info.IsStream {
 			usage, err = cohereStreamHandler(c, info, resp, w)

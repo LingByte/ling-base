@@ -1,7 +1,9 @@
 package ali
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -109,6 +111,8 @@ func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 			return buildAliRealtimeURL(info.ChannelBaseUrl, info.UpstreamModelName)
 		case constant.RelayModeEmbeddings:
 			fullRequestURL = fmt.Sprintf("%s/compatible-mode/v1/embeddings", info.ChannelBaseUrl)
+		case constant.RelayModeAudioSpeech:
+			fullRequestURL = fmt.Sprintf("%s/compatible-mode/v1/audio/speech", info.ChannelBaseUrl)
 		case constant.RelayModeRerank:
 			fullRequestURL = fmt.Sprintf("%s/api/v1/services/rerank/text-rerank/text-rerank", info.ChannelBaseUrl)
 		case constant.RelayModeResponses:
@@ -283,7 +287,11 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -322,6 +330,9 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 			err, usage = aliImageHandler(a, c, resp, info, w)
 		case constant.RelayModeRerank:
 			err, usage = RerankHandler(c, resp, info, w)
+		case constant.RelayModeAudioSpeech:
+			adaptor := openai.Adaptor{}
+			usage, err = adaptor.DoResponse(c, resp, info, w)
 		default:
 			adaptor := openai.Adaptor{}
 			usage, err = adaptor.DoResponse(c, resp, info, w)

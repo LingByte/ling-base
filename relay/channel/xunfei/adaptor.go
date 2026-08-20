@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/relay/channel"
+	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
+	"github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 
@@ -55,7 +57,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return request, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
@@ -75,6 +77,10 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeRerank {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	}
 	splits := strings.Split(info.ApiKey, "|")
 	if len(splits) != 3 {
 		return nil, types.NewError(errors.New("invalid auth"), types.ErrorCodeChannelInvalidKey)

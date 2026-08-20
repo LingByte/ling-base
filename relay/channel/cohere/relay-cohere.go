@@ -188,6 +188,55 @@ func cohereHandler(c context.Context, info *common.RelayInfo, resp *http.Respons
 	return &usage, nil
 }
 
+func requestOpenAI2CohereEmbedding(request dto.EmbeddingRequest) *CohereEmbeddingRequest {
+	return &CohereEmbeddingRequest{
+		Texts:     request.ParseInput(),
+		Model:     request.Model,
+		InputType: "search_document",
+	}
+}
+
+func cohereEmbeddingHandler(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	var cohereResp CohereEmbeddingResponse
+	err = json.Unmarshal(responseBody, &cohereResp)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+
+	usage := dto.Usage{}
+	usage.PromptTokens = cohereResp.Meta.BilledUnits.InputTokens
+	usage.TotalTokens = cohereResp.Meta.BilledUnits.InputTokens
+
+	openaiResp := dto.OpenAIEmbeddingResponse{
+		Object: "list",
+		Model:  info.UpstreamModelName,
+		Usage:  usage,
+	}
+	for i, embedding := range cohereResp.Embeddings {
+		openaiResp.Data = append(openaiResp.Data, dto.OpenAIEmbeddingResponseItem{
+			Object:    "embedding",
+			Index:     i,
+			Embedding: embedding,
+		})
+	}
+
+	jsonResponse, err := json.Marshal(openaiResp)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	if _, err = w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing cohere embedding response: " + err.Error())
+	}
+	return &usage, nil
+}
+
 func cohereRerankHandler(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {

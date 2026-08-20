@@ -8,7 +8,9 @@ import (
 	"net/http"
 
 	"github.com/LingByte/ling-base/relay/channel"
+	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/samber/lo"
@@ -38,6 +40,9 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
+	if info.RelayMode == relaymode.RelayModeEmbeddings {
+		return fmt.Sprintf("%s/api/paas/v4/embeddings", info.ChannelBaseUrl), nil
+	}
 	method := "invoke"
 	if info.IsStream {
 		method = "sse-invoke"
@@ -63,11 +68,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return request, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
@@ -80,6 +85,10 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == relaymode.RelayModeEmbeddings || info.RelayMode == relaymode.RelayModeRerank {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	}
 	if info.IsStream {
 		usage, err = zhipuStreamHandler(c, info, resp, w)
 	} else {
