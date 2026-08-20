@@ -3,13 +3,13 @@ module github.com/LingByte/ling-base/example
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base v0.5.0
-	github.com/LingByte/ling-base/bootstrap v0.1.3
+	github.com/LingByte/ling-base v0.18.0
+	github.com/LingByte/ling-base/bootstrap v0.1.4
 	github.com/LingByte/ling-base/common/cache v0.1.0
 	github.com/LingByte/ling-base/common/cache/redis v0.1.0
 	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0
 	github.com/LingByte/ling-base/common v0.3.0
-	github.com/LingByte/ling-base/common/config v0.1.1
+	github.com/LingByte/ling-base/common/config v0.1.2
 	github.com/LingByte/ling-base/common/convert v0.1.0
 	github.com/LingByte/ling-base/common/idgen v0.1.0
 	github.com/LingByte/ling-base/common/imageutil v0.1.0
@@ -21,7 +21,7 @@ require (
 	github.com/LingByte/ling-base/common/migration v0.1.0
 	github.com/LingByte/ling-base/common/migration/gormmigrator v0.1.0
 	github.com/LingByte/ling-base/common/metrics v0.1.0
-	github.com/LingByte/ling-base/opentelemetry v0.1.0
+	github.com/LingByte/ling-base/opentelemetry v0.1.1
 	github.com/LingByte/ling-base/common/scheduler v0.1.1
 	github.com/LingByte/ling-base/common/tracing v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.0
@@ -151,3 +151,5 @@ require (
 	modernc.org/sqlite v1.23.1 // indirect
 )
 
+
+replace github.com/LingByte/ling-base => ../
