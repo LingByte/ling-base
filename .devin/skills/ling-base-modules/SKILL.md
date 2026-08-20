@@ -256,11 +256,11 @@
 
 | 模块 | import 路径 | 说明 |
 |------|-------------|------|
-| recognizer | `github.com/LingByte/ling-base/recognizer` | 语音识别（ASR）统一接口 |
-| recognizer/whisper | `github.com/LingByte/ling-base/recognizer/whisper` | OpenAI Whisper |
-| recognizer/google | `github.com/LingByte/ling-base/recognizer/google` | Google Speech-to-Text |
-| recognizer/baidu | `github.com/LingByte/ling-base/recognizer/baidu` | 百度语音识别 |
-| recognizer/volcengine | `github.com/LingByte/ling-base/recognizer/volcengine` | 火山引擎语音识别 |
+| recognizer | `github.com/LingByte/ling-base/voice/recognizer` | 语音识别（ASR）统一接口 |
+| recognizer/whisper | `github.com/LingByte/ling-base/voice/recognizer/whisper` | OpenAI Whisper |
+| recognizer/google | `github.com/LingByte/ling-base/voice/recognizer/google` | Google Speech-to-Text |
+| recognizer/baidu | `github.com/LingByte/ling-base/voice/recognizer/baidu` | 百度语音识别 |
+| recognizer/volcengine | `github.com/LingByte/ling-base/voice/recognizer/volcengine` | 火山引擎语音识别 |
 | synthesizer | `github.com/LingByte/ling-base/synthesizer` | 语音合成（TTS）统一接口 |
 | synthesizer/openai | `github.com/LingByte/ling-base/synthesizer/openai` | OpenAI TTS |
 | synthesizer/azure | `github.com/LingByte/ling-base/synthesizer/azure` | Azure TTS |

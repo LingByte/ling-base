@@ -127,7 +127,7 @@ go get github.com/LingByte/ling-base/i18n/gin
 go get github.com/LingByte/ling-base/synthesizer/aliyun
 
 # 语音识别 — 只要 Whisper ASR
-go get github.com/LingByte/ling-base/recognizer/whisper
+go get github.com/LingByte/ling-base/voice/recognizer/whisper
 
 # 实时多模态语音对话 — 只要 OpenAI Realtime
 go get github.com/LingByte/ling-base/realtime/openai

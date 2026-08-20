@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/voice/recognizer/local
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/voice/recognizer v0.0.0
+	github.com/LingByte/ling-base/voice/recognizer v0.1.1
 	github.com/sirupsen/logrus v1.9.3
 )
 

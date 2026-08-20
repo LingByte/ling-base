@@ -76,6 +76,8 @@ use (
 	./common/notification/webhook
 	./common/opentelemetry
 	./common/parser
+	./common/passkey
+	./common/password
 	./common/phone
 	./common/pinyin
 	./common/pool
@@ -98,6 +100,7 @@ use (
 	./common/stats/redis
 	./common/system
 	./common/timeutil
+	./common/totp
 	./common/tracing
 	./common/validate
 	./common/videoutil
