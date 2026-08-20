@@ -259,3 +259,39 @@ clean: ## Remove generated coverage files and demo binaries
 	@find . -name 'coverage.html' -delete 2>/dev/null || true
 	@find ./example/cmd -type f -perm +111 ! -name '*.go' -delete 2>/dev/null || true
 	@echo "Done."
+
+# ── lingcli 构建 ──
+
+# full 模式需要嵌入 ling-base 源码。
+# 构建前运行此 target 将源码同步到 lingcli/embed_source/。
+# CI/发布构建自动调用此 target。
+EMBED_SOURCE_DIRS := middleware common/response common/response/gin \
+	common/jwtutil common/jwtutil/gin common/limiter common/limiter/count \
+	common/limiter/tokenbucket common/limiter/keycount common/circuitbreaker \
+	common/crypto logger logger/gin constants bootstrap eventbus version \
+	apidocs apidocs/humax apidocs/assets i18n i18n/gin
+
+.PHONY: prepare-cli-embed clean-cli-embed build-cli
+prepare-cli-embed: ## Sync ling-base source to lingcli/embed_source/ for full mode
+	@echo "==> Preparing lingcli embedded source..."
+	@rm -rf lingcli/embed_source/*
+	@touch lingcli/embed_source/.gitkeep
+	@for dir in $(EMBED_SOURCE_DIRS); do \
+		if [ -d "$$dir" ]; then \
+			mkdir -p "lingcli/embed_source/$$dir"; \
+			find "$$dir" -maxdepth 1 -type f \( -name '*.go' ! -name '*_test.go' -o -name '*.css' -o -name '*.svg' -o -name '*.png' -o -name '*.font' \) -exec cp {} "lingcli/embed_source/$$dir/" \; 2>/dev/null; \
+		fi; \
+	done
+	@echo "  Embedded source: $$(find lingcli/embed_source -type f ! -name '.gitkeep' | wc -l | tr -d ' ') files"
+	@echo "Done."
+
+clean-cli-embed: ## Clean lingcli embedded source
+	@rm -rf lingcli/embed_source/*
+	@touch lingcli/embed_source/.gitkeep
+	@echo "==> Cleaned lingcli embedded source."
+
+build-cli: prepare-cli-embed ## Build lingcli binary with embedded source
+	@echo "==> Building lingcli..."
+	@cd lingcli && go build -o ../bin/lingcli .
+	@echo "  Binary: bin/lingcli"
+	@echo "Done."

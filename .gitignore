@@ -40,3 +40,7 @@ apidocs/assets/.DS_Store
 
 # lingcli: only ignore the compiled binary, not the source directory
 /lingcli/lingcli
+
+# lingcli embed_source: only keep .gitkeep, ignore synced source
+/lingcli/embed_source/*
+!/lingcli/embed_source/.gitkeep

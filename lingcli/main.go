@@ -81,6 +81,7 @@ func printHelp() {
 	fmt.Println("  --config-format <格式>  配置文件格式: yaml 或 env（默认 yaml）")
 	fmt.Println("  --ci <平台>             CI 平台: github, gitlab 或 jenkins（默认 github）")
 	fmt.Println("  --mode <模式>           生成模式: lib（引入库，默认）或 full（复制源码到 pkg/）")
+	fmt.Println("  --ling-base-root <路径>  ling-base 源码根目录（full 模式用，默认自动检测）")
 	fmt.Println("  --docker                生成 Docker 部署文件（默认 true）")
 	fmt.Println("  --no-docker             不生成 Docker 部署文件")
 	fmt.Println("  --git                   初始化 git 仓库（默认 true）")
@@ -103,6 +104,7 @@ func runCreate(args []string) {
 	configFormat := fs.String("config-format", "", "配置文件格式: yaml 或 env")
 	ciPlatform := fs.String("ci", "", "CI 平台: github, gitlab 或 jenkins")
 	mode := fs.String("mode", "", "生成模式: lib 或 full")
+	lingBaseRoot := fs.String("ling-base-root", "", "ling-base 源码根目录（full 模式用）")
 	docker := fs.Bool("docker", true, "生成 Docker 部署文件")
 	git := fs.Bool("git", true, "初始化 git 仓库")
 
@@ -136,6 +138,11 @@ func runCreate(args []string) {
 	}
 
 	fs.Parse(flagArgs)
+
+	// --ling-base-root 覆盖环境变量
+	if *lingBaseRoot != "" {
+		os.Setenv("LING_BASE_ROOT", *lingBaseRoot)
+	}
 
 	// 位置参数：项目名或 "."
 	target := "."

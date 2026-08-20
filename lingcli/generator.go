@@ -82,14 +82,28 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 	if isFullMode(spec) {
 		fmt.Println()
 		fmt.Println("\x1b[38;5;117m━━━ 复制 ling-base 源码到 pkg/ ━━━\x1b[0m")
-		lingBaseRoot := findLingBaseRoot()
-		if lingBaseRoot == "" {
-			fmt.Printf("  \x1b[33m[警告] 无法定位 ling-base 根目录，跳过源码复制\x1b[0m\n")
-			fmt.Println("  \x1b[38;5;245m请手动复制所需模块源码到 pkg/ 目录\x1b[0m")
+
+		// 优先使用嵌入源码（发布二进制时可用）
+		if hasEmbeddedSource() {
+			if err := extractEmbeddedSource(spec, targetDir); err != nil {
+				return fmt.Errorf("提取嵌入源码失败: %w", err)
+			}
 		} else {
+			// 回退到本地 ling-base 源码
+			lingBaseRoot := findLingBaseRoot()
+			if lingBaseRoot == "" {
+				fmt.Printf("  \x1b[31m[错误] 无法定位 ling-base 源码目录\x1b[0m\n")
+				fmt.Println()
+				fmt.Println("  \x1b[38;5;245mfull 模式需要 ling-base 源码。请用以下任一方式指定:\x1b[0m")
+				fmt.Println("    1. 设置环境变量: export LING_BASE_ROOT=/path/to/ling-base")
+				fmt.Printf("    2. 使用 --ling-base-root 参数: --ling-base-root /path/to/ling-base\n")
+				fmt.Println("    3. 在 ling-base 目录下运行 lingcli")
+				fmt.Println("    4. 使用 --mode lib（默认，引入库而非复制源码）")
+				fmt.Println()
+				return fmt.Errorf("full 模式无法定位 ling-base 源码")
+			}
 			if err := generateFullMode(spec, lingBaseRoot, targetDir); err != nil {
-				fmt.Printf("  \x1b[33m[警告] 源码复制失败: %v\x1b[0m\n", err)
-				fmt.Println("  \x1b[38;5;245m请手动复制所需模块源码到 pkg/ 目录\x1b[0m")
+				return fmt.Errorf("源码复制失败: %w", err)
 			}
 		}
 	}

@@ -327,32 +327,62 @@ func isFullMode(spec *ProjectSpec) bool {
 var _ = ast.Print
 
 // findLingBaseRoot 定位 ling-base 仓库根目录。
-// 优先用 LING_BASE_ROOT 环境变量，其次尝试从可执行文件位置向上查找。
+// 查找顺序:
+//  1. LING_BASE_ROOT 环境变量
+//  2. 从当前工作目录向上查找
+//  3. 从可执行文件位置向上查找
 func findLingBaseRoot() string {
+	// 1. 环境变量
 	if root := os.Getenv("LING_BASE_ROOT"); root != "" {
 		if _, err := os.Stat(filepath.Join(root, "go.work")); err == nil {
 			return root
 		}
+		// 也检查不带 go.work 的情况（只要目录存在且有 lingcli）
+		if _, err := os.Stat(filepath.Join(root, "lingcli")); err == nil {
+			return root
+		}
 	}
 
-	// 从当前工作目录向上查找 go.work
-	cwd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	dir := cwd
-	for i := 0; i < 10; i++ {
+	// 检查目录是否是 ling-base 根
+	isLingBase := func(dir string) bool {
 		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
-			// 检查是否是 ling-base（有 lingcli 目录）
 			if _, err := os.Stat(filepath.Join(dir, "lingcli")); err == nil {
-				return dir
+				return true
 			}
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
+		return false
 	}
+
+	// 2. 从当前工作目录向上查找
+	cwd, err := os.Getwd()
+	if err == nil {
+		dir := cwd
+		for i := 0; i < 10; i++ {
+			if isLingBase(dir) {
+				return dir
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+
+	// 3. 从可执行文件位置向上查找
+	if exePath, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exePath)
+		for i := 0; i < 10; i++ {
+			if isLingBase(dir) {
+				return dir
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+
 	return ""
 }
