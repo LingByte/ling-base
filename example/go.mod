@@ -52,7 +52,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/LingByte/ling-base/voice/recognizer v0.0.0 // indirect
+	github.com/LingByte/ling-base/voice/recognizer v0.1.1 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
 	github.com/blevesearch/bleve/v2 v2.5.0 // indirect
@@ -153,3 +153,4 @@ require (
 
 
 replace github.com/LingByte/ling-base => ../
+replace github.com/LingByte/ling-base/voice/recognizer => ../voice/recognizer
