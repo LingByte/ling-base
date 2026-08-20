@@ -96,6 +96,33 @@ func ListTemplateFiles(templateID string) ([]string, error) {
 	return files, err
 }
 
+// ListStaticFiles 列出某个模板目录下所有非 .tmpl 文件（递归）。
+// 这些文件不经过模板渲染，直接原样复制到目标项目。
+// 排除 .DS_Store 等系统文件。
+func ListStaticFiles(templateID string) ([]string, error) {
+	root := "templates/" + templateID
+	var files []string
+
+	err := fs.WalkDir(templateFS, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		// 排除 .tmpl 文件和系统文件
+		if strings.HasSuffix(name, ".tmpl") || name == ".DS_Store" || name == ".gitkeep" {
+			return nil
+		}
+		rel, _ := filepath.Rel("templates", path)
+		files = append(files, rel)
+		return nil
+	})
+
+	return files, err
+}
+
 // ──────────────────────────────────────────────
 // 模板生成函数 — 每个模板类型对应一个
 // ──────────────────────────────────────────────
@@ -190,6 +217,20 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		// 检查模板是否已有同名文件
 		if !hasFile(files, outPath) {
 			files = append(files, FileEntry{Path: outPath, Content: content})
+		}
+	}
+
+	// 3. 复制静态文件（非 .tmpl，不经过模板渲染，直接原样复制）
+	staticFiles, _ := ListStaticFiles(templateID)
+	for _, sf := range staticFiles {
+		content, err := templateFS.ReadFile(filepath.Join("templates", sf))
+		if err != nil {
+			continue
+		}
+		// 去掉模板 ID 前缀
+		outPath := strings.TrimPrefix(sf, templateID+"/")
+		if !hasFile(files, outPath) {
+			files = append(files, FileEntry{Path: outPath, Content: string(content)})
 		}
 	}
 
@@ -320,14 +361,17 @@ func getStructureTree(templateID, projectName string) string {
 │   └── 001_init.down.sql        # 回滚迁移
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移脚本
+├── skills/                      # AI 开发技能（TDD/代码审查/调试等）
 ├── i18n/
 │   └── translations/            # 翻译文件
 ├── .github/workflows/ci.yml     # GitHub Actions CI（或 .gitlab-ci.yml / Jenkinsfile）
+├── .air.toml                    # Air 热重载配置
 ├── .dockerignore
 ├── .editorconfig                # 编辑器一致性配置
 ├── .golangci.yml
 ├── CHANGELOG.md                 # 版本变更记录
 ├── CONTRIBUTING.md              # 贡献指南
+├── SECURITY.md                  # 安全策略
 ├── LICENSE                      # MIT 许可证
 ├── Makefile
 ├── .gitignore

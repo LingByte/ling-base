@@ -115,6 +115,17 @@ open http://localhost:{{.Port}}/docs
 │   └── README.md                # 迁移说明
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移辅助脚本
+├── skills/                      # AI 开发技能（TDD/代码审查/调试/领域建模等）
+│   ├── tdd/                     # 测试驱动开发
+│   ├── code-review/             # 代码审查
+│   ├── code-simplifier/         # 代码简化
+│   ├── codebase-design/         # 代码库设计
+│   ├── diagnosing-bugs/         # Bug 诊断
+│   ├── domain-modeling/         # 领域建模
+│   ├── prototype/               # 原型设计
+│   ├── design-md/               # 设计参考
+│   ├── context7/                # Context7 文档查询
+│   └── find-skills/             # 技能发现
 {{- if .HasI18n}}
 ├── i18n/
 │   └── translations/            # 翻译文件（messages.en.json / messages.zh-CN.json）
@@ -128,11 +139,13 @@ open http://localhost:{{.Port}}/docs
 {{- else if eq .CIPlatform "jenkins"}}
 ├── Jenkinsfile                  # Jenkins 声明式 Pipeline (test + lint + build + docker)
 {{- end}}
+├── .air.toml                    # Air 热重载配置
 ├── .dockerignore                # Docker 构建忽略文件
 ├── .editorconfig                # 编辑器一致性配置
 ├── .golangci.yml                # golangci-lint 配置
 ├── CHANGELOG.md                 # 版本变更记录
 ├── CONTRIBUTING.md              # 贡献指南
+├── SECURITY.md                  # 安全策略
 ├── LICENSE                      # MIT 许可证
 ├── Makefile                     # 构建命令
 ├── .gitignore
