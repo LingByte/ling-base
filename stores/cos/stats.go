@@ -19,6 +19,7 @@ package cos
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/LingByte/ling-base/stores"
@@ -76,13 +77,34 @@ func (s *Store) cdnClient() (*cdn.Client, error) {
 }
 
 // monitorClient creates a Tencent Cloud Monitor client.
+// COS monitoring data is centralized in Guangzhou (ap-guangzhou) regardless
+// of the bucket's actual region, per Tencent Cloud documentation.
 func (s *Store) monitorClient() (*monitor.Client, error) {
 	if s.cfg.SecretID == "" || s.cfg.SecretKey == "" {
 		return nil, fmt.Errorf("Tencent Cloud credentials not configured")
 	}
 	credential := cdnCommon.NewCredential(s.cfg.SecretID, s.cfg.SecretKey)
 	cpf := profile.NewClientProfile()
-	return monitor.NewClient(credential, "", cpf)
+	// COS monitoring data is always in ap-guangzhou.
+	return monitor.NewClient(credential, "ap-guangzhou", cpf)
+}
+
+// extractAppID extracts the APPID from a COS bucket name.
+// COS bucket names follow the format "<name>-<appid>", e.g.
+// "filmingfilmsinyaan-1389816353" → "1389816353".
+func (s *Store) extractAppID(bucket string) string {
+	idx := strings.LastIndex(bucket, "-")
+	if idx < 0 || idx == len(bucket)-1 {
+		return ""
+	}
+	suffix := bucket[idx+1:]
+	// APPID is always numeric.
+	for _, c := range suffix {
+		if c < '0' || c > '9' {
+			return ""
+		}
+	}
+	return suffix
 }
 
 // GetBucketStats computes the total storage size and object count for a
@@ -249,23 +271,37 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 		return nil, err
 	}
 	bucket := s.resolveBucket(req.Bucket)
+	appID := s.extractAppID(bucket)
 	period := granularityToPeriod(req.Granularity)
 	startTime := req.Range.Start.Format("2006-01-02T15:04:00+08:00")
 	endTime := req.Range.End.Format("2006-01-02T15:04:00+08:00")
 
-	// COS metrics in Tencent Cloud Monitor.
+	// COS metrics in Tencent Cloud Monitor (QCE/COS namespace).
+	// Metric names verified via DescribeBaseMetrics API.
 	metrics := []struct {
 		name string
 		set  func(pt *stores.APIStatsPoint, v float64)
 	}{
-		{"ReadRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.GetRequests += int64(v); pt.TotalRequests += int64(v) }},
-		{"WriteRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.PutRequests += int64(v); pt.TotalRequests += int64(v) }},
-		{"DeleteRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.DeleteRequests += int64(v); pt.TotalRequests += int64(v) }},
-		{"HeadRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.HeadRequests += int64(v); pt.TotalRequests += int64(v) }},
-		{"UploadBytes", func(pt *stores.APIStatsPoint, v float64) { pt.UploadBytes += int64(v) }},
-		{"DownloadBytes", func(pt *stores.APIStatsPoint, v float64) { pt.DownloadBytes += int64(v) }},
-		{"4xxErrorRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
-		{"5xxErrorRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
+		{"GetRequests", func(pt *stores.APIStatsPoint, v float64) { pt.GetRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"PutRequests", func(pt *stores.APIStatsPoint, v float64) { pt.PutRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"HeadRequests", func(pt *stores.APIStatsPoint, v float64) { pt.HeadRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"TotalRequests", func(pt *stores.APIStatsPoint, v float64) { pt.TotalRequests += int64(v) }},
+		{"InternetTrafficUp", func(pt *stores.APIStatsPoint, v float64) { pt.UploadBytes += int64(v) }},
+		{"InternetTrafficDown", func(pt *stores.APIStatsPoint, v float64) { pt.DownloadBytes += int64(v) }},
+		{"4xxResponse", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
+		{"5xxResponse", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
+	}
+
+	// Build dimensions: appid + bucket (required by COS Monitor API).
+	dims := []*monitor.Dimension{{
+		Name:  &[]string{"bucket"}[0],
+		Value: &bucket,
+	}}
+	if appID != "" {
+		dims = append(dims, &monitor.Dimension{
+			Name:  &[]string{"appid"}[0],
+			Value: &appID,
+		})
 	}
 
 	pointsMap := make(map[time.Time]*stores.APIStatsPoint)
@@ -278,10 +314,7 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 			StartTime:  &startTime,
 			EndTime:    &endTime,
 			Instances: []*monitor.Instance{{
-				Dimensions: []*monitor.Dimension{{
-					Name:  &[]string{"bucket"}[0],
-					Value: &bucket,
-				}},
+				Dimensions: dims,
 			}},
 		})
 		if err != nil {
