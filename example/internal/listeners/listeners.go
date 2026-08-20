@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/common/eventbus"
 	"github.com/LingByte/ling-base/example/internal/models"
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

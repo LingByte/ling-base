@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/common"
-	pkgconst "github.com/LingByte/ling-base/constants"
+	pkgconst "github.com/LingByte/ling-base/common/constants"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/load"

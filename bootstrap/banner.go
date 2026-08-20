@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/common/constants"
 )
 
 // GenerateBannerWithDoomFont generates ASCII art banner using Doom font and

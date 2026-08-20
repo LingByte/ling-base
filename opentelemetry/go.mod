@@ -3,8 +3,8 @@ module github.com/LingByte/ling-base/opentelemetry
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/metrics v0.1.0
-	github.com/LingByte/ling-base/tracing v0.1.0
+	github.com/LingByte/ling-base/common/metrics v0.1.0
+	github.com/LingByte/ling-base/common/tracing v0.1.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.16.0

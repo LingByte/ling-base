@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/common/constants"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 

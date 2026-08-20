@@ -52,8 +52,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
-	"github.com/LingByte/ling-base/metrics"
-	"github.com/LingByte/ling-base/tracing"
+	"github.com/LingByte/ling-base/common/metrics"
+	"github.com/LingByte/ling-base/common/tracing"
 )
 
 // TraceExporterKind selects which trace exporter to use.

@@ -20,14 +20,14 @@ require (
 	github.com/LingByte/ling-base/common/lock v0.1.0
 	github.com/LingByte/ling-base/common/migration v0.1.0
 	github.com/LingByte/ling-base/common/migration/gormmigrator v0.1.0
-	github.com/LingByte/ling-base/metrics v0.1.0
+	github.com/LingByte/ling-base/common/metrics v0.1.0
 	github.com/LingByte/ling-base/opentelemetry v0.1.0
 	github.com/LingByte/ling-base/common/scheduler v0.1.1
-	github.com/LingByte/ling-base/tracing v0.1.0
+	github.com/LingByte/ling-base/common/tracing v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.1.1
 	github.com/LingByte/ling-base/common/validate v0.1.0
-	github.com/LingByte/ling-base/constants v0.1.0
+	github.com/LingByte/ling-base/common/constants v0.1.0
 	github.com/LingByte/ling-base/common/eventbus v0.1.0
 	github.com/LingByte/ling-base/common/limiter v0.1.0
 	github.com/LingByte/ling-base/common/limiter/count v0.1.0
@@ -35,10 +35,10 @@ require (
 	github.com/LingByte/ling-base/common/notification v0.1.1
 	github.com/LingByte/ling-base/common/notification/email v0.1.0
 	github.com/LingByte/ling-base/common/notification/inbox v0.1.1
-	github.com/LingByte/ling-base/parser v0.1.0
+	github.com/LingByte/ling-base/common/parser v0.1.0
 	github.com/LingByte/ling-base/common/pool v0.1.0
-	github.com/LingByte/ling-base/queue v0.1.0
-	github.com/LingByte/ling-base/queue/memory v0.1.0
+	github.com/LingByte/ling-base/common/queue v0.1.0
+	github.com/LingByte/ling-base/common/queue/memory v0.1.0
 	github.com/LingByte/ling-base/common/retry v0.1.0
 	github.com/LingByte/ling-base/common/search v0.1.0
 	github.com/LingByte/ling-base/common/search/bleve v0.1.0

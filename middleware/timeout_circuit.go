@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

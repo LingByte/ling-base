@@ -6,8 +6,8 @@ package middleware
 import (
 	"strings"
 
-	"github.com/LingByte/ling-base/logger"
-	ginlogger "github.com/LingByte/ling-base/logger/gin"
+	"github.com/LingByte/ling-base/common/logger"
+	ginlogger "github.com/LingByte/ling-base/common/logger/gin"
 	"github.com/gin-gonic/gin"
 )
 

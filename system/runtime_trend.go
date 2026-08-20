@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/common"
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/logger"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 
 	"github.com/LingByte/ling-base/common"
 	appconfig "github.com/LingByte/ling-base/common/config"
-	"github.com/LingByte/ling-base/constants"
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/constants"
+	"github.com/LingByte/ling-base/common/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

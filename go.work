@@ -84,16 +84,16 @@ use (
 	./common/timeutil
 	./common/validate
 	./common/videoutil
-	./constants
+	./common/constants
 	./apidocs
 	./example
 	./i18n
 	./i18n/gin
 	./i18n/mymemory
 	./lingcli
-	./logger
-	./logger/gin
-	./metrics
+	./common/logger
+	./common/logger/gin
+	./common/metrics
 	./mq
 	./mq/activemq
 	./mq/factory
@@ -109,10 +109,10 @@ use (
 	./ocr/google
 	./ocr/qcloud
 	./opentelemetry
-	./parser
-	./queue
-	./queue/memory
-	./queue/redis
+	./common/parser
+	./common/queue
+	./common/queue/memory
+	./common/queue/redis
 	./realtime
 	./realtime/aliyunomni
 	./realtime/gemini
@@ -163,7 +163,7 @@ use (
 	./synthesizer/volcengine
 	./synthesizer/xunfei
 	./system
-	./tracing
+	./common/tracing
 	./version
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/common/parser"
 )
 
 // FidelityReport records how faithfully the parser extracted content from a file.

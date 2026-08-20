@@ -45,13 +45,13 @@ import (
 	"github.com/LingByte/ling-base/bootstrap"
 	"github.com/LingByte/ling-base/common/migration"
 	gormmigrator "github.com/LingByte/ling-base/common/migration/gormmigrator"
-	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/common/constants"
 	"github.com/LingByte/ling-base/common/eventbus"
 	"github.com/LingByte/ling-base/example/internal/config"
 	"github.com/LingByte/ling-base/example/internal/handlers"
 	"github.com/LingByte/ling-base/example/internal/listeners"
 	"github.com/LingByte/ling-base/example/internal/models"
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/logger"
 	"go.uber.org/zap"
 )
 

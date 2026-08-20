@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/parser"
+	"github.com/LingByte/ling-base/common/parser"
 )
 
 const usage = `parser-demo: 文件解析演示与基准工具

@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/common/idgen v0.1.0
-	github.com/LingByte/ling-base/constants v0.1.0
+	github.com/LingByte/ling-base/common/constants v0.1.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/spf13/cast v1.3.1
@@ -43,4 +43,4 @@ require (
 
 replace github.com/LingByte/ling-base/common/idgen => ./idgen
 
-replace github.com/LingByte/ling-base/constants => ../constants
+replace github.com/LingByte/ling-base/common/constants => ./constants

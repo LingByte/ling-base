@@ -29,9 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/LingByte/ling-base/metrics"
+	"github.com/LingByte/ling-base/common/metrics"
 	"github.com/LingByte/ling-base/opentelemetry"
-	"github.com/LingByte/ling-base/tracing"
+	"github.com/LingByte/ling-base/common/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	oteltrace "go.opentelemetry.io/otel/trace"
