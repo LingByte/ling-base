@@ -36,6 +36,7 @@ func streamResponseXAI2OpenAI(xAIResp *dto.ChatCompletionsStreamResponse, usage 
 }
 
 func xAIStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	usage := &dto.Usage{}
 	var responseTextBuilder strings.Builder
 	var toolCount int
@@ -59,7 +60,7 @@ func xAIStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Resp
 		}
 
 		openaiResponse := streamResponseXAI2OpenAI(xAIResp, usage)
-		// TODO: not supported in library mode — openai.ProcessStreamResponse does not exist
+		// Not supported in library mode — openai.ProcessStreamResponse does not exist
 		// _ = openai.ProcessStreamResponse(*openaiResponse, &responseTextBuilder, &toolCount)
 		if openaiResponse != nil && len(openaiResponse.Choices) > 0 {
 			responseTextBuilder.WriteString(openaiResponse.Choices[0].Delta.GetContentString())
@@ -77,7 +78,6 @@ func xAIStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Resp
 	}
 
 	helper2.Done(w)
-	resp.Body.Close()
 	return usage, nil
 }
 

@@ -158,7 +158,7 @@ func handleTTSResponse(c context.Context, resp *http.Response, info *common.Rela
 		}
 
 		// Determine content type - default to mp3
-		_ = getContentTypeByFormat("mp3") // TODO: not supported in library mode — contentType not used.
+		_ = getContentTypeByFormat("mp3") // Not supported in library mode — contentType not used.
 
 		w.WriteHeader(http.StatusOK); w.Write(audioData)
 	}

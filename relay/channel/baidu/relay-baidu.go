@@ -195,7 +195,14 @@ func getBaiduAccessToken(apiKey string) (string, error) {
 			// soon this will expire
 			if time.Now().Add(time.Hour).After(accessToken.ExpiresAt) {
 				go func() {
-					_, _ = getBaiduAccessTokenHelper(apiKey)
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Println("panic refreshing baidu access token: ", r)
+						}
+					}()
+					if _, err := getBaiduAccessTokenHelper(apiKey); err != nil {
+						fmt.Println("error refreshing baidu access token: " + err.Error())
+					}
 				}()
 			}
 			return accessToken.AccessToken, nil

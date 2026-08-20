@@ -31,8 +31,8 @@ var expSeconds int64 = 24 * 3600
 func getZhipuToken(apikey string) string {
 	data, ok := zhipuTokens.Load(apikey)
 	if ok {
-		tokenData := data.(zhipuTokenData)
-		if time.Now().Before(tokenData.ExpiryTime) {
+		tokenData, ok := data.(zhipuTokenData)
+		if ok && time.Now().Before(tokenData.ExpiryTime) {
 			return tokenData.Token
 		}
 	}
@@ -154,11 +154,12 @@ func streamMetaResponseZhipu2OpenAI(zhipuResponse *ZhipuStreamMetaResponse) (*dt
 }
 
 func zhipuStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	var usage *dto.Usage
 	scanner := helper2.NewStreamScanner(resp.Body)
-	dataChan := make(chan string)
-	metaChan := make(chan string)
-	stopChan := make(chan bool)
+	dataChan := make(chan string, 16)
+	metaChan := make(chan string, 16)
+	stopChan := make(chan bool, 1)
 	go func() {
 		for {
 			data, err := scanner.Scan()
@@ -171,19 +172,40 @@ func zhipuStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 					continue
 				}
 				if line[:5] == "data:" {
-					dataChan <- line[5:]
+					select {
+					case dataChan <- line[5:]:
+					case <-stopChan:
+						return
+					}
 					if i != len(lines)-1 {
-						dataChan <- "\n"
+						select {
+						case dataChan <- "\n":
+						case <-stopChan:
+							return
+						}
 					}
 				} else if line[:5] == "meta:" {
-					metaChan <- line[5:]
+					select {
+					case metaChan <- line[5:]:
+					case <-stopChan:
+						return
+					}
 				}
 			}
 		}
-		stopChan <- true
+		select {
+		case stopChan <- true:
+		default:
+		}
 	}()
 	helper2.SetEventStreamHeaders(w)
 	done := false
+	defer func() {
+		select {
+		case stopChan <- true:
+		default:
+		}
+	}()
 	for !done {
 		select {
 		case data := <-dataChan:
@@ -214,17 +236,16 @@ func zhipuStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 			done = true
 		}
 	}
-	resp.Body.Close()
 	return usage, nil
 }
 
 func zhipuHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	var zhipuResponse ZhipuResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	resp.Body.Close()
 	err = json.Unmarshal(responseBody, &zhipuResponse)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)

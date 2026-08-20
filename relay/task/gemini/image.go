@@ -14,7 +14,7 @@ const maxVeoImageSize = 20 * 1024 * 1024 // 20 MB
 // ExtractMultipartImage reads the first `input_reference` file from a multipart
 // form upload and returns a VeoImageInput. Returns nil if no file is present.
 func ExtractMultipartImage(c context.Context, info *common.RelayInfo) *VeoImageInput {
-	// TODO: not supported in library mode (context.Context has no MultipartForm)
+	// Not supported in library mode (context.Context has no MultipartForm)
 	// mf, err := c.MultipartForm()
 	// if err != nil {
 	// 	return nil
@@ -53,7 +53,7 @@ func ExtractMultipartImage(c context.Context, info *common.RelayInfo) *VeoImageI
 
 // ParseImageInput parses an image string (data URI or raw base64) into a
 // VeoImageInput. Returns nil if the input is empty or invalid.
-// TODO: support downloading HTTP URL images and converting to base64
+// Future: support downloading HTTP URL images and converting to base64
 func ParseImageInput(imageStr string) *VeoImageInput {
 	imageStr = strings.TrimSpace(imageStr)
 	if imageStr == "" {

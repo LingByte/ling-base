@@ -163,7 +163,10 @@ func (a *TaskAdaptor) BuildRequestBody(c context.Context, info *common.RelayInfo
 	if !exists {
 		return nil, fmt.Errorf("request not found in context")
 	}
-	req := v.(common.TaskSubmitReq)
+	req, ok := v.(common.TaskSubmitReq)
+	if !ok {
+		return nil, fmt.Errorf("invalid request type in context")
+	}
 
 	body, err := a.convertToRequestPayload(&req, info)
 	if err != nil {
@@ -210,7 +213,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	ov.TaskID = info.PublicTaskID
 	ov.CreatedAt = time.Now().Unix()
 	ov.Model = info.OriginModelName
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, ov)
 	return kResp.Data.TaskId, responseBody, nil
 }
@@ -245,7 +248,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "kling-sdk/1.0")
 
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

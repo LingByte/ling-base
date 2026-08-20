@@ -55,7 +55,7 @@ func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo,
 	}
 
 	voiceType := request.Voice
-	// TODO: not supported in library mode — VoiceMapped and UpstreamVoiceId fields removed
+	// Not supported in library mode — VoiceMapped and UpstreamVoiceId fields removed
 	// if info.VoiceMapped && info.UpstreamVoiceId != "" {
 	// 	voiceType = info.UpstreamVoiceId
 	// } else {
@@ -360,7 +360,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	if info.RelayMode == constant.RelayModeAudioSpeech {
 		encoding := mapEncoding("")
 		if info.IsStream {
-			// TODO: not supported in library mode — WebSocket TTS streaming requires context-stored request
+			// Not supported in library mode — WebSocket TTS streaming requires context-stored request
 			return nil, types.NewErrorWithStatusCode(
 				errors.New("volcengine TTS WebSocket streaming is not supported in library mode"),
 				types.ErrorCodeBadRequestBody,

@@ -11,8 +11,8 @@ type VeoImageInput struct {
 type VeoInstance struct {
 	Prompt string         `json:"prompt"`
 	Image  *VeoImageInput `json:"image,omitempty"`
-	// TODO: support referenceImages (style/asset references, up to 3 images)
-	// TODO: support lastFrame (first+last frame interpolation, Veo 3.1)
+	// Future: support referenceImages (style/asset references, up to 3 images)
+	// Future: support lastFrame (first+last frame interpolation, Veo 3.1)
 }
 
 // VeoParameters represents the parameters block for Veo predictLongRunning.

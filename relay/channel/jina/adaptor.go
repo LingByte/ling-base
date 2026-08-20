@@ -59,7 +59,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 
@@ -80,7 +80,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	if info.RelayMode == relaymode.RelayModeRerank {
 		usage, err = common_handler.RerankHandler(c, info, resp, w)
 	} else if info.RelayMode == relaymode.RelayModeEmbeddings {
-		// TODO: not supported in library mode — openai.OpenaiHandler does not exist.
+		// Not supported in library mode — openai.OpenaiHandler does not exist.
 		openaiAdaptor := openai.Adaptor{}
 		usage, err = openaiAdaptor.DoResponse(c, resp, info, w)
 	}

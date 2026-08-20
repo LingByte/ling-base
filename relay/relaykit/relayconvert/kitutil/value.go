@@ -14,23 +14,23 @@ func GetPointer[T any](v T) *T {
 }
 
 func Interface2String(inter interface{}) string {
-	switch inter.(type) {
+	switch v := inter.(type) {
 	case string:
-		return inter.(string)
+		return v
 	case int:
-		return fmt.Sprintf("%d", inter.(int))
+		return fmt.Sprintf("%d", v)
 	case float64:
-		return strconv.FormatFloat(inter.(float64), 'f', -1, 64)
+		return strconv.FormatFloat(v, 'f', -1, 64)
 	case bool:
-		if inter.(bool) {
+		if v {
 			return "true"
-		} else {
-			return "false"
 		}
+		return "false"
 	case nil:
 		return ""
+	default:
+		return fmt.Sprintf("%v", inter)
 	}
-	return fmt.Sprintf("%v", inter)
 }
 
 func String2Int(str string) int {

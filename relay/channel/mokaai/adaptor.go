@@ -77,7 +77,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 
@@ -91,9 +91,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	case relaymode.RelayModeEmbeddings:
 		return mokaEmbeddingHandler(c, info, resp, w)
 	default:
-		// TODO: not supported in library mode
-		// err, usage = mokaHandler(c, resp)
-
+		err = types.NewError(fmt.Errorf("unsupported relay mode: %d", info.RelayMode), types.ErrorCodeInvalidRequest)
 	}
 	return
 }

@@ -155,7 +155,7 @@ func (a *TaskAdaptor) BuildRequestBody(c context.Context, info *common.RelayInfo
 	if err != nil {
 		return nil, errors.Wrap(err, "convert_to_ali_request_failed")
 	}
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// logger.LogJson(c, "ali video request body", aliReq)
 
 	bodyBytes, err := json.Marshal(aliReq)
@@ -446,7 +446,7 @@ func (a *TaskAdaptor) convertToAliRequest(info *common.RelayInfo, req common.Tas
 // EstimateBilling 根据用户请求参数计算 OtherRatios（时长、分辨率等）。
 // 在 ValidateRequestAndSetAction 之后、价格计算之前调用。
 func (a *TaskAdaptor) EstimateBilling(c context.Context, info *common.RelayInfo) map[string]float64 {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -457,12 +457,12 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 		return
 	}
-	_ = resp.Body.Close()
 
 	// 解析阿里响应
 	var aliResp AliVideoResponse
@@ -494,7 +494,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	openAIResp.CreatedAt = common.GetTimestamp()
 
 	// 返回 OpenAI 格式
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, openAIResp)
 
 	return aliResp.Output.TaskID, responseBody, nil
@@ -516,7 +516,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 
 	req.Header.Set("Authorization", "Bearer "+key)
 
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

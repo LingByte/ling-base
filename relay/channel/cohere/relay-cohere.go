@@ -27,7 +27,7 @@ func requestOpenAI2Cohere(textRequest dto.GeneralOpenAIRequest) *CohereRequest {
 		Stream:      lo.FromPtrOr(textRequest.Stream, false),
 		MaxTokens:   textRequest.GetMaxTokens(),
 	}
-	// TODO: not supported in library mode — common.CohereSafetySetting does not exist.
+	// Not supported in library mode — common.CohereSafetySetting does not exist.
 	// if common.CohereSafetySetting != "NONE" {
 	// 	cohereReq.SafetyMode = common.CohereSafetySetting
 	// }
@@ -182,7 +182,9 @@ func cohereHandler(c context.Context, info *common.RelayInfo, resp *http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing cohere response: " + err.Error())
+	}
 	return &usage, nil
 }
 

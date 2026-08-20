@@ -53,7 +53,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
 	isCompact := info != nil && info.RelayMode == relayconstant.RelayModeResponsesCompact
 
-	// TODO: not supported in library mode — ChannelSetting was DB-coupled and has been removed.
+	// Not supported in library mode — ChannelSetting was DB-coupled and has been removed.
 	// if info != nil && info.ChannelSetting.SystemPrompt != "" {
 	// 	systemPrompt := info.ChannelSetting.SystemPrompt
 	//
@@ -116,10 +116,10 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 		// Alpha search responses are handled by relay.AlphaSearchHelper.
 		return nil, types.NewError(errors.New("codex channel: alpha search response should be handled by AlphaSearchHelper"), types.ErrorCodeInvalidRequest)
 	case relayconstant.RelayModeResponsesCompact:
-		// TODO: not supported in library mode — openai2.OaiResponsesCompactionHandler does not exist.
+		// Not supported in library mode — openai2.OaiResponsesCompactionHandler does not exist.
 		return nil, types.NewError(errors.New("codex channel: responses compact handler not supported in library mode"), types.ErrorCodeInvalidRequest)
 	case relayconstant.RelayModeResponses:
-		// TODO: not supported in library mode — openai2.OaiResponsesStreamHandler/OaiResponsesHandler do not exist.
+		// Not supported in library mode — openai2.OaiResponsesStreamHandler/OaiResponsesHandler do not exist.
 		return nil, types.NewError(errors.New("codex channel: responses handler not supported in library mode"), types.ErrorCodeInvalidRequest)
 	default:
 		return nil, types.NewError(errors.New("codex channel: endpoint not supported"), types.ErrorCodeInvalidRequest)

@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -33,7 +34,7 @@ func getAwsErrorStatusCode(err error) int {
 }
 
 func newAwsInvokeContext(parent context.Context) (context.Context, context.CancelFunc) {
-	// TODO: not supported in library mode — common.RelayTimeout not available
+	// Not supported in library mode — common.RelayTimeout not available
 	// if common.RelayTimeout <= 0 {
 	// 	return context.WithCancel(parent)
 	// }
@@ -103,7 +104,7 @@ func doAwsClientRequest(c context.Context, info *common.RelayInfo, a *Adaptor, r
 	// init empty request.header
 	requestHeader := http.Header{}
 	a.SetupRequestHeader(c, &requestHeader, info)
-	// TODO: not supported in library mode — channel.ResolveHeaderOverride not available
+	// Not supported in library mode — channel.ResolveHeaderOverride not available
 	// headerOverride, err := channel.ResolveHeaderOverride(info, c)
 	// if err != nil {
 	// 	return nil, err
@@ -169,7 +170,7 @@ func doAwsClientRequest(c context.Context, info *common.RelayInfo, a *Adaptor, r
 
 // buildAwsRequestBody prepares the payload for AWS requests, applying passthrough rules when enabled.
 func buildAwsRequestBody(c context.Context, info *common.RelayInfo, awsClaudeReq any) ([]byte, error) {
-	// TODO: not supported in library mode — ChannelSetting and GetBodyStorage not available
+	// Not supported in library mode — ChannelSetting and GetBodyStorage not available
 	// if setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 	// 	storage, err := common.GetBodyStorage(c)
 	// 	if err != nil {
@@ -230,7 +231,7 @@ func awsHandler(c context.Context, info *common.RelayInfo, a *Adaptor, w http.Re
 		return newAwsInvokeError(requestContext, err, "InvokeModel"), nil
 	}
 
-	// TODO: not supported in library mode — ClaudeResponseInfo and HandleClaudeResponseData not available
+	// Not supported in library mode — ClaudeResponseInfo and HandleClaudeResponseData not available
 	// claudeInfo := &claude.ClaudeResponseInfo{
 	// 	ResponseId:   helper.GetResponseID(""),
 	// 	Created:      time.Now().Unix(),
@@ -254,7 +255,9 @@ func awsHandler(c context.Context, info *common.RelayInfo, a *Adaptor, w http.Re
 	if awsResp.ContentType != nil && *awsResp.ContentType != "" {
 		w.Header().Set("Content-Type", *awsResp.ContentType)
 	}
-	_, _ = w.Write(awsResp.Body)
+	if _, err := w.Write(awsResp.Body); err != nil {
+		fmt.Println("error writing aws response: " + err.Error())
+	}
 	return nil, &dto.Usage{}
 }
 
@@ -270,7 +273,7 @@ func awsStreamHandler(c context.Context, info *common.RelayInfo, a *Adaptor, w h
 	stream := awsResp.GetStream()
 	defer stream.Close()
 
-	// TODO: not supported in library mode — ClaudeResponseInfo and HandleStreamResponseData not available
+	// Not supported in library mode — ClaudeResponseInfo and HandleStreamResponseData not available
 	// claudeInfo := &claude.ClaudeResponseInfo{
 	// 	ResponseId:   helper.GetResponseID(""),
 	// 	Created:      time.Now().Unix(),
@@ -377,6 +380,8 @@ func handleNovaRequest(c context.Context, info *common.RelayInfo, a *Adaptor, w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing aws nova response: " + err.Error())
+	}
 	return nil, &response.Usage
 }

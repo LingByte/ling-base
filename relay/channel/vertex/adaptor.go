@@ -124,7 +124,7 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 
 func (a *Adaptor) getRequestUrl(info *common.RelayInfo, modelName, suffix string) (string, error) {
 	region := GetModelRegion(info.ApiVersion, info.OriginModelName)
-	// TODO: not supported in library mode — ChannelOtherSettings removed.
+	// Not supported in library mode — ChannelOtherSettings removed.
 	// Always use JSON credentials path; API-key mode is not available.
 	adc := &Credentials{}
 	if err := json.Unmarshal([]byte(info.ApiKey), adc); err != nil {
@@ -189,7 +189,7 @@ func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c context.Context, req *http.Header, info *common.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, req)
-	// TODO: not supported in library mode — ChannelOtherSettings removed.
+	// Not supported in library mode — ChannelOtherSettings removed.
 	// Always use JSON credentials path; API-key mode is not available.
 	accessToken, err := getAccessToken(a, info)
 	if err != nil {
@@ -200,7 +200,7 @@ func (a *Adaptor) SetupRequestHeader(c context.Context, req *http.Header, info *
 		req.Set("x-goog-user-project", a.AccountCredentials.ProjectID)
 	}
 	if strings.Contains(info.UpstreamModelName, "claude") {
-		// TODO: not supported in library mode — claude2.CommonClaudeHeadersOperation does not exist
+		// Not supported in library mode — claude2.CommonClaudeHeadersOperation does not exist
 		_ = c
 	}
 	return nil
@@ -303,7 +303,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 

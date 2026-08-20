@@ -208,10 +208,10 @@ func (s *Session) forwardUpstream(ctx context.Context) error {
 // records it with the meter (if configured).
 func (s *Session) accumulateUsage(u dto.RealtimeUsage) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.usage.TotalTokens += u.TotalTokens
 	s.usage.InputTokens += u.InputTokens
 	s.usage.OutputTokens += u.OutputTokens
-	s.mu.Unlock()
 
 	if s.meter != nil {
 		_ = s.meter.Record(context.Background(), &meter.UsageRecord{

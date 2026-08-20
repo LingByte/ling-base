@@ -86,7 +86,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 

@@ -26,7 +26,7 @@ type TaskSubmitReq struct {
 
 // UnmarshalMetadata is a stub that applies metadata to a target struct.
 func (r *TaskSubmitReq) UnmarshalMetadata(target any) error {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -41,26 +41,26 @@ const MaxTaskDurationSeconds = 600
 // ValidateBasicTaskRequest is a stub for LingRein's request validation.
 // In library mode it performs no validation.
 func ValidateBasicTaskRequest(ctx context.Context, info *RelayInfo, action string) *TaskError {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
 // ValidateMultipartDirect is a stub for LingRein's multipart validation.
 func ValidateMultipartDirect(ctx context.Context, info *RelayInfo) *TaskError {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
 // GetTaskRequest is a stub that retrieves the task request from context.
 // In library mode there is no gin context, so it returns a zero value.
 func GetTaskRequest(ctx context.Context) (TaskSubmitReq, error) {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return TaskSubmitReq{}, nil
 }
 
 // CtxGet is a stub for gin.Context.Get. It always returns nil, false.
 func CtxGet(ctx context.Context, key string) (any, bool) {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil, false
 }
 

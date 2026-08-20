@@ -129,12 +129,13 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	// TODO: 实现 baidu embedding 格式转换
+	// Baidu embedding uses passthrough; the request body is converted
+	// to Baidu format by embeddingRequestOpenAI2Baidu at the handler level.
 	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 

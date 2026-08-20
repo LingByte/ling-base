@@ -193,7 +193,7 @@ func generateRequestID() string {
 	return uuid.New().String()
 }
 
-// TODO: not supported in library mode — handleTTSWebSocketResponse requires gorilla/websocket
+// Not supported in library mode — handleTTSWebSocketResponse requires gorilla/websocket
 // which is not a dependency. WebSocket TTS streaming is disabled.
 /*
 func handleTTSWebSocketResponse(c context.Context, requestURL string, volcRequest VolcengineTTSRequest, info *common.RelayInfo, encoding string) (usage any, err *types.NewAPIError) {

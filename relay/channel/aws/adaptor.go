@@ -85,14 +85,14 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
-	// TODO: not supported in library mode — ChannelOtherSettings not available
+	// Not supported in library mode — ChannelOtherSettings not available
 	// Default to AKSK mode (no HTTP URL needed; AWS SDK handles routing)
 	a.ClientMode = ClientModeAKSK
 	return "", nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c context.Context, req *http.Header, info *common.RelayInfo) error {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// claude.CommonClaudeHeadersOperation(c, req, info)
 	if a.ClientMode == ClientModeApiKey {
 		req.Set("Authorization", "Bearer "+info.ApiKey)
@@ -133,7 +133,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 

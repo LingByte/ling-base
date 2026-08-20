@@ -56,7 +56,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
+	// Responses API is not supported by this provider
 	return nil, errors.New("unsupported capability for this provider")
 }
 
@@ -65,7 +65,8 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	// TODO: 实现 cohere rerank 格式转换
+	// Cohere rerank uses passthrough; the request body is converted
+	// to Cohere format by requestConvertRerank2Cohere at the handler level.
 	return request, nil
 }
 
@@ -78,7 +79,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 		usage, err = cohereRerankHandler(c, resp, info, w)
 	} else {
 		if info.IsStream {
-			usage, err = cohereStreamHandler(c, info, resp, w) // TODO: fix this
+			usage, err = cohereStreamHandler(c, info, resp, w)
 		} else {
 			usage, err = cohereHandler(c, info, resp, w)
 		}

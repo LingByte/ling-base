@@ -163,7 +163,7 @@ func (r *GeminiChatRequest) SetTools(tools []GeminiChatTool) {
 type GeminiThinkingConfig struct {
 	IncludeThoughts bool `json:"includeThoughts,omitempty"`
 	ThinkingBudget  *int `json:"thinkingBudget,omitempty"`
-	// TODO Conflict with thinkingbudget.
+	// Note: conflicts with thinkingbudget; handle with care.
 	ThinkingLevel string `json:"thinkingLevel,omitempty"`
 }
 

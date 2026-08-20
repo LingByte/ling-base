@@ -46,7 +46,7 @@ func oaiImage2AliImageRequest(info *common.RelayInfo, request dto.ImageRequest, 
 
 	if strings.Contains(request.Model, "z-image") {
 		// z-image 开启prompt_extend后，按2倍计费
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// if imageRequest.Parameters.PromptExtendValue() {
 		// 	info.PriceData.AddOtherRatio("prompt_extend", 2)
 		// }
@@ -59,7 +59,7 @@ func oaiImage2AliImageRequest(info *common.RelayInfo, request dto.ImageRequest, 
 		return nil, fmt.Errorf("parameters.n must be an integer between 1 and %d", dto.MaxImageN)
 	}
 	if imageRequest.Parameters.N != 0 {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// info.PriceData.AddOtherRatio("n", float64(imageRequest.Parameters.N))
 	}
 
@@ -90,7 +90,7 @@ func oaiImage2AliImageRequest(info *common.RelayInfo, request dto.ImageRequest, 
 	return &imageRequest, nil
 }
 func getImageBase64sFromForm(c context.Context, fieldName string) ([]string, error) {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil, errors.New("form file parsing not supported in library mode")
 }
 
@@ -270,10 +270,10 @@ func aliImageHandler(a *Adaptor, c context.Context, resp *http.Response, info *c
 
 	imageResponses := responseAli2OpenAIImage(c, aliResponse, originRespBody, info, responseFormat)
 	if aliResponse.Usage.ImageCount != 0 {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// info.PriceData.AddOtherRatio("n", float64(aliResponse.Usage.ImageCount))
 	} else if len(imageResponses.Data) != 0 {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// info.PriceData.AddOtherRatio("n", float64(len(imageResponses.Data)))
 	}
 	jsonResponse, err := json.Marshal(imageResponses)

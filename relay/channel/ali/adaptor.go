@@ -292,7 +292,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.
 
 func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
 	if info.RelayMode == constant.RelayModeRealtime {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// return channel.DoWssRequest(a, c, info, requestBody)
 		return nil, errors.New("realtime mode not supported in library mode")
 	}
@@ -301,7 +301,7 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
 	if info.RelayMode == constant.RelayModeRealtime {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// err, usage = openai.OpenaiRealtimeHandler(c, info)
 		return nil, types.NewError(errors.New("realtime mode not supported in library mode"), types.ErrorCodeInvalidRequest)
 	}

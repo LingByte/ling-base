@@ -55,11 +55,11 @@ type openAIImageData struct {
 }
 
 func zhipu4vImageHandler(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	resp.Body.Close()
 
 	var zhipuResp zhipuImageResponse
 	if err := json.Unmarshal(responseBody, &zhipuResp); err != nil {

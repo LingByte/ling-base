@@ -121,11 +121,11 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", nil, service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 	}
-	_ = resp.Body.Close()
 
 	var s submitResponse
 	if err := json.Unmarshal(responseBody, &s); err != nil {
@@ -140,7 +140,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	ov.TaskID = info.PublicTaskID
 	ov.CreatedAt = time.Now().Unix()
 	ov.Model = info.OriginModelName
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, ov)
 	return taskID, responseBody, nil
 }
@@ -160,7 +160,7 @@ func (a *TaskAdaptor) GetChannelName() string {
 
 // EstimateBilling returns OtherRatios based on durationSeconds and resolution.
 func (a *TaskAdaptor) EstimateBilling(c context.Context, info *common.RelayInfo) map[string]float64 {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -187,7 +187,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("x-goog-api-key", key)
 
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

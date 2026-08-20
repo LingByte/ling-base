@@ -136,7 +136,7 @@ func (a *TaskAdaptor) BuildRequestHeader(_ context.Context, req *http.Request, _
 
 // EstimateBilling 根据请求 metadata 中的输出分辨率与是否包含视频输入，返回相对基准价的计费 OtherRatio。
 func (a *TaskAdaptor) EstimateBilling(c context.Context, info *common.RelayInfo) map[string]float64 {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -199,12 +199,12 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 		return
 	}
-	_ = resp.Body.Close()
 
 	// Parse Doubao response
 	var dResp responsePayload
@@ -224,7 +224,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	ov.CreatedAt = time.Now().Unix()
 	ov.Model = info.OriginModelName
 
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, ov)
 	return dResp.ID, responseBody, nil
 }
@@ -247,7 +247,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
 
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

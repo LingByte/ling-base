@@ -37,7 +37,7 @@ var Cache = asynccache.NewAsyncCache(asynccache.Options{
 })
 
 func getAccessToken(a *Adaptor, info *common.RelayInfo) (string, error) {
-	// TODO: not supported in library mode — ChannelIsMultiKey, ChannelId, ChannelMultiKeyIndex removed
+	// Not supported in library mode — ChannelIsMultiKey, ChannelId, ChannelMultiKeyIndex removed
 	cacheKey := fmt.Sprintf("access-token-%s", a.AccountCredentials.ProjectID)
 	val, err := Cache.Get(cacheKey)
 	if err == nil {
@@ -142,7 +142,7 @@ func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string,
 
 	var client *http.Client
 	if proxy != "" {
-		// TODO: not supported in library mode — proxy client creation not available
+		// Not supported in library mode — proxy client creation not available
 		client = http.DefaultClient
 	} else {
 		client = http.DefaultClient

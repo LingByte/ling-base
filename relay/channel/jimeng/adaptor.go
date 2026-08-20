@@ -129,7 +129,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	if info.RelayMode == relayconstant.RelayModeImagesGenerations {
 		usage, err = jimengImageHandler(c, resp, info, w)
 	} else {
-		// TODO: not supported in library mode — openai.OaiStreamHandler/openai.OpenaiHandler do not exist.
+		// Not supported in library mode — openai.OaiStreamHandler/openai.OpenaiHandler do not exist.
 		// Fall back to openai.Adaptor.DoResponse for non-image modes.
 		openaiAdaptor := openai.Adaptor{}
 		usage, err = openaiAdaptor.DoResponse(c, resp, info, w)

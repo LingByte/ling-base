@@ -115,18 +115,18 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 
 	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(byteBody))
 	if err != nil {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// common.SysLog(fmt.Sprintf("Get Task error: %v", err))
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 
 func actionValidate(c context.Context, sunoRequest interface{}, action string) (err error) {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// switch action {
 	// case constant.SunoActionMusic:
 	// 	if sunoRequest.Mv == "" {

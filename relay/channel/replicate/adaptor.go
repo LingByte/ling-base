@@ -176,12 +176,12 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	if resp == nil {
 		return nil, types.NewError(errors.New("replicate adaptor: empty response"), types.ErrorCodeBadResponse)
 	}
+	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeReadResponseBodyFailed)
 	}
-	_ = resp.Body.Close()
 
 	var prediction PredictionResponse
 	if err := json.Unmarshal(responseBody, &prediction); err != nil {
@@ -282,7 +282,9 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(responseBytes)
+	if _, err := w.Write(responseBytes); err != nil {
+		fmt.Println("error writing replicate response: " + err.Error())
+	}
 
 	usage := &dto.Usage{}
 	return usage, nil
@@ -399,7 +401,7 @@ func uploadFileFromForm(c context.Context, info *common.RelayInfo, fieldCandidat
 		return "", errors.New("replicate adaptor: relay info is nil")
 	}
 
-	// TODO: not supported in library mode — multipart form parsing requires gin.Context
+	// Not supported in library mode — multipart form parsing requires gin.Context
 	// In library mode, file uploads are handled differently.
 	return "", nil
 }

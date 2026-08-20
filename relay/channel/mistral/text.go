@@ -13,7 +13,7 @@ var mistralToolCallIdRegexp = regexp.MustCompile("^[a-zA-Z0-9]{9}$")
 const randomChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 // generateRandomCharsKey generates a random alphanumeric string of the given length.
-// TODO: not supported in library mode — simplified replacement for common.GenerateRandomCharsKey.
+// Not supported in library mode — simplified replacement for common.GenerateRandomCharsKey.
 func generateRandomCharsKey(length int) (string, error) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)

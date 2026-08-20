@@ -109,7 +109,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c context.Context, req *http.Request, i
 	}
 
 	proxy := ""
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// if info != nil {
 	// 	proxy = info.ChannelSetting.Proxy
 	// }
@@ -124,7 +124,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c context.Context, req *http.Request, i
 
 // EstimateBilling returns OtherRatios based on durationSeconds and resolution.
 func (a *TaskAdaptor) EstimateBilling(c context.Context, info *common.RelayInfo) map[string]float64 {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -134,7 +134,10 @@ func (a *TaskAdaptor) BuildRequestBody(c context.Context, info *common.RelayInfo
 	if !ok {
 		return nil, fmt.Errorf("request not found in context")
 	}
-	req := v.(common.TaskSubmitReq)
+	req, ok := v.(common.TaskSubmitReq)
+	if !ok {
+		return nil, fmt.Errorf("invalid request type in context")
+	}
 
 	instance := gemini.VeoInstance{Prompt: req.Prompt}
 	if img := gemini.ExtractMultipartImage(c, info); img != nil {
@@ -181,11 +184,11 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", nil, service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 	}
-	_ = resp.Body.Close()
 
 	var s submitResponse
 	if err := json.Unmarshal(responseBody, &s); err != nil {
@@ -200,7 +203,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	ov.TaskID = info.PublicTaskID
 	ov.CreatedAt = time.Now().Unix()
 	ov.Model = info.OriginModelName
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, ov)
 	return localID, responseBody, nil
 }
@@ -266,7 +269,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("x-goog-user-project", adc.ProjectID)
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

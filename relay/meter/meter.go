@@ -133,8 +133,8 @@ func (m *memoryMeter) Record(ctx context.Context, record *UsageRecord) error {
 		record.Timestamp = time.Now()
 	}
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.records = append(m.records, *record)
-	m.mu.Unlock()
 	return nil
 }
 

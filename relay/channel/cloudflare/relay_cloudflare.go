@@ -3,6 +3,7 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -47,7 +48,7 @@ func cfStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Respo
 		err = helper2.ObjectData(w, response)
 		if isFirst {
 			isFirst = false
-			// TODO: not supported in library mode
+			// Not supported in library mode
 			// info.FirstResponseTime = time.Now()
 		}
 		if err != nil {
@@ -96,7 +97,9 @@ func cfHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing cloudflare response: " + err.Error())
+	}
 	return nil, usage
 }
 
@@ -122,7 +125,9 @@ func cfSTTHandler(c context.Context, info *common.RelayInfo, resp *http.Response
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing cloudflare stt response: " + err.Error())
+	}
 
 	usage := service.ResponseText2Usage(cfResp.Result.Text, info.UpstreamModelName, info.GetEstimatePromptTokens())
 	return nil, usage

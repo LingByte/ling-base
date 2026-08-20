@@ -17,11 +17,11 @@ import (
 
 // RerankHandler parses a rerank response and writes it to w.
 func RerankHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeReadResponseBodyFailed)
 	}
-	resp.Body.Close()
 
 	var rerankResp dto.RerankResponse
 	if err := json.Unmarshal(responseBody, &rerankResp); err != nil {

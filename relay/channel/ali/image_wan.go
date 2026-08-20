@@ -20,7 +20,7 @@ func oaiFormEdit2WanxImageEdit(c context.Context, info *common.RelayInfo, reques
 		Prompt: request.Prompt,
 	}
 
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// if err := json.UnmarshalBodyReusable(c, &wanInput); err != nil {
 	// 	return nil, err
 	// }
@@ -34,7 +34,7 @@ func oaiFormEdit2WanxImageEdit(c context.Context, info *common.RelayInfo, reques
 	imageRequest.Parameters = AliImageParameters{
 		N: int(lo.FromPtrOr(request.N, uint(1))),
 	}
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// info.PriceData.AddOtherRatio("n", float64(imageRequest.Parameters.N))
 
 	return &imageRequest, nil

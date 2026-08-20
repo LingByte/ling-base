@@ -197,7 +197,7 @@ func (a *Adaptor) BuildModelListRequest(info *common.RelayInfo) (string, http.He
 	if info == nil {
 		return "", nil, errors.New("missing relay info")
 	}
-	// TODO: not supported in library mode — ChannelOtherSettings not available
+	// Not supported in library mode — ChannelOtherSettings not available
 	// config := info.ChannelOtherSettings.AdvancedCustom
 	// if config == nil {
 	// 	return "", nil, errors.New("advanced_custom is required")
@@ -281,7 +281,7 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 		return channel.DoFormRequest(c, a, info, requestBody)
 	}
 	if info.RelayMode == relayconstant.RelayModeRealtime {
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// return channel.DoWssRequest(a, c, info, requestBody)
 		return nil, errors.New("realtime mode not supported in library mode")
 	}
@@ -306,14 +306,14 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	case relayconvert.ConverterOpenAIResponsesToGemini:
 		return a.geminiAdaptor.DoResponse(c, resp, info, w)
 	case relayconvert.ConverterOpenAIChatToOpenAIResponses:
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// if info.IsStream {
 		// 	return openai2.OaiResponsesToChatStreamHandler(c, info, resp)
 		// }
 		// return openai2.OaiResponsesToChatHandler(c, info, resp)
 		return nil, types.NewOpenAIError(fmt.Errorf("OpenAIChatToOpenAIResponses converter not supported in library mode"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	case relayconvert.ConverterOpenAIResponsesToOpenAIChat:
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// if info.IsStream {
 		// 	return openai2.OaiChatToResponsesStreamHandler(c, info, resp)
 		// }
@@ -362,7 +362,7 @@ func (a *Adaptor) resolve(c context.Context, info *common.RelayInfo) error {
 	if info == nil {
 		return errors.New("missing relay info")
 	}
-	// TODO: not supported in library mode — ChannelOtherSettings not available
+	// Not supported in library mode — ChannelOtherSettings not available
 	// config := info.ChannelOtherSettings.AdvancedCustom
 	// if config == nil {
 	// 	return errors.New("advanced_custom is required")
@@ -510,7 +510,7 @@ func applyClaudeHeaders(c context.Context, header *http.Header, info *common.Rel
 		anthropicVersion = "2023-06-01"
 	}
 	header.Set("anthropic-version", anthropicVersion)
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// if c != nil {
 	// 	claude2.CommonClaudeHeadersOperation(c, header, info)
 	// }
@@ -521,7 +521,7 @@ func applyAuthTemplate(template string, apiKey string) string {
 }
 
 func isJSONRequest(c context.Context) bool {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return false
 }
 

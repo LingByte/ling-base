@@ -77,7 +77,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayI
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil, errors.New("audio request not supported in library mode")
 }
 
@@ -96,7 +96,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 			err, usage = cfHandler(c, info, resp, w)
 		}
 	case constant.RelayModeResponses:
-		// TODO: not supported in library mode
+		// Not supported in library mode
 		// if info.IsStream {
 		// 	usage, err = openai.OaiResponsesStreamHandler(c, info, resp)
 		// } else {

@@ -129,7 +129,7 @@ func (a *TaskAdaptor) BuildRequestBody(c context.Context, info *common.RelayInfo
 	if !ok {
 		return nil, fmt.Errorf("invalid request type in context")
 	}
-	// TODO: not supported in library mode (context.Context has no MultipartForm)
+	// Not supported in library mode (context.Context has no MultipartForm)
 	// 支持openai sdk的图片上传方式
 	// if mf, err := c.MultipartForm(); err == nil {
 	// 	if files, exists := mf.File["input_reference"]; exists && len(files) > 0 {
@@ -183,12 +183,12 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 		return
 	}
-	_ = resp.Body.Close()
 
 	// Parse Jimeng response
 	var jResp responsePayload
@@ -207,7 +207,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	ov.TaskID = info.PublicTaskID
 	ov.CreatedAt = time.Now().Unix()
 	ov.Model = info.OriginModelName
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, ov)
 	return jResp.Data.TaskID, responseBody, nil
 }
@@ -254,7 +254,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 			return nil, errors.Wrap(err, "sign request failed")
 		}
 	}
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

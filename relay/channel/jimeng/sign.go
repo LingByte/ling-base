@@ -44,10 +44,10 @@ func SetPayloadHash(c context.Context, req any) error {
 	if err != nil {
 		return err
 	}
-	// TODO: not supported in library mode — logger.LogInfo does not exist.
+	// Not supported in library mode — logger.LogInfo does not exist.
 	// logger.LogInfo(c, fmt.Sprintf("SetPayloadHash body: %s", body))
 	payloadHash := sha256.Sum256(body)
-	_ = hex.EncodeToString(payloadHash[:]) // TODO: not supported in library mode — c.Set does not exist.
+	_ = hex.EncodeToString(payloadHash[:]) // Not supported in library mode — c.Set does not exist.
 	// c.Set(HexPayloadHashKey, hexPayloadHash)
 	return nil
 }

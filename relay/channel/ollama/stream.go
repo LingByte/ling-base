@@ -205,7 +205,7 @@ func ollamaChatHandler(c context.Context, info *common.RelayInfo, resp *http.Res
 	}
 	resp.Body.Close()
 	raw := string(body)
-	// TODO: not supported in library mode — DebugEnabled was removed
+	// Not supported in library mode — DebugEnabled was removed
 	// if common.DebugEnabled {
 	// 	println("ollama non-stream raw resp:", raw)
 	// }

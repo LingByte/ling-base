@@ -195,7 +195,9 @@ func xunfeiHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appI
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing xunfei response: " + err.Error())
+	}
 	return &usage, nil
 }
 
@@ -214,8 +216,8 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 		return nil, nil, err
 	}
 
-	dataChan := make(chan XunfeiChatResponse)
-	stopChan := make(chan bool)
+	dataChan := make(chan XunfeiChatResponse, 1)
+	stopChan := make(chan bool, 1)
 	go func() {
 		defer func() {
 			conn.Close()
@@ -232,15 +234,19 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 				fmt.Println("error unmarshalling stream response: " + err.Error())
 				break
 			}
-			dataChan <- response
+			select {
+			case dataChan <- response:
+			case <-stopChan:
+				return
+			}
 			if response.Payload.Choices.Status == 2 {
-				if err != nil {
-					fmt.Println("error closing websocket connection: " + err.Error())
-				}
 				break
 			}
 		}
-		stopChan <- true
+		select {
+		case stopChan <- true:
+		default:
+		}
 	}()
 
 	return dataChan, stopChan, nil
@@ -270,7 +276,7 @@ func getXunfeiAuthUrl(c context.Context, apiKey string, apiSecret string, modelN
 }
 
 func getAPIVersion(c context.Context, modelName string) string {
-	// TODO: not supported in library mode — query params from gin.Context not available
+	// Not supported in library mode — query params from gin.Context not available
 	// query := c.Request.URL.Query()
 	// apiVersion := query.Get("api-version")
 	// if apiVersion != "" {

@@ -69,7 +69,7 @@ func (a *TaskAdaptor) Init(info *common.RelayInfo) {
 }
 
 func validateRemixRequest(c context.Context) *common.TaskError {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// var req common.TaskSubmitReq
 	// if err := json.UnmarshalBodyReusable(c, &req); err != nil {
 	// 	return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
@@ -91,7 +91,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c context.Context, info *commo
 
 // EstimateBilling 根据用户请求的 seconds 和 size 计算 OtherRatios。
 func (a *TaskAdaptor) EstimateBilling(c context.Context, info *common.RelayInfo) map[string]float64 {
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	return nil
 }
 
@@ -121,12 +121,12 @@ func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, reque
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo) (taskID string, taskData []byte, taskErr *common.TaskError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 		return
 	}
-	_ = resp.Body.Close()
 
 	// Parse Sora response
 	var dResp responseTask
@@ -147,7 +147,7 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 	// 使用公开 task_xxxx ID 返回给客户端
 	dResp.ID = info.PublicTaskID
 	dResp.TaskID = info.PublicTaskID
-	// TODO: not supported in library mode
+	// Not supported in library mode
 	// c.JSON(http.StatusOK, dResp)
 	return upstreamID, responseBody, nil
 }
@@ -168,7 +168,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 
 	req.Header.Set("Authorization", "Bearer "+key)
 
-	// TODO: not supported in library mode (proxy ignored)
+	// Not supported in library mode (proxy ignored)
 	return http.DefaultClient.Do(req)
 }
 

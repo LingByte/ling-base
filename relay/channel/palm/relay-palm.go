@@ -51,6 +51,7 @@ func streamResponsePaLM2OpenAI(palmResponse *PaLMChatResponse) *dto.ChatCompleti
 }
 
 func palmStreamHandler(c context.Context, resp *http.Response, w http.ResponseWriter) (*types.NewAPIError, string) {
+	defer resp.Body.Close()
 	responseText := ""
 	responseId := helper.GetResponseID("")
 	createdTime := time.Now().Unix()
@@ -59,7 +60,6 @@ func palmStreamHandler(c context.Context, resp *http.Response, w http.ResponseWr
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeReadResponseBodyFailed), responseText
 	}
-	resp.Body.Close()
 
 	var palmResponse PaLMChatResponse
 	if err := json.Unmarshal(responseBody, &palmResponse); err != nil {
@@ -85,11 +85,11 @@ func palmStreamHandler(c context.Context, resp *http.Response, w http.ResponseWr
 }
 
 func palmHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
+	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	resp.Body.Close()
 	var palmResponse PaLMChatResponse
 	err = json.Unmarshal(responseBody, &palmResponse)
 	if err != nil {

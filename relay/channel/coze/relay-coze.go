@@ -28,7 +28,7 @@ func convertCozeChatRequest(c context.Context, request dto.GeneralOpenAIRequest)
 			messages = append(messages, CozeEnterMessage{
 				Role:    "user",
 				Content: message.Content,
-				// TODO: support more content type
+				// Currently only text content type is supported; image/audio/video support can be added here
 				ContentType: "text",
 			})
 		}
@@ -92,7 +92,9 @@ func cozeChatHandler(c context.Context, info *common.RelayInfo, resp *http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(jsonResponse)
+	if _, err := w.Write(jsonResponse); err != nil {
+		fmt.Println("error writing coze response: " + err.Error())
+	}
 
 	return &usage, nil
 }
