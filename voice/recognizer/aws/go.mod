@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/voice/recognizer/aws
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/voice/recognizer v0.0.0
+	github.com/LingByte/ling-base/voice/recognizer v0.1.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.36
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.35
 	github.com/aws/aws-sdk-go-v2/service/transcribestreaming v1.38.3
