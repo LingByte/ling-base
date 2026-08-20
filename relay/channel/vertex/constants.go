@@ -10,6 +10,9 @@ var ModelList = []string{
 	//"gemini-1.5-pro-001", "gemini-1.5-flash-001", "gemini-pro", "gemini-pro-vision",
 
 	"meta/llama3-405b-instruct-maas",
+
+	"textembedding-gecko",
+	"gemini-embedding-001",
 }
 
 var ChannelName = "vertex-ai"

@@ -1,7 +1,9 @@
 package baidu
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,7 +31,11 @@ func (a *Adaptor) ConvertClaudeRequest(context.Context, *common.RelayInfo, *dto.
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
 }
 
 func (a *Adaptor) ConvertImageRequest(c context.Context, info *common.RelayInfo, request dto.ImageRequest) (any, error) {
@@ -42,6 +48,16 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 	// https://cloud.baidu.com/doc/WENXINWORKSHOP/s/clntwmv7t
+	if info.RelayMode == constant.RelayModeAudioSpeech {
+		fullRequestURL := fmt.Sprintf("%s/rpc/2.0/ai_custom/v1/wenxinworkshop/audio/speech", info.ChannelBaseUrl)
+		var accessToken string
+		var err error
+		if accessToken, err = getBaiduAccessToken(info.ApiKey); err != nil {
+			return "", err
+		}
+		fullRequestURL += "?access_token=" + accessToken
+		return fullRequestURL, nil
+	}
 	suffix := "chat/"
 	if strings.HasPrefix(info.UpstreamModelName, "Embedding") {
 		suffix = "embeddings/"
@@ -145,7 +161,7 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
-	if info.RelayMode == constant.RelayModeRerank {
+	if info.RelayMode == constant.RelayModeRerank || info.RelayMode == constant.RelayModeAudioSpeech {
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)
 	}

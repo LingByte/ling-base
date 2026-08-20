@@ -1,6 +1,7 @@
 package vertex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	gemini2 "github.com/LingByte/ling-base/relay/channel/gemini"
 	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
+	"github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/setting"
 	"github.com/LingByte/ling-base/relay/relaykit/relayconvert/reasoning"
@@ -102,7 +104,11 @@ func (a *Adaptor) ConvertClaudeRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
 }
 
 func (a *Adaptor) ConvertImageRequest(c context.Context, info *common.RelayInfo, request dto.ImageRequest) (any, error) {
@@ -143,6 +149,36 @@ func (a *Adaptor) getRequestUrl(info *common.RelayInfo, modelName, suffix string
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		// Vertex AI exposes an OpenAI-compatible embeddings endpoint via the
+		// openapi surface. Reuse the same credential/project/region resolution
+		// as the chat completions endpoint.
+		region := GetModelRegion(info.ApiVersion, info.OriginModelName)
+		adc := &Credentials{}
+		if err := json.Unmarshal([]byte(info.ApiKey), adc); err != nil {
+			return "", fmt.Errorf("failed to decode credentials file: %w", err)
+		}
+		a.AccountCredentials = *adc
+		return BuildOpenSourceEmbeddingsURL(info.ChannelBaseUrl, adc.ProjectID, region), nil
+	}
+	if info.RelayMode == constant.RelayModeAudioSpeech {
+		region := GetModelRegion(info.ApiVersion, info.OriginModelName)
+		adc := &Credentials{}
+		if err := json.Unmarshal([]byte(info.ApiKey), adc); err != nil {
+			return "", fmt.Errorf("failed to decode credentials file: %w", err)
+		}
+		a.AccountCredentials = *adc
+		return BuildOpenSourceAudioSpeechURL(info.ChannelBaseUrl, adc.ProjectID, region), nil
+	}
+	if info.RelayMode == constant.RelayModeRerank {
+		region := GetModelRegion(info.ApiVersion, info.OriginModelName)
+		adc := &Credentials{}
+		if err := json.Unmarshal([]byte(info.ApiKey), adc); err != nil {
+			return "", fmt.Errorf("failed to decode credentials file: %w", err)
+		}
+		a.AccountCredentials = *adc
+		return BuildOpenSourceRerankURL(info.ChannelBaseUrl, adc.ProjectID, region), nil
+	}
 	suffix := ""
 	if a.RequestMode == RequestModeGemini {
 		if setting.GetGeminiSettings().ThinkingAdapterEnabled &&
@@ -295,11 +331,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return request, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -312,6 +348,12 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeEmbeddings ||
+		info.RelayMode == constant.RelayModeRerank ||
+		info.RelayMode == constant.RelayModeAudioSpeech {
+		openaiAdaptor := openai.Adaptor{}
+		return openaiAdaptor.DoResponse(c, resp, info, w)
+	}
 	if info.IsStream {
 		switch a.RequestMode {
 		case RequestModeClaude:

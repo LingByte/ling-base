@@ -1,7 +1,9 @@
 package tencent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -36,7 +38,11 @@ func (a *Adaptor) ConvertClaudeRequest(context.Context, *common.RelayInfo, *dto.
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
 }
 
 func (a *Adaptor) ConvertImageRequest(c context.Context, info *common.RelayInfo, request dto.ImageRequest) (any, error) {
@@ -50,6 +56,12 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
+	if info.RelayMode == constant.RelayModeAudioSpeech {
+		return fmt.Sprintf("%s/v1/audio/speech", info.ChannelBaseUrl), nil
+	}
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		return fmt.Sprintf("%s/", info.ChannelBaseUrl), nil
+	}
 	return fmt.Sprintf("%s/", info.ChannelBaseUrl), nil
 }
 
@@ -84,7 +96,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -97,7 +109,9 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
-	if info.RelayMode == constant.RelayModeRerank {
+	if info.RelayMode == constant.RelayModeEmbeddings ||
+		info.RelayMode == constant.RelayModeRerank ||
+		info.RelayMode == constant.RelayModeAudioSpeech {
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)
 	}

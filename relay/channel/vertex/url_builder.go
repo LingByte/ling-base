@@ -84,3 +84,24 @@ func BuildOpenSourceChatCompletionsURL(baseURL, projectID, region string) string
 		BuildAPIBaseURL(baseURL, OpenSourceAPIVersion, projectID, region),
 	)
 }
+
+func BuildOpenSourceEmbeddingsURL(baseURL, projectID, region string) string {
+	return fmt.Sprintf(
+		"%s/endpoints/openapi/embeddings",
+		BuildAPIBaseURL(baseURL, OpenSourceAPIVersion, projectID, region),
+	)
+}
+
+func BuildOpenSourceAudioSpeechURL(baseURL, projectID, region string) string {
+	return fmt.Sprintf(
+		"%s/endpoints/openapi/audio/speech",
+		BuildAPIBaseURL(baseURL, OpenSourceAPIVersion, projectID, region),
+	)
+}
+
+func BuildOpenSourceRerankURL(baseURL, projectID, region string) string {
+	return fmt.Sprintf(
+		"%s/endpoints/openapi/rerank",
+		BuildAPIBaseURL(baseURL, OpenSourceAPIVersion, projectID, region),
+	)
+}

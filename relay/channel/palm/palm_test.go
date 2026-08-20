@@ -60,7 +60,7 @@ func TestPalmAdaptor_ConvertOpenAIRequest_Nil(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPalmAdaptor_ConvertEmbeddingRequest_Unsupported(t *testing.T) {
+func TestPalmAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
 	a := palm.Adaptor{}
 	info := &common.RelayInfo{
 		RelayMode: relaymode.RelayModeEmbeddings,
@@ -69,9 +69,10 @@ func TestPalmAdaptor_ConvertEmbeddingRequest_Unsupported(t *testing.T) {
 			UpstreamModelName: "PaLM-2",
 		},
 	}
-	_, err := a.ConvertEmbeddingRequest(context.Background(), info, dto.EmbeddingRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported")
+	req := dto.EmbeddingRequest{}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
 }
 
 func TestPalmAdaptor_ConvertImageRequest_Unsupported(t *testing.T) {

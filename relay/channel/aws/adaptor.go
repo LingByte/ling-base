@@ -131,7 +131,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -152,6 +152,10 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == relaymode.RelayModeEmbeddings {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	}
 	if info.RelayMode == relaymode.RelayModeRerank {
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)

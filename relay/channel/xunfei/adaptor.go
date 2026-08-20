@@ -3,6 +3,7 @@ package xunfei
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -40,6 +41,9 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		return fmt.Sprintf("%s/v1/embeddings", info.ChannelBaseUrl), nil
+	}
 	return "", nil
 }
 
@@ -61,7 +65,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -77,6 +81,10 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	}
 	if info.RelayMode == constant.RelayModeRerank {
 		adaptor := openai.Adaptor{}
 		return adaptor.DoResponse(c, resp, info, w)

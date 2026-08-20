@@ -8,7 +8,9 @@ import (
 	"net/http"
 
 	"github.com/LingByte/ling-base/relay/channel"
+	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
+	"github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
@@ -38,6 +40,9 @@ func (a *Adaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		return fmt.Sprintf("%s/v1beta2/models/%s:predict", info.ChannelBaseUrl, info.UpstreamModelName), nil
+	}
 	return fmt.Sprintf("%s/v1beta2/models/chat-bison-001:generateMessage", info.ChannelBaseUrl), nil
 }
 
@@ -59,7 +64,7 @@ func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("unsupported capability for this provider")
+	return request, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -72,6 +77,10 @@ func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBo
 }
 
 func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *common.RelayInfo, w http.ResponseWriter) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeEmbeddings {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
+	}
 	if info.IsStream {
 		var responseText string
 		err, responseText = palmStreamHandler(c, resp, w)

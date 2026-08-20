@@ -322,7 +322,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return request, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
@@ -355,6 +355,11 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 			adaptor := claude.Adaptor{}
 			return adaptor.DoResponse(c, resp, info, w)
 		}
+	}
+
+	if info.RelayMode == constant.RelayModeRerank {
+		adaptor := openai.Adaptor{}
+		return adaptor.DoResponse(c, resp, info, w)
 	}
 
 	if info.RelayMode == constant.RelayModeAudioSpeech {
