@@ -32,8 +32,7 @@ type Adaptor struct {
 }
 
 func (a *Adaptor) ConvertGeminiRequest(context.Context, *common.RelayInfo, *dto.GeminiChatRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c context.Context, info *common.RelayInfo, req *dto.ClaudeRequest) (any, error) {

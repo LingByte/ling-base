@@ -23,8 +23,7 @@ type Adaptor struct {
 }
 
 func (a *Adaptor) ConvertGeminiRequest(context.Context, *common.RelayInfo, *dto.GeminiChatRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c context.Context, info *common.RelayInfo, req *dto.ClaudeRequest) (any, error) {
@@ -33,7 +32,6 @@ func (a *Adaptor) ConvertClaudeRequest(c context.Context, info *common.RelayInfo
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	//TODO implement me
 	return nil, errors.New("not supported")
 }
 
@@ -100,7 +98,7 @@ func isTemperatureOneOnlyModel(model string) bool {
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
 	// TODO implement me
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {

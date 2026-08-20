@@ -13,13 +13,13 @@
 //		"github.com/LingByte/ling-base/relay/channel/openai"
 //	)
 //
-//	client := llm.New(
-//		llm.WithProvider(openai.New("sk-xxx")),
-//		llm.WithMeter(meter.NewMemoryMeter()),
+//	client := relay.New(
+//		relay.WithProvider(openai.New("sk-xxx")),
+//		relay.WithMeter(meter.NewMemoryMeter()),
 //	)
-//	resp, err := client.Chat(ctx, &llm.ChatRequest{
+//	resp, err := client.Chat(ctx, &relay.ChatRequest{
 //		Model:    "gpt-4o",
-//		Messages: []llm.Message{{Role: "user", Content: json.RawMessage(`"Hello"`)}},
+//		Messages: []relay.Message{{Role: "user", Content: json.RawMessage(`"Hello"`)}},
 //	})
 package relay
 
@@ -237,7 +237,7 @@ func (c *Client) Meter() meter.Meter { return c.meter }
 
 func (c *Client) ensureProvider() error {
 	if c.provider == nil {
-		return fmt.Errorf("llm: no provider configured")
+		return fmt.Errorf("relay: no provider configured")
 	}
 	return nil
 }
@@ -298,7 +298,7 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Convert request to provider's native format.
 	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
 	if err != nil {
-		return nil, fmt.Errorf("llm: convert request: %w", err)
+		return nil, fmt.Errorf("relay: convert request: %w", err)
 	}
 
 	// Marshal request body.
@@ -309,7 +309,7 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	default:
 		jsonData, err := json.Marshal(converted)
 		if err != nil {
-			return nil, fmt.Errorf("llm: marshal request: %w", err)
+			return nil, fmt.Errorf("relay: marshal request: %w", err)
 		}
 		body = strings.NewReader(string(jsonData))
 	}
@@ -317,21 +317,21 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Build URL and send request.
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
-		return nil, fmt.Errorf("llm: build URL: %w", err)
+		return nil, fmt.Errorf("relay: build URL: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	if err != nil {
-		return nil, fmt.Errorf("llm: create request: %w", err)
+		return nil, fmt.Errorf("relay: create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if err := adaptor.SetupRequestHeader(ctx, &httpReq.Header, info); err != nil {
-		return nil, fmt.Errorf("llm: setup headers: %w", err)
+		return nil, fmt.Errorf("relay: setup headers: %w", err)
 	}
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("llm: request failed: %w", err)
+		return nil, fmt.Errorf("relay: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -343,7 +343,7 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
-		return nil, fmt.Errorf("llm: parse response: %w", apiErr)
+		return nil, fmt.Errorf("relay: parse response: %w", apiErr)
 	}
 
 	usage := extractUsage(usageRaw)
@@ -352,7 +352,7 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Parse the response body that the adaptor wrote to dummyW.
 	chatResp, err := parseChatResponse(dummyW.Bytes(), req.Model, c.provider.Name(), usage)
 	if err != nil {
-		return nil, fmt.Errorf("llm: parse chat response: %w", err)
+		return nil, fmt.Errorf("relay: parse chat response: %w", err)
 	}
 	return chatResp, nil
 }
@@ -562,17 +562,17 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 
 	converted, err := adaptor.ConvertEmbeddingRequest(ctx, info, embedReq)
 	if err != nil {
-		return nil, fmt.Errorf("llm: convert embed request: %w", err)
+		return nil, fmt.Errorf("relay: convert embed request: %w", err)
 	}
 
 	jsonData, err := json.Marshal(converted)
 	if err != nil {
-		return nil, fmt.Errorf("llm: marshal embed request: %w", err)
+		return nil, fmt.Errorf("relay: marshal embed request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
-		return nil, fmt.Errorf("llm: build URL: %w", err)
+		return nil, fmt.Errorf("relay: build URL: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
@@ -595,7 +595,7 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
-		return nil, fmt.Errorf("llm: parse embed response: %w", apiErr)
+		return nil, fmt.Errorf("relay: parse embed response: %w", apiErr)
 	}
 
 	usage := extractUsage(usageRaw)
@@ -635,12 +635,12 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 
 	converted, err := adaptor.ConvertImageRequest(ctx, info, imageReq)
 	if err != nil {
-		return nil, fmt.Errorf("llm: convert image request: %w", err)
+		return nil, fmt.Errorf("relay: convert image request: %w", err)
 	}
 
 	jsonData, err := json.Marshal(converted)
 	if err != nil {
-		return nil, fmt.Errorf("llm: marshal image request: %w", err)
+		return nil, fmt.Errorf("relay: marshal image request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
@@ -668,7 +668,7 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
-		return nil, fmt.Errorf("llm: parse image response: %w", apiErr)
+		return nil, fmt.Errorf("relay: parse image response: %w", apiErr)
 	}
 
 	usage := extractUsage(usageRaw)
@@ -1075,6 +1075,308 @@ func (c *Client) doTaskRequest(ctx context.Context, adaptor common.TaskAdaptor, 
 	return http.DefaultClient.Do(httpReq)
 }
 
+// ─── Midjourney ──────────────────────────────────────────────────
+
+// MidjourneyRequest represents a Midjourney task submission request.
+type MidjourneyRequest struct {
+	Prompt      string   `json:"prompt,omitempty"`
+	CustomId    string   `json:"customId,omitempty"`
+	BotType     string   `json:"bot_type,omitempty"`
+	NotifyHook  string   `json:"notifyHook,omitempty"`
+	Action      string   `json:"action,omitempty"`
+	Index       int      `json:"index,omitempty"`
+	State       string   `json:"state,omitempty"`
+	TaskId      string   `json:"taskId,omitempty"`
+	Base64Array []string `json:"base64Array,omitempty"`
+	Content     string   `json:"content,omitempty"`
+	MaskBase64  string   `json:"maskBase64,omitempty"`
+}
+
+// MidjourneyResponse represents the Midjourney API response.
+type MidjourneyResponse struct {
+	Code        int            `json:"code"`
+	Description string         `json:"description,omitempty"`
+	Properties  map[string]any `json:"properties,omitempty"`
+	Result      string         `json:"result,omitempty"`
+}
+
+// MidjourneyTask represents a fetched Midjourney task state.
+type MidjourneyTask struct {
+	ID          string         `json:"id"`
+	Action      string         `json:"action,omitempty"`
+	Status      string         `json:"status,omitempty"`
+	Progress    string         `json:"progress,omitempty"`
+	Prompt      string         `json:"prompt,omitempty"`
+	PromptEn    string         `json:"promptEn,omitempty"`
+	ImageUrl    string         `json:"imageUrl,omitempty"`
+	VideoUrl    string         `json:"videoUrl,omitempty"`
+	FailReason  string         `json:"failReason,omitempty"`
+	Buttons     []map[string]any `json:"buttons,omitempty"`
+	Properties  map[string]any `json:"properties,omitempty"`
+	SubmitTime  int64          `json:"submitTime,omitempty"`
+	StartTime   int64          `json:"startTime,omitempty"`
+	FinishTime  int64          `json:"finishTime,omitempty"`
+}
+
+// MidjourneySubmit submits a Midjourney task.
+// The mode should be one of the relaymode.RelayModeMidjourney* constants.
+func (c *Client) MidjourneySubmit(ctx context.Context, baseURL, apiKey string, mode int, req *MidjourneyRequest) (*MidjourneyResponse, error) {
+	var path string
+	switch mode {
+	case relaymode.RelayModeMidjourneyImagine:
+		path = "/mj/submit/imagine"
+	case relaymode.RelayModeMidjourneyDescribe:
+		path = "/mj/submit/describe"
+	case relaymode.RelayModeMidjourneyBlend:
+		path = "/mj/submit/blend"
+	case relaymode.RelayModeMidjourneyChange:
+		path = "/mj/submit/change"
+	case relaymode.RelayModeMidjourneySimpleChange:
+		path = "/mj/submit/simple-change"
+	case relaymode.RelayModeMidjourneyAction:
+		path = "/mj/submit/action"
+	case relaymode.RelayModeMidjourneyShorten:
+		path = "/mj/submit/shorten"
+	case relaymode.RelayModeMidjourneyModal:
+		path = "/mj/submit/modal"
+	case relaymode.RelayModeMidjourneyVideo:
+		path = "/mj/submit/video"
+	case relaymode.RelayModeMidjourneyEdits:
+		path = "/mj/submit/edits"
+	case relaymode.RelayModeMidjourneyUpload:
+		path = "/mj/submit/upload-discord-images"
+	case relaymode.RelayModeSwapFace:
+		path = "/mj/insight-face/swap"
+	default:
+		return nil, fmt.Errorf("relay: unsupported midjourney mode: %d", mode)
+	}
+
+	url := strings.TrimSuffix(baseURL, "/") + path
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal midjourney request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("mj-api-secret", apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: midjourney request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var mjResp MidjourneyResponse
+	if err := json.Unmarshal(body, &mjResp); err != nil {
+		return nil, fmt.Errorf("relay: parse midjourney response: %w", err)
+	}
+
+	c.record(ctx, "midjourney", meter.Usage{RequestCount: 1})
+
+	return &mjResp, nil
+}
+
+// MidjourneyFetch fetches a Midjourney task by ID.
+func (c *Client) MidjourneyFetch(ctx context.Context, baseURL, apiKey, taskID string) (*MidjourneyTask, error) {
+	url := strings.TrimSuffix(baseURL, "/") + "/mj/task/" + taskID + "/fetch"
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("mj-api-secret", apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: midjourney fetch failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var task MidjourneyTask
+	if err := json.Unmarshal(body, &task); err != nil {
+		return nil, fmt.Errorf("relay: parse midjourney task: %w", err)
+	}
+
+	return &task, nil
+}
+
+// MidjourneyFetchByCondition fetches Midjourney tasks by condition (e.g. user_id, status).
+func (c *Client) MidjourneyFetchByCondition(ctx context.Context, baseURL, apiKey string, condition map[string]any) ([]MidjourneyTask, error) {
+	url := strings.TrimSuffix(baseURL, "/") + "/mj/task/list-by-condition"
+
+	jsonData, err := json.Marshal(condition)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal condition: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("mj-api-secret", apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: midjourney fetch-by-condition failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []MidjourneyTask
+	if err := json.Unmarshal(body, &tasks); err != nil {
+		return nil, fmt.Errorf("relay: parse midjourney tasks: %w", err)
+	}
+
+	return tasks, nil
+}
+
+// ─── Suno ────────────────────────────────────────────────────────
+
+// SunoSubmitRequest is the request body for Suno music/lyrics generation.
+type SunoSubmitRequest struct {
+	GptDescriptionPrompt string  `json:"gpt_description_prompt,omitempty"`
+	Prompt               string  `json:"prompt,omitempty"`
+	Mv                   string  `json:"mv,omitempty"`
+	Title                string  `json:"title,omitempty"`
+	Tags                 string  `json:"tags,omitempty"`
+	ContinueAt           float64 `json:"continue_at,omitempty"`
+	TaskID               string  `json:"task_id,omitempty"`
+	ContinueClipId       string  `json:"continue_clip_id,omitempty"`
+	MakeInstrumental     bool    `json:"make_instrumental"`
+}
+
+// SunoSubmitResponse is the response from a Suno submit request.
+type SunoSubmitResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message,omitempty"`
+	Data    string `json:"data,omitempty"`
+}
+
+// SunoTaskData represents one Suno task entry returned by the fetch endpoint.
+type SunoTaskData struct {
+	TaskID     string          `json:"task_id,omitempty"`
+	Action     string          `json:"action,omitempty"`
+	Status     string          `json:"status,omitempty"`
+	FailReason string          `json:"fail_reason,omitempty"`
+	SubmitTime int64           `json:"submit_time,omitempty"`
+	StartTime  int64           `json:"start_time,omitempty"`
+	FinishTime int64           `json:"finish_time,omitempty"`
+	Data       json.RawMessage `json:"data,omitempty"`
+}
+
+// SunoActionMusic and SunoActionLyrics are the supported Suno actions.
+const (
+	SunoActionMusic  = "MUSIC"
+	SunoActionLyrics = "LYRICS"
+)
+
+// SubmitSunoTask submits a Suno music or lyrics generation task.
+// action must be SunoActionMusic or SunoActionLyrics.
+func (c *Client) SubmitSunoTask(ctx context.Context, baseURL, apiKey, action string, req *SunoSubmitRequest) (*SunoSubmitResponse, error) {
+	switch action {
+	case SunoActionMusic, SunoActionLyrics:
+	default:
+		return nil, fmt.Errorf("relay: invalid suno action: %s", action)
+	}
+
+	if action == SunoActionMusic && req.Mv == "" {
+		req.Mv = "chirp-v3-0"
+	}
+	if action == SunoActionLyrics && req.Prompt == "" {
+		return nil, fmt.Errorf("relay: suno lyrics requires prompt")
+	}
+
+	url := strings.TrimSuffix(baseURL, "/") + "/suno/submit/" + strings.ToLower(action)
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal suno request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: suno submit failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var sunoResp SunoSubmitResponse
+	if err := json.Unmarshal(body, &sunoResp); err != nil {
+		return nil, fmt.Errorf("relay: parse suno response: %w", err)
+	}
+
+	c.record(ctx, "suno", meter.Usage{RequestCount: 1})
+
+	return &sunoResp, nil
+}
+
+// FetchSunoTask fetches Suno task status by task IDs (batch supported).
+func (c *Client) FetchSunoTask(ctx context.Context, baseURL, apiKey string, taskIDs []string) ([]SunoTaskData, error) {
+	url := strings.TrimSuffix(baseURL, "/") + "/suno/fetch"
+
+	payload := map[string]any{"ids": taskIDs}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal suno fetch payload: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: suno fetch failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []SunoTaskData
+	if err := json.Unmarshal(body, &tasks); err != nil {
+		return nil, fmt.Errorf("relay: parse suno tasks: %w", err)
+	}
+
+	return tasks, nil
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 func (c *Client) doRequest(ctx context.Context, adaptor common.Adaptor, info *common.RelayInfo, httpReq *http.Request) (*http.Response, error) {
@@ -1270,7 +1572,7 @@ func parseImageResponse(body []byte, model, provider string, usage meter.Usage) 
 // parseError reads an error response body and returns an error.
 func parseError(resp *http.Response, provider string) error {
 	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("llm: provider=%s HTTP %d: %s", provider, resp.StatusCode, string(body))
+	return fmt.Errorf("relay: provider=%s HTTP %d: %s", provider, resp.StatusCode, string(body))
 }
 
 // marshalString wraps a string as a JSON string.

@@ -20,12 +20,11 @@ type Adaptor struct {
 }
 
 func (a *Adaptor) ConvertGeminiRequest(context.Context, *common.RelayInfo, *dto.GeminiChatRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertClaudeRequest(context.Context, *common.RelayInfo, *dto.ClaudeRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) Init(info *common.RelayInfo) {
@@ -36,7 +35,11 @@ func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 }
 
 func (a *Adaptor) SetupRequestHeader(c context.Context, header *http.Header, info *common.RelayInfo) error {
-	return errors.New("not implemented")
+	header.Set("Content-Type", "application/json")
+	if info.ApiKey != "" {
+		header.Set("Authorization", "Bearer "+info.ApiKey)
+	}
+	return nil
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c context.Context, info *common.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
@@ -87,19 +90,19 @@ func (a *Adaptor) ConvertImageRequest(c context.Context, info *common.RelayInfo,
 }
 
 func (a *Adaptor) ConvertRerankRequest(c context.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c context.Context, info *common.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c context.Context, info *common.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("unsupported capability for this provider")
 }
 
 func (a *Adaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
