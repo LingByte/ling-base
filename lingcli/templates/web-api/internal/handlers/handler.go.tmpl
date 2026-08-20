@@ -4,10 +4,10 @@ package handlers
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
 	"{{.Module}}/internal/models"
+	"{{.Module}}/internal/types"
 
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
@@ -55,14 +55,12 @@ func (h *Handlers) Version(c *gin.Context) {
 
 // ListUsers 分页查询用户列表。
 func (h *Handlers) ListUsers(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
-	if page < 1 {
-		page = 1
+	var req types.PageRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
 	}
-	if size < 1 || size > 100 {
-		size = 20
-	}
+	page, size := req.Normalize()
 
 	if h.db == nil {
 		users := []models.User{
@@ -89,11 +87,12 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 
 // GetUser 查询单个用户。
 func (h *Handlers) GetUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
+	id := req.ID
 
 	if h.db == nil {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
@@ -112,16 +111,9 @@ func (h *Handlers) GetUser(c *gin.Context) {
 	respgin.Success(c, user)
 }
 
-// CreateUserRequest 创建用户请求体。
-type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required,min=1,max=100"`
-	Email string `json:"email" binding:"required,email"`
-	Phone string `json:"phone" binding:"omitempty,max=20"`
-}
-
 // CreateUser 创建用户。
 func (h *Handlers) CreateUser(c *gin.Context) {
-	var req CreateUserRequest
+	var req types.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
@@ -142,22 +134,16 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 	respgin.Created(c, user)
 }
 
-// UpdateUserRequest 更新用户请求体。
-type UpdateUserRequest struct {
-	Name  *string `json:"name" binding:"omitempty,min=1,max=100"`
-	Email *string `json:"email" binding:"omitempty,email"`
-	Phone *string `json:"phone" binding:"omitempty,max=20"`
-}
-
 // UpdateUser 更新用户。
 func (h *Handlers) UpdateUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
+	id := idReq.ID
 
-	var req UpdateUserRequest
+	var req types.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
@@ -197,11 +183,12 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 
 // DeleteUser 删除用户。
 func (h *Handlers) DeleteUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
+	id := req.ID
 
 	if h.db == nil {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))

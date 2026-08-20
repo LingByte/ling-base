@@ -91,8 +91,10 @@ open http://localhost:{{.Port}}/docs
 │   │   └── handler_test.go
 │   ├── middlewares/
 │   │   └── middleware.go        # 项目特定中间件（限流配置等）
-│   └── models/
-│       └── user.go              # 数据模型
+│   ├── models/
+│   │   └── user.go              # 数据模型
+│   └── types/
+│       └── types.go             # 通用 DTO（请求/响应结构体、分页参数）
 ├── configs/
 │   ├── .env.example             # 环境变量参考（始终生成）
 {{- if .IsEnvConfig}}

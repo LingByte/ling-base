@@ -1,0 +1,83 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package types 定义项目中跨包共享的通用类型和 DTO（Data Transfer Object）。
+//
+// 将请求/响应结构体集中放在 types 包中，而不是散落在各个 handler 文件里，
+// 有助于：
+//   - 避免循环依赖（handler 之间不需要互相引用）
+//   - 便于生成 OpenAPI 文档（集中管理 schema）
+//   - 便于前端/客户端复用类型定义
+package types
+
+// ──────────────────────────────────────────────
+// 通用分页参数
+// ──────────────────────────────────────────────
+
+// PageRequest 分页查询参数。
+type PageRequest struct {
+	Page int `json:"page" form:"page" example:"1"`
+	Size int `json:"size" form:"size" example:"20"`
+}
+
+// Normalize 规范化分页参数，返回 (page, size)。
+func (r *PageRequest) Normalize() (int, int) {
+	page := r.Page
+	size := r.Size
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
+	return page, size
+}
+
+// ──────────────────────────────────────────────
+// 通用 ID 参数
+// ──────────────────────────────────────────────
+
+// IDRequest 路径参数中的 ID。
+type IDRequest struct {
+	ID int64 `json:"id" uri:"id" example:"1"`
+}
+
+// ──────────────────────────────────────────────
+// 用户相关 DTO
+// ──────────────────────────────────────────────
+
+// CreateUserRequest 创建用户请求体。
+type CreateUserRequest struct {
+	Name  string `json:"name" binding:"required,min=1,max=100"`
+	Email string `json:"email" binding:"required,email"`
+	Phone string `json:"phone" binding:"omitempty,max=20"`
+}
+
+// UpdateUserRequest 更新用户请求体（所有字段可选）。
+type UpdateUserRequest struct {
+	Name  *string `json:"name" binding:"omitempty,min=1,max=100"`
+	Email *string `json:"email" binding:"omitempty,email"`
+	Phone *string `json:"phone" binding:"omitempty,max=20"`
+}
+
+// ──────────────────────────────────────────────
+// 认证相关 DTO
+// ──────────────────────────────────────────────
+
+// LoginRequest 登录请求体。
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// RefreshRequest 刷新 token 请求体。
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// TokenResponse 登录/刷新成功响应。
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+}

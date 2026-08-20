@@ -5,17 +5,13 @@
 package handlers
 
 import (
+	"{{.Module}}/internal/types"
+
 	"github.com/LingByte/ling-base/common/jwtutil"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	"github.com/gin-gonic/gin"
 )
-
-// LoginRequest 登录请求体。
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
 
 // Login 用户登录，签发 JWT access/refresh token。
 func (h *Handlers) Login(c *gin.Context) {
@@ -24,7 +20,7 @@ func (h *Handlers) Login(c *gin.Context) {
 		return
 	}
 
-	var req LoginRequest
+	var req types.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
@@ -37,17 +33,12 @@ func (h *Handlers) Login(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	respgin.Success(c, gin.H{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
-		"expires_in":    pair.ExpiresIn,
-		"token_type":    pair.TokenType,
+	respgin.Success(c, types.TokenResponse{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		TokenType:    pair.TokenType,
 	})
-}
-
-// RefreshRequest 刷新 token 请求体。
-type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 // Refresh 用 refresh token 换取新的 access/refresh token。
@@ -57,7 +48,7 @@ func (h *Handlers) Refresh(c *gin.Context) {
 		return
 	}
 
-	var req RefreshRequest
+	var req types.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
@@ -68,11 +59,11 @@ func (h *Handlers) Refresh(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeUnauthorized))
 		return
 	}
-	respgin.Success(c, gin.H{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
-		"expires_in":    pair.ExpiresIn,
-		"token_type":    pair.TokenType,
+	respgin.Success(c, types.TokenResponse{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		TokenType:    pair.TokenType,
 	})
 }
 

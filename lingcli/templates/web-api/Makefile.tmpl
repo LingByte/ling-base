@@ -6,7 +6,7 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)
 
-.PHONY: all build run test test-race test-cover benchmark vet lint fmt fmt-check tidy clean docker-build docker-up docker-down migrate release release-patch release-minor release-major help
+.PHONY: all build run dev debug test test-race test-cover benchmark vet lint fmt fmt-check tidy clean docker-build docker-up docker-down migrate release release-patch release-minor release-major help
 
 all: build
 
@@ -17,6 +17,16 @@ build:
 ## run: 本地运行
 run:
 	go run -ldflags "$(LDFLAGS)" ./cmd/...
+
+## dev: 热重载运行（需要 air: go install github.com/air-verse/air@latest）
+dev:
+	@command -v air >/dev/null 2>&1 || { echo "请先安装 air: go install github.com/air-verse/air@latest"; exit 1; }
+	air
+
+## debug: Delve 调试（需要 dlv: go install github.com/go-delve/delve/cmd/dlv@latest）
+debug:
+	@command -v dlv >/dev/null 2>&1 || { echo "请先安装 dlv: go install github.com/go-delve/delve/cmd/dlv@latest"; exit 1; }
+	dlv debug ./cmd/...
 
 ## test: 运行测试
 test:

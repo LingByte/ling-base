@@ -269,7 +269,7 @@ EMBED_SOURCE_DIRS := middleware common/response common/response/gin \
 	common/jwtutil common/jwtutil/gin common/limiter common/limiter/count \
 	common/limiter/tokenbucket common/limiter/keycount common/circuitbreaker \
 	common/crypto logger logger/gin constants bootstrap eventbus version \
-	apidocs apidocs/humax apidocs/assets i18n i18n/gin
+	apidocs apidocs/humax apidocs/assets i18n i18n/gin metrics tracing
 
 .PHONY: prepare-cli-embed clean-cli-embed build-cli
 prepare-cli-embed: ## Sync ling-base source to lingcli/embed_source/ for full mode

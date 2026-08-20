@@ -277,6 +277,8 @@ var LingBaseModules = []LingBaseModule{
 	{ID: "stores", Name: "对象存储", Description: "S3/OSS/COS/MinIO/Kodo 等统一存储接口", ImportPath: "github.com/LingByte/ling-base/stores"},
 	{ID: "stats", Name: "统计", Description: "PV/UV/VV/QPS/延迟分位等指标采集", ImportPath: "github.com/LingByte/ling-base/common/stats"},
 	{ID: "opentelemetry", Name: "OpenTelemetry", Description: "链路追踪 + Metrics + Logs", ImportPath: "github.com/LingByte/ling-base/opentelemetry"},
+	{ID: "metrics", Name: "Metrics 指标", Description: "Prometheus 兼容的应用指标采集", ImportPath: "github.com/LingByte/ling-base/metrics"},
+	{ID: "tracing", Name: "链路追踪", Description: "OpenTracing/OpenTelemetry 兼容的分布式追踪", ImportPath: "github.com/LingByte/ling-base/tracing"},
 	{ID: "bloom", Name: "布隆过滤器", Description: "内存/Redis/Scalable 布隆过滤器", ImportPath: "github.com/LingByte/ling-base/bloom"},
 	{ID: "captcha", Name: "验证码", Description: "图形/短信/行为验证码", ImportPath: "github.com/LingByte/ling-base/captcha"},
 }

@@ -57,6 +57,14 @@ var moduleSources = map[string]ModuleSource{
 		ID:   "i18n",
 		Dirs: []string{"i18n", "i18n/gin"},
 	},
+	"metrics": {
+		ID:   "metrics",
+		Dirs: []string{"metrics"},
+	},
+	"tracing": {
+		ID:   "tracing",
+		Dirs: []string{"tracing"},
+	},
 	// 核心依赖（不直接选择，但被其他模块依赖）
 	"logger": {
 		ID:   "logger",

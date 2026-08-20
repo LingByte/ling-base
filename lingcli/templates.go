@@ -304,6 +304,8 @@ func getStructureTree(templateID, projectName string) string {
 │   │   └── middleware.go        # 项目特定中间件（限流配置等）
 │   └── models/
 │       └── user.go              # 数据模型
+│   └── types/
+│       └── types.go             # 通用 DTO
 ├── configs/
 │   ├── .env.example             # 环境变量参考
 │   ├── config.yaml              # 开发环境配置
