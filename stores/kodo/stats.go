@@ -3,18 +3,23 @@
 
 // kodo StorageStatsProvider implementation.
 //
-// Bucket storage statistics paginate the Qiniu BucketManager.ListFiles
-// API to compute total size and object count.
+// Bucket storage statistics use the Qiniu data statistics API
+// (/v6/space for storage size, /v6/count for object count) which is more
+// efficient than paginating ListFiles. Falls back to ListFiles if the
+// statistics API is unavailable.
 //
 // CDN statistics use the Qiniu Fusion CDN API (CdnManager.GetBandwidthData,
 // CdnManager.GetFluxData) which returns bandwidth and traffic data by
 // domain and timestamp.
 //
-// API request statistics use the Qiniu BucketManager API and CDN statistics
-// (Qiniu does not expose granular API request metrics via the standard SDK;
-// a best-effort approximation is provided via the CDN request data).
+// API request statistics use the Qiniu data statistics API:
+//   - /v6/blob_io with select=hits for GET request count
+//   - /v6/rs_put for PUT request count
+//   - /v6/blob_io with select=flow&$metric=flow_out for download traffic
 //
-// Origin-fetch statistics use the Qiniu CDN origin-pull data API.
+// Origin-fetch statistics use the Qiniu data statistics API:
+//   - /v6/blob_io with select=flow&$metric=cdn_flow_out for CDN origin-pull traffic
+//   - /v6/blob_io with select=hits&$metric=hits for GET requests (approximation)
 
 package kodo
 
@@ -24,9 +29,11 @@ import (
 
 	"github.com/LingByte/ling-base/stores"
 
-	"github.com/qiniu/go-sdk/v7/auth"
+	qbox "github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/cdn"
 	"github.com/qiniu/go-sdk/v7/storage"
+
+	"github.com/br41n10/qiniu-stats-go-sdk/kodo/stats"
 )
 
 // granularityToQiniu converts a Granularity to a Qiniu CDN granularity
@@ -40,7 +47,7 @@ func granularityToQiniu(g stores.Granularity) string {
 	case stores.GranularityDay:
 		return "day"
 	case stores.GranularityMonth:
-		return "day"
+		return "month"
 	default:
 		return "hour"
 	}
@@ -48,16 +55,75 @@ func granularityToQiniu(g stores.Granularity) string {
 
 // cdnManager creates a Qiniu CDN manager.
 func (s *Store) cdnManager() *cdn.CdnManager {
-	mac := auth.New(s.cfg.AccessKey, s.cfg.SecretKey)
+	mac := qbox.NewMac(s.cfg.AccessKey, s.cfg.SecretKey)
 	return cdn.NewCdnManager(mac)
 }
 
-// GetBucketStats computes the total storage size and object count for a
-// Kodo bucket by paginating ListFiles.
+// statsManager creates a Qiniu data statistics manager.
+func (s *Store) statsManager() *stats.StatsManager {
+	mac := qbox.NewMac(s.cfg.AccessKey, s.cfg.SecretKey)
+	return stats.NewStatManager(mac)
+}
+
+// GetBucketStats returns the current storage usage snapshot for a Kodo
+// bucket. It first tries the Qiniu /v6/space and /v6/count statistics
+// APIs, then falls back to paginating ListFiles.
 func (s *Store) GetBucketStats(bucket string) (*stores.BucketStats, error) {
 	bucket = s.resolveBucket(bucket)
+
+	// Try statistics API first.
+	if st, err := s.getBucketStatsFromAPI(bucket); err == nil && st != nil {
+		return st, nil
+	}
+
+	// Fallback: paginate ListFiles.
+	return s.getBucketStatsFromList(bucket)
+}
+
+func (s *Store) getBucketStatsFromAPI(bucket string) (*stores.BucketStats, error) {
+	mgr := s.statsManager()
+	now := time.Now()
+	beginDate := now.Add(-24 * time.Hour).Format("2006-01-02 15:04:05")
+	endDate := now.Format("2006-01-02 15:04:05")
+
+	// Get standard storage space.
+	spaceResp, err := mgr.Space(beginDate, endDate, "day", bucket, s.cfg.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get standard storage file count.
+	countResp, err := mgr.Count(beginDate, endDate, "day", bucket, s.cfg.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	var size int64
+	if len(spaceResp.Datas) > 0 {
+		size = spaceResp.Datas[len(spaceResp.Datas)-1]
+	}
+
+	var objectCount int64
+	if len(countResp.Datas) > 0 {
+		objectCount = countResp.Datas[len(countResp.Datas)-1]
+	}
+
+	return &stores.BucketStats{
+		Bucket:      bucket,
+		Region:      s.cfg.Region,
+		Size:        size,
+		ObjectCount: objectCount,
+		UpdatedAt:   time.Now(),
+		StorageClasses: []stores.StorageClassUsage{
+			{Class: "STANDARD", Size: size, ObjectCount: objectCount},
+		},
+	}, nil
+}
+
+func (s *Store) getBucketStatsFromList(bucket string) (*stores.BucketStats, error) {
 	cfg := s.makeConfig()
-	mgr := storage.NewBucketManager(s.mac(), &cfg)
+	mac := qbox.NewMac(s.cfg.AccessKey, s.cfg.SecretKey)
+	mgr := storage.NewBucketManager(mac, &cfg)
 
 	var totalSize int64
 	var objectCount int64
@@ -180,58 +246,127 @@ func (s *Store) GetCDNStats(req *stores.CDNStatsRequest) (*stores.CDNStatsRespon
 	}, nil
 }
 
-// GetAPIRequestStats returns API request statistics. Qiniu does not expose
-// granular API request metrics via the standard SDK; this returns
-// ErrStatsUnsupported.
+// GetAPIRequestStats returns API request statistics from the Qiniu data
+// statistics API (/v6/blob_io for GET requests, /v6/rs_put for PUT requests).
 func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStatsResponse, error) {
-	return nil, stores.ErrStatsUnsupported
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+	mgr := s.statsManager()
+	bucket := s.resolveBucket(req.Bucket)
+	granularity := granularityToQiniu(req.Granularity)
+	beginDate := req.Range.Start.Format("2006-01-02 15:04:05")
+	endDate := req.Range.End.Format("2006-01-02 15:04:05")
+
+	pointsMap := make(map[time.Time]*stores.APIStatsPoint)
+
+	// GET request count + download traffic (flow_out).
+	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", s.cfg.Region, "", "hits")
+	if err == nil {
+		for _, r := range getResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.APIStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
+			}
+			pt.GetRequests += r.Values.Hits
+			pt.TotalRequests += r.Values.Hits
+		}
+	}
+
+	// Download traffic (flow_out).
+	dlResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", bucket, "", s.cfg.Region, "", "flow_out")
+	if err == nil {
+		for _, r := range dlResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.APIStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
+			}
+			pt.DownloadBytes += r.Values.Flow
+		}
+	}
+
+	// PUT request count.
+	putResp, err := mgr.RsPut(beginDate, endDate, granularity, bucket, s.cfg.Region, "")
+	if err == nil {
+		for _, r := range putResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.APIStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
+			}
+			pt.PutRequests += r.Values.Hits
+			pt.TotalRequests += r.Values.Hits
+		}
+	}
+
+	// Storage type change request count.
+	chTypeResp, err := mgr.RsChType(beginDate, endDate, granularity, bucket, s.cfg.Region)
+	if err == nil {
+		for _, r := range chTypeResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.APIStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
+			}
+			pt.TotalRequests += r.Values.Hits
+		}
+	}
+
+	var allPoints []stores.APIStatsPoint
+	for _, pt := range pointsMap {
+		allPoints = append(allPoints, *pt)
+	}
+	sortAPIPointsByTime(allPoints)
+
+	summary := stores.APIStatsSummary{}
+	for _, p := range allPoints {
+		summary.TotalRequests += p.TotalRequests
+		summary.DownloadBytes += p.DownloadBytes
+	}
+
+	return &stores.APIStatsResponse{Points: allPoints, Summary: summary}, nil
 }
 
-// GetOriginFetchStats returns origin-fetch statistics from the Qiniu CDN
-// origin-pull data API.
+// GetOriginFetchStats returns origin-fetch statistics from the Qiniu data
+// statistics API (/v6/blob_io with $metric=cdn_flow_out for CDN origin-pull
+// traffic).
 func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.OriginStatsResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
 	}
-	mgr := s.cdnManager()
-
-	startDate := req.Range.Start.Format("2006-01-02")
-	endDate := req.Range.End.Format("2006-01-02")
+	mgr := s.statsManager()
+	bucket := s.resolveBucket(req.Bucket)
 	granularity := granularityToQiniu(req.Granularity)
-
-	// Use flux data as origin traffic approximation (Qiniu CDN API does
-	// not expose a separate origin-pull endpoint in the standard SDK).
-	fluxResp, err := mgr.GetFluxData(startDate, endDate, granularity, req.Domains)
-	if err != nil {
-		return nil, fmt.Errorf("Qiniu CDN GetFluxData (origin): %w", err)
-	}
+	beginDate := req.Range.Start.Format("2006-01-02 15:04:05")
+	endDate := req.Range.End.Format("2006-01-02 15:04:05")
 
 	pointsMap := make(map[time.Time]*stores.OriginStatsPoint)
-	for _, t := range fluxResp.Time {
-		if parsed, err := time.Parse("2006-01-02 15:04:05", t); err == nil {
-			pointsMap[parsed] = &stores.OriginStatsPoint{Timestamp: parsed}
-		} else if parsed, err := time.Parse("2006-01-02", t); err == nil {
-			pointsMap[parsed] = &stores.OriginStatsPoint{Timestamp: parsed}
+
+	// CDN origin-pull traffic (cdn_flow_out).
+	originFlowResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", bucket, "", s.cfg.Region, "", "cdn_flow_out")
+	if err == nil {
+		for _, r := range originFlowResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.OriginStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
+			}
+			pt.OriginTraffic += r.Values.Flow
 		}
 	}
 
-	for _, domain := range req.Domains {
-		if data, ok := fluxResp.Data[domain]; ok {
-			for i, v := range data.DomainChina {
-				if i < len(fluxResp.Time) {
-					if parsed, err := time.Parse("2006-01-02 15:04:05", fluxResp.Time[i]); err == nil {
-						pt := pointsMap[parsed]
-						if pt != nil {
-							pt.OriginTraffic += int64(v)
-						}
-					} else if parsed, err := time.Parse("2006-01-02", fluxResp.Time[i]); err == nil {
-						pt := pointsMap[parsed]
-						if pt != nil {
-							pt.OriginTraffic += int64(v)
-						}
-					}
-				}
+	// GET request count as origin request approximation.
+	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", s.cfg.Region, "", "hits")
+	if err == nil {
+		for _, r := range getResp {
+			pt := pointsMap[r.Time]
+			if pt == nil {
+				pt = &stores.OriginStatsPoint{Timestamp: r.Time}
+				pointsMap[r.Time] = pt
 			}
+			pt.OriginRequests += r.Values.Hits
 		}
 	}
 
@@ -244,6 +379,7 @@ func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.Ori
 	summary := stores.OriginStatsSummary{}
 	for _, p := range allPoints {
 		summary.TotalOriginTraffic += p.OriginTraffic
+		summary.TotalOriginRequests += p.OriginRequests
 	}
 
 	return &stores.OriginStatsResponse{Points: allPoints, Summary: summary}, nil
@@ -252,6 +388,16 @@ func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.Ori
 // ─── helpers ───
 
 func sortCDNPointsByTime(points []stores.CDNStatsPoint) {
+	for i := 0; i < len(points); i++ {
+		for j := i + 1; j < len(points); j++ {
+			if points[i].Timestamp.After(points[j].Timestamp) {
+				points[i], points[j] = points[j], points[i]
+			}
+		}
+	}
+}
+
+func sortAPIPointsByTime(points []stores.APIStatsPoint) {
 	for i := 0; i < len(points); i++ {
 		for j := i + 1; j < len(points); j++ {
 			if points[i].Timestamp.After(points[j].Timestamp) {
