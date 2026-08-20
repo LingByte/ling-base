@@ -25,6 +25,7 @@ package kodo
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/LingByte/ling-base/stores"
@@ -65,6 +66,37 @@ func (s *Store) statsManager() *stats.StatsManager {
 	return stats.NewStatManager(mac)
 }
 
+// statsRegion maps the user-facing Region config to the Qiniu statistics
+// API region code. The stats API uses short codes like "z0" (华东),
+// "z1" (华北), "z2" (华南), or empty string for all regions. User-friendly
+// names like "huanan" are not recognized, so we map them. When the region
+// is empty or unrecognized, we pass empty string (all regions).
+func (s *Store) statsRegion() string {
+	switch strings.ToLower(s.cfg.Region) {
+	case "z0", "huadong", "east":
+		return "z0"
+	case "z1", "huabei", "north":
+		return "z1"
+	case "z2", "huanan", "south":
+		return "z2"
+	case "z3", "beimei", "na0":
+		return "z3"
+	default:
+		return ""
+	}
+}
+
+// domainHost extracts the hostname from the configured Domain (e.g.
+// "https://cdn.example.com" → "cdn.example.com"). Used for Qiniu stats
+// API domain filters.
+func (s *Store) domainHost() string {
+	d := s.cfg.Domain
+	d = strings.TrimPrefix(d, "https://")
+	d = strings.TrimPrefix(d, "http://")
+	d = strings.TrimSuffix(d, "/")
+	return strings.TrimSpace(d)
+}
+
 // GetBucketStats returns the current storage usage snapshot for a Kodo
 // bucket. It first tries the Qiniu /v6/space and /v6/count statistics
 // APIs, then falls back to paginating ListFiles.
@@ -83,17 +115,18 @@ func (s *Store) GetBucketStats(bucket string) (*stores.BucketStats, error) {
 func (s *Store) getBucketStatsFromAPI(bucket string) (*stores.BucketStats, error) {
 	mgr := s.statsManager()
 	now := time.Now()
-	beginDate := now.Add(-24 * time.Hour).Format("2006-01-02 15:04:05")
-	endDate := now.Format("2006-01-02 15:04:05")
+	beginDate := now.Add(-24 * time.Hour).Format("2006-01-02")
+	endDate := now.Format("2006-01-02")
+	region := s.statsRegion()
 
 	// Get standard storage space.
-	spaceResp, err := mgr.Space(beginDate, endDate, "day", bucket, s.cfg.Region)
+	spaceResp, err := mgr.Space(beginDate, endDate, "day", bucket, region)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get standard storage file count.
-	countResp, err := mgr.Count(beginDate, endDate, "day", bucket, s.cfg.Region)
+	countResp, err := mgr.Count(beginDate, endDate, "day", bucket, region)
 	if err != nil {
 		return nil, err
 	}
@@ -247,21 +280,31 @@ func (s *Store) GetCDNStats(req *stores.CDNStatsRequest) (*stores.CDNStatsRespon
 }
 
 // GetAPIRequestStats returns API request statistics from the Qiniu data
-// statistics API (/v6/blob_io for GET requests, /v6/rs_put for PUT requests).
+// statistics API.
+//
+//   - PUT requests: /v6/rs_put (bucket filter, no region)
+//   - Origin GET requests: /v6/blob_io?select=hits&$metric=hits (bucket filter)
+//   - CDN download traffic: /v6/blob_io?select=flow&$metric=cdn_flow_out (domain filter)
+//   - Direct download traffic: /v6/blob_io?select=flow&$metric=flow_out (bucket filter)
+//
+// For CDN-enabled buckets, origin GET hits and direct flow_out are typically 0
+// because traffic flows through CDN. CDN download traffic is captured via
+// cdn_flow_out with the domain filter.
 func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStatsResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
 	}
 	mgr := s.statsManager()
 	bucket := s.resolveBucket(req.Bucket)
+	domain := s.domainHost()
 	granularity := granularityToQiniu(req.Granularity)
-	beginDate := req.Range.Start.Format("2006-01-02 15:04:05")
-	endDate := req.Range.End.Format("2006-01-02 15:04:05")
+	beginDate := req.Range.Start.Format("2006-01-02")
+	endDate := req.Range.End.Format("2006-01-02")
 
 	pointsMap := make(map[time.Time]*stores.APIStatsPoint)
 
-	// GET request count + download traffic (flow_out).
-	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", s.cfg.Region, "", "hits")
+	// Origin GET request count (may be 0 for CDN-enabled buckets).
+	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", "", "", "hits")
 	if err == nil {
 		for _, r := range getResp {
 			pt := pointsMap[r.Time]
@@ -274,8 +317,23 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 		}
 	}
 
-	// Download traffic (flow_out).
-	dlResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", bucket, "", s.cfg.Region, "", "flow_out")
+	// CDN download traffic (cdn_flow_out, domain filter).
+	if domain != "" {
+		cdnDlResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", "", domain, "", "", "cdn_flow_out")
+		if err == nil {
+			for _, r := range cdnDlResp {
+				pt := pointsMap[r.Time]
+				if pt == nil {
+					pt = &stores.APIStatsPoint{Timestamp: r.Time}
+					pointsMap[r.Time] = pt
+				}
+				pt.DownloadBytes += r.Values.Flow
+			}
+		}
+	}
+
+	// Direct download traffic (flow_out, bucket filter).
+	dlResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", bucket, "", "", "", "flow_out")
 	if err == nil {
 		for _, r := range dlResp {
 			pt := pointsMap[r.Time]
@@ -287,8 +345,8 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 		}
 	}
 
-	// PUT request count.
-	putResp, err := mgr.RsPut(beginDate, endDate, granularity, bucket, s.cfg.Region, "")
+	// PUT request count (bucket filter, no region).
+	putResp, err := mgr.RsPut(beginDate, endDate, granularity, bucket, "", "")
 	if err == nil {
 		for _, r := range putResp {
 			pt := pointsMap[r.Time]
@@ -302,7 +360,7 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 	}
 
 	// Storage type change request count.
-	chTypeResp, err := mgr.RsChType(beginDate, endDate, granularity, bucket, s.cfg.Region)
+	chTypeResp, err := mgr.RsChType(beginDate, endDate, granularity, bucket, "")
 	if err == nil {
 		for _, r := range chTypeResp {
 			pt := pointsMap[r.Time]
@@ -330,35 +388,44 @@ func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStat
 }
 
 // GetOriginFetchStats returns origin-fetch statistics from the Qiniu data
-// statistics API (/v6/blob_io with $metric=cdn_flow_out for CDN origin-pull
-// traffic).
+// statistics API.
+//
+//   - CDN origin-pull traffic: /v6/blob_io?select=flow&$metric=cdn_flow_out (domain filter)
+//   - Origin GET requests: /v6/blob_io?select=hits&$metric=hits (bucket filter)
+//
+// For CDN-enabled buckets, origin GET hits may be 0 (CDN serves cached
+// content). CDN origin-pull traffic (cdn_flow_out) reflects actual
+// origin-fetch bandwidth.
 func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.OriginStatsResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
 	}
 	mgr := s.statsManager()
 	bucket := s.resolveBucket(req.Bucket)
+	domain := s.domainHost()
 	granularity := granularityToQiniu(req.Granularity)
-	beginDate := req.Range.Start.Format("2006-01-02 15:04:05")
-	endDate := req.Range.End.Format("2006-01-02 15:04:05")
+	beginDate := req.Range.Start.Format("2006-01-02")
+	endDate := req.Range.End.Format("2006-01-02")
 
 	pointsMap := make(map[time.Time]*stores.OriginStatsPoint)
 
-	// CDN origin-pull traffic (cdn_flow_out).
-	originFlowResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", bucket, "", s.cfg.Region, "", "cdn_flow_out")
-	if err == nil {
-		for _, r := range originFlowResp {
-			pt := pointsMap[r.Time]
-			if pt == nil {
-				pt = &stores.OriginStatsPoint{Timestamp: r.Time}
-				pointsMap[r.Time] = pt
+	// CDN origin-pull traffic (cdn_flow_out, domain filter).
+	if domain != "" {
+		originFlowResp, err := mgr.BlobIO(beginDate, endDate, granularity, "flow", "", domain, "", "", "cdn_flow_out")
+		if err == nil {
+			for _, r := range originFlowResp {
+				pt := pointsMap[r.Time]
+				if pt == nil {
+					pt = &stores.OriginStatsPoint{Timestamp: r.Time}
+					pointsMap[r.Time] = pt
+				}
+				pt.OriginTraffic += r.Values.Flow
 			}
-			pt.OriginTraffic += r.Values.Flow
 		}
 	}
 
-	// GET request count as origin request approximation.
-	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", s.cfg.Region, "", "hits")
+	// Origin GET request count (bucket filter, may be 0 for CDN buckets).
+	getResp, err := mgr.BlobIO(beginDate, endDate, granularity, "hits", bucket, "", "", "", "hits")
 	if err == nil {
 		for _, r := range getResp {
 			pt := pointsMap[r.Time]
