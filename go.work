@@ -103,8 +103,8 @@ use (
 	./common/videoutil
 	./example
 	./lingcli
-	./llm
-	./llm/relaykit
+	./relay
+	./relay/relaykit
 	./mq
 	./mq/activemq
 	./mq/factory
