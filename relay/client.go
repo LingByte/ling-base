@@ -456,6 +456,361 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 	return imageResp, nil
 }
 
+// ─── Audio (TTS / ASR) ──────────────────────────────────────────
+
+// AudioRequest is the unified audio request for TTS and ASR.
+type AudioRequest struct {
+	Model          string
+	Input          json.RawMessage // text for TTS, file data for ASR
+	Voice          string
+	ResponseFormat string
+	Speed          *float64
+	Language       string
+}
+
+// Audio sends an audio request (TTS or ASR) to the provider.
+// The response body is returned as raw bytes (audio data for TTS, transcript JSON for ASR).
+func (c *Client) Audio(ctx context.Context, req *AudioRequest, isTranscription bool) (*AudioResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	mode := relaymode.RelayModeAudioSpeech
+	if isTranscription {
+		mode = relaymode.RelayModeAudioTranscription
+	}
+	info := c.buildRelayInfo(mode, req.Model, false)
+	adaptor.Init(info)
+
+	audioReq := dto.AudioRequest{
+		Model:          req.Model,
+		Input:          string(req.Input),
+		Voice:          req.Voice,
+		ResponseFormat: req.ResponseFormat,
+		Language:       json.RawMessage(marshalString(req.Language)),
+	}
+	if req.Speed != nil {
+		audioReq.Speed = req.Speed
+	}
+
+	body, err := adaptor.ConvertAudioRequest(ctx, info, audioReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert audio request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	var httpReq *http.Request
+	if body != nil {
+		httpReq, err = http.NewRequestWithContext(ctx, "POST", url, body)
+	} else {
+		httpReq, err = http.NewRequestWithContext(ctx, "POST", url, nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse audio response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return &AudioResponse{
+		Data:    dummyW.Bytes(),
+		Usage:   usage,
+		Headers: resp.Header,
+	}, nil
+}
+
+// AudioResponse holds the audio response data.
+type AudioResponse struct {
+	Data    []byte
+	Usage   meter.Usage
+	Headers http.Header
+}
+
+// ─── Rerank ──────────────────────────────────────────────────────
+
+// RerankRequest is the unified rerank request.
+type RerankRequest struct {
+	Model     string
+	Query     string
+	Documents []string
+	TopN      *int
+}
+
+// Rerank sends a rerank request to the provider.
+func (c *Client) Rerank(ctx context.Context, req *RerankRequest) (*RerankResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeRerank, req.Model, false)
+	adaptor.Init(info)
+
+	docs := make([]any, len(req.Documents))
+	for i, d := range req.Documents {
+		docs[i] = d
+	}
+	rerankReq := dto.RerankRequest{
+		Model:     req.Model,
+		Query:     req.Query,
+		Documents: docs,
+	}
+	if req.TopN != nil {
+		rerankReq.TopN = req.TopN
+	}
+
+	converted, err := adaptor.ConvertRerankRequest(ctx, relaymode.RelayModeRerank, rerankReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert rerank request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal rerank request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse rerank response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	var rerankResp dto.RerankResponse
+	if err := json.Unmarshal(dummyW.Bytes(), &rerankResp); err != nil {
+		return nil, fmt.Errorf("relay: unmarshal rerank response: %w", err)
+	}
+
+	return &RerankResponse{
+		Results: rerankResp.Results,
+		Usage:   usage,
+	}, nil
+}
+
+// RerankResponse holds the rerank response.
+type RerankResponse struct {
+	Results []dto.RerankResponseResult
+	Usage   meter.Usage
+}
+
+// ─── Responses (OpenAI Responses API) ───────────────────────────
+
+// ResponsesRequest is the unified OpenAI Responses API request.
+type ResponsesRequest struct {
+	Model   string
+	Input   json.RawMessage
+	Stream  bool
+	Tools   json.RawMessage
+	Options json.RawMessage
+}
+
+// Responses sends an OpenAI Responses API request.
+func (c *Client) Responses(ctx context.Context, req *ResponsesRequest) (*ResponsesResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeResponses, req.Model, req.Stream)
+	adaptor.Init(info)
+
+	stream := req.Stream
+	responsesReq := dto.OpenAIResponsesRequest{
+		Model:  req.Model,
+		Input:  req.Input,
+		Stream: &stream,
+		Tools:  req.Tools,
+	}
+
+	converted, err := adaptor.ConvertOpenAIResponsesRequest(ctx, info, responsesReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert responses request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal responses request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if req.Stream {
+		httpReq.Header.Set("Accept", "text/event-stream")
+	}
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse responses response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return &ResponsesResponse{
+		Data:  dummyW.Bytes(),
+		Usage: usage,
+	}, nil
+}
+
+// ResponsesResponse holds the Responses API response.
+type ResponsesResponse struct {
+	Data  []byte
+	Usage meter.Usage
+}
+
+// ─── Task (async video/music) ────────────────────────────────────
+
+// TaskProvider is the interface for async task providers.
+type TaskProvider interface {
+	Name() string
+	ApiType() int
+	TaskAdaptor() common.TaskAdaptor
+}
+
+// SubmitTask submits an async task (video/music generation).
+func (c *Client) SubmitTask(ctx context.Context, tp TaskProvider, body io.Reader) (*TaskSubmitResult, error) {
+	adaptor := tp.TaskAdaptor()
+	info := common.NewRelayInfo()
+	info.RelayMode = relaymode.RelayModeVideoSubmit
+	info.ApiKey = c.providerApiKey()
+	info.ChannelType = tp.ApiType()
+	adaptor.Init(info)
+
+	if taskErr := adaptor.ValidateRequestAndSetAction(ctx, info); taskErr != nil {
+		return nil, fmt.Errorf("relay: validate task: %w", taskErr)
+	}
+
+	url, err := adaptor.BuildRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	if body == nil {
+		body, err = adaptor.BuildRequestBody(ctx, info)
+		if err != nil {
+			return nil, fmt.Errorf("relay: build task body: %w", err)
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+	_ = adaptor.BuildRequestHeader(ctx, httpReq, info)
+
+	resp, err := c.doTaskRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	taskID, taskData, taskErr := adaptor.DoResponse(ctx, resp, info)
+	if taskErr != nil {
+		return nil, fmt.Errorf("relay: task submit: %w", taskErr)
+	}
+
+	return &TaskSubmitResult{
+		TaskID:   taskID,
+		TaskData: taskData,
+	}, nil
+}
+
+// FetchTask polls the status of an async task.
+func (c *Client) FetchTask(ctx context.Context, tp TaskProvider, baseURL, key string, body map[string]any, proxy string) (*common.TaskInfo, error) {
+	adaptor := tp.TaskAdaptor()
+	resp, err := adaptor.FetchTask(baseURL, key, body, proxy)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return adaptor.ParseTaskResult(respBody)
+}
+
+// TaskSubmitResult holds the result of submitting an async task.
+type TaskSubmitResult struct {
+	TaskID   string
+	TaskData []byte
+}
+
+func (c *Client) doTaskRequest(ctx context.Context, adaptor common.TaskAdaptor, info *common.RelayInfo, httpReq *http.Request) (*http.Response, error) {
+	if c.httpClient != nil {
+		return c.httpClient.Do(httpReq)
+	}
+	return http.DefaultClient.Do(httpReq)
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 func (c *Client) doRequest(ctx context.Context, adaptor common.Adaptor, info *common.RelayInfo, httpReq *http.Request) (*http.Response, error) {
