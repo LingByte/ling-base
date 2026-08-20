@@ -30,6 +30,7 @@ use (
 	./common/cron
 	./common/crypto
 	./common/eventbus
+	./common/geoip
 	./common/hash
 	./common/idgen
 	./common/imageutil
@@ -110,6 +111,7 @@ use (
 	./ocr/qcloud
 	./common/opentelemetry
 	./common/parser
+	./common/phone
 	./common/queue
 	./common/queue/memory
 	./common/queue/redis
