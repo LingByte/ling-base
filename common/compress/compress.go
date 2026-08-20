@@ -4,9 +4,9 @@
 // Package compress provides compression utilities:
 //
 //   - Gzip: standard library gzip with configurable level
-//   - Zstd: high-ratio fast compression (pure Go fallback)
-//   - Snappy: fast compression (pure Go fallback)
-//   - LZ4: fast compression (pure Go fallback)
+//   - Zstd: high-ratio fast compression (github.com/klauspost/compress/zstd)
+//   - Snappy: fast compression, block format (github.com/klauspost/compress/snappy)
+//   - LZ4: fast compression, block format (github.com/pierrec/lz4/v4)
 //   - Flate/Deflate: standard library compress/flate
 //
 // # Quick start
@@ -24,6 +24,10 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"github.com/klauspost/compress/snappy"
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4/v4"
 )
 
 // ──────────────────────────────────────────────
@@ -168,56 +172,79 @@ func FlateDecompress(data []byte) ([]byte, error) {
 }
 
 // ──────────────────────────────────────────────
-// Zstd (pure Go fallback using gzip)
+// Zstd (github.com/klauspost/compress/zstd)
 // ──────────────────────────────────────────────
-// Note: This is a fallback implementation that uses gzip internally.
-// For real zstd, use github.com/klauspost/compress/zstd.
 
-// ZstdCompress compresses data using zstd-like compression.
-// Falls back to gzip BestCompression if zstd is not available.
+// ZstdCompress compresses data using real Zstandard compression.
+// Uses the default encoder level (SpeedDefault).
 func ZstdCompress(data []byte) ([]byte, error) {
-	// Use gzip with best compression as a fallback.
-	// The output is gzip-compatible but labeled as zstd.
-	return GzipCompress(data, LevelBest)
+	enc, err := zstd.NewWriter(nil)
+	if err != nil {
+		return nil, fmt.Errorf("compress: zstd encoder: %w", err)
+	}
+	defer enc.Close()
+	return enc.EncodeAll(data, make([]byte, 0, len(data))), nil
 }
 
-// ZstdDecompress decompresses zstd data.
+// ZstdDecompress decompresses real zstd data.
 func ZstdDecompress(data []byte) ([]byte, error) {
-	return GzipDecompress(data)
+	dec, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, fmt.Errorf("compress: zstd decoder: %w", err)
+	}
+	defer dec.Close()
+	out, err := dec.DecodeAll(data, make([]byte, 0, len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("compress: zstd decode: %w", err)
+	}
+	return out, nil
 }
 
 // ──────────────────────────────────────────────
-// Snappy (pure Go fallback using flate)
+// Snappy (github.com/klauspost/compress/snappy, block format)
 // ──────────────────────────────────────────────
-// Note: This is a fallback implementation. For real snappy,
-// use github.com/golang/snappy.
 
-// SnappyCompress compresses data using snappy-like compression.
-// Falls back to flate BestSpeed.
+// SnappyCompress compresses data using the Snappy block format.
 func SnappyCompress(data []byte) ([]byte, error) {
-	return FlateCompress(data, LevelFastest)
+	return snappy.Encode(nil, data), nil
 }
 
-// SnappyDecompress decompresses snappy data.
+// SnappyDecompress decompresses Snappy block-format data.
 func SnappyDecompress(data []byte) ([]byte, error) {
-	return FlateDecompress(data)
+	out, err := snappy.Decode(nil, data)
+	if err != nil {
+		return nil, fmt.Errorf("compress: snappy decode: %w", err)
+	}
+	return out, nil
 }
 
 // ──────────────────────────────────────────────
-// LZ4 (pure Go fallback using flate)
+// LZ4 (github.com/pierrec/lz4/v4, frame format)
 // ──────────────────────────────────────────────
-// Note: This is a fallback implementation. For real LZ4,
-// use github.com/pierrec/lz4/v4.
 
-// LZ4Compress compresses data using LZ4-like compression.
-// Falls back to flate BestSpeed.
+// LZ4Compress compresses data using the LZ4 frame format, which embeds the
+// original size so decompression doesn't need an externally-provided buffer size.
 func LZ4Compress(data []byte) ([]byte, error) {
-	return FlateCompress(data, LevelFastest)
+	var buf bytes.Buffer
+	w := lz4.NewWriter(&buf)
+	if _, err := w.Write(data); err != nil {
+		_ = w.Close()
+		return nil, fmt.Errorf("compress: lz4 write: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("compress: lz4 close: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
-// LZ4Decompress decompresses LZ4 data.
+// LZ4Decompress decompresses LZ4 frame-format data produced by LZ4Compress.
 func LZ4Decompress(data []byte) ([]byte, error) {
-	return FlateDecompress(data)
+	r := lz4.NewReader(bytes.NewReader(data))
+	out, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("compress: lz4 read: %w", err)
+	}
+	return out, nil
 }
 
 // ──────────────────────────────────────────────

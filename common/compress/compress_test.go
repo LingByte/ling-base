@@ -160,7 +160,7 @@ func TestFlateCompressDecompress(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// Zstd (fallback)
+// Zstd (real klauspost/compress/zstd)
 // ──────────────────────────────────────────────
 
 func TestZstdCompressDecompress(t *testing.T) {
@@ -168,6 +168,10 @@ func TestZstdCompressDecompress(t *testing.T) {
 	compressed, err := ZstdCompress(data)
 	if err != nil {
 		t.Fatalf("ZstdCompress failed: %v", err)
+	}
+	// Real zstd output starts with the zstd magic number 0x28 0xB5 0x2F 0xFD.
+	if len(compressed) < 4 || compressed[0] != 0x28 || compressed[1] != 0xB5 || compressed[2] != 0x2F || compressed[3] != 0xFD {
+		t.Fatalf("ZstdCompress output is not real zstd (missing magic 0x28B52FFD): % x", compressed[:min(4, len(compressed))])
 	}
 	decompressed, err := ZstdDecompress(compressed)
 	if err != nil {
@@ -178,8 +182,15 @@ func TestZstdCompressDecompress(t *testing.T) {
 	}
 }
 
+func TestZstdDecompress_InvalidData(t *testing.T) {
+	_, err := ZstdDecompress([]byte("not zstd data"))
+	if err == nil {
+		t.Fatal("ZstdDecompress of invalid data should fail")
+	}
+}
+
 // ──────────────────────────────────────────────
-// Snappy (fallback)
+// Snappy (real klauspost/compress/snappy, block format)
 // ──────────────────────────────────────────────
 
 func TestSnappyCompressDecompress(t *testing.T) {
@@ -187,6 +198,11 @@ func TestSnappyCompressDecompress(t *testing.T) {
 	compressed, err := SnappyCompress(data)
 	if err != nil {
 		t.Fatalf("SnappyCompress failed: %v", err)
+	}
+	// Real snappy block output starts with a varint of the uncompressed length.
+	// For 600 bytes (50*12), the first byte is 0xD8 0x04 (varint encoding).
+	if len(compressed) == 0 {
+		t.Fatal("SnappyCompress produced empty output")
 	}
 	decompressed, err := SnappyDecompress(compressed)
 	if err != nil {
@@ -197,8 +213,15 @@ func TestSnappyCompressDecompress(t *testing.T) {
 	}
 }
 
+func TestSnappyDecompress_InvalidData(t *testing.T) {
+	_, err := SnappyDecompress([]byte("not snappy data"))
+	if err == nil {
+		t.Fatal("SnappyDecompress of invalid data should fail")
+	}
+}
+
 // ──────────────────────────────────────────────
-// LZ4 (fallback)
+// LZ4 (real github.com/pierrec/lz4/v4, frame format)
 // ──────────────────────────────────────────────
 
 func TestLZ4CompressDecompress(t *testing.T) {
@@ -207,12 +230,23 @@ func TestLZ4CompressDecompress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LZ4Compress failed: %v", err)
 	}
+	// Real LZ4 frame starts with magic 0x04 0x22 0x4D 0x18.
+	if len(compressed) < 4 || compressed[0] != 0x04 || compressed[1] != 0x22 || compressed[2] != 0x4D || compressed[3] != 0x18 {
+		t.Fatalf("LZ4Compress output is not real lz4 frame (missing magic 0x04224D18): % x", compressed[:min(4, len(compressed))])
+	}
 	decompressed, err := LZ4Decompress(compressed)
 	if err != nil {
 		t.Fatalf("LZ4Decompress failed: %v", err)
 	}
 	if !bytes.Equal(data, decompressed) {
 		t.Fatal("round-trip failed")
+	}
+}
+
+func TestLZ4Decompress_InvalidData(t *testing.T) {
+	_, err := LZ4Decompress([]byte("not lz4 data"))
+	if err == nil {
+		t.Fatal("LZ4Decompress of invalid data should fail")
 	}
 }
 
