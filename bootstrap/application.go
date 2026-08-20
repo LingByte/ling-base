@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/LingByte/ling-base/eventbus"
+	"github.com/LingByte/ling-base/common/eventbus"
 	"github.com/LingByte/ling-base/version"
 )
 

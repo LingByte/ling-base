@@ -46,7 +46,7 @@ import (
 	"github.com/LingByte/ling-base/common/migration"
 	gormmigrator "github.com/LingByte/ling-base/common/migration/gormmigrator"
 	"github.com/LingByte/ling-base/constants"
-	"github.com/LingByte/ling-base/eventbus"
+	"github.com/LingByte/ling-base/common/eventbus"
 	"github.com/LingByte/ling-base/example/internal/config"
 	"github.com/LingByte/ling-base/example/internal/handlers"
 	"github.com/LingByte/ling-base/example/internal/listeners"

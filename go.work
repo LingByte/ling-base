@@ -2,20 +2,7 @@ go 1.26.2
 
 use (
 	.
-	./bloom
-	./bloom/counting
-	./bloom/memory
-	./bloom/redis
-	./bloom/redisbloom
-	./bloom/scalable
 	./bootstrap
-	./cache
-	./cache/bigcache
-	./cache/freecache
-	./cache/memcache
-	./cache/redis
-	./cache/ristretto
-	./captcha
 	./censor
 	./censor/aliyun
 	./censor/qcloud
@@ -23,12 +10,26 @@ use (
 	./common
 	./common/audioutil
 	./common/barcode
+	./common/bloom
+	./common/bloom/counting
+	./common/bloom/memory
+	./common/bloom/redis
+	./common/bloom/redisbloom
+	./common/bloom/scalable
+	./common/cache
+	./common/cache/bigcache
+	./common/cache/freecache
+	./common/cache/memcache
+	./common/cache/redis
+	./common/cache/ristretto
+	./common/captcha
 	./common/circuitbreaker
 	./common/compress
 	./common/config
 	./common/convert
 	./common/cron
 	./common/crypto
+	./common/eventbus
 	./common/hash
 	./common/idgen
 	./common/imageutil
@@ -56,6 +57,13 @@ use (
 	./common/migration
 	./common/migration/gormmigrator
 	./common/netutil
+	./common/notification
+	./common/notification/email
+	./common/notification/im
+	./common/notification/inbox
+	./common/notification/push
+	./common/notification/sms
+	./common/notification/webhook
 	./common/nltime
 	./common/pinyin
 	./common/pool
@@ -64,6 +72,10 @@ use (
 	./common/response
 	./common/response/gin
 	./common/retry
+	./common/scheduler
+	./common/search
+	./common/search/bleve
+	./common/search/elasticsearch
 	./common/stats
 	./common/stats/file
 	./common/stats/gin
@@ -74,7 +86,6 @@ use (
 	./common/videoutil
 	./constants
 	./apidocs
-	./eventbus
 	./example
 	./i18n
 	./i18n/gin
@@ -90,13 +101,6 @@ use (
 	./mq/rabbitmq
 	./mq/redisstream
 	./mq/rocketmq
-	./notification
-	./notification/email
-	./notification/im
-	./notification/inbox
-	./notification/push
-	./notification/sms
-	./notification/webhook
 	./ocr
 	./ocr/aliyun
 	./ocr/aws
@@ -131,10 +135,6 @@ use (
 	./recognizer/volcengine
 	./recognizer/volcengine_llm
 	./recognizer/whisper
-	./scheduler
-	./search
-	./search/bleve
-	./search/elasticsearch
 	./stores
 	./stores/cos
 	./stores/kodo

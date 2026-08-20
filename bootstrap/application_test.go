@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/LingByte/ling-base/eventbus"
+	"github.com/LingByte/ling-base/common/eventbus"
 )
 
 // testAppComponent is a Lifecycle component for testing.

@@ -27,7 +27,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/LingByte/ling-base/notification/email"
+	"github.com/LingByte/ling-base/common/notification/email"
 )
 
 func main() {

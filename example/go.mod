@@ -5,8 +5,8 @@ go 1.26.2
 require (
 	github.com/LingByte/ling-base v0.5.0
 	github.com/LingByte/ling-base/bootstrap v0.1.3
-	github.com/LingByte/ling-base/cache v0.1.0
-	github.com/LingByte/ling-base/cache/redis v0.1.0
+	github.com/LingByte/ling-base/common/cache v0.1.0
+	github.com/LingByte/ling-base/common/cache/redis v0.1.0
 	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0
 	github.com/LingByte/ling-base/common v0.3.0
 	github.com/LingByte/ling-base/common/config v0.1.1
@@ -22,26 +22,26 @@ require (
 	github.com/LingByte/ling-base/common/migration/gormmigrator v0.1.0
 	github.com/LingByte/ling-base/metrics v0.1.0
 	github.com/LingByte/ling-base/opentelemetry v0.1.0
-	github.com/LingByte/ling-base/scheduler v0.1.1
+	github.com/LingByte/ling-base/common/scheduler v0.1.1
 	github.com/LingByte/ling-base/tracing v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.0
 	github.com/LingByte/ling-base/common/response/gin v0.1.1
 	github.com/LingByte/ling-base/common/validate v0.1.0
 	github.com/LingByte/ling-base/constants v0.1.0
-	github.com/LingByte/ling-base/eventbus v0.1.0
+	github.com/LingByte/ling-base/common/eventbus v0.1.0
 	github.com/LingByte/ling-base/common/limiter v0.1.0
 	github.com/LingByte/ling-base/common/limiter/count v0.1.0
 	github.com/LingByte/ling-base/common/limiter/tokenbucket v0.1.0
-	github.com/LingByte/ling-base/notification v0.1.1
-	github.com/LingByte/ling-base/notification/email v0.1.0
-	github.com/LingByte/ling-base/notification/inbox v0.1.1
+	github.com/LingByte/ling-base/common/notification v0.1.1
+	github.com/LingByte/ling-base/common/notification/email v0.1.0
+	github.com/LingByte/ling-base/common/notification/inbox v0.1.1
 	github.com/LingByte/ling-base/parser v0.1.0
 	github.com/LingByte/ling-base/common/pool v0.1.0
 	github.com/LingByte/ling-base/queue v0.1.0
 	github.com/LingByte/ling-base/queue/memory v0.1.0
 	github.com/LingByte/ling-base/common/retry v0.1.0
-	github.com/LingByte/ling-base/search v0.1.0
-	github.com/LingByte/ling-base/search/bleve v0.1.0
+	github.com/LingByte/ling-base/common/search v0.1.0
+	github.com/LingByte/ling-base/common/search/bleve v0.1.0
 	github.com/LingByte/ling-base/version v0.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.22.0

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/search"
-	"github.com/LingByte/ling-base/search/bleve"
+	"github.com/LingByte/ling-base/common/search"
+	"github.com/LingByte/ling-base/common/search/bleve"
 )
 
 const usage = `search-demo: 全文搜索引擎演示工具

@@ -13,7 +13,7 @@ package listeners
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/eventbus"
+	"github.com/LingByte/ling-base/common/eventbus"
 	"github.com/LingByte/ling-base/example/internal/models"
 	"github.com/LingByte/ling-base/logger"
 	"go.uber.org/zap"

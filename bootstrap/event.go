@@ -4,7 +4,7 @@
 package bootstrap
 
 import (
-	"github.com/LingByte/ling-base/eventbus"
+	"github.com/LingByte/ling-base/common/eventbus"
 )
 
 // Common application event names.

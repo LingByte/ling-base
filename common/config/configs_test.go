@@ -12,7 +12,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	lrucache "github.com/LingByte/ling-base/cache/lru"
+	lrucache "github.com/LingByte/ling-base/common/cache/lru"
 )
 
 // ===== Env-only mode =====

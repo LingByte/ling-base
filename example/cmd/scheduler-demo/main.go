@@ -25,7 +25,7 @@ import (
 
 	"github.com/LingByte/ling-base/common/lock"
 	"github.com/LingByte/ling-base/common/lock/memory"
-	"github.com/LingByte/ling-base/scheduler"
+	"github.com/LingByte/ling-base/common/scheduler"
 )
 
 func main() {

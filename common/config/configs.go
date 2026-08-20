@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/cache"
-	lrucache "github.com/LingByte/ling-base/cache/lru"
+	"github.com/LingByte/ling-base/common/cache"
+	lrucache "github.com/LingByte/ling-base/common/cache/lru"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
