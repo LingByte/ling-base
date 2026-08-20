@@ -75,3 +75,24 @@ func GetFullRequestURL(baseURL, requestURL string, channelType int) string {
 	}
 	return baseURL + requestURL
 }
+
+// DoTaskApiRequest sends an HTTP request to the upstream provider for an
+// async task adaptor. It is the library-mode replacement for LingRein's
+// channel.DoTaskApiRequest.
+func DoTaskApiRequest(a common.TaskAdaptor, ctx context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
+	fullRequestURL, err := a.BuildRequestURL(info)
+	if err != nil {
+		return nil, fmt.Errorf("get request url failed: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", fullRequestURL, requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("new request failed: %w", err)
+	}
+
+	if err := a.BuildRequestHeader(ctx, req, info); err != nil {
+		return nil, fmt.Errorf("setup request header failed: %w", err)
+	}
+
+	return http.DefaultClient.Do(req)
+}
