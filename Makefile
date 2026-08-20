@@ -268,7 +268,7 @@ clean: ## Remove generated coverage files and demo binaries
 EMBED_SOURCE_DIRS := middleware common/response common/response/gin \
 	common/jwtutil common/jwtutil/gin common/limiter common/limiter/count \
 	common/limiter/tokenbucket common/limiter/keycount common/circuitbreaker \
-	common/crypto logger logger/gin constants bootstrap eventbus version \
+	common/crypto logger logger/gin constants bootstrap common/eventbus version \
 	apidocs apidocs/humax apidocs/assets i18n i18n/gin metrics tracing \
 	common/validate
 

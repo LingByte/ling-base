@@ -90,7 +90,7 @@ var moduleSources = map[string]ModuleSource{
 	},
 	"eventbus": {
 		ID:   "eventbus",
-		Dirs: []string{"eventbus"},
+		Dirs: []string{"common/eventbus"},
 	},
 	"version": {
 		ID:   "version",
