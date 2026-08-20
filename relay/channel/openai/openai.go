@@ -76,7 +76,9 @@ func WithAPIVersion(v string) Option {
 // ─── common.Adaptor implementation ───────────────────────────────
 
 func (a *Adaptor) Init(info *common.RelayInfo) {
-	a.ChannelType = info.ChannelType
+	if info.ChannelType != 0 {
+		a.ChannelType = info.ChannelType
+	}
 	if a.APIKey == "" {
 		a.APIKey = info.ApiKey
 	}
@@ -212,8 +214,41 @@ func (a *Adaptor) DoResponse(ctx context.Context, resp *http.Response, info *com
 	case relaymode.RelayModeRerank:
 		return a.handleRerankResponse(body, w)
 	default:
+		if info.IsStream {
+			return a.handleStreamChatResponse(body, w)
+		}
 		return a.handleChatResponse(body, w)
 	}
+}
+
+// handleStreamChatResponse processes an SSE streaming chat response.
+// It writes SSE data to w and extracts usage from the final chunk.
+func (a *Adaptor) handleStreamChatResponse(body []byte, w http.ResponseWriter) (any, *types.NewAPIError) {
+	// Write the raw SSE data to w (the caller handles chunk parsing).
+	w.Write(body)
+
+	// Parse SSE lines to find usage in the final chunk.
+	usage := dto.Usage{}
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			continue
+		}
+		var chunk struct {
+			Usage *dto.Usage `json:"usage"`
+		}
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			continue
+		}
+		if chunk.Usage != nil {
+			usage = *chunk.Usage
+		}
+	}
+	return &usage, nil
 }
 
 // handleChatResponse parses a chat completion response and writes it to w.

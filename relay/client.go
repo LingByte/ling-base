@@ -312,6 +312,191 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	return chatResp, nil
 }
 
+// ─── Chat Stream ────────────────────────────────────────────────
+
+// ChatStreamChunk is one chunk in a streaming chat response.
+type ChatStreamChunk struct {
+	Delta    string // content delta
+	Err      error
+	Done     bool
+	Usage    *meter.Usage // present on final chunk if provider reports it
+}
+
+// ChatStreamResult holds the stream channel and final usage.
+type ChatStreamResult struct {
+	Ch    chan ChatStreamChunk
+	Usage meter.Usage // filled after channel closes
+}
+
+// ChatStream sends a streaming chat completion request.
+// It returns a channel of chunks. The channel closes when the stream ends.
+// After the channel closes, ChatStreamResult.Usage contains the final usage.
+func (c *Client) ChatStream(ctx context.Context, req *ChatRequest) (*ChatStreamResult, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	req.Stream = true
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeChatCompletions, req.Model, true)
+	adaptor.Init(info)
+
+	openaiReq := c.toOpenAIRequest(req)
+
+	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, fmt.Errorf("relay: build URL: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+	if err := adaptor.SetupRequestHeader(ctx, &httpReq.Header, info); err != nil {
+		return nil, fmt.Errorf("relay: setup headers: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: request failed: %w", err)
+	}
+
+	result := &ChatStreamResult{
+		Ch: make(chan ChatStreamChunk, 100),
+	}
+
+	go func() {
+		defer resp.Body.Close()
+		defer close(result.Ch)
+
+		// Use a pipe-based ResponseWriter to capture SSE chunks.
+		pw := &streamResponseWriter{ch: result.Ch}
+		usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, pw)
+		if apiErr != nil {
+			result.Ch <- ChatStreamChunk{Err: apiErr}
+			return
+		}
+
+		usage := extractUsage(usageRaw)
+		result.Usage = usage
+		c.record(ctx, req.Model, usage)
+
+		// Send final chunk with usage.
+		result.Ch <- ChatStreamChunk{Done: true, Usage: &usage}
+	}()
+
+	return result, nil
+}
+
+// streamResponseWriter implements http.ResponseWriter by forwarding
+// SSE data chunks to a channel.
+type streamResponseWriter struct {
+	ch       chan ChatStreamChunk
+	header   http.Header
+}
+
+func (w *streamResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *streamResponseWriter) Write(data []byte) (int, error) {
+	// Parse SSE data lines and forward as chunks.
+	text := string(data)
+	for _, line := range splitSSELines(text) {
+		if line == "[DONE]" {
+			continue
+		}
+		// Try to extract content delta from the SSE JSON.
+		if delta := extractSSEDelta(line); delta != "" {
+			w.ch <- ChatStreamChunk{Delta: delta}
+		}
+	}
+	return len(data), nil
+}
+
+func (w *streamResponseWriter) WriteHeader(statusCode int) {}
+
+func splitSSELines(text string) []string {
+	var lines []string
+	for _, line := range splitLines(text) {
+		line = trimSpace(line)
+		if hasPrefix(line, "data: ") {
+			lines = append(lines, trimPrefix(line, "data: "))
+		}
+	}
+	return lines
+}
+
+func splitLines(s string) []string {
+	var result []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			result = append(result, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		result = append(result, s[start:])
+	}
+	return result
+}
+
+func trimSpace(s string) string {
+	start, end := 0, len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+}
+
+func trimPrefix(s, prefix string) string {
+	if hasPrefix(s, prefix) {
+		return s[len(prefix):]
+	}
+	return s
+}
+
+func extractSSEDelta(data string) string {
+	// Try to parse as OpenAI streaming chunk and extract delta content.
+	var chunk struct {
+		Choices []struct {
+			Delta struct {
+				Content string `json:"content"`
+			} `json:"delta"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+		return ""
+	}
+	if len(chunk.Choices) > 0 {
+		return chunk.Choices[0].Delta.Content
+	}
+	return ""
+}
+
 // ─── Embed ───────────────────────────────────────────────────────
 
 // Embed sends an embedding request.
@@ -844,6 +1029,10 @@ func (c *Client) toOpenAIRequest(req *ChatRequest) *dto.GeneralOpenAIRequest {
 	}
 	if len(req.ToolChoice) > 0 {
 		r.ToolChoice = json.RawMessage(req.ToolChoice)
+	}
+	// For streaming requests, request usage in the final chunk.
+	if req.Stream {
+		r.StreamOptions = &dto.StreamOptions{IncludeUsage: true}
 	}
 	return r
 }

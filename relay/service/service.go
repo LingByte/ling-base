@@ -173,3 +173,24 @@ func CloseResponseBodyGracefully(resp *http.Response) {
 
 // Ensure json import is used.
 var _ = json.Marshal
+
+// TaskErrorWrapper wraps an error into a TaskError with code and status code.
+func TaskErrorWrapper(err error, code string, statusCode int) *common.TaskError {
+	return &common.TaskError{
+		Code:       code,
+		Message:     err.Error(),
+		StatusCode: statusCode,
+		Err:        err,
+	}
+}
+
+// TaskErrorWrapperLocal wraps a local error into a TaskError.
+func TaskErrorWrapperLocal(err error, code string, statusCode int) *common.TaskError {
+	return &common.TaskError{
+		Code:       code,
+		Message:     err.Error(),
+		StatusCode: statusCode,
+		LocalError: true,
+		Err:        err,
+	}
+}

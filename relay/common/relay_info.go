@@ -66,6 +66,16 @@ type RelayInfo struct {
 	// Reasoning effort ("low", "medium", "high", "").
 	ReasoningEffort string
 
+	// Action is the task action type (e.g. constant.TaskActionGenerate).
+	// Used by async task providers.
+	Action string
+
+	// PublicTaskID is the client-facing task ID.
+	PublicTaskID string
+
+	// OriginTaskID is the original task ID for remix operations.
+	OriginTaskID string
+
 	// SendResponseCount / ReceivedResponseCount for streaming.
 	SendResponseCount     int
 	ReceivedResponseCount int
