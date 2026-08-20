@@ -5,7 +5,7 @@
 package gin
 
 import (
-	"github.com/LingByte/ling-base/i18n"
+	"github.com/LingByte/ling-base/common/i18n"
 	"github.com/gin-gonic/gin"
 )
 

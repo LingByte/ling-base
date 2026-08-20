@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/opentelemetry
+module github.com/LingByte/ling-base/common/opentelemetry
 
 go 1.26.2
 

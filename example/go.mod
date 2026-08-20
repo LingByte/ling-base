@@ -21,7 +21,7 @@ require (
 	github.com/LingByte/ling-base/common/migration v0.1.0
 	github.com/LingByte/ling-base/common/migration/gormmigrator v0.1.0
 	github.com/LingByte/ling-base/common/metrics v0.1.0
-	github.com/LingByte/ling-base/opentelemetry v0.1.1
+	github.com/LingByte/ling-base/common/opentelemetry v0.1.1
 	github.com/LingByte/ling-base/common/scheduler v0.1.1
 	github.com/LingByte/ling-base/common/tracing v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.0

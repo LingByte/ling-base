@@ -269,7 +269,7 @@ EMBED_SOURCE_DIRS := middleware common/response common/response/gin \
 	common/jwtutil common/jwtutil/gin common/limiter common/limiter/count \
 	common/limiter/tokenbucket common/limiter/keycount common/circuitbreaker \
 	common/crypto common/logger common/logger/gin common/constants bootstrap common/eventbus version \
-	apidocs apidocs/humax apidocs/assets i18n i18n/gin common/metrics common/tracing \
+	apidocs apidocs/humax apidocs/assets common/i18n common/i18n/gin common/metrics common/tracing \
 	common/validate
 
 .PHONY: prepare-cli-embed clean-cli-embed build-cli

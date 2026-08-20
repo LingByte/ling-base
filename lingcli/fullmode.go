@@ -55,7 +55,7 @@ var moduleSources = map[string]ModuleSource{
 	},
 	"i18n": {
 		ID:   "i18n",
-		Dirs: []string{"i18n", "i18n/gin"},
+		Dirs: []string{"common/i18n", "common/i18n/gin"},
 	},
 	"metrics": {
 		ID:   "metrics",

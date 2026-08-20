@@ -87,9 +87,9 @@ use (
 	./common/constants
 	./apidocs
 	./example
-	./i18n
-	./i18n/gin
-	./i18n/mymemory
+	./common/i18n
+	./common/i18n/gin
+	./common/i18n/mymemory
 	./lingcli
 	./common/logger
 	./common/logger/gin
@@ -108,7 +108,7 @@ use (
 	./ocr/baidu
 	./ocr/google
 	./ocr/qcloud
-	./opentelemetry
+	./common/opentelemetry
 	./common/parser
 	./common/queue
 	./common/queue/memory
@@ -162,7 +162,7 @@ use (
 	./voice/synthesizer/qiniu
 	./voice/synthesizer/volcengine
 	./voice/synthesizer/xunfei
-	./system
+	./common/system
 	./common/tracing
 	./version
 )

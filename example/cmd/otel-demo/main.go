@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/common/metrics"
-	"github.com/LingByte/ling-base/opentelemetry"
+	"github.com/LingByte/ling-base/common/opentelemetry"
 	"github.com/LingByte/ling-base/common/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
