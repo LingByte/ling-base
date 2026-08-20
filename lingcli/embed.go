@@ -50,7 +50,7 @@ func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
 		// 检查嵌入源码中是否存在该目录
 		entries, err := embeddedSource.ReadDir(embedPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  \x1b[33m[警告] 嵌入源码中无此目录: %s\x1b[0m\n", dir)
+			fmt.Fprintf(os.Stderr, "  \x1b[38;5;245m[跳过] %s: 模板未直接引用，不复制源码\x1b[0m\n", dir)
 			continue
 		}
 

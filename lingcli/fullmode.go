@@ -116,7 +116,9 @@ func collectModuleDirs(selectedModules []string) []string {
 
 		src, ok := moduleSources[moduleID]
 		if !ok {
-			fmt.Fprintf(os.Stderr, "  \x1b[33m[警告] 未知模块源码映射: %s\x1b[0m\n", moduleID)
+			// 部分模块（mq/search/stores 等）模板未直接引用，
+			// full 模式不需要复制源码，lib 模式通过 go.mod 引入即可。
+			fmt.Fprintf(os.Stderr, "  \x1b[38;5;245m[跳过] %s: 模板未直接引用，full 模式不复制源码\x1b[0m\n", moduleID)
 			return
 		}
 
