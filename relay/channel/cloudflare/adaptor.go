@@ -25,7 +25,7 @@ func (a *Adaptor) ConvertGeminiRequest(context.Context, *common.RelayInfo, *dto.
 
 func (a *Adaptor) ConvertClaudeRequest(context.Context, *common.RelayInfo, *dto.ClaudeRequest) (any, error) {
 	//TODO implement me
-	panic("implement me")
+	return nil, errors.New("not implemented")
 }
 
 func (a *Adaptor) Init(info *common.RelayInfo) {

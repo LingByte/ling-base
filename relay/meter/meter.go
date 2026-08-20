@@ -38,6 +38,9 @@ type Usage struct {
 	AudioSeconds float64 `json:"audio_seconds,omitempty"`
 	VideoSeconds float64 `json:"video_seconds,omitempty"`
 
+	// Request count (for async tasks and other non-token calls).
+	RequestCount int `json:"request_count,omitempty"`
+
 	// Source provider format, for debugging.
 	Source string `json:"source,omitempty"`
 }
@@ -55,6 +58,7 @@ func (u *Usage) Merge(other Usage) {
 	u.ImageCount += other.ImageCount
 	u.AudioSeconds += other.AudioSeconds
 	u.VideoSeconds += other.VideoSeconds
+	u.RequestCount += other.RequestCount
 }
 
 // mergeUsage is a helper that merges two Usage values and returns the result.

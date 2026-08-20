@@ -145,6 +145,45 @@ type Provider interface {
 	Adaptor() common.Adaptor
 }
 
+// ConfiguredProvider is an optional interface implemented by providers
+// that expose their API endpoint and key. The Client uses this to
+// populate RelayInfo.ChannelBaseUrl and RelayInfo.ApiKey, which most
+// adaptors rely on for URL construction and authentication.
+type ConfiguredProvider interface {
+	BaseURL() string
+	APIKey() string
+}
+
+// GenericProvider wraps any common.Adaptor with a name, API type,
+// base URL, and API key. It is the standard way to use non-OpenAI/Claude/
+// Gemini providers with the Client.
+type GenericProvider struct {
+	name    string
+	apiType int
+	adaptor common.Adaptor
+	baseURL string
+	apiKey  string
+}
+
+// NewProvider creates a GenericProvider from the given adaptor and config.
+// This is the primary constructor for providers that don't have their own
+// Provider type (i.e. all providers except openai, claude, and gemini).
+func NewProvider(name string, apiType int, adaptor common.Adaptor, baseURL string, apiKey string) *GenericProvider {
+	return &GenericProvider{
+		name:    name,
+		apiType: apiType,
+		adaptor: adaptor,
+		baseURL: baseURL,
+		apiKey:  apiKey,
+	}
+}
+
+func (p *GenericProvider) Name() string             { return p.name }
+func (p *GenericProvider) ApiType() int             { return p.apiType }
+func (p *GenericProvider) Adaptor() common.Adaptor  { return p.adaptor }
+func (p *GenericProvider) BaseURL() string          { return p.baseURL }
+func (p *GenericProvider) APIKey() string           { return p.apiKey }
+
 // ─── Client ──────────────────────────────────────────────────────
 
 // Client is the unified entry point. It routes requests to the configured
@@ -208,20 +247,26 @@ func (c *Client) buildRelayInfo(mode int, model string, stream bool) *common.Rel
 	info := common.NewRelayInfo()
 	info.RelayMode = mode
 	info.OriginModelName = model
+	info.UpstreamModelName = model
 	info.IsStream = stream
 	info.ApiType = c.provider.ApiType()
+
+	// Populate channel config from the provider if it implements ConfiguredProvider.
+	var baseURL, apiKey string
+	if cp, ok := c.provider.(ConfiguredProvider); ok {
+		baseURL = cp.BaseURL()
+		apiKey = cp.APIKey()
+	}
+
+	info.ChannelBaseUrl = baseURL
+	info.ApiKey = apiKey
 	info.ChannelMeta = &common.ChannelMeta{
 		ApiType:           c.provider.ApiType(),
 		UpstreamModelName: model,
-		ApiKey:            c.providerApiKey(),
+		ApiKey:            apiKey,
+		ChannelBaseUrl:    baseURL,
 	}
 	return info
-}
-
-func (c *Client) providerApiKey() string {
-	// Providers expose their API key through the ChannelMeta in Adaptor.Init.
-	// This is a placeholder; each provider sets its key in its constructor.
-	return ""
 }
 
 func (c *Client) record(ctx context.Context, model string, usage meter.Usage) {
@@ -656,13 +701,26 @@ type AudioRequest struct {
 // Audio sends an audio request (TTS or ASR) to the provider.
 // The response body is returned as raw bytes (audio data for TTS, transcript JSON for ASR).
 func (c *Client) Audio(ctx context.Context, req *AudioRequest, isTranscription bool) (*AudioResponse, error) {
+	return c.audioWithMode(ctx, req, isTranscription, false)
+}
+
+// AudioTranslation sends an audio translation request (ASR translation) to the provider.
+// Similar to transcription but translates the audio to English.
+func (c *Client) AudioTranslation(ctx context.Context, req *AudioRequest) (*AudioResponse, error) {
+	return c.audioWithMode(ctx, req, false, true)
+}
+
+func (c *Client) audioWithMode(ctx context.Context, req *AudioRequest, isTranscription, isTranslation bool) (*AudioResponse, error) {
 	if err := c.ensureProvider(); err != nil {
 		return nil, err
 	}
 
 	adaptor := c.provider.Adaptor()
 	mode := relaymode.RelayModeAudioSpeech
-	if isTranscription {
+	switch {
+	case isTranslation:
+		mode = relaymode.RelayModeAudioTranslation
+	case isTranscription:
 		mode = relaymode.RelayModeAudioTranscription
 	}
 	info := c.buildRelayInfo(mode, req.Model, false)
@@ -923,8 +981,11 @@ func (c *Client) SubmitTask(ctx context.Context, tp TaskProvider, body io.Reader
 	adaptor := tp.TaskAdaptor()
 	info := common.NewRelayInfo()
 	info.RelayMode = relaymode.RelayModeVideoSubmit
-	info.ApiKey = c.providerApiKey()
 	info.ChannelType = tp.ApiType()
+	if cp, ok := c.provider.(ConfiguredProvider); ok {
+		info.ApiKey = cp.APIKey()
+		info.ChannelBaseUrl = cp.BaseURL()
+	}
 	adaptor.Init(info)
 
 	if taskErr := adaptor.ValidateRequestAndSetAction(ctx, info); taskErr != nil {
@@ -960,6 +1021,11 @@ func (c *Client) SubmitTask(ctx context.Context, tp TaskProvider, body io.Reader
 		return nil, fmt.Errorf("relay: task submit: %w", taskErr)
 	}
 
+	// Record usage for task submission (request count).
+	c.record(ctx, info.UpstreamModelName, meter.Usage{
+		RequestCount: 1,
+	})
+
 	return &TaskSubmitResult{
 		TaskID:   taskID,
 		TaskData: taskData,
@@ -980,7 +1046,20 @@ func (c *Client) FetchTask(ctx context.Context, tp TaskProvider, baseURL, key st
 		return nil, err
 	}
 
-	return adaptor.ParseTaskResult(respBody)
+	taskInfo, err := adaptor.ParseTaskResult(respBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// Record usage when task completes (video/audio seconds if available).
+	if taskInfo != nil && taskInfo.Status == "SUCCESS" {
+		usage := meter.Usage{
+			RequestCount: 1,
+		}
+		c.record(ctx, "", usage)
+	}
+
+	return taskInfo, nil
 }
 
 // TaskSubmitResult holds the result of submitting an async task.

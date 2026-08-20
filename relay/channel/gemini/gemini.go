@@ -182,8 +182,45 @@ func (a *Adaptor) DoResponse(ctx context.Context, resp *http.Response, info *com
 	case relaymode.RelayModeEmbeddings:
 		return a.handleEmbedResponse(body, w)
 	default:
+		if info.IsStream {
+			return a.handleStreamChatResponse(info, body, w)
+		}
 		return a.handleChatResponse(info, body, w)
 	}
+}
+
+// handleStreamChatResponse processes a Gemini SSE streaming response.
+// Gemini streams chunks as JSON objects separated by newlines (not SSE data: lines).
+// Each chunk is a GeminiChatResponse with candidates and optional usageMetadata.
+func (a *Adaptor) handleStreamChatResponse(info *common.RelayInfo, body []byte, w http.ResponseWriter) (any, *types.NewAPIError) {
+	// Write the raw SSE data to w.
+	w.Write(body)
+
+	// Parse SSE lines to find usage in the final chunk.
+	usage := dto.GeminiUsageMetadata{}
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "data: ") {
+			// Gemini may also stream raw JSON lines without "data: " prefix.
+			if line == "" || strings.HasPrefix(line, "{") {
+				// Try parsing as raw JSON.
+			} else {
+				continue
+			}
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			continue
+		}
+		var chunk dto.GeminiChatResponse
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			continue
+		}
+		if chunk.HasUsageMetadata {
+			usage = chunk.UsageMetadata
+		}
+	}
+	return usage, nil
 }
 
 // handleChatResponse parses a Gemini generateContent response.
@@ -259,3 +296,5 @@ func NewProvider(apiKey string, opts ...Option) *Provider {
 func (p *Provider) Name() string         { return "gemini" }
 func (p *Provider) ApiType() int         { return constant.APITypeGemini }
 func (p *Provider) Adaptor() common.Adaptor { return p.adaptor }
+func (p *Provider) BaseURL() string      { return p.adaptor.BaseURL }
+func (p *Provider) APIKey() string       { return p.adaptor.APIKey }

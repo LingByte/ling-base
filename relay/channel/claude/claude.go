@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
@@ -146,10 +147,54 @@ func (a *Adaptor) DoResponse(ctx context.Context, resp *http.Response, info *com
 
 	switch info.RelayMode {
 	case relaymode.RelayModeChatCompletions:
+		if info.IsStream {
+			return a.handleStreamChatResponse(ctx, info, body, w)
+		}
 		return a.handleChatResponse(ctx, info, body, w)
 	default:
+		if info.IsStream {
+			return a.handleStreamChatResponse(ctx, info, body, w)
+		}
 		return a.handleChatResponse(ctx, info, body, w)
 	}
+}
+
+// handleStreamChatResponse processes a Claude SSE streaming response.
+// It writes SSE data to w and extracts usage from the final message_start/message_stop events.
+func (a *Adaptor) handleStreamChatResponse(ctx context.Context, info *common.RelayInfo, body []byte, w http.ResponseWriter) (any, *types.NewAPIError) {
+	// Write the raw SSE data to w.
+	w.Write(body)
+
+	// Parse SSE lines to find usage in message_delta events.
+	usage := &dto.ClaudeUsage{}
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			continue
+		}
+		// Claude streams have event types. Look for message_delta with usage.
+		var event struct {
+			Type  string `json:"type"`
+			Usage *dto.ClaudeUsage `json:"usage"`
+			Message *struct {
+				Usage *dto.ClaudeUsage `json:"usage"`
+			} `json:"message"`
+		}
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			continue
+		}
+		if event.Usage != nil {
+			usage = event.Usage
+		}
+		if event.Message != nil && event.Message.Usage != nil {
+			usage = event.Message.Usage
+		}
+	}
+	return usage, nil
 }
 
 // handleChatResponse parses a Claude Messages response.
@@ -214,3 +259,5 @@ func NewProvider(apiKey string, opts ...Option) *Provider {
 func (p *Provider) Name() string         { return "claude" }
 func (p *Provider) ApiType() int         { return constant.APITypeAnthropic }
 func (p *Provider) Adaptor() common.Adaptor { return p.adaptor }
+func (p *Provider) BaseURL() string      { return p.adaptor.BaseURL }
+func (p *Provider) APIKey() string       { return p.adaptor.APIKey }
