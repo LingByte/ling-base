@@ -281,6 +281,7 @@ var LingBaseModules = []LingBaseModule{
 	{ID: "tracing", Name: "链路追踪", Description: "OpenTracing/OpenTelemetry 兼容的分布式追踪", ImportPath: "github.com/LingByte/ling-base/tracing"},
 	{ID: "bloom", Name: "布隆过滤器", Description: "内存/Redis/Scalable 布隆过滤器", ImportPath: "github.com/LingByte/ling-base/bloom"},
 	{ID: "captcha", Name: "验证码", Description: "图形/短信/行为验证码", ImportPath: "github.com/LingByte/ling-base/captcha"},
+	{ID: "validate", Name: "数据校验", Description: "结构体标签驱动校验（内置规则 + 自定义规则 + 嵌套）", ImportPath: "github.com/LingByte/ling-base/common/validate"},
 }
 
 // HasModule 检查 spec 是否选了某个模块。

@@ -7,6 +7,11 @@
 //   - 避免循环依赖（handler 之间不需要互相引用）
 //   - 便于生成 OpenAPI 文档（集中管理 schema）
 //   - 便于前端/客户端复用类型定义
+//
+// 校验标签:
+//   - binding: gin/go-playground/validator 内置校验（ShouldBind 时触发）
+//   - validate: ling-base/common/validate 校验（validate.Validate() 时触发）
+// 两者可共存，validate 模块启用时 handler 会额外调用 validate.Validate()。
 package types
 
 // ──────────────────────────────────────────────
@@ -15,8 +20,8 @@ package types
 
 // PageRequest 分页查询参数。
 type PageRequest struct {
-	Page int `json:"page" form:"page" example:"1"`
-	Size int `json:"size" form:"size" example:"20"`
+	Page int `json:"page" form:"page" example:"1" validate:"gte=1"`
+	Size int `json:"size" form:"size" example:"20" validate:"gte=1,lte=100"`
 }
 
 // Normalize 规范化分页参数，返回 (page, size)。
@@ -38,7 +43,7 @@ func (r *PageRequest) Normalize() (int, int) {
 
 // IDRequest 路径参数中的 ID。
 type IDRequest struct {
-	ID int64 `json:"id" uri:"id" example:"1"`
+	ID int64 `json:"id" uri:"id" example:"1" validate:"required,gte=1"`
 }
 
 // ──────────────────────────────────────────────
@@ -47,12 +52,12 @@ type IDRequest struct {
 
 // CreateUserRequest 创建用户请求体。
 type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required,min=1,max=100"`
-	Email string `json:"email" binding:"required,email"`
-	Phone string `json:"phone" binding:"omitempty,max=20"`
+	Name  string `json:"name" binding:"required,min=1,max=100" validate:"required,min=1,max=100"`
+	Email string `json:"email" binding:"required,email" validate:"required,email"`
+	Phone string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
 }
 
-// UpdateUserRequest 更新用户请求体（所有字段可选）。
+// UpdateUserRequest 更新用户请求体（所有字段可选，指针类型 nil 表示不更新）。
 type UpdateUserRequest struct {
 	Name  *string `json:"name" binding:"omitempty,min=1,max=100"`
 	Email *string `json:"email" binding:"omitempty,email"`
@@ -65,13 +70,13 @@ type UpdateUserRequest struct {
 
 // LoginRequest 登录请求体。
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username string `json:"username" binding:"required" validate:"required,min=1,max=50"`
+	Password string `json:"password" binding:"required" validate:"required,min=6,max=128"`
 }
 
 // RefreshRequest 刷新 token 请求体。
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required" validate:"required"`
 }
 
 // TokenResponse 登录/刷新成功响应。

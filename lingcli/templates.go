@@ -39,6 +39,7 @@ type TemplateData struct {
 	HasJWT            bool
 	HasResponse       bool
 	HasI18n           bool
+	HasValidate       bool
 	IsEnvConfig       bool
 	IsYAMLConfig      bool
 
@@ -172,6 +173,7 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		HasJWT:            spec.HasModule("jwt"),
 		HasResponse:       spec.HasModule("response"),
 		HasI18n:           spec.HasModule("i18n"),
+		HasValidate:       spec.HasModule("validate"),
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
 		Mode:              spec.Mode,

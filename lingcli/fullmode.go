@@ -65,6 +65,10 @@ var moduleSources = map[string]ModuleSource{
 		ID:   "tracing",
 		Dirs: []string{"tracing"},
 	},
+	"validate": {
+		ID:   "validate",
+		Dirs: []string{"common/validate"},
+	},
 	// 核心依赖（不直接选择，但被其他模块依赖）
 	"logger": {
 		ID:   "logger",

@@ -326,7 +326,7 @@ func runInteractive(spec *ProjectSpec) {
 	// 选择 ling-base 模块。
 	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 9/9: 集成 ling-base 模块 ━━━\x1b[0m")
 	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断/统一响应）")
-	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 22 个模块")
+	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 23 个模块")
 	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成任何模块")
 	fmt.Println()
 	mode := p.Select("请选择模式", 3)

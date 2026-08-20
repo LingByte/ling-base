@@ -11,6 +11,9 @@ import (
 
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
+	{{- if .HasValidate}}
+	"github.com/LingByte/ling-base/common/validate"
+	{{- end}}
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -118,6 +121,12 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
 	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
 
 	user := models.User{Name: req.Name, Email: req.Email, Phone: req.Phone}
 	if h.db == nil {
@@ -148,6 +157,12 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
 	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
 
 	if h.db == nil {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
