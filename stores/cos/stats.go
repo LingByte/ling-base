@@ -3,11 +3,16 @@
 
 // cos StorageStatsProvider implementation.
 //
-// COS does not expose a single "bucket stat" RPC; GetBucketStats paginates
-// the Bucket.Get (ListObjects) API to compute total size and object count.
-// CDN, API request, and origin-fetch statistics require the Tencent Cloud
-// CDN / CloudMonitor APIs which are separate services. They return
-// ErrStatsUnsupported here.
+// Bucket storage statistics paginate the COS Bucket.Get (ListObjects) API.
+//
+// CDN statistics use the Tencent Cloud CDN API (DescribeCdnData) which
+// supports flux (traffic), bandwidth, request, hitRequest, requestHitRate,
+// and statusCode metrics.
+//
+// API request statistics use Tencent Cloud Monitor (GetMonitorData) with
+// the Qce/Cos namespace.
+//
+// Origin-fetch statistics use the Tencent Cloud CDN API (DescribeOriginData).
 
 package cos
 
@@ -19,7 +24,66 @@ import (
 	"github.com/LingByte/ling-base/stores"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
+
+	cdn "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdn/v20180606"
+	cdnCommon "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	monitor "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/monitor/v20180724"
 )
+
+// granularityToInterval converts a Granularity to a Tencent Cloud CDN
+// interval string (minutes).
+func granularityToInterval(g stores.Granularity) string {
+	switch g {
+	case stores.Granularity5Min:
+		return "5min"
+	case stores.GranularityHour:
+		return "hour"
+	case stores.GranularityDay:
+		return "day"
+	case stores.GranularityMonth:
+		return "day"
+	default:
+		return "hour"
+	}
+}
+
+// granularityToPeriod converts a Granularity to a Tencent Cloud Monitor
+// period (seconds as uint64).
+func granularityToPeriod(g stores.Granularity) uint64 {
+	switch g {
+	case stores.Granularity5Min:
+		return 300
+	case stores.GranularityHour:
+		return 3600
+	case stores.GranularityDay:
+		return 86400
+	case stores.GranularityMonth:
+		return 2592000
+	default:
+		return 3600
+	}
+}
+
+// cdnClient creates a Tencent Cloud CDN API client.
+func (s *Store) cdnClient() (*cdn.Client, error) {
+	if s.cfg.SecretID == "" || s.cfg.SecretKey == "" {
+		return nil, fmt.Errorf("Tencent Cloud credentials not configured")
+	}
+	credential := cdnCommon.NewCredential(s.cfg.SecretID, s.cfg.SecretKey)
+	cpf := profile.NewClientProfile()
+	return cdn.NewClient(credential, "", cpf)
+}
+
+// monitorClient creates a Tencent Cloud Monitor client.
+func (s *Store) monitorClient() (*monitor.Client, error) {
+	if s.cfg.SecretID == "" || s.cfg.SecretKey == "" {
+		return nil, fmt.Errorf("Tencent Cloud credentials not configured")
+	}
+	credential := cdnCommon.NewCredential(s.cfg.SecretID, s.cfg.SecretKey)
+	cpf := profile.NewClientProfile()
+	return monitor.NewClient(credential, "", cpf)
+}
 
 // GetBucketStats computes the total storage size and object count for a
 // COS bucket by paginating the Bucket.Get API.
@@ -80,19 +144,300 @@ func (s *Store) GetBucketStats(bucket string) (*stores.BucketStats, error) {
 	}, nil
 }
 
-// GetCDNStats is not directly supported by the COS backend. CDN statistics
-// require the Tencent Cloud CDN API (a separate service).
+// GetCDNStats returns CDN statistics from the Tencent Cloud CDN API.
 func (s *Store) GetCDNStats(req *stores.CDNStatsRequest) (*stores.CDNStatsResponse, error) {
-	return nil, stores.ErrStatsUnsupported
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+	client, err := s.cdnClient()
+	if err != nil {
+		return nil, err
+	}
+
+	interval := granularityToInterval(req.Granularity)
+	startTime := req.Range.Start.Format("2006-01-02 15:04:00")
+	endTime := req.Range.End.Format("2006-01-02 15:04:00")
+
+	// Query multiple CDN metrics.
+	metrics := []string{"flux", "bandwidth", "request", "hitRequest", "requestHitRate"}
+	pointsMap := make(map[time.Time]*stores.CDNStatsPoint)
+
+	for _, metric := range metrics {
+		resp, err := client.DescribeCdnData(&cdn.DescribeCdnDataRequest{
+			StartTime:  &startTime,
+			EndTime:    &endTime,
+			Metric:     &metric,
+			Interval:   &interval,
+			Domains:    cdnCommon.StringPtrs(req.Domains),
+		})
+		if err != nil {
+			continue
+		}
+		if resp.Response == nil || resp.Response.Data == nil {
+			continue
+		}
+
+		for _, rd := range resp.Response.Data {
+			if rd.CdnData == nil {
+				continue
+			}
+			for _, cd := range rd.CdnData {
+				if cd.DetailData == nil {
+					continue
+				}
+				for _, td := range cd.DetailData {
+					ts, err := time.Parse("2006-01-02 15:04:00", *td.Time)
+					if err != nil {
+						continue
+					}
+					pt := pointsMap[ts]
+					if pt == nil {
+						pt = &stores.CDNStatsPoint{Timestamp: ts}
+						pointsMap[ts] = pt
+					}
+					v := *td.Value
+					switch metric {
+					case "flux":
+						pt.Traffic += int64(v)
+					case "bandwidth":
+						pt.Bandwidth = v
+					case "request":
+						pt.Requests += int64(v)
+					case "hitRequest":
+						pt.HitRequests += int64(v)
+						pt.MissRequests = pt.Requests - pt.HitRequests
+					}
+				}
+			}
+		}
+	}
+
+	var allPoints []stores.CDNStatsPoint
+	for _, pt := range pointsMap {
+		allPoints = append(allPoints, *pt)
+	}
+	sortCDNPointsByTime(allPoints)
+
+	summary := stores.CDNStatsSummary{}
+	for _, p := range allPoints {
+		summary.TotalTraffic += p.Traffic
+		summary.TotalRequests += p.Requests
+		summary.TotalHitRequests += p.HitRequests
+		if p.Bandwidth > summary.PeakBandwidth {
+			summary.PeakBandwidth = p.Bandwidth
+		}
+	}
+	if summary.TotalRequests > 0 {
+		summary.HitRatio = float64(summary.TotalHitRequests) / float64(summary.TotalRequests)
+	}
+
+	return &stores.CDNStatsResponse{
+		Domains: req.Domains,
+		Points:  allPoints,
+		Summary: summary,
+	}, nil
 }
 
-// GetAPIRequestStats is not directly supported by the COS backend. API
-// request metrics are available via CloudMonitor (a separate service).
+// GetAPIRequestStats returns COS API request statistics from Tencent
+// Cloud Monitor.
 func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStatsResponse, error) {
-	return nil, stores.ErrStatsUnsupported
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+	client, err := s.monitorClient()
+	if err != nil {
+		return nil, err
+	}
+	bucket := s.resolveBucket(req.Bucket)
+	period := granularityToPeriod(req.Granularity)
+	startTime := req.Range.Start.Format("2006-01-02T15:04:00+08:00")
+	endTime := req.Range.End.Format("2006-01-02T15:04:00+08:00")
+
+	// COS metrics in Tencent Cloud Monitor.
+	metrics := []struct {
+		name string
+		set  func(pt *stores.APIStatsPoint, v float64)
+	}{
+		{"ReadRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.GetRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"WriteRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.PutRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"DeleteRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.DeleteRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"HeadRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.HeadRequests += int64(v); pt.TotalRequests += int64(v) }},
+		{"UploadBytes", func(pt *stores.APIStatsPoint, v float64) { pt.UploadBytes += int64(v) }},
+		{"DownloadBytes", func(pt *stores.APIStatsPoint, v float64) { pt.DownloadBytes += int64(v) }},
+		{"4xxErrorRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
+		{"5xxErrorRequestsTotal", func(pt *stores.APIStatsPoint, v float64) { pt.ErrorRequests += int64(v) }},
+	}
+
+	pointsMap := make(map[time.Time]*stores.APIStatsPoint)
+
+	for _, m := range metrics {
+		resp, err := client.GetMonitorData(&monitor.GetMonitorDataRequest{
+			Namespace:  &[]string{"Qce/Cos"}[0],
+			MetricName: &m.name,
+			Period:     &period,
+			StartTime:  &startTime,
+			EndTime:    &endTime,
+			Instances: []*monitor.Instance{{
+				Dimensions: []*monitor.Dimension{{
+					Name:  &[]string{"bucket"}[0],
+					Value: &bucket,
+				}},
+			}},
+		})
+		if err != nil {
+			continue
+		}
+		if resp.Response == nil || resp.Response.DataPoints == nil {
+			continue
+		}
+
+		for _, dp := range resp.Response.DataPoints {
+			if dp.Timestamps == nil || dp.Values == nil {
+				continue
+			}
+			for i, ts := range dp.Timestamps {
+				t := time.Unix(int64(*ts), 0)
+				pt := pointsMap[t]
+				if pt == nil {
+					pt = &stores.APIStatsPoint{Timestamp: t}
+					pointsMap[t] = pt
+				}
+				m.set(pt, *dp.Values[i])
+			}
+		}
+	}
+
+	var allPoints []stores.APIStatsPoint
+	for _, pt := range pointsMap {
+		allPoints = append(allPoints, *pt)
+	}
+	sortAPIPointsByTime(allPoints)
+
+	summary := stores.APIStatsSummary{}
+	for _, p := range allPoints {
+		summary.TotalRequests += p.TotalRequests
+		summary.UploadBytes += p.UploadBytes
+		summary.DownloadBytes += p.DownloadBytes
+		summary.ErrorRequests += p.ErrorRequests
+	}
+	if summary.TotalRequests > 0 {
+		summary.ErrorRate = float64(summary.ErrorRequests) / float64(summary.TotalRequests)
+	}
+
+	return &stores.APIStatsResponse{Points: allPoints, Summary: summary}, nil
 }
 
-// GetOriginFetchStats is not directly supported by the COS backend.
+// GetOriginFetchStats returns origin-fetch statistics from the Tencent
+// Cloud CDN API (DescribeOriginData).
 func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.OriginStatsResponse, error) {
-	return nil, stores.ErrStatsUnsupported
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+	client, err := s.cdnClient()
+	if err != nil {
+		return nil, err
+	}
+
+	interval := granularityToInterval(req.Granularity)
+	startTime := req.Range.Start.Format("2006-01-02 15:04:00")
+	endTime := req.Range.End.Format("2006-01-02 15:04:00")
+
+	// Origin metrics: flux (origin traffic), request (origin requests).
+	metrics := []string{"flux", "request"}
+	pointsMap := make(map[time.Time]*stores.OriginStatsPoint)
+
+	for _, metric := range metrics {
+		resp, err := client.DescribeOriginData(&cdn.DescribeOriginDataRequest{
+			StartTime: &startTime,
+			EndTime:   &endTime,
+			Metric:    &metric,
+			Interval:  &interval,
+			Domains:   cdnCommon.StringPtrs(req.Domains),
+		})
+		if err != nil {
+			continue
+		}
+		if resp.Response == nil || resp.Response.Data == nil {
+			continue
+		}
+
+		for _, rd := range resp.Response.Data {
+			if rd.OriginData == nil {
+				continue
+			}
+			for _, od := range rd.OriginData {
+				if od.DetailData == nil {
+					continue
+				}
+				for _, td := range od.DetailData {
+					ts, err := time.Parse("2006-01-02 15:04:00", *td.Time)
+					if err != nil {
+						continue
+					}
+					pt := pointsMap[ts]
+					if pt == nil {
+						pt = &stores.OriginStatsPoint{Timestamp: ts}
+						pointsMap[ts] = pt
+					}
+					v := *td.Value
+					switch metric {
+					case "flux":
+						pt.OriginTraffic += int64(v)
+					case "request":
+						pt.OriginRequests += int64(v)
+					}
+				}
+			}
+		}
+	}
+
+	var allPoints []stores.OriginStatsPoint
+	for _, pt := range pointsMap {
+		allPoints = append(allPoints, *pt)
+	}
+	sortOriginPointsByTime(allPoints)
+
+	summary := stores.OriginStatsSummary{}
+	for _, p := range allPoints {
+		summary.TotalOriginTraffic += p.OriginTraffic
+		summary.TotalOriginRequests += p.OriginRequests
+		summary.TotalFailedRequests += p.FailedRequests
+	}
+	if summary.TotalOriginRequests > 0 {
+		summary.FailureRate = float64(summary.TotalFailedRequests) / float64(summary.TotalOriginRequests)
+	}
+
+	return &stores.OriginStatsResponse{Points: allPoints, Summary: summary}, nil
+}
+
+// ─── helpers ───
+
+func sortCDNPointsByTime(points []stores.CDNStatsPoint) {
+	for i := 0; i < len(points); i++ {
+		for j := i + 1; j < len(points); j++ {
+			if points[i].Timestamp.After(points[j].Timestamp) {
+				points[i], points[j] = points[j], points[i]
+			}
+		}
+	}
+}
+
+func sortAPIPointsByTime(points []stores.APIStatsPoint) {
+	for i := 0; i < len(points); i++ {
+		for j := i + 1; j < len(points); j++ {
+			if points[i].Timestamp.After(points[j].Timestamp) {
+				points[i], points[j] = points[j], points[i]
+			}
+		}
+	}
+}
+
+func sortOriginPointsByTime(points []stores.OriginStatsPoint) {
+	for i := 0; i < len(points); i++ {
+		for j := i + 1; j < len(points); j++ {
+			if points[i].Timestamp.After(points[j].Timestamp) {
+				points[i], points[j] = points[j], points[i]
+			}
+		}
+	}
 }

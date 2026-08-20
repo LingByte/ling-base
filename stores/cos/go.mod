@@ -4,6 +4,9 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/stores v0.0.0
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdn v1.3.154
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.164
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/monitor v1.3.164
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.75
 )
 

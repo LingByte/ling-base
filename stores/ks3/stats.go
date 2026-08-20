@@ -3,10 +3,16 @@
 
 // ks3 StorageStatsProvider implementation.
 //
-// Kingsoft KS3 uses an S3-compatible API; GetBucketStats paginates
-// ListObjects to compute total size and object count. CDN, API request,
-// and origin-fetch statistics require the Kingsoft Cloud CDN / Monitor
-// APIs which are separate services. They return ErrStatsUnsupported here.
+// Bucket storage statistics paginate the KS3 ListObjects API to compute
+// total size and object count.
+//
+// CDN, API request, and origin-fetch statistics require the Kingsoft Cloud
+// CDN / Monitor APIs. The Kingsoft Cloud Go SDK (github.com/kingsoftcloud/sdk-go)
+// provides CDN API clients (GetServerData, GetClientRequestData) but the
+// response model is incomplete — the Data field lacks Value/Count fields
+// needed to parse metric values. Until the SDK model is complete, these
+// dimensions return ErrStatsUnsupported. Users can implement custom HTTP
+// clients against the Kingsoft Cloud CDN API if needed.
 
 package ks3
 
@@ -72,18 +78,21 @@ func (s *Store) GetBucketStats(bucket string) (*stores.BucketStats, error) {
 	}, nil
 }
 
-// GetCDNStats is not directly supported by the KS3 backend. CDN statistics
-// require the Kingsoft Cloud CDN API (a separate service).
+// GetCDNStats is not supported because the Kingsoft Cloud Go SDK's CDN
+// response model is incomplete (missing Value fields in Data entries).
+// Requires a custom HTTP client against the Kingsoft Cloud CDN API.
 func (s *Store) GetCDNStats(req *stores.CDNStatsRequest) (*stores.CDNStatsResponse, error) {
 	return nil, stores.ErrStatsUnsupported
 }
 
-// GetAPIRequestStats is not directly supported by the KS3 backend.
+// GetAPIRequestStats is not supported because the Kingsoft Cloud Go SDK
+// does not expose KS3 API request metrics.
 func (s *Store) GetAPIRequestStats(req *stores.APIStatsRequest) (*stores.APIStatsResponse, error) {
 	return nil, stores.ErrStatsUnsupported
 }
 
-// GetOriginFetchStats is not directly supported by the KS3 backend.
+// GetOriginFetchStats is not supported because the Kingsoft Cloud Go SDK's
+// CDN response model is incomplete. Requires a custom HTTP client.
 func (s *Store) GetOriginFetchStats(req *stores.OriginStatsRequest) (*stores.OriginStatsResponse, error) {
 	return nil, stores.ErrStatsUnsupported
 }
