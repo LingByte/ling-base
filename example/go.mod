@@ -35,7 +35,7 @@ require (
 	github.com/LingByte/ling-base/common/notification v0.1.1
 	github.com/LingByte/ling-base/common/notification/email v0.1.0
 	github.com/LingByte/ling-base/common/notification/inbox v0.1.1
-	github.com/LingByte/ling-base/common/parser v0.1.0
+	github.com/LingByte/ling-base/common/parser v0.1.1
 	github.com/LingByte/ling-base/common/pool v0.1.0
 	github.com/LingByte/ling-base/common/queue v0.1.0
 	github.com/LingByte/ling-base/common/queue/memory v0.1.0
