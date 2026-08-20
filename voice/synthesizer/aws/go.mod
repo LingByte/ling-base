@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/voice/synthesizer/aws
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/voice/synthesizer v0.1.0
+	github.com/LingByte/ling-base/voice/synthesizer v0.1.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.36
 	github.com/aws/aws-sdk-go-v2/service/polly v1.40.3
 	github.com/sirupsen/logrus v1.9.3
