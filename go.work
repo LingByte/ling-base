@@ -2,6 +2,7 @@ go 1.26.2
 
 use (
 	.
+	./apidocs
 	./bootstrap
 	./censor
 	./censor/aliyun
@@ -26,11 +27,15 @@ use (
 	./common/circuitbreaker
 	./common/compress
 	./common/config
+	./common/constants
 	./common/convert
 	./common/cron
 	./common/crypto
 	./common/eventbus
 	./common/hash
+	./common/i18n
+	./common/i18n/gin
+	./common/i18n/mymemory
 	./common/idgen
 	./common/imageutil
 	./common/jwtutil
@@ -53,10 +58,14 @@ use (
 	./common/lock/redis
 	./common/lock/redlock
 	./common/lock/zookeeper
+	./common/logger
+	./common/logger/gin
 	./common/mathutil
+	./common/metrics
 	./common/migration
 	./common/migration/gormmigrator
 	./common/netutil
+	./common/nltime
 	./common/notification
 	./common/notification/email
 	./common/notification/im
@@ -64,10 +73,16 @@ use (
 	./common/notification/push
 	./common/notification/sms
 	./common/notification/webhook
-	./common/nltime
+	./common/opentelemetry
+	./common/parser
+	./common/passkey
+	./common/password
 	./common/pinyin
 	./common/pool
 	./common/qrcode
+	./common/queue
+	./common/queue/memory
+	./common/queue/redis
 	./common/random
 	./common/response
 	./common/response/gin
@@ -81,19 +96,14 @@ use (
 	./common/stats/gin
 	./common/stats/memory
 	./common/stats/redis
+	./common/system
 	./common/timeutil
+	./common/totp
+	./common/tracing
 	./common/validate
 	./common/videoutil
-	./common/constants
-	./apidocs
 	./example
-	./common/i18n
-	./common/i18n/gin
-	./common/i18n/mymemory
 	./lingcli
-	./common/logger
-	./common/logger/gin
-	./common/metrics
 	./mq
 	./mq/activemq
 	./mq/factory
@@ -108,11 +118,17 @@ use (
 	./ocr/baidu
 	./ocr/google
 	./ocr/qcloud
-	./common/opentelemetry
-	./common/parser
-	./common/queue
-	./common/queue/memory
-	./common/queue/redis
+	./stores
+	./stores/cos
+	./stores/kodo
+	./stores/ks3
+	./stores/local
+	./stores/minio
+	./stores/obs
+	./stores/oss
+	./stores/s3
+	./stores/tos
+	./version
 	./voice/realtime
 	./voice/realtime/aliyunomni
 	./voice/realtime/gemini
@@ -135,16 +151,6 @@ use (
 	./voice/recognizer/volcengine
 	./voice/recognizer/volcengine_llm
 	./voice/recognizer/whisper
-	./stores
-	./stores/cos
-	./stores/kodo
-	./stores/ks3
-	./stores/local
-	./stores/minio
-	./stores/obs
-	./stores/oss
-	./stores/s3
-	./stores/tos
 	./voice/synthesizer
 	./voice/synthesizer/aliyun
 	./voice/synthesizer/aws
@@ -162,9 +168,6 @@ use (
 	./voice/synthesizer/qiniu
 	./voice/synthesizer/volcengine
 	./voice/synthesizer/xunfei
-	./common/system
-	./common/tracing
-	./version
 )
 
 // Force the old monolithic google.golang.org/genproto to a version that no
