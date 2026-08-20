@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   app:
     build:
@@ -29,7 +27,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    profiles: [full, prod]
 
+  # ── 开发依赖（make dev-deps 启动）──
   mysql:
     image: mysql:8.0
     container_name: {{.ProjectName}}-mysql
@@ -47,6 +47,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    profiles: [dev, full, prod]
 
   redis:
     image: redis:7-alpine
@@ -62,6 +63,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    profiles: [dev, full, prod]
 
 volumes:
   mysql_data:

@@ -26,11 +26,27 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ---- 运行阶段 ----
 FROM alpine:3.20
 
+# OCI 标准 LABEL
+LABEL org.opencontainers.image.title="{{.ProjectName}}" \
+      org.opencontainers.image.description="{{.Description}}" \
+      org.opencontainers.image.source="https://github.com/{{.Author}}/{{.ProjectName}}" \
+      org.opencontainers.image.version="${VERSION:-dev}" \
+      org.opencontainers.image.revision="${GIT_COMMIT:-unknown}" \
+      org.opencontainers.image.created="${BUILD_TIME}" \
+      org.opencontainers.image.licenses="MIT"
+
 RUN apk --no-cache add ca-certificates tzdata curl
+
+# 创建非 root 用户
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 COPY --from=builder /app /app/app
 COPY --from=builder /build/configs /app/configs
+
+# 确保非 root 用户有执行权限
+RUN chown -R appuser:appgroup /app
+USER appuser
 
 ENV TZ=Asia/Shanghai
 ENV APP_APP_ENVIRONMENT=prod

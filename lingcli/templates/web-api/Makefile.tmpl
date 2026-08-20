@@ -6,7 +6,9 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)
 
-.PHONY: all build run dev debug test test-race test-cover benchmark vet lint fmt fmt-check tidy clean docker-build docker-up docker-down migrate release release-patch release-minor release-major help
+.DEFAULT_GOAL := help
+
+.PHONY: all build run dev debug test test-race test-cover coverage-badge benchmark vet lint fmt fmt-check tidy vuln clean docker-build docker-up docker-down dev-deps seed migrate migrate-down migrate-status release release-patch release-minor release-major help
 
 all: build
 
@@ -41,6 +43,18 @@ test-cover:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool cover -func=coverage.txt
 
+## coverage-badge: 生成覆盖率徽章（供 README 引用）
+coverage-badge:
+	@go test -coverprofile=coverage.txt -covermode=atomic ./... 2>/dev/null
+	@COV=$$(go tool cover -func=coverage.txt | grep total | awk '{print $$3}' | sed 's/%//'); \
+	INT=$$(echo $$COV | cut -d. -f1); \
+	if [ $$INT -ge 80 ]; then COLOR=brightgreen; \
+	elif [ $$INT -ge 60 ]; then COLOR=yellow; \
+	elif [ $$INT -ge 40 ]; then COLOR=orange; \
+	else COLOR=red; fi; \
+	echo "覆盖率: $$COV% → $$COLOR"; \
+	echo "![coverage](https://img.shields.io/badge/coverage-$${COV}%25-$$COLOR)" > coverage-badge.md
+
 ## benchmark: 基准测试
 benchmark:
 	go test -bench=. -benchmem -count=3 ./...
@@ -66,21 +80,40 @@ fmt-check:
 tidy:
 	go mod tidy
 
+## vuln: 漏洞扫描（需要 govulncheck: go install golang.org/x/vuln/cmd/govulncheck@latest）
+vuln:
+	@command -v govulncheck >/dev/null 2>&1 || { echo "请先安装 govulncheck: go install golang.org/x/vuln/cmd/govulncheck@latest"; exit 1; }
+	govulncheck ./...
+
 ## clean: 清理构建产物
 clean:
-	rm -rf bin/ dist/ coverage.txt data/
+	rm -rf bin/ dist/ coverage.txt coverage-badge.md data/
 
 ## docker-build: 构建 Docker 镜像
 docker-build:
 	docker build -f docker/Dockerfile -t $(APP):$(VERSION) .
 
-## docker-up: 启动 Docker Compose
+## docker-up: 启动完整 Docker Compose（app + mysql + redis）
 docker-up:
-	docker compose -f docker/docker-compose.yml up -d
+	docker compose -f docker/docker-compose.yml --profile full up -d
 
 ## docker-down: 停止 Docker Compose
 docker-down:
-	docker compose -f docker/docker-compose.yml down
+	docker compose -f docker/docker-compose.yml --profile full down
+
+## dev-deps: 只启动开发依赖（mysql + redis，不启动 app）
+dev-deps:
+	docker compose -f docker/docker-compose.yml --profile dev up -d
+
+## seed: 插入示例数据（方便开发调试）
+seed:
+	@echo "==> 插入示例数据..."
+	@go run -ldflags "$(LDFLAGS)" ./cmd/... -seed 2>/dev/null || \
+		echo "提示: 在 cmd/server/main.go 中实现 -seed flag 或手动执行 SQL:"
+	@echo "  INSERT INTO users (name, email, phone) VALUES"
+	@echo "    ('Alice', 'alice@example.com', '13800000001'),"
+	@echo "    ('Bob',   'bob@example.com',   '13800000002'),"
+	@echo "    ('Carol', 'carol@example.com', '13800000003');"
 
 ## migrate: 执行数据库迁移
 migrate:
@@ -130,6 +163,10 @@ release-major:
 	git tag -a $$NEXT -m "Release $$NEXT"; \
 	git push origin $$NEXT'
 
-## help: 显示帮助
+## help: 显示此帮助
 help:
-	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## //'
+	@echo "用法: make <target>"
+	@echo ""
+	@echo "可用命令:"
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## //;s/:/\n    /' | \
+		awk 'NR%2==1 {printf "  \033[36m%-20s\033[0m", $$1} NR%2==0 {printf "  %s\n", $$1}'

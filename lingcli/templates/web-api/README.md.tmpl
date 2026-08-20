@@ -178,7 +178,9 @@ open http://localhost:{{.Port}}/docs
 | `APP_RATELIMIT_ENABLED` | 启用限流 | `true` |
 | `APP_RATELIMIT_RPS` | 限流 RPS | `100` |
 
-## Docker 部署
+## 部署
+
+### Docker
 
 ```bash
 # 构建镜像（注入版本信息）
@@ -188,12 +190,63 @@ docker build -f docker/Dockerfile \
     --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
     -t {{.ProjectName}} .
 
-# 运行容器
+# 运行容器（非 root 用户运行）
 docker run -p {{.Port}}:{{.Port}} --rm {{.ProjectName}}
-
-# 或使用 Docker Compose（含 MySQL + Redis）
-docker compose -f docker/docker-compose.yml up -d
 ```
+
+### Docker Compose
+
+```bash
+# 完整启动（app + mysql + redis）
+make docker-up
+# 或: docker compose -f docker/docker-compose.yml --profile full up -d
+
+# 只启动开发依赖（mysql + redis，本地 go run 调试时用）
+make dev-deps
+# 或: docker compose -f docker/docker-compose.yml --profile dev up -d
+
+# 停止
+make docker-down
+```
+
+Compose 使用 profiles 分离环境：
+- `--profile dev`: 只启动 mysql + redis（本地开发调试）
+- `--profile full`: 启动 app + mysql + redis（完整环境）
+- `--profile prod`: 同 full，但使用生产配置
+
+### Kubernetes 提示
+
+本项目已提供 K8s 探针端点：
+
+| 探针 | 端点 | 用途 |
+|------|------|------|
+| livenessProbe | `/live` | 进程是否存活 |
+| readinessProbe | `/ready` | 是否准备好接收流量 |
+| startupProbe | `/health` | 启动是否完成 |
+
+K8s Deployment 示例片段：
+```yaml
+livenessProbe:
+  httpGet:
+    path: /live
+    port: {{.Port}}
+  initialDelaySeconds: 10
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: {{.Port}}
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+### 安全注意事项
+
+- Docker 容器以非 root 用户 (`appuser`) 运行
+- 生产环境必须修改 `APP_JWT_SECRET`（至少 16 字符）
+- 生产环境必须配置 `APP_DATABASE_DSN`（启动时校验）
+- 定期运行 `make vuln` 检查依赖漏洞
+- 不要将 `configs/.env` 或含密钥的文件提交到 git
 
 ## Make 命令
 
@@ -201,18 +254,33 @@ docker compose -f docker/docker-compose.yml up -d
 |------|------|
 | `make build` | 编译项目（注入版本信息） |
 | `make run` | 本地运行 |
+| `make dev` | 热重载运行（air） |
+| `make debug` | Delve 调试 |
 | `make test` | 运行测试 |
 | `make test-race` | 竞态检测 |
 | `make test-cover` | 测试覆盖率 |
+| `make coverage-badge` | 生成覆盖率徽章 |
 | `make benchmark` | 基准测试 |
 | `make vet` | 静态检查 |
 | `make lint` | golangci-lint |
 | `make fmt` | 格式化代码 |
 | `make fmt-check` | 检查格式化 |
+| `make tidy` | 整理依赖 |
+| `make vuln` | 漏洞扫描（govulncheck） |
 | `make clean` | 清理产物 |
-| `make docker-build` | 构建 Docker 镜像（docker/Dockerfile） |
-| `make docker-up` | 启动 Docker Compose（docker/docker-compose.yml） |
+| `make docker-build` | 构建 Docker 镜像 |
+| `make docker-up` | 启动完整 Docker Compose |
 | `make docker-down` | 停止 Docker Compose |
+| `make dev-deps` | 只启动开发依赖（mysql + redis） |
+| `make seed` | 插入示例数据 |
+| `make migrate` | 执行数据库迁移 |
+| `make migrate-down` | 回滚数据库迁移 |
+| `make migrate-status` | 查看迁移状态 |
+| `make release v=v1.0.0` | 打 tag 并推送 |
+| `make release-patch` | 自动 patch 版本 |
+| `make release-minor` | 自动 minor 版本 |
+| `make release-major` | 自动 major 版本 |
+| `make help` | 显示帮助 |
 
 ## API 端点
 

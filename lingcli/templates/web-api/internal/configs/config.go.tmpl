@@ -201,7 +201,74 @@ func Load(path string) (*Config, error) {
 		applyEnvOverrides(cfg)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("配置校验失败: %w", err)
+	}
+
 	return cfg, nil
+}
+
+// Validate 校验配置的完整性和合法性。
+// 在 Load() 最后调用，启动时即可发现配置错误。
+func (c *Config) Validate() error {
+	var errs []string
+
+	// Server
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		errs = append(errs, "server.port 必须在 1-65535 之间")
+	}
+	if c.Server.ReadTimeout < 0 {
+		errs = append(errs, "server.read_timeout 不能为负数")
+	}
+	if c.Server.WriteTimeout < 0 {
+		errs = append(errs, "server.write_timeout 不能为负数")
+	}
+
+	// Database（生产环境必须配置 DSN）
+	if c.App.Environment == "prod" && c.Database.DSN == "" {
+		errs = append(errs, "生产环境 database.dsn 不能为空")
+	}
+
+	// JWT
+	if c.JWT.Enabled {
+		if c.JWT.Secret == "" {
+			errs = append(errs, "jwt.enabled=true 时 jwt.secret 不能为空")
+		}
+		if len(c.JWT.Secret) > 0 && len(c.JWT.Secret) < 16 {
+			errs = append(errs, "jwt.secret 长度不能少于 16 字符（安全要求）")
+		}
+		if c.JWT.AccessTTL == "" {
+			errs = append(errs, "jwt.enabled=true 时 jwt.accessTTL 不能为空")
+		}
+	}
+
+	// RateLimit
+	if c.RateLimit.Enabled {
+		if c.RateLimit.RPS <= 0 {
+			errs = append(errs, "rate_limit.enabled=true 时 rate_limit.rps 必须 > 0")
+		}
+	}
+
+	// CircuitBreaker
+	if c.CircuitBreaker.Enabled {
+		if c.CircuitBreaker.FailureThreshold <= 0 {
+			errs = append(errs, "circuit_breaker.enabled=true 时 failureThreshold 必须 > 0")
+		}
+	}
+
+	{{- if .HasI18n}}
+	// I18n
+	if c.I18n.Enabled {
+		if c.I18n.DefaultLocale == "" {
+			errs = append(errs, "i18n.enabled=true 时 default_locale 不能为空")
+		}
+	}
+	{{- end}}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 // loadDotEnv 解析 .env 文件内容（KEY=VALUE 格式），
