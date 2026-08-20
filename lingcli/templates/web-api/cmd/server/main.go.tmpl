@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/apidocs"
 	{{- end}}
 	"github.com/LingByte/ling-base/bootstrap"
-	"github.com/LingByte/ling-base/constants"
+	"github.com/LingByte/ling-base/common/constants"
 	{{- if .HasJWT}}
 	"github.com/LingByte/ling-base/common/jwtutil"
 	jwtingin "github.com/LingByte/ling-base/common/jwtutil/gin"
@@ -31,7 +31,7 @@ import (
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	"github.com/LingByte/ling-base/common/response"
 	{{- end}}
-	"github.com/LingByte/ling-base/logger"
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/middleware"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

@@ -59,11 +59,11 @@ var moduleSources = map[string]ModuleSource{
 	},
 	"metrics": {
 		ID:   "metrics",
-		Dirs: []string{"metrics"},
+		Dirs: []string{"common/metrics"},
 	},
 	"tracing": {
 		ID:   "tracing",
-		Dirs: []string{"tracing"},
+		Dirs: []string{"common/tracing"},
 	},
 	"validate": {
 		ID:   "validate",
@@ -72,12 +72,12 @@ var moduleSources = map[string]ModuleSource{
 	// 核心依赖（不直接选择，但被其他模块依赖）
 	"logger": {
 		ID:   "logger",
-		Dirs: []string{"logger", "logger/gin"},
+		Dirs: []string{"common/logger", "common/logger/gin"},
 		Deps: []string{"constants"},
 	},
 	"constants": {
 		ID:   "constants",
-		Dirs: []string{"constants"},
+		Dirs: []string{"common/constants"},
 	},
 	"bootstrap": {
 		ID:   "bootstrap",
