@@ -7,12 +7,21 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/LingByte/ling-base/relay/task/taskcommon"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel"
 )
+
+// sunoSubmitResponse mirrors the upstream Suno submit response shape
+// (Code is an int, 200 means success) used by the library-mode client.
+type sunoSubmitResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message,omitempty"`
+	Data    string `json:"data,omitempty"`
+}
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
@@ -32,31 +41,19 @@ func (a *TaskAdaptor) Init(info *common.RelayInfo) {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c context.Context, info *common.RelayInfo) (taskErr *common.TaskError) {
-	// TODO: not supported in library mode
-	// action := strings.ToUpper(c.Param("action"))
-	//
-	// var sunoRequest *dto.SunoSubmitReq
-	// err := json.UnmarshalBodyReusable(c, &sunoRequest)
-	// if err != nil {
-	// 	taskErr = service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
-	// 	return
-	// }
-	// err = actionValidate(c, sunoRequest, action)
-	// if err != nil {
-	// 	taskErr = service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
-	// 	return
-	// }
-	//
-	// //if sunoRequest.ContinueClipId != "" {
-	// //	if sunoRequest.TaskID == "" {
-	// //		taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("task id is empty"), "invalid_request", http.StatusBadRequest)
-	// //		return
-	// //	}
-	// //	info.OriginTaskID = sunoRequest.TaskID
-	// //}
-	//
-	// info.Action = action
-	// // c.Set("task_request", sunoRequest)
+	if info.Action == "" {
+		return service.TaskErrorWrapper(fmt.Errorf("action is required"), "invalid_action", http.StatusBadRequest)
+	}
+	action := strings.ToUpper(info.Action)
+	switch action {
+	case "MUSIC":
+		// defaults (e.g. Mv="chirp-v3-0") are handled by the caller via Client.SubmitSunoTask
+	case "LYRICS":
+		// caller must provide a non-empty prompt via Client.SubmitSunoTask
+	default:
+		return service.TaskErrorWrapper(fmt.Errorf("invalid action: %s", action), "invalid_action", http.StatusBadRequest)
+	}
+	info.Action = action
 	return nil
 }
 
@@ -74,17 +71,8 @@ func (a *TaskAdaptor) BuildRequestHeader(c context.Context, req *http.Request, i
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c context.Context, info *common.RelayInfo) (io.Reader, error) {
-	// TODO: not supported in library mode
-	// sunoRequest, ok := c.Get("task_request")
-	// if !ok {
-	// 	return nil, fmt.Errorf("task_request not found in context")
-	// }
-	// data, err := json.Marshal(sunoRequest)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return bytes.NewReader(data), nil
-	return nil, fmt.Errorf("not supported in library mode")
+	// In library mode, the request body is provided by the caller via Client.SubmitTask.
+	return nil, nil
 }
 
 func (a *TaskAdaptor) DoRequest(c context.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
@@ -97,27 +85,17 @@ func (a *TaskAdaptor) DoResponse(c context.Context, resp *http.Response, info *c
 		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 		return
 	}
-	// TODO: not supported in library mode
-	// var sunoResponse dto.TaskResponse[string]
-	// err = json.Unmarshal(responseBody, &sunoResponse)
-	// if err != nil {
-	// 	taskErr = service.TaskErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError)
-	// 	return
-	// }
-	// if !sunoResponse.IsSuccess() {
-	// 	taskErr = service.TaskErrorWrapper(fmt.Errorf("%s", sunoResponse.Message), sunoResponse.Code, http.StatusInternalServerError)
-	// 	return
-	// }
-	//
-	// // 使用公开 task_xxxx ID 替换上游 ID 返回给客户端
-	// publicResponse := dto.TaskResponse[string]{
-	// 	Code:    sunoResponse.Code,
-	// 	Message: sunoResponse.Message,
-	// 	Data:    info.PublicTaskID,
-	// }
-	// c.JSON(http.StatusOK, publicResponse)
-
-	return string(responseBody), responseBody, nil
+	var sunoResponse sunoSubmitResponse
+	err = json.Unmarshal(responseBody, &sunoResponse)
+	if err != nil {
+		taskErr = service.TaskErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError)
+		return
+	}
+	if sunoResponse.Code != 200 {
+		taskErr = service.TaskErrorWrapper(fmt.Errorf("suno error: %s", sunoResponse.Message), "suno_error", http.StatusBadRequest)
+		return
+	}
+	return sunoResponse.Data, responseBody, nil
 }
 
 func (a *TaskAdaptor) GetModelList() []string {

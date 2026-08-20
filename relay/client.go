@@ -24,11 +24,14 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1573,6 +1576,722 @@ func parseImageResponse(body []byte, model, provider string, usage meter.Usage) 
 func parseError(resp *http.Response, provider string) error {
 	body, _ := io.ReadAll(resp.Body)
 	return fmt.Errorf("relay: provider=%s HTTP %d: %s", provider, resp.StatusCode, string(body))
+}
+
+// ─── Completions (legacy text completions) ──────────────────────
+
+// CompletionsRequest is the legacy OpenAI /v1/completions request.
+type CompletionsRequest struct {
+	Model       string          `json:"model"`
+	Prompt      json.RawMessage `json:"prompt"` // string or []string
+	MaxTokens   *int            `json:"max_tokens,omitempty"`
+	Temperature *float64        `json:"temperature,omitempty"`
+	TopP        *float64        `json:"top_p,omitempty"`
+	Stream      bool            `json:"stream,omitempty"`
+	Stop        json.RawMessage `json:"stop,omitempty"`
+	N           *int            `json:"n,omitempty"`
+	User        string          `json:"user,omitempty"`
+}
+
+// CompletionsResponse is the legacy completions response.
+type CompletionsResponse struct {
+	ID      string          `json:"id"`
+	Model   string          `json:"model"`
+	Choices []json.RawMessage `json:"choices"`
+	Usage   meter.Usage     `json:"usage"`
+	Provider string         `json:"provider"`
+}
+
+// Completions sends a legacy text completion request (/v1/completions).
+func (c *Client) Completions(ctx context.Context, req *CompletionsRequest) (*CompletionsResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeCompletions, req.Model, req.Stream)
+	adaptor.Init(info)
+
+	openaiReq := &dto.GeneralOpenAIRequest{
+		Model:       req.Model,
+		Prompt:      req.Prompt,
+	}
+	if req.Stream {
+		streamVal := true
+		openaiReq.Stream = &streamVal
+	}
+	if req.User != "" {
+		openaiReq.User = json.RawMessage(marshalString(req.User))
+	}
+	if req.MaxTokens != nil {
+		maxTokens := uint(*req.MaxTokens)
+		openaiReq.MaxTokens = &maxTokens
+	}
+	if req.Temperature != nil {
+		openaiReq.Temperature = req.Temperature
+	}
+	if req.TopP != nil {
+		openaiReq.TopP = req.TopP
+	}
+	if req.N != nil {
+		openaiReq.N = req.N
+	}
+	openaiReq.Stop = req.Stop
+
+	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert completions request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal completions request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if req.Stream {
+		httpReq.Header.Set("Accept", "text/event-stream")
+	}
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse completions response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return &CompletionsResponse{
+		Model:    req.Model,
+		Choices:  []json.RawMessage{json.RawMessage(dummyW.Bytes())},
+		Usage:    usage,
+		Provider: c.provider.Name(),
+	}, nil
+}
+
+// ─── Moderations ────────────────────────────────────────────────
+
+// ModerationsRequest is the /v1/moderations request.
+type ModerationsRequest struct {
+	Model string `json:"model,omitempty"`
+	Input any    `json:"input"` // string or []string
+}
+
+// Moderations sends a content moderation request.
+func (c *Client) Moderations(ctx context.Context, req *ModerationsRequest) (*dto.ModerationResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeModerations, req.Model, false)
+	adaptor.Init(info)
+
+	// Moderations uses the OpenAI request format with Prompt field carrying input.
+	openaiReq := &dto.GeneralOpenAIRequest{
+		Model:  req.Model,
+		Prompt: req.Input,
+	}
+
+	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert moderations request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal moderations request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var modResp dto.ModerationResponse
+	if err := json.Unmarshal(body, &modResp); err != nil {
+		return nil, fmt.Errorf("relay: parse moderations response: %w", err)
+	}
+
+	c.record(ctx, req.Model, meter.Usage{RequestCount: 1})
+
+	return &modResp, nil
+}
+
+// ─── Images Edits ───────────────────────────────────────────────
+
+// ImageEditRequest is the /v1/images/edits request (multipart form).
+type ImageEditRequest struct {
+	Model  string
+	Prompt string
+	Image  []byte    // original image bytes
+	Mask   []byte    // optional mask bytes
+	N      *int
+	Size   string
+	User   string
+}
+
+// ImageEdit sends an image edit request (/v1/images/edits).
+// The response body is returned as raw bytes.
+func (c *Client) ImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeImagesEdits, req.Model, false)
+	adaptor.Init(info)
+
+	// Build multipart form.
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	_ = writer.WriteField("model", req.Model)
+	_ = writer.WriteField("prompt", req.Prompt)
+	if req.Size != "" {
+		_ = writer.WriteField("size", req.Size)
+	}
+	if req.User != "" {
+		_ = writer.WriteField("user", req.User)
+	}
+	if req.N != nil {
+		_ = writer.WriteField("n", strconv.Itoa(*req.N))
+	}
+
+	if len(req.Image) > 0 {
+		part, err := writer.CreateFormFile("image", "image.png")
+		if err != nil {
+			return nil, fmt.Errorf("relay: create image form field: %w", err)
+		}
+		if _, err := part.Write(req.Image); err != nil {
+			return nil, fmt.Errorf("relay: write image data: %w", err)
+		}
+	}
+	if len(req.Mask) > 0 {
+		part, err := writer.CreateFormFile("mask", "mask.png")
+		if err != nil {
+			return nil, fmt.Errorf("relay: create mask form field: %w", err)
+		}
+		if _, err := part.Write(req.Mask); err != nil {
+			return nil, fmt.Errorf("relay: write mask data: %w", err)
+		}
+	}
+	_ = writer.Close()
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, &buf)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", writer.FormDataContentType())
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse image edit response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return parseImageResponse(dummyW.Bytes(), req.Model, c.provider.Name(), usage)
+}
+
+// ─── Edits (legacy text edits) ──────────────────────────────────
+
+// EditRequest is the legacy /v1/edits request.
+type EditRequest struct {
+	Model      string `json:"model"`
+	Input      string `json:"input"`
+	Instruction string `json:"instruction"`
+	N          *int   `json:"n,omitempty"`
+	Temperature *float64 `json:"temperature,omitempty"`
+	TopP       *float64 `json:"top_p,omitempty"`
+}
+
+// Edit sends a legacy text edit request (/v1/edits).
+func (c *Client) Edit(ctx context.Context, req *EditRequest) (*CompletionsResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeEdits, req.Model, false)
+	adaptor.Init(info)
+
+	openaiReq := &dto.GeneralOpenAIRequest{
+		Model:       req.Model,
+		Input:       req.Input,
+		Instruction: req.Instruction,
+	}
+	if req.N != nil {
+		openaiReq.N = req.N
+	}
+	if req.Temperature != nil {
+		openaiReq.Temperature = req.Temperature
+	}
+	if req.TopP != nil {
+		openaiReq.TopP = req.TopP
+	}
+
+	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert edit request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal edit request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse edit response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return &CompletionsResponse{
+		Model:    req.Model,
+		Choices:  []json.RawMessage{json.RawMessage(dummyW.Bytes())},
+		Usage:    usage,
+		Provider: c.provider.Name(),
+	}, nil
+}
+
+// ─── Gemini native format ───────────────────────────────────────
+
+// GeminiChatRequest is the native Gemini generateContent request.
+type GeminiChatRequest = dto.GeminiChatRequest
+
+// GeminiChatResponse is the native Gemini generateContent response.
+type GeminiChatResponse = dto.GeminiChatResponse
+
+// GeminiChat sends a native Gemini generateContent request.
+func (c *Client) GeminiChat(ctx context.Context, req *GeminiChatRequest, model string) (*GeminiChatResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeGemini, model, false)
+	adaptor.Init(info)
+
+	converted, err := adaptor.ConvertGeminiRequest(ctx, info, req)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert gemini request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal gemini request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse gemini response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, model, usage)
+
+	var geminiResp GeminiChatResponse
+	if err := json.Unmarshal(dummyW.Bytes(), &geminiResp); err != nil {
+		return nil, fmt.Errorf("relay: unmarshal gemini response: %w", err)
+	}
+
+	return &geminiResp, nil
+}
+
+// GeminiChatStream sends a native Gemini streamGenerateContent request.
+// It returns a channel of chunks. The channel closes when the stream ends.
+func (c *Client) GeminiChatStream(ctx context.Context, req *GeminiChatRequest, model string) (*ChatStreamResult, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeGemini, model, true)
+	adaptor.Init(info)
+
+	converted, err := adaptor.ConvertGeminiRequest(ctx, info, req)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert gemini request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal gemini request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ChatStreamResult{
+		Ch: make(chan ChatStreamChunk, 100),
+	}
+
+	go func() {
+		defer resp.Body.Close()
+		defer close(result.Ch)
+
+		pw := &streamResponseWriter{ch: result.Ch}
+		usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, pw)
+		if apiErr != nil {
+			result.Ch <- ChatStreamChunk{Err: apiErr}
+			return
+		}
+
+		usage := extractUsage(usageRaw)
+		result.Usage = usage
+		c.record(ctx, model, usage)
+		result.Ch <- ChatStreamChunk{Done: true, Usage: &usage}
+	}()
+
+	return result, nil
+}
+
+// ─── Responses Compact ──────────────────────────────────────────
+
+// ResponsesCompact sends a compact OpenAI Responses API request (/v1/responses/compact).
+// Only a subset of fields (model, input, instructions, previous_response_id, prompt_cache_*) are forwarded.
+func (c *Client) ResponsesCompact(ctx context.Context, req *ResponsesRequest) (*ResponsesResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeResponsesCompact, req.Model, req.Stream)
+	adaptor.Init(info)
+
+	stream := req.Stream
+	responsesReq := dto.OpenAIResponsesRequest{
+		Model:              req.Model,
+		Input:              req.Input,
+		Instructions:       req.Options,
+		Stream:             &stream,
+		PreviousResponseID: string(req.Options),
+	}
+
+	converted, err := adaptor.ConvertOpenAIResponsesRequest(ctx, info, responsesReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: convert responses compact request: %w", err)
+	}
+
+	jsonData, err := json.Marshal(converted)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal responses compact request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if req.Stream {
+		httpReq.Header.Set("Accept", "text/event-stream")
+	}
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	var dummyW dummyResponseWriter
+	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
+	if apiErr != nil {
+		return nil, fmt.Errorf("relay: parse responses compact response: %w", apiErr)
+	}
+
+	usage := extractUsage(usageRaw)
+	c.record(ctx, req.Model, usage)
+
+	return &ResponsesResponse{
+		Data:  dummyW.Bytes(),
+		Usage: usage,
+	}, nil
+}
+
+// ─── Alpha Search ───────────────────────────────────────────────
+
+// AlphaSearchRequest is the /v1/alpha/search request body.
+type AlphaSearchRequest struct {
+	Model string          `json:"model"`
+	Query json.RawMessage `json:"query"`
+}
+
+// AlphaSearch sends a web search request (/v1/alpha/search).
+// The response body is returned as raw bytes.
+func (c *Client) AlphaSearch(ctx context.Context, req *AlphaSearchRequest) (*ResponsesResponse, error) {
+	if err := c.ensureProvider(); err != nil {
+		return nil, err
+	}
+
+	adaptor := c.provider.Adaptor()
+	info := c.buildRelayInfo(relaymode.RelayModeAlphaSearch, req.Model, false)
+	adaptor.Init(info)
+
+	// Alpha search passes the request body through, only rewriting model.
+	payload := map[string]any{
+		"model": req.Model,
+		"query": req.Query,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("relay: marshal alpha search request: %w", err)
+	}
+
+	url, err := adaptor.GetRequestURL(info)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
+
+	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp, c.provider.Name())
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Alpha search upstream doesn't return usage; record a request count.
+	c.record(ctx, req.Model, meter.Usage{RequestCount: 1})
+
+	return &ResponsesResponse{
+		Data: body,
+		Usage: meter.Usage{RequestCount: 1},
+	}, nil
+}
+
+// ─── Midjourney Image Seed & Notify ─────────────────────────────
+
+// MidjourneyImageSeed fetches the image seed for a completed Midjourney task.
+func (c *Client) MidjourneyImageSeed(ctx context.Context, baseURL, apiKey, taskID string) (json.RawMessage, error) {
+	url := strings.TrimSuffix(baseURL, "/") + "/mj/task/" + taskID + "/image-seed"
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("mj-api-secret", apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: midjourney image-seed failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.RawMessage(body), nil
+}
+
+// MidjourneyNotifyRequest is the body of a Midjourney webhook callback.
+type MidjourneyNotifyRequest struct {
+	MjId        string `json:"mjId"`
+	Status      string `json:"status"`
+	Progress    string `json:"progress"`
+	PromptEn    string `json:"promptEn"`
+	ImageUrl    string `json:"imageUrl"`
+	State       string `json:"state"`
+}
+
+// MidjourneyNotify handles a Midjourney webhook callback.
+// It parses the notification and returns it for the caller to persist.
+// Unlike new-api-main which updates a database, this library-level method
+// simply returns the parsed notification.
+func (c *Client) MidjourneyNotify(ctx context.Context, body io.Reader) (*MidjourneyNotifyRequest, error) {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return nil, fmt.Errorf("relay: read midjourney notify body: %w", err)
+	}
+
+	var notify MidjourneyNotifyRequest
+	if err := json.Unmarshal(data, &notify); err != nil {
+		return nil, fmt.Errorf("relay: parse midjourney notify: %w", err)
+	}
+
+	return &notify, nil
+}
+
+// ─── Suno Fetch By ID ───────────────────────────────────────────
+
+// FetchSunoTaskByID fetches a single Suno task by its ID.
+func (c *Client) FetchSunoTaskByID(ctx context.Context, baseURL, apiKey, taskID string) (*SunoTaskData, error) {
+	url := strings.TrimSuffix(baseURL, "/") + "/suno/fetch/" + taskID
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("relay: suno fetch-by-id failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var task SunoTaskData
+	if err := json.Unmarshal(body, &task); err != nil {
+		return nil, fmt.Errorf("relay: parse suno task: %w", err)
+	}
+
+	return &task, nil
 }
 
 // marshalString wraps a string as a JSON string.
