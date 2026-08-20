@@ -10,6 +10,8 @@ ling-base/
 ├─ logger/                   # 结构化日志（zap + lumberjack）
 ├─ constants/                # 全局常量
 ├─ common/                   # 通用工具（数组/音频/字符串/时间等）
+│  ├─ geoip/                # 独立 module，IP 地理位置查询（国内 pconline + 国际 ip-api）
+│  └─ phone/                # 独立 module，手机号归属地查询（内置离线号段库）
 ├─ bootstrap/                # 应用启动框架（生命周期管理 + banner）
 ├─ version/                  # 版本信息
 │
@@ -129,6 +131,12 @@ go get github.com/LingByte/ling-base/voice/recognizer/whisper
 
 # 实时多模态语音对话 — 只要 OpenAI Realtime
 go get github.com/LingByte/ling-base/realtime/openai
+
+# IP 地理位置查询（国内/国际自动切换，零第三方依赖）
+go get github.com/LingByte/ling-base/common/geoip
+
+# 手机号归属地查询（内置离线号段库，无需联网）
+go get github.com/LingByte/ling-base/common/phone
 ```
 
 ```go
@@ -191,6 +199,57 @@ agent.Cancel()
 
 // 运行时更新系统指令
 agent.UpdateInstructions("请用更简短的回答")
+```
+
+### geoip 快速上手
+
+通过 IP 查询地理位置，自动根据 IP 段选择国内（pconline）或国际（ip-api）接口：
+
+```go
+import "github.com/LingByte/ling-base/common/geoip"
+
+// 自动选择国内/国际接口
+country, city, location, err := geoip.GetIPLocation("8.8.8.8")
+// → "United States", "Mountain View", "Mountain View, United States", nil
+
+// 强制国内接口（国内 IP 更准确）
+country, city, location, _ := geoip.GetIPLocationCN("112.0.0.1")
+// → "中国", "南京", "江苏 南京", nil
+
+// 强制国际接口
+country, city, location, _ := geoip.GetIPLocationGlobal("8.8.8.8")
+
+// 只取展示字符串
+addr := geoip.GetRealAddressByIP("8.8.8.8")
+// → "Mountain View, United States"
+
+// 内网 IP 自动识别
+addr = geoip.GetRealAddressByIP("192.168.1.1")
+// → "内网IP"
+```
+
+### phone 快速上手
+
+通过手机号查询归属地，使用内置离线号段库（`phone.dat`，约 4.5MB），无需联网：
+
+```go
+import "github.com/LingByte/ling-base/common/phone"
+
+// 查询归属地（返回格式化字符串）
+loc := phone.LookupPhoneLocation("19511899044")
+// → "四川成都(中国移动)"
+
+// 查询归属地各字段
+province, city, cardType := phone.LookupPhoneLocationParts("19208101234")
+// → "四川", "成都", "中国广电"
+
+// 底层 API：返回完整记录
+rec, err := phone.Find("1952947")
+// → PhoneRecord{Province:"广西", City:"玉林", ZipCode:"537000", AreaZone:"0775", CardType:"中国移动"}
+
+// 号码归一化（去除非数字字符）
+digits := phone.NormalizePhoneDigits("+86 138-0013-8000")
+// → "8613800138000"
 ```
 
 ## lingcli 脚手架

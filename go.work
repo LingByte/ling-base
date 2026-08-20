@@ -32,6 +32,7 @@ use (
 	./common/cron
 	./common/crypto
 	./common/eventbus
+	./common/geoip
 	./common/hash
 	./common/i18n
 	./common/i18n/gin
@@ -77,6 +78,7 @@ use (
 	./common/parser
 	./common/passkey
 	./common/password
+	./common/phone
 	./common/pinyin
 	./common/pool
 	./common/qrcode
@@ -104,6 +106,8 @@ use (
 	./common/videoutil
 	./example
 	./lingcli
+	./relay
+	./relay/relaykit
 	./mq
 	./mq/activemq
 	./mq/factory
