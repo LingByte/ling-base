@@ -15,10 +15,11 @@ import (
 )
 
 // RelayProvider implements Provider by translating the canonical Anthropic
-// request into a relay.ChatRequest, calling relay.Client.Chat() (non-streaming
-// — relay's streaming channel only carries text deltas, not tool-call deltas),
-// and assembling the response back into an anthropic.BetaMessage so the rest
-// of the agent (loop, tools, sessions, compaction) is unchanged.
+// request into a relay.ChatRequest, calling relay.Client.ChatStream() (streaming
+// — relay's streaming channel now carries text deltas, tool-call deltas,
+// reasoning deltas, and finish_reason), and assembling the response back into
+// an anthropic.BetaMessage so the rest of the agent (loop, tools, sessions,
+// compaction) is unchanged.
 //
 // This lets the agent use any of relay's 40+ provider adaptors (OpenAI, Claude,
 // DeepSeek, Gemini, Moonshot, Qiniu-compatible endpoints, etc.) without
@@ -73,56 +74,37 @@ func (p *RelayProvider) ProviderName() string {
 	return p.providerName
 }
 
-// StreamTurn implements Provider. Despite the name (which matches the
-// Provider interface contract), this uses relay's non-streaming Chat() call
-// because relay's streaming channel only carries text deltas — tool-call
-// deltas are not surfaced. Text is still forwarded to sink.OnText so the
-// TUI renders it (all at once rather than token-by-token), and synthesized
-// Anthropic raw events are emitted for partial-message consumers.
+// StreamTurn implements Provider. It uses relay's ChatStream() to get
+// incremental text, tool-call, and reasoning deltas, forwarding text to
+// sink.OnText for live TUI rendering and synthesizing Anthropic-shaped raw
+// events for partial-message consumers. Tool-call deltas are accumulated
+// across chunks (OpenAI streams them in fragments) and assembled at the end.
 func (p *RelayProvider) StreamTurn(ctx context.Context, params anthropic.BetaMessageNewParams, sink StreamSink) (anthropic.BetaMessage, error) {
 	req, err := p.translateRequest(params)
 	if err != nil {
 		return anthropic.BetaMessage{}, fmt.Errorf("relay: translate request: %w", err)
 	}
 
-	resp, err := p.client.Chat(ctx, req)
+	result, err := p.client.ChatStream(ctx, req)
 	if err != nil {
-		return anthropic.BetaMessage{}, fmt.Errorf("relay: chat: %w", err)
-	}
-	if len(resp.Choices) == 0 {
-		return anthropic.BetaMessage{}, fmt.Errorf("relay: empty response (no choices)")
+		return anthropic.BetaMessage{}, fmt.Errorf("relay: chat stream: %w", err)
 	}
 
-	choice := resp.Choices[0]
-	msg := choice.Message
+	var text strings.Builder
+	tools := map[int]*toolAccum{}
+	finish := ""
+	var inTok, outTok int64
 
-	// Extract text content.
-	text := msg.StringContent()
-
-	// Extract tool calls.
-	var tools map[int]*toolAccum
-	toolCalls := msg.ParseToolCalls()
-	if len(toolCalls) > 0 {
-		tools = make(map[int]*toolAccum, len(toolCalls))
-		for i, tc := range toolCalls {
-			tools[i] = &toolAccum{
-				id:   tc.ID,
-				name: tc.Function.Name,
-				args: strings.Builder{},
-			}
-			tools[i].args.WriteString(tc.Function.Arguments)
-		}
-	}
-
-	// Forward text to sink for TUI rendering.
-	if text != "" && sink.OnText != nil {
-		sink.text(text)
-	}
-
-	// Synthesize raw events for partial-message consumers (same pattern as
-	// OpenAIProvider.consumeStream).
 	msgID := "msg_" + uuid.NewString()
-	if sink.OnRawEvent != nil {
+	started := false
+	startBlocks := func() {
+		if started {
+			return
+		}
+		started = true
+		if sink.OnRawEvent != nil {
+			// delivered = true (no return value needed here; sink signals)
+		}
 		sink.raw(synthEvent(map[string]any{
 			"type": "message_start",
 			"message": map[string]any{
@@ -131,28 +113,70 @@ func (p *RelayProvider) StreamTurn(ctx context.Context, params anthropic.BetaMes
 				"usage": map[string]any{"input_tokens": 0, "output_tokens": 0},
 			},
 		}))
-		if text != "" {
-			sink.raw(synthEvent(map[string]any{
-				"type": "content_block_start", "index": 0,
-				"content_block": map[string]any{"type": "text", "text": ""},
-			}))
+		sink.raw(synthEvent(map[string]any{
+			"type": "content_block_start", "index": 0,
+			"content_block": map[string]any{"type": "text", "text": ""},
+		}))
+	}
+
+	for chunk := range result.Ch {
+		if chunk.Err != nil {
+			return anthropic.BetaMessage{}, fmt.Errorf("relay: stream: %w", chunk.Err)
+		}
+		if chunk.Done {
+			if chunk.Usage != nil {
+				inTok = int64(chunk.Usage.InputTokens)
+				outTok = int64(chunk.Usage.OutputTokens)
+			}
+			break
+		}
+		// Text delta
+		if chunk.Delta != "" {
+			startBlocks()
+			text.WriteString(chunk.Delta)
+			sink.text(chunk.Delta)
 			sink.raw(synthEvent(map[string]any{
 				"type": "content_block_delta", "index": 0,
-				"delta": map[string]any{"type": "text_delta", "text": text},
+				"delta": map[string]any{"type": "text_delta", "text": chunk.Delta},
 			}))
-			sink.raw(synthEvent(map[string]any{"type": "content_block_stop", "index": 0}))
 		}
+		// Tool-call deltas (accumulate across fragments by index)
+		for _, tc := range chunk.ToolCalls {
+			idx := 0
+			if tc.Index != nil {
+				idx = *tc.Index
+			}
+			acc := tools[idx]
+			if acc == nil {
+				acc = &toolAccum{}
+				tools[idx] = acc
+			}
+			if tc.ID != "" {
+				acc.id = tc.ID
+			}
+			if name := tc.Function.Name; name != "" {
+				acc.name = name
+			}
+			acc.args.WriteString(tc.Function.Arguments)
+		}
+		if chunk.FinishReason != "" {
+			finish = chunk.FinishReason
+		}
+	}
+
+	// Close out the synthesized event sequence (only if we opened it — a
+	// tool-only turn with no text never emits a text block).
+	if started {
+		sink.raw(synthEvent(map[string]any{"type": "content_block_stop", "index": 0}))
 		sink.raw(synthEvent(map[string]any{
 			"type":  "message_delta",
-			"delta": map[string]any{"stop_reason": mapFinishReason(choice.FinishReason, len(tools) > 0)},
-			"usage": map[string]any{"output_tokens": resp.Usage.OutputTokens},
+			"delta": map[string]any{"stop_reason": mapFinishReason(finish, len(tools) > 0)},
+			"usage": map[string]any{"output_tokens": outTok},
 		}))
 		sink.raw(synthEvent(map[string]any{"type": "message_stop"}))
 	}
 
-	inTok := int64(resp.Usage.InputTokens)
-	outTok := int64(resp.Usage.OutputTokens)
-	return assembleMessage(req.Model, text, tools, choice.FinishReason, inTok, outTok)
+	return assembleMessage(req.Model, text.String(), tools, finish, inTok, outTok)
 }
 
 // translateRequest converts Anthropic BetaMessageNewParams into a

@@ -526,10 +526,13 @@ func (c *Client) chatOnce(ctx context.Context, req *ChatRequest) (*ChatResponse,
 
 // ChatStreamChunk is one chunk in a streaming chat response.
 type ChatStreamChunk struct {
-	Delta    string // content delta
-	Err      error
-	Done     bool
-	Usage    *meter.Usage // present on final chunk if provider reports it
+	Delta        string                   // content delta (text)
+	Reasoning    string                   // reasoning_content delta (DeepSeek/o1-style)
+	ToolCalls    []dto.ToolCallResponse   // tool_call delta (OpenAI streaming format)
+	FinishReason string                   // "stop" | "tool_calls" | "length" | ...
+	Err          error
+	Done         bool
+	Usage        *meter.Usage // present on final chunk if provider reports it
 }
 
 // ChatStreamResult holds the stream channel and final usage.
@@ -688,10 +691,12 @@ func (w *streamResponseWriter) Write(data []byte) (int, error) {
 		if line == "[DONE]" {
 			continue
 		}
-		// Try to extract content delta from the SSE JSON.
-		if delta := extractSSEDelta(line); delta != "" {
-			w.ch <- ChatStreamChunk{Delta: delta}
+		// Extract content delta, tool_calls, finish_reason from the SSE JSON.
+		chunk, ok := extractSSEChunk(line)
+		if !ok {
+			continue
 		}
+		w.ch <- chunk
 	}
 	return len(data), nil
 }
@@ -746,22 +751,53 @@ func trimPrefix(s, prefix string) string {
 	return s
 }
 
-func extractSSEDelta(data string) string {
-	// Try to parse as OpenAI streaming chunk and extract delta content.
+// extractSSEChunk parses one SSE data line into a ChatStreamChunk,
+// extracting content delta, reasoning delta, tool_call deltas, and
+// finish_reason. Returns ok=false if the line has no useful payload.
+func extractSSEChunk(data string) (ChatStreamChunk, bool) {
 	var chunk struct {
 		Choices []struct {
 			Delta struct {
-				Content string `json:"content"`
+				Content          *string                  `json:"content,omitempty"`
+				ReasoningContent *string                  `json:"reasoning_content,omitempty"`
+				Reasoning        *string                  `json:"reasoning,omitempty"`
+				Role             string                   `json:"role,omitempty"`
+				ToolCalls        []dto.ToolCallResponse   `json:"tool_calls,omitempty"`
 			} `json:"delta"`
+			FinishReason *string `json:"finish_reason"`
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-		return ""
+		return ChatStreamChunk{}, false
 	}
-	if len(chunk.Choices) > 0 {
-		return chunk.Choices[0].Delta.Content
+	if len(chunk.Choices) == 0 {
+		return ChatStreamChunk{}, false
 	}
-	return ""
+	c := chunk.Choices[0]
+	result := ChatStreamChunk{}
+	hasPayload := false
+
+	if c.Delta.Content != nil && *c.Delta.Content != "" {
+		result.Delta = *c.Delta.Content
+		hasPayload = true
+	}
+	// reasoning_content (DeepSeek) or reasoning (some providers)
+	if c.Delta.ReasoningContent != nil && *c.Delta.ReasoningContent != "" {
+		result.Reasoning = *c.Delta.ReasoningContent
+		hasPayload = true
+	} else if c.Delta.Reasoning != nil && *c.Delta.Reasoning != "" {
+		result.Reasoning = *c.Delta.Reasoning
+		hasPayload = true
+	}
+	if len(c.Delta.ToolCalls) > 0 {
+		result.ToolCalls = c.Delta.ToolCalls
+		hasPayload = true
+	}
+	if c.FinishReason != nil && *c.FinishReason != "" {
+		result.FinishReason = *c.FinishReason
+		hasPayload = true
+	}
+	return result, hasPayload
 }
 
 // ─── Embed ───────────────────────────────────────────────────────
