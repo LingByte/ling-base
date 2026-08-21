@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Bot,
   Mic,
@@ -11,6 +12,7 @@ import {
   Zap,
   Package,
   Sparkles,
+  Terminal,
 } from 'lucide-react';
 
 function GithubIcon({ className }: { className?: string }) {
@@ -101,8 +103,14 @@ export default function HomePage() {
 
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
           {/* Logo */}
-          <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25">
-            <span className="text-4xl font-bold text-white">L</span>
+          <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25 overflow-hidden">
+            <Image
+              src="/logo.png"
+              alt="ling-base"
+              width={80}
+              height={80}
+              className="rounded-3xl"
+            />
           </div>
 
           <h1 className="mb-4 text-5xl font-bold tracking-tight">

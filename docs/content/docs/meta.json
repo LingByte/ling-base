@@ -38,6 +38,10 @@
     "common/logger",
     "common/compress",
     "common/geoip",
-    "common/i18n"
+    "common/i18n",
+    "---工具---",
+    "lingcli/index",
+    "lingcli/templates",
+    "lingcli/modules"
   ]
 }

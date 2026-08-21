@@ -1,0 +1,82 @@
+---
+title: 项目模板
+description: web-api / grpc-service / cli-tool / library / worker
+icon: Terminal
+---
+
+# 项目模板
+
+lingcli 提供 5 种项目模板，覆盖常见的 Go 项目类型。
+
+## 模板列表
+
+| 模板 | 说明 | 端口 |
+|------|------|------|
+| `web-api` | HTTP REST API 服务（Gin + GORM + Bootstrap） | 8080 |
+| `grpc-service` | gRPC 服务 | 50051 |
+| `cli-tool` | 命令行工具 | - |
+| `library` | 可复用 Go 库 | - |
+| `worker` | 后台任务 / 消费者服务 | - |
+
+## web-api
+
+生成完整的 HTTP REST API 服务：
+
+```bash
+lingcli create myapp --template web-api --module github.com/me/myapp
+```
+
+生成后的项目结构：
+
+```
+myapp/
+├── cmd/server/main.go              # 入口
+├── internal/
+│   ├── app/app.go                  # 启动 + 路由注册
+│   ├── auth/auth.go                # JWT 鉴权（选 jwt 时）
+│   ├── config/config.go            # 配置（YAML + 环境变量覆盖）
+│   ├── handler/handler.go          # HTTP 处理器（DTO 校验）
+│   ├── middleware/middleware.go    # 中间件
+│   ├── model/user.go               # 数据模型
+│   ├── repository/                 # DAO 层
+│   └── service/                    # 业务逻辑层
+├── pkg/response/                   # 统一响应封装
+├── configs/                        # YAML 配置
+├── .github/workflows/ci.yml        # CI
+├── Dockerfile                      # 多阶段构建
+├── docker-compose.yml              # App + MySQL + Redis
+├── Makefile                        # 构建命令
+└── README.md
+```
+
+## grpc-service
+
+```bash
+lingcli create myapp --template grpc-service --module github.com/me/myapp
+```
+
+生成 gRPC 服务项目，包含 proto 定义、服务实现、拦截器。
+
+## cli-tool
+
+```bash
+lingcli create mytool --template cli-tool --module github.com/me/mytool
+```
+
+生成命令行工具项目，包含子命令、flag 解析、配置加载。
+
+## library
+
+```bash
+lingcli create mylib --template library --module github.com/me/mylib
+```
+
+生成可复用 Go 库项目，包含示例、测试、CI。
+
+## worker
+
+```bash
+lingcli create myworker --template worker --module github.com/me/myworker
+```
+
+生成后台任务 / 消费者服务项目，支持 cron 定时任务和 MQ 消费。

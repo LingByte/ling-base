@@ -1,0 +1,104 @@
+---
+title: lingcli
+description: LingByte 项目脚手架 — 一键生成完整 Go 项目骨架
+icon: Terminal
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+
+# lingcli
+
+LingByte 项目脚手架 CLI — 一键生成完整 Go 项目骨架，集成 ling-base 模块。
+
+## 安装
+
+```bash
+go install github.com/LingByte/ling-base/lingcli@latest
+```
+
+或从源码构建：
+
+```bash
+git clone https://github.com/LingByte/ling-base.git
+cd ling-base/lingcli
+go build -o /usr/local/bin/lingcli .
+```
+
+## 快速开始
+
+<Steps>
+
+<Step>
+### 创建项目
+
+```bash
+# 交互模式（推荐）
+lingcli create myapp
+```
+
+CLI 会引导你选择模板、填写 module 路径、选择要集成的 ling-base 模块。
+
+</Step>
+
+<Step>
+### 非交互模式
+
+```bash
+lingcli create myapp \
+    --template web-api \
+    --module github.com/me/myapp \
+    --modules apidocs,limiter,circuitbreaker,middleware,jwt \
+    --port 8080 \
+    --author "Your Name"
+```
+
+</Step>
+
+<Step>
+### 运行
+
+```bash
+cd myapp
+go mod tidy
+make run
+```
+
+</Step>
+
+</Steps>
+
+## 命令
+
+| 命令 | 说明 |
+|------|------|
+| `lingcli create <项目名>` | 创建新项目 |
+| `lingcli create .` | 在当前目录初始化 |
+| `lingcli list` | 列出可用项目模板 |
+| `lingcli version` | 打印版本号 |
+| `lingcli help` | 显示帮助 |
+
+## create 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--template` | 项目模板 | 交互选择 |
+| `--module` | Go module 路径 | 交互输入 |
+| `--author` | 作者名称 | 空 |
+| `--port` | 服务端口 | 8080 / 50051 |
+| `--modules` | 要集成的 ling-base 模块（逗号分隔） | 空 |
+| `--docker` | 生成 Docker 部署文件 | true |
+| `--no-docker` | 不生成 Docker 部署文件 | - |
+| `--git` | 初始化 git 仓库 | true |
+| `--no-git` | 不初始化 git 仓库 | - |
+
+## 文档
+
+<Cards>
+  <Card title="项目模板" href="/docs/lingcli/templates">
+    web-api / grpc-service / cli-tool / library / worker
+  </Card>
+  <Card title="可集成模块" href="/docs/lingcli/modules">
+    19 个 ling-base 模块可选集成
+  </Card>
+</Cards>

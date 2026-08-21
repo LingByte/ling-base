@@ -236,6 +236,19 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		}
 	}
 
+	// 4. 复制 shared 静态文件（如 logo.png 等二进制资源）
+	sharedStaticFiles, _ := ListStaticFiles("shared")
+	for _, sf := range sharedStaticFiles {
+		content, err := templateFS.ReadFile(filepath.Join("templates", sf))
+		if err != nil {
+			continue
+		}
+		outPath := strings.TrimPrefix(sf, "shared/")
+		if !hasFile(files, outPath) {
+			files = append(files, FileEntry{Path: outPath, Content: string(content)})
+		}
+	}
+
 	return files
 }
 

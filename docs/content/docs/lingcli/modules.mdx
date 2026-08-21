@@ -1,0 +1,50 @@
+---
+title: 可集成模块
+description: 19 个 ling-base 模块可选集成
+icon: Terminal
+---
+
+# 可集成模块
+
+lingcli `create` 命令支持 `--modules` 参数，可选集成以下 ling-base 模块：
+
+```bash
+lingcli create myapp --template web-api \
+    --modules apidocs,limiter,circuitbreaker,middleware,jwt,cache
+```
+
+## 模块列表
+
+| 模块 ID | 说明 | 对应 ling-base 模块 |
+|---------|------|---------------------|
+| `apidocs` | API 文档 UI + OpenAPI 3.1 spec | `apidocs` |
+| `limiter` | 令牌桶限流 | `common/limiter` |
+| `circuitbreaker` | 熔断 + 超时中间件 | `common/circuitbreaker` |
+| `middleware` | HTTP 中间件合集 | `common/middleware` |
+| `jwt` | JWT 鉴权 + 登录/刷新路由 | `common/jwtutil` |
+| `cache` | 缓存抽象 | `common/cache` |
+| `lock` | 分布式锁 | `common/lock` |
+| `retry` | 重试策略 | `common/retry` |
+| `scheduler` | 分布式定时任务 | `common/scheduler` |
+| `eventbus` | 本地事件总线 | `common/eventbus` |
+| `stats` | 统计采集 | `common/stats` |
+| `notification` | 通知调度 | `common/notification` |
+| `mq` | 消息队列 | `common/mq` |
+| `stores` | 对象存储 | `stores` |
+| `search` | 全文搜索 | `common/search` |
+| `bloom` | 布隆过滤器 | `common/bloom` |
+| `captcha` | 验证码 | `common/captcha` |
+| `opentelemetry` | OpenTelemetry 链路追踪 | `common/opentelemetry` |
+| `i18n` | 国际化 | `common/i18n` |
+
+## 生成后操作
+
+```bash
+cd myapp
+go mod tidy
+make run          # 本地运行
+make test         # 测试
+make test-race    # 竞态检测
+make lint         # golangci-lint
+make docker-up    # Docker Compose 启动
+```
