@@ -3,7 +3,7 @@
 import { usePlayground } from './drawer-context';
 import { Play } from 'lucide-react';
 
-type DemoId = 'totp' | 'password' | 'compress';
+type DemoId = 'totp' | 'compress';
 
 export function DemoButton({ demo, label }: { demo: DemoId; label?: string }) {
   const { openDemo } = usePlayground();

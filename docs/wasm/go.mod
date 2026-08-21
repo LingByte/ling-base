@@ -4,7 +4,6 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base/common/compress v0.1.0
-	github.com/LingByte/ling-base/common/password v0.1.0
 	github.com/LingByte/ling-base/common/totp v0.1.0
 )
 
@@ -15,8 +14,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.29 // indirect
 	github.com/pquerna/otp v1.5.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
-	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace (

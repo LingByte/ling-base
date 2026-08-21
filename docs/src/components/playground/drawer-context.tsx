@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
-type DemoId = 'totp' | 'password' | 'compress';
+type DemoId = 'totp' | 'compress';
 
 interface PlaygroundContextValue {
   open: boolean;
