@@ -131,7 +131,7 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 
 func xunfeiStreamHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+	dataChan, stopChan, err := xunfeiMakeRequest(c, textRequest, domain, authUrl, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
@@ -140,6 +140,9 @@ func xunfeiStreamHandler(c context.Context, textRequest dto.GeneralOpenAIRequest
 	done := false
 	for !done {
 		select {
+		case <-c.Done():
+			logger.Debug("xunfei stream cancelled by context")
+			done = true
 		case xunfeiResponse := <-dataChan:
 			usage.PromptTokens += xunfeiResponse.Payload.Usage.Text.PromptTokens
 			usage.CompletionTokens += xunfeiResponse.Payload.Usage.Text.CompletionTokens
@@ -161,7 +164,7 @@ func xunfeiStreamHandler(c context.Context, textRequest dto.GeneralOpenAIRequest
 
 func xunfeiHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret, textRequest.Model)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+	dataChan, stopChan, err := xunfeiMakeRequest(c, textRequest, domain, authUrl, appId)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
@@ -171,6 +174,9 @@ func xunfeiHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appI
 	stop := false
 	for !stop {
 		select {
+		case <-c.Done():
+			logger.Debug("xunfei request cancelled by context")
+			stop = true
 		case xunfeiResponse = <-dataChan:
 			if len(xunfeiResponse.Payload.Choices.Text) == 0 {
 				continue
@@ -203,7 +209,7 @@ func xunfeiHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appI
 	return &usage, nil
 }
 
-func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, appId string) (chan XunfeiChatResponse, chan bool, error) {
+func xunfeiMakeRequest(ctx context.Context, textRequest dto.GeneralOpenAIRequest, domain, authUrl, appId string) (chan XunfeiChatResponse, chan bool, error) {
 	d := websocket.Dialer{
 		HandshakeTimeout: 5 * time.Second,
 	}
@@ -217,6 +223,15 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Close the WebSocket connection when the context is cancelled. This
+	// unblocks the blocking conn.ReadMessage() call in the read loop below,
+	// allowing the goroutine to exit promptly on cancellation.
+	go func() {
+		<-ctx.Done()
+		logger.Debug("xunfei websocket closed by context cancellation")
+		conn.Close()
+	}()
 
 	dataChan := make(chan XunfeiChatResponse, 1)
 	stopChan := make(chan bool, 1)
@@ -239,6 +254,9 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 			select {
 			case dataChan <- response:
 			case <-stopChan:
+				return
+			case <-ctx.Done():
+				logger.Debug("xunfei stream cancelled by context")
 				return
 			}
 			if response.Payload.Choices.Status == 2 {

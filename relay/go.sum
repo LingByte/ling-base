@@ -1,9 +1,13 @@
 github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/LingByte/ling-base/common/circuitbreaker v0.1.0 h1:QQuBVacjMGrqX07PBbvT6uJ4riAQHYcx1OMBwWRVrHU=
+github.com/LingByte/ling-base/common/circuitbreaker v0.1.0/go.mod h1:Rhvx4eLRtBfzDAD94bO36SXI002V2WK2ObScHpL0C/U=
 github.com/LingByte/ling-base/common/constants v0.1.1 h1:GgQdADJQyZFc6sVgLD5AyDeJpFLD5vpNCKpsIxflHZc=
 github.com/LingByte/ling-base/common/constants v0.1.1/go.mod h1:+SzjhQLefioUr38aN3GjipHGNDRm8dOnjzR4y0pyM8U=
 github.com/LingByte/ling-base/common/logger v0.1.0 h1:4wdlgnbqK0nc+1LvhzmqNKHWMwdrglf8ZzJCz8OxMGg=
 github.com/LingByte/ling-base/common/logger v0.1.0/go.mod h1:S9BpHEi5QbOd1rr5QOUqPa9ev8WSXe3rJlU+lkJYkGE=
+github.com/LingByte/ling-base/common/retry v0.1.0 h1:MyzMq79Bb5TtK5BVidr6h5/Ek1E2Y4nLBtT6GEosNGk=
+github.com/LingByte/ling-base/common/retry v0.1.0/go.mod h1:frN7TOyqI32CsPxVOrOs+QvXQtgKvCLhymdxoya6w6Y=
 github.com/aws/aws-sdk-go-v2 v1.43.6 h1:RrmFcqCBxkJuf7g1axVo5krB4jM/AO8r5e5oujrgdoQ=
 github.com/aws/aws-sdk-go-v2 v1.43.6/go.mod h1:tXpPM+v0D1lndmga+HqqLDIzUFJlEeR21aspVklHF00=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.18 h1:LAfOuhAH331fmOjTQpAaOlH+Ftn7RzSDJ2VFwjdMMy4=

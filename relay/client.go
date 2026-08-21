@@ -35,12 +35,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/circuitbreaker"
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/retry"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/meter"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	"go.uber.org/zap"
 )
 
 // ─── Message types (wrappers around relaykit DTOs) ──────────────
@@ -192,10 +196,22 @@ func (p *GenericProvider) APIKey() string           { return p.apiKey }
 // Client is the unified entry point. It routes requests to the configured
 // provider, records usage via the Meter, and returns results.
 type Client struct {
-	provider Provider
-	meter    meter.Meter
-	httpClient *http.Client
+	provider       Provider
+	meter          meter.Meter
+	httpClient     *http.Client
+	retryOpts      []retry.Option       // retry options
+	circuitBreaker retry.CircuitBreaker // optional circuit breaker
+	requestHook    RequestHook          // optional observability hook
+	fallback       *FallbackConfig      // optional model fallback
 }
+
+// RequestHook is called before each request. It returns a function that is
+// called after the request completes (with the resulting error, which may be
+// nil on success). This lets consumers add tracing/metrics/logging without
+// the relay package depending on a specific observability SDK.
+//
+//	mode is one of the relaymode.RelayMode* constants.
+type RequestHook func(ctx context.Context, provider, model string, mode int) func(err error)
 
 // Option configures a Client.
 type Option func(*Client)
@@ -215,10 +231,84 @@ func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
 }
 
+// FallbackConfig configures model fallback behavior. When configured, the
+// Client retries a failed request with each fallback model in order. Fallback
+// is opt-in: it is only active if WithFallback is used.
+type FallbackConfig struct {
+	// FallbackModels is a list of models to try if the primary model fails.
+	// The Client will retry the request with each fallback model in order.
+	FallbackModels []string
+	// RetryOnErrors, if non-nil, determines which errors trigger a fallback.
+	// If nil, all errors trigger fallback.
+	RetryOnErrors func(err error) bool
+}
+
+// WithFallback configures model fallback.
+func WithFallback(cfg FallbackConfig) Option {
+	return func(c *Client) { c.fallback = &cfg }
+}
+
+// WithTimeout sets the HTTP client timeout.
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) {
+		c.httpClient.Timeout = d
+	}
+}
+
+// WithMaxIdleConns sets the max idle connections per host on the default
+// transport. If a custom transport is in use that is not an *http.Transport,
+// this option is a no-op.
+func WithMaxIdleConns(n int) Option {
+	return func(c *Client) {
+		if t, ok := c.httpClient.Transport.(*http.Transport); ok {
+			t.MaxIdleConnsPerHost = n
+		}
+	}
+}
+
+// WithRetry configures retry behaviour for HTTP requests. When set, the
+// Client retries failed requests (network errors, 429, and 5xx responses)
+// according to the supplied retry options. By default no retry is performed.
+func WithRetry(opts ...retry.Option) Option {
+	return func(c *Client) { c.retryOpts = opts }
+}
+
+// WithCircuitBreaker configures a circuit breaker for HTTP requests. When
+// set, each (retried) attempt is wrapped in the breaker's Execute. By
+// default no circuit breaker is used.
+func WithCircuitBreaker(cb *circuitbreaker.CircuitBreaker) Option {
+	return func(c *Client) { c.circuitBreaker = cb }
+}
+
+// WithRequestHook sets a hook called before each request. The returned
+// function is called after the request completes with the resulting error.
+// This enables tracing/metrics without the relay package depending on a
+// specific observability SDK.
+func WithRequestHook(h RequestHook) Option {
+	return func(c *Client) { c.requestHook = h }
+}
+
+// DefaultHTTPClient returns a production-ready HTTP client with sensible
+// timeouts and connection pooling.
+func DefaultHTTPClient() *http.Client {
+	transport := &http.Transport{
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	return &http.Client{
+		Timeout:   120 * time.Second,
+		Transport: transport,
+	}
+}
+
 // New creates a new Client.
 func New(opts ...Option) *Client {
 	c := &Client{
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: DefaultHTTPClient(),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -285,10 +375,50 @@ func (c *Client) record(ctx context.Context, model string, usage meter.Usage) {
 
 // ─── Chat ────────────────────────────────────────────────────────
 
-// Chat sends a chat completion request.
+// Chat sends a chat completion request. If model fallback is configured via
+// WithFallback, the Client retries the request with each fallback model in
+// order until one succeeds or all are exhausted.
 func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	if err := c.ensureProvider(); err != nil {
 		return nil, err
+	}
+
+	models := []string{req.Model}
+	if c.fallback != nil {
+		models = append(models, c.fallback.FallbackModels...)
+	}
+
+	var lastErr error
+	for i, model := range models {
+		r := *req
+		r.Model = model
+
+		resp, err := c.chatOnce(ctx, &r)
+		if err == nil {
+			return resp, nil
+		}
+
+		lastErr = err
+		logger.Debug("relay chat fallback",
+			zap.String("model", model),
+			zap.String("error", err.Error()),
+			zap.Int("attempt", i+1))
+
+		// If a RetryOnErrors filter is configured and this error does not
+		// qualify, stop trying further fallbacks.
+		if c.fallback != nil && c.fallback.RetryOnErrors != nil && !c.fallback.RetryOnErrors(err) {
+			break
+		}
+	}
+	return nil, lastErr
+}
+
+// chatOnce performs a single chat completion request against the configured
+// provider without fallback handling.
+func (c *Client) chatOnce(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	var afterHook func(err error)
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, relaymode.RelayModeChatCompletions)
 	}
 
 	adaptor := c.provider.Adaptor()
@@ -301,6 +431,9 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Convert request to provider's native format.
 	converted, err := adaptor.ConvertOpenAIRequest(ctx, info, openaiReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: convert request: %w", err)
 	}
 
@@ -312,6 +445,9 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	default:
 		jsonData, err := json.Marshal(converted)
 		if err != nil {
+			if afterHook != nil {
+				afterHook(err)
+			}
 			return nil, fmt.Errorf("relay: marshal request: %w", err)
 		}
 		body = strings.NewReader(string(jsonData))
@@ -320,32 +456,51 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Build URL and send request.
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: build URL: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if err := adaptor.SetupRequestHeader(ctx, &httpReq.Header, info); err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: setup headers: %w", err)
 	}
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, parseError(resp, c.provider.Name())
+		pErr := parseError(resp, c.provider.Name())
+		if afterHook != nil {
+			afterHook(pErr)
+		}
+		return nil, pErr
 	}
 
 	// Parse response using a dummy ResponseWriter (we don't stream).
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
+		if afterHook != nil {
+			afterHook(apiErr)
+		}
 		return nil, fmt.Errorf("relay: parse response: %w", apiErr)
 	}
 
@@ -355,7 +510,13 @@ func (c *Client) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 	// Parse the response body that the adaptor wrote to dummyW.
 	chatResp, err := parseChatResponse(dummyW.Bytes(), req.Model, c.provider.Name(), usage)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: parse chat response: %w", err)
+	}
+	if afterHook != nil {
+		afterHook(nil)
 	}
 	return chatResp, nil
 }
@@ -379,12 +540,61 @@ type ChatStreamResult struct {
 // ChatStream sends a streaming chat completion request.
 // It returns a channel of chunks. The channel closes when the stream ends.
 // After the channel closes, ChatStreamResult.Usage contains the final usage.
+//
+// If model fallback is configured via WithFallback, the Client retries the
+// request setup with each fallback model in order until one successfully
+// establishes the stream. Fallback only applies to setup-time errors; once a
+// stream has started it is not retried on mid-stream failures.
 func (c *Client) ChatStream(ctx context.Context, req *ChatRequest) (*ChatStreamResult, error) {
 	if err := c.ensureProvider(); err != nil {
 		return nil, err
 	}
 
-	req.Stream = true
+	var afterHook func(err error)
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, relaymode.RelayModeChatCompletions)
+	}
+
+	models := []string{req.Model}
+	if c.fallback != nil {
+		models = append(models, c.fallback.FallbackModels...)
+	}
+
+	var lastErr error
+	for i, model := range models {
+		r := *req
+		r.Model = model
+		r.Stream = true
+
+		result, err := c.chatStreamOnce(ctx, &r)
+		if err == nil {
+			if afterHook != nil {
+				afterHook(nil)
+			}
+			return result, nil
+		}
+
+		lastErr = err
+		logger.Debug("relay chat stream fallback",
+			zap.String("model", model),
+			zap.String("error", err.Error()),
+			zap.Int("attempt", i+1))
+
+		// If a RetryOnErrors filter is configured and this error does not
+		// qualify, stop trying further fallbacks.
+		if c.fallback != nil && c.fallback.RetryOnErrors != nil && !c.fallback.RetryOnErrors(err) {
+			break
+		}
+	}
+	if afterHook != nil {
+		afterHook(lastErr)
+	}
+	return nil, lastErr
+}
+
+// chatStreamOnce performs a single streaming chat completion request against
+// the configured provider without fallback handling.
+func (c *Client) chatStreamOnce(ctx context.Context, req *ChatRequest) (*ChatStreamResult, error) {
 	adaptor := c.provider.Adaptor()
 	info := c.buildRelayInfo(relaymode.RelayModeChatCompletions, req.Model, true)
 	adaptor.Init(info)
@@ -428,6 +638,14 @@ func (c *Client) ChatStream(ctx context.Context, req *ChatRequest) (*ChatStreamR
 	go func() {
 		defer resp.Body.Close()
 		defer close(result.Ch)
+
+		// Check context cancellation before processing the stream.
+		select {
+		case <-ctx.Done():
+			result.Ch <- ChatStreamChunk{Err: ctx.Err()}
+			return
+		default:
+		}
 
 		// Use a pipe-based ResponseWriter to capture SSE chunks.
 		pw := &streamResponseWriter{ch: result.Ch}
@@ -553,6 +771,11 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 		return nil, err
 	}
 
+	var afterHook func(err error)
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, relaymode.RelayModeEmbeddings)
+	}
+
 	adaptor := c.provider.Adaptor()
 	info := c.buildRelayInfo(relaymode.RelayModeEmbeddings, req.Model, false)
 	adaptor.Init(info)
@@ -565,21 +788,33 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 
 	converted, err := adaptor.ConvertEmbeddingRequest(ctx, info, embedReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: convert embed request: %w", err)
 	}
 
 	jsonData, err := json.Marshal(converted)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: marshal embed request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: build URL: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -587,17 +822,27 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, parseError(resp, c.provider.Name())
+		pErr := parseError(resp, c.provider.Name())
+		if afterHook != nil {
+			afterHook(pErr)
+		}
+		return nil, pErr
 	}
 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
+		if afterHook != nil {
+			afterHook(apiErr)
+		}
 		return nil, fmt.Errorf("relay: parse embed response: %w", apiErr)
 	}
 
@@ -606,7 +851,13 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 
 	embedResp, err := parseEmbedResponse(dummyW.Bytes(), req.Model, c.provider.Name(), usage)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
+	}
+	if afterHook != nil {
+		afterHook(nil)
 	}
 	return embedResp, nil
 }
@@ -617,6 +868,11 @@ func (c *Client) Embed(ctx context.Context, req *EmbedRequest) (*EmbedResponse, 
 func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, error) {
 	if err := c.ensureProvider(); err != nil {
 		return nil, err
+	}
+
+	var afterHook func(err error)
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, relaymode.RelayModeImagesGenerations)
 	}
 
 	adaptor := c.provider.Adaptor()
@@ -638,21 +894,33 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 
 	converted, err := adaptor.ConvertImageRequest(ctx, info, imageReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: convert image request: %w", err)
 	}
 
 	jsonData, err := json.Marshal(converted)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: marshal image request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -660,17 +928,27 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, parseError(resp, c.provider.Name())
+		pErr := parseError(resp, c.provider.Name())
+		if afterHook != nil {
+			afterHook(pErr)
+		}
+		return nil, pErr
 	}
 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
+		if afterHook != nil {
+			afterHook(apiErr)
+		}
 		return nil, fmt.Errorf("relay: parse image response: %w", apiErr)
 	}
 
@@ -684,7 +962,13 @@ func (c *Client) Image(ctx context.Context, req *ImageRequest) (*ImageResponse, 
 
 	imageResp, err := parseImageResponse(dummyW.Bytes(), req.Model, c.provider.Name(), usage)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
+	}
+	if afterHook != nil {
+		afterHook(nil)
 	}
 	return imageResp, nil
 }
@@ -718,6 +1002,8 @@ func (c *Client) audioWithMode(ctx context.Context, req *AudioRequest, isTranscr
 		return nil, err
 	}
 
+	var afterHook func(err error)
+
 	adaptor := c.provider.Adaptor()
 	mode := relaymode.RelayModeAudioSpeech
 	switch {
@@ -725,6 +1011,9 @@ func (c *Client) audioWithMode(ctx context.Context, req *AudioRequest, isTranscr
 		mode = relaymode.RelayModeAudioTranslation
 	case isTranscription:
 		mode = relaymode.RelayModeAudioTranscription
+	}
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, mode)
 	}
 	info := c.buildRelayInfo(mode, req.Model, false)
 	adaptor.Init(info)
@@ -742,11 +1031,17 @@ func (c *Client) audioWithMode(ctx context.Context, req *AudioRequest, isTranscr
 
 	body, err := adaptor.ConvertAudioRequest(ctx, info, audioReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: convert audio request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 
@@ -757,29 +1052,45 @@ func (c *Client) audioWithMode(ctx context.Context, req *AudioRequest, isTranscr
 		httpReq, err = http.NewRequestWithContext(ctx, "POST", url, nil)
 	}
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	_ = adaptor.SetupRequestHeader(ctx, &httpReq.Header, info)
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, parseError(resp, c.provider.Name())
+		pErr := parseError(resp, c.provider.Name())
+		if afterHook != nil {
+			afterHook(pErr)
+		}
+		return nil, pErr
 	}
 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
+		if afterHook != nil {
+			afterHook(apiErr)
+		}
 		return nil, fmt.Errorf("relay: parse audio response: %w", apiErr)
 	}
 
 	usage := extractUsage(usageRaw)
 	c.record(ctx, req.Model, usage)
 
+	if afterHook != nil {
+		afterHook(nil)
+	}
 	return &AudioResponse{
 		Data:    dummyW.Bytes(),
 		Usage:   usage,
@@ -902,6 +1213,11 @@ func (c *Client) Responses(ctx context.Context, req *ResponsesRequest) (*Respons
 		return nil, err
 	}
 
+	var afterHook func(err error)
+	if c.requestHook != nil {
+		afterHook = c.requestHook(ctx, c.provider.Name(), req.Model, relaymode.RelayModeResponses)
+	}
+
 	adaptor := c.provider.Adaptor()
 	info := c.buildRelayInfo(relaymode.RelayModeResponses, req.Model, req.Stream)
 	adaptor.Init(info)
@@ -916,21 +1232,33 @@ func (c *Client) Responses(ctx context.Context, req *ResponsesRequest) (*Respons
 
 	converted, err := adaptor.ConvertOpenAIResponsesRequest(ctx, info, responsesReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: convert responses request: %w", err)
 	}
 
 	jsonData, err := json.Marshal(converted)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, fmt.Errorf("relay: marshal responses request: %w", err)
 	}
 
 	url, err := adaptor.GetRequestURL(info)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonData)))
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -941,23 +1269,36 @@ func (c *Client) Responses(ctx context.Context, req *ResponsesRequest) (*Respons
 
 	resp, err := c.doRequest(ctx, adaptor, info, httpReq)
 	if err != nil {
+		if afterHook != nil {
+			afterHook(err)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, parseError(resp, c.provider.Name())
+		pErr := parseError(resp, c.provider.Name())
+		if afterHook != nil {
+			afterHook(pErr)
+		}
+		return nil, pErr
 	}
 
 	var dummyW dummyResponseWriter
 	usageRaw, apiErr := adaptor.DoResponse(ctx, resp, info, &dummyW)
 	if apiErr != nil {
+		if afterHook != nil {
+			afterHook(apiErr)
+		}
 		return nil, fmt.Errorf("relay: parse responses response: %w", apiErr)
 	}
 
 	usage := extractUsage(usageRaw)
 	c.record(ctx, req.Model, usage)
 
+	if afterHook != nil {
+		afterHook(nil)
+	}
 	return &ResponsesResponse{
 		Data:  dummyW.Bytes(),
 		Usage: usage,
@@ -1392,8 +1733,62 @@ func (c *Client) doRequest(ctx context.Context, adaptor common.Adaptor, info *co
 	if resp != nil {
 		return resp, nil
 	}
-	// Fallback: send the request ourselves.
-	return c.httpClient.Do(httpReq)
+
+	// If no retry/circuit breaker configured, just do the request.
+	if len(c.retryOpts) == 0 && c.circuitBreaker == nil {
+		return c.httpClient.Do(httpReq)
+	}
+
+	// With retry/circuit breaker.
+	var lastResp *http.Response
+	var lastErr error
+	retryOpts := append([]retry.Option{}, c.retryOpts...)
+	if c.circuitBreaker != nil {
+		retryOpts = append(retryOpts, retry.WithCircuitBreaker(c.circuitBreaker))
+	}
+	retryOpts = append(retryOpts, retry.WithOnRetry(func(attempt int, err error) {
+		logger.Debug("relay retry", zap.Int("attempt", attempt), zap.String("error", err.Error()))
+	}))
+
+	err = retry.Do(ctx, func(ctx context.Context) error {
+		// Clone the request body if needed (request body may be consumed).
+		var bodyReader io.Reader
+		if httpReq.Body != nil {
+			bodyBytes, readErr := io.ReadAll(httpReq.Body)
+			if readErr != nil {
+				return readErr
+			}
+			httpReq.Body.Close()
+			bodyReader = bytes.NewReader(bodyBytes)
+			httpReq.Body = io.NopCloser(bodyReader)
+		}
+
+		resp, doErr := c.httpClient.Do(httpReq)
+		if doErr != nil {
+			lastErr = doErr
+			return doErr
+		}
+
+		// Retry on 429 and 5xx.
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("relay: HTTP %d: %s", resp.StatusCode, string(body))
+			return lastErr
+		}
+
+		lastResp = resp
+		lastErr = nil
+		return nil
+	}, retryOpts...)
+
+	if err != nil {
+		if lastResp != nil {
+			lastResp.Body.Close()
+		}
+		return nil, err
+	}
+	return lastResp, nil
 }
 
 func (c *Client) toOpenAIRequest(req *ChatRequest) *dto.GeneralOpenAIRequest {
@@ -1596,10 +1991,45 @@ func parseImageResponse(body []byte, model, provider string, usage meter.Usage) 
 	}, nil
 }
 
-// parseError reads an error response body and returns an error.
+// RelayError is a unified error type for relay operations. It captures the
+// provider and model involved, the HTTP status code, the provider-specific
+// error code (when available), and a human-readable message. The underlying
+// error (if any) is wrapped and accessible via Unwrap.
+type RelayError struct {
+	Provider   string
+	Model      string
+	StatusCode int
+	Code       string // error code from provider
+	Message    string
+	Err        error  // wrapped error
+}
+
+// Error implements the error interface.
+func (e *RelayError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("relay: provider=%s model=%s: %v", e.Provider, e.Model, e.Err)
+	}
+	return fmt.Sprintf("relay: provider=%s model=%s: %s", e.Provider, e.Model, e.Message)
+}
+
+// Unwrap returns the wrapped error, if any.
+func (e *RelayError) Unwrap() error { return e.Err }
+
+// IsRetryable returns true if the error is likely transient (429, 500, 502,
+// 503, 504). Such errors are good candidates for retry or model fallback.
+func (e *RelayError) IsRetryable() bool {
+	return e.StatusCode == 429 || e.StatusCode == 500 || e.StatusCode == 502 || e.StatusCode == 503 || e.StatusCode == 504
+}
+
+// parseError reads an error response body and returns a *RelayError capturing
+// the provider, HTTP status code, and response body.
 func parseError(resp *http.Response, provider string) error {
 	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("relay: provider=%s HTTP %d: %s", provider, resp.StatusCode, string(body))
+	return &RelayError{
+		Provider:   provider,
+		StatusCode: resp.StatusCode,
+		Message:    fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body)),
+	}
 }
 
 // ─── Completions (legacy text completions) ──────────────────────

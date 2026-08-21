@@ -3,7 +3,9 @@ module github.com/LingByte/ling-base/relay
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0
 	github.com/LingByte/ling-base/common/logger v0.1.0
+	github.com/LingByte/ling-base/common/retry v0.1.0
 	github.com/LingByte/ling-base/relay/relaykit v0.0.0
 	github.com/aws/aws-sdk-go-v2 v1.43.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.35
