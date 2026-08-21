@@ -2,7 +2,10 @@ module github.com/LingByte/ling-base/common/limiter
 
 go 1.26.2
 
-require github.com/stretchr/testify v1.12.0
+require (
+	github.com/LingByte/ling-base/common/limiter/count v0.1.0
+	github.com/stretchr/testify v1.12.0
+)
 
 require (
 	github.com/kr/pretty v0.3.1 // indirect

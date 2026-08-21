@@ -1,12 +1,12 @@
 module github.com/LingByte/ling-base/agentkit/agent/weknora
 
-go 1.24.4
+go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../..
 
 require (
-	github.com/Tencent/WeKnora/client v0.0.0-20260324035655-62e6ae960f46
 	github.com/LingByte/ling-base/agentkit v1.7.0
+	github.com/Tencent/WeKnora/client v0.0.0-20260324035655-62e6ae960f46
 )
 
 require (
@@ -35,5 +35,4 @@ require (
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
 )

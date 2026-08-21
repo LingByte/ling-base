@@ -1,2 +1,4 @@
+github.com/LingByte/ling-base/voice/realtime v0.1.1 h1:AeZ8pGGeSpRkmvb9pwTZQEEshPF8I3CaymUO/dgNj0o=
+github.com/LingByte/ling-base/voice/realtime v0.1.1/go.mod h1:uwFnyIcwkhcYggDjT3vej+V7YcxNuBk5V2vrxUmFJ5k=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=

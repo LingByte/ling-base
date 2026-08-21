@@ -1,25 +1,28 @@
 module github.com/LingByte/ling-base/agentkit/model/anthropic
 
-go 1.23.0
+go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../../
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.37.0
-	github.com/stretchr/testify v1.11.1
 	github.com/LingByte/ling-base/agentkit v0.0.0-20251126064502-c8c2594d2519
+	github.com/anthropics/anthropic-sdk-go v1.66.0
+	github.com/stretchr/testify v1.12.1
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
+	github.com/invopop/jsonschema v0.14.0 // indirect
+	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
+	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 )

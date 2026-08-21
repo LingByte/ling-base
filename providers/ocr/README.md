@@ -62,8 +62,8 @@ func RegisteredDrivers() []string
 ```go
 import (
     "context"
-    "github.com/LingByte/ling-base/ocr"
-    "github.com/LingByte/ling-base/ocr/aliyun"
+    "github.com/LingByte/ling-base/providers/ocr"
+    "github.com/LingByte/ling-base/providers/ocr/aliyun"
 )
 
 func main() {

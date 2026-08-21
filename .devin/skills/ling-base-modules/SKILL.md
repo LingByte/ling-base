@@ -274,7 +274,7 @@
 | censor | `github.com/LingByte/ling-base/censor` | 内容审核统一接口 |
 | censor/aliyun | `github.com/LingByte/ling-base/censor/aliyun` | 阿里云内容安全 |
 | censor/qcloud | `github.com/LingByte/ling-base/censor/qcloud` | 腾讯云内容安全 |
-| ocr | `github.com/LingByte/ling-base/ocr` | OCR 统一接口 |
+| ocr | `github.com/LingByte/ling-base/providers/ocr` | OCR 统一接口 |
 
 ## 项目工具
 

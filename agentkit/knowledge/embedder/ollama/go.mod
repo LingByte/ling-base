@@ -1,12 +1,12 @@
 module github.com/LingByte/ling-base/agentkit/knowledge/embedder/ollama
 
-go 1.24.1
+go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../../..
 
 require (
-	github.com/ollama/ollama v0.17.1
 	github.com/LingByte/ling-base/agentkit v0.4.0
+	github.com/ollama/ollama v0.32.15
 )
 
 require (
@@ -40,5 +40,4 @@ require (
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
 )

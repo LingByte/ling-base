@@ -1,14 +1,14 @@
 module github.com/LingByte/ling-base/agentkit/knowledge/document/reader/pdf
 
-go 1.24.1
+go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../../../..
 
 require (
+	github.com/LingByte/ling-base/agentkit v0.2.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/pdfcpu/pdfcpu v0.11.1
-	github.com/LingByte/ling-base/agentkit v0.2.0
 )
 
 require (
@@ -25,5 +25,4 @@ require (
 	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
 )

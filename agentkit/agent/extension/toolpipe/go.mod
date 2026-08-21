@@ -1,25 +1,23 @@
 module github.com/LingByte/ling-base/agentkit/agent/extension/toolpipe
 
-go 1.21
+go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../../../
 
 require (
-	github.com/itchyny/gojq v0.12.16
-	github.com/stretchr/testify v1.11.1
-	mvdan.cc/sh/v3 v3.8.0
 	github.com/LingByte/ling-base/agentkit v0.8.0
+	github.com/itchyny/gojq v0.12.16
+	github.com/stretchr/testify v1.12.1
+	mvdan.cc/sh/v3 v3.8.0
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/itchyny/timefmt-go v0.1.6 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	go.opentelemetry.io/otel v1.29.0 // indirect
-	go.opentelemetry.io/otel/trace v1.29.0 // indirect
+	go.opentelemetry.io/otel v1.37.0 // indirect
+	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
 )
