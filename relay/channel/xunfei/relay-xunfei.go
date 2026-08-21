@@ -12,11 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
 )
@@ -110,7 +112,7 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 	}
 	ul, err := url.Parse(hostUrl)
 	if err != nil {
-		fmt.Println(err)
+		logger.Warn("error", zap.String("error", err.Error()))
 	}
 	date := time.Now().UTC().Format(time.RFC1123)
 	signString := []string{"host: " + ul.Host, "date: " + date, "GET " + ul.Path + " HTTP/1.1"}
@@ -145,7 +147,7 @@ func xunfeiStreamHandler(c context.Context, textRequest dto.GeneralOpenAIRequest
 			response := streamResponseXunfei2OpenAI(&xunfeiResponse)
 			jsonResponse, err := json.Marshal(response)
 			if err != nil {
-				fmt.Println("error marshalling stream response: " + err.Error())
+				logger.Warn("error marshalling stream response", zap.String("error", err.Error()))
 				continue
 			}
 			fmt.Fprintf(w, "data: %s\n\n", string(jsonResponse))
@@ -196,7 +198,7 @@ func xunfeiHandler(c context.Context, textRequest dto.GeneralOpenAIRequest, appI
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing xunfei response: " + err.Error())
+		logger.Warn("error writing xunfei response", zap.String("error", err.Error()))
 	}
 	return &usage, nil
 }
@@ -225,13 +227,13 @@ func xunfeiMakeRequest(textRequest dto.GeneralOpenAIRequest, domain, authUrl, ap
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
-				fmt.Println("error reading stream response: " + err.Error())
+				logger.Warn("error reading stream response", zap.String("error", err.Error()))
 				break
 			}
 			var response XunfeiChatResponse
 			err = json.Unmarshal(msg, &response)
 			if err != nil {
-				fmt.Println("error unmarshalling stream response: " + err.Error())
+				logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 				break
 			}
 			select {
@@ -288,6 +290,6 @@ func getAPIVersion(c context.Context, modelName string) string {
 		return apiVersion
 	}
 	apiVersion := "v1.1"
-	fmt.Println("api_version not found, using default: " + apiVersion)
+	logger.Debug("api_version not found, using default", zap.String("api_version", apiVersion))
 	return apiVersion
 }

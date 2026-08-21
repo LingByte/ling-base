@@ -11,13 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/helper"
-	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func convertCozeChatRequest(c context.Context, request dto.GeneralOpenAIRequest) *CozeChatRequest {
@@ -93,7 +94,7 @@ func cozeChatHandler(c context.Context, info *common.RelayInfo, resp *http.Respo
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing coze response: " + err.Error())
+		logger.Warn("error writing coze response", zap.String("error", err.Error()))
 	}
 
 	return &usage, nil
@@ -158,7 +159,7 @@ func handleCozeEvent(c context.Context, event string, data string, responseText 
 		var chatData CozeChatResponseData
 		err := json.Unmarshal([]byte(data), &chatData)
 		if err != nil {
-			fmt.Println("error_unmarshalling_stream_response: " + err.Error())
+			logger.Warn("error_unmarshalling_stream_response", zap.String("error", err.Error()))
 			return
 		}
 
@@ -168,7 +169,7 @@ func handleCozeEvent(c context.Context, event string, data string, responseText 
 
 		finishReason := "stop"
 		_ = finishReason
-		stopResponse := helper2.GenerateStopResponse(id, time.Now().Unix(), info.UpstreamModelName, nil)
+		stopResponse := helper.GenerateStopResponse(id, time.Now().Unix(), info.UpstreamModelName, nil)
 		helper.ObjectData(w, stopResponse)
 
 	case "conversation.message.delta":
@@ -176,14 +177,14 @@ func handleCozeEvent(c context.Context, event string, data string, responseText 
 		var messageData CozeChatV3MessageDetail
 		err := json.Unmarshal([]byte(data), &messageData)
 		if err != nil {
-			fmt.Println("error_unmarshalling_stream_response: " + err.Error())
+			logger.Warn("error_unmarshalling_stream_response", zap.String("error", err.Error()))
 			return
 		}
 
 		var content string
 		err = json.Unmarshal(messageData.Content, &content)
 		if err != nil {
-			fmt.Println("error_unmarshalling_stream_response: " + err.Error())
+			logger.Warn("error_unmarshalling_stream_response", zap.String("error", err.Error()))
 			return
 		}
 
@@ -208,11 +209,11 @@ func handleCozeEvent(c context.Context, event string, data string, responseText 
 		var errorData CozeError
 		err := json.Unmarshal([]byte(data), &errorData)
 		if err != nil {
-			fmt.Println("error_unmarshalling_stream_response: " + err.Error())
+			logger.Warn("error_unmarshalling_stream_response", zap.String("error", err.Error()))
 			return
 		}
 
-		fmt.Println(fmt.Sprintf("stream event error: %v %v", errorData.Code, errorData.Message))
+		logger.Warn("stream event error", zap.Any("code", errorData.Code), zap.Any("message", errorData.Message))
 	}
 }
 

@@ -3,12 +3,12 @@ package aws
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/smithy-go/auth/bearer"
+	"go.uber.org/zap"
 )
 
 // getAwsErrorStatusCode extracts HTTP status code from AWS SDK error
@@ -256,7 +257,7 @@ func awsHandler(c context.Context, info *common.RelayInfo, a *Adaptor, w http.Re
 		w.Header().Set("Content-Type", *awsResp.ContentType)
 	}
 	if _, err := w.Write(awsResp.Body); err != nil {
-		fmt.Println("error writing aws response: " + err.Error())
+		logger.Warn("error writing aws response", zap.String("error", err.Error()))
 	}
 	return nil, &dto.Usage{}
 }
@@ -304,10 +305,8 @@ func awsStreamHandler(c context.Context, info *common.RelayInfo, a *Adaptor, w h
 	// 					return respErr, nil
 	// 				}
 	// 			case *bedrockruntimeTypes.UnknownUnionMember:
-	// 				fmt.Println("unknown tag:", v.Tag)
 	// 				return types.NewError(errors.New("unknown response type"), types.ErrorCodeInvalidRequest), nil
 	// 			default:
-	// 				fmt.Println("union is nil or unknown type")
 	// 				return types.NewError(errors.New("nil or unknown response type"), types.ErrorCodeInvalidRequest), nil
 	// 			}
 	// 		}
@@ -381,7 +380,7 @@ func handleNovaRequest(c context.Context, info *common.RelayInfo, a *Adaptor, w 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing aws nova response: " + err.Error())
+		logger.Warn("error writing aws nova response", zap.String("error", err.Error()))
 	}
 	return nil, &response.Usage
 }

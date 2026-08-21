@@ -5,6 +5,8 @@ package common
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -24,9 +26,20 @@ type TaskSubmitReq struct {
 	InputReference string        `json:"input_reference,omitempty"`
 }
 
-// UnmarshalMetadata is a stub that applies metadata to a target struct.
+// UnmarshalMetadata marshals the request's Metadata map and unmarshals it
+// into the target struct, allowing callers to decode metadata into typed
+// structs in library mode.
 func (r *TaskSubmitReq) UnmarshalMetadata(target any) error {
-	// Not supported in library mode
+	if r.Metadata == nil {
+		return nil
+	}
+	data, err := json.Marshal(r.Metadata)
+	if err != nil {
+		return fmt.Errorf("task: marshal metadata: %w", err)
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		return fmt.Errorf("task: unmarshal metadata: %w", err)
+	}
 	return nil
 }
 

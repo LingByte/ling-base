@@ -14,12 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
+	"go.uber.org/zap"
 
 )
 
@@ -108,7 +110,7 @@ func tencentStreamHandler(c context.Context, info *common.RelayInfo, resp *http.
 		var tencentResponse TencentChatResponse
 		err = json.Unmarshal([]byte(data), &tencentResponse)
 		if err != nil {
-			fmt.Printf("error unmarshalling stream response: %v\n", err)
+			logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 			continue
 		}
 
@@ -119,7 +121,7 @@ func tencentStreamHandler(c context.Context, info *common.RelayInfo, resp *http.
 
 		err = helper2.ObjectData(w, response)
 		if err != nil {
-			fmt.Printf("%s\n", err)
+			logger.Warn("error", zap.String("error", err.Error()))
 		}
 	}
 

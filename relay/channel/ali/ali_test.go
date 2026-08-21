@@ -94,3 +94,20 @@ func TestAliAdaptor_ConvertOpenAIResponsesRequest_PassThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, req, result)
 }
+
+func TestAliAdaptor_ConvertAudioRequest(t *testing.T) {
+	a := ali.Adaptor{}
+	info := &common.RelayInfo{
+		ChannelMeta: &common.ChannelMeta{
+			ApiKey:            "test-key",
+			UpstreamModelName: "test-model",
+		},
+	}
+	req := dto.AudioRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	reader, err := a.ConvertAudioRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.NotNil(t, reader)
+}

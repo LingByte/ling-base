@@ -35,8 +35,9 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 	{{- end}}
 
-	// TODO: 实际项目中这里应该验证用户名/密码（查数据库）
-	// 示例仅签发 token，不验证凭证
+	// NOTE: This is a demo handler. In production, validate credentials
+	// against your database or identity store before issuing tokens.
+	// The example below only issues a token without verifying the password.
 	pair, err := h.jwtAuth.Login(req.Username)
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))

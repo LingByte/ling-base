@@ -2,11 +2,11 @@ package zhipu_4v
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
 	"io"
 	"net/http"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
@@ -86,7 +86,7 @@ func zhipu4vImageHandler(c context.Context, resp *http.Response, info *common.Re
 			url = data.ImageUrl
 		}
 		if url == "" {
-			fmt.Println("zhipu_image_missing_url")
+			logger.Warn("zhipu_image_missing_url")
 			continue
 		}
 
@@ -106,7 +106,7 @@ func zhipu4vImageHandler(c context.Context, resp *http.Response, info *common.Re
 		}
 
 		if b64 == "" {
-			fmt.Println("zhipu_image_empty_b64")
+			logger.Warn("zhipu_image_empty_b64")
 			continue
 		}
 

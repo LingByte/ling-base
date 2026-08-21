@@ -112,3 +112,15 @@ func TestVolcengineAdaptor_ConvertImageRequest_PassThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, req, result)
 }
+
+func TestVolcengineAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := volcengine.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}

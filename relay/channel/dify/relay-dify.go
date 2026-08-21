@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/helper"
@@ -21,6 +22,7 @@ import (
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, media dto.MediaContent) *DifyFile {
@@ -38,14 +40,14 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 		// Decode base64 string
 		decodedData, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
-			fmt.Println("failed to decode base64: " + err.Error())
+			logger.Warn("failed to decode base64", zap.String("error", err.Error()))
 			return nil
 		}
 
 		// Create temporary file
 		tempFile, err := os.CreateTemp("", "dify-upload-*")
 		if err != nil {
-			fmt.Println("failed to create temp file: " + err.Error())
+			logger.Warn("failed to create temp file", zap.String("error", err.Error()))
 			return nil
 		}
 		defer tempFile.Close()
@@ -53,7 +55,7 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 
 		// Write decoded data to temp file
 		if _, err := tempFile.Write(decodedData); err != nil {
-			fmt.Println("failed to write to temp file: " + err.Error())
+			logger.Warn("failed to write to temp file", zap.String("error", err.Error()))
 			return nil
 		}
 
@@ -63,7 +65,7 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 
 		// Add user field
 		if err := writer.WriteField("user", user); err != nil {
-			fmt.Println("failed to add user field: " + err.Error())
+			logger.Warn("failed to add user field", zap.String("error", err.Error()))
 			return nil
 		}
 
@@ -76,13 +78,13 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 		// Create form file
 		part, err := writer.CreateFormFile("file", fmt.Sprintf("image.%s", strings.TrimPrefix(mimeType, "image/")))
 		if err != nil {
-			fmt.Println("failed to create form file: " + err.Error())
+			logger.Warn("failed to create form file", zap.String("error", err.Error()))
 			return nil
 		}
 
 		// Copy file content to form
 		if _, err = io.Copy(part, bytes.NewReader(decodedData)); err != nil {
-			fmt.Println("failed to copy file content: " + err.Error())
+			logger.Warn("failed to copy file content", zap.String("error", err.Error()))
 			return nil
 		}
 		writer.Close()
@@ -90,7 +92,7 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 		// Create HTTP request
 		req, err := http.NewRequest("POST", uploadUrl, body)
 		if err != nil {
-			fmt.Println("failed to create request: " + err.Error())
+			logger.Warn("failed to create request", zap.String("error", err.Error()))
 			return nil
 		}
 
@@ -101,7 +103,7 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 		client := http.DefaultClient
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Println("failed to send request: " + err.Error())
+			logger.Warn("failed to send request", zap.String("error", err.Error()))
 			return nil
 		}
 		defer resp.Body.Close()
@@ -111,7 +113,7 @@ func uploadDifyFile(c context.Context, info *common.RelayInfo, user string, medi
 			Id string `json:"id"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Println("failed to decode response: " + err.Error())
+			logger.Warn("failed to decode response", zap.String("error", err.Error()))
 			return nil
 		}
 
@@ -137,7 +139,7 @@ func requestOpenAI2Dify(c context.Context, info *common.RelayInfo, request dto.G
 	var stringUser string
 	err := json.Unmarshal(user, &stringUser)
 	if err != nil {
-		fmt.Println("failed to unmarshal user: " + err.Error())
+		logger.Warn("failed to unmarshal user", zap.String("error", err.Error()))
 		stringUser = helper.GetResponseID("")
 	}
 	difyReq.User = stringUser
@@ -231,7 +233,7 @@ func difyStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Res
 	err := helper2.StreamScannerHandler(resp, func(data string) error {
 		var difyResponse DifyChunkChatCompletionResponse
 		if err := json.Unmarshal([]byte(data), &difyResponse); err != nil {
-			fmt.Println("error unmarshalling stream response: " + err.Error())
+			logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 			return nil
 		}
 		if difyResponse.Event == "message_end" {
@@ -248,12 +250,12 @@ func difyStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Res
 			}
 		}
 		if err := helper.ObjectData(w, openaiResponse); err != nil {
-			fmt.Printf("%s\n", err)
+			logger.Warn("error", zap.String("error", err.Error()))
 		}
 		return nil
 	})
 	if err != nil {
-		fmt.Println("error reading stream: " + err.Error())
+		logger.Warn("error reading stream", zap.String("error", err.Error()))
 	}
 	helper.Done(w)
 	if usage.TotalTokens == 0 {

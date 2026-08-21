@@ -104,6 +104,22 @@ func TestDeepSeekAdaptor_GetModelList(t *testing.T) {
 	assert.Contains(t, models, "deepseek-reasoner")
 }
 
+func TestDeepSeekAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := &deepseek.Adaptor{}
+	info := common.NewRelayInfo()
+	info.ChannelMeta = &common.ChannelMeta{
+		ApiKey:            "test-key",
+		UpstreamModelName: "test-model",
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
 func TestDeepSeekAdaptor_GetChannelName(t *testing.T) {
 	a := &deepseek.Adaptor{}
 	assert.Equal(t, "deepseek", a.GetChannelName())

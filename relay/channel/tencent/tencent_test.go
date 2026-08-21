@@ -72,3 +72,49 @@ func TestTencentAdaptor_ConvertImageRequest_Unsupported(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported")
 }
+
+func TestTencentAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := tencent.Adaptor{}
+	info := &common.RelayInfo{
+		ChannelMeta: &common.ChannelMeta{
+			ApiKey:            "test-key",
+			UpstreamModelName: "test-model",
+		},
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestTencentAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := tencent.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestTencentAdaptor_ConvertAudioRequest(t *testing.T) {
+	a := tencent.Adaptor{}
+	info := &common.RelayInfo{
+		ChannelMeta: &common.ChannelMeta{
+			ApiKey:            "test-key",
+			UpstreamModelName: "test-model",
+		},
+	}
+	req := dto.AudioRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	reader, err := a.ConvertAudioRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.NotNil(t, reader)
+}

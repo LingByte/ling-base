@@ -48,7 +48,8 @@ func (s *Server) Serve(lis net.Listener) error {
 
 func (s *Server) handleConn(conn net.Conn) {
 	defer conn.Close()
-	// TODO: 接入 google.golang.org/grpc 处理连接
+	// NOTE: This is a demo handler. In production, wire up gRPC service handlers
+	// here using google.golang.org/grpc. The example below is a placeholder.
 }
 
 func (s *Server) GracefulStop() {

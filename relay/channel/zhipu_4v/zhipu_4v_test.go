@@ -113,6 +113,18 @@ func TestZhipu4VAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
 	assert.Equal(t, req, result)
 }
 
+func TestZhipu4VAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := zhipu_4v.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
 func ptrUint(v uint) *uint {
 	return &v
 }

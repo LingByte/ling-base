@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/helper"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
@@ -17,6 +18,7 @@ import (
 	"github.com/LingByte/ling-base/relay/service"
 
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func requestOpenAI2Cohere(textRequest dto.GeneralOpenAIRequest) *CohereRequest {
@@ -93,7 +95,7 @@ func cohereStreamHandler(c context.Context, info *common.RelayInfo, resp *http.R
 		var cohereResp CohereResponse
 		err := json.Unmarshal([]byte(data), &cohereResp)
 		if err != nil {
-			fmt.Println("error unmarshalling stream response: " + err.Error())
+			logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 			return nil
 		}
 		var openaiResp dto.ChatCompletionsStreamResponse
@@ -128,14 +130,14 @@ func cohereStreamHandler(c context.Context, info *common.RelayInfo, resp *http.R
 		}
 		jsonStr, err := json.Marshal(openaiResp)
 		if err != nil {
-			fmt.Println("error marshalling stream response: " + err.Error())
+			logger.Warn("error marshalling stream response", zap.String("error", err.Error()))
 			return nil
 		}
 		fmt.Fprintf(w, "data: %s\n\n", string(jsonStr))
 		return nil
 	})
 	if err != nil {
-		fmt.Println("error reading stream: " + err.Error())
+		logger.Warn("error reading stream", zap.String("error", err.Error()))
 	}
 	fmt.Fprintf(w, "data: [DONE]\n\n")
 	if usage.PromptTokens == 0 {
@@ -183,7 +185,7 @@ func cohereHandler(c context.Context, info *common.RelayInfo, resp *http.Respons
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing cohere response: " + err.Error())
+		logger.Warn("error writing cohere response", zap.String("error", err.Error()))
 	}
 	return &usage, nil
 }
@@ -232,7 +234,7 @@ func cohereEmbeddingHandler(c context.Context, resp *http.Response, info *common
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	if _, err = w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing cohere embedding response: " + err.Error())
+		logger.Warn("error writing cohere embedding response", zap.String("error", err.Error()))
 	}
 	return &usage, nil
 }

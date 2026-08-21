@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/channel"
 	common "github.com/LingByte/ling-base/relay/common"
@@ -20,6 +21,7 @@ import (
 	"github.com/LingByte/ling-base/relay/service"
 
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 type Adaptor struct {
@@ -283,7 +285,7 @@ func (a *Adaptor) DoResponse(c context.Context, resp *http.Response, info *commo
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(responseBytes); err != nil {
-		fmt.Println("error writing replicate response: " + err.Error())
+		logger.Warn("error writing replicate response", zap.String("error", err.Error()))
 	}
 
 	usage := &dto.Usage{}

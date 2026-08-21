@@ -104,3 +104,32 @@ func TestBaiduAdaptor_ConvertClaudeRequest_Unsupported(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported")
 }
+
+func TestBaiduAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := baidu.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestBaiduAdaptor_ConvertAudioRequest(t *testing.T) {
+	a := baidu.Adaptor{}
+	info := &common.RelayInfo{
+		ChannelMeta: &common.ChannelMeta{
+			ApiKey:            "test-key",
+			UpstreamModelName: "test-model",
+		},
+	}
+	req := dto.AudioRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	reader, err := a.ConvertAudioRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.NotNil(t, reader)
+}

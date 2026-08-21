@@ -11,12 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 )
 
@@ -118,7 +120,7 @@ func baiduStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 	helper2.StreamScannerHandler(resp, func(data string) error {
 		var baiduResponse BaiduChatStreamResponse
 		if err := json.Unmarshal([]byte(data), &baiduResponse); err != nil {
-			fmt.Printf("error unmarshalling stream response: %s\n", err)
+			logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 			return err
 		}
 		if baiduResponse.Usage.TotalTokens != 0 {
@@ -128,7 +130,7 @@ func baiduStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 		}
 		response := streamResponseBaidu2OpenAI(&baiduResponse)
 		if err := helper2.ObjectData(w, response); err != nil {
-			fmt.Printf("error sending stream response: %s\n", err)
+			logger.Warn("error sending stream response", zap.String("error", err.Error()))
 			return err
 		}
 		return nil
@@ -197,11 +199,11 @@ func getBaiduAccessToken(apiKey string) (string, error) {
 				go func() {
 					defer func() {
 						if r := recover(); r != nil {
-							fmt.Println("panic refreshing baidu access token: ", r)
+							logger.Warn("panic refreshing baidu access token", zap.Any("panic", r))
 						}
 					}()
 					if _, err := getBaiduAccessTokenHelper(apiKey); err != nil {
-						fmt.Println("error refreshing baidu access token: " + err.Error())
+						logger.Warn("error refreshing baidu access token", zap.String("error", err.Error()))
 					}
 				}()
 			}

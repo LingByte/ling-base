@@ -10,12 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
 
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func oaiImage2AliImageRequest(info *common.RelayInfo, request dto.ImageRequest, isSync bool) (*AliImageRequest, error) {
@@ -143,7 +145,7 @@ func updateTask(info *common.RelayInfo, taskID string) (*AliResponse, error, []b
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("updateTask client.Do err: " + err.Error())
+		logger.Warn("updateTask client.Do err", zap.String("error", err.Error()))
 		return &aliResponse, err, nil
 	}
 	defer resp.Body.Close()
@@ -153,7 +155,7 @@ func updateTask(info *common.RelayInfo, taskID string) (*AliResponse, error, []b
 	var response AliResponse
 	err = json.Unmarshal(responseBody, &response)
 	if err != nil {
-		fmt.Println("updateTask NewDecoder err: " + err.Error())
+		logger.Warn("updateTask NewDecoder err", zap.String("error", err.Error()))
 		return &aliResponse, err, nil
 	}
 
@@ -176,7 +178,7 @@ func asyncTaskWait(c context.Context, info *common.RelayInfo, taskID string) (*A
 		rsp, err, body := updateTask(info, taskID)
 		responseBody = body
 		if err != nil {
-			fmt.Println("asyncTaskWait UpdateTask err: " + err.Error())
+			logger.Warn("asyncTaskWait UpdateTask err", zap.String("error", err.Error()))
 			time.Sleep(time.Duration(waitSeconds) * time.Second)
 			continue
 		}

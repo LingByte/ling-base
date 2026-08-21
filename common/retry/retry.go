@@ -52,6 +52,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"strings"
 	"time"
 )
 
@@ -442,9 +443,13 @@ func IsMaxAttempts(err error) bool {
 }
 
 // isCircuitOpen checks if an error is a circuit-open error. We use a string
-// check rather than importing the circuitbreaker package to avoid a
-// circular dependency. The circuitbreaker package's ErrCircuitOpen has
-// the message "circuitbreaker: circuit is open".
+// check rather than importing the circuitbreaker package to avoid a circular
+// dependency. The circuitbreaker package's ErrCircuitOpen has the message
+// "circuitbreaker: circuit is open"; we match on a stable substring so the
+// check still works even if the error is wrapped or the prefix changes.
 func isCircuitOpen(err error) bool {
-	return err != nil && err.Error() == "circuitbreaker: circuit is open"
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "circuit is open")
 }

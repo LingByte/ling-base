@@ -12,6 +12,7 @@ import (
 
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/aws"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
@@ -85,6 +86,34 @@ func TestAWSAdaptor_ConvertClaudeRequest_StringContentUnchanged(t *testing.T) {
 func TestAWSAdaptor_GetChannelName(t *testing.T) {
 	a := &aws.Adaptor{}
 	assert.Equal(t, "aws", a.GetChannelName())
+}
+
+func TestAWSAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := &aws.Adaptor{}
+	info := common.NewRelayInfo()
+	info.ChannelMeta = &common.ChannelMeta{
+		ApiKey:            "test-key",
+		UpstreamModelName: "test-model",
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestAWSAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := &aws.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
 }
 
 func strPtr(s string) *string { return &s }

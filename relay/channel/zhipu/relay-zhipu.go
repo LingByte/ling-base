@@ -10,12 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -39,7 +41,7 @@ func getZhipuToken(apikey string) string {
 
 	split := strings.Split(apikey, ".")
 	if len(split) != 2 {
-		fmt.Println("invalid zhipu key: " + apikey)
+		logger.Warn("invalid zhipu key", zap.String("apikey", apikey))
 		return ""
 	}
 
@@ -212,7 +214,7 @@ func zhipuStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 			response := streamResponseZhipu2OpenAI(data)
 			jsonResponse, err := json.Marshal(response)
 			if err != nil {
-				fmt.Println("error marshalling stream response: " + err.Error())
+				logger.Warn("error marshalling stream response", zap.String("error", err.Error()))
 				continue
 			}
 			fmt.Fprintf(w, "data: %s\n\n", string(jsonResponse))
@@ -220,13 +222,13 @@ func zhipuStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Re
 			var zhipuResponse ZhipuStreamMetaResponse
 			err := json.Unmarshal([]byte(data), &zhipuResponse)
 			if err != nil {
-				fmt.Println("error unmarshalling stream response: " + err.Error())
+				logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 				continue
 			}
 			response, zhipuUsage := streamMetaResponseZhipu2OpenAI(&zhipuResponse)
 			jsonResponse, err := json.Marshal(response)
 			if err != nil {
-				fmt.Println("error marshalling stream response: " + err.Error())
+				logger.Warn("error marshalling stream response", zap.String("error", err.Error()))
 				continue
 			}
 			usage = zhipuUsage

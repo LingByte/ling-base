@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LingByte/ling-base/common/logger"
 	kitutil "github.com/LingByte/ling-base/relay/relaykit/relayconvert/kitutil"
+	"go.uber.org/zap"
 )
 
 type OpenAIError struct {
@@ -399,7 +401,7 @@ func ErrOptionWithStatusCode(statusCode int) NewAPIErrorOptions {
 func ErrOptionWithHideErrMsg(replaceStr string) NewAPIErrorOptions {
 	return func(e *NewAPIError) {
 		if kitutil.Debug.Load() {
-			fmt.Printf("ErrOptionWithHideErrMsg: %s, origin error: %s", replaceStr, e.Err)
+			logger.Debug("ErrOptionWithHideErrMsg", zap.String("replace", replaceStr), zap.String("origin_error", e.Err.Error()))
 		}
 		e.Err = errors.New(replaceStr)
 	}

@@ -3,16 +3,17 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 )
 
@@ -98,7 +99,7 @@ func cfHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing cloudflare response: " + err.Error())
+		logger.Warn("error writing cloudflare response", zap.String("error", err.Error()))
 	}
 	return nil, usage
 }
@@ -126,7 +127,7 @@ func cfSTTHandler(c context.Context, info *common.RelayInfo, resp *http.Response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(jsonResponse); err != nil {
-		fmt.Println("error writing cloudflare stt response: " + err.Error())
+		logger.Warn("error writing cloudflare stt response", zap.String("error", err.Error()))
 	}
 
 	usage := service.ResponseText2Usage(cfResp.Result.Text, info.UpstreamModelName, info.GetEstimatePromptTokens())

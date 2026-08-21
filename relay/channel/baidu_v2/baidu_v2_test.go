@@ -82,6 +82,23 @@ func TestBaiduV2Adaptor_ConvertImageRequest_Unsupported(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported")
 }
 
+func TestBaiduV2Adaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := baidu_v2.Adaptor{}
+	info := &common.RelayInfo{
+		ChannelMeta: &common.ChannelMeta{
+			ApiKey:            "test-key",
+			UpstreamModelName: "test-model",
+		},
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
 func ptrUint(v uint) *uint {
 	return &v
 }

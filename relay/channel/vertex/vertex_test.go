@@ -12,6 +12,7 @@ import (
 
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/vertex"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/setting"
 )
@@ -87,6 +88,50 @@ func TestVertexAdaptor_ConvertGeminiRequest_DelegatesAndRemovesFunctionResponseI
 func TestVertexAdaptor_GetChannelName(t *testing.T) {
 	a := &vertex.Adaptor{}
 	assert.Equal(t, "vertex-ai", a.GetChannelName())
+}
+
+func TestVertexAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := &vertex.Adaptor{}
+	info := common.NewRelayInfo()
+	info.ChannelMeta = &common.ChannelMeta{
+		ApiKey:            "test-key",
+		UpstreamModelName: "test-model",
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestVertexAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
+	a := &vertex.Adaptor{}
+	req := dto.RerankRequest{
+		Model:     "test-model",
+		Query:     "hello",
+		Documents: []any{"doc1", "doc2"},
+	}
+	result, err := a.ConvertRerankRequest(context.Background(), relaymode.RelayModeRerank, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}
+
+func TestVertexAdaptor_ConvertAudioRequest(t *testing.T) {
+	a := &vertex.Adaptor{}
+	info := common.NewRelayInfo()
+	info.ChannelMeta = &common.ChannelMeta{
+		ApiKey:            "test-key",
+		UpstreamModelName: "test-model",
+	}
+	req := dto.AudioRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	reader, err := a.ConvertAudioRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.NotNil(t, reader)
 }
 
 // jsonRaw is a helper to create json.RawMessage from a string.

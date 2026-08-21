@@ -76,3 +76,19 @@ func TestXAIAdaptor_GetChannelName(t *testing.T) {
 	a := &xai.Adaptor{}
 	assert.Equal(t, "xai", a.GetChannelName())
 }
+
+func TestXAIAdaptor_ConvertEmbeddingRequest_PassThrough(t *testing.T) {
+	a := &xai.Adaptor{}
+	info := common.NewRelayInfo()
+	info.ChannelMeta = &common.ChannelMeta{
+		ApiKey:            "test-key",
+		UpstreamModelName: "test-model",
+	}
+	req := dto.EmbeddingRequest{
+		Model: "test-model",
+		Input: "hello",
+	}
+	result, err := a.ConvertEmbeddingRequest(context.Background(), info, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, result)
+}

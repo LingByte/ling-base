@@ -2,17 +2,18 @@ package xai
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/LingByte/ling-base/common/logger"
 	common "github.com/LingByte/ling-base/relay/common"
 	helper2 "github.com/LingByte/ling-base/relay/helper"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
+	"go.uber.org/zap"
 
 )
 
@@ -47,7 +48,7 @@ func xAIStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Resp
 	helper2.StreamScannerHandler(resp, func(data string) error {
 		var xAIResp *dto.ChatCompletionsStreamResponse
 		if err := json.Unmarshal([]byte(data), &xAIResp); err != nil {
-			fmt.Println("error unmarshalling stream response: " + err.Error())
+			logger.Warn("error unmarshalling stream response", zap.String("error", err.Error()))
 			return err
 		}
 
@@ -66,7 +67,7 @@ func xAIStreamHandler(c context.Context, info *common.RelayInfo, resp *http.Resp
 			responseTextBuilder.WriteString(openaiResponse.Choices[0].Delta.GetContentString())
 		}
 		if err := helper2.ObjectData(w, openaiResponse); err != nil {
-			fmt.Printf("%s\n", err)
+			logger.Warn("error", zap.String("error", err.Error()))
 			return err
 		}
 		return nil

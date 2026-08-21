@@ -31,8 +31,8 @@ import (
 )
 
 func main() {
-	apiUser := flag.String("api-user", envOr("SC_API_USER", "LingEcho"), "SendCloud API user")
-	apiKey := flag.String("api-key", envOr("SC_API_KEY", "14b6e48501c452407421917c943be0c3"), "SendCloud API key")
+	apiUser := flag.String("api-user", envOr("SC_API_USER", ""), "SendCloud API user")
+	apiKey := flag.String("api-key", envOr("SC_API_KEY", ""), "SendCloud API key")
 	from := flag.String("from", envOr("SC_FROM", "noreply@email.lingecho.com"), "sender address")
 	fromName := flag.String("from-name", envOr("SC_FROM_NAME", "LingEchoX"), "sender display name")
 	days := flag.Int("days", envIntOr("SC_DAYS", 3), "query window in days (max 3)")

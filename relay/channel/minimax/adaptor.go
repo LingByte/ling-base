@@ -71,9 +71,6 @@ func (a *Adaptor) ConvertAudioRequest(c context.Context, info *common.RelayInfo,
 
 	// c.Set("response_format", outputFormat)
 
-	// Debug: log the request structure
-	// fmt.Printf("MiniMax TTS Request: %s\n", string(jsonData))
-
 	return bytes.NewReader(jsonData), nil
 }
 
