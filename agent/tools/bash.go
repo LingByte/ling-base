@@ -27,22 +27,22 @@ type BashInput struct {
 	RunInBackground bool   `json:"run_in_background,omitempty" jsonschema:"description=Run detached and return a shell id immediately; read its output with BashOutput and stop it with KillShell"`
 }
 
-// Bash executes shell commands via a sandbox.Executor. When run_in_background is
-// set, it launches a detached shell tracked by the (optional) ShellStore.
+// Bash executes shell commands via a sandbox.ShellRunner. When run_in_background
+// is set, it launches a detached shell tracked by the (optional) ShellStore.
 type Bash struct {
-	schema   *schema.Schema
-	executor sandbox.Executor
-	shells   *ShellStore
+	schema *schema.Schema
+	runner sandbox.ShellRunner
+	shells *ShellStore
 }
 
-// NewBash constructs the Bash tool with the given executor. The optional
+// NewBash constructs the Bash tool with the given shell runner. The optional
 // ShellStore backs run_in_background (omit it to disable background shells).
-func NewBash(executor sandbox.Executor, shells ...*ShellStore) (*Bash, error) {
+func NewBash(runner sandbox.ShellRunner, shells ...*ShellStore) (*Bash, error) {
 	s, err := schema.For[BashInput]()
 	if err != nil {
 		return nil, fmt.Errorf("bash: build schema: %w", err)
 	}
-	b := &Bash{schema: s, executor: executor}
+	b := &Bash{schema: s, runner: runner}
 	if len(shells) > 0 {
 		b.shells = shells[0]
 	}
@@ -103,7 +103,7 @@ func (b *Bash) Execute(ctx context.Context, tctx Context, raw json.RawMessage) (
 		if b.shells == nil {
 			return []Result{{Content: "background execution is not available", IsError: true}}, nil
 		}
-		id, err := b.shells.Start(b.executor, sandbox.Request{Command: in.Command, WorkingDir: tctx.WorkingDir})
+		id, err := b.shells.Start(b.runner, sandbox.ShellSpec{Command: in.Command, WorkDir: tctx.WorkingDir, Background: true})
 		if err != nil {
 			return []Result{{Content: fmt.Sprintf("Failed to start background command: %v", err), IsError: true}}, nil
 		}
@@ -115,21 +115,22 @@ func (b *Bash) Execute(ctx context.Context, tctx Context, raw json.RawMessage) (
 		timeout = min(time.Duration(in.Timeout)*time.Millisecond, 10*time.Minute)
 	}
 
-	resp, err := b.executor.Run(ctx, sandbox.Request{
-		Command:    in.Command,
-		WorkingDir: tctx.WorkingDir,
-		Timeout:    timeout,
+	result, err := b.runner.Run(ctx, sandbox.ShellSpec{
+		Command: in.Command,
+		WorkDir: tctx.WorkingDir,
+		Timeout: timeout,
 	})
-	if err != nil {
+	if err != nil && result.ExitCode == 0 && !result.TimedOut {
+		// Command failed to start at all (not a non-zero exit).
 		return []Result{{Content: fmt.Sprintf("Failed to run command: %v", err), IsError: true}}, nil
 	}
 
-	return []Result{{Content: formatBashOutput(resp), IsError: resp.ExitCode != 0}}, nil
+	return []Result{{Content: formatBashOutput(result), IsError: result.ExitCode != 0}}, nil
 }
 
 // formatBashOutput combines stdout/stderr and annotates non-zero exit / timeout,
 // truncating to bashMaxOutput.
-func formatBashOutput(resp sandbox.Response) string {
+func formatBashOutput(resp sandbox.ShellResult) string {
 	var b strings.Builder
 	b.WriteString(resp.Stdout)
 	if resp.Stderr != "" {

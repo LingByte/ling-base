@@ -23,7 +23,8 @@ func waitUntil(d time.Duration, fn func() bool) bool {
 
 func TestShellStoreRunsAndReportsExit(t *testing.T) {
 	store := NewShellStore(context.Background())
-	id, err := store.Start(sandbox.NewLocal(), sandbox.Request{Command: "printf 'hello\\nworld\\n'"})
+	runner := sandbox.NewLocalShellRunner()
+	id, err := store.Start(runner, sandbox.ShellSpec{Command: "printf 'hello\\nworld\\n'"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +52,8 @@ func TestShellStoreRunsAndReportsExit(t *testing.T) {
 
 func TestShellStoreKillStopsLongRunning(t *testing.T) {
 	store := NewShellStore(context.Background())
-	id, err := store.Start(sandbox.NewLocal(), sandbox.Request{Command: "sleep 30"})
+	runner := sandbox.NewLocalShellRunner()
+	id, err := store.Start(runner, sandbox.ShellSpec{Command: "sleep 30"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +84,8 @@ func TestShellStoreUnknownID(t *testing.T) {
 
 func TestBashOutputToolFilter(t *testing.T) {
 	store := NewShellStore(context.Background())
-	id, _ := store.Start(sandbox.NewLocal(), sandbox.Request{Command: "printf 'keep me\\ndrop this\\nkeep too\\n'"})
+	runner := sandbox.NewLocalShellRunner()
+	id, _ := store.Start(runner, sandbox.ShellSpec{Command: "printf 'keep me\\ndrop this\\nkeep too\\n'"})
 	// Wait for exit via the non-consuming List (so the tool reads from offset 0).
 	waitUntil(3*time.Second, func() bool { return !peekRunning(store, id) })
 

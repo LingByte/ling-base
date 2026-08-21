@@ -19,7 +19,7 @@ import (
 type bgShell struct {
 	id      string
 	command string
-	proc    *sandbox.BackgroundProcess
+	handle  *sandbox.ShellHandle
 	offset  int // bytes of output already returned by BashOutput
 	started time.Time
 }
@@ -43,10 +43,11 @@ func NewShellStore(ctx context.Context) *ShellStore {
 	return &ShellStore{parent: ctx, shells: map[string]*bgShell{}}
 }
 
-// Start launches req as a detached background shell and returns its id.
-func (s *ShellStore) Start(e sandbox.Executor, req sandbox.Request) (string, error) {
-	req.Timeout = 0 // background shells run until they exit or are killed
-	proc, err := sandbox.StartBackground(s.parent, e, req)
+// Start launches a background shell via the runner and returns its id.
+func (s *ShellStore) Start(runner sandbox.ShellRunner, spec sandbox.ShellSpec) (string, error) {
+	spec.Background = true
+	spec.Timeout = 0 // background shells run until they exit or are killed
+	handle, err := runner.Start(s.parent, spec)
 	if err != nil {
 		return "", err
 	}
@@ -54,7 +55,7 @@ func (s *ShellStore) Start(e sandbox.Executor, req sandbox.Request) (string, err
 	defer s.mu.Unlock()
 	s.seq++
 	id := fmt.Sprintf("bash_%d", s.seq)
-	s.shells[id] = &bgShell{id: id, command: req.Command, proc: proc, started: time.Now()}
+	s.shells[id] = &bgShell{id: id, command: spec.Command, handle: handle, started: time.Now()}
 	return id, nil
 }
 
@@ -75,9 +76,9 @@ func (s *ShellStore) Read(id string) (ShellOutput, bool) {
 	if !ok {
 		return ShellOutput{}, false
 	}
-	data, newOffset, done, code := sh.proc.Read(sh.offset)
+	data, newOffset, running, code := sh.handle.Read(sh.offset)
 	sh.offset = newOffset
-	return ShellOutput{ID: id, Command: sh.command, Output: data, Running: !done, ExitCode: code}, true
+	return ShellOutput{ID: id, Command: sh.command, Output: data, Running: running, ExitCode: code}, true
 }
 
 // Kill terminates a shell. Returns false if there is no such shell.
@@ -88,7 +89,7 @@ func (s *ShellStore) Kill(id string) bool {
 	if !ok {
 		return false
 	}
-	sh.proc.Kill()
+	_ = sh.handle.Kill()
 	return true
 }
 
@@ -98,7 +99,7 @@ func (s *ShellStore) List() []ShellOutput {
 	defer s.mu.Unlock()
 	out := make([]ShellOutput, 0, len(s.shells))
 	for _, sh := range s.shells {
-		out = append(out, ShellOutput{ID: sh.id, Command: sh.command, Running: sh.proc.Running()})
+		out = append(out, ShellOutput{ID: sh.id, Command: sh.command, Running: sh.handle.Running()})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID > out[j].ID })
 	return out
@@ -109,7 +110,7 @@ func (s *ShellStore) KillAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, sh := range s.shells {
-		sh.proc.Kill()
+		_ = sh.handle.Kill()
 	}
 }
 

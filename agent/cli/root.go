@@ -22,7 +22,6 @@ import (
 	"github.com/LingByte/ling-base/agent/config"
 	"github.com/LingByte/ling-base/agent/doctor"
 	"github.com/LingByte/ling-base/agent/lsp"
-	"github.com/LingByte/ling-base/agent/swarm"
 	"github.com/LingByte/ling-base/agent/mcp"
 	"github.com/LingByte/ling-base/agent/memory"
 	"github.com/LingByte/ling-base/agent/permission"
@@ -32,6 +31,7 @@ import (
 	"github.com/LingByte/ling-base/agent/skill"
 	"github.com/LingByte/ling-base/agent/streamjson"
 	"github.com/LingByte/ling-base/agent/subagent"
+	"github.com/LingByte/ling-base/agent/swarm"
 	"github.com/LingByte/ling-base/agent/tools"
 	"github.com/LingByte/ling-base/agent/tui"
 	"github.com/LingByte/ling-base/version"
@@ -291,45 +291,49 @@ func buildBrowserOptions(bc config.Browser) browser.Options {
 	return opts
 }
 
-// buildExecutor selects the Bash execution backend from config. Both "os"
+// buildShellRunner selects the Bash execution backend from config. Both "os"
 // (host confinement via sandbox-exec/bwrap) and "container" modes degrade
-// gracefully to the local executor when the required tool is absent or the
+// gracefully to the local runner when the required tool is absent or the
 // config is incomplete (warn explains why).
-func buildExecutor(sb config.Sandbox, warn func(string)) sandbox.Executor {
+func buildShellRunner(cwd string, sb config.Sandbox, warn func(string)) sandbox.ShellRunner {
 	switch sb.Mode {
 	case config.SandboxOS:
-		return buildOSExecutor(sb, warn)
+		return buildOSShellRunner(cwd, sb, warn)
 	case config.SandboxContainer:
-		return buildContainerExecutor(sb, warn)
+		return buildContainerShellRunner(sb, warn)
 	default:
-		return sandbox.NewLocal()
+		return sandbox.NewLocalShellRunner()
 	}
 }
 
-// buildOSExecutor picks the OS-native confinement tool for the current
+// buildOSShellRunner picks the OS-native confinement tool for the current
 // platform: sandbox-exec on macOS, bubblewrap on Linux. Falls back to local
 // (unconfined) execution with a warning when the tool isn't available.
-func buildOSExecutor(sb config.Sandbox, warn func(string)) sandbox.Executor {
+func buildOSShellRunner(cwd string, sb config.Sandbox, warn func(string)) sandbox.ShellRunner {
 	switch goruntime.GOOS {
 	case "darwin":
 		if _, err := exec.LookPath("sandbox-exec"); err != nil {
 			warn("sandbox mode \"os\": sandbox-exec not found; falling back to local execution")
-			return sandbox.NewLocal()
+			return sandbox.NewLocalShellRunner()
 		}
-		return sandbox.NewSeatbelt(sb.WriteRoots, sb.Network)
 	case "linux":
 		if _, err := exec.LookPath("bwrap"); err != nil {
 			warn("sandbox mode \"os\": bwrap (bubblewrap) not found; falling back to local execution")
-			return sandbox.NewLocal()
+			return sandbox.NewLocalShellRunner()
 		}
-		return sandbox.NewBwrap(sb.WriteRoots, sb.Network)
 	default:
 		warn("sandbox mode \"os\" is unsupported on " + goruntime.GOOS + "; falling back to local execution")
-		return sandbox.NewLocal()
+		return sandbox.NewLocalShellRunner()
 	}
+	runner, err := sandbox.NewOSShellRunner(cwd, sb.WriteRoots, sb.Network)
+	if err != nil {
+		warn(fmt.Sprintf("sandbox mode \"os\": %v; falling back to local execution", err))
+		return sandbox.NewLocalShellRunner()
+	}
+	return runner
 }
 
-func buildContainerExecutor(sb config.Sandbox, warn func(string)) sandbox.Executor {
+func buildContainerShellRunner(sb config.Sandbox, warn func(string)) sandbox.ShellRunner {
 	runtime := sb.Runtime
 	if runtime == "" {
 		runtime = "docker"
@@ -340,9 +344,11 @@ func buildContainerExecutor(sb config.Sandbox, warn func(string)) sandbox.Execut
 	case !sandbox.RuntimeAvailable(runtime):
 		warn(runtime + " is not installed; falling back to local execution")
 	default:
-		return sandbox.NewContainer(runtime, sb.Image, sb.MountCWDOr(true), sb.ReadOnly, sb.Network)
+		return sandbox.NewContainerShellRunner(
+			sandbox.NewContainer(runtime, sb.Image, sb.MountCWDOr(true), sb.ReadOnly, sb.Network),
+		)
 	}
-	return sandbox.NewLocal()
+	return sandbox.NewLocalShellRunner()
 }
 
 // mcpController adapts the mcp.Manager to the TUI's MCPController so /mcp can
@@ -695,7 +701,7 @@ func run(cmd *cobra.Command, opts *options) error {
 
 	// Build the tool registry. Sub-agents draw from the base tools (incl. any
 	// MCP tools); the top-level registry adds the Agent tool.
-	executor := buildExecutor(cfg.Sandbox, func(m string) { fmt.Fprintln(cmd.ErrOrStderr(), "warning:", m) })
+	executor := buildShellRunner(cwd, cfg.Sandbox, func(m string) { fmt.Fprintln(cmd.ErrOrStderr(), "warning:", m) })
 	// Lazy browser engine for the web tools, tied to the run context and closed
 	// at session end so any launched Chrome is reliably terminated (it launches
 	// nothing until a web tool actually runs).

@@ -41,13 +41,13 @@ func WithLSP(p *lsp.Pool) RegOption { return func(o *regOptions) { o.lsp = p } }
 func WithSwarm(s *swarm.Swarm) RegOption { return func(o *regOptions) { o.swarm = s } }
 
 // DefaultRegistry builds the registry of all implemented local tools, with the
-// Bash tool wired to the given executor (local host, or a container sandbox).
+// Bash tool wired to the given shell runner (OS sandbox or container).
 // New tools are added here as they are ported. Pass WithBrowserEngine /
 // WithShellStore to share caller-owned, session-scoped resources; sensible
 // defaults are built when omitted (e.g. in tests) and launch nothing until used.
-func DefaultRegistry(executor sandbox.Executor, opts ...RegOption) (*Registry, error) {
-	if executor == nil {
-		executor = sandbox.NewLocal()
+func DefaultRegistry(runner sandbox.ShellRunner, opts ...RegOption) (*Registry, error) {
+	if runner == nil {
+		runner = sandbox.NewLocalShellRunner()
 	}
 	var cfg regOptions
 	for _, o := range opts {
@@ -80,7 +80,7 @@ func DefaultRegistry(executor sandbox.Executor, opts ...RegOption) (*Registry, e
 		{"Edit", func() (Tool, error) { return NewEdit() }},
 		{"Glob", func() (Tool, error) { return NewGlob() }},
 		{"Grep", func() (Tool, error) { return NewGrep() }},
-		{"Bash", func() (Tool, error) { return NewBash(executor, shells) }},
+		{"Bash", func() (Tool, error) { return NewBash(runner, shells) }},
 		{"BashOutput", func() (Tool, error) { return NewBashOutput(shells) }},
 		{"KillShell", func() (Tool, error) { return NewKillShell(shells) }},
 		{"TodoWrite", func() (Tool, error) { return NewTodoWrite(todos) }},

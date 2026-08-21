@@ -13,8 +13,8 @@ import (
 
 // SwarmSpawnInput is the SwarmSpawn tool's input.
 type SwarmSpawnInput struct {
-	Task    string `json:"task" jsonschema:"description=The task for the background agent to work on"`
-	Model   string `json:"model,omitempty" jsonschema:"description=Optional model override for the spawned agent"`
+	Task  string `json:"task" jsonschema:"description=The task for the background agent to work on"`
+	Model string `json:"model,omitempty" jsonschema:"description=Optional model override for the spawned agent"`
 }
 
 // SwarmSpawn spawns a background headless agent via the swarm supervisor.

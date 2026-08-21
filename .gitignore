@@ -48,6 +48,17 @@ apidocs/assets/.DS_Store
 # agent: only ignore compiled binaries, not source
 /example/cmd/ling-agent/ling-agent
 /bin/
+
+# agent sandbox: OS sandbox mode (config.SandboxOS) uses the project directory
+# as the workspace root. EnsureLayout creates these subdirs + metadata.json
+# inside it. They are harmless runtime artifacts, not source files.
+# Note: /out/ is already ignored above. skills/ is NOT ignored here because it
+# may conflict with user project directories; the sandbox creates it only when
+# it doesn't already exist.
+/metadata.json
+/work/
+/runs/
+
 # deps
 /node_modules
 
