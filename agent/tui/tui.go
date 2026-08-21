@@ -26,6 +26,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sahilm/fuzzy"
 
 	"github.com/LingByte/ling-base/agent/agent"
 	"github.com/LingByte/ling-base/agent/api"
@@ -35,6 +36,7 @@ import (
 	"github.com/LingByte/ling-base/agent/memory"
 	"github.com/LingByte/ling-base/agent/native/search"
 	"github.com/LingByte/ling-base/agent/permission"
+	"github.com/LingByte/ling-base/agent/session"
 	"github.com/LingByte/ling-base/agent/tools"
 )
 
@@ -236,6 +238,7 @@ type Model struct {
 	pending    chan permission.Decision
 	pendingReq agent.ApprovalRequest
 	sess       *Session
+	timeline   *timelineRecorder
 	// Session-scoped allow/deny rules added via "allow always" or /allow,/deny.
 	// Accessed only from the UI goroutine (Update) to avoid races.
 	sessionAllow []permission.Rule
@@ -340,16 +343,17 @@ func New(ctx context.Context, run RunFunc, history []anthropic.BetaMessageParam,
 	sp.Spinner = spinner.Dot
 
 	m := &Model{
-		run:     run,
-		events:  make(chan tea.Msg, 256),
-		ctx:     ctx,
-		input:   in,
-		spin:    sp,
-		sw:      stopwatch.NewWithInterval(100 * time.Millisecond),
-		state:   stateIdle,
-		history: history,
-		sess:    sess,
-		follow:  true,
+		run:      run,
+		events:   make(chan tea.Msg, 256),
+		ctx:      ctx,
+		input:    in,
+		spin:     sp,
+		sw:       stopwatch.NewWithInterval(100 * time.Millisecond),
+		state:    stateIdle,
+		history:  history,
+		sess:     sess,
+		follow:   true,
+		timeline: newTimelineRecorder(),
 	}
 	// Colour the chrome for the session's theme before drawing the banner.
 	applyChromeTheme(chromePaletteFor(m.currentThemeID()))
@@ -517,6 +521,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.appendLine(toolStyle.Render(fmt.Sprintf("  ⊘ interrupted after %s", fmtDuration(elapsed))))
 		case msg.err != nil:
 			m.appendLine(errStyle.Render("error: " + api.FriendlyError(msg.err)))
+			// Rescue: if this looks like a recoverable provider error
+			// (auth, rate limit, temporary), suggest switching models.
+			if isRecoverableProviderError(msg.err) {
+				m.appendLine(bannerStyle.Render("  💡 This looks like a provider error. Try /model <name> to switch models, then re-send your prompt."))
+			}
 		default:
 			m.appendLine(bannerStyle.Render("  ✓ done in " + fmtDuration(elapsed) + throughput(msg.res.OutputTokens, elapsed)))
 		}
@@ -610,6 +619,23 @@ func (m *Model) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) onKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyCtrlV:
+		// Try to paste an image from the clipboard. If there is one,
+		// save it to a temp file and insert a @path reference so the
+		// model can Read it. If no image, fall through to normal
+		// paste handling.
+		if m.state == stateIdle {
+			if path, ok := m.tryPasteClipboardImage(); ok {
+				m.appendLine(bannerStyle.Render("📋 Pasted clipboard image → @" + path))
+				m.input.SetValue(m.input.Value() + " @" + path)
+				m.input.CursorEnd()
+				return m, nil
+			}
+		}
+	}
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
@@ -844,6 +870,8 @@ var commandList = []cmdInfo{
 	{"/config", "", "Show resolved provider/model/sandbox settings"},
 	{"/agents", "", "List available sub-agent types"},
 	{"/context", "", "Show working directory, git branch, and message count"},
+	{"/sessions", "", "List all sessions for this project (newest first)"},
+	{"/timeline", "", "Show the event timeline for the current session"},
 	{"/compact", "", "Summarize and compact the conversation history now"},
 	{"/add-dir", "<path>", "Add a directory to the prompt context"},
 	{"/plan", "[off]", "Enter (or leave) read-only plan mode"},
@@ -1403,6 +1431,25 @@ func (m *Model) handleSlash(input string) (tea.Model, tea.Cmd) {
 		m.appendLine(bannerStyle.Render(m.renderAgents()))
 	case "/context":
 		m.appendLine(bannerStyle.Render(m.renderContext()))
+	case "/sessions":
+		sessions := session.ListSessions(m.sess.CWD)
+		if len(sessions) == 0 {
+			m.appendLine(bannerStyle.Render("No sessions found for this project."))
+			break
+		}
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("Sessions for %s (%d):\n", m.sess.CWD, len(sessions)))
+		for i, s := range sessions {
+			if i >= 20 {
+				b.WriteString(fmt.Sprintf("  ... and %d more", len(sessions)-20))
+				break
+			}
+			line := fmt.Sprintf("  %s  %s  %s", s.Modified.Format("2006-01-02 15:04"), s.ID, truncate(s.Summary, 60))
+			b.WriteString(strings.TrimRight(line, " ") + "\n")
+		}
+		m.appendLine(bannerStyle.Render(strings.TrimSpace(b.String())))
+	case "/timeline":
+		m.appendLine(bannerStyle.Render(m.timeline.render()))
 	case "/add-dir":
 		if len(args) == 0 {
 			if len(m.sess.ExtraDirs) == 0 {
@@ -1674,33 +1721,72 @@ func (m *Model) completeAtPath() {
 	m.input.CursorEnd()
 }
 
-// matchPaths returns working-dir-relative file paths that start with partial
-// (case-insensitive), sorted, capped. A blank partial lists top entries.
+// matchPaths returns working-dir-relative file paths matching partial.
+// When partial is short, uses prefix matching (case-insensitive). When
+// partial is 3+ chars, also tries fuzzy matching via sahilm/fuzzy for
+// better discoverability. Results are sorted by match quality, capped.
 func matchPaths(cwd, partial string) []string {
 	root := cwd
 	if root == "" {
 		root = "."
 	}
-	files, err := search.Glob(search.GlobOptions{Root: root})
+	files, err := search.Glob(search.GlobOptions{Root: root, RespectGitignore: true})
 	if err != nil {
 		return nil
 	}
-	lower := strings.ToLower(partial)
-	seen := map[string]bool{}
-	var out []string
+	// Build relative paths.
+	relPaths := make([]string, 0, len(files))
 	for _, f := range files {
 		rel, err := filepath.Rel(root, f)
 		if err != nil {
 			rel = f
 		}
-		if partial == "" || strings.HasPrefix(strings.ToLower(rel), lower) {
+		relPaths = append(relPaths, rel)
+	}
+
+	if partial == "" {
+		sort.Strings(relPaths)
+		if len(relPaths) > 200 {
+			relPaths = relPaths[:200]
+		}
+		return relPaths
+	}
+
+	lower := strings.ToLower(partial)
+
+	// Prefix matches first (highest priority).
+	seen := map[string]bool{}
+	var prefixMatches []string
+	for _, rel := range relPaths {
+		if strings.HasPrefix(strings.ToLower(rel), lower) {
 			if !seen[rel] {
 				seen[rel] = true
-				out = append(out, rel)
+				prefixMatches = append(prefixMatches, rel)
 			}
 		}
 	}
-	sort.Strings(out)
+	sort.Strings(prefixMatches)
+
+	// Fuzzy matches for anything not already a prefix match.
+	var fuzzyTargets []string
+	for _, rel := range relPaths {
+		if !seen[rel] {
+			fuzzyTargets = append(fuzzyTargets, rel)
+		}
+	}
+
+	var fuzzyMatches []string
+	if len(fuzzyTargets) > 0 {
+		matches := fuzzy.Find(partial, fuzzyTargets)
+		for _, m := range matches {
+			if !seen[m.Str] {
+				seen[m.Str] = true
+				fuzzyMatches = append(fuzzyMatches, m.Str)
+			}
+		}
+	}
+
+	out := append(prefixMatches, fuzzyMatches...)
 	if len(out) > 200 {
 		out = out[:200]
 	}
@@ -2025,6 +2111,10 @@ func (m *Model) renderEvent(ev agent.Event) {
 	// Bump the activity clock on every event — bottomView reads this to
 	// decide whether to surface the "quiet for…" stuck-state suffix.
 	m.lastEventAt = time.Now()
+	// Record every event for /timeline.
+	if m.timeline != nil {
+		m.timeline.record(ev)
+	}
 	switch ev.Type {
 	case "assistant":
 		m.appendText(ev.Text) // streamed deltas (raw until flushed)
@@ -2407,6 +2497,9 @@ func (p *uiPlanner) ExitPlan(ctx context.Context, plan string) (bool, error) {
 // seeds a resumed conversation (may be nil); sess holds mutable settings shared
 // with the RunFunc closure (may be nil).
 func Run(ctx context.Context, run RunFunc, history []anthropic.BetaMessageParam, sess *Session) error {
+	// Detect terminal background colour for the "auto" theme before the TUI
+	// takes over the screen. Cheap (200ms timeout) and falls back to dark.
+	InitDetectedTheme()
 	p := tea.NewProgram(
 		New(ctx, run, history, sess),
 		tea.WithAltScreen(),
