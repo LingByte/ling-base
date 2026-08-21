@@ -44,8 +44,12 @@ func main() {
 	register("wasmGzipCompress", wasmGzipCompress)
 	register("wasmGzipDecompress", wasmGzipDecompress)
 
-	// 保持进程运行
-	select {}
+	// 通知 JS 层已就绪
+	js.Global().Set("lingbaseWasmReady", js.ValueOf(true))
+
+	// 保持进程运行 — 用 channel 而非 select{} 避免 WASM 退出
+	done := make(chan struct{})
+	<-done
 }
 
 // ─── TOTP ───────────────────────────────────────────────
