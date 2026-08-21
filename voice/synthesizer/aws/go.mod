@@ -23,6 +23,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.5 // indirect
 	github.com/aws/smithy-go v1.27.8 // indirect
+	github.com/stretchr/testify v1.12.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 )
-

@@ -106,8 +106,6 @@ use (
 	./common/videoutil
 	./example
 	./lingcli
-	./relay
-	./relay/relaykit
 	./mq
 	./mq/activemq
 	./mq/factory
@@ -122,6 +120,8 @@ use (
 	./ocr/baidu
 	./ocr/google
 	./ocr/qcloud
+	./relay
+	./relay/relaykit
 	./stores
 	./stores/cos
 	./stores/kodo
