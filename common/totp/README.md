@@ -1,0 +1,38 @@
+# totp
+
+Implements RFC 6238 Time-based One-Time Password (TOTP) and RFC 4226 HMAC-based One-Time Password (HOTP) for two-factor authentication with authenticator apps (Google Authenticator, Authy, 1Password).
+
+## Features
+
+- Secret generation with configurable digits, period, and algorithm
+- `otpauth://` URL construction for authenticator app provisioning
+- QR code rendering (PNG bytes / data URL) for 2FA setup display
+- TOTP validation with configurable time-window skew
+- HOTP validation (counter-based) for clock-less use cases
+- Current code generation (testing / server-side flows)
+- Backup / recovery codes: generation, validation, and hashing
+
+## Key functions
+
+- `Generate(opts Options) (*Key, error)` — generate a TOTP secret and provisioning URL
+- `Validate(code, secret string, opts *ValidateOptions) bool` — validate a TOTP code
+- `ValidateHOTP(code, secret string, counter uint64) bool` — validate a HOTP code
+- `QRPNG(url string, size int) ([]byte, error)` / `QRDataURL` — render QR for setup
+- `GenerateBackupCodes(opts BackupOptions) (codes, hashes []string, err error)`
+- `ValidateBackupCode(code string, hashes []string) (int, bool)` — single-use validation
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/totp"
+
+key, _ := totp.Generate(totp.Options{Issuer: "MyApp", AccountName: "alice@example.com"})
+qrPNG, _ := totp.QRPNG(key.URL(), 256)
+
+if totp.Validate(code, key.Secret(), nil) {
+    // 2FA passed
+}
+
+codes, hashes, _ := totp.GenerateBackupCodes(totp.BackupOptions{})
+// show codes once; store hashes
+```

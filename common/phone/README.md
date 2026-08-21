@@ -1,0 +1,26 @@
+# phone
+
+Mainland China phone number segment lookup using an embedded binary database (`phone.dat`).
+
+The database maps 7-digit phone prefixes to province, city, zip code, area zone, and carrier (China Mobile / Unicom / Telecom / Broadnet and their virtual operator variants).
+
+## Key types/functions
+
+- `PhoneRecord` — holds province, city, zip code, area zone, and carrier for a segment
+- `Find(number string) (*PhoneRecord, error)` — look up a segment by digits
+- `LookupPhoneLocation(number string) string` — formatted location string, e.g. `四川成都(中国移动)`
+- `LookupPhoneLocationParts(number string) (province, city, cardType string)` — normalized parts
+- `FormatPhoneLocation(province, city, cardType string) string` — build UI text
+- `NormalizePhoneDigits(number string) string` — strip non-digits
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/phone"
+
+rec, err := phone.Find("1952947")
+// PhoneRecord{Province:"广西", City:"玉林", CardType:"中国移动", ...}
+
+loc := phone.LookupPhoneLocation("19511899044")
+// "四川成都(中国移动)"
+```

@@ -1,0 +1,52 @@
+# netutil
+
+Network utilities: port availability, IP address helpers, HTTP client with retry, and TCP/UDP utilities.
+
+## Features
+
+- Port availability: check, find, and allocate free ports (TCP/UDP)
+- IP address helpers: local, outbound, public, private/loopback detection
+- HTTP client with configurable retry, timeout, and circuit breaker
+- TCP/UDP utilities: dial, listen, ping, forward
+
+## Key types
+
+- `HTTPClientConfig` -- HTTP client settings (timeout, max retries, retry interval, circuit breaker)
+- `CircuitBreakerConfig` -- circuit breaker thresholds and cooldown
+
+## Key functions
+
+- `IsPortAvailable(network, port)`, `IsTCPPortAvailable(port)`, `IsUDPPortAvailable(port)`
+- `FreePort()`, `FreeUDPPort()`, `FindAvailablePort(start, end)`, `FindAvailablePorts(start, n)`
+- `LocalIP()`, `LocalIPs()`, `LocalIPv6s()`, `AllIPs()`, `OutboundIP(target)`
+- `PublicIP()`, `IsPrivateIP(ipStr)`, `IsLoopback(ipStr)`, `IsPublicIP(ipStr)`
+- `IPRange(cidr)` -- start and end IPs of a CIDR range
+- `NewHTTPClient(cfg)` -- HTTP client with retry and circuit breaker
+- `DialTCP`, `ListenTCP`, `Ping`, `ForwardTCP` -- low-level TCP utilities
+
+## Quick start
+
+```go
+import (
+    "time"
+    "github.com/LingByte/ling-base/common/netutil"
+)
+
+// Check if a port is available
+ok := netutil.IsPortAvailable("tcp", 8080)
+
+// Get local IP
+ip := netutil.LocalIP()
+
+// HTTP client with retry
+client := netutil.NewHTTPClient(netutil.HTTPClientConfig{
+    Timeout:       10 * time.Second,
+    MaxRetries:    3,
+    RetryInterval: time.Second,
+})
+resp, err := client.Get("https://example.com")
+```
+
+## License
+
+MIT

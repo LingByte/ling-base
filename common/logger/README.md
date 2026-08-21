@@ -1,0 +1,51 @@
+# logger
+
+Structured logging for ling-base, built on zap with lumberjack rotation, colored console output, sensitive field redaction, request ID tracking, and panic-safe goroutines.
+
+## Features
+
+- JSON file output with lumberjack rotation (optional daily filenames)
+- Colored console output in local/dev/prod modes (stdout info, stderr error)
+- Sensitive field redaction (passwords, tokens, phone numbers, SIP URIs, emails)
+- Request ID generation, context binding, and message prefixing
+- Context-aware logging helpers (InfoCtx, ErrorCtx, ...)
+- SafeGo for panic-safe background goroutines
+- Log retention purge for expired files
+
+## Key types
+
+- `LogConfig` -- logger configuration (level, filename, max size/age/backups, retention, sensitive fields)
+
+## Key functions
+
+- `InitTimezone(name)` -- set the package-level timezone (call before Init)
+- `Init(config, mode)` -- initialize the global zap logger
+- `Info`, `Debug`, `Warn`, `Error`, `Fatal` -- structured logging
+- `InfoCtx`, `ErrorCtx`, ... -- context-aware variants with request ID
+- `GenReqID()` -- generate URL-safe request ID
+- `WithRequestID(ctx, reqID)`, `RequestIDFromContext(ctx)`, `ZapReqID(ctx)`
+- `SafeGo(name, fn)` -- panic-recovered goroutine launcher
+- `PurgeExpiredLogFiles(logDir, retentionDays)` -- remove old log files
+- `RedactString`, `RedactEmail`, `RedactPhone`, `RedactSIPURI`, `RedactField`
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/logger"
+
+logger.InitTimezone("Asia/Shanghai")
+_ = logger.Init(&logger.LogConfig{
+    Level:    "info",
+    Filename: "./logs/app.log",
+    MaxSize:  100,
+    MaxAge:   30,
+    Daily:    true,
+}, "dev")
+
+logger.Info("server started", zap.String("addr", ":8080"))
+logger.SafeGo("worker", func() { runWorker() })
+```
+
+## License
+
+MIT

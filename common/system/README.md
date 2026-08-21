@@ -1,0 +1,29 @@
+# system
+
+Host and runtime monitoring, performance profiling, disk caching, and SSRF protection utilities for Go services.
+
+## Features
+
+- **System monitoring**: CPU, memory, and disk usage via gopsutil (`StartSystemMonitor`, `SystemStatus`, `DiskSpaceInfo`)
+- **Runtime snapshots**: goroutine counts/states, GC pauses, full `runtime.MemStats` export (`CollectRuntimeSnapshot`, `GoroutineSnapshot`, `RuntimeMemorySnapshot`)
+- **Automatic pprof**: CPU/heap profiles captured when usage crosses thresholds (`Monitor`, `SetPProfDir`)
+- **Pyroscope integration**: continuous profiling via environment variables (`StartPyroScope`)
+- **Ops counters**: process-wide error/anomaly counters for dashboards (`OpsCounters`, `GetOpsCounters`)
+- **Metrics sync**: push runtime gauges into Prometheus/OpenTelemetry (`SetGaugeSetter`, `SyncPrometheusRuntimeGauges`)
+- **Disk cache**: managed temp directory for request body / file caching (`GetDiskCacheDir`, `CreateDiskCacheFile`)
+- **SSRF protection**: private-IP blocking and domain/IP allow/deny lists (`SSRFProtection`)
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/system"
+
+system.StartSystemMonitor()       // background CPU/mem/disk sampling
+go system.Monitor()               // auto pprof on threshold breach
+
+status := system.GetSystemStatus()
+fmt.Printf("CPU %.1f%%, Mem %.1f%%\n", status.CPUUsage, status.MemoryUsage)
+
+rt := system.CollectRuntimeSnapshot()
+fmt.Printf("Goroutines: %d\n", rt.Goroutine.NumGoroutine)
+```
