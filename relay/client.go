@@ -1434,20 +1434,44 @@ func extractUsage(usageRaw any) meter.Usage {
 	case *meter.Usage:
 		return *u
 	case dto.Usage:
+		input := u.InputTokens
+		if input == 0 {
+			input = u.PromptTokens
+		}
+		output := u.OutputTokens
+		if output == 0 {
+			output = u.CompletionTokens
+		}
+		total := u.TotalTokens
+		if total == 0 {
+			total = input + output
+		}
 		return meter.Usage{
-			InputTokens:  u.PromptTokens,
-			OutputTokens: u.CompletionTokens,
-			TotalTokens:  u.TotalTokens,
+			InputTokens:  input,
+			OutputTokens: output,
+			TotalTokens:  total,
 			CachedTokens: u.PromptCacheHitTokens,
 		}
 	case *dto.Usage:
 		if u == nil {
 			return meter.Usage{}
 		}
+		input := u.InputTokens
+		if input == 0 {
+			input = u.PromptTokens
+		}
+		output := u.OutputTokens
+		if output == 0 {
+			output = u.CompletionTokens
+		}
+		total := u.TotalTokens
+		if total == 0 {
+			total = input + output
+		}
 		return meter.Usage{
-			InputTokens:  u.PromptTokens,
-			OutputTokens: u.CompletionTokens,
-			TotalTokens:  u.TotalTokens,
+			InputTokens:  input,
+			OutputTokens: output,
+			TotalTokens:  total,
 			CachedTokens: u.PromptCacheHitTokens,
 		}
 	case dto.ClaudeUsage:

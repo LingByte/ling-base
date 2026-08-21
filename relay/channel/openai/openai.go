@@ -134,6 +134,8 @@ func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 			return baseURL + "/v1/audio/transcriptions", nil
 		case relaymode.RelayModeRerank:
 			return baseURL + "/v1/rerank", nil
+		case relaymode.RelayModeResponses, relaymode.RelayModeResponsesCompact:
+			return baseURL + "/v1/responses", nil
 		default:
 			return baseURL + "/v1/chat/completions", nil
 		}
@@ -213,6 +215,8 @@ func (a *Adaptor) DoResponse(ctx context.Context, resp *http.Response, info *com
 		return a.handleEmbedResponse(body, w)
 	case relaymode.RelayModeRerank:
 		return a.handleRerankResponse(body, w)
+	case relaymode.RelayModeResponses, relaymode.RelayModeResponsesCompact:
+		return a.handleResponsesResponse(body, w, info)
 	default:
 		if info.IsStream {
 			return a.handleStreamChatResponse(body, w)
@@ -289,6 +293,47 @@ func (a *Adaptor) handleEmbedResponse(body []byte, w http.ResponseWriter) (any, 
 // handleRerankResponse parses a rerank response.
 func (a *Adaptor) handleRerankResponse(body []byte, w http.ResponseWriter) (any, *types.NewAPIError) {
 	w.Write(body)
+	usage := dto.Usage{}
+	return &usage, nil
+}
+
+// handleResponsesResponse parses an OpenAI Responses API response.
+// For non-streaming, it extracts usage from the response body.
+// For streaming (SSE), it writes the raw SSE data and parses usage from the final chunk.
+func (a *Adaptor) handleResponsesResponse(body []byte, w http.ResponseWriter, info *common.RelayInfo) (any, *types.NewAPIError) {
+	w.Write(body)
+
+	if info.IsStream {
+		// Streaming: parse SSE lines to find usage in the final response.completed event.
+		usage := dto.Usage{}
+		for _, line := range strings.Split(string(body), "\n") {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				continue
+			}
+			var streamResp dto.ResponsesStreamResponse
+			if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+				continue
+			}
+			if streamResp.Response != nil && streamResp.Response.Usage != nil {
+				usage = *streamResp.Response.Usage
+			}
+		}
+		return &usage, nil
+	}
+
+	// Non-streaming: parse the response body for usage.
+	var resp dto.OpenAIResponsesResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeReadResponseBodyFailed)
+	}
+	if resp.Usage != nil {
+		return resp.Usage, nil
+	}
 	usage := dto.Usage{}
 	return &usage, nil
 }
