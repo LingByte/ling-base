@@ -4,6 +4,7 @@ go 1.26.2
 
 require (
 	github.com/LingByte/ling-base v0.18.0
+	github.com/LingByte/ling-base/agent v0.0.0
 	github.com/LingByte/ling-base/bootstrap v0.1.4
 	github.com/LingByte/ling-base/common/cache v0.1.0
 	github.com/LingByte/ling-base/common/cache/redis v0.1.0
@@ -42,6 +43,7 @@ require (
 	github.com/LingByte/ling-base/common/retry v0.1.0
 	github.com/LingByte/ling-base/common/search v0.1.0
 	github.com/LingByte/ling-base/common/search/bleve v0.1.0
+	github.com/LingByte/ling-base/relay v0.0.0
 	github.com/LingByte/ling-base/version v0.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.22.0
@@ -153,4 +155,6 @@ require (
 
 
 replace github.com/LingByte/ling-base => ../
+replace github.com/LingByte/ling-base/agent => ../agent
+replace github.com/LingByte/ling-base/relay => ../relay
 replace github.com/LingByte/ling-base/voice/recognizer => ../voice/recognizer
