@@ -75,6 +75,15 @@ type ChatRequest struct {
 	N               *int            `json:"n,omitempty"`
 	User            string          `json:"user,omitempty"`
 	ReasoningEffort string          `json:"reasoning_effort,omitempty"` // low/medium/high for reasoning models
+
+	// System is the top-level system prompt (Anthropic Messages API style).
+	// For OpenAI-compatible providers, it is prepended as a system message.
+	// Empty = no system prompt.
+	System string `json:"system,omitempty"`
+
+	// Betas are provider-specific beta feature flags (e.g. Anthropic beta headers).
+	// Passed through to the Anthropic channel as anthropic-beta headers.
+	Betas []string `json:"betas,omitempty"`
 }
 
 // EmbedRequest is the unified embedding request.

@@ -34,6 +34,10 @@ type Adaptor struct {
 	APIKey      string
 	BaseURL     string
 	APIVersion  string // anthropic-version header, default "2023-06-01"
+	// AuthToken is an OAuth bearer token. When set, it is sent as
+	// "Authorization: Bearer <token>" instead of the x-api-key header.
+	// This is used for Claude Code OAuth sessions.
+	AuthToken string
 }
 
 // New creates a Claude adaptor.
@@ -62,6 +66,13 @@ func WithAPIVersion(v string) Option {
 	return func(a *Adaptor) { a.APIVersion = v }
 }
 
+// WithAuthToken sets an OAuth bearer token instead of an API key.
+// When set, the adaptor sends "Authorization: Bearer <token>" rather than
+// "x-api-key: <key>", and adds the "oauth-2025-04-20" beta header.
+func WithAuthToken(token string) Option {
+	return func(a *Adaptor) { a.AuthToken = token }
+}
+
 // ─── common.Adaptor implementation ───────────────────────────────
 
 func (a *Adaptor) Init(info *common.RelayInfo) {
@@ -83,12 +94,21 @@ func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(ctx context.Context, header *http.Header, info *common.RelayInfo) error {
 	header.Set("Content-Type", "application/json")
-	header.Set("x-api-key", a.APIKey)
 	version := a.APIVersion
 	if version == "" {
 		version = "2023-06-01"
 	}
 	header.Set("anthropic-version", version)
+
+	// OAuth bearer token takes precedence over API key.
+	if a.AuthToken != "" {
+		header.Set("Authorization", "Bearer "+a.AuthToken)
+		// The oauth beta header is required for OAuth tokens to avoid
+		// stricter rate limits (observed as immediate 429s without it).
+		header.Add("anthropic-beta", "oauth-2025-04-20")
+	} else {
+		header.Set("x-api-key", a.APIKey)
+	}
 	return nil
 }
 
