@@ -1,0 +1,64 @@
+---
+title: AI 中继
+description: 统一 40+ AI provider 的中继层
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+# AI 中继 (relay)
+
+生产级 AI provider 中继库，40+ channel 适配器，统一接口调用 Chat / Embeddings / Image / Audio / Responses API。
+
+## 特性
+
+- **40+ Provider 适配器** — OpenAI / Claude / Gemini / AWS / Vertex / Ali / Baidu / Tencent / Xunfei / Zhipu / Moonshot / DeepSeek / Cohere / Mistral / Perplexity / xAI / Coze / Dify / Cloudflare / Replicate / Minimax / Volcengine / Siliconflow 等
+- **生产级基础设施** — HTTP 连接池 / 超时控制 / 重试 / 熔断 / 降级
+- **流式 SSE** — 支持 streaming chat / streaming responses
+- **统一错误** — `RelayError` 包含 Provider / Model / StatusCode / Code / Message
+- **可观测性** — RequestHook 用于 metrics / tracing 集成
+- **Model Fallback** — 主模型失败自动切换备选模型
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/relay
+```
+
+## 快速开始
+
+```go
+import (
+    "context"
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+client := relay.New(
+    relay.WithProvider(openai.NewProvider("sk-xxx")),
+)
+
+resp, err := client.Chat(ctx, &relay.ChatRequest{
+    Model:    "gpt-4o",
+    Messages: []relay.Message{{Role: "user", Content: "Hello"}},
+})
+```
+
+## 文档
+
+<Cards>
+  <Card title="Chat 对话" href="/docs/relay/chat">
+    非流式和流式 Chat Completions
+  </Card>
+  <Card title="Embeddings" href="/docs/relay/embeddings">
+    文本向量化
+  </Card>
+  <Card title="Streaming" href="/docs/relay/streaming">
+    SSE 流式输出
+  </Card>
+  <Card title="Provider 列表" href="/docs/relay/providers">
+    40+ provider 适配器
+  </Card>
+  <Card title="生产配置" href="/docs/relay/production">
+    重试 / 熔断 / 降级 / 连接池
+  </Card>
+</Cards>

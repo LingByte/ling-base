@@ -1,0 +1,45 @@
+---
+title: 重试
+description: 指数退避 / 固定间隔
+---
+
+# 重试
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/retry
+```
+
+## 指数退避
+
+```go
+import "github.com/LingByte/ling-base/common/retry"
+
+err := retry.Do(ctx, func() error {
+    return callAPI()
+}, retry.WithMaxAttempts(3),
+   retry.WithInitialDelay(100*time.Millisecond),
+   retry.WithMaxDelay(2*time.Second),
+   retry.WithMultiplier(2))
+```
+
+## 固定间隔
+
+```go
+err := retry.Do(ctx, func() error {
+    return callAPI()
+}, retry.WithMaxAttempts(5),
+   retry.WithStrategy(retry.Fixed(500*time.Millisecond)))
+```
+
+## 集成熔断器
+
+```go
+cb := circuitbreaker.New(...)
+err := retry.Do(ctx, func() error {
+    return cb.Execute(func() error {
+        return callAPI()
+    })
+}, retry.WithMaxAttempts(3))
+```

@@ -1,0 +1,57 @@
+---
+title: Logger 日志
+description: zap + lumberjack 结构化日志
+---
+
+# Logger
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/logger
+```
+
+## 初始化
+
+```go
+import "github.com/LingByte/ling-base/common/logger"
+
+logger.Init(logger.Config{
+    Level:  "info",
+    Format: "json",
+    Output: "file",
+    File: logger.FileConfig{
+        Path:     "logs/app.log",
+        MaxSize:  100, // MB
+        MaxBackups: 10,
+        MaxAge:   30, // days
+    },
+})
+```
+
+## 使用
+
+```go
+logger.Info("user logged in",
+    zap.Int("user_id", 123),
+    zap.String("ip", "1.2.3.4"),
+)
+
+logger.Error("database error",
+    zap.Error(err),
+    zap.String("query", sql),
+)
+
+logger.Debug("cache miss",
+    zap.String("key", key),
+)
+```
+
+## Gin 中间件
+
+```go
+import "github.com/LingByte/ling-base/common/logger/gin"
+
+r := gin.New()
+r.Use(gin.Logger())
+```

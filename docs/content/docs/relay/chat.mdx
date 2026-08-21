@@ -1,0 +1,85 @@
+---
+title: Chat 对话
+description: 非流式和流式 Chat Completions
+---
+
+# Chat 对话
+
+## 非流式 Chat
+
+```go
+resp, err := client.Chat(ctx, &relay.ChatRequest{
+    Model: "gpt-4o",
+    Messages: []relay.Message{
+        {Role: "system", Content: "You are a helpful assistant."},
+        {Role: "user", Content: "Hello!"},
+    },
+    Temperature: 0.7,
+    MaxTokens:   1000,
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(resp.Choices[0].Message.Content)
+fmt.Printf("Usage: prompt=%d completion=%d\n",
+    resp.Usage.PromptTokens, resp.Usage.CompletionTokens)
+```
+
+## 流式 Chat (SSE)
+
+```go
+result, err := client.ChatStream(ctx, &relay.ChatRequest{
+    Model: "gpt-4o",
+    Messages: []relay.Message{
+        {Role: "user", Content: "Write a poem about Go."},
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer result.Close()
+
+for {
+    chunk, err := result.Read()
+    if err != nil {
+        break
+    }
+    if chunk.Choices[0].Delta.Content != "" {
+        fmt.Print(chunk.Choices[0].Delta.Content)
+    }
+}
+```
+
+## 多轮对话
+
+```go
+messages := []relay.Message{
+    {Role: "system", Content: "You are a helpful assistant."},
+}
+
+// 第一轮
+messages = append(messages, relay.Message{Role: "user", Content: "Hi!"})
+resp, _ := client.Chat(ctx, &relay.ChatRequest{Model: "gpt-4o", Messages: messages})
+messages = append(messages, relay.Message{Role: "assistant", Content: resp.Choices[0].Message.Content})
+
+// 第二轮（带上下文）
+messages = append(messages, relay.Message{Role: "user", Content: "Tell me more."})
+resp, _ = client.Chat(ctx, &relay.ChatRequest{Model: "gpt-4o", Messages: messages})
+```
+
+## 错误处理
+
+```go
+resp, err := client.Chat(ctx, req)
+if err != nil {
+    var relayErr *relay.RelayError
+    if errors.As(err, &relayErr) {
+        fmt.Printf("provider=%s model=%s status=%d code=%s\n",
+            relayErr.Provider, relayErr.Model,
+            relayErr.StatusCode, relayErr.Code)
+        if relayErr.IsRetryable() {
+            // 可重试错误（429 / 5xx）
+        }
+    }
+}
+```

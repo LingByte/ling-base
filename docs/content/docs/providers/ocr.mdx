@@ -1,0 +1,35 @@
+---
+title: OCR 光学字符识别
+description: 6 个 provider
+---
+
+# OCR
+
+## Provider 列表
+
+AWS / Google / Aliyun / Baidu / Azure / Qcloud
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/providers/ocr
+go get github.com/LingByte/ling-base/providers/ocr/aliyun
+```
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/providers/ocr/aliyun"
+
+client := aliyun.New(aliyun.Config{
+    AccessKeyID:     "xxx",
+    AccessKeySecret: "xxx",
+})
+
+result, err := client.Recognize(ctx, &ocr.Request{
+    ImageURL: "https://example.com/image.png",
+})
+for _, text := range result.Texts {
+    fmt.Println(text)
+}
+```

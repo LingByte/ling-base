@@ -1,0 +1,39 @@
+---
+title: 分布式锁
+description: Redis / Etcd / Zookeeper / Consul
+---
+
+# 分布式锁
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/lock
+go get github.com/LingByte/ling-base/common/lock/redis
+```
+
+## Redis 锁
+
+```go
+import "github.com/LingByte/ling-base/common/lock/redis"
+
+locker := redis.New(rdb, redis.WithPrefix("lock:"))
+lock, err := locker.Acquire(ctx, "resource:123", 10*time.Second)
+if err != nil {
+    // 获取锁失败
+}
+defer lock.Release(ctx)
+```
+
+## RedLock
+
+```go
+import "github.com/LingByte/ling-base/common/lock/redlock"
+
+locker := redlock.New([]*redis.Client{rdb1, rdb2, rdb3})
+lock, err := locker.Acquire(ctx, "resource:123", 10*time.Second)
+```
+
+## 实现列表
+
+Memory / Redis / RedLock / Etcd / Zookeeper / Consul / MySQL / Postgres

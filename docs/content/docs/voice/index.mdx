@@ -1,0 +1,32 @@
+---
+title: 语音处理
+description: TTS 语音合成 / ASR 语音识别 / 实时多模态对话
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+# 语音处理
+
+ling-base 提供完整的语音处理链路：TTS 语音合成、ASR 语音识别、实时多模态对话。
+
+## 模块
+
+<Cards>
+  <Card title="TTS 语音合成" href="/docs/voice/synthesizer">
+    16 个 provider，文本转语音
+  </Card>
+  <Card title="ASR 语音识别" href="/docs/voice/recognizer">
+    12 个 provider，语音转文本
+  </Card>
+  <Card title="Realtime 实时对话" href="/docs/voice/realtime">
+    8 个 provider，多模态实时语音
+  </Card>
+</Cards>
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/voice/synthesizer
+go get github.com/LingByte/ling-base/voice/recognizer
+go get github.com/LingByte/ling-base/voice/realtime
+```

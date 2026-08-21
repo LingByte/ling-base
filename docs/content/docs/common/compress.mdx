@@ -1,0 +1,43 @@
+---
+title: Compress 压缩
+description: zstd / snappy / lz4
+---
+
+# Compress
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/compress
+```
+
+## Zstd
+
+```go
+import "github.com/LingByte/ling-base/common/compress"
+
+compressed, err := compress.ZstdCompress(data)
+decompressed, err := compress.ZstdDecompress(compressed)
+```
+
+## Snappy
+
+```go
+compressed, err := compress.SnappyCompress(data)
+decompressed, err := compress.SnappyDecompress(compressed)
+```
+
+## LZ4
+
+```go
+compressed, err := compress.LZ4Compress(data)
+decompressed, err := compress.LZ4Decompress(compressed)
+```
+
+## 性能对比
+
+| 算法 | 压缩率 | 速度 | 适用场景 |
+|------|--------|------|----------|
+| Zstd | 高 | 中 | 需要高压缩率 |
+| Snappy | 中 | 快 | 需要快速压缩 |
+| LZ4 | 低 | 最快 | 极低延迟 |

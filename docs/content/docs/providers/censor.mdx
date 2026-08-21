@@ -1,0 +1,38 @@
+---
+title: 内容审核
+description: 3 个 provider
+---
+
+# 内容审核
+
+## Provider 列表
+
+Aliyun / Qcloud / Qiniu
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/providers/censor
+go get github.com/LingByte/ling-base/providers/censor/aliyun
+```
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/providers/censor/aliyun"
+
+client := aliyun.New(aliyun.Config{
+    AccessKeyID:     "xxx",
+    AccessKeySecret: "xxx",
+})
+
+result, err := client.CensorText(ctx, &censor.TextRequest{
+    Content: "需要审核的文本",
+})
+if result.Pass {
+    // 通过
+} else {
+    // 不通过
+    fmt.Println(result.Reason)
+}
+```

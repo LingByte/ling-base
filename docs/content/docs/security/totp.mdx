@@ -1,0 +1,53 @@
+---
+title: TOTP 两步验证
+description: TOTP/HOTP + QR 码生成
+---
+
+# TOTP 两步验证
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/totp
+```
+
+## 生成密钥
+
+```go
+import "github.com/LingByte/ling-base/common/totp"
+
+secret := totp.GenerateSecret()
+// 保存 secret 到数据库，与用户关联
+```
+
+## 生成 otpauth URI
+
+```go
+uri := totp.KeyURI("user@example.com", "MyApp", secret)
+// otpauth://totp/MyApp:user@example.com?secret=XXX&issuer=MyApp
+```
+
+## 生成 QR 码
+
+```go
+qrPNG, err := totp.QRCodePNG(uri, 256, 256)
+// 写入 HTTP 响应或保存为文件
+```
+
+## 验证
+
+```go
+valid := totp.Validate(secret, "123456", 30, 6)
+if valid {
+    // 验证通过
+}
+```
+
+## 恢复码
+
+```go
+codes := totp.GenerateRecoveryCodes(10)
+// 保存到数据库，用户丢失设备时使用
+
+valid := totp.ValidateRecoveryCode(inputCode, savedCodes)
+```

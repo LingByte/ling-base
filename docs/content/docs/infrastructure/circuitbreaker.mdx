@@ -1,0 +1,39 @@
+---
+title: 熔断器
+description: Closed / Open / HalfOpen 三态
+---
+
+# 熔断器
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/circuitbreaker
+```
+
+## 使用
+
+```go
+import "github.com/LingByte/ling-base/common/circuitbreaker"
+
+cb := circuitbreaker.New(circuitbreaker.Config{
+    FailureThreshold: 5,       // 连续失败 5 次后熔断
+    RecoveryTimeout:  30 * time.Second, // 30s 后尝试恢复
+    HalfOpenMaxCalls: 3,       // 半开状态最多 3 次试探
+})
+
+err := cb.Execute(func() error {
+    return callUpstream()
+})
+if errors.Is(err, circuitbreaker.ErrCircuitOpen) {
+    // 熔断器开启，快速失败
+}
+```
+
+## 状态
+
+| 状态 | 说明 |
+|------|------|
+| Closed | 正常，请求通过 |
+| Open | 熔断，所有请求快速失败 |
+| HalfOpen | 半开，允许少量试探请求 |

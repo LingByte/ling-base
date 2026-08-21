@@ -1,0 +1,33 @@
+---
+title: 对象存储
+description: 9 个 provider
+---
+
+# 对象存储
+
+## Provider 列表
+
+Local / S3 / OSS / COS / MinIO / Kodo / TOS / OBS / KS3
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/stores
+go get github.com/LingByte/ling-base/stores/oss
+```
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/stores/oss"
+
+store := oss.New(oss.Config{
+    AccessKeyID:     "xxx",
+    AccessKeySecret: "xxx",
+    Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
+    Bucket:          "my-bucket",
+})
+
+err := store.Upload(ctx, "path/to/file.txt", fileBytes)
+url := store.URL("path/to/file.txt")
+```

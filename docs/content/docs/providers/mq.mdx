@@ -1,0 +1,44 @@
+---
+title: 消息队列
+description: 5 个 broker
+---
+
+# 消息队列
+
+## Broker 列表
+
+Kafka / RabbitMQ / ActiveMQ / RocketMQ / RedisStream
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/mq
+go get github.com/LingByte/ling-base/common/mq/kafka
+```
+
+## 使用示例
+
+```go
+import (
+    "github.com/LingByte/ling-base/common/mq"
+    "github.com/LingByte/ling-base/common/mq/kafka"
+)
+
+producer, err := kafka.NewProducer(kafka.Config{
+    Brokers: []string{"localhost:9092"},
+})
+msg := &mq.Message{
+    Topic: "my-topic",
+    Body:  []byte("hello"),
+}
+err = producer.Send(ctx, msg)
+
+consumer, err := kafka.NewConsumer(kafka.Config{
+    Brokers: []string{"localhost:9092"},
+    Group:  "my-group",
+})
+err = consumer.Subscribe(ctx, []string{"my-topic"}, func(msg *mq.Message) error {
+    fmt.Println(string(msg.Body))
+    return nil
+})
+```

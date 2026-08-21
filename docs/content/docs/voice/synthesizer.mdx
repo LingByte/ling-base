@@ -1,0 +1,29 @@
+---
+title: TTS 语音合成
+description: 16 个 provider，文本转语音
+---
+
+# TTS 语音合成
+
+## Provider 列表
+
+Aliyun / Baidu / Qcloud / Volcengine / Xunfei / AWS / Azure / Google / OpenAI / ElevenLabs / FishAudio / FishSpeech / Coqui / MiniMax / Qiniu / Local
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/voice/synthesizer/aliyun"
+
+tts := aliyun.New(aliyun.Config{
+    AccessKeyID:     "xxx",
+    AccessKeySecret: "xxx",
+    AppKey:          "xxx",
+})
+
+audio, err := tts.Synthesize(ctx, &synthesizer.Request{
+    Text:     "你好世界",
+    Voice:    "xiaoyun",
+    Format:   "mp3",
+    SampleRate: 16000,
+})
+```

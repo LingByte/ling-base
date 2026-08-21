@@ -1,0 +1,97 @@
+---
+title: 生产配置
+description: 重试 / 熔断 / 降级 / 连接池
+---
+
+# 生产配置
+
+## HTTP 客户端默认值
+
+relay 内置了生产级 HTTP 客户端配置：
+
+| 参数 | 默认值 |
+|------|--------|
+| Timeout | 120s |
+| MaxIdleConns | 100 |
+| MaxIdleConnsPerHost | 10 |
+| IdleConnTimeout | 90s |
+| TLSHandshakeTimeout | 10s |
+| ResponseHeaderTimeout | 30s |
+
+## 重试
+
+```go
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithRetry(relay.RetryConfig{
+        MaxAttempts:  3,
+        InitialDelay: 100 * time.Millisecond,
+        MaxDelay:     2 * time.Second,
+        Multiplier:   2,
+    }),
+)
+```
+
+重试触发条件：
+- 网络错误
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+
+## 熔断器
+
+```go
+import "github.com/LingByte/ling-base/common/circuitbreaker"
+
+cb := circuitbreaker.New(circuitbreaker.Config{
+    FailureThreshold: 5,
+    RecoveryTimeout:  30 * time.Second,
+})
+
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithCircuitBreaker(cb),
+)
+```
+
+## Model Fallback
+
+```go
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithFallback(relay.FallbackConfig{
+        FallbackModels: []string{"gpt-4o-mini", "gpt-3.5-turbo"},
+    }),
+)
+```
+
+当主模型失败时，自动按顺序尝试备选模型。
+
+## Request Hook（可观测性）
+
+```go
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithRequestHook(func(ctx context.Context, req *http.Request) {
+        // 记录 metrics / tracing
+        metric.RequestCount.Inc(req.URL.String())
+        tracer.StartSpan(ctx, "relay.request")
+    }),
+)
+```
+
+## 统一错误处理
+
+```go
+var relayErr *relay.RelayError
+if errors.As(err, &relayErr) {
+    log.Printf(
+        "provider=%s model=%s status=%d code=%s msg=%s retryable=%v",
+        relayErr.Provider,
+        relayErr.Model,
+        relayErr.StatusCode,
+        relayErr.Code,
+        relayErr.Message,
+        relayErr.IsRetryable(),
+    )
+}
+```

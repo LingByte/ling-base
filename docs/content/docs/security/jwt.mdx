@@ -1,0 +1,40 @@
+---
+title: JWT
+description: JWT 生成与验证
+---
+
+# JWT 工具
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/jwtutil
+```
+
+## 生成 Token
+
+```go
+import "github.com/LingByte/ling-base/common/jwtutil"
+
+claims := jwtutil.Claims{
+    UserID: 123,
+    Role:   "admin",
+}
+token, err := jwtutil.Sign(claims, "your-secret-key", 24*time.Hour)
+```
+
+## 验证 Token
+
+```go
+claims, err := jwtutil.Verify(token, "your-secret-key")
+if err != nil {
+    // token 无效或过期
+}
+fmt.Println(claims.UserID, claims.Role)
+```
+
+## 刷新 Token
+
+```go
+newToken, err := jwtutil.Refresh(token, "your-secret-key", 24*time.Hour)
+```

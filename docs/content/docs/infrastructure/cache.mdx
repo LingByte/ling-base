@@ -1,0 +1,44 @@
+---
+title: 缓存
+description: LRU / Memory / Redis / BigCache
+---
+
+# 缓存
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/cache
+```
+
+## 内存缓存
+
+```go
+import "github.com/LingByte/ling-base/common/cache"
+
+c := cache.NewMemory(cache.WithMaxSize(10000))
+c.Set(ctx, "key", "value", 5*time.Minute)
+val, err := c.Get(ctx, "key")
+```
+
+## Redis 缓存
+
+```go
+import "github.com/LingByte/ling-base/common/cache/redis"
+
+c := redis.New(rdb, redis.WithPrefix("myapp:"))
+c.Set(ctx, "key", "value", 5*time.Minute)
+```
+
+## 多级缓存
+
+```go
+import "github.com/LingByte/ling-base/common/cache/multilevel"
+
+mlc := multilevel.New(memoryCache, redisCache)
+// 先查内存，再查 Redis，再回源
+```
+
+## 实现列表
+
+LRU / Memory / Noop / MultiLevel / BigCache / Redis / Memcache / FreeCache / Ristretto

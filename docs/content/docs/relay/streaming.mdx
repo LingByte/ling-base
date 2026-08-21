@@ -1,0 +1,56 @@
+---
+title: Streaming
+description: SSE 流式输出
+---
+
+# Streaming (SSE)
+
+## 基本流式
+
+```go
+result, err := client.ChatStream(ctx, &relay.ChatRequest{
+    Model: "gpt-4o",
+    Messages: []relay.Message{
+        {Role: "user", Content: "Write a haiku about coding."},
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer result.Close()
+
+for {
+    chunk, err := result.Read()
+    if err != nil {
+        if errors.Is(err, io.EOF) {
+            break
+        }
+        log.Fatal(err)
+    }
+    fmt.Print(chunk.Choices[0].Delta.Content)
+}
+```
+
+## Context 取消
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+result, err := client.ChatStream(ctx, req)
+// 当 ctx 超时或取消时，流会自动断开
+```
+
+## WebSocket 流式（Xunfei）
+
+Xunfei 使用 WebSocket 协议，relay 已处理 context 取消：
+
+```go
+import "github.com/LingByte/ling-base/relay/channel/xunfei"
+
+provider := xunfei.NewProvider(appid, apiKey, apiSecret)
+client := relay.New(relay.WithProvider(provider))
+
+// 当 context 取消时，WebSocket 连接会自动关闭
+result, err := client.ChatStream(ctx, req)
+```

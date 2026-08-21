@@ -1,0 +1,42 @@
+---
+title: Realtime 实时对话
+description: 8 个 provider，多模态实时语音
+---
+
+# Realtime 实时对话
+
+## Provider 列表
+
+OpenAI / Gemini / AliyunOmni / VolcDialogue / Iflytek / MiniMax / Stepfun / TencentSTS
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/voice/realtime/openai"
+
+session, err := openai.NewSession(ctx, openai.Config{
+    APIKey: "sk-xxx",
+    Model:  "gpt-4o-realtime",
+    Voice:  "alloy",
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer session.Close()
+
+// 发送音频
+session.SendAudio(audioBytes)
+
+// 接收响应
+for {
+    msg, err := session.Recv()
+    if err != nil {
+        break
+    }
+    if msg.Type == realtime.MsgTypeAudio {
+        playAudio(msg.Audio)
+    } else if msg.Type == realtime.MsgTypeText {
+        fmt.Println(msg.Text)
+    }
+}
+```

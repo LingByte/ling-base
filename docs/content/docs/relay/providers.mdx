@@ -1,0 +1,49 @@
+---
+title: Provider 列表
+description: 40+ AI provider 适配器
+---
+
+# Provider 列表
+
+## Chat / Completions
+
+| Provider | 模块路径 | 支持 Chat | 支持 Stream | 支持 Embed | 支持 Image |
+|----------|---------|-----------|-------------|------------|------------|
+| OpenAI | `relay/channel/openai` | ✅ | ✅ | ✅ | ✅ |
+| Claude (Anthropic) | `relay/channel/claude` | ✅ | ✅ | ❌ | ❌ |
+| Gemini | `relay/channel/gemini` | ✅ | ✅ | ✅ | ✅ |
+| AWS Bedrock | `relay/channel/aws` | ✅ | ✅ | ✅ | ❌ |
+| Vertex AI | `relay/channel/vertex` | ✅ | ✅ | ✅ | ✅ |
+| Azure OpenAI | `relay/channel/azure` | ✅ | ✅ | ✅ | ✅ |
+| Ali (通义) | `relay/channel/ali` | ✅ | ✅ | ✅ | ✅ |
+| Baidu (文心) | `relay/channel/baidu` | ✅ | ✅ | ✅ | ✅ |
+| Tencent | `relay/channel/tencent` | ✅ | ✅ | ✅ | ❌ |
+| Xunfei (星火) | `relay/channel/xunfei` | ✅ | ✅ | ❌ | ❌ |
+| Zhipu (智谱) | `relay/channel/zhipu` | ✅ | ✅ | ✅ | ✅ |
+| Moonshot (月之暗面) | `relay/channel/moonshot` | ✅ | ✅ | ❌ | ❌ |
+| DeepSeek | `relay/channel/deepseek` | ✅ | ✅ | ✅ | ❌ |
+| Cohere | `relay/channel/cohere` | ✅ | ✅ | ✅ | ❌ |
+| Mistral | `relay/channel/mistral` | ✅ | ✅ | ✅ | ❌ |
+| Perplexity | `relay/channel/perplexity` | ✅ | ✅ | ❌ | ❌ |
+| xAI (Grok) | `relay/channel/xai` | ✅ | ✅ | ❌ | ❌ |
+| Coze | `relay/channel/coze` | ✅ | ✅ | ❌ | ❌ |
+| Dify | `relay/channel/dify` | ✅ | ✅ | ❌ | ❌ |
+| Cloudflare | `relay/channel/cloudflare` | ✅ | ✅ | ✅ | ❌ |
+| Replicate | `relay/channel/replicate` | ✅ | ❌ | ❌ | ❌ |
+| Minimax | `relay/channel/minimax` | ✅ | ✅ | ✅ | ❌ |
+| Volcengine (火山) | `relay/channel/volcengine` | ✅ | ✅ | ✅ | ✅ |
+| Siliconflow | `relay/channel/siliconflow` | ✅ | ✅ | ✅ | ❌ |
+| Ollama | `relay/channel/ollama` | ✅ | ✅ | ✅ | ❌ |
+| OpenRouter | `relay/channel/openrouter` | ✅ | ✅ | ❌ | ❌ |
+
+## 使用方式
+
+```go
+import "github.com/LingByte/ling-base/relay/channel/openai"
+
+provider := openai.NewProvider("sk-xxx")
+// 或自定义 baseURL
+provider := openai.NewProviderWithBase("sk-xxx", "https://api.your-proxy.com")
+
+client := relay.New(relay.WithProvider(provider))
+```

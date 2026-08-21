@@ -1,0 +1,26 @@
+---
+title: ASR 语音识别
+description: 12 个 provider，语音转文本
+---
+
+# ASR 语音识别
+
+## Provider 列表
+
+Aliyun / Baidu / Qcloud / Volcengine / AWS / Google / Deepgram / Gladia / FunASR / Whisper / VoiceAPI / Local
+
+## 使用示例
+
+```go
+import "github.com/LingByte/ling-base/voice/recognizer/whisper"
+
+asr := whisper.New(whisper.Config{
+    APIKey: "xxx",
+})
+
+result, err := asr.Recognize(ctx, &recognizer.Request{
+    AudioData: audioBytes,
+    Format:    "wav",
+    Language:  "zh",
+})
+```

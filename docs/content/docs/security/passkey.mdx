@@ -1,0 +1,50 @@
+---
+title: Passkey 无密码认证
+description: WebAuthn / Passkey 认证
+---
+
+# Passkey 无密码认证
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/passkey
+```
+
+## 初始化
+
+```go
+import "github.com/LingByte/ling-base/common/passkey"
+
+rp := passkey.New(passkey.Config{
+    RPName:   "MyApp",
+    RPID:     "myapp.com",
+    RPOrigins: []string{"https://myapp.com"},
+})
+
+// 需要一个 SessionStore 存储挑战
+store := passkey.NewMemoryStore()
+```
+
+## 注册
+
+```go
+// 1. 开始注册
+options, session, err := rp.BeginRegistration(ctx, userID, userDisplayName, store)
+
+// 2. 前端用 options 调用 navigator.credentials.create()
+// 3. 前端返回 credential，验证
+credential, err := rp.FinishRegistration(ctx, session, credentialResponse, store)
+// 保存 credential 到数据库
+```
+
+## 登录
+
+```go
+// 1. 开始登录
+options, session, err := rp.BeginLogin(ctx, store)
+
+// 2. 前端用 options 调用 navigator.credentials.get()
+// 3. 前端返回 assertion，验证
+err = rp.FinishLogin(ctx, session, assertionResponse, storedCredentials, store)
+```

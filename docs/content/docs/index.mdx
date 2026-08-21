@@ -1,0 +1,95 @@
+---
+title: ling-base
+description: Go 多模块基础库，175+ modules，覆盖 AI 中继、语音处理、安全认证、基础设施
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+
+# ling-base
+
+Go 多模块基础库，按需引入，覆盖 AI 中继、语音处理、安全认证、基础设施、第三方服务对接等场景。
+
+## 特性
+
+- **多模块按需引入** — 业务只 import 用到的模块，不会拉入无关 SDK
+- **40+ AI Provider** — OpenAI / Claude / Gemini / AWS / Ali / Baidu / Tencent / Xunfei 等
+- **16 个 TTS + 12 个 ASR + 8 个 Realtime** — 全覆盖语音处理链路
+- **生产级基础设施** — 限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
+- **安全认证** — TOTP 两步验证 / Passkey 无密码认证 / 密码哈希 / JWT
+- **第三方服务对接** — OCR / 内容审核 / 对象存储 / 消息队列
+
+## 快速开始
+
+<Steps>
+
+<Step>
+### 安装
+
+每个模块都是独立的 Go module，按需引入：
+
+```bash
+go get github.com/LingByte/ling-base/relay
+go get github.com/LingByte/ling-base/common/totp
+go get github.com/LingByte/ling-base/providers/ocr
+```
+
+</Step>
+
+<Step>
+### 使用 relay 中继
+
+```go
+import "github.com/LingByte/ling-base/relay"
+import "github.com/LingByte/ling-base/relay/channel/openai"
+
+client := relay.New(
+    relay.WithProvider(openai.NewProvider("sk-xxx")),
+)
+
+resp, err := client.Chat(ctx, &relay.ChatRequest{
+    Model:    "gpt-4o",
+    Messages: []relay.Message{{Role: "user", Content: "Hello"}},
+})
+```
+
+</Step>
+
+<Step>
+### 使用 TOTP 两步验证
+
+```go
+import "github.com/LingByte/ling-base/common/totp"
+
+secret := totp.GenerateSecret()
+uri := totp.KeyURI("user@example.com", "MyApp", secret)
+qrPNG := totp.QRCodePNG(uri, 256, 256)
+valid := totp.Validate(secret, "123456", 30, 6)
+```
+
+</Step>
+
+</Steps>
+
+## 模块导航
+
+<Cards>
+  <Card title="AI 中继" href="/docs/relay">
+    40+ provider 统一接口，支持 Chat / Embed / Image / Audio / Responses
+  </Card>
+  <Card title="语音处理" href="/docs/voice">
+    TTS 语音合成 / ASR 语音识别 / 实时多模态对话
+  </Card>
+  <Card title="安全认证" href="/docs/security">
+    TOTP / Passkey / 密码哈希 / JWT
+  </Card>
+  <Card title="基础设施" href="/docs/infrastructure">
+    限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
+  </Card>
+  <Card title="第三方服务" href="/docs/providers">
+    OCR / 内容审核 / 对象存储 / 消息队列
+  </Card>
+  <Card title="通用工具" href="/docs/common">
+    日志 / 配置 / 压缩 / 二维码 / 拼音 / IP 查询
+  </Card>
+</Cards>

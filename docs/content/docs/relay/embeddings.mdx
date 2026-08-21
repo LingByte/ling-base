@@ -1,0 +1,33 @@
+---
+title: Embeddings
+description: 文本向量化
+---
+
+# Embeddings
+
+```go
+resp, err := client.Embeddings(ctx, &relay.EmbedRequest{
+    Model: "text-embedding-3-small",
+    Input: []string{"Hello world", "Go is awesome"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+for i, emb := range resp.Data {
+    fmt.Printf("Embedding %d: dim=%d first5=%v\n",
+        i, len(emb.Embedding), emb.Embedding[:5])
+}
+```
+
+## 支持的 Provider
+
+| Provider | 模型 |
+|----------|------|
+| OpenAI | text-embedding-3-small / large |
+| Cohere | embed-english-v3 / multilingual-v3 |
+| Ali | text-embedding-v2 / v3 |
+| Baidu | embedding-v1 |
+| Zhipu | embedding-2 / embedding-3 |
+| Voyage | voyage-2 / voyage-3 |
+| Jina | jina-embeddings-v3 |

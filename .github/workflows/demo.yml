@@ -1,10 +1,10 @@
-name: Deploy Demo
+name: Deploy Docs
 
 on:
   push:
     branches: [main]
     paths:
-      - 'demo/**'
+      - 'docs/**'
       - '.github/workflows/demo.yml'
   workflow_dispatch:
 
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: demo-deploy
+  group: docs-deploy
   cancel-in-progress: true
 
 jobs:
@@ -23,22 +23,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: demo
-        run: npm ci || npm install
+        working-directory: docs
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        working-directory: demo
-        run: npm run build
+        working-directory: docs
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /ling-base
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: demo/dist
+          path: docs/out
 
   deploy:
     needs: build

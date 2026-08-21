@@ -1,0 +1,28 @@
+---
+title: 基础设施
+description: 限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+# 基础设施
+
+## 模块
+
+<Cards>
+  <Card title="限流器" href="/docs/infrastructure/limiter">
+    令牌桶 / 滑动窗口 / 并发数
+  </Card>
+  <Card title="熔断器" href="/docs/infrastructure/circuitbreaker">
+    Closed / Open / HalfOpen 三态
+  </Card>
+  <Card title="重试" href="/docs/infrastructure/retry">
+    指数退避 / 固定间隔
+  </Card>
+  <Card title="缓存" href="/docs/infrastructure/cache">
+    LRU / Memory / Redis / BigCache
+  </Card>
+  <Card title="分布式锁" href="/docs/infrastructure/lock">
+    Redis / Etcd / Zookeeper / Consul
+  </Card>
+</Cards>

@@ -1,0 +1,30 @@
+---
+title: GeoIP
+description: IP 地理位置查询
+---
+
+# GeoIP
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/geoip"
+```
+
+## 使用
+
+```go
+import "github.com/LingByte/ling-base/common/geoip"
+
+// 国内 IP 查询（pconline）
+info, err := geoip.Lookup("114.114.114.114")
+// info.Country = "中国"
+// info.Province = "江苏"
+// info.City = "南京"
+// info.ISP = "中国电信"
+
+// 国际 IP 查询（ip-api）
+info, err := geoip.Lookup("8.8.8.8")
+// info.Country = "United States"
+// info.ISP = "Google LLC"
+```

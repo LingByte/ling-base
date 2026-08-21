@@ -1,0 +1,53 @@
+---
+title: 限流器
+description: 令牌桶 / 滑动窗口 / 并发数
+---
+
+# 限流器
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/limiter
+go get github.com/LingByte/ling-base/common/limiter/tokenbucket
+```
+
+## 令牌桶
+
+```go
+import "github.com/LingByte/ling-base/common/limiter/tokenbucket"
+
+// 每秒 100 个请求，桶容量 200
+bucket := tokenbucket.New(100, 200)
+defer bucket.Close()
+
+if bucket.Acquire(ctx) {
+    // 通过
+} else {
+    // 被限流
+}
+```
+
+## 滑动窗口
+
+```go
+import "github.com/LingByte/ling-base/common/limiter"
+
+limiter := limiter.NewSlidingWindow(100, time.Second)
+if limiter.Allow() {
+    // 通过
+}
+```
+
+## Redis 分布式限流
+
+```go
+import "github.com/LingByte/ling-base/common/limiter/redis"
+
+rdb := redis.NewClient(...)
+limiter := redis.New(rdb, redis.Config{
+    Key:   "api:rate:user:123",
+    Rate:  100,
+    Burst: 200,
+})
+```

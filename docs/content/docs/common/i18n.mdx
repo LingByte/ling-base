@@ -1,0 +1,42 @@
+---
+title: i18n 国际化
+description: 翻译 + 格式化 + locale 检测
+---
+
+# i18n
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/i18n"
+```
+
+## 使用
+
+```go
+import "github.com/LingByte/ling-base/common/i18n"
+
+// 初始化
+i18n.Init(i18n.Config{
+    DefaultLocale: "en",
+    Locales:       []string{"en", "zh", "ja"},
+    LoadPath:      "locales",
+})
+
+// 翻译
+msg := i18n.T("zh", "Hello World")
+// msg = "你好世界"
+
+// 从 HTTP 请求检测 locale
+locale := i18n.DetectFromHeader("Accept-Language: zh-CN,zh;q=0.9,en;q=0.8")
+// locale = "zh"
+```
+
+## Gin 中间件
+
+```go
+import "github.com/LingByte/ling-base/common/i18n/gin"
+
+r := gin.New()
+r.Use(gin.I18nMiddleware())
+```
