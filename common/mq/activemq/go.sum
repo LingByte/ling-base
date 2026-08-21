@@ -1,4 +1,3 @@
-github.com/LingByte/ling-base/mq v0.1.0 h1:0I9CO3qULoMBW8UudH8KVhNZNpbpJ7pfmt7oqdry78I=
 github.com/go-stomp/stomp/v3 v3.1.5 h1:Pikz1OSusmSKUm5mRKYfXQZaDatfZ+EnBBA1JJ2xENQ=
 github.com/go-stomp/stomp/v3 v3.1.5/go.mod h1:ztzZej6T2W4Y6FlD+Tb5n7HQP3/O5UNQiuC169pIp10=
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=

@@ -2,6 +2,8 @@
 
 Go 基础工具库。采用**多 module 按需引入**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。
 
+> 📖 **文档与在线演示**：<https://lingbyte.github.io/ling-base/>
+
 ## 模块结构
 
 ```

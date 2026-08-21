@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlaygroundLink } from '@/components/playground/PlaygroundLink';
+import { asset } from '@/lib/shared';
 import {
   Bot,
   Mic,
@@ -113,7 +114,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
           {/* Logo — no background, just the image */}
           <Image
-            src="/logo.png"
+            src={asset('/logo.png')}
             alt="ling-base"
             width={96}
             height={96}

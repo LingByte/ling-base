@@ -5,10 +5,6 @@ use (
 	./agent
 	./apidocs
 	./bootstrap
-	./providers/censor
-	./providers/censor/aliyun
-	./providers/censor/qcloud
-	./providers/censor/qiniu
 	./common
 	./common/audioutil
 	./common/barcode
@@ -62,11 +58,18 @@ use (
 	./common/lock/zookeeper
 	./common/logger
 	./common/logger/gin
-	./common/middleware
 	./common/mathutil
 	./common/metrics
+	./common/middleware
 	./common/migration
 	./common/migration/gormmigrator
+	./common/mq
+	./common/mq/activemq
+	./common/mq/factory
+	./common/mq/kafka
+	./common/mq/rabbitmq
+	./common/mq/redisstream
+	./common/mq/rocketmq
 	./common/netutil
 	./common/nltime
 	./common/notification
@@ -106,16 +109,13 @@ use (
 	./common/tracing
 	./common/validate
 	./common/videoutil
+	./docs/wasm
 	./example
 	./lingcli
-	./docs/wasm
-	./common/mq
-	./common/mq/activemq
-	./common/mq/factory
-	./common/mq/kafka
-	./common/mq/rabbitmq
-	./common/mq/redisstream
-	./common/mq/rocketmq
+	./providers/censor
+	./providers/censor/aliyun
+	./providers/censor/qcloud
+	./providers/censor/qiniu
 	./providers/ocr
 	./providers/ocr/aliyun
 	./providers/ocr/aws

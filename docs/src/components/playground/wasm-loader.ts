@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { basePath } from '@/lib/shared';
 
 type WasmState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -53,7 +54,7 @@ function loadWasm(): Promise<void> {
       : new Promise<void>((res, rej) => {
           const script = document.createElement('script');
           script.id = 'wasm-exec-script';
-          script.src = '/wasm_exec.js';
+          script.src = `${basePath}/wasm_exec.js`;
           script.onload = () => res();
           script.onerror = () => rej(new Error('Failed to load wasm_exec.js'));
           document.head.appendChild(script);
@@ -86,7 +87,7 @@ function loadWasm(): Promise<void> {
         })(go.run.bind(go));
 
         // 2. 加载 WASM
-        const resp = await fetch('/lingbase.wasm');
+        const resp = await fetch(`${basePath}/lingbase.wasm`);
         if (!resp.ok) {
           reject(new Error(`Failed to fetch WASM: ${resp.status}`));
           return;
