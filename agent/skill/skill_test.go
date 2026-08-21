@@ -3,6 +3,7 @@ package skill
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,5 +106,64 @@ func TestLoadProjectOverlaysHome(t *testing.T) {
 	}
 	if len(warnings) == 0 {
 		t.Error("expected a warning for the malformed skill")
+	}
+}
+
+func TestLoadCompatPaths(t *testing.T) {
+	cwd := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Native: directory-style SKILL.md
+	write(t, filepath.Join(cwd, ".ling-agent", "skills", "native", "SKILL.md"),
+		"---\nname: native\ndescription: native skill\n---\nnative body")
+	// Claude-compat: directory-style
+	write(t, filepath.Join(cwd, ".claude", "skills", "claude-skill", "SKILL.md"),
+		"---\nname: claude-skill\ndescription: from claude\n---\nclaude body")
+	// Agents-compat: directory-style
+	write(t, filepath.Join(home, ".agents", "skills", "agent-skill", "SKILL.md"),
+		"---\nname: agent-skill\ndescription: from agents\n---\nagents body")
+
+	got := Load(cwd, nil)
+	byName := map[string]Skill{}
+	for _, sk := range got {
+		byName[sk.Name] = sk
+	}
+
+	if _, ok := byName["native"]; !ok {
+		t.Error("native directory-style skill missing")
+	}
+	if _, ok := byName["claude-skill"]; !ok {
+		t.Error("claude-compat skill missing")
+	}
+	if _, ok := byName["agent-skill"]; !ok {
+		t.Error("agents-compat skill missing")
+	}
+	if byName["native"].Source != "project" {
+		t.Errorf("native source = %q, want project", byName["native"].Source)
+	}
+}
+
+func TestSystemPromptAddendum(t *testing.T) {
+	skills := []Skill{
+		{Name: "review", Description: "Review the diff", Source: "project"},
+		{Name: "deploy", Description: "Deploy the app", Source: "global"},
+	}
+	got := SystemPromptAddendum(skills)
+	if !strings.Contains(got, "review") || !strings.Contains(got, "deploy") {
+		t.Errorf("addendum should list both skills: %s", got)
+	}
+	if !strings.Contains(got, "Review the diff") {
+		t.Error("addendum should include descriptions")
+	}
+}
+
+func TestFindByName(t *testing.T) {
+	skills := []Skill{{Name: "a"}, {Name: "b"}}
+	if s := FindByName(skills, "b"); s == nil || s.Name != "b" {
+		t.Error("FindByName should find b")
+	}
+	if s := FindByName(skills, "c"); s != nil {
+		t.Error("FindByName should return nil for missing")
 	}
 }

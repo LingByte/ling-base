@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/LingByte/ling-base/agent/ignore"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -35,9 +36,10 @@ func shouldSkipDir(name string, hidden bool) bool {
 
 // GlobOptions configures Glob.
 type GlobOptions struct {
-	Root    string // base directory to search (defaults to ".")
-	Pattern string // glob pattern, e.g. "**/*.go"; empty means all files
-	Hidden  bool   // include dotfiles/dotdirs
+	Root             string // base directory to search (defaults to ".")
+	Pattern          string // glob pattern, e.g. "**/*.go"; empty means all files
+	Hidden           bool   // include dotfiles/dotdirs
+	RespectGitignore bool   // skip paths matching .gitignore files
 }
 
 // Glob returns files under Root matching Pattern, sorted by modification time
@@ -52,18 +54,33 @@ func Glob(opts GlobOptions) ([]string, error) {
 		mod  int64
 	}
 	var out []ent
+	var igStack *ignore.Stack
+	if opts.RespectGitignore {
+		igStack = ignore.NewStack(root)
+	}
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip unreadable entries
 		}
+		rel, _ := filepath.Rel(root, path)
+		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			if path != root && shouldSkipDir(d.Name(), opts.Hidden) {
 				return filepath.SkipDir
 			}
+			if opts.RespectGitignore && path != root && igStack.Match(rel, true) {
+				return filepath.SkipDir
+			}
+			if opts.RespectGitignore && path != root {
+				igStack.Push(path, rel)
+			}
 			return nil
 		}
 		if !opts.Hidden && strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		if opts.RespectGitignore && igStack.Match(rel, false) {
 			return nil
 		}
 		if opts.Pattern != "" && !matchGlob(root, path, opts.Pattern) {
@@ -108,12 +125,13 @@ func matchGlob(root, path, pattern string) bool {
 
 // GrepOptions configures Grep.
 type GrepOptions struct {
-	Pattern    string // regular expression
-	Root       string // search root (file or directory)
-	IgnoreCase bool
-	Multiline  bool   // '.' matches newlines; pattern may span lines
-	Glob       string // optional file filter (e.g. "*.go")
-	Hidden     bool
+	Pattern          string // regular expression
+	Root             string // search root (file or directory)
+	IgnoreCase       bool
+	Multiline        bool   // '.' matches newlines; pattern may span lines
+	Glob             string // optional file filter (e.g. "*.go")
+	Hidden           bool
+	RespectGitignore bool   // skip paths matching .gitignore files
 }
 
 // GrepMatch is one matching line.
@@ -167,17 +185,33 @@ func Grep(opts GrepOptions) ([]GrepMatch, error) {
 		return matches, nil
 	}
 
+	var igStack *ignore.Stack
+	if opts.RespectGitignore {
+		igStack = ignore.NewStack(root)
+	}
+
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
+		rel, _ := filepath.Rel(root, path)
+		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			if path != root && shouldSkipDir(d.Name(), opts.Hidden) {
 				return filepath.SkipDir
 			}
+			if opts.RespectGitignore && path != root && igStack.Match(rel, true) {
+				return filepath.SkipDir
+			}
+			if opts.RespectGitignore && path != root {
+				igStack.Push(path, rel)
+			}
 			return nil
 		}
 		if !opts.Hidden && strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		if opts.RespectGitignore && igStack.Match(rel, false) {
 			return nil
 		}
 		if opts.Glob != "" && !matchGlob(root, path, opts.Glob) {
