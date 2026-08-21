@@ -63,17 +63,18 @@ type Tool = dto.ToolCallRequest
 
 // ChatRequest is the unified chat completion request.
 type ChatRequest struct {
-	Model       string          `json:"model"`
-	Messages    []Message       `json:"messages"`
-	Temperature *float64        `json:"temperature,omitempty"`
-	TopP        *float64        `json:"top_p,omitempty"`
-	MaxTokens   *int            `json:"max_tokens,omitempty"`
-	Stream      bool            `json:"stream,omitempty"`
-	Tools       []Tool          `json:"tools,omitempty"`
-	ToolChoice  json.RawMessage `json:"tool_choice,omitempty"`
-	Stop        json.RawMessage `json:"stop,omitempty"`
-	N           *int            `json:"n,omitempty"`
-	User        string          `json:"user,omitempty"`
+	Model           string          `json:"model"`
+	Messages        []Message       `json:"messages"`
+	Temperature     *float64        `json:"temperature,omitempty"`
+	TopP            *float64        `json:"top_p,omitempty"`
+	MaxTokens       *int            `json:"max_tokens,omitempty"`
+	Stream          bool            `json:"stream,omitempty"`
+	Tools           []Tool          `json:"tools,omitempty"`
+	ToolChoice      json.RawMessage `json:"tool_choice,omitempty"`
+	Stop            json.RawMessage `json:"stop,omitempty"`
+	N               *int            `json:"n,omitempty"`
+	User            string          `json:"user,omitempty"`
+	ReasoningEffort string          `json:"reasoning_effort,omitempty"` // low/medium/high for reasoning models
 }
 
 // EmbedRequest is the unified embedding request.
@@ -1793,15 +1794,16 @@ func (c *Client) doRequest(ctx context.Context, adaptor common.Adaptor, info *co
 
 func (c *Client) toOpenAIRequest(req *ChatRequest) *dto.GeneralOpenAIRequest {
 	r := &dto.GeneralOpenAIRequest{
-		Model:       req.Model,
-		Messages:    req.Messages,
-		Temperature: req.Temperature,
-		TopP:        req.TopP,
-		Stream:      &req.Stream,
-		Tools:       req.Tools,
-		Stop:        req.Stop,
-		N:           req.N,
-		User:        json.RawMessage(marshalString(req.User)),
+		Model:           req.Model,
+		Messages:        req.Messages,
+		Temperature:     req.Temperature,
+		TopP:            req.TopP,
+		Stream:          &req.Stream,
+		Tools:           req.Tools,
+		Stop:            req.Stop,
+		N:               req.N,
+		User:            json.RawMessage(marshalString(req.User)),
+		ReasoningEffort: req.ReasoningEffort,
 	}
 	if req.MaxTokens != nil {
 		r.MaxTokens = ptrUint(uint(*req.MaxTokens))

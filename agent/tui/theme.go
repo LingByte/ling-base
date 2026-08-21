@@ -65,6 +65,21 @@ var renderThemes = []renderTheme{
 		aliases: []string{"cat", "catppuccin-mocha", "mocha"},
 		palette: themePalette{fg: "#cdd6f4", muted: "#6c7086", accent: "#cba6f7", accent2: "#89b4fa", accent3: "#a6e3a1", bg: "#1e1e2e", codeBG: "#313244"},
 	},
+	{
+		id:       "light",
+		name:     "Light",
+		desc:     "clean light theme for bright terminals",
+		aliases:  []string{"day", "solarized-light"},
+		standard: "light",
+		palette:  themePalette{fg: "#3c3836", muted: "#928374", accent: "#427b58", accent2: "#b57614", accent3: "#076678", bg: "#fbf1c7", codeBG: "#ebdbb2"},
+	},
+	{
+		id:       "auto",
+		name:     "Auto",
+		desc:     "detect from terminal background colour",
+		aliases:  []string{"detect"},
+		palette:  themePalette{},
+	},
 }
 
 // defaultChromePalette colours the TUI chrome when no theme is selected
@@ -76,6 +91,9 @@ var defaultChromePalette = themePalette{
 // chromePaletteFor returns the palette used to colour the TUI chrome (banner,
 // pickers, prompts, type-ahead) for a theme id, falling back to the default.
 func chromePaletteFor(id string) themePalette {
+	if id == "auto" {
+		id = detectedThemeID
+	}
 	if theme, ok := lookupTheme(id); ok && theme.palette.accent != "" {
 		return theme.palette
 	}
@@ -123,6 +141,9 @@ func themeNames() string {
 
 func (m *Model) currentThemeID() string {
 	if m.sess != nil && m.sess.Theme != "" {
+		if m.sess.Theme == "auto" {
+			return detectedThemeID
+		}
 		return m.sess.Theme
 	}
 	return "dark"
@@ -162,7 +183,11 @@ func (m *Model) themeChoices() []choiceItem {
 }
 
 func (m *Model) glamourThemeOption() glamour.TermRendererOption {
-	if theme, ok := lookupTheme(m.currentThemeID()); ok {
+	id := m.currentThemeID()
+	if id == "auto" {
+		id = detectedThemeID
+	}
+	if theme, ok := lookupTheme(id); ok {
 		if theme.standard != "" {
 			return glamour.WithStandardStyle(theme.standard)
 		}

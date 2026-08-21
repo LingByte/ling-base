@@ -69,11 +69,12 @@ func (g *Grep) Execute(_ context.Context, tctx Context, raw json.RawMessage) ([]
 	}
 
 	matches, err := search.Grep(search.GrepOptions{
-		Pattern:    in.Pattern,
-		Root:       root,
-		IgnoreCase: in.IgnoreCase,
-		Multiline:  in.Multiline,
-		Glob:       in.Glob,
+		Pattern:          in.Pattern,
+		Root:             root,
+		IgnoreCase:       in.IgnoreCase,
+		Multiline:        in.Multiline,
+		Glob:             in.Glob,
+		RespectGitignore: true,
 	})
 	if err != nil {
 		return []Result{{Content: fmt.Sprintf("Error: %v", err), IsError: true}}, nil

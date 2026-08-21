@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/agent/skill"
 )
 
 // securityClause mirrors the JS constant V44 (05-app-core.js:65659).
@@ -65,7 +67,22 @@ func System(cwd, model string) string {
 		b.WriteString("Curated, durable lessons about this project (from .ling-agent/KNOWLEDGE.md). Treat these as established facts.\n\n")
 		b.WriteString(kn)
 	}
+	if skills := loadSkillAddendum(cwd); skills != "" {
+		b.WriteString("\n\n# Skills\n")
+		b.WriteString(skills)
+	}
 	return b.String()
+}
+
+// loadSkillAddendum discovers skills from all supported directories
+// (native .ling-agent, .claude, .agents) and returns the system-prompt
+// addendum listing them. Returns "" if no skills are found.
+func loadSkillAddendum(cwd string) string {
+	skills := skill.Load(cwd, nil)
+	if len(skills) == 0 {
+		return ""
+	}
+	return skill.SystemPromptAddendum(skills)
 }
 
 // recalledKnowledge returns the curated project-knowledge file for priming the

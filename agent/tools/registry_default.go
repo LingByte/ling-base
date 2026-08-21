@@ -7,6 +7,7 @@ import (
 	"github.com/LingByte/ling-base/agent/browser"
 	"github.com/LingByte/ling-base/agent/lsp"
 	"github.com/LingByte/ling-base/agent/sandbox"
+	"github.com/LingByte/ling-base/agent/swarm"
 	"github.com/LingByte/ling-base/agent/tasks"
 )
 
@@ -16,6 +17,7 @@ type regOptions struct {
 	browser *browser.Engine
 	shells  *ShellStore
 	lsp     *lsp.Pool
+	swarm   *swarm.Swarm
 }
 
 // RegOption configures DefaultRegistry.
@@ -33,6 +35,10 @@ func WithShellStore(s *ShellStore) RegOption { return func(o *regOptions) { o.sh
 // References. The caller Close()s it at session end. When omitted, the LSP tools
 // are not registered.
 func WithLSP(p *lsp.Pool) RegOption { return func(o *regOptions) { o.lsp = p } }
+
+// WithSwarm supplies the multi-agent supervisor backing SwarmSpawn/SwarmList.
+// When omitted, the swarm tools are not registered.
+func WithSwarm(s *swarm.Swarm) RegOption { return func(o *regOptions) { o.swarm = s } }
 
 // DefaultRegistry builds the registry of all implemented local tools, with the
 // Bash tool wired to the given executor (local host, or a container sandbox).
@@ -98,6 +104,14 @@ func DefaultRegistry(executor sandbox.Executor, opts ...RegOption) (*Registry, e
 			ctor{"Diagnostics", func() (Tool, error) { return NewDiagnostics(pool) }},
 			ctor{"Definition", func() (Tool, error) { return NewDefinition(pool) }},
 			ctor{"References", func() (Tool, error) { return NewReferences(pool) }},
+		)
+	}
+	// Swarm multi-agent tools are registered only when a supervisor is supplied.
+	if cfg.swarm != nil {
+		s := cfg.swarm
+		ctors = append(ctors,
+			ctor{"SwarmSpawn", func() (Tool, error) { return NewSwarmSpawn(s) }},
+			ctor{"SwarmList", func() (Tool, error) { return NewSwarmList(s) }},
 		)
 	}
 

@@ -1,7 +1,18 @@
 // Package skill loads reusable prompt/command skills from Markdown files with
-// YAML frontmatter. Skills live in ~/.ling-agent/skills (user) overlaid by
-// <cwd>/.ling-agent/skills (project, wins on name collision) — the same overlay
-// pattern (and the same ~/.ling-agent base) as config.Load and mcp.LoadConfig.
+// YAML frontmatter. Skills are discovered from multiple directories with
+// priority order (first match wins per name):
+//
+//	./.ling-agent/skills/<name>/SKILL.md   — project (native)
+//	~/.ling-agent/skills/<name>/SKILL.md   — global (native)
+//	./.ling-agent/skills/<name>.md         — project (flat, legacy)
+//	~/.ling-agent/skills/<name>.md         — global (flat, legacy)
+//	./.claude/skills/<name>/SKILL.md       — project (claude-compat)
+//	~/.claude/skills/<name>/SKILL.md       — global (claude-compat)
+//	./.agents/skills/<name>/SKILL.md       — project (agents-compat)
+//	~/.agents/skills/<name>/SKILL.md       — global (agents-compat)
+//
+// The compat paths are deliberate: a SKILL.md written for any of the
+// related ecosystems works in LingAgent unchanged.
 //
 // A skill file looks like:
 //
@@ -40,6 +51,7 @@ type Skill struct {
 	Tools       []string // optional tool allowlist (growth point; unused in v1)
 	Body        string   // template body; supports $ARGUMENTS
 	Path        string   // source file, for diagnostics
+	Source      string   // where the skill came from ("project", "global (claude)", etc.)
 }
 
 // frontmatter is the YAML header schema.
@@ -63,21 +75,51 @@ func (s Skill) Render(args string) string {
 	return strings.TrimRight(s.Body, "\n") + "\n\n" + args
 }
 
-// Load reads skills from ~/.ling-agent/skills then overlays <cwd>/.ling-agent/skills
-// (project skills win on name collision). Malformed files are skipped, reporting
-// the reason to warn (warn may be nil). The result is sorted by name.
+// SystemPromptAddendum returns the text to append to the system prompt
+// when at least one skill is loaded. Empty string if none. The format is
+// compact: name, source, and one-line description.
+func SystemPromptAddendum(skills []Skill) string {
+	var sb strings.Builder
+	for _, s := range skills {
+		if sb.Len() == 0 {
+			sb.WriteString("Available skills (use /<name> to invoke):\n")
+		}
+		desc := strings.TrimSpace(s.Description)
+		if desc == "" {
+			desc = "(no description)"
+		}
+		source := s.Source
+		if source == "" {
+			source = "unknown"
+		}
+		fmt.Fprintf(&sb, "- %s [%s]: %s\n", s.Name, source, desc)
+	}
+	return sb.String()
+}
+
+// FindByName returns the skill with the given name, or nil.
+func FindByName(skills []Skill, name string) *Skill {
+	for i := range skills {
+		if skills[i].Name == name {
+			return &skills[i]
+		}
+	}
+	return nil
+}
+
+// Load discovers skills from all supported directories. Project skills win
+// over global; native (.ling-agent) wins over compat (.claude, .agents).
+// Malformed files are skipped, reporting the reason to warn (warn may be nil).
+// The result is sorted by name.
 func Load(cwd string, warn func(string)) []Skill {
 	byName := map[string]Skill{}
+	home, _ := os.UserHomeDir()
 
-	dirs := make([]string, 0, 2)
-	if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, ".ling-agent", "skills"))
-	}
-	dirs = append(dirs, filepath.Join(cwd, ".ling-agent", "skills")) // project wins
-
-	for _, dir := range dirs {
-		for _, sk := range loadDir(dir, warn) {
-			byName[sk.Name] = sk // last write (project) wins
+	for _, loc := range searchDirs(cwd, home) {
+		for _, sk := range loadDir(loc.dir, loc.label, warn) {
+			if _, dup := byName[sk.Name]; !dup {
+				byName[sk.Name] = sk
+			}
 		}
 	}
 
@@ -89,15 +131,72 @@ func Load(cwd string, warn func(string)) []Skill {
 	return out
 }
 
-// loadDir parses every *.md file in dir. A missing dir yields nothing.
-func loadDir(dir string, warn func(string)) []Skill {
+type skillLocation struct {
+	dir   string
+	label string
+}
+
+func searchDirs(cwd, home string) []skillLocation {
+	var out []skillLocation
+	add := func(dir, label string) {
+		if dir == "" {
+			return
+		}
+		out = append(out, skillLocation{dir: dir, label: label})
+	}
+	// Native: project before global
+	if cwd != "" {
+		add(filepath.Join(cwd, ".ling-agent", "skills"), "project")
+	}
+	if home != "" {
+		add(filepath.Join(home, ".ling-agent", "skills"), "global")
+	}
+	// Claude-compat: project before global
+	if cwd != "" {
+		add(filepath.Join(cwd, ".claude", "skills"), "project (claude)")
+	}
+	if home != "" {
+		add(filepath.Join(home, ".claude", "skills"), "global (claude)")
+	}
+	// Agents-compat: project before global
+	if cwd != "" {
+		add(filepath.Join(cwd, ".agents", "skills"), "project (agents)")
+	}
+	if home != "" {
+		add(filepath.Join(home, ".agents", "skills"), "global (agents)")
+	}
+	return out
+}
+
+// loadDir parses skills from a directory. Supports both directory-style
+// (<name>/SKILL.md) and flat-style (<name>.md). A missing dir yields nothing.
+func loadDir(dir, label string, warn func(string)) []Skill {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil // missing/unreadable dir is not an error
 	}
 	var out []Skill
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+		if e.IsDir() {
+			// Directory-style skill: <name>/SKILL.md
+			skillPath := filepath.Join(dir, e.Name(), "SKILL.md")
+			if data, err := os.ReadFile(skillPath); err == nil {
+				sk, err := parse(data, skillPath)
+				if err != nil {
+					warnf(warn, "skill %s: %v", skillPath, err)
+					continue
+				}
+				if sk.Name == "" {
+					sk.Name = e.Name()
+				}
+				sk.Source = label
+				out = append(out, sk)
+				continue
+			}
+			continue
+		}
+		// Flat-style: <name>.md
+		if !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
 		path := filepath.Join(dir, e.Name())
@@ -111,6 +210,7 @@ func loadDir(dir string, warn func(string)) []Skill {
 			warnf(warn, "skill %s: %v", path, err)
 			continue
 		}
+		sk.Source = label
 		out = append(out, sk)
 	}
 	return out

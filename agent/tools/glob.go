@@ -60,7 +60,7 @@ func (g *Glob) Execute(_ context.Context, tctx Context, raw json.RawMessage) ([]
 	if root == "" {
 		root = tctx.WorkingDir
 	}
-	files, err := search.Glob(search.GlobOptions{Root: root, Pattern: in.Pattern})
+	files, err := search.Glob(search.GlobOptions{Root: root, Pattern: in.Pattern, RespectGitignore: true})
 	if err != nil {
 		return []Result{{Content: fmt.Sprintf("Error: %v", err), IsError: true}}, nil
 	}
