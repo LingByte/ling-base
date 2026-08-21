@@ -1,0 +1,442 @@
+package neo4jstore
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/LingByte/ling-base/agentkit/memory/gomodel"
+)
+
+// PostgresStore implements VectorStore using Postgres + pgvector.
+type PostgresStore struct {
+	DB *pgxpool.Pool
+}
+
+const postgresCosineDistanceOperator = "<=>"
+const postgresCosineScoreExpression = "1 - (embedding " + postgresCosineDistanceOperator + " $1::vector)"
+
+// NewPostgresStore connects to Postgres and returns a Postgres-backed VectorStore implementation.
+func NewPostgresStore(ctx context.Context, connStr string) (*PostgresStore, error) {
+	db, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Postgres: %w", err)
+	}
+	return &PostgresStore{DB: db}, nil
+}
+
+// StoreMemory inserts a long-term record into Postgres.
+func (ps *PostgresStore) StoreMemory(ctx context.Context, sessionID, content string, metadata map[string]any, embedding []float32) error {
+	if ps == nil || ps.DB == nil {
+		return nil
+	}
+	record := prepareMemoryRecord(sessionID, content, metadata, embedding, time.Now().UTC(), true)
+	query := `
+                INSERT INTO memory_bank (session_id, content, metadata, embedding, importance, source, summary, last_embedded, embedding_matrix)
+                VALUES ($1, $2, $3::jsonb, $4::vector, $5, $6, $7, $8, $9::jsonb)
+                RETURNING id;
+        `
+	var matrixJSON []byte
+	if len(record.EmbeddingMatrix) > 0 {
+		matrixJSON, _ = json.Marshal(record.EmbeddingMatrix)
+	}
+	if err := ps.DB.QueryRow(ctx, query, sessionID, content, record.Metadata, formatVector(record.Embedding), record.Importance, record.Source, record.Summary, record.LastEmbedded, matrixJSON).Scan(&record.ID); err != nil {
+		return err
+	}
+	if err := ps.UpsertGraph(ctx, record, record.GraphEdges); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SearchMemory returns top-k similar memories from Postgres.
+func (ps *PostgresStore) SearchMemory(ctx context.Context, sessionID string, queryEmbedding []float32, limit int) ([]gomodel.MemoryRecord, error) {
+	if ps == nil || ps.DB == nil || limit <= 0 {
+		return nil, nil
+	}
+	var queryBuilder strings.Builder
+	// The ivfflat index in defaultPostgresSchema uses vector_cosine_ops, so
+	// retrieval must use pgvector's cosine-distance operator (<=>). Using the
+	// L2 operator (<->) prevents that index from serving the ORDER BY query.
+	queryBuilder.WriteString(`
+        SELECT id, session_id, content, metadata::text, importance, source, summary, created_at, last_embedded, embedding::text, embedding_matrix::text, ` + postgresCosineScoreExpression + ` AS score
+        FROM memory_bank
+        `)
+
+	args := []any{formatVector(queryEmbedding)}
+	if sessionID != "" {
+		queryBuilder.WriteString(" WHERE session_id = $" + strconv.Itoa(len(args)+1))
+		args = append(args, sessionID)
+	}
+	queryBuilder.WriteString(" ORDER BY embedding " + postgresCosineDistanceOperator + " $1::vector LIMIT $" + strconv.Itoa(len(args)+1))
+	args = append(args, limit)
+
+	rows, err := ps.DB.Query(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	records := make([]gomodel.MemoryRecord, 0, limit)
+	for rows.Next() {
+		var rec gomodel.MemoryRecord
+		var embeddingText string
+		var matrixText sql.NullString
+		if err := rows.Scan(&rec.ID, &rec.SessionID, &rec.Content, &rec.Metadata, &rec.Importance, &rec.Source, &rec.Summary, &rec.CreatedAt, &rec.LastEmbedded, &embeddingText, &matrixText, &rec.Score); err != nil {
+			return nil, err
+		}
+		rec.Embedding = parseVector(embeddingText)
+		meta := gomodel.DecodeMetadata(rec.Metadata)
+		gomodel.HydrateRecordFromMetadata(&rec, meta)
+		if len(rec.EmbeddingMatrix) == 0 && matrixText.Valid && strings.TrimSpace(matrixText.String) != "" {
+			rec.EmbeddingMatrix = gomodel.DecodeEmbeddingMatrix(matrixText.String)
+		}
+		if rec.Space == "" {
+			rec.Space = rec.SessionID
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return mergeBackendCosineScores(records, queryEmbedding, limit), nil
+}
+
+func (ps *PostgresStore) UpdateEmbedding(ctx context.Context, id int64, embedding []float32, lastEmbedded time.Time) error {
+	if ps == nil || ps.DB == nil {
+		return nil
+	}
+	_, err := ps.DB.Exec(ctx, `
+                UPDATE memory_bank
+                SET embedding = $2::vector, last_embedded = $3
+                WHERE id = $1
+	`, id, formatVector(embedding), lastEmbedded)
+	return err
+}
+
+func (ps *PostgresStore) DeleteMemory(ctx context.Context, ids []int64) error {
+	if ps == nil || ps.DB == nil || len(ids) == 0 {
+		return nil
+	}
+	_, err := ps.DB.Exec(ctx, `DELETE FROM memory_bank WHERE id = ANY($1)`, ids)
+	return err
+}
+
+func (ps *PostgresStore) Iterate(ctx context.Context, fn func(gomodel.MemoryRecord) bool) error {
+	if ps == nil || ps.DB == nil {
+		return nil
+	}
+	rows, err := ps.DB.Query(ctx, `
+        SELECT id, session_id, content, metadata::text, importance, source, summary, created_at, last_embedded, embedding::text
+        FROM memory_bank
+        ORDER BY created_at ASC
+        `)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var rec gomodel.MemoryRecord
+		var embeddingText string
+		if err := rows.Scan(&rec.ID, &rec.SessionID, &rec.Content, &rec.Metadata, &rec.Importance, &rec.Source, &rec.Summary, &rec.CreatedAt, &rec.LastEmbedded, &embeddingText); err != nil {
+			return err
+		}
+		rec.Embedding = parseVector(embeddingText)
+		gomodel.HydrateRecordFromMetadata(&rec, gomodel.DecodeMetadata(rec.Metadata))
+		if rec.Space == "" {
+			rec.Space = rec.SessionID
+		}
+		cont := fn(rec)
+		if !cont {
+			break
+		}
+	}
+	return rows.Err()
+}
+
+func (ps *PostgresStore) Count(ctx context.Context) (int, error) {
+	if ps == nil || ps.DB == nil {
+		return 0, nil
+	}
+	var count int
+	err := ps.DB.QueryRow(ctx, `SELECT COUNT(*) FROM memory_bank`).Scan(&count)
+	return count, err
+}
+
+// UpsertGraph ensures the knowledge graph stays aligned with stored memories.
+func (ps *PostgresStore) UpsertGraph(ctx context.Context, record gomodel.MemoryRecord, edges []gomodel.GraphEdge) error {
+	if ps == nil || ps.DB == nil || record.ID == 0 {
+		return nil
+	}
+	tx, err := ps.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+	fallback := record.SessionID
+	if fallback == "" {
+		fallback = record.Space
+	}
+	if err = ensureNodeTx(ctx, tx, record.ID, record.Space, fallback); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM memory_edges WHERE from_memory = $1`, record.ID); err != nil {
+		return err
+	}
+	targets := make([]int64, 0, len(edges))
+	edgeTypes := make([]string, 0, len(edges))
+	for _, edge := range edges {
+		if err := edge.Validate(); err != nil {
+			continue
+		}
+		targets = append(targets, edge.Target)
+		edgeTypes = append(edgeTypes, string(edge.Type))
+	}
+	if len(targets) > 0 {
+		if _, err = tx.Exec(ctx, postgresUpsertEdgesQuery, targets, edgeTypes, record.ID); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+const postgresUpsertEdgesQuery = `
+WITH edge_data AS (
+        SELECT * FROM UNNEST($1::bigint[], $2::text[]) AS edge(target, edge_type)
+),
+upsert_nodes AS (
+        INSERT INTO memory_nodes (memory_id, space, updated_at)
+        SELECT DISTINCT edge.target,
+               COALESCE(NULLIF(existing.space, ''), NULLIF(memory.session_id, ''), '_shared'),
+               NOW()
+        FROM edge_data edge
+        JOIN memory_bank memory ON memory.id = edge.target
+        LEFT JOIN memory_nodes existing ON existing.memory_id = edge.target
+        ON CONFLICT (memory_id) DO UPDATE
+        SET space = COALESCE(NULLIF(memory_nodes.space, ''), EXCLUDED.space),
+            updated_at = NOW()
+        RETURNING memory_id
+)
+INSERT INTO memory_edges (from_memory, to_memory, edge_type)
+SELECT $3, edge.target, edge.edge_type
+FROM edge_data edge
+ON CONFLICT (from_memory, to_memory, edge_type) DO NOTHING
+`
+
+// Neighborhood returns memories connected within the configured hop distance.
+func (ps *PostgresStore) Neighborhood(ctx context.Context, sessionID string, seedIDs []int64, hops, limit int) ([]gomodel.MemoryRecord, error) {
+	if ps == nil || ps.DB == nil || len(seedIDs) == 0 || hops <= 0 || limit <= 0 {
+		return nil, nil
+	}
+
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`
+WITH RECURSIVE walk AS (
+        SELECT UNNEST($1::bigint[]) AS id, 0 AS depth
+        UNION ALL
+        SELECT CASE WHEN me.from_memory = walk.id THEN me.to_memory ELSE me.from_memory END AS id,
+               walk.depth + 1 AS depth
+        FROM memory_edges me
+        JOIN walk ON me.from_memory = walk.id OR me.to_memory = walk.id
+        WHERE walk.depth < $2
+)
+SELECT DISTINCT ON (mb.id)
+        mb.id, mb.session_id, mb.content, mb.metadata::text, mb.importance, mb.source,
+        mb.summary, mb.created_at, mb.last_embedded, mb.embedding::text,
+        COALESCE(mn.space, mb.session_id) AS space,
+        walk.depth
+FROM walk
+JOIN memory_bank mb ON mb.id = walk.id
+LEFT JOIN memory_nodes mn ON mn.memory_id = mb.id
+WHERE walk.depth > 0 `)
+
+	args := []any{seedIDs, hops, limit}
+	if sessionID != "" {
+		queryBuilder.WriteString(" AND mb.session_id = $" + strconv.Itoa(len(args)+1))
+		args = append(args, sessionID)
+	}
+	queryBuilder.WriteString(` ORDER BY mb.id, walk.depth ASC, mb.created_at DESC LIMIT $3;`)
+
+	rows, err := ps.DB.Query(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	results := make([]gomodel.MemoryRecord, 0)
+	for rows.Next() {
+		var rec gomodel.MemoryRecord
+		var embeddingText string
+		var depth int
+		if err := rows.Scan(&rec.ID, &rec.SessionID, &rec.Content, &rec.Metadata, &rec.Importance, &rec.Source, &rec.Summary, &rec.CreatedAt, &rec.LastEmbedded, &embeddingText, &rec.Space, &depth); err != nil {
+			return nil, err
+		}
+		rec.Embedding = parseVector(embeddingText)
+		meta := gomodel.DecodeMetadata(rec.Metadata)
+		if rec.Space == "" {
+			rec.Space = gomodel.StringFromAny(meta["space"])
+		}
+		gomodel.HydrateRecordFromMetadata(&rec, meta)
+		if rec.Space == "" {
+			rec.Space = rec.SessionID
+		}
+		results = append(results, rec)
+	}
+	return results, rows.Err()
+}
+
+// CreateSchema ensures pgvector extension and memory table are available.
+func (ps *PostgresStore) CreateSchema(ctx context.Context, schemaPath string) error {
+	if ps == nil || ps.DB == nil {
+		return nil
+	}
+	schema := defaultPostgresSchema
+	if schemaPath != "" {
+		data, err := os.ReadFile(schemaPath)
+		if err != nil {
+			return fmt.Errorf("failed to read schema file: %w", err)
+		}
+		schema = string(data)
+	}
+
+	_, err := ps.DB.Exec(ctx, schema)
+	if err != nil {
+		return fmt.Errorf("failed to execute schema: %w", err)
+	}
+	return nil
+}
+
+// Close releases the underlying Postgres connection pool.
+func (ps *PostgresStore) Close() error {
+	if ps == nil || ps.DB == nil {
+		return nil
+	}
+	ps.DB.Close()
+	return nil
+}
+
+func trimJSON(s string) string { return strings.Trim(s, "[]") }
+
+func ensureNodeTx(ctx context.Context, tx pgx.Tx, memoryID int64, space, fallback string) error {
+	if memoryID == 0 {
+		return nil
+	}
+	space = strings.TrimSpace(space)
+	if space == "" {
+		var existing string
+		if err := tx.QueryRow(ctx, `SELECT space FROM memory_nodes WHERE memory_id = $1`, memoryID).Scan(&existing); err == nil && strings.TrimSpace(existing) != "" {
+			space = strings.TrimSpace(existing)
+		}
+	}
+	if space == "" && fallback != "" {
+		space = strings.TrimSpace(fallback)
+	}
+	if space == "" {
+		var sessionID string
+		if err := tx.QueryRow(ctx, `SELECT session_id FROM memory_bank WHERE id = $1`, memoryID).Scan(&sessionID); err == nil && strings.TrimSpace(sessionID) != "" {
+			space = strings.TrimSpace(sessionID)
+		}
+	}
+	if space == "" {
+		space = "_shared"
+	}
+	_, err := tx.Exec(ctx, `
+                INSERT INTO memory_nodes (memory_id, space, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (memory_id) DO UPDATE SET space = EXCLUDED.space, updated_at = NOW()
+        `, memoryID, space)
+	return err
+}
+
+const defaultPostgresSchema = `
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS memory_bank (
+    id BIGSERIAL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    metadata JSONB,
+    embedding vector(768),
+    embedding_matrix JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS memory_session_idx ON memory_bank (session_id);
+CREATE INDEX IF NOT EXISTS memory_embedding_idx ON memory_bank USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+ALTER TABLE memory_bank ADD COLUMN IF NOT EXISTS importance DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE memory_bank ADD COLUMN IF NOT EXISTS source TEXT DEFAULT '';
+ALTER TABLE memory_bank ADD COLUMN IF NOT EXISTS summary TEXT DEFAULT '';
+ALTER TABLE memory_bank ADD COLUMN IF NOT EXISTS last_embedded TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE memory_bank ADD COLUMN IF NOT EXISTS embedding_matrix JSONB;
+
+CREATE TABLE IF NOT EXISTS memory_nodes (
+    memory_id BIGINT PRIMARY KEY REFERENCES memory_bank(id) ON DELETE CASCADE,
+    space TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS memory_edges (
+    from_memory BIGINT NOT NULL REFERENCES memory_bank(id) ON DELETE CASCADE,
+    to_memory BIGINT NOT NULL REFERENCES memory_bank(id) ON DELETE CASCADE,
+    edge_type TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (from_memory, to_memory, edge_type)
+);
+
+CREATE INDEX IF NOT EXISTS memory_edges_to_idx ON memory_edges (to_memory);
+`
+
+func vectorFromJSON(jsonEmbed []byte) string {
+	return fmt.Sprintf("[%s]", trimJSON(string(jsonEmbed)))
+}
+
+func formatVector(vector []float32) string {
+	buffer := make([]byte, 0, 2+len(vector)*12)
+	buffer = append(buffer, '[')
+	for i, value := range vector {
+		if i > 0 {
+			buffer = append(buffer, ',')
+		}
+		buffer = strconv.AppendFloat(buffer, float64(value), 'g', -1, 32)
+	}
+	buffer = append(buffer, ']')
+	return string(buffer)
+}
+
+func parseVector(text string) []float32 {
+	text = strings.Trim(text, "[]")
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	vec := make([]float32, 0, strings.Count(text, ",")+1)
+	start := 0
+	for end := 0; end <= len(text); end++ {
+		if end < len(text) && text[end] != ',' {
+			continue
+		}
+		f, err := strconv.ParseFloat(strings.TrimSpace(text[start:end]), 32)
+		if err != nil {
+			start = end + 1
+			continue
+		}
+		vec = append(vec, float32(f))
+		start = end + 1
+	}
+	return vec
+}

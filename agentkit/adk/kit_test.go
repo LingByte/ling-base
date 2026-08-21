@@ -1,0 +1,211 @@
+package adk_test
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/LingByte/ling-base/agentkit/adk"
+	kitmodules "github.com/LingByte/ling-base/agentkit/adk/modules"
+	agent "github.com/LingByte/ling-base/agentkit/goagent"
+	"github.com/LingByte/ling-base/agentkit/goagent/helpers"
+	"github.com/LingByte/ling-base/agentkit/goagent/subagents"
+	goembed "github.com/LingByte/ling-base/agentkit/memory/goembed"
+	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
+	"github.com/LingByte/ling-base/agentkit/memory/gosession"
+	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+)
+
+const (
+	DefaultMemorySimWeight        = 0.45
+	DefaultMemoryKeywordWeight    = 0.20
+	DefaultMemoryImportanceWeight = 0.20
+	DefaultMemoryRecencyWeight    = 0.10
+	DefaultMemorySourceWeight     = 0.05
+	DefaultMemoryMMRLambda        = 0.7
+	DefaultMemoryClusterSim       = 0.83
+	DefaultMemoryDriftThreshold   = 0.90
+	DefaultMemoryDuplicateSim     = 0.97
+	DefaultMemoryMaxSize          = 200000
+)
+
+// Default durations are kept as variables because time.Duration is not allowed as a const type.
+var (
+	DefaultMemoryHalfLife = 72 * time.Hour
+	DefaultMemoryTTL      = 720 * time.Hour
+)
+
+// Optional source boost and toggles.
+const (
+	DefaultMemorySourceBoost      = ""
+	DefaultMemoryDisableSummaries = false
+)
+
+func DefaultMemoryOptions() gomemory.Options {
+	return gomemory.Options{
+		Weights: gomemory.ScoreWeights{
+			Similarity: DefaultMemorySimWeight,
+			Keywords:   DefaultMemoryKeywordWeight,
+			Importance: DefaultMemoryImportanceWeight,
+			Recency:    DefaultMemoryRecencyWeight,
+			Source:     DefaultMemorySourceWeight,
+		},
+		LambdaMMR:           DefaultMemoryMMRLambda,
+		HalfLife:            DefaultMemoryHalfLife,
+		ClusterSimilarity:   DefaultMemoryClusterSim,
+		DriftThreshold:      DefaultMemoryDriftThreshold,
+		DuplicateSimilarity: DefaultMemoryDuplicateSim,
+		TTL:                 DefaultMemoryTTL,
+		MaxSize:             DefaultMemoryMaxSize,
+		SourceBoost:         helpers.ParseSourceBoostFlag(DefaultMemorySourceBoost),
+		EnableSummaries:     !DefaultMemoryDisableSummaries,
+	}
+}
+
+func TestKitBuildAgent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	researcherModel := gomodel.NewDummyLLM("Researcher reply:")
+
+	memoryOpts := DefaultMemoryOptions()
+	kitInstance, err := adk.New(ctx,
+		adk.WithDefaultContextLimit(6),
+		adk.WithModules(
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
+			kitmodules.NewSubAgentModule("researcher", kitmodules.StaticSubAgentProvider([]agent.SubAgent{subagents.NewResearcher(researcherModel)}, nil)),
+		),
+	)
+	if err != nil {
+		t.Fatalf("kit.New: %v", err)
+	}
+
+	built, err := kitInstance.BuildAgent(ctx)
+	if err != nil {
+		t.Fatalf("BuildAgent: %v", err)
+	}
+
+	response, err := built.Generate(ctx, "session", "hello world")
+	if err != nil {
+		t.Fatalf("Respond: %v", err)
+	}
+	if !strings.Contains(response.(string), "Coordinator:") {
+		t.Fatalf("expected coordinator prefix, got %q", response)
+	}
+
+	// Ensure tool registry works by issuing a command.
+
+	// Ensure sub-agent invocation path is configured.
+	saResponse, err := built.Generate(ctx, "session", "subagent:researcher Summarise the impact of refactoring")
+	if err != nil {
+		t.Fatalf("subagent invocation failed: %v", err)
+	}
+	if !strings.Contains(saResponse.(string), "Researcher reply:") {
+		t.Fatalf("expected researcher prefix in %q", saResponse)
+	}
+}
+
+func TestKitWithSubAgentsOption(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	researcherModel := gomodel.NewDummyLLM("Researcher reply:")
+	memoryOpts := DefaultMemoryOptions()
+
+	kitInstance, err := adk.New(ctx,
+		adk.WithDefaultContextLimit(6),
+		adk.WithModules(
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
+		),
+		adk.WithSubAgents(subagents.NewResearcher(researcherModel)),
+	)
+	if err != nil {
+		t.Fatalf("kit.New: %v", err)
+	}
+
+	built, err := kitInstance.BuildAgent(ctx)
+	if err != nil {
+		t.Fatalf("BuildAgent: %v", err)
+	}
+
+	subAgents := built.SubAgents()
+	if len(subAgents) != 1 {
+		t.Fatalf("expected 1 subagent, got %d", len(subAgents))
+	}
+	if name := subAgents[0].Name(); name != "researcher" {
+		t.Fatalf("unexpected subagent name %q", name)
+	}
+}
+
+func TestKitSharedSession(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	memoryOpts := DefaultMemoryOptions()
+	kitInstance, err := adk.New(ctx,
+		adk.WithModules(
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
+		),
+	)
+	if err != nil {
+		t.Fatalf("kit.New: %v", err)
+	}
+
+	provider := kitInstance.MemoryProvider()
+	if provider == nil {
+		t.Fatalf("expected memory provider")
+	}
+	bundle, err := provider(ctx)
+	if err != nil {
+		t.Fatalf("memory provider: %v", err)
+	}
+	if bundle.Session == nil {
+		t.Fatalf("memory bundle missing session")
+	}
+
+	if err := bundle.Session.Spaces.Grant("team:shared", "agent:alpha", gosession.SpaceRoleAdmin, 0); err != nil {
+		t.Fatalf("grant alpha: %v", err)
+	}
+	if err := bundle.Session.Spaces.Grant("team:shared", "agent:beta", gosession.SpaceRoleAdmin, 0); err != nil {
+		t.Fatalf("grant beta: %v", err)
+	}
+
+	alpha, err := kitInstance.NewSharedSession(ctx, "agent:alpha", "team:shared")
+	if err != nil {
+		t.Fatalf("SharedSession alpha: %v", err)
+	}
+	beta, err := kitInstance.NewSharedSession(ctx, "agent:beta", "team:shared")
+	if err != nil {
+		t.Fatalf("SharedSession beta: %v", err)
+	}
+
+	if err := alpha.AddShortTo("team:shared", "Shared context about refactoring", map[string]string{"source": "test"}); err != nil {
+		t.Fatalf("alpha AddShortTo: %v", err)
+	}
+
+	records, err := beta.Retrieve(ctx, "refactoring", 5)
+	if err != nil {
+		t.Fatalf("beta Retrieve: %v", err)
+	}
+	if len(records) == 0 {
+		t.Fatalf("expected shared records, got none")
+	}
+
+	found := false
+	for _, rec := range records {
+		if strings.Contains(rec.Content, "Shared context") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("shared memory not retrieved: %+v", records)
+	}
+}

@@ -1,0 +1,102 @@
+package markdown
+
+import (
+	"crypto/md5"
+	"crypto/rand"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
+	"time"
+
+	"github.com/LingByte/ling-base/agentkit/memory/gomodel"
+)
+
+type Record struct {
+	ID           string // String ID for markdown storage
+	NumID        int64  // Numeric ID for VectorStore interface (derived from string ID)
+	Scope        string
+	SessionID    string
+	Role         string
+	Content      string
+	Tags         []string
+	Metadata     map[string]any
+	Embedding    []float32
+	LastEmbedded time.Time
+	CreatedAt    time.Time
+}
+
+func (r Record) normalized() Record {
+	if r.ID == "" {
+		r.ID = newID()
+	}
+	if r.NumID == 0 {
+		r.NumID = stringIDToNumID(r.ID)
+	}
+	if r.Scope == "" {
+		r.Scope = "sessions"
+	}
+	if r.SessionID == "" {
+		r.SessionID = "default"
+	}
+	if r.Role == "" {
+		r.Role = "memory"
+	}
+	if r.CreatedAt.IsZero() {
+		r.CreatedAt = time.Now().UTC()
+	}
+	r.Content = strings.TrimSpace(r.Content)
+	if r.Metadata == nil {
+		r.Metadata = make(map[string]any)
+	}
+	return r
+}
+
+func (r Record) clone() Record {
+	r.Tags = append([]string(nil), r.Tags...)
+	r.Embedding = append([]float32(nil), r.Embedding...)
+	if len(r.Metadata) > 0 {
+		if data, err := json.Marshal(r.Metadata); err == nil {
+			var metadata map[string]any
+			if json.Unmarshal(data, &metadata) == nil {
+				r.Metadata = metadata
+			}
+		}
+	}
+	return r
+}
+
+// toMemoryRecord converts Record to gomodel.MemoryRecord for VectorStore interface
+func (r Record) toMemoryRecord() gomodel.MemoryRecord {
+	// Marshal metadata to JSON string
+	metaStr := ""
+	if len(r.Metadata) > 0 {
+		if data, err := json.Marshal(r.Metadata); err == nil {
+			metaStr = string(data)
+		}
+	}
+
+	return gomodel.MemoryRecord{
+		ID:           r.NumID,
+		SessionID:    r.SessionID,
+		Content:      r.Content,
+		Metadata:     metaStr,
+		Embedding:    append([]float32(nil), r.Embedding...),
+		LastEmbedded: r.LastEmbedded,
+		CreatedAt:    r.CreatedAt,
+	}
+}
+
+// stringIDToNumID converts a hex string ID to int64 using MD5
+func stringIDToNumID(id string) int64 {
+	hash := md5.Sum([]byte(id))
+	return int64(binary.BigEndian.Uint64(hash[:8]))
+}
+
+func newID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return hex.EncodeToString([]byte(time.Now().UTC().Format(time.RFC3339Nano)))
+	}
+	return hex.EncodeToString(b[:])
+}

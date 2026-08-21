@@ -1,0 +1,1797 @@
+package goagent
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	goembed "github.com/LingByte/ling-base/agentkit/memory/goembed"
+	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
+	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
+	"github.com/LingByte/ling-base/agentkit/memory/gosession"
+	memorystore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
+	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	"github.com/universal-tool-calling-protocol/go-utcp/src/plugins/codemode"
+	"github.com/universal-tool-calling-protocol/go-utcp/src/providers/base"
+	"github.com/universal-tool-calling-protocol/go-utcp/src/repository"
+	utcpTools "github.com/universal-tool-calling-protocol/go-utcp/src/tools"
+	"github.com/universal-tool-calling-protocol/go-utcp/src/transports"
+)
+
+type stubModel struct {
+	response string
+	err      error
+}
+
+func (g *stubModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
+	return nil, nil
+}
+func (m *stubModel) Generate(ctx context.Context, prompt string) (any, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	trimmed := strings.TrimSpace(m.response)
+	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
+		return m.response, nil
+	}
+	return m.response + " | " + prompt, nil
+}
+
+func (m *stubModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
+	ch := make(chan gomodel.StreamChunk, 1)
+	val, err := m.Generate(ctx, prompt)
+	if err != nil {
+		ch <- gomodel.StreamChunk{Err: err, Done: true}
+	} else {
+		str := fmt.Sprint(val)
+		ch <- gomodel.StreamChunk{Delta: str, FullText: str, Done: true}
+	}
+	close(ch)
+	return ch, nil
+}
+
+type fileEchoModel struct {
+	response string
+}
+
+func (m *fileEchoModel) Generate(ctx context.Context, prompt string) (any, error) {
+	return m.response, nil
+}
+
+func (m *fileEchoModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
+	return m.response, nil
+}
+
+func (m *fileEchoModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
+	ch := make(chan gomodel.StreamChunk, 1)
+	ch <- gomodel.StreamChunk{Delta: m.response, FullText: m.response, Done: true}
+	close(ch)
+	return ch, nil
+}
+
+type signalingModel struct {
+	response string
+	called   chan struct{}
+	delay    time.Duration
+}
+
+func (m *signalingModel) signal() {
+	if m.called != nil {
+		select {
+		case m.called <- struct{}{}:
+		default:
+		}
+	}
+	if m.delay > 0 {
+		time.Sleep(m.delay)
+	}
+}
+
+func (m *signalingModel) Generate(context.Context, string) (any, error) {
+	m.signal()
+	return m.response, nil
+}
+
+func (m *signalingModel) GenerateWithFiles(context.Context, string, []gomodel.File) (any, error) {
+	m.signal()
+	return m.response, nil
+}
+
+func (m *signalingModel) GenerateStream(context.Context, string) (<-chan gomodel.StreamChunk, error) {
+	ch := make(chan gomodel.StreamChunk, 1)
+	ch <- gomodel.StreamChunk{Delta: m.response, FullText: m.response, Done: true}
+	close(ch)
+	return ch, nil
+}
+
+type gatedEmbedder struct {
+	match   func(string) bool
+	started chan string
+	release <-chan struct{}
+	delay   time.Duration
+}
+
+func (e *gatedEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	if e.match != nil && e.match(text) {
+		e.started <- text
+		select {
+		case <-e.release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	if e.delay > 0 {
+		time.Sleep(e.delay)
+	}
+	return []float32{1}, nil
+}
+
+func awaitSignal[T any](t *testing.T, ch <-chan T, description string) T {
+	t.Helper()
+	select {
+	case value := <-ch:
+		return value
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s", description)
+		var zero T
+		return zero
+	}
+}
+
+type dynamicStubModel struct {
+	responses  map[string]string
+	err        error
+	lastPrompt string // To track the last prompt received by the model
+}
+
+func (m *dynamicStubModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
+	m.lastPrompt = prompt
+	return m.Generate(ctx, prompt)
+}
+
+func (m *dynamicStubModel) Generate(ctx context.Context, prompt string) (any, error) {
+	m.lastPrompt = prompt
+	if m.err != nil {
+		return nil, m.err
+	}
+	for key, val := range m.responses {
+		if strings.Contains(prompt, key) {
+			return val, nil
+		}
+	}
+	// Default response if no specific match
+	return "default model response for: " + prompt, nil
+}
+
+func (m *dynamicStubModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
+	ch := make(chan gomodel.StreamChunk, 1)
+	val, err := m.Generate(ctx, prompt)
+	if err != nil {
+		ch <- gomodel.StreamChunk{Err: err, Done: true}
+	} else {
+		str := fmt.Sprint(val)
+		ch <- gomodel.StreamChunk{Delta: str, FullText: str, Done: true}
+	}
+	close(ch)
+	return ch, nil
+}
+
+type captureFilePlannerModel struct {
+	prompts []string
+	files   [][]gomodel.File
+}
+
+func (m *captureFilePlannerModel) GenerateWithFiles(
+	ctx context.Context,
+	prompt string,
+	files []gomodel.File,
+) (any, error) {
+	m.prompts = append(m.prompts, prompt)
+	m.files = append(m.files, append([]gomodel.File(nil), files...))
+	return `{"use_tool": false, "final_answer": "done"}`, nil
+}
+
+func (m *captureFilePlannerModel) Generate(ctx context.Context, prompt string) (any, error) {
+	m.prompts = append(m.prompts, prompt)
+	return `{"use_tool": false, "final_answer": "done"}`, nil
+}
+
+func (m *captureFilePlannerModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
+	ch := make(chan gomodel.StreamChunk, 1)
+	ch <- gomodel.StreamChunk{Delta: "done", FullText: "done", Done: true}
+	close(ch)
+	return ch, nil
+}
+
+type stubUTCPClient struct {
+	callCount       int
+	searchCount     int
+	lastToolName    string
+	searchTools     []utcpTools.Tool
+	lastSearchQuery string
+	lastSearchLimit int
+	fakeStream      *FakeStream
+	callResult      any
+}
+
+type stubTool struct {
+	spec      ToolSpec
+	lastInput ToolRequest
+}
+
+func (t *stubTool) Spec() ToolSpec { return t.spec }
+func (t *stubTool) Invoke(ctx context.Context, req ToolRequest) (ToolResponse, error) {
+	t.lastInput = req
+	val := req.Arguments["input"]
+	if val == nil {
+		return ToolResponse{Content: ""}, nil
+	}
+	str, _ := val.(string)
+	return ToolResponse{Content: str}, nil
+}
+
+func (c *stubUTCPClient) CallTool(
+	ctx context.Context,
+	toolName string,
+	args map[string]any,
+) (any, error) {
+	c.callCount++
+	c.lastToolName = toolName
+
+	if c.callResult != nil {
+		return c.callResult, nil
+	}
+
+	return "utcp says " + toolName, nil
+}
+
+func (c *stubUTCPClient) SearchTools(query string, limit int) ([]utcpTools.Tool, error) {
+	c.searchCount++
+	c.lastSearchQuery = query
+	c.lastSearchLimit = limit
+	return c.searchTools, nil
+}
+
+type searchCountingStore struct {
+	*memorystore.InMemoryStore
+	searchCalls atomic.Int32
+}
+
+func (s *searchCountingStore) SearchMemory(ctx context.Context, sessionID string, queryEmbedding []float32, limit int) ([]memmodel.MemoryRecord, error) {
+	s.searchCalls.Add(1)
+	return s.InMemoryStore.SearchMemory(ctx, sessionID, queryEmbedding, limit)
+}
+
+func (c *stubUTCPClient) DeregisterToolProvider(ctx context.Context, name string) error {
+	return nil
+}
+
+type stubSubAgent struct {
+	name        string
+	description string
+}
+
+func (s *stubSubAgent) Name() string        { return s.name }
+func (s *stubSubAgent) Description() string { return s.description }
+func (s *stubSubAgent) Run(ctx context.Context, input string) (string, error) {
+	return input, nil
+}
+
+func TestNewAppliesDefaults(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	agent, err := New(Options{Model: model, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if agent.systemPrompt == "" {
+		t.Fatalf("expected default system prompt to be applied")
+	}
+	if agent.contextLimit != 8 {
+		t.Fatalf("expected default context limit of 8, got %d", agent.contextLimit)
+	}
+}
+
+func TestNewValidatesRequirements(t *testing.T) {
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	if _, err := New(Options{Memory: mem}); err == nil {
+		t.Fatalf("expected error when model is missing")
+	}
+	model := &stubModel{response: "ok"}
+	if _, err := New(Options{Model: model}); err == nil {
+		t.Fatalf("expected error when memory is missing")
+	}
+}
+
+func TestGenerateOverlapsUserMemoryEmbeddingWithModel(t *testing.T) {
+	const input = "what is latency?"
+
+	release := make(chan struct{})
+	embedStarted := make(chan string, 1)
+	modelCalled := make(chan struct{}, 1)
+	mem := gomemory.NewSessionMemory(nil, 8).WithEmbedder(&gatedEmbedder{
+		match:   func(text string) bool { return text == input },
+		started: embedStarted,
+		release: release,
+	})
+	model := &signalingModel{response: "ok", called: modelCalled}
+	agent, err := New(Options{Model: model, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	type result struct {
+		value any
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		value, generateErr := agent.Generate(context.Background(), "session", input)
+		done <- result{value: value, err: generateErr}
+	}()
+
+	awaitSignal(t, embedStarted, "user memory embedding")
+	awaitSignal(t, modelCalled, "model generation while user embedding is blocked")
+	close(release)
+
+	got := awaitSignal(t, done, "Generate completion")
+	if got.err != nil {
+		t.Fatalf("Generate returned error: %v", got.err)
+	}
+	if got.value != "ok" {
+		t.Fatalf("Generate returned %v, want ok", got.value)
+	}
+
+	records := mem.ExportShortTerm()["session"]
+	if len(records) != 2 {
+		t.Fatalf("stored %d memory records, want user and assistant", len(records))
+	}
+	if metadataRole(records[0].Metadata) != "user" || metadataRole(records[1].Metadata) != "assistant" {
+		t.Fatalf("memory roles = %q, %q; want user, assistant", metadataRole(records[0].Metadata), metadataRole(records[1].Metadata))
+	}
+}
+
+func TestGenerateWithFilesOverlapsAttachmentEmbeddingsWithModel(t *testing.T) {
+	release := make(chan struct{})
+	embedStarted := make(chan string, 2)
+	modelCalled := make(chan struct{}, 1)
+	mem := gomemory.NewSessionMemory(nil, 8).WithEmbedder(&gatedEmbedder{
+		match:   func(text string) bool { return strings.HasPrefix(text, "Attachment ") },
+		started: embedStarted,
+		release: release,
+	})
+	model := &signalingModel{response: "ok", called: modelCalled}
+	agent, err := New(Options{Model: model, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	files := []gomodel.File{
+		{Name: "first.txt", MIME: "text/plain", Data: []byte("first")},
+		{Name: "second.txt", MIME: "text/plain", Data: []byte("second")},
+	}
+	type result struct {
+		value string
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		value, generateErr := agent.GenerateWithFiles(context.Background(), "session", "summarize", files)
+		done <- result{value: value, err: generateErr}
+	}()
+
+	awaitSignal(t, embedStarted, "first attachment embedding")
+	awaitSignal(t, embedStarted, "second attachment embedding")
+	awaitSignal(t, modelCalled, "file-aware model generation while attachment embeddings are blocked")
+	close(release)
+
+	got := awaitSignal(t, done, "GenerateWithFiles completion")
+	if got.err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", got.err)
+	}
+	if got.value != "ok" {
+		t.Fatalf("GenerateWithFiles returned %q, want ok", got.value)
+	}
+
+	retrieved, err := agent.RetrieveAttachmentFiles(context.Background(), "session", 8)
+	if err != nil {
+		t.Fatalf("RetrieveAttachmentFiles returned error: %v", err)
+	}
+	if len(retrieved) != 2 || retrieved[0].Name != "first.txt" || retrieved[1].Name != "second.txt" {
+		t.Fatalf("retrieved attachments = %#v; want first.txt, second.txt in order", retrieved)
+	}
+}
+
+func TestGenerateWithFilesOverlapsContextAndAttachmentRetrieval(t *testing.T) {
+	const input = "summarize"
+
+	release := make(chan struct{})
+	retrievalStarted := make(chan string, 3)
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(&gatedEmbedder{
+		match:   func(text string) bool { return text == input || text == "" },
+		started: retrievalStarted,
+		release: release,
+	})
+	agent, err := New(Options{
+		Model:  &signalingModel{response: "ok"},
+		Memory: mem,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	type result struct {
+		value string
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		value, generateErr := agent.GenerateWithFiles(
+			context.Background(),
+			"session",
+			input,
+			[]gomodel.File{{Name: "notes.txt", MIME: "text/plain", Data: []byte("notes")}},
+		)
+		done <- result{value: value, err: generateErr}
+	}()
+
+	started := map[string]bool{
+		awaitSignal(t, retrievalStarted, "first memory retrieval"):  true,
+		awaitSignal(t, retrievalStarted, "second memory retrieval"): true,
+	}
+	if !started[input] || !started[""] {
+		t.Fatalf("retrieval queries = %#v; want semantic and attachment retrieval", started)
+	}
+	close(release)
+
+	got := awaitSignal(t, done, "GenerateWithFiles completion")
+	if got.err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", got.err)
+	}
+	if got.value != "ok" {
+		t.Fatalf("GenerateWithFiles returned %q, want ok", got.value)
+	}
+}
+
+func TestSplitCommand(t *testing.T) {
+	name, args := splitCommand("toolName   with extra spacing")
+	if name != "toolName" {
+		t.Fatalf("unexpected name: %q", name)
+	}
+	if args != "with extra spacing" {
+		t.Fatalf("unexpected args: %q", args)
+	}
+}
+
+func TestMetadataRole(t *testing.T) {
+	payload, _ := json.Marshal(map[string]string{"role": "assistant"})
+	role := metadataRole(string(payload))
+	if role != "assistant" {
+		t.Fatalf("expected role assistant, got %q", role)
+	}
+
+	if role := metadataRole("{invalid json}"); role != "unknown" {
+		t.Fatalf("expected fallback role unknown, got %q", role)
+	}
+
+	if role := metadataRole("{}"); role != "unknown" {
+		t.Fatalf("expected missing role to map to unknown, got %q", role)
+	}
+}
+
+func TestNewHonorsExplicitSettings(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	agent, err := New(Options{Model: model, Memory: mem, SystemPrompt: "custom", ContextLimit: 2})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if agent.systemPrompt != "custom" {
+		t.Fatalf("expected custom prompt, got %q", agent.systemPrompt)
+	}
+	if agent.contextLimit != 2 {
+		t.Fatalf("expected custom context limit, got %d", agent.contextLimit)
+	}
+}
+
+func TestToolsWithEmptyNamesAreSkipped(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	tool := &stubTool{spec: ToolSpec{Name: ""}}
+	agent, err := New(Options{Model: model, Memory: mem, Tools: []Tool{tool}})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if len(agent.Tools()) != 0 {
+		t.Fatalf("expected unnamed tool to be ignored")
+	}
+}
+
+func TestSubagentsWithEmptyNamesAreIgnored(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	sub := &stubSubAgent{name: ""}
+	agent, err := New(Options{Model: model, Memory: mem, SubAgents: []SubAgent{sub}})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if len(agent.SubAgents()) != 0 {
+		t.Fatalf("expected unnamed subagent to be ignored")
+	}
+}
+
+func TestStaticToolCatalogRejectsDuplicate(t *testing.T) {
+	catalog := NewStaticToolCatalog(nil)
+	if err := catalog.Register(&stubTool{spec: ToolSpec{Name: "Echo"}}); err != nil {
+		t.Fatalf("unexpected register error: %v", err)
+	}
+	if err := catalog.Register(&stubTool{spec: ToolSpec{Name: "echo"}}); err == nil {
+		t.Fatalf("expected duplicate registration error")
+	}
+}
+
+func TestAgentPropagatesCustomCatalogErrors(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	catalog := NewStaticToolCatalog([]Tool{&stubTool{spec: ToolSpec{Name: "Echo"}}})
+	_, err := New(Options{
+		Model:       model,
+		Memory:      mem,
+		ToolCatalog: catalog,
+		Tools:       []Tool{&stubTool{spec: ToolSpec{Name: "Echo"}}},
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate registration error from custom catalog")
+	}
+}
+
+func TestAgentSharesMemoryAcrossSpaces(t *testing.T) {
+	ctx := context.Background()
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(goembed.DummyEmbedder{})
+
+	mem.Spaces.Grant("team:shared", "agent:alpha", gosession.SpaceRoleWriter, 0)
+	mem.Spaces.Grant("team:shared", "agent:beta", gosession.SpaceRoleWriter, 0)
+
+	alphaShared := gomemory.NewSharedSession(mem, "agent:alpha", "team:shared")
+	betaShared := gomemory.NewSharedSession(mem, "agent:beta", "team:shared")
+
+	alphaAgent, err := New(Options{Model: &stubModel{response: "ok"}, Memory: mem, Shared: alphaShared})
+	if err != nil {
+		t.Fatalf("alpha agent: %v", err)
+	}
+	betaAgent, err := New(Options{Model: &stubModel{response: "ok"}, Memory: mem, Shared: betaShared})
+	if err != nil {
+		t.Fatalf("beta agent: %v", err)
+	}
+
+	alphaAgent.storeMemory("agent:alpha", "assistant", "Swarm update ready for review", nil)
+
+	records, err := betaShared.Retrieve(ctx, "swarm update", 5)
+	if err != nil {
+		t.Fatalf("retrieve shared: %v", err)
+	}
+	found := false
+	for _, rec := range records {
+		if strings.Contains(rec.Content, "Swarm update ready") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected shared record to be retrievable")
+	}
+
+	prompt, err := betaAgent.buildPrompt(ctx, "agent:beta", "Provide the latest swarm plan")
+	if err != nil {
+		t.Fatalf("build prompt: %v", err)
+	}
+	if !strings.Contains(prompt, "Swarm update ready for review") {
+		t.Fatalf("expected prompt to include shared memory, got: %s", prompt)
+	}
+}
+
+func TestAgentPropagatesCustomDirectoryErrors(t *testing.T) {
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	dir := NewStaticSubAgentDirectory([]SubAgent{&stubSubAgent{name: "researcher"}})
+	_, err := New(Options{
+		Model:             model,
+		Memory:            mem,
+		SubAgentDirectory: dir,
+		SubAgents:         []SubAgent{&stubSubAgent{name: "Researcher"}},
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate registration error from custom directory")
+	}
+}
+
+func TestGenerateWithFilesStoresTextAttachments(t *testing.T) {
+	ctx := context.Background()
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(goembed.DummyEmbedder{})
+
+	agent, err := New(Options{Model: &fileEchoModel{response: "ok"}, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	files := []gomodel.File{{Name: "notes.txt", MIME: "text/plain", Data: []byte("alpha beta")}}
+	if _, err := agent.GenerateWithFiles(ctx, "session", "summarize the attachment", files); err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", err)
+	}
+
+	records, err := agent.SessionMemory().RetrieveContext(ctx, "session", "", 5)
+	if err != nil {
+		t.Fatalf("RetrieveContext returned error: %v", err)
+	}
+
+	found := false
+	for _, rec := range records {
+		if metadataRole(rec.Metadata) != "attachment" {
+			continue
+		}
+		if !strings.Contains(rec.Content, "Attachment notes.txt") {
+			t.Fatalf("expected attachment name in memory, got %q", rec.Content)
+		}
+		if !strings.Contains(rec.Content, "alpha beta") {
+			t.Fatalf("expected attachment content in memory, got %q", rec.Content)
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal([]byte(rec.Metadata), &payload); err != nil {
+			t.Fatalf("unmarshal metadata: %v", err)
+		}
+		if got := payload["filename"]; got != "notes.txt" {
+			t.Fatalf("expected filename metadata, got %v", got)
+		}
+		if got := payload["text"]; got != "true" {
+			t.Fatalf("expected text flag true, got %v", got)
+		}
+		wantB64 := base64.StdEncoding.EncodeToString([]byte("alpha beta"))
+		if got := payload["data_base64"]; got != wantB64 {
+			t.Fatalf("expected base64 payload, got %v", got)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected attachment memory to be stored")
+	}
+}
+
+func TestGenerateWithFilesStoresNonTextAttachments(t *testing.T) {
+	ctx := context.Background()
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(goembed.DummyEmbedder{})
+
+	agent, err := New(Options{Model: &fileEchoModel{response: "ok"}, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	files := []gomodel.File{{Name: "diagram.png", MIME: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}}}
+	if _, err := agent.GenerateWithFiles(ctx, "session", "summarize the attachment", files); err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", err)
+	}
+
+	records, err := agent.SessionMemory().RetrieveContext(ctx, "session", "", 5)
+	if err != nil {
+		t.Fatalf("RetrieveContext returned error: %v", err)
+	}
+
+	found := false
+	for _, rec := range records {
+		if metadataRole(rec.Metadata) != "attachment" {
+			continue
+		}
+		if !strings.Contains(rec.Content, "non-text content") {
+			t.Fatalf("expected placeholder for non-text attachment, got %q", rec.Content)
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal([]byte(rec.Metadata), &payload); err != nil {
+			t.Fatalf("unmarshal metadata: %v", err)
+		}
+		if got := payload["text"]; got != "false" {
+			t.Fatalf("expected text flag false, got %v", got)
+		}
+		if got := payload["mime"]; got != "image/png" {
+			t.Fatalf("expected mime metadata, got %v", got)
+		}
+		wantB64 := base64.StdEncoding.EncodeToString([]byte{0x89, 0x50, 0x4E, 0x47})
+		if got := payload["data_base64"]; got != wantB64 {
+			t.Fatalf("expected base64 metadata, got %v", got)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected attachment memory to be stored for non-text file")
+	}
+}
+
+func TestGenerateWithFilesFileBackedPlannerTreatsExamplePathsAsIllustrative(t *testing.T) {
+	ctx := context.Background()
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(goembed.DummyEmbedder{})
+	model := &captureFilePlannerModel{}
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "filesystem.write", Description: "Write a file"},
+			{Name: "filesystem.read", Description: "Read a file"},
+		},
+	}
+
+	agent, err := New(Options{Model: model, Memory: mem, UTCPClient: utcpClient})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	files := []gomodel.File{{
+		Name: "main.go",
+		MIME: "text/x-go",
+		Data: []byte("package main\n\nfunc Greet() string { return \"Hello, World!\" }\n"),
+	}}
+	userInput := "Inspect the codebase to identify a refactoring opportunity. For example, read an existing file like 'pkg/service/logic.go', then refactor the target."
+
+	out, err := agent.GenerateWithFiles(ctx, "session", userInput, files)
+	if err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", err)
+	}
+	if out != "done" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+	if len(model.prompts) == 0 {
+		t.Fatalf("expected planner prompt to be captured")
+	}
+
+	prompt := model.prompts[0]
+	for _, want := range []string{
+		"Workspace file-selection rules:",
+		"Available attached workspace paths (authoritative for existing files):",
+		"- main.go",
+		"Treat paths mentioned as examples",
+		"for example",
+		"do not create or edit paths that appear only as illustrative examples",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("expected planner prompt to contain %q, got:\n%s", want, prompt)
+		}
+	}
+	if len(model.files) != 1 || len(model.files[0]) != 1 || model.files[0][0].Name != "main.go" {
+		t.Fatalf("expected main.go to be forwarded to file-aware planner, got %#v", model.files)
+	}
+}
+
+func TestRetrieveAttachmentFilesReturnsBinaryData(t *testing.T) {
+	ctx := context.Background()
+	bank := gomemory.NewMemoryBankWithStore(memorystore.NewInMemoryStore())
+	mem := gomemory.NewSessionMemory(bank, 8).WithEmbedder(goembed.DummyEmbedder{})
+
+	agent, err := New(Options{Model: &fileEchoModel{response: "ok"}, Memory: mem})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	files := []gomodel.File{
+		{Name: "diagram.png", MIME: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}},
+		{Name: "clip.mp4", MIME: "video/mp4", Data: []byte{0x00, 0x01, 0x02}},
+	}
+
+	if _, err := agent.GenerateWithFiles(ctx, "session", "describe media", files); err != nil {
+		t.Fatalf("GenerateWithFiles returned error: %v", err)
+	}
+
+	retrieved, err := agent.RetrieveAttachmentFiles(ctx, "session", 10)
+	if err != nil {
+		t.Fatalf("RetrieveAttachmentFiles returned error: %v", err)
+	}
+
+	if len(retrieved) != len(files) {
+		t.Fatalf("expected %d attachments, got %d", len(files), len(retrieved))
+	}
+
+	for i, file := range retrieved {
+		want := files[i]
+		if file.Name != want.Name {
+			t.Fatalf("attachment %d: expected name %q, got %q", i, want.Name, file.Name)
+		}
+		if file.MIME != want.MIME {
+			t.Fatalf("attachment %d: expected MIME %q, got %q", i, want.MIME, file.MIME)
+		}
+		if string(file.Data) != string(want.Data) {
+			t.Fatalf("attachment %d: expected data %v, got %v", i, want.Data, file.Data)
+		}
+	}
+}
+
+func (u *stubUTCPClient) GetTransports() map[string]repository.ClientTransport {
+	return nil
+}
+
+func TestAgentCallsUTCPClientForRemoteTools(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{response: "ok"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcpClient := &stubUTCPClient{}
+
+	agent, err := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcpClient,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	// Execute a tool that does not exist locally.
+	_, err = agent.executeTool(ctx, "session1", "remote_tool", nil)
+	if err != nil {
+		t.Fatalf("executeTool returned an unexpected error: %v", err)
+	}
+
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected UTCP client to be called once, got %d", utcpClient.callCount)
+	}
+	if utcpClient.lastToolName != "remote_tool" {
+		t.Fatalf("expected UTCP client to be called with 'remote_tool', got %q", utcpClient.lastToolName)
+	}
+}
+
+func (u *stubUTCPClient) RegisterToolProvider(ctx context.Context, prov base.Provider) ([]utcpTools.Tool, error) {
+	return nil, nil
+}
+
+func TestAgentMergesUTCPSearchResults(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{
+		response: `{
+			"use_tool": true,
+			"tool_name": "utcp_tool",
+			"arguments": {"input": "test"},
+			"reason": "testing utcp search"
+		}`,
+	}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "utcp_tool", Description: "A tool from UTCP search"},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcpClient,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	// This will trigger the tool orchestrator, which calls ToolSpecs, which calls SearchTools.
+	_, err = agent.Generate(ctx, "session1", "use the utcp tool")
+	if err != nil {
+		t.Fatalf("Generate returned an unexpected error: %v", err)
+	}
+
+	// Verify SearchTools was called by ToolSpecs()
+	if utcpClient.lastSearchQuery != "" || utcpClient.lastSearchLimit != 50 {
+		t.Fatalf("expected SearchTools to be called with ('', 50), got (%q, %d)", utcpClient.lastSearchQuery, utcpClient.lastSearchLimit)
+	}
+
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected UTCP client's CallTool to be called once, got %d", utcpClient.callCount)
+	}
+	if utcpClient.lastToolName != "utcp_tool" {
+		t.Fatalf("expected UTCP client to be called with 'utcp_tool', got %q", utcpClient.lastToolName)
+	}
+}
+
+func TestCodeMode_ExecutesCallToolInsideDSL(t *testing.T) {
+	ctx := context.Background()
+
+	// stub model instructs to run CodeMode
+	model := &stubModel{
+		response: `{"use_tool": true, "tool_name": "codemode.run_code", "arguments": { "code": "codemode.CallTool(\"echo\", map[string]any{\"input\": \"hi\"})" }}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{
+				Name:        "echo",
+				Description: "Echo the provided input",
+			},
+		},
+		callResult: map[string]any{
+			"input": "hi",
+		},
+	}
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	// The tool orchestrator will call `codemode.run_code`, which is not a real UTCP tool,
+	// so the first call won't go through the stub. The second call inside the code
+	// will. To simulate the orchestrator "calling" the tool, we can just check the end state.
+	// The logic in `toolOrchestrator` handles `codemode.run_code` as a special case.
+
+	out, err := agent.Generate(ctx, "session1", "run code")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	log.Println(out)
+
+	// CodeMode should return raw output
+	if out == "" {
+		t.Fatalf("expected non-empty output")
+	}
+
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected 1 UTCP call from inside the DSL, got %d", utcpClient.callCount)
+	}
+
+	if utcpClient.lastToolName != "echo" {
+		t.Fatalf("expected last tool to be 'echo', got %q", utcpClient.lastToolName)
+	}
+}
+
+func TestCodeMode_ExecutesCallToolStreamInsideDSL(t *testing.T) {
+	ctx := context.Background()
+
+	model := &stubModel{
+		response: `{"use_tool": true, "tool_name": "codemode.run_code", "arguments": { "code": "s, _ := codemode.CallToolStream(\"stream.echo\", map[string]any{\"input\": \"x\"}); __out, _ = s.Next()" }}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+
+	// stub stream
+	stream := &FakeStream{
+		chunks: []any{"A", "B", nil},
+		index:  0,
+	}
+
+	utcpClient := &stubUTCPClient{}
+	utcpClient.fakeStream = stream
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	_, err = agent.Generate(ctx, "s1", "run code")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	if utcpClient.lastToolName != "stream.echo" {
+		t.Fatalf("expected streaming tool to run")
+	}
+}
+
+type FakeStream struct {
+	chunks []any
+	index  int
+}
+
+func (s *FakeStream) Next() (any, error) {
+	if s.index >= len(s.chunks) {
+		return nil, io.EOF
+	}
+
+	ch := s.chunks[s.index]
+	s.index++
+
+	// ❗ IMPORTANT: nil chunk must terminate the stream
+	if ch == nil {
+		return nil, io.EOF
+	}
+
+	return ch, nil
+}
+
+func (s *FakeStream) Close() error { return nil }
+
+func (c *stubUTCPClient) CallToolStream(ctx context.Context, name string, args map[string]any) (transports.StreamResult, error) {
+	c.callCount++
+	c.lastToolName = name
+	return c.fakeStream, nil
+
+}
+func TestCodeMode_StoresToonMemory(t *testing.T) {
+	ctx := context.Background()
+
+	model := &stubModel{
+		response: `{"use_tool": true, "tool_name": "codemode.run_code", "arguments": { "code": "1+1" }}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	mem = mem.WithEmbedder(goembed.DummyEmbedder{})
+
+	utcpClient := &stubUTCPClient{}
+
+	agent, _ := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+
+	_, _ = agent.Generate(ctx, "sess", "run code")
+
+	recs, _ := mem.RetrieveContext(ctx, "sess", "", 10)
+	found := false
+	for _, r := range recs {
+		if strings.Contains(r.Content, ".toon:") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected CodeMode output to be stored with TOON")
+	}
+}
+
+func TestCodeMode_ComplexLogicAndToolChain(t *testing.T) {
+	ctx := context.Background()
+
+	// This Go code snippet iterates three times, calling the "echo" tool in each loop.
+	codeSnippet := `		
+		var out any 
+		for i := 0; i < 3; i++ {
+			out, _ = codemode.CallTool("echo", map[string]any{"input": "ping"})
+		}
+		__out = out
+	`
+
+	model := &stubModel{
+		response: fmt.Sprintf(`{"use_tool": true, "tool_name": "codemode.run_code", "arguments": { "code": %q }}`, codeSnippet),
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	utcpClient := &stubUTCPClient{}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	_, err = agent.Generate(ctx, "session1", "run complex code")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	if utcpClient.callCount != 3 {
+		t.Fatalf("expected 3 UTCP calls from inside the DSL loop, got %d", utcpClient.callCount)
+	}
+}
+
+func TestGenerate_ExecutesUTCPCalledTool(t *testing.T) {
+	ctx := context.Background()
+
+	// LLM returns JSON prompting the tool orchestrator to use the UTCP tool.
+	model := &stubModel{
+		response: `{
+			"use_tool": true,
+			"tool_name": "echo",
+			"arguments": { "input": "hi" }
+		}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4).WithEmbedder(goembed.DummyEmbedder{})
+
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "echo", Description: "echo test"},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcpClient,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	out, err := agent.Generate(ctx, "s1", "echo something")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	// Expect UTCP tool call to happen
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected UTCP client CallTool to be called once, got %d", utcpClient.callCount)
+	}
+	if utcpClient.lastToolName != "echo" {
+		t.Fatalf("expected UTCP tool 'echo', got %q", utcpClient.lastToolName)
+	}
+
+	// Returned output should be raw non-TOON tool result
+	if out != "utcp says echo" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+
+	// Verify TOON memory stored
+	recs, _ := mem.RetrieveContext(ctx, "s1", "", 10)
+	foundToon := false
+	for _, r := range recs {
+		if strings.Contains(r.Content, ".toon:") {
+			foundToon = true
+			break
+		}
+	}
+	if !foundToon {
+		t.Fatalf("expected TOON-encoded assistant memory")
+	}
+}
+
+func TestGenerateSkipsToolDiscoveryForOrdinaryPrompt(t *testing.T) {
+	utcp := &stubUTCPClient{searchTools: []utcpTools.Tool{{Name: "echo"}}}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4).WithEmbedder(goembed.DummyEmbedder{})
+
+	agent, err := New(Options{
+		Model:      &stubModel{response: "ok"},
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if _, err := agent.Generate(context.Background(), "s1", "hello there"); err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	if utcp.searchCount != 0 {
+		t.Fatalf("ordinary prompt unexpectedly discovered tools %d time(s)", utcp.searchCount)
+	}
+}
+
+func TestDirectToolInvocationSkipsContextRetrieval(t *testing.T) {
+	store := &searchCountingStore{InMemoryStore: memorystore.NewInMemoryStore()}
+	mem := gomemory.NewSessionMemory(gomemory.NewMemoryBankWithStore(store), 4).WithEmbedder(goembed.DummyEmbedder{})
+	utcp := &stubUTCPClient{searchTools: []utcpTools.Tool{{Name: "echo"}}}
+
+	agent, err := New(Options{
+		Model:      &stubModel{response: "ignored"},
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if _, err := agent.Generate(context.Background(), "s1", `{"tool":"echo","arguments":{"input":"hi"}}`); err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	if calls := store.searchCalls.Load(); calls != 0 {
+		t.Fatalf("direct tool invocation unexpectedly retrieved context %d time(s)", calls)
+	}
+}
+
+func TestGenerateStreamDirectToolSkipsContextRetrieval(t *testing.T) {
+	store := &searchCountingStore{InMemoryStore: memorystore.NewInMemoryStore()}
+	mem := gomemory.NewSessionMemory(gomemory.NewMemoryBankWithStore(store), 4).WithEmbedder(goembed.DummyEmbedder{})
+	utcp := &stubUTCPClient{searchTools: []utcpTools.Tool{{Name: "echo"}}}
+
+	agent, err := New(Options{
+		Model:      &stubModel{response: "ignored"},
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	stream, err := agent.GenerateStream(context.Background(), "s1", `{"tool":"echo","arguments":{"input":"hi"}}`)
+	if err != nil {
+		t.Fatalf("GenerateStream returned error: %v", err)
+	}
+	for range stream {
+	}
+	if calls := store.searchCalls.Load(); calls != 0 {
+		t.Fatalf("direct streamed tool invocation unexpectedly retrieved context %d time(s)", calls)
+	}
+}
+
+func TestSubagentCommandStoresOneMemoryRecord(t *testing.T) {
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4).WithEmbedder(goembed.DummyEmbedder{})
+	agent, err := New(Options{
+		Model:  &stubModel{response: "ignored"},
+		Memory: mem,
+		SubAgents: []SubAgent{&stubSubAgent{
+			name:        "researcher",
+			description: "researches requests",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if _, err := agent.Generate(context.Background(), "s1", "subagent:researcher summarize this"); err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	records, err := mem.RetrieveContext(context.Background(), "s1", "", 4)
+	if err != nil {
+		t.Fatalf("RetrieveContext returned error: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected one subagent memory record, got %d", len(records))
+	}
+}
+
+func TestDirectJsonToolInvocationCallsUTCP(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{response: "ignored"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcp := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "echo", Description: "echo test"},
+		},
+	}
+
+	agent, _ := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+
+	_, err := agent.Generate(ctx, "s1", `{
+		"tool": "echo",
+		"arguments": { "input": "hi" }
+	}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if utcp.callCount != 1 {
+		t.Fatalf("expected UTCP CallTool once, got %d", utcp.callCount)
+	}
+	if utcp.lastToolName != "echo" {
+		t.Fatalf("expected UTCP call to echo, got %q", utcp.lastToolName)
+	}
+}
+func TestDSLToolInvocationCallsUTCP(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{response: "ignored"}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcp := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "echo", Description: "echo test"},
+		},
+	}
+
+	agent, _ := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+
+	_, err := agent.Generate(ctx, "s1", `tool: echo {"input":"hi"}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if utcp.callCount != 1 {
+		t.Fatalf("expected UTCP CallTool once")
+	}
+	if utcp.lastToolName != "echo" {
+		t.Fatalf("expected echo, got %q", utcp.lastToolName)
+	}
+}
+
+func TestShorthandInvocationCallsUTCP(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcp := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "echo", Description: "echo test"},
+		},
+	}
+
+	agent, _ := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+
+	_, _ = agent.Generate(ctx, "s1", `echo {"input":"hi"}`)
+
+	if utcp.callCount != 1 {
+		t.Fatalf("expected UTCP CallTool once")
+	}
+	if utcp.lastToolName != "echo" {
+		t.Fatalf("expected tool echo, got %q", utcp.lastToolName)
+	}
+}
+
+func TestExtractJSONStopsAtFirstObjectBeforePromptBraces(t *testing.T) {
+	response := `{"use_tool":true,"tool_name":"echo","arguments":{"input":"hi"}} | JSON shape: {"use_tool":true}`
+
+	got := extractJSON(response)
+	want := `{"use_tool":true,"tool_name":"echo","arguments":{"input":"hi"}}`
+	if got != want {
+		t.Fatalf("extractJSON() = %q, want %q", got, want)
+	}
+}
+
+func TestDirectJsonStreamInvocationCallsUTCPStream(t *testing.T) {
+	ctx := context.Background()
+	model := &stubModel{}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	stream := &FakeStream{
+		chunks: []any{"chunk1", nil},
+	}
+	utcp := &stubUTCPClient{
+		fakeStream: stream,
+		searchTools: []utcpTools.Tool{
+			{Name: "stream.echo", Description: "stream echo"},
+		},
+	}
+
+	agent, _ := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+
+	_, err := agent.Generate(ctx, "s1", `{
+		"tool": "stream.echo",
+		"arguments": { "input": "x", "stream": true }
+	}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if utcp.lastToolName != "stream.echo" {
+		t.Fatalf("expected stream.echo, got %q", utcp.lastToolName)
+	}
+	if utcp.callCount != 1 {
+		t.Fatalf("expected one stream call, got %d", utcp.callCount)
+	}
+}
+
+func TestToolOrchestratorSelectsStreamingUTCPTool(t *testing.T) {
+	ctx := context.Background()
+
+	model := &stubModel{
+		response: `{
+			"use_tool": true,
+			"tool_name": "stream.echo",
+			"arguments": { "input": "abc", "stream": true },
+			"stream": true
+		}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+
+	stream := &FakeStream{chunks: []any{"A", "B", nil}}
+	utcp := &stubUTCPClient{
+		fakeStream: stream,
+		searchTools: []utcpTools.Tool{
+			{Name: "stream.echo", Description: "streaming echo"},
+		},
+	}
+
+	agent, _ := New(Options{
+		Model:      model,
+		Memory:     mem,
+		UTCPClient: utcp,
+	})
+
+	_, err := agent.Generate(ctx, "s1", "stream something")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if utcp.lastToolName != "stream.echo" {
+		t.Fatalf("expected streaming tool echo, got %q", utcp.lastToolName)
+	}
+}
+
+func TestToolSpecsMergesAllSources(t *testing.T) {
+	model := &stubModel{}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 0)
+	utcp := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{Name: "remote.echo"},
+		},
+	}
+
+	local := &stubTool{spec: ToolSpec{Name: "local.echo"}}
+
+	agent, _ := New(Options{
+		Model:            model,
+		Memory:           mem,
+		Tools:            []Tool{local},
+		UTCPClient:       utcp,
+		CodeMode:         codemode.NewCodeModeUTCP(utcp, model),
+		AllowUnsafeTools: true,
+	})
+
+	tools := agent.ToolSpecs()
+
+	var names []string
+	for _, t := range tools {
+		names = append(names, t.Name)
+	}
+
+	wants := []string{"local.echo", "remote.echo", "codemode.run_code"}
+	for _, want := range wants {
+		found := false
+		for _, got := range names {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected tool %q in ToolSpecs, got %v", want, names)
+		}
+	}
+}
+func TestCodeMode_SimpleExpression(t *testing.T) {
+	ctx := context.Background()
+
+	model := &stubModel{
+		response: `{"use_tool": true, "tool_name": "codemode.run_code",
+            "arguments": { "code": "1 + 2" }}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+
+	utcp := &stubUTCPClient{}
+
+	agent, _ := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcp,
+		CodeMode:         codemode.NewCodeModeUTCP(utcp, model),
+		AllowUnsafeTools: true,
+	})
+
+	out, err := agent.Generate(ctx, "sess", "run code")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	result := out.(string)
+	// Current CodeMode returns a nil result because `1+2` is not wrapped
+	if !strings.Contains(result, "3") {
+		t.Fatalf("expected nil Codemode result, got %q", out)
+	}
+}
+
+func TestCodeModeOrchestrator_NoToolsNeeded(t *testing.T) {
+	ctx := context.Background()
+
+	model := &dynamicStubModel{
+		responses: map[string]string{
+			"Decide which UTCP tools are required and generate the complete CodeMode Go snippet in this same response.": `{"tools":[],"code":"","stream":false}`,
+		},
+	}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{
+				Name:        "echo",
+				Description: "Echoes the input",
+				Inputs: utcpTools.ToolInputOutputSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"input": map[string]any{"type": "string"},
+					},
+					Required: []string{"input"},
+				},
+			},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	userInput := "What is the capital of France?"
+	_, err = agent.Generate(ctx, "session1", userInput)
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	// Verify that CodeMode was not triggered to execute a snippet
+	if utcpClient.callCount != 0 {
+		t.Fatalf("expected 0 UTCP calls, got %d", utcpClient.callCount)
+	}
+
+	// Verify that the model was asked to generate a normal response after
+	// CodeMode selected no tools.
+	if !strings.Contains(model.lastPrompt, userInput) {
+		t.Fatalf("expected model to generate normal response for user input, last prompt: %s", model.lastPrompt)
+	}
+}
+
+func TestCodeModeOrchestrator_ToolsNeededButNoneSelected(t *testing.T) {
+	ctx := context.Background()
+
+	model := &dynamicStubModel{
+		responses: map[string]string{
+			"Decide which UTCP tools are required and generate the complete CodeMode Go snippet in this same response.": `{"tools":[],"code":"","stream":false}`,
+		},
+	}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{
+				Name:        "echo",
+				Description: "Echoes the input",
+				Inputs: utcpTools.ToolInputOutputSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"input": map[string]any{"type": "string"},
+					},
+					Required: []string{"input"},
+				},
+			},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	userInput := "Use a tool to do something."
+	_, err = agent.Generate(ctx, "session1", userInput)
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	// Verify that CodeMode.Execute was not called
+	if utcpClient.callCount != 0 {
+		t.Fatalf("expected 0 UTCP calls, got %d", utcpClient.callCount)
+	}
+
+	// Verify that the model was asked to generate a normal response (after the "select tools" prompt)
+	if !strings.Contains(model.lastPrompt, userInput) {
+		t.Fatalf("expected model to generate normal response for user input, last prompt: %s", model.lastPrompt)
+	}
+}
+
+func TestCodeModeOrchestrator_SnippetGenerationError(t *testing.T) {
+	ctx := context.Background()
+
+	const plannerPromptMarker = "Decide which UTCP tools are required"
+
+	model := &dynamicStubModel{
+		responses: map[string]string{
+			plannerPromptMarker: "invalid json",
+		},
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	utcpClient := &stubUTCPClient{
+		searchTools: []utcpTools.Tool{
+			{
+				Name:        "echo",
+				Description: "Echoes the input",
+				Inputs: utcpTools.ToolInputOutputSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"input": map[string]any{
+							"type": "string",
+						},
+					},
+					Required: []string{"input"},
+				},
+			},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	_, err = agent.Generate(ctx, "session1", "Run the echo tool.")
+	if err == nil {
+		t.Fatal("Generate() error = nil, want invalid planner response error")
+	}
+
+	const expectedError = "plan generation returned no JSON"
+	if !strings.Contains(err.Error(), expectedError) {
+		t.Fatalf(
+			"Generate() error = %q, want error containing %q",
+			err.Error(),
+			expectedError,
+		)
+	}
+
+	if !strings.Contains(model.lastPrompt, plannerPromptMarker) {
+		t.Fatalf(
+			"expected CodeMode planner prompt containing %q, got %q",
+			plannerPromptMarker,
+			model.lastPrompt,
+		)
+	}
+
+	if got := utcpClient.callCount; got != 0 {
+		t.Fatalf("UTCP call count = %d, want 0", got)
+	}
+}
+
+func TestCodeModeOrchestrator_SnippetExecutionSuccess(t *testing.T) {
+	ctx := context.Background()
+
+	codeSnippet := `
+result, err := codemode.CallTool("echo", map[string]any{"input": "hello"})
+if err != nil {
+	__out = err
+	return __out
+}
+__out = result
+`
+	model := &dynamicStubModel{
+		responses: map[string]string{
+			"Decide which UTCP tools are required and generate the complete CodeMode Go snippet in this same response.": fmt.Sprintf(`{"tools":["echo"],"code":%q,"stream":false}`, codeSnippet),
+		},
+	}
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+	utcpClient := &stubUTCPClient{ // This stub will be called by CodeMode.Execute
+		searchTools: []utcpTools.Tool{
+			{
+				Name:        "echo",
+				Description: "Echoes the input",
+				Inputs: utcpTools.ToolInputOutputSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"input": map[string]any{"type": "string"},
+					},
+					Required: []string{"input"},
+				},
+			},
+		},
+	}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	out, err := agent.Generate(ctx, "session1", "Run the echo tool with 'hello'.")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	// Generate returns CodeMode's raw execution envelope when CodeMode handles
+	// the request directly. Use checked assertions so regressions fail cleanly
+	// instead of panicking with an interface conversion error.
+	result, ok := out.(codemode.CodeModeResult)
+	if !ok {
+		t.Fatalf("expected codemode.CodeModeResult, got %T (%v)", out, out)
+	}
+	value, ok := result.Value.(string)
+	if !ok {
+		t.Fatalf("expected CodeMode result value to be string, got %T (%v)", result.Value, result.Value)
+	}
+	if !strings.Contains(value, "utcp says echo") {
+		t.Fatalf("expected output to contain 'utcp says echo', got %q", value)
+	}
+
+	// Verify that CodeMode.Execute called the UTCP client
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected 1 UTCP call from inside the DSL, got %d", utcpClient.callCount)
+	}
+	if utcpClient.lastToolName != "echo" {
+		t.Fatalf("expected last tool to be 'echo', got %q", utcpClient.lastToolName)
+	}
+
+}
+
+func TestCodeMode_ExecutesCallToolInsideDSL2(t *testing.T) {
+	ctx := context.Background()
+
+	// The LLM response triggers CodeMode
+	model := &stubModel{
+		response: `{
+			"use_tool": true,
+			"tool_name": "codemode.run_code",
+			"arguments": {
+				"code": "codemode.CallTool(\"echo\", map[string]any{\"input\": \"hi\"})"
+			}
+		}`,
+	}
+
+	mem := gomemory.NewSessionMemory(&gomemory.MemoryBank{}, 4)
+
+	// Our UTCP stub: tracks calls to CallTool
+	utcpClient := &stubUTCPClient{}
+
+	agent, err := New(Options{
+		Model:            model,
+		Memory:           mem,
+		UTCPClient:       utcpClient,
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		AllowUnsafeTools: true,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	out, err := agent.Generate(ctx, "session1", "run code")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	// We don’t care about the output — CodeMode returns a struct string.
+	if out == "" {
+		t.Fatalf("expected non-empty codemode output")
+	}
+
+	// This is the key assertion:
+	// CodeMode must trigger UTCP CallTool exactly once.
+	if utcpClient.callCount != 1 {
+		t.Fatalf("expected 1 UTCP call from DSL, got %d", utcpClient.callCount)
+	}
+
+	if utcpClient.lastToolName != "echo" {
+		t.Fatalf("expected last UTCP tool to be 'echo', got %q", utcpClient.lastToolName)
+	}
+}
