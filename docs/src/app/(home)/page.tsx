@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlaygroundLink } from '@/components/playground/PlaygroundLink';
 import { asset } from '@/lib/shared';
 import {
   Bot,
@@ -108,6 +107,17 @@ export default function HomePage() {
     <div className="flex flex-1 flex-col">
       {/* Hero */}
       <section className="relative overflow-hidden px-6 pt-32 pb-20">
+        {/* Subtle grid background */}
+        <div
+          className="absolute inset-0 -z-10 opacity-[0.15] dark:opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, var(--fd-border-color, #8882) 1px, transparent 1px), linear-gradient(to bottom, var(--fd-border-color, #8882) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+            maskImage: 'radial-gradient(ellipse 80% 60% at 50% 30%, black 40%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 50% 30%, black 40%, transparent 100%)',
+          }}
+        />
         {/* Subtle background glow */}
         <div className="absolute left-1/2 top-20 -z-10 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500/8 via-purple-500/5 to-transparent blur-3xl" />
 
@@ -155,7 +165,6 @@ export default function HomePage() {
               查看文档
               <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
             </Link>
-            <PlaygroundLink />
             <a
               href="https://github.com/LingByte/ling-base"
               target="_blank"

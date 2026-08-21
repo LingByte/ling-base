@@ -3,6 +3,7 @@ import './global.css';
 import { Inter } from 'next/font/google';
 import { PlaygroundProvider } from '@/components/playground/drawer-context';
 import { PlaygroundDrawer } from '@/components/playground/PlaygroundDrawer';
+import { asset } from '@/lib/shared';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -12,7 +13,14 @@ export default function Layout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <RootProvider>
+        <RootProvider
+          search={{
+            options: {
+              type: 'static',
+              api: asset('/api/search'),
+            },
+          }}
+        >
           <PlaygroundProvider>
             {children}
             <PlaygroundDrawer />
