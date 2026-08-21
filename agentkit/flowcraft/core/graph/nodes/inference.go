@@ -1,0 +1,541 @@
+package nodes
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/agent"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/errdefs"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/graph"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/inference"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/inference/route"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/telemetry"
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/tool"
+
+	"github.com/LingByte/ling-base/agentkit/flowcraft/core/message"
+	otellog "go.opentelemetry.io/otel/log"
+)
+
+// InferenceConfig is the config of the "inference" node type. Board
+// references (${board.*}) are resolved per invocation before decode,
+// so fields like system_prompt may interpolate upstream output.
+type InferenceConfig struct {
+	// Model targets a specific model through the wired Runtime. When
+	// absent the node defers target selection to the wired Router.
+	Model *inference.ModelRef `json:"model,omitempty"`
+
+	// MessagesChannel names the board channel holding the
+	// conversation; empty means the main channel. The channel's tail
+	// message is the current turn's input and must have role user or
+	// tool — everything before it becomes the request context.
+	MessagesChannel string `json:"messages_channel,omitempty"`
+
+	// SystemPrompt is prepended as a system message when the context
+	// does not already start with one.
+	SystemPrompt string `json:"system_prompt,omitempty"`
+
+	// OutputKey, when set, receives the full assistant Message.
+	OutputKey string `json:"output_key,omitempty"`
+	// UsageKey, when set, receives the call's inference.Usage.
+	UsageKey string `json:"usage_key,omitempty"`
+	// ToolPendingKey, when set, receives whether the finish reason is
+	// tool_calls — the boolean condition edges branch on to route
+	// through a tool node and loop back.
+	ToolPendingKey string `json:"tool_pending_key,omitempty"`
+
+	// Stream opens a GenerateStream and publishes text and reasoning
+	// deltas as token stream events. Reasoning fragments arrive as
+	// incremental message.ReasoningPart deltas: consumers concatenate
+	// Text and take Signature/ID from the terminal fragment. The board
+	// still receives exactly one assembled message (tool_call parts
+	// included).
+	Stream bool `json:"stream,omitempty"`
+
+	// Tools names the catalog tools the model may call this turn.
+	Tools []string `json:"tools,omitempty"`
+	// AllTools sends the catalog's entire visible set instead of only
+	// the named Tools. The node stays catalog-agnostic: whatever
+	// Definitions returns (a dynamic injection view, a filtered view,
+	// the plain registry) is what the model sees. When Tools is also
+	// set, the names are declared to the catalog as RequiredByName via
+	// an optional interface and must still exist.
+	AllTools bool `json:"all_tools,omitempty"`
+	// ToolChoice constrains when/which tools are called and rides the
+	// text intent next to Tools.
+	ToolChoice *inference.ToolChoice `json:"tool_choice,omitempty"`
+
+	// Intent is the canonical execution envelope: one or more of the
+	// text, image, audio, and video modalities with their controls
+	// (see inference.Intent). It is authoritative — when set, the
+	// node builds the request from it directly. Tools / AllTools /
+	// ToolChoice stay node-level sugar that resolves the wired catalog
+	// into intent.text.tools / intent.text.tool_choice. When Intent is
+	// absent the node defaults to plain text generation.
+	Intent *inference.Intent `json:"intent,omitempty"`
+
+	// Extensions names provider knobs in the shared {provider, id,
+	// fields} wire form (see inference.DecodeExtensions). Decoders are
+	// provider-carried: the deploy path aggregates them from the wired
+	// inference assembly, so only configured providers are available.
+	Extensions []inference.ExtensionEntry `json:"extensions,omitempty"`
+}
+
+// InferenceNodeDeps wires the inference node's collaborators. Runtime
+// serves configs carrying an explicit model; Router serves configs
+// without one. Either may be nil if no graph needs it — the error
+// surfaces at invocation, classified NotAvailable.
+type InferenceNodeDeps struct {
+	Assembly *inference.Assembly
+	Router   *route.Router
+	// Catalog resolves config tool names into definitions; required
+	// only when a graph configures tools.
+	Catalog tool.Catalog
+	// Extensions maps "provider/id" to decoders, the same registry
+	// shape the script bridge wires with bindings.WithExtensionDecoder.
+	// The deploy path populates it from the inference assembly's
+	// provider-carried decoders.
+	Extensions map[string]inference.ExtensionDecoder
+}
+
+// Inference returns the "inference" node type: one Generate call per
+// invocation, channel tail in, one assistant message appended. The
+// node never executes tool calls — finish_reason == tool_calls is
+// flagged onto tool_pending_key and the graph routes onward.
+func Inference(deps InferenceNodeDeps) graph.NodeType[InferenceConfig] {
+	return graph.NodeType[InferenceConfig]{
+		Meta: graph.Meta{
+			Desc: "single-shot generation (text, image, audio, video): channel tail in, one assistant message out",
+			Reads: []graph.Role{
+				{Kind: graph.RoleMessages, ConfigKey: "messages_channel"},
+			},
+			Writes: []graph.Role{
+				{Kind: graph.RoleMessages, ConfigKey: "messages_channel"},
+				{Kind: graph.RoleVar, ConfigKey: "output_key"},
+				{Kind: graph.RoleVar, ConfigKey: "usage_key"},
+				{Kind: graph.RoleVar, ConfigKey: "tool_pending_key"},
+			},
+		},
+		Handler: func(ec graph.ExecutionContext, board *agent.Board, cfg InferenceConfig) error {
+			return runInference(ec, board, cfg, deps)
+		},
+	}
+}
+
+// RegisterInference registers the "inference" node type into reg.
+func RegisterInference(reg *graph.Registry, deps InferenceNodeDeps) error {
+	return graph.RegisterType(reg, "inference", Inference(deps))
+}
+
+func runInference(ec graph.ExecutionContext, board *agent.Board, cfg InferenceConfig, deps InferenceNodeDeps) error {
+	channel := cfg.MessagesChannel
+	if channel == "" {
+		channel = agent.MainChannel
+	}
+	req, err := buildGenerateRequest(ec, board, channel, cfg, deps)
+	if err != nil {
+		return err
+	}
+
+	resp, err := executeGenerate(ec, board, cfg, deps, req)
+	if err != nil {
+		return err
+	}
+	// Mirror the provider request / response identifiers and token
+	// usage onto the node span after a successful call so
+	// llm.request.id / llm.response.id / llm.tokens.* are visible in
+	// otel even when the call did not go through a router (failure ids
+	// already ride the error chain via execute.go).
+	inference.RecordLLMTelemetry(ec.Context, resp.Metadata, resp.Usage, nil)
+	if len(cfg.Tools) > 0 || cfg.AllTools {
+		if catalog := roundCatalog(ec.Context, cfg, deps); catalog != nil {
+			if advancer, ok := catalog.(roundAdvancer); ok {
+				advancer.AdvanceTurn()
+			}
+		}
+	}
+
+	// Stream every part of the response: text and reasoning (unless
+	// they were already streamed incrementally), images, audio, files,
+	// tool calls and results — each as one StreamDeltaPart. The board
+	// still receives the complete assembled message.
+	for _, part := range resp.Message.Content.Parts {
+		normalized, err := message.NormalizePart(part)
+		if err != nil {
+			return err
+		}
+		if cfg.Stream {
+			switch normalized.(type) {
+			case message.TextPart, message.ReasoningPart:
+				continue // already streamed incrementally
+			}
+		}
+		if err := ec.EmitStreamDelta(agent.StreamDeltaPayload{
+			Type: agent.StreamDeltaPart,
+			Part: normalized,
+		}); err != nil {
+			return err
+		}
+	}
+
+	board.AppendChannelMessage(channel, resp.Message)
+	if cfg.OutputKey != "" {
+		board.SetVar(cfg.OutputKey, resp.Message)
+	}
+	if cfg.UsageKey != "" {
+		board.SetVar(cfg.UsageKey, resp.Usage)
+	}
+	if cfg.ToolPendingKey != "" {
+		board.SetVar(cfg.ToolPendingKey, resp.FinishReason == inference.FinishToolCalls)
+	}
+	if ec.Host != nil {
+		if err := ec.Host.ReportUsage(ec.Context, resp.Usage); err != nil {
+			return err
+		}
+	}
+	if err := emitGenerationTerminal(ec, resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// emitGenerationTerminal publishes the terminal stream deltas of one
+// successful generation: the final provider-owned outputs (when any)
+// followed by the finish signal carrying the normalized finish reason
+// and the provider-issued request / response identifiers. It fixes the
+// node's previous silent drop of ProviderOutputs and gives downstream
+// stream consumers a definitive end-of-generation event.
+func emitGenerationTerminal(ec graph.ExecutionContext, resp inference.GenerateResponse) error {
+	if len(resp.ProviderOutputs) > 0 {
+		envelopes := make([]agent.ProviderOutputEnvelope, 0, len(resp.ProviderOutputs))
+		for _, output := range resp.ProviderOutputs {
+			raw, err := json.Marshal(output)
+			if err != nil {
+				return errdefs.Validationf(
+					"inference node: marshal provider output %q/%q: %v",
+					output.ProviderID(), output.ExtensionID(), err)
+			}
+			envelopes = append(envelopes, agent.ProviderOutputEnvelope{
+				Provider:  output.ProviderID(),
+				Extension: output.ExtensionID(),
+				Value:     raw,
+			})
+		}
+		if err := ec.EmitStreamDelta(agent.StreamDeltaPayload{
+			Type:            agent.StreamDeltaProviderOutputs,
+			ProviderOutputs: envelopes,
+		}); err != nil {
+			return err
+		}
+	}
+	return ec.EmitStreamDelta(agent.StreamDeltaPayload{
+		Type:         agent.StreamDeltaFinish,
+		FinishReason: string(resp.FinishReason),
+		RequestID:    resp.Metadata.RequestID,
+		ResponseID:   resp.Metadata.ResponseID,
+	})
+}
+
+// buildGenerateRequest splits the channel tail into context + current
+// input — the exact shape GenerateRequest demands — and attaches the
+// configured intent and extensions.
+func buildGenerateRequest(ec graph.ExecutionContext, board *agent.Board, channel string, cfg InferenceConfig, deps InferenceNodeDeps) (inference.GenerateRequest, error) {
+	var req inference.GenerateRequest
+	messages := board.Channel(channel)
+	if len(messages) == 0 {
+		return req, errdefs.Validationf("inference node: messages channel %q is empty", channel)
+	}
+	last := messages[len(messages)-1]
+	var inputRole inference.InputRole
+	switch last.Role {
+	case message.RoleUser:
+		inputRole = inference.InputRoleUser
+	case message.RoleTool:
+		inputRole = inference.InputRoleTool
+	default:
+		return req, errdefs.Validationf(
+			"inference node: last message on channel %q must have role user or tool, got %q",
+			channel, last.Role)
+	}
+	contextMessages := messages[:len(messages)-1]
+	if cfg.SystemPrompt != "" &&
+		(len(contextMessages) == 0 || contextMessages[0].Role != message.RoleSystem) {
+		contextMessages = append(
+			[]message.Message{message.NewTextMessage(message.RoleSystem, cfg.SystemPrompt)},
+			contextMessages...,
+		)
+	}
+
+	intent, err := resolveIntent(ec.Context, cfg, deps)
+	if err != nil {
+		return req, err
+	}
+
+	extensions, err := inference.DecodeExtensions(cfg.Extensions, deps.Extensions, "inference node extensions")
+	if err != nil {
+		return req, err
+	}
+
+	return inference.GenerateRequest{
+		Context: contextMessages,
+		Input: inference.GenerateInput{
+			Role: inputRole,
+			Content: inference.InputContent{
+				Content: last.Content,
+				Intent:  intent,
+			},
+		},
+		Extensions: extensions,
+	}, nil
+}
+
+// resolveIntent assembles the invocation's canonical execution
+// envelope. The intent config is authoritative; the legacy tools /
+// all_tools / tool_choice knobs are node-level sugar that resolve the
+// wired catalog into intent.text.tools / intent.text.tool_choice. When
+// no intent is configured the node keeps the historical behavior: a
+// text intent, tools-first when tools are configured. The assembled
+// intent is validated here so configuration errors surface before any
+// provider I/O.
+func resolveIntent(ctx context.Context, cfg InferenceConfig, deps InferenceNodeDeps) (inference.Intent, error) {
+	var intent inference.Intent
+	if cfg.Intent != nil {
+		intent = cfg.Intent.Clone()
+	} else {
+		// Default shape: plain text generation.
+		intent.Text = &inference.TextIntent{}
+	}
+	if len(cfg.Tools) > 0 || cfg.AllTools || cfg.ToolChoice != nil {
+		if intent.Text == nil {
+			return intent, errdefs.Validationf(
+				"inference node: tools/tool_choice configured but intent has no text modality")
+		}
+		if len(intent.Text.Tools) > 0 || intent.Text.ToolChoice != nil {
+			return intent, errdefs.Validationf(
+				"inference node: tools/tool_choice declared both in intent and via node config")
+		}
+		if len(cfg.Tools) > 0 || cfg.AllTools {
+			definitions, err := toolDefinitions(ctx, cfg.Tools, deps.Catalog, cfg.AllTools)
+			if err != nil {
+				return intent, err
+			}
+			intent.Text.Tools = definitions
+		}
+		intent.Text.ToolChoice = cfg.ToolChoice
+	}
+	if err := intent.Validate(); err != nil {
+		return intent, errdefs.Validationf("inference node: intent: %v", err)
+	}
+	return intent, nil
+}
+
+func toolDefinitions(ctx context.Context, names []string, catalog tool.Catalog, allTools bool) ([]message.ToolDefinition, error) {
+	if catalog == nil {
+		return nil, errdefs.Validationf("inference node: tools configured but no tool catalog wired")
+	}
+	if allTools {
+		if override, ok := tool.SessionFromContext(ctx); ok {
+			catalog = override
+		}
+		return resolveAllTools(names, catalog)
+	}
+	return resolveExplicitTools(names, catalog)
+}
+
+// requiredCatalog is implemented by catalogs that accept RequiredByName
+// declarations. The inference node never assumes one: it is an optional
+// contract a catalog (like the dynamic injection view) may implement.
+type requiredCatalog interface {
+	Require(names ...string)
+}
+
+// roundAdvancer is the optional per-round lifecycle contract: a
+// session-scoped catalog advances its Selected retention once per
+// inference node invocation, which is the correct granularity for M
+// rounds (a single user turn may contain several rounds).
+type roundAdvancer interface {
+	AdvanceTurn()
+}
+
+// roundCatalog resolves the catalog this round's request was built
+// from: the context override for all_tools mode, otherwise the bound
+// dependency.
+func roundCatalog(ctx context.Context, cfg InferenceConfig, deps InferenceNodeDeps) tool.Catalog {
+	if cfg.AllTools {
+		if override, ok := tool.SessionFromContext(ctx); ok {
+			return override
+		}
+	}
+	return deps.Catalog
+}
+
+func resolveExplicitTools(names []string, catalog tool.Catalog) ([]message.ToolDefinition, error) {
+	available := make(map[string]message.ToolDefinition)
+	for _, def := range catalog.Definitions() {
+		available[def.Name] = def
+	}
+	definitions := make([]message.ToolDefinition, len(names))
+	for i, name := range names {
+		def, ok := available[name]
+		if !ok {
+			return nil, errdefs.Validationf("inference node: unknown tool %q", name)
+		}
+		definitions[i] = def
+	}
+	return definitions, nil
+}
+
+func resolveAllTools(names []string, catalog tool.Catalog) ([]message.ToolDefinition, error) {
+	if rc, ok := catalog.(requiredCatalog); ok {
+		rc.Require(names...)
+	}
+	definitions := catalog.Definitions()
+	if len(names) == 0 {
+		return definitions, nil
+	}
+	available := make(map[string]struct{}, len(definitions))
+	for _, def := range definitions {
+		available[def.Name] = struct{}{}
+	}
+	for _, name := range names {
+		if _, ok := available[name]; !ok {
+			return nil, errdefs.Validationf("inference node: unknown tool %q", name)
+		}
+	}
+	return definitions, nil
+}
+
+func executeGenerate(ec graph.ExecutionContext, board *agent.Board, cfg InferenceConfig, deps InferenceNodeDeps, req inference.GenerateRequest) (inference.GenerateResponse, error) {
+	if cfg.Stream {
+		return executeGenerateStream(ec, board, cfg, deps, req)
+	}
+	if cfg.Model != nil {
+		if deps.Assembly == nil {
+			return inference.GenerateResponse{}, errdefs.NotAvailablef("inference node: model configured but no runtime wired")
+		}
+		return deps.Assembly.Generate(ec.Context, *cfg.Model, req)
+	}
+	if deps.Router == nil {
+		return inference.GenerateResponse{}, errdefs.NotAvailablef("inference node: no model configured and no router wired")
+	}
+	resp, _, err := deps.Router.Generate(ec.Context, req)
+	return resp, err
+}
+
+// executeGenerateStream drains a GenerateStream through a
+// MessageStream: each text delta is buffered and published as a token
+// event, and each reasoning delta is published incrementally as a
+// reasoning part. On success the caller appends the driver-accumulated
+// response (complete message, tool_calls included). On a mid-stream
+// failure — driver error or run interruption — the buffered partial
+// text is committed to the board as one assistant message before the
+// error propagates, so downstream consumers and a host-saved board keep
+// the progress instead of silently losing every token. Partial
+// reasoning is streamed but not committed to the board: an unsigned
+// fragment must not round-trip into a conversation context that
+// requires signed reasoning. The last cumulative usage snapshot seen
+// before the failure is still reported to the host, so budget
+// accounting observes the tokens the provider already billed.
+func executeGenerateStream(ec graph.ExecutionContext, board *agent.Board, cfg InferenceConfig, deps InferenceNodeDeps, req inference.GenerateRequest) (inference.GenerateResponse, error) {
+	var stream inference.GenerateStream
+	var err error
+	if cfg.Model != nil {
+		if deps.Assembly == nil {
+			return inference.GenerateResponse{}, errdefs.NotAvailablef("inference node: model configured but no runtime wired")
+		}
+		stream, err = deps.Assembly.GenerateStream(ec.Context, *cfg.Model, req)
+	} else {
+		if deps.Router == nil {
+			return inference.GenerateResponse{}, errdefs.NotAvailablef("inference node: no model configured and no router wired")
+		}
+		stream, _, err = deps.Router.GenerateStream(ec.Context, req)
+	}
+	if err != nil {
+		return inference.GenerateResponse{}, err
+	}
+	defer func() {
+		if cerr := stream.Close(); cerr != nil {
+			telemetry.WarnErr(ec.Context, "inference node: close stream after drain", cerr,
+				otellog.String("node.type", "inference"))
+		}
+	}()
+
+	return drainGenerateStream(ec, board, cfg.MessagesChannel, stream)
+}
+
+func drainGenerateStream(ec graph.ExecutionContext, board *agent.Board, channel string, stream inference.GenerateStream) (response inference.GenerateResponse, err error) {
+	s := ec.NewMessageStream(channel)
+	var (
+		lastUsage inference.Usage
+		usageSeen bool
+	)
+	reportPartialUsage := func() {
+		if !usageSeen || ec.Host == nil {
+			return
+		}
+		if reportErr := ec.Host.ReportUsage(ec.Context, lastUsage); reportErr != nil {
+			telemetry.WarnErr(ec.Context, "inference node: report partial usage", reportErr,
+				otellog.String("node.type", "inference"),
+				otellog.String("channel", channel))
+		}
+	}
+	defer func() {
+		if err != nil {
+			// The provider may have billed tokens before the stream
+			// failed; surface the last cumulative usage snapshot so
+			// budget accounting still observes the partial spend.
+			reportPartialUsage()
+			// Preserve the original stream error; partial materialization
+			// is best effort, but if Close itself fails the caller should
+			// still see why their partial materialization didn't land.
+			if _, cerr := s.Close(board); cerr != nil {
+				telemetry.WarnErr(ec.Context, "inference node: materialize partial stream", cerr,
+					otellog.String("node.type", "inference"),
+					otellog.String("channel", channel))
+			}
+		}
+	}()
+	for {
+		event, nextErr := stream.Next(ec.Context)
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return response, nextErr
+		}
+		if event.Usage != nil {
+			lastUsage = event.Usage.Clone()
+			usageSeen = true
+		}
+		switch delta := event.Delta.(type) {
+		case inference.TextPartDelta:
+			if delta.Text == "" {
+				continue
+			}
+			if emitErr := s.Emit(delta.Text); emitErr != nil {
+				return response, emitErr
+			}
+		case inference.ReasoningDelta:
+			// Reasoning fragments bypass MessageStream, which is
+			// text-only: publish each fragment as an incremental
+			// reasoning part. Signature/ID ride the terminal fragment.
+			part := message.ReasoningPart{
+				Text:      delta.Text,
+				Signature: delta.Signature,
+				ID:        delta.ID,
+			}
+			if err := part.Validate(); err != nil {
+				// ID-only bookkeeping delta with nothing displayable.
+				continue
+			}
+			if emitErr := ec.EmitStreamDelta(agent.StreamDeltaPayload{
+				Type: agent.StreamDeltaPart,
+				Part: part,
+			}); emitErr != nil {
+				return response, emitErr
+			}
+		}
+	}
+	return stream.Result()
+}

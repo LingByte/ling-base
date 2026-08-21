@@ -1,0 +1,61 @@
+version: v1
+
+resources:
+  events:
+    kind: event.Bus
+    impl: memory
+  sim:
+    kind: tool.Source
+    impl: sim
+  tools:
+    kind: tool.Assembly
+    impl: memory
+    deps:
+      tool: sim
+  ws:
+    kind: workspace.Workspace
+    impl: local
+    settings:
+      root: ./workspace
+  provider:
+    kind: inference.Provider
+    impl: deepseek
+    settings:
+      id: deepseek
+      spec:
+        api: chat
+      profiles:
+        - secrets:
+            api_key: ${env:DEEPSEEK_API_KEY}
+  infer:
+    kind: inference.Assembly
+    impl: unified
+    deps:
+      provider: provider
+  js:
+    kind: agent.ScriptRuntime
+    impl: js
+    settings:
+      pool_size: 2
+
+agents:
+  tom:
+    card:
+      name: Tom
+      description: A curious 14-year-old boy playing the user side of a dialogue.
+    engine:
+      kind: agent.Engine
+      impl: graph
+      deps:
+        inference: infer
+        tools: tools
+        workspace: ws
+        script_runtime: js
+      settings:
+        graph: {file: ./graphs/persona.yaml}
+
+runtime:
+  event_bus: events
+  sessions:
+    idle_timeout: 10m
+    sink_buffer: 256

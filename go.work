@@ -4,6 +4,18 @@ use (
 	.
 	./agent
 	./agentkit
+	./agentkit/flowcraft/core
+	./agentkit/flowcraft/backends/checkpoint
+	./agentkit/flowcraft/backends/plugin
+	./agentkit/flowcraft/driver/anthropic
+	./agentkit/flowcraft/driver/azure
+	./agentkit/flowcraft/driver/bytedance
+	./agentkit/flowcraft/driver/deepseek
+	./agentkit/flowcraft/driver/kimi
+	./agentkit/flowcraft/driver/minimax
+	./agentkit/flowcraft/driver/openai
+	./agentkit/flowcraft/driver/qwen
+	./agentkit/flowcraft/forge
 	./apidocs
 	./bootstrap
 	./common
