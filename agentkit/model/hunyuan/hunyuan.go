@@ -22,7 +22,7 @@ import (
 
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
 	"github.com/LingByte/ling-base/agentkit/internal/toolorder"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/model/hunyuan/internal/hunyuan"
 	imodel "github.com/LingByte/ling-base/agentkit/model/internal/model"

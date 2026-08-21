@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // SQL templates for table creation (ClickHouse syntax)

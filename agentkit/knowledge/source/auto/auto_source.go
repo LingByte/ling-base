@@ -31,7 +31,7 @@ import (
 	filesource "github.com/LingByte/ling-base/agentkit/knowledge/source/file"
 	urlsource "github.com/LingByte/ling-base/agentkit/knowledge/source/url"
 	"github.com/LingByte/ling-base/agentkit/knowledge/transform"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 const (

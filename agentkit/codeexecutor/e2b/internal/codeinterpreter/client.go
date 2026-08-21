@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // ConnectionConfig holds the configuration needed to talk to the E2B API and

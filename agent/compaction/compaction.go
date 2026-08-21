@@ -9,7 +9,7 @@
 // close enough to drive the same thresholds.
 package compaction
 
-import "github.com/anthropics/anthropic-sdk-go"
+import "github.com/LingByte/ling-base/relay"
 
 // Microcompact constants (05-app-core.js).
 const (
@@ -34,7 +34,7 @@ const elidedPlaceholder = "[Old tool result elided to save context]"
 
 // EstimateTokens approximates the token count of a message list. Text is
 // charged at ~4 chars/token; images/documents at a flat per-item estimate.
-func EstimateTokens(messages []anthropic.BetaMessageParam) int {
+func EstimateTokens(messages []relay.RichMessage) int {
 	total := 0
 	for _, m := range messages {
 		for _, b := range m.Content {
@@ -44,32 +44,32 @@ func EstimateTokens(messages []anthropic.BetaMessageParam) int {
 	return total
 }
 
-func blockTokens(b anthropic.BetaContentBlockParamUnion) int {
-	switch {
-	case b.OfText != nil:
-		return charTokens(b.OfText.Text)
-	case b.OfToolUse != nil:
+func blockTokens(b relay.ContentBlock) int {
+	switch b.Type {
+	case relay.BlockTypeText:
+		return charTokens(b.Text)
+	case relay.BlockTypeToolUse:
 		// Rough: the serialized input.
-		return charTokens(b.OfToolUse.Name) + 50
-	case b.OfToolResult != nil:
-		return toolResultTokens(b.OfToolResult)
-	case b.OfImage != nil, b.OfDocument != nil:
+		return charTokens(b.Name) + 50
+	case relay.BlockTypeToolResult:
+		return toolResultTokens(b)
+	case relay.BlockTypeImage:
 		return EstimatedTokensPerImage
-	case b.OfThinking != nil:
-		return charTokens(b.OfThinking.Thinking)
+	case relay.BlockTypeThinking:
+		return charTokens(b.Thinking)
 	default:
 		return 0
 	}
 }
 
-func toolResultTokens(tr *anthropic.BetaToolResultBlockParam) int {
+func toolResultTokens(tr relay.ContentBlock) int {
 	n := 0
-	for _, c := range tr.Content {
-		if c.OfText != nil {
-			n += charTokens(c.OfText.Text)
-		} else {
-			n += EstimatedTokensPerImage
-		}
+	// Content can be a string or an array of blocks.
+	text := tr.GetToolResultText()
+	n += charTokens(text)
+	if text == "" && len(tr.Content) > 0 {
+		// Likely image blocks in the content array.
+		n += EstimatedTokensPerImage
 	}
 	return n
 }
@@ -87,16 +87,16 @@ type Result struct {
 // KeepLastNResults, but only when tool-result tokens exceed the threshold and
 // the savings clear MinTokensToSave. It never calls the model. The returned
 // slice is a new slice; inputs are not mutated.
-func Microcompact(messages []anthropic.BetaMessageParam) ([]anthropic.BetaMessageParam, Result) {
+func Microcompact(messages []relay.RichMessage) ([]relay.RichMessage, Result) {
 	// Locate every tool_result block as (msgIdx, blockIdx).
 	type loc struct{ m, b int }
 	var locs []loc
 	totalToolTokens := 0
 	for mi, m := range messages {
 		for bi, blk := range m.Content {
-			if blk.OfToolResult != nil {
+			if blk.IsToolResult() {
 				locs = append(locs, loc{mi, bi})
-				totalToolTokens += toolResultTokens(blk.OfToolResult)
+				totalToolTokens += toolResultTokens(blk)
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func Microcompact(messages []anthropic.BetaMessageParam) ([]anthropic.BetaMessag
 	// Compute potential savings first (only act if it clears the floor).
 	saved := 0
 	for _, l := range elide {
-		tr := messages[l.m].Content[l.b].OfToolResult
+		tr := messages[l.m].Content[l.b]
 		cur := toolResultTokens(tr)
 		saved += cur - charTokens(elidedPlaceholder)
 	}
@@ -120,19 +120,18 @@ func Microcompact(messages []anthropic.BetaMessageParam) ([]anthropic.BetaMessag
 	}
 
 	// Apply: deep-copy the affected messages and replace elided blocks.
-	out := make([]anthropic.BetaMessageParam, len(messages))
+	out := make([]relay.RichMessage, len(messages))
 	copy(out, messages)
 	touched := map[int]bool{}
 	for _, l := range elide {
 		if !touched[l.m] {
-			nc := make([]anthropic.BetaContentBlockParamUnion, len(messages[l.m].Content))
+			nc := make([]relay.ContentBlock, len(messages[l.m].Content))
 			copy(nc, messages[l.m].Content)
 			out[l.m].Content = nc
 			touched[l.m] = true
 		}
-		orig := out[l.m].Content[l.b].OfToolResult
-		isErr := orig.IsError.Or(false)
-		out[l.m].Content[l.b] = anthropic.NewBetaToolResultBlock(orig.ToolUseID, elidedPlaceholder, isErr)
+		orig := out[l.m].Content[l.b]
+		out[l.m].Content[l.b] = relay.NewToolResultBlock(orig.ToolUseID, elidedPlaceholder, orig.IsError)
 	}
 
 	return out, Result{Compacted: true, TokensSaved: saved, ElidedCount: len(elide)}

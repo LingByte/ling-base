@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	agentlog "github.com/LingByte/ling-base/agentkit/log"
+	agentlog "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"

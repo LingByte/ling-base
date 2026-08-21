@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/modelcontext"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/prompt"
 	"github.com/LingByte/ling-base/agentkit/session"

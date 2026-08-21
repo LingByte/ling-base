@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/stopwatch"
@@ -29,7 +29,6 @@ import (
 	"github.com/sahilm/fuzzy"
 
 	"github.com/LingByte/ling-base/agent/agent"
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/compaction"
 	"github.com/LingByte/ling-base/agent/config"
 	"github.com/LingByte/ling-base/agent/goal"
@@ -42,7 +41,7 @@ import (
 
 // RunFunc drives one user turn against the agent core, threading conversation
 // history and using the supplied approver, asker, and emitter.
-type RunFunc func(ctx context.Context, prompt string, history []anthropic.BetaMessageParam, approver agent.Approver, asker tools.Asker, planner tools.Planner, emit agent.Emitter) (agent.Result, error)
+type RunFunc func(ctx context.Context, prompt string, history []agent.Message, approver agent.Approver, asker tools.Asker, planner tools.Planner, emit agent.Emitter) (agent.Result, error)
 
 // Session is mutable state shared between the TUI and the RunFunc closure, so
 // slash commands like /model can change settings for subsequent turns. The
@@ -65,7 +64,7 @@ type Session struct {
 	Agents      []AgentInfo // built-in sub-agent types, for /agents
 	ExtraDirs   []string    // additional working dirs added via /add-dir
 	// ContextWindow is the input-token limit /stats reports against; resolved
-	// at startup via api.ContextWindow (config override > model default > 0).
+	// at startup via contextWindow (config override > model default > 0).
 	// Zero means "unknown"; /stats omits the usage ratio in that case.
 	ContextWindow       int
 	ContextWindowSource string
@@ -95,7 +94,7 @@ type MCPServerInfo struct {
 
 // CompactFunc summarizes the conversation history via the model, returning the
 // replacement history and the summary text.
-type CompactFunc func(ctx context.Context, history []anthropic.BetaMessageParam) (newHistory []anthropic.BetaMessageParam, summary string, err error)
+type CompactFunc func(ctx context.Context, history []agent.Message) (newHistory []agent.Message, summary string, err error)
 
 // AgentInfo is the model-facing summary of a sub-agent type, shown by /agents.
 type AgentInfo struct {
@@ -146,7 +145,7 @@ type doneMsg struct {
 	err error
 }
 type compactDoneMsg struct {
-	history []anthropic.BetaMessageParam
+	history []agent.Message
 	summary string
 	err     error
 }
@@ -234,7 +233,7 @@ type Model struct {
 
 	transcript strings.Builder // rendered scrollback
 	rawBlocks  []transcriptBlock
-	history    []anthropic.BetaMessageParam
+	history    []agent.Message
 	pending    chan permission.Decision
 	pendingReq agent.ApprovalRequest
 	sess       *Session
@@ -333,7 +332,7 @@ type transcriptBlock struct {
 // New builds the model. ctx cancels in-flight turns when the program exits.
 // history seeds the conversation when resuming a session (may be nil). sess is
 // shared mutable settings (may be nil).
-func New(ctx context.Context, run RunFunc, history []anthropic.BetaMessageParam, sess *Session) *Model {
+func New(ctx context.Context, run RunFunc, history []agent.Message, sess *Session) *Model {
 	if sess == nil {
 		sess = &Session{}
 	}
@@ -520,7 +519,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case errors.Is(msg.err, context.Canceled):
 			m.appendLine(toolStyle.Render(fmt.Sprintf("  ⊘ interrupted after %s", fmtDuration(elapsed))))
 		case msg.err != nil:
-			m.appendLine(errStyle.Render("error: " + api.FriendlyError(msg.err)))
+			m.appendLine(errStyle.Render("error: " + agent.FriendlyError(msg.err)))
 			// Rescue: if this looks like a recoverable provider error
 			// (auth, rate limit, temporary), suggest switching models.
 			if isRecoverableProviderError(msg.err) {
@@ -578,7 +577,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case compactDoneMsg:
 		if msg.err != nil {
-			m.appendLine(errStyle.Render("compact: " + api.FriendlyError(msg.err)))
+			m.appendLine(errStyle.Render("compact: " + agent.FriendlyError(msg.err)))
 		} else {
 			m.history = msg.history
 			m.appendLine(bannerStyle.Render("Compacted conversation. Summary:\n" + strings.TrimSpace(msg.summary)))
@@ -1476,7 +1475,7 @@ func (m *Model) handleSlash(input string) (tea.Model, tea.Cmd) {
 		}
 		m.appendLine(bannerStyle.Render("Compacting conversation…"))
 		m.setState(stateRunning)
-		go func(hist []anthropic.BetaMessageParam) {
+		go func(hist []agent.Message) {
 			newHist, summary, err := m.sess.Compact(m.ctx, hist)
 			m.events <- compactDoneMsg{history: newHist, summary: summary, err: err}
 		}(m.history)
@@ -1655,19 +1654,19 @@ func (m *Model) exportTranscript() (string, error) {
 
 // exportMarkdown renders the conversation history as Markdown (role headers +
 // text blocks; tool calls/results are summarized).
-func exportMarkdown(history []anthropic.BetaMessageParam) string {
+func exportMarkdown(history []agent.Message) string {
 	var b strings.Builder
 	b.WriteString("# LingAgent conversation\n\n")
 	b.WriteString("_Exported " + time.Now().Format(time.RFC3339) + "_\n")
 	for _, msg := range history {
 		fmt.Fprintf(&b, "\n## %s\n\n", capitalize(string(msg.Role)))
 		for _, block := range msg.Content {
-			switch {
-			case block.OfText != nil:
-				b.WriteString(block.OfText.Text + "\n")
-			case block.OfToolUse != nil:
-				fmt.Fprintf(&b, "_→ tool: %s_\n", block.OfToolUse.Name)
-			case block.OfToolResult != nil:
+			switch block.Type {
+			case agent.BlockText:
+				b.WriteString(block.Text + "\n")
+			case agent.BlockToolUse:
+				fmt.Fprintf(&b, "_→ tool: %s_\n", block.Name)
+			case agent.BlockToolResult:
 				b.WriteString("_← tool result_\n")
 			}
 		}
@@ -2496,7 +2495,7 @@ func (p *uiPlanner) ExitPlan(ctx context.Context, plan string) (bool, error) {
 // Run starts the interactive program and blocks until the user quits. history
 // seeds a resumed conversation (may be nil); sess holds mutable settings shared
 // with the RunFunc closure (may be nil).
-func Run(ctx context.Context, run RunFunc, history []anthropic.BetaMessageParam, sess *Session) error {
+func Run(ctx context.Context, run RunFunc, history []agent.Message, sess *Session) error {
 	// Detect terminal background colour for the "auto" theme before the TUI
 	// takes over the screen. Cheap (200ms timeout) and falls back to dark.
 	InitDetectedTheme()

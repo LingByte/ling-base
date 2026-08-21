@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"

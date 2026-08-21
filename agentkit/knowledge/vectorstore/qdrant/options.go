@@ -13,7 +13,7 @@ import (
 
 	"github.com/qdrant/go-client/qdrant"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	qdrantstorage "github.com/LingByte/ling-base/agentkit/storage/qdrant"
 )
 

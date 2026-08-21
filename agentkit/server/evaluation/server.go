@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evaluation/evalresult"
 	"github.com/LingByte/ling-base/agentkit/evaluation/evalset"
 	"github.com/LingByte/ling-base/agentkit/evaluation/metric"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 const (

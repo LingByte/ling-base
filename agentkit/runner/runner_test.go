@@ -41,7 +41,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	"github.com/LingByte/ling-base/agentkit/internal/state/sessionroute"
 	"github.com/LingByte/ling-base/agentkit/internal/state/steer"
-	runnerlog "github.com/LingByte/ling-base/agentkit/log"
+	runnerlog "github.com/LingByte/ling-base/common/logger"
 	memoryinmemory "github.com/LingByte/ling-base/agentkit/memory/inmemory"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/model/openai"

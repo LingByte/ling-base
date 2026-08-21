@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"golang.org/x/sync/singleflight"
 	mcp "trpc.group/trpc-go/trpc-mcp-go"
@@ -134,7 +134,7 @@ func (ts *ToolSet) Close() error {
 	// Close session manager
 	if ts.sessionManager != nil {
 		if err := ts.sessionManager.close(); err != nil {
-			log.Error("Failed to close session manager", err)
+			log.PrintError("Failed to close session manager", err)
 			return fmt.Errorf("failed to close MCP session: %w", err)
 		}
 	}
@@ -452,10 +452,10 @@ func (m *mcpSessionManager) close() error {
 
 	if err != nil {
 		if isBenignMCPClientCloseError(err) {
-			log.Debug("MCP client already finished during close", "error", err)
+			log.PrintDebug("MCP client already finished during close", "error", err)
 			return nil
 		}
-		log.Error("Failed to close MCP client", "error", err)
+		log.PrintError("Failed to close MCP client", "error", err)
 		return fmt.Errorf("failed to close MCP client: %w", err)
 	}
 

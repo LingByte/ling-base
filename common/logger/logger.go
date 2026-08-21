@@ -284,42 +284,31 @@ func getLogWriter(filename string, maxSize, maxBackup, maxAge int, daily bool) z
 
 // Info logs at info level (skips this package frame so caller points to the business call site).
 func Info(msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	Lg.WithOptions(zap.AddCallerSkip(1)).Info(msg, fields...)
 }
 
 // Warn logs at warn level.
 func Warn(msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	Lg.WithOptions(zap.AddCallerSkip(1)).Warn(msg, fields...)
 }
 
 // Error logs at error level.
 func Error(msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	Lg.WithOptions(zap.AddCallerSkip(1)).Error(msg, fields...)
 }
 
 // Debug logs at debug level.
 func Debug(msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	Lg.WithOptions(zap.AddCallerSkip(1)).Debug(msg, fields...)
 }
 
 // Fatal logs at fatal level and exits.
 func Fatal(msg string, fields ...zap.Field) {
-	if Lg == nil {
-		fmt.Fprintln(os.Stderr, msg)
-		os.Exit(1)
-	}
+	ensureLg()
 	Lg.WithOptions(zap.AddCallerSkip(1)).Fatal(msg, fields...)
 }
 
@@ -353,47 +342,36 @@ const (
 
 // InfoCtx logs at info level with context-derived fields.
 func InfoCtx(ctx context.Context, msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	fields = appendContextFields(ctx, fields...)
 	Lg.WithOptions(zap.AddCallerSkip(1)).Info(msg, fields...)
 }
 
 // WarnCtx logs at warn level with context-derived fields.
 func WarnCtx(ctx context.Context, msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	fields = appendContextFields(ctx, fields...)
 	Lg.WithOptions(zap.AddCallerSkip(1)).Warn(msg, fields...)
 }
 
 // ErrorCtx logs at error level with context-derived fields.
 func ErrorCtx(ctx context.Context, msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	fields = appendContextFields(ctx, fields...)
 	Lg.WithOptions(zap.AddCallerSkip(1)).Error(msg, fields...)
 }
 
 // DebugCtx logs at debug level with context-derived fields.
 func DebugCtx(ctx context.Context, msg string, fields ...zap.Field) {
-	if Lg == nil {
-		return
-	}
+	ensureLg()
 	fields = appendContextFields(ctx, fields...)
 	Lg.WithOptions(zap.AddCallerSkip(1)).Debug(msg, fields...)
 }
 
 // FatalCtx logs at fatal level with context-derived fields and exits.
 func FatalCtx(ctx context.Context, msg string, fields ...zap.Field) {
+	ensureLg()
 	fields = appendContextFields(ctx, fields...)
-	if Lg == nil {
-		fmt.Fprintln(os.Stderr, msg)
-		os.Exit(1)
-	}
 	Lg.WithOptions(zap.AddCallerSkip(1)).Fatal(msg, fields...)
 }
 
@@ -456,26 +434,46 @@ func WithError(err error) zap.Field {
 
 // Infof logs at info level with fmt.Sprintf-style formatting.
 func Infof(format string, args ...interface{}) {
+	if Default != nil {
+		Default.Infof(format, args...)
+		return
+	}
 	Info(fmt.Sprintf(format, args...))
 }
 
 // Warnf logs at warn level with fmt.Sprintf-style formatting.
 func Warnf(format string, args ...interface{}) {
+	if Default != nil {
+		Default.Warnf(format, args...)
+		return
+	}
 	Warn(fmt.Sprintf(format, args...))
 }
 
 // Errorf logs at error level with fmt.Sprintf-style formatting.
 func Errorf(format string, args ...interface{}) {
+	if Default != nil {
+		Default.Errorf(format, args...)
+		return
+	}
 	Error(fmt.Sprintf(format, args...))
 }
 
 // Debugf logs at debug level with fmt.Sprintf-style formatting.
 func Debugf(format string, args ...interface{}) {
+	if Default != nil {
+		Default.Debugf(format, args...)
+		return
+	}
 	Debug(fmt.Sprintf(format, args...))
 }
 
 // Fatalf logs at fatal level with fmt.Sprintf-style formatting.
 func Fatalf(format string, args ...interface{}) {
+	if Default != nil {
+		Default.Fatalf(format, args...)
+		return
+	}
 	Fatal(fmt.Sprintf(format, args...))
 }
 

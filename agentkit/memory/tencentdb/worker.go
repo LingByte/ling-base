@@ -13,7 +13,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 

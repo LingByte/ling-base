@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 
 	"github.com/LingByte/ling-base/agent/agent"
 	"github.com/LingByte/ling-base/agent/permission"
@@ -18,9 +18,9 @@ var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 func stripANSI(s string) string { return ansiRE.ReplaceAllString(s, "") }
 
 func TestExportMarkdown(t *testing.T) {
-	history := []anthropic.BetaMessageParam{
-		anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock("hello there")),
-		{Role: anthropic.BetaMessageParamRoleAssistant, Content: []anthropic.BetaContentBlockParamUnion{anthropic.NewBetaTextBlock("hi back")}},
+	history := []agent.Message{
+		agent.NewUserMessage("hello there"),
+		{Role: "assistant", Content: []agent.ContentBlock{agent.NewTextBlock("hi back")}},
 	}
 	got := exportMarkdown(history)
 	for _, want := range []string{"# LingAgent conversation", "## User", "hello there", "## Assistant", "hi back"} {

@@ -4,26 +4,26 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/LingByte/ling-base/relay"
 )
 
-func userText(s string) anthropic.BetaMessageParam {
-	return anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(s))
+func userText(s string) relay.RichMessage {
+	return relay.NewUserMessage(s)
 }
 
-func toolResult(id, content string) anthropic.BetaMessageParam {
-	return anthropic.NewBetaUserMessage(anthropic.NewBetaToolResultBlock(id, content, false))
+func toolResult(id, content string) relay.RichMessage {
+	return relay.NewUserMessageBlocks(relay.NewToolResultBlock(id, content, false))
 }
 
 func TestEstimateTokens(t *testing.T) {
-	msgs := []anthropic.BetaMessageParam{userText(strings.Repeat("a", 400))}
+	msgs := []relay.RichMessage{userText(strings.Repeat("a", 400))}
 	if got := EstimateTokens(msgs); got < 90 || got > 110 {
 		t.Errorf("EstimateTokens = %d, want ~100", got)
 	}
 }
 
 func TestMicrocompactNoOpWhenSmall(t *testing.T) {
-	msgs := []anthropic.BetaMessageParam{
+	msgs := []relay.RichMessage{
 		userText("hi"),
 		toolResult("t1", "small result"),
 	}
@@ -38,7 +38,7 @@ func TestMicrocompactNoOpWhenSmall(t *testing.T) {
 
 func TestMicrocompactElidesOldResults(t *testing.T) {
 	big := strings.Repeat("x", 60000) // ~15k tokens each
-	var msgs []anthropic.BetaMessageParam
+	var msgs []relay.RichMessage
 	// 5 large tool results: total ~75k tokens (> 40k threshold).
 	for i := 0; i < 5; i++ {
 		msgs = append(msgs, toolResult("t", big))

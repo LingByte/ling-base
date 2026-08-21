@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
-
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/permission"
 	"github.com/LingByte/ling-base/agent/subagent"
 	"github.com/LingByte/ling-base/agent/tools"
@@ -15,9 +12,9 @@ import (
 // Spawner runs sub-agents. It implements tools.Spawner so the Agent tool can
 // launch a child loop with a filtered toolset and the type's system prompt.
 type Spawner struct {
-	provider      api.Provider
+	provider      Provider
 	base          *tools.Registry
-	model         anthropic.Model
+	model         Model
 	permission    permission.Context
 	approver      Approver
 	maxTurns      int
@@ -28,13 +25,13 @@ type Spawner struct {
 // (typically the local tools without the Agent tool itself, to bound recursion).
 // approver resolves permission asks for sub-agents (inherited from the parent
 // frontend); nil falls back to DenyAll.
-func NewSpawner(provider api.Provider, base *tools.Registry, model anthropic.Model, perm permission.Context, approver Approver, maxTurns int) *Spawner {
+func NewSpawner(provider Provider, base *tools.Registry, model Model, perm permission.Context, approver Approver, maxTurns int) *Spawner {
 	return NewSpawnerWithDeferred(provider, base, model, perm, approver, maxTurns, nil)
 }
 
 // NewSpawnerWithDeferred builds a Spawner that also respects the parent's
 // deferred tool map after applying the sub-agent type allowlist.
-func NewSpawnerWithDeferred(provider api.Provider, base *tools.Registry, model anthropic.Model, perm permission.Context, approver Approver, maxTurns int, deferred map[string]bool) *Spawner {
+func NewSpawnerWithDeferred(provider Provider, base *tools.Registry, model Model, perm permission.Context, approver Approver, maxTurns int, deferred map[string]bool) *Spawner {
 	copyDeferred := make(map[string]bool, len(deferred))
 	for name, ok := range deferred {
 		copyDeferred[name] = ok

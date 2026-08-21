@@ -5,16 +5,16 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 
 	"github.com/LingByte/ling-base/agent/tools"
 )
 
-func namesOf(params []anthropic.BetaToolUnionParam) []string {
+func namesOf(params []Tool) []string {
 	var out []string
 	for _, p := range params {
-		if p.OfTool != nil {
-			out = append(out, p.OfTool.Name)
+		if p.Name != "" {
+			out = append(out, p.Name)
 		}
 	}
 	return out

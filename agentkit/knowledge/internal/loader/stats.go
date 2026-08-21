@@ -12,7 +12,7 @@
 // API.
 package loader
 
-import "github.com/LingByte/ling-base/agentkit/log"
+import log "github.com/LingByte/ling-base/common/logger"
 
 // This file provides Stats, a small helper to collect document-size statistics.
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 
 	"github.com/LingByte/ling-base/agent/agent"
 	"github.com/LingByte/ling-base/agent/permission"
@@ -51,7 +51,7 @@ func TestDriverPermissionRoundTrip(t *testing.T) {
 	defer func() { _ = pw.Close() }()
 
 	decisionCh := make(chan permission.Decision, 1)
-	runFn := func(ctx context.Context, prompt string, _ []anthropic.BetaMessageParam, ap agent.Approver, emit agent.Emitter) (agent.Result, error) {
+	runFn := func(ctx context.Context, prompt string, _ []agent.Message, ap agent.Approver, emit agent.Emitter) (agent.Result, error) {
 		emit(agent.Event{Type: "assistant", Text: "working"})
 		dec := ap.Approve(ctx, agent.ApprovalRequest{ToolName: "Bash", Input: json.RawMessage(`{"command":"ls"}`)})
 		decisionCh <- dec

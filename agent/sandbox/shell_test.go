@@ -2,7 +2,6 @@ package sandbox
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -22,12 +21,14 @@ func writeFile(path string, content []byte) error {
 
 // isSandboxUnavailable reports whether err indicates the OS sandbox backend
 // is not present (e.g. sandbox-exec/bwrap missing or unsupported platform).
+// Kind checks go through the error text because agentkit's sandboxError type
+// is unexported across the module boundary.
 func isSandboxUnavailable(err error) bool {
-	var se *sandboxError
-	if errors.As(err, &se) {
-		return se.Kind == ErrUnsupportedBackend || se.Kind == ErrSetupFailed
+	if err == nil {
+		return false
 	}
-	return false
+	msg := err.Error()
+	return strings.Contains(msg, "UnsupportedBackend") || strings.Contains(msg, "SetupFailed")
 }
 
 // waitUntil polls fn until it returns true or the deadline passes.

@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	ci "github.com/LingByte/ling-base/agentkit/codeexecutor/e2b/internal/codeinterpreter"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // Option configures a CodeExecutor.

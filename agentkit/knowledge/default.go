@@ -35,7 +35,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge/retriever"
 	"github.com/LingByte/ling-base/agentkit/knowledge/source"
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/panjf2000/ants/v2"
 )
 

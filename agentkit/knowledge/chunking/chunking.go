@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge/document"
 	"github.com/LingByte/ling-base/agentkit/knowledge/internal/encoding"
 	"github.com/LingByte/ling-base/agentkit/knowledge/source"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // Strategy defines the interface for document chunking strategies.

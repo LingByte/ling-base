@@ -6,10 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/tools"
+	"github.com/LingByte/ling-base/relay"
 )
 
 // blockingProvider blocks in StreamTurn until the context is cancelled, then
@@ -17,9 +15,9 @@ import (
 // interrupts with Esc.
 type blockingProvider struct{}
 
-func (blockingProvider) StreamTurn(ctx context.Context, _ anthropic.BetaMessageNewParams, _ api.StreamSink) (anthropic.BetaMessage, error) {
+func (blockingProvider) StreamTurn(ctx context.Context, _ *relay.RichChatRequest, _ StreamSink) (*Response, error) {
 	<-ctx.Done()
-	return anthropic.BetaMessage{}, ctx.Err()
+	return &Response{}, ctx.Err()
 }
 
 func TestRunReturnsOnContextCancel(t *testing.T) {

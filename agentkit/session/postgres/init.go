@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	storage "github.com/LingByte/ling-base/agentkit/storage/postgres"
 )
 

@@ -15,12 +15,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/compaction"
 	"github.com/LingByte/ling-base/agent/permission"
 	"github.com/LingByte/ling-base/agent/tools"
+	"github.com/LingByte/ling-base/relay"
 )
 
 // defaultMaxTokens is the per-response output cap when the caller doesn't set one.
@@ -51,7 +49,7 @@ type Event struct {
 }
 
 // Recorder persists conversation messages to a transcript as the loop runs.
-// role is "user" or "assistant"; message is the raw Anthropic message JSON.
+// role is "user" or "assistant"; message is the raw message JSON.
 type Recorder interface {
 	Record(role string, message json.RawMessage) error
 }
@@ -59,7 +57,7 @@ type Recorder interface {
 // Options configures a single Run.
 type Options struct {
 	Prompt     string
-	Model      anthropic.Model
+	Model      Model
 	System     string
 	MaxTurns   int   // 0 = unlimited
 	MaxTokens  int64 // 0 = defaultMaxTokens
@@ -69,7 +67,7 @@ type Options struct {
 	Approver Approver
 	// InitialMessages seeds the conversation when resuming a session. The new
 	// Prompt (if any) is appended after them.
-	InitialMessages []anthropic.BetaMessageParam
+	InitialMessages []Message
 	// Recorder, if set, receives each user/assistant message for transcript
 	// persistence. May be nil.
 	Recorder Recorder
@@ -86,15 +84,18 @@ type Options struct {
 	// ContextWindow is the model's context size, used for autocompact
 	// thresholds. 0 uses the package default.
 	ContextWindow int
-	// PartialMessages, if set, receives raw model stream events during the main
+	// PartialMessages, if set, receives raw model stream chunks during the main
 	// answer turn (not compaction summaries). The CLI wires this to a
 	// stream_event emitter when --include-partial-messages is set. Nil by
 	// default and for the TUI, so its single-reader invariant is untouched.
-	PartialMessages func(anthropic.BetaRawMessageStreamEventUnion)
+	PartialMessages func(StreamChunk)
 	// OnSummary, if set, is called with each compaction summary the loop
 	// produces (autocompact). The CLI persists it alongside the transcript for
 	// token-saving resume. May be nil.
 	OnSummary func(summary string)
+	// Betas are provider-specific beta feature flags (e.g. Anthropic beta
+	// headers). Passed through to the relay layer.
+	Betas []string
 }
 
 // Result is the outcome of a Run.
@@ -111,17 +112,17 @@ type Result struct {
 	// Messages is the full conversation after the run (initial + this turn's
 	// exchanges), so a caller can carry it forward as InitialMessages for the
 	// next turn (used by the stream-json embedding frontend).
-	Messages []anthropic.BetaMessageParam
+	Messages []Message
 }
 
 // Loop drives the agentic loop against an API client and a tool registry.
 type Loop struct {
-	provider api.Provider
+	provider Provider
 	tools    *tools.Registry
 }
 
 // New builds a Loop over a model provider (Anthropic, OpenAI-compatible, …).
-func New(provider api.Provider, registry *tools.Registry) *Loop {
+func New(provider Provider, registry *tools.Registry) *Loop {
 	return &Loop{provider: provider, tools: registry}
 }
 
@@ -132,17 +133,12 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 		maxTokens = defaultMaxTokens
 	}
 
-	// Deferred tools are withheld from the request until ToolSearch reveals them.
-	betas := api.DefaultBetas
+	// Beta headers: caller-specified betas plus web-tools betas if enabled.
+	betas := append([]string{}, opts.Betas...)
 	if opts.WebTools {
-		betas = append(append([]string{}, betas...), api.WebToolBetas...)
+		betas = append(betas, webToolBetas...)
 	}
 	revealed := map[string]bool{}
-
-	var system []anthropic.BetaTextBlockParam
-	if opts.System != "" {
-		system = []anthropic.BetaTextBlockParam{{Text: opts.System}}
-	}
 
 	// failures tracks how many times each IDENTICAL tool call (name+input) has
 	// failed within this Run; errStreaks tracks how many consecutive failures
@@ -152,9 +148,9 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 	failures := map[string]int{}
 	errStreaks := map[string]errStreak{}
 
-	messages := append([]anthropic.BetaMessageParam{}, opts.InitialMessages...)
+	messages := append([]Message{}, opts.InitialMessages...)
 	if opts.Prompt != "" {
-		userMsg := anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(opts.Prompt))
+		userMsg := NewUserMessage(opts.Prompt)
 		messages = append(messages, userMsg)
 		record(opts.Recorder, "user", userMsg)
 	}
@@ -183,11 +179,11 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 		// Repair any message with empty content (e.g. an old refusal recorded with
 		// content: null) before sending — the Anthropic API otherwise rejects the
 		// whole request with "messages.<i>.content: Field required".
-		params := anthropic.BetaMessageNewParams{
-			Model:     opts.Model,
-			MaxTokens: maxTokens,
+		params := &relay.RichChatRequest{
+			Model:     string(opts.Model),
+			MaxTokens: int(maxTokens),
 			Messages:  sanitizeMessages(messages),
-			System:    system,
+			System:    opts.System,
 			Tools:     toolParams,
 			Betas:     betas,
 		}
@@ -197,11 +193,11 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 			res.Messages = messages
 			return res, err
 		}
-		res.StopReason = string(assistant.StopReason)
-		res.InputTokens += assistant.Usage.InputTokens
-		res.OutputTokens += assistant.Usage.OutputTokens
-		res.CacheReadInputTokens += assistant.Usage.CacheReadInputTokens
-		res.CacheCreationInputTokens += assistant.Usage.CacheCreationInputTokens
+		res.StopReason = assistant.StopReason
+		res.InputTokens += assistant.InputTokens
+		res.OutputTokens += assistant.OutputTokens
+		res.CacheReadInputTokens += assistant.CacheReadInputTokens
+		res.CacheCreationInputTokens += assistant.CacheCreationInputTokens
 		res.Text = finalText
 		// Live usage tick: emit per inner LLM call so frontends can update
 		// counters during long iterations. TurnDelta=1 mirrors res.NumTurns
@@ -209,8 +205,8 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 		if emit != nil {
 			emit(Event{
 				Type:        "usage",
-				InputDelta:  assistant.Usage.InputTokens,
-				OutputDelta: assistant.Usage.OutputTokens,
+				InputDelta:  assistant.InputTokens,
+				OutputDelta: assistant.OutputTokens,
 				TurnDelta:   1,
 			})
 		}
@@ -220,7 +216,7 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 		// has its tool_result paired up — see the record calls below. Persisting
 		// here, then dying mid-dispatch (Ctrl+C / SIGTERM / OOM), would leak an
 		// orphan tool_use to disk and poison the next resume.
-		messages = append(messages, assistant.ToParam())
+		messages = append(messages, NewAssistantMessageBlocks(assistant.Content...))
 
 		// pause_turn: the API paused a long-running server-side tool (e.g. web
 		// search). Re-send the accumulated turn to let it continue. The
@@ -231,7 +227,7 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 		}
 
 		// Collect tool_use blocks from this turn.
-		toolUses := toolUseBlocks(assistant)
+		toolUses := assistant.ToolUses()
 		if len(toolUses) == 0 {
 			// Final (tool-less) answer: structurally fine on its own, record now.
 			record(opts.Recorder, "assistant", assistant)
@@ -246,12 +242,12 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 				revealed[n] = true
 			}
 		}
-		resultBlocks := make([]anthropic.BetaContentBlockParamUnion, 0, len(toolUses))
+		resultBlocks := make([]ContentBlock, 0, len(toolUses))
 		for _, tu := range toolUses {
 			block := l.dispatch(ctx, tu, opts, emit, reveal, failures, errStreaks)
 			resultBlocks = append(resultBlocks, block)
 		}
-		toolResultMsg := anthropic.NewBetaUserMessage(resultBlocks...)
+		toolResultMsg := NewUserMessageBlocks(resultBlocks...)
 		messages = append(messages, toolResultMsg)
 
 		// Now persist BOTH back-to-back. The window for process termination
@@ -272,7 +268,7 @@ func (l *Loop) Run(ctx context.Context, opts Options, emit Emitter) (Result, err
 // compact applies microcompact then (if near the limit) autocompact to the
 // message list. Honors DISABLE_COMPACT / DISABLE_MICROCOMPACT /
 // DISABLE_AUTO_COMPACT, matching the JS env switches.
-func (l *Loop) compact(ctx context.Context, messages []anthropic.BetaMessageParam, opts Options, emit Emitter) []anthropic.BetaMessageParam {
+func (l *Loop) compact(ctx context.Context, messages []Message, opts Options, emit Emitter) []Message {
 	if os.Getenv("DISABLE_COMPACT") != "" {
 		return messages
 	}
@@ -309,14 +305,14 @@ func (l *Loop) compact(ctx context.Context, messages []anthropic.BetaMessagePara
 // the replacement history plus the summary text. Used by the TUI's /compact
 // command (the loop's own autocompact runs automatically near the context
 // limit). Returns an error if the summary call fails or yields no text.
-func (l *Loop) Compact(ctx context.Context, messages []anthropic.BetaMessageParam, model anthropic.Model) ([]anthropic.BetaMessageParam, string, error) {
-	req := compaction.BuildSummaryRequest(messages, model, 4096)
-	req.Betas = api.DefaultBetas
+func (l *Loop) Compact(ctx context.Context, messages []Message, model Model) ([]Message, string, error) {
+	req := compaction.BuildSummaryRequest(messages, string(model), 4096)
+	req.Betas = append([]string{}, defaultBetas...)
 	assistant, _, err := l.streamTurn(ctx, req, nil, nil)
 	if err != nil {
 		return nil, "", err
 	}
-	summary := finalAssistantText(assistant)
+	summary := assistant.Text()
 	if summary == "" {
 		return nil, "", fmt.Errorf("compaction produced no summary")
 	}
@@ -325,14 +321,14 @@ func (l *Loop) Compact(ctx context.Context, messages []anthropic.BetaMessagePara
 
 // autocompact summarizes the conversation via the model and replaces history
 // with the summary. Returns (messages, false) if the summary call fails.
-func (l *Loop) autocompact(ctx context.Context, messages []anthropic.BetaMessageParam, opts Options) ([]anthropic.BetaMessageParam, bool) {
-	req := compaction.BuildSummaryRequest(messages, opts.Model, 4096)
-	req.Betas = api.DefaultBetas
+func (l *Loop) autocompact(ctx context.Context, messages []Message, opts Options) ([]Message, bool) {
+	req := compaction.BuildSummaryRequest(messages, string(opts.Model), 4096)
+	req.Betas = append([]string{}, defaultBetas...)
 	assistant, _, err := l.streamTurn(ctx, req, nil, nil)
 	if err != nil {
 		return messages, false
 	}
-	summary := finalAssistantText(assistant)
+	summary := assistant.Text()
 	if summary == "" {
 		return messages, false
 	}
@@ -343,23 +339,23 @@ func (l *Loop) autocompact(ctx context.Context, messages []anthropic.BetaMessage
 }
 
 // streamTurn issues one streaming request via the provider, emitting
-// assistant-text events as deltas arrive, and returns the assembled message.
-// rawSink, if non-nil, receives the raw stream events for partial-message
+// assistant-text events as deltas arrive, and returns the assembled response.
+// rawSink, if non-nil, receives the raw stream chunks for partial-message
 // output; it is nil for compaction summary turns.
-func (l *Loop) streamTurn(ctx context.Context, params anthropic.BetaMessageNewParams, emit Emitter, rawSink func(anthropic.BetaRawMessageStreamEventUnion)) (anthropic.BetaMessage, string, error) {
-	sink := api.StreamSink{
+func (l *Loop) streamTurn(ctx context.Context, params *relay.RichChatRequest, emit Emitter, rawSink func(StreamChunk)) (*Response, string, error) {
+	sink := StreamSink{
 		OnText: func(delta string) {
 			if emit != nil {
 				emit(Event{Type: "assistant", Text: delta})
 			}
 		},
-		OnRawEvent: rawSink,
+		OnChunk: rawSink,
 	}
 	assistant, err := l.provider.StreamTurn(ctx, params, sink)
 	if err != nil {
 		return assistant, "", fmt.Errorf("stream: %w", err)
 	}
-	return assistant, finalAssistantText(assistant), nil
+	return assistant, assistant.Text(), nil
 }
 
 // dispatch runs one tool_use: lookup → permission → validate → execute, and
@@ -473,14 +469,14 @@ func envFailureMsg(tool string, n int, sig string) string {
 // shortCircuit returns a tool_result without touching the failure counters
 // (the loop-breaker is refusing the call, not registering another attempt).
 // Used by loop-breaker B; A reuses errResult since it bumps state intentionally.
-func shortCircuit(emit Emitter, tu anthropic.BetaToolUseBlock, msg string) anthropic.BetaContentBlockParamUnion {
+func shortCircuit(emit Emitter, tu ContentBlock, msg string) ContentBlock {
 	if emit != nil {
 		emit(Event{Type: "tool_result", ToolName: tu.Name, ToolUseID: tu.ID, Content: msg, IsError: true})
 	}
-	return anthropic.NewBetaToolResultBlock(tu.ID, msg, true)
+	return NewToolResultBlock(tu.ID, msg, true)
 }
 
-func (l *Loop) dispatch(ctx context.Context, tu anthropic.BetaToolUseBlock, opts Options, emit Emitter, reveal func(...string), failures map[string]int, errStreaks map[string]errStreak) anthropic.BetaContentBlockParamUnion {
+func (l *Loop) dispatch(ctx context.Context, tu ContentBlock, opts Options, emit Emitter, reveal func(...string), failures map[string]int, errStreaks map[string]errStreak) ContentBlock {
 	raw, _ := json.Marshal(tu.Input)
 	if emit != nil {
 		emit(Event{Type: "tool_use", ToolName: tu.Name, ToolUseID: tu.ID, Input: tu.Input})
@@ -488,13 +484,13 @@ func (l *Loop) dispatch(ctx context.Context, tu anthropic.BetaToolUseBlock, opts
 
 	key := tu.Name + "\x00" + string(raw)
 	rawStr := string(raw)
-	errResult := func(msg string) anthropic.BetaContentBlockParamUnion {
+	errResult := func(msg string) ContentBlock {
 		failures[key]++
 		bumpErrStreak(errStreaks, tu.Name, msg, rawStr)
 		if emit != nil {
 			emit(Event{Type: "tool_result", ToolName: tu.Name, ToolUseID: tu.ID, Content: msg, IsError: true})
 		}
-		return anthropic.NewBetaToolResultBlock(tu.ID, msg, true)
+		return NewToolResultBlock(tu.ID, msg, true)
 	}
 
 	// Loop-breaker A: this exact call has already failed repeatedly. Don't run
@@ -594,47 +590,32 @@ func (l *Loop) dispatch(ctx context.Context, tu anthropic.BetaToolUseBlock, opts
 		emit(Event{Type: "tool_result", ToolName: tu.Name, ToolUseID: tu.ID, Content: content, IsError: isErr})
 	}
 	if len(images) == 0 {
-		return anthropic.NewBetaToolResultBlock(tu.ID, content, isErr)
+		return NewToolResultBlock(tu.ID, content, isErr)
 	}
 	return toolResultWithImages(tu.ID, content, isErr, images)
 }
 
 // toolResultWithImages builds a tool_result block carrying text plus one or
 // more base64 image blocks (for Read of image files).
-func toolResultWithImages(toolUseID, text string, isErr bool, images []tools.ResultImage) anthropic.BetaContentBlockParamUnion {
-	content := make([]anthropic.BetaToolResultBlockParamContentUnion, 0, len(images)+1)
+func toolResultWithImages(toolUseID, text string, isErr bool, images []tools.ResultImage) ContentBlock {
+	// Build content as a JSON array of blocks: [{type:"text",text:...},{type:"image",source:{...}}]
+	blocks := []ContentBlock{}
 	if text != "" {
-		content = append(content, anthropic.BetaToolResultBlockParamContentUnion{
-			OfText: &anthropic.BetaTextBlockParam{Text: text},
-		})
+		blocks = append(blocks, NewTextBlock(text))
 	}
 	for _, img := range images {
-		content = append(content, anthropic.BetaToolResultBlockParamContentUnion{
-			OfImage: &anthropic.BetaImageBlockParam{
-				Source: anthropic.BetaImageBlockParamSourceUnion{
-					OfBase64: &anthropic.BetaBase64ImageSourceParam{
-						Data:      img.Base64,
-						MediaType: anthropic.BetaBase64ImageSourceMediaType(img.MediaType),
-					},
-				},
-			},
-		})
+		blocks = append(blocks, NewImageBlock(img.MediaType, img.Base64))
 	}
-	return anthropic.BetaContentBlockParamUnion{
-		OfToolResult: &anthropic.BetaToolResultBlockParam{
-			ToolUseID: toolUseID,
-			IsError:   anthropic.Bool(isErr),
-			Content:   content,
-		},
-	}
+	contentJSON, _ := json.Marshal(blocks)
+	return NewToolResultBlockRaw(toolUseID, contentJSON, isErr)
 }
 
 // buildToolParams converts the registry's tools into API tool params. Deferred
 // tools are omitted unless they've been revealed (ToolSearch); ToolSearch itself
 // is always included so the model can discover the deferred ones.
-func (l *Loop) buildToolParams(ctx context.Context, deferred, revealed map[string]bool) ([]anthropic.BetaToolUnionParam, error) {
+func (l *Loop) buildToolParams(ctx context.Context, deferred, revealed map[string]bool) ([]Tool, error) {
 	names := l.tools.Names()
-	out := make([]anthropic.BetaToolUnionParam, 0, len(names))
+	out := make([]Tool, 0, len(names))
 	for _, name := range names {
 		if deferred[name] && !revealed[name] && name != "ToolSearch" {
 			continue
@@ -644,39 +625,34 @@ func (l *Loop) buildToolParams(ctx context.Context, deferred, revealed map[strin
 		if err != nil {
 			return nil, fmt.Errorf("tool %s description: %w", name, err)
 		}
-		props, required := splitSchema(t.InputSchema())
-		out = append(out, anthropic.BetaToolUnionParam{
-			OfTool: &anthropic.BetaToolParam{
-				Name:        t.Name(),
-				Description: anthropic.String(desc),
-				InputSchema: anthropic.BetaToolInputSchemaParam{
-					Properties: props,
-					Required:   required,
-				},
-			},
+		out = append(out, Tool{
+			Name:        t.Name(),
+			Description: desc,
+			InputSchema: t.InputSchema(),
 		})
 	}
 	return out, nil
 }
 
-// splitSchema pulls "properties" and "required" out of a generated JSON Schema
-// object so they can be placed into BetaToolInputSchemaParam.
 // schemaFieldList renders a tool's accepted input fields as
 // "file_path (required), offset, limit" — appended to validation errors so the
 // model sees what's correct, not just what was wrong. Returns "" when the
 // schema has no properties (e.g. parameterless tools).
 func schemaFieldList(raw json.RawMessage) string {
-	props, required := splitSchema(raw)
-	pm, ok := props.(map[string]any)
-	if !ok || len(pm) == 0 {
+	var s struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+		Required   []string                   `json:"required"`
+	}
+	_ = json.Unmarshal(raw, &s)
+	if len(s.Properties) == 0 {
 		return ""
 	}
-	req := make(map[string]bool, len(required))
-	for _, r := range required {
+	req := make(map[string]bool, len(s.Required))
+	for _, r := range s.Required {
 		req[r] = true
 	}
-	names := make([]string, 0, len(pm))
-	for k := range pm {
+	names := make([]string, 0, len(s.Properties))
+	for k := range s.Properties {
 		names = append(names, k)
 	}
 	sort.Strings(names)
@@ -691,21 +667,7 @@ func schemaFieldList(raw json.RawMessage) string {
 	return strings.Join(parts, ", ")
 }
 
-func splitSchema(raw json.RawMessage) (properties any, required []string) {
-	var s struct {
-		Properties json.RawMessage `json:"properties"`
-		Required   []string        `json:"required"`
-	}
-	_ = json.Unmarshal(raw, &s)
-	if len(s.Properties) > 0 {
-		var p any
-		_ = json.Unmarshal(s.Properties, &p)
-		properties = p
-	}
-	return properties, s.Required
-}
-
-// record marshals a message param and hands it to the recorder (best effort).
+// record marshals a message and hands it to the recorder (best effort).
 func record(r Recorder, role string, msg any) {
 	if r == nil {
 		return
@@ -713,26 +675,4 @@ func record(r Recorder, role string, msg any) {
 	if b, err := json.Marshal(msg); err == nil {
 		_ = r.Record(role, b)
 	}
-}
-
-// toolUseBlocks returns the tool_use blocks in an assistant message.
-func toolUseBlocks(m anthropic.BetaMessage) []anthropic.BetaToolUseBlock {
-	var out []anthropic.BetaToolUseBlock
-	for _, b := range m.Content {
-		if b.Type == "tool_use" {
-			out = append(out, b.AsToolUse())
-		}
-	}
-	return out
-}
-
-// finalAssistantText concatenates the text blocks of an assistant message.
-func finalAssistantText(m anthropic.BetaMessage) string {
-	var s string
-	for _, b := range m.Content {
-		if b.Type == "text" {
-			s += b.AsText().Text
-		}
-	}
-	return s
 }

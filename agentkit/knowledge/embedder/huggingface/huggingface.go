@@ -41,7 +41,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/knowledge/embedder"
 	iembedder "github.com/LingByte/ling-base/agentkit/knowledge/internal/embedder"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 )
 

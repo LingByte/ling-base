@@ -27,7 +27,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/internal/codeast"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 const defaultGoModuleConcurrency = 4

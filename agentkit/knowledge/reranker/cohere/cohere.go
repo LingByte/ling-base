@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/reranker"
 	"github.com/LingByte/ling-base/agentkit/knowledge/reranker/internal/httpclient"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 var (

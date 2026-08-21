@@ -11,7 +11,7 @@ package plugin
 
 import (
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // WithPlugins registers plugins for one runner.Run call.

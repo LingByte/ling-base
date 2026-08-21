@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LingByte/ling-base/agent/codeexecutor"
+	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 )
 
 // resolveShell returns bash if available, else sh.

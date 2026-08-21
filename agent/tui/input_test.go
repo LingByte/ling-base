@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/LingByte/ling-base/agent/agent"
 	"github.com/LingByte/ling-base/agent/memory"
@@ -66,7 +66,7 @@ func TestEnterSubmitsMultilinePrompt(t *testing.T) {
 	m.ctx = context.Background()
 	m.events = make(chan tea.Msg, 1)
 	promptCh := make(chan string, 1)
-	m.run = func(ctx context.Context, prompt string, history []anthropic.BetaMessageParam, approver agent.Approver, asker tools.Asker, planner tools.Planner, emit agent.Emitter) (agent.Result, error) {
+	m.run = func(ctx context.Context, prompt string, history []agent.Message, approver agent.Approver, asker tools.Asker, planner tools.Planner, emit agent.Emitter) (agent.Result, error) {
 		promptCh <- prompt
 		return agent.Result{}, nil
 	}
@@ -241,7 +241,7 @@ func TestSlashCommandsDuringProcessing(t *testing.T) {
 	}
 
 	// A history-mutating command is refused (not executed) while a turn runs.
-	m.history = []anthropic.BetaMessageParam{anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock("hi"))}
+	m.history = []agent.Message{agent.NewUserMessage("hi")}
 	m.input.SetValue("/clear")
 	m.onKey(tea.KeyMsg{Type: tea.KeyEnter})
 	if len(m.history) == 0 {

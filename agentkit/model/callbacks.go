@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 const (

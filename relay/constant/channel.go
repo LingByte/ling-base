@@ -59,6 +59,7 @@ const (
 	ChannelTypeSub2API        = 59
 	ChannelTypeNewAPI         = 60
 	ChannelTypeQiniu          = 61
+	ChannelTypeHuggingFace    = 62
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -126,6 +127,7 @@ var ChannelBaseURLs = []string{
 	"",                                          //59
 	"",                                          //60
 	"https://ai.qiniuapi.com",                   //61 Qiniu AI censor
+	"https://router.huggingface.co",             //62 HuggingFace Inference Router
 }
 
 var ChannelTypeNames = map[int]string{
@@ -187,6 +189,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "LingRein",
 	ChannelTypeQiniu:          "Qiniu",
+	ChannelTypeHuggingFace:    "HuggingFace",
 }
 
 func GetChannelTypeName(channelType int) string {

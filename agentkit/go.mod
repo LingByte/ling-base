@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/agentkit
 go 1.26.0
 
 require (
+	github.com/LingByte/ling-base/common/logger v0.1.0
 	github.com/OpenRouterTeam/go-sdk v0.7.64
 	github.com/alpkeskin/gotoon v0.1.1
 	github.com/anthropics/anthropic-sdk-go v1.66.0
@@ -172,4 +173,9 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251002232023-7c0ddcbb5797 // indirect
 	trpc.group/trpc-go/trpc-a2a-go/v2 v2.0.0-alpha.3.0.20260728070620-f4f0b6dd56ad
+)
+
+replace (
+	github.com/LingByte/ling-base/common/logger => ../common/logger
+	github.com/LingByte/ling-base/common/constants => ../common/constants
 )

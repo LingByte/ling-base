@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/artifact"
 	iartifact "github.com/LingByte/ling-base/agentkit/internal/artifact"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	s3storage "github.com/LingByte/ling-base/agentkit/storage/s3"
 )
 

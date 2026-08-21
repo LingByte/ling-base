@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	approvallog "github.com/LingByte/ling-base/agentkit/log"
+	approvallog "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	approvalreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval/review"

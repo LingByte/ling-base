@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
 	"github.com/LingByte/ling-base/agentkit/knowledge/source"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 

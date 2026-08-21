@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	openapi "github.com/getkin/kin-openapi/openapi3"
 )

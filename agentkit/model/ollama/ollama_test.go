@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
-	agentlog "github.com/LingByte/ling-base/agentkit/log"
+	agentlog "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )

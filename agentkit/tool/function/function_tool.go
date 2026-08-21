@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/jsonrepair"
 	"github.com/LingByte/ling-base/agentkit/internal/jsonutils"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/resultformat"
 )

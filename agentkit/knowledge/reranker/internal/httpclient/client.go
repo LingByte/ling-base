@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/reranker"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // Client is a shared HTTP client for Cross-Encoder based rerankers.

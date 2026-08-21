@@ -43,7 +43,7 @@ import (
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	knowledgetool "github.com/LingByte/ling-base/agentkit/knowledge/tool"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/planner"
 	"github.com/LingByte/ling-base/agentkit/prompt"

@@ -21,11 +21,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	
 	"github.com/google/uuid"
 
 	"github.com/LingByte/ling-base/agent/agent"
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/permission"
 )
 
@@ -33,7 +32,7 @@ import (
 // history, using the supplied approver and emitter. It returns the agent
 // Result whose Messages field carries the updated history forward. The CLI
 // provides this, wiring in the API client, tools, model, and permission context.
-type RunFunc func(ctx context.Context, prompt string, history []anthropic.BetaMessageParam, approver agent.Approver, emit agent.Emitter) (agent.Result, error)
+type RunFunc func(ctx context.Context, prompt string, history []agent.Message, approver agent.Approver, emit agent.Emitter) (agent.Result, error)
 
 // inMessage is a decoded stdin line.
 type inMessage struct {
@@ -93,7 +92,7 @@ func (d *Driver) Run(ctx context.Context, r io.Reader, run RunFunc) error {
 	}()
 
 	approver := &controlApprover{driver: d}
-	var history []anthropic.BetaMessageParam
+	var history []agent.Message
 	for {
 		select {
 		case <-ctx.Done():
@@ -224,7 +223,7 @@ func resultEvent(res agent.Result, err error) map[string]any {
 	}
 	if err != nil {
 		m["subtype"] = "error_during_execution"
-		m["result"] = "Error: " + api.FriendlyError(err)
+		m["result"] = "Error: " + agent.FriendlyError(err)
 	}
 	return m
 }

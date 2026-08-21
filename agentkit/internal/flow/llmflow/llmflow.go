@@ -42,7 +42,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/toolsurface"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/summary"

@@ -24,7 +24,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/evaluation/workflow/promptiter"
 	"github.com/LingByte/ling-base/agentkit/evaluation/workflow/promptiter/engine"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 func (s *Server) handleStructure(w http.ResponseWriter, r *http.Request) {

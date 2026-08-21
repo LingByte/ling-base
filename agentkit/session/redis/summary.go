@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummary "github.com/LingByte/ling-base/agentkit/session/internal/summary"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/util"

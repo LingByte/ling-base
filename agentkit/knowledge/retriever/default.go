@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge/query"
 	"github.com/LingByte/ling-base/agentkit/knowledge/reranker"
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // DefaultRetriever implements the complete RAG pipeline.

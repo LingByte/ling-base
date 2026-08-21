@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evaluation/evalset"
 	"github.com/LingByte/ling-base/agentkit/evaluation/metric"
 	evalstatus "github.com/LingByte/ling-base/agentkit/evaluation/status"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	serverevaluation "github.com/LingByte/ling-base/agentkit/server/evaluation"
 	atrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"go.opentelemetry.io/otel/attribute"

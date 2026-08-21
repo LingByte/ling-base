@@ -27,7 +27,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // Option defines configuration options for CodeExecutor

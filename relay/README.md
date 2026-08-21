@@ -10,7 +10,7 @@ breaking.
 relay/
 ├── client.go          # Client: unified entry point (Chat, Embed, Image, ...)
 ├── go.mod             # Separate Go module
-├── channel/           # 39 provider adaptors (see below)
+├── channel/           # 40 provider adaptors (see below)
 ├── common/            # Adaptor interface + RelayInfo + shared types
 ├── common_handler/    # Shared response handlers (rerank, etc.)
 ├── constant/          # API type constants
@@ -84,17 +84,17 @@ type ChatStreamResult struct {
 | `MidjourneySubmit`  | Midjourney image generation          |
 | `SubmitSunoTask`    | Suno music generation                |
 
-## Supported Channels (39)
+## Supported Channels (40)
 
 ```
 advancedcustom  ai360       ali          aws          baidu
 baidu_v2        claude      cloudflare   codex        cohere
-coze            deepseek    dify         gemini       jimeng
-jina            lingyiwanwu minimax     mistral      mokaai
-moonshot        newapi      ollama       openai       openrouter
-palm            perplexity  replicate    siliconflow  sub2api
-submodel        tencent     vertex       volcengine   xai
-xinference      xunfei      zhipu        zhipu_4v
+coze            deepseek    dify         gemini       huggingface
+jimeng          jina        lingyiwanwu  minimax      mistral
+mokaai          moonshot    newapi       ollama       openai
+openrouter      palm        perplexity   replicate    siliconflow
+sub2api         submodel    tencent      vertex       volcengine
+xai             xinference  xunfei       zhipu        zhipu_4v
 ```
 
 ## Quick Start
@@ -132,7 +132,7 @@ for chunk := range result.Ch {
 
 | Package         | Description                                              |
 |-----------------|----------------------------------------------------------|
-| `channel`       | 39 provider adaptors (OpenAI, Claude, Gemini, etc.)     |
+| `channel`       | 40 provider adaptors (OpenAI, Claude, Gemini, etc.)     |
 | `common`        | Adaptor interface, RelayInfo, shared request types       |
 | `common_handler`| Shared response handlers (rerank, etc.)                  |
 | `constant`      | API type and mode constants                              |

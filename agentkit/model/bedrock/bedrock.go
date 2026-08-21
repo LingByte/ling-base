@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/aws/aws-sdk-go-v2/aws"

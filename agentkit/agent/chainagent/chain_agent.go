@@ -21,7 +21,7 @@ import (
 	istructure "github.com/LingByte/ling-base/agentkit/internal/structure"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )

@@ -12,7 +12,7 @@ import (
 	"context"
 	"runtime/debug"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // RecoverCallbackPanic converts provider callback panics into logged errors so

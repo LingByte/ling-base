@@ -7,11 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
-
-	"github.com/LingByte/ling-base/agent/api"
 	"github.com/LingByte/ling-base/agent/permission"
 	"github.com/LingByte/ling-base/agent/tools"
+	"github.com/LingByte/ling-base/relay"
 )
 
 // captureRecorder collects every Record call in order — to assert that the
@@ -36,19 +34,19 @@ func (r *captureRecorder) snapshot() []string {
 }
 
 // scriptedProvider returns each preset message in turn, then synthesises an
-// empty end_turn so the loop exits cleanly. Implements api.Provider.
+// empty end_turn so the loop exits cleanly. Implements Provider.
 type scriptedProvider struct {
-	turns []anthropic.BetaMessage
+	turns []Response
 	n     int
 }
 
-func (p *scriptedProvider) StreamTurn(_ context.Context, _ anthropic.BetaMessageNewParams, _ api.StreamSink) (anthropic.BetaMessage, error) {
+func (p *scriptedProvider) StreamTurn(_ context.Context, _ *relay.RichChatRequest, _ StreamSink) (*Response, error) {
 	if p.n >= len(p.turns) {
-		return anthropic.BetaMessage{StopReason: "end_turn"}, nil
+		return &Response{StopReason: "end_turn"}, nil
 	}
 	m := p.turns[p.n]
 	p.n++
-	return m, nil
+	return &m, nil
 }
 
 // markerTool stamps the captureRecorder during Execute so the test can prove
@@ -70,32 +68,20 @@ func (m markerTool) Execute(context.Context, tools.Context, json.RawMessage) ([]
 	return []tools.Result{{Content: "ok"}}, nil
 }
 
-// TestAssistantToolUseRecordedAfterDispatch verifies the recording order fix:
-// when an assistant turn issues a tool_use, the assistant must not be persisted
-// to the transcript until its tool dispatch has completed (i.e. the
-// tool_result is ready to be persisted in the next record call). Before the
-// fix, dispatch's full duration was the window in which a process kill could
-// leak an orphan assistant tool_use to disk — exactly what happened in the
-// huedoku transcript at entry 439.
-//
-// We assert recording order rather than simulating process death: the marker
-// tool stamps a "DISPATCH" record during Execute, and we require that record
-// to land BEFORE the assistant record.
+// TestAssistantToolUseRecordedAfterDispatch verifies the recording order fix.
 func TestAssistantToolUseRecordedAfterDispatch(t *testing.T) {
-	// Build the assistant turn via JSON so the SDK populates its internal raw
-	// fields (manual struct literals don't, and dispatch can't read the name).
 	asstJSON := `{
 		"role": "assistant",
 		"stop_reason": "tool_use",
 		"content": [{"type": "tool_use", "id": "tu_1", "name": "Marker", "input": {}}]
 	}`
-	var asst anthropic.BetaMessage
+	var asst Response
 	if err := json.Unmarshal([]byte(asstJSON), &asst); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
 	rec := &captureRecorder{}
-	provider := &scriptedProvider{turns: []anthropic.BetaMessage{asst}}
+	provider := &scriptedProvider{turns: []Response{asst}}
 	loop := New(provider, tools.NewRegistry(markerTool{rec: rec}))
 
 	if _, err := loop.Run(context.Background(), Options{Recorder: rec, MaxTurns: 1}, nil); err != nil {
@@ -106,9 +92,6 @@ func TestAssistantToolUseRecordedAfterDispatch(t *testing.T) {
 	if len(rows) < 3 {
 		t.Fatalf("want at least DISPATCH, assistant, user; got %v", rows)
 	}
-	// The exact invariant: the dispatch marker records BEFORE the assistant.
-	// If anything kills the process between dispatch and the back-to-back
-	// assistant+user records, the assistant is not on disk yet — no orphan.
 	var dispatchIdx, assistantIdx int = -1, -1
 	for i, r := range rows {
 		if r == "DISPATCH" && dispatchIdx < 0 {
@@ -122,12 +105,9 @@ func TestAssistantToolUseRecordedAfterDispatch(t *testing.T) {
 		t.Errorf("dispatch must record before assistant; order = %v (dispatch=%d, assistant=%d)",
 			rows, dispatchIdx, assistantIdx)
 	}
-	// And the assistant should be immediately followed by its paired user.
 	if assistantIdx+1 >= len(rows) || rows[assistantIdx+1] != "user" {
 		t.Errorf("assistant must be paired with user back-to-back; got rows=%v", rows)
 	}
-	// Sanity: no leaked stray entries (dispatch + assistant + user with tools,
-	// then final assistant for the empty end_turn).
 	if !strings.Contains(strings.Join(rows, ","), "DISPATCH,assistant,user") {
 		t.Errorf("expected DISPATCH,assistant,user contiguous; got %v", rows)
 	}

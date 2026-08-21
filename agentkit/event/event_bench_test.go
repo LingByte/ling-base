@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 func BenchmarkEmitEventWithTimeoutBufferedNoTimeout(b *testing.B) {

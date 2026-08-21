@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	toolcallidplugin "github.com/LingByte/ling-base/agentkit/plugin/toolcallid"
 	baserunner "github.com/LingByte/ling-base/agentkit/runner"

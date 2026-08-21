@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 // SQL templates for table creation (PostgreSQL with pgvector syntax).

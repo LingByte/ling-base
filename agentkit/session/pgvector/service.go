@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/session/hook"
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummary "github.com/LingByte/ling-base/agentkit/session/internal/summary"

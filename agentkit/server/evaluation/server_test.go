@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evaluation/evalset"
 	"github.com/LingByte/ling-base/agentkit/evaluation/metric"
 	"github.com/LingByte/ling-base/agentkit/evaluation/status"
-	agentlog "github.com/LingByte/ling-base/agentkit/log"
+	agentlog "github.com/LingByte/ling-base/common/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

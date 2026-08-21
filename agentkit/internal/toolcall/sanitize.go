@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/internal/util/message"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )

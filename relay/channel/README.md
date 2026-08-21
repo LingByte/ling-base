@@ -40,7 +40,7 @@ The request flow is: `Init` -> `ConvertXxxRequest` -> `GetRequestURL` -> `SetupR
 
 `advancedcustom`, `ai360`, `ali`, `aws`, `baidu`, `baidu_v2`, `claude`,
 `cloudflare`, `codex`, `cohere`, `coze`, `deepseek`, `dify`, `gemini`,
-`jimeng`, `jina`, `lingyiwanwu`, `minimax`, `mistral`, `mokaai`,
+`huggingface`, `jimeng`, `jina`, `lingyiwanwu`, `minimax`, `mistral`, `mokaai`,
 `moonshot`, `newapi`, `ollama`, `openai`, `openrouter`, `palm`,
 `perplexity`, `replicate`, `siliconflow`, `sub2api`, `submodel`,
 `tencent`, `vertex`, `volcengine`, `xai`, `xinference`, `xunfei`,

@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	ichannel "github.com/LingByte/ling-base/agentkit/graph/internal/channel"
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
-	agentlog "github.com/LingByte/ling-base/agentkit/log"
+	agentlog "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	teletrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"

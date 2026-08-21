@@ -28,7 +28,7 @@ import (
 
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	agentlog "github.com/LingByte/ling-base/agentkit/log"
+	agentlog "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	imodel "github.com/LingByte/ling-base/agentkit/model/internal/model"
 	semconvmetrics "github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"

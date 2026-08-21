@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
 	"github.com/LingByte/ling-base/agentkit/knowledge/source"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 )
 
 var comparisonOperators = map[string]string{

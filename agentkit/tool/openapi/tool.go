@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/getkin/kin-openapi/openapi3"
 	openapi "github.com/getkin/kin-openapi/openapi3"
@@ -48,7 +48,7 @@ func newOpenAPITool(config *config, operation *Operation) tool.CallableTool {
 // Call executes the API call.
 // parameter replace:  "query", "header", "path" or "cookie"
 func (o *openAPITool) Call(ctx context.Context, jsonArgs []byte) (any, error) {
-	log.Debug("Calling OpenAPI tool", "name", o.operation.name)
+	log.PrintDebug("Calling OpenAPI tool", "name", o.operation.name)
 	args := make(map[string]any)
 	dec := json.NewDecoder(bytes.NewReader(jsonArgs))
 	dec.UseNumber()

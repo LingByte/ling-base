@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	imodel "github.com/LingByte/ling-base/agentkit/model/internal/model"
 	"github.com/LingByte/ling-base/agentkit/model/internal/modeltailoring"
@@ -501,7 +501,7 @@ func (m *Model) applyTokenTailoring(ctx context.Context, request *model.Request)
 			)
 			return
 		}
-		log.Warn("token tailoring failed in huggingface.Model", err)
+		log.PrintWarn("token tailoring failed in huggingface.Model", err)
 		return
 	}
 

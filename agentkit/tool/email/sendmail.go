@@ -16,7 +16,7 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 	gomail "github.com/wneessen/go-mail"

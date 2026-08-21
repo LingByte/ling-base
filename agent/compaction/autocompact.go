@@ -1,6 +1,6 @@
 package compaction
 
-import "github.com/anthropics/anthropic-sdk-go"
+import "github.com/LingByte/ling-base/relay"
 
 // SummaryInstruction is appended to the conversation to elicit a structured
 // summary, condensed from the JS compaction prompt (compactConversation).
@@ -11,14 +11,15 @@ const SummaryInstruction = `Your context window is nearly full. Produce a detail
 4. The next steps that remain.
 Write the summary as plain prose. Do not ask questions or take any further action.`
 
-// BuildSummaryRequest returns a request that asks the model to summarize the
-// given conversation. The summary instruction is appended as a final user turn.
-func BuildSummaryRequest(messages []anthropic.BetaMessageParam, model anthropic.Model, maxTokens int64) anthropic.BetaMessageNewParams {
-	msgs := append([]anthropic.BetaMessageParam{}, messages...)
-	msgs = append(msgs, anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(SummaryInstruction)))
-	return anthropic.BetaMessageNewParams{
+// BuildSummaryRequest returns a rich chat request that asks the model to
+// summarize the given conversation. The summary instruction is appended as a
+// final user turn. model is the model id string (e.g. "claude-sonnet-4-5-20250929").
+func BuildSummaryRequest(messages []relay.RichMessage, model string, maxTokens int64) *relay.RichChatRequest {
+	msgs := append([]relay.RichMessage{}, messages...)
+	msgs = append(msgs, relay.NewUserMessage(SummaryInstruction))
+	return &relay.RichChatRequest{
 		Model:     model,
-		MaxTokens: maxTokens,
+		MaxTokens: int(maxTokens),
 		Messages:  msgs,
 	}
 }
@@ -26,9 +27,9 @@ func BuildSummaryRequest(messages []anthropic.BetaMessageParam, model anthropic.
 // ReplaceWithSummary returns the post-compaction conversation: a single user
 // message carrying the summary, mirroring how the JS replaces history with a
 // compact-boundary + summary (here condensed to one carried-forward message).
-func ReplaceWithSummary(summary string) []anthropic.BetaMessageParam {
+func ReplaceWithSummary(summary string) []relay.RichMessage {
 	const preamble = "[Conversation compacted to save context. Summary of the prior conversation follows.]\n\n"
-	return []anthropic.BetaMessageParam{
-		anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(preamble + summary)),
+	return []relay.RichMessage{
+		relay.NewUserMessage(preamble + summary),
 	}
 }

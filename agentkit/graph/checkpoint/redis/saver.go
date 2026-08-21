@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	storage "github.com/LingByte/ling-base/agentkit/storage/redis"
 	"github.com/redis/go-redis/v9"
 )

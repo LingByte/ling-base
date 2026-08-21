@@ -22,7 +22,7 @@ import (
 	"time"
 
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
@@ -826,7 +826,7 @@ func TestModel_TokenTailoring_Integration(t *testing.T) {
 	require.NotEmpty(t, responses, "Should receive at least one response")
 	assert.Nil(t, responses[0].Error, "Response should not have error")
 	require.NotEmpty(t, responses[0].Choices, "Response should have choices")
-	log.Info(responses[0].Choices[0].Message.Content)
+	log.PrintInfo(responses[0].Choices[0].Message.Content)
 }
 
 func TestModel_Multimodal_ImageURL(t *testing.T) {

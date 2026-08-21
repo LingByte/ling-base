@@ -9,7 +9,7 @@
 package s3
 
 import (
-	"github.com/LingByte/ling-base/agentkit/log"
+	log "github.com/LingByte/ling-base/common/logger"
 	s3storage "github.com/LingByte/ling-base/agentkit/storage/s3"
 )
 
