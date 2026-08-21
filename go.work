@@ -5,10 +5,10 @@ use (
 	./agent
 	./apidocs
 	./bootstrap
-	./censor
-	./censor/aliyun
-	./censor/qcloud
-	./censor/qiniu
+	./providers/censor
+	./providers/censor/aliyun
+	./providers/censor/qcloud
+	./providers/censor/qiniu
 	./common
 	./common/audioutil
 	./common/barcode
@@ -62,6 +62,7 @@ use (
 	./common/lock/zookeeper
 	./common/logger
 	./common/logger/gin
+	./common/middleware
 	./common/mathutil
 	./common/metrics
 	./common/migration
@@ -107,20 +108,20 @@ use (
 	./common/videoutil
 	./example
 	./lingcli
-	./mq
-	./mq/activemq
-	./mq/factory
-	./mq/kafka
-	./mq/rabbitmq
-	./mq/redisstream
-	./mq/rocketmq
-	./ocr
-	./ocr/aliyun
-	./ocr/aws
-	./ocr/azure
-	./ocr/baidu
-	./ocr/google
-	./ocr/qcloud
+	./common/mq
+	./common/mq/activemq
+	./common/mq/factory
+	./common/mq/kafka
+	./common/mq/rabbitmq
+	./common/mq/redisstream
+	./common/mq/rocketmq
+	./providers/ocr
+	./providers/ocr/aliyun
+	./providers/ocr/aws
+	./providers/ocr/azure
+	./providers/ocr/baidu
+	./providers/ocr/google
+	./providers/ocr/qcloud
 	./relay
 	./relay/relaykit
 	./stores
@@ -179,6 +180,6 @@ use (
 // longer contains googleapis/api or googleapis/rpc subdirectories. Those
 // packages now live in the split modules genproto/googleapis/api and
 // genproto/googleapis/rpc. Without this replace, the workspace merges the
-// old monolithic version (pulled in transitively by censor/aliyun) with the
+// old monolithic version (pulled in transitively by providers/censor/aliyun) with the
 // split versions (used by lock/etcd), causing "ambiguous import" errors.
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7

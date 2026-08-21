@@ -260,7 +260,7 @@ type LingBaseModule struct {
 // LingBaseModules 是可选的 ling-base 模块列表。
 var LingBaseModules = []LingBaseModule{
 	{ID: "apidocs", Name: "API 文档", Description: "Huma + OpenAPI 3.1 文档 UI（Scalar/Swagger/Redoc）", ImportPath: "github.com/LingByte/ling-base/apidocs", Core: true},
-	{ID: "middleware", Name: "Gin 中间件", Description: "超时 + 熔断 + 恢复 + CORS 等中间件", ImportPath: "github.com/LingByte/ling-base/middleware", Core: true},
+	{ID: "middleware", Name: "Gin 中间件", Description: "超时 + 熔断 + 恢复 + CORS 等中间件", ImportPath: "github.com/LingByte/ling-base/common/middleware", Core: true},
 	{ID: "jwt", Name: "JWT 鉴权", Description: "Access/Refresh token + 黑名单 + 中间件", ImportPath: "github.com/LingByte/ling-base/common/jwtutil", Core: true},
 	{ID: "limiter", Name: "限流", Description: "令牌桶 / 并发数 / 按 key 限流（内存/Redis）", ImportPath: "github.com/LingByte/ling-base/common/limiter", Core: true},
 	{ID: "circuitbreaker", Name: "熔断器", Description: "滑动窗口熔断器（Closed/Open/Half-Open）", ImportPath: "github.com/LingByte/ling-base/common/circuitbreaker", Core: true},
@@ -272,7 +272,7 @@ var LingBaseModules = []LingBaseModule{
 	{ID: "eventbus", Name: "事件总线", Description: "进程内事件发布/订阅 + 通配符匹配", ImportPath: "github.com/LingByte/ling-base/common/eventbus"},
 	{ID: "i18n", Name: "国际化", Description: "多语言翻译（Gin 中间件 + MyMemory）", ImportPath: "github.com/LingByte/ling-base/common/i18n"},
 	{ID: "notification", Name: "通知", Description: "Email/SMS/Push/Webhook/IM 多渠道通知", ImportPath: "github.com/LingByte/ling-base/common/notification"},
-	{ID: "mq", Name: "消息队列", Description: "Kafka/RabbitMQ/Redis Stream/RocketMQ 统一接口", ImportPath: "github.com/LingByte/ling-base/mq"},
+	{ID: "mq", Name: "消息队列", Description: "Kafka/RabbitMQ/Redis Stream/RocketMQ 统一接口", ImportPath: "github.com/LingByte/ling-base/common/mq"},
 	{ID: "search", Name: "搜索引擎", Description: "Elasticsearch/Bleve 统一搜索接口", ImportPath: "github.com/LingByte/ling-base/common/search"},
 	{ID: "stores", Name: "对象存储", Description: "S3/OSS/COS/MinIO/Kodo 等统一存储接口", ImportPath: "github.com/LingByte/ling-base/stores"},
 	{ID: "stats", Name: "统计", Description: "PV/UV/VV/QPS/延迟分位等指标采集", ImportPath: "github.com/LingByte/ling-base/common/stats"},

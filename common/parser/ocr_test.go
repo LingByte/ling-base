@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/LingByte/ling-base/ocr"
+	"github.com/LingByte/ling-base/providers/ocr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

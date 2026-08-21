@@ -66,6 +66,10 @@ ling-base/
 │  ├─ pool/                  # 连接池
 │  ├─ queue/                 # 任务队列（内存/Redis + 容量调度）
 │  ├─ eventbus/              # 本地事件总线
+│  ├─ mq/                    # 消息队列接口（5 个 broker）
+│  │  ├─ factory/            # 工厂注册
+│  │  └─ kafka / rabbitmq / activemq / rocketmq / redisstream
+│  ├─ middleware/            # HTTP 中间件（限流/熔断/CORS/API 版本）
 │  │
 │  ├─ geoip/                 # IP 地理位置查询（国内 pconline + 国际 ip-api）
 │  ├─ phone/                 # 手机号归属地查询（内置离线号段库）
@@ -126,17 +130,17 @@ ling-base/
 │  ├─ s3/ oss/ cos/ minio/   # 独立 module，各引各的 SDK
 │  └─ kodo/ tos/ obs/ ks3/
 │
-├─ mq/                       # 消息队列接口（5 个 broker）
+├─ mq/                       # 消息队列接口（5 个 broker）→ common/mq/
 │  ├─ factory/               # 工厂注册
 │  └─ kafka / rabbitmq / activemq / rocketmq / redisstream
 │
-├─ censor/                   # 内容审核接口
-│  ├─ aliyun/                # 阿里云 SDK
-│  ├─ qcloud/                # 腾讯云 SDK
-│  └─ qiniu/                 # 七牛 SDK
-│
-├─ ocr/                      # OCR 光学字符识别（6 个 provider）
-│  └─ aws/ google/ aliyun/ baidu/ tencent/ qcloud
+├─ providers/                # 第三方服务对接
+│  ├─ ocr/                   # OCR 光学字符识别（6 个 provider）
+│  │  └─ aws/ google/ aliyun/ baidu/ azure/ qcloud
+│  └─ censor/                # 内容审核接口
+│     ├─ aliyun/             # 阿里云 SDK
+│     ├─ qcloud/             # 腾讯云 SDK
+│     └─ qiniu/              # 七牛 SDK
 │
 ├─ search/                   # 全文搜索接口
 │  ├─ bleve/                 # 本地 Bleve 索引
@@ -144,8 +148,6 @@ ling-base/
 │
 ├─ notification/             # 通知调度（邮件/短信/IM/Webhook）
 │  └─ email / sms / im / inbox / webhook
-│
-├─ middleware/               # HTTP 中间件（限流/熔断/CORS/API 版本）
 │
 ├─ bootstrap/                # 应用启动框架（生命周期管理 + banner）
 ├─ version/                  # 版本信息
@@ -379,7 +381,7 @@ lingcli list   # 查看所有模板
 |---------|------|
 | `apidocs` | API 文档 UI（Scalar 主题）+ OpenAPI 3.1 spec 自动生成 |
 | `limiter` | 令牌桶限流（ling-base/common/limiter/tokenbucket） |
-| `circuitbreaker` | 熔断 + 超时中间件（ling-base/middleware） |
+| `circuitbreaker` | 熔断 + 超时中间件（ling-base/common/middleware） |
 | `middleware` | HTTP 中间件合集（RequestID / Logging / Recover / CORS） |
 | `jwt` | JWT 鉴权（ling-base/common/jwtutil）+ 登录/刷新路由 |
 | `cache` | 缓存抽象（memory / redis / bigcache ...） |
@@ -485,10 +487,10 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [lock/README.md](lock/README.md)
 - [bloom/README.md](bloom/README.md)
 - [captcha/README.md](captcha/README.md)
-- [censor/README.md](censor/README.md)
+- [providers/censor/README.md](providers/censor/README.md)
 - [stores/README.md](stores/README.md)
 - [i18n/README.md](i18n/README.md)
-- [mq/README.md](mq/README.md)
+- [common/mq/README.md](common/mq/README.md)
 - [queue/README.md](queue/README.md)
 - [limiter/README.md](limiter/README.md)
 - [retry/README.md](retry/README.md)

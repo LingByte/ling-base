@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/ocr"
+	"github.com/LingByte/ling-base/providers/ocr"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
