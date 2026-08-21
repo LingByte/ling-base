@@ -1,0 +1,1163 @@
+//
+// Tencent is pleased to support the open source community by making
+// trpc-agent-go available.
+//
+// Copyright (C) 2025 Tencent.  All rights reserved.
+//
+// trpc-agent-go is licensed under the Apache License Version 2.0.
+//
+
+package workspaceprep
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/LingByte/ling-base/agentkit/codeexecutor"
+	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
+)
+
+// newTestEngine returns a live local-runtime engine plus a fresh
+// workspace for reconciler tests.
+func newTestEngine(
+	t *testing.T,
+) (codeexecutor.Engine, codeexecutor.Workspace) {
+	t.Helper()
+	rt := localexec.NewRuntime("")
+	eng := codeexecutor.NewEngine(rt, rt, rt)
+	ws, err := rt.CreateWorkspace(
+		context.Background(),
+		"prep-test",
+		codeexecutor.WorkspacePolicy{},
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = rt.Cleanup(context.Background(), ws)
+	})
+	return eng, ws
+}
+
+func TestFileRequirement_InlineContentAppliesAndSkips(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	req, err := NewFileRequirement(FileSpec{
+		Target:  "work/config.json",
+		Content: []byte(`{"v":1}`),
+	})
+	require.NoError(t, err)
+	rec := NewReconciler()
+
+	warnings, _, err := rec.Reconcile(
+		ctx, eng, ws, "", []Requirement{req},
+	)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	got, err := os.ReadFile(filepath.Join(ws.Path, "work/config.json"))
+	require.NoError(t, err)
+	require.Equal(t, `{"v":1}`, string(got))
+
+	// Second reconcile with unchanged fingerprint must be a skip,
+	// i.e. the mtime of the sentinel should not change. We assert by
+	// counting FS writes via a new fingerprint.
+	infoBefore, err := os.Stat(filepath.Join(ws.Path, "work/config.json"))
+	require.NoError(t, err)
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{req})
+	require.NoError(t, err)
+	infoAfter, err := os.Stat(filepath.Join(ws.Path, "work/config.json"))
+	require.NoError(t, err)
+	require.Equal(t, infoBefore.ModTime(), infoAfter.ModTime(),
+		"file must not be rewritten when fingerprint matches")
+
+	// Changing content forces a re-apply.
+	req2, err := NewFileRequirement(FileSpec{
+		Key:     req.Key(),
+		Target:  "work/config.json",
+		Content: []byte(`{"v":2}`),
+	})
+	require.NoError(t, err)
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{req2})
+	require.NoError(t, err)
+	got, err = os.ReadFile(filepath.Join(ws.Path, "work/config.json"))
+	require.NoError(t, err)
+	require.Equal(t, `{"v":2}`, string(got))
+}
+
+func TestFileRequirement_SentinelMissingTriggersReapply(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	req, err := NewFileRequirement(FileSpec{
+		Target:  "work/marker.txt",
+		Content: []byte("hello"),
+	})
+	require.NoError(t, err)
+	rec := NewReconciler()
+
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{req})
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(
+		filepath.Join(ws.Path, "work/marker.txt"),
+	))
+
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{req})
+	require.NoError(t, err)
+	got, err := os.ReadFile(filepath.Join(ws.Path, "work/marker.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "hello", string(got))
+}
+
+func TestCommandRequirement_MarkerPathSelfHeals(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	// Use a command that records a side effect. The marker path is
+	// the sentinel used for "was this requirement previously
+	// satisfied on disk".
+	cmd, err := NewCommandRequirement(CommandSpec{
+		Cmd:        "bash",
+		Args:       []string{"-lc", "mkdir -p work && echo ok > work/cmd.log"},
+		MarkerPath: "work/.cmd-marker",
+	})
+	require.NoError(t, err)
+	rec := NewReconciler()
+
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{cmd})
+	require.NoError(t, err)
+	logBefore, err := os.ReadFile(filepath.Join(ws.Path, "work/cmd.log"))
+	require.NoError(t, err)
+	require.Equal(t, "ok\n", string(logBefore))
+	_, err = os.Stat(filepath.Join(ws.Path, "work/.cmd-marker"))
+	require.NoError(t, err)
+
+	// Skip path: fingerprint matches and marker exists.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(ws.Path, "work/cmd.log"),
+		[]byte("preserved"), 0o644,
+	))
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{cmd})
+	require.NoError(t, err)
+	got, err := os.ReadFile(filepath.Join(ws.Path, "work/cmd.log"))
+	require.NoError(t, err)
+	require.Equal(t, "preserved", string(got),
+		"command must not re-run while marker is present")
+
+	// Remove marker; the next reconcile must re-run the command.
+	require.NoError(t, os.Remove(
+		filepath.Join(ws.Path, "work/.cmd-marker"),
+	))
+	_, _, err = rec.Reconcile(ctx, eng, ws, "", []Requirement{cmd})
+	require.NoError(t, err)
+	got, err = os.ReadFile(filepath.Join(ws.Path, "work/cmd.log"))
+	require.NoError(t, err)
+	require.Equal(t, "ok\n", string(got),
+		"command must re-run after marker removal")
+}
+
+func TestReconciler_FixedPhaseOrder(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	// Build one requirement per phase and verify commands run after
+	// files regardless of declaration order.
+	var sequence []string
+	var mu sync.Mutex
+	recordPhase := func(name string) Requirement {
+		return &orderReq{
+			key:   name,
+			kind:  KindFile,
+			phase: PhaseFile,
+			apply: func() {
+				mu.Lock()
+				sequence = append(sequence, name)
+				mu.Unlock()
+			},
+		}
+	}
+	recordCommand := func(name string) Requirement {
+		return &orderReq{
+			key:   name,
+			kind:  KindCommand,
+			phase: PhaseCommand,
+			apply: func() {
+				mu.Lock()
+				sequence = append(sequence, name)
+				mu.Unlock()
+			},
+		}
+	}
+	recordSkill := func(name string) Requirement {
+		return &orderReq{
+			key:   name,
+			kind:  KindSkill,
+			phase: PhaseSkill,
+			apply: func() {
+				mu.Lock()
+				sequence = append(sequence, name)
+				mu.Unlock()
+			},
+		}
+	}
+
+	reqs := []Requirement{
+		recordCommand("cmd-1"),
+		recordSkill("skill-1"),
+		recordPhase("file-1"),
+		recordCommand("cmd-2"),
+		recordPhase("file-2"),
+	}
+	rec := NewReconciler()
+	_, _, err := rec.Reconcile(ctx, eng, ws, "", reqs)
+	require.NoError(t, err)
+	require.Equal(t,
+		[]string{"file-1", "file-2", "skill-1", "cmd-1", "cmd-2"},
+		sequence,
+	)
+}
+
+func TestReconciler_ConcurrentReconcileIsSerialized(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	var parallel atomic.Int32
+	var maxParallel atomic.Int32
+	var calls atomic.Int32
+	makeReq := func(key string) Requirement {
+		return &orderReq{
+			key:   key,
+			kind:  KindCommand,
+			phase: PhaseCommand,
+			apply: func() {
+				cur := parallel.Add(1)
+				for {
+					m := maxParallel.Load()
+					if cur <= m ||
+						maxParallel.CompareAndSwap(m, cur) {
+						break
+					}
+				}
+				calls.Add(1)
+				parallel.Add(-1)
+			},
+		}
+	}
+
+	rec := NewReconciler()
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+			req := makeReq(fmt.Sprintf("serialize-%d", i))
+			_, _, err := rec.Reconcile(
+				ctx, eng, ws, "", []Requirement{req},
+			)
+			require.NoError(t, err)
+		}()
+	}
+	wg.Wait()
+	require.Equal(t, int32(8), calls.Load())
+	require.LessOrEqual(t, int(maxParallel.Load()), 1,
+		"reconciler must serialize applies for the same workspace")
+}
+
+func TestReconciler_ConcurrentInstancesMergePreparedMetadata(
+	t *testing.T,
+) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	base := codeexecutor.WorkspaceMetadata{
+		Version: 1,
+		Skills: map[string]codeexecutor.SkillMeta{
+			"demo": {Name: "demo"},
+		},
+		Inputs: []codeexecutor.InputRecord{{
+			From: "host://input", To: "work/input",
+		}},
+		Outputs: []codeexecutor.OutputRecord{{
+			Globs: []string{"out/*"},
+		}},
+	}
+	require.NoError(t, codeexecutor.SaveMetadata(ws.Path, base))
+
+	var wg sync.WaitGroup
+	keys := []string{"prep-a", "prep-b"}
+	errs := make(chan error, len(keys))
+	for _, key := range keys {
+		key := key
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := &orderReq{
+				key:   key,
+				kind:  KindCommand,
+				phase: PhaseCommand,
+				apply: func() {},
+			}
+			_, _, err := NewReconciler().Reconcile(
+				ctx,
+				eng,
+				ws,
+				"",
+				[]Requirement{req},
+			)
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Contains(t, md.Prepared, "prep-a")
+	require.Contains(t, md.Prepared, "prep-b")
+	require.Contains(t, md.Skills, "demo")
+	require.Len(t, md.Inputs, 1)
+	require.Len(t, md.Outputs, 1)
+}
+
+func TestReconciler_SavePreparedDoesNotOverwriteStaleKeys(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	oldShared := codeexecutor.PreparedRecord{
+		Key:         "shared",
+		Kind:        string(KindCommand),
+		Fingerprint: "old",
+	}
+	newShared := codeexecutor.PreparedRecord{
+		Key:         "shared",
+		Kind:        string(KindCommand),
+		Fingerprint: "new",
+	}
+	newLocal := codeexecutor.PreparedRecord{
+		Key:         "local",
+		Kind:        string(KindCommand),
+		Fingerprint: "local-new",
+	}
+	base := codeexecutor.WorkspaceMetadata{
+		Version: 1,
+		Skills: map[string]codeexecutor.SkillMeta{
+			"demo": {Name: "demo"},
+		},
+		Prepared: map[string]codeexecutor.PreparedRecord{
+			"shared": oldShared,
+		},
+	}
+	require.NoError(t, codeexecutor.SaveMetadata(ws.Path, base))
+
+	stale := cloneReconcileMetadata(base)
+	stale.Prepared["local"] = newLocal
+	latest, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	latest.Prepared["shared"] = newShared
+	latest.Inputs = []codeexecutor.InputRecord{{
+		From: "host://latest", To: "work/latest",
+	}}
+	require.NoError(t, codeexecutor.SaveMetadata(ws.Path, latest))
+
+	rec := NewReconciler().(*defaultReconciler)
+	err = rec.saveReconcileMetadata(
+		ctx,
+		eng,
+		ws,
+		base,
+		stale,
+		[]string{"local"},
+	)
+	require.NoError(t, err)
+
+	got, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Equal(t, "new", got.Prepared["shared"].Fingerprint)
+	require.Equal(t, "local-new", got.Prepared["local"].Fingerprint)
+	require.Contains(t, got.Skills, "demo")
+	require.Len(t, got.Inputs, 1)
+	require.Equal(t, "host://latest", got.Inputs[0].From)
+}
+
+func TestReconciler_SavePreparedPreservesDirectMetadataChanges(
+	t *testing.T,
+) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	base := codeexecutor.WorkspaceMetadata{
+		Version: 1,
+		Outputs: []codeexecutor.OutputRecord{},
+		Prepared: map[string]codeexecutor.PreparedRecord{
+			"shared": {Key: "shared", Fingerprint: "old"},
+		},
+	}
+	require.NoError(t, codeexecutor.SaveMetadata(ws.Path, base))
+
+	updated := cloneReconcileMetadata(base)
+	updated.Outputs = []codeexecutor.OutputRecord{{
+		Globs: []string{"out/*.txt"},
+	}}
+	updated.Prepared["local"] = codeexecutor.PreparedRecord{
+		Key:         "local",
+		Fingerprint: "new",
+	}
+
+	rec := NewReconciler().(*defaultReconciler)
+	err := rec.saveReconcileMetadata(
+		ctx,
+		eng,
+		ws,
+		base,
+		updated,
+		[]string{"local"},
+	)
+	require.NoError(t, err)
+
+	got, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Len(t, got.Outputs, 1)
+	require.Equal(t, []string{"out/*.txt"}, got.Outputs[0].Globs)
+	require.Equal(t, "new", got.Prepared["local"].Fingerprint)
+}
+
+func TestReconciler_MergePreservesAllDirectMetadataChanges(t *testing.T) {
+	baseTime := time.Unix(100, 0).UTC()
+	updateTime := time.Unix(200, 0).UTC()
+	base := codeexecutor.WorkspaceMetadata{
+		Version:    1,
+		CreatedAt:  baseTime,
+		UpdatedAt:  baseTime,
+		LastAccess: baseTime,
+		Skills: map[string]codeexecutor.SkillMeta{
+			"old": {Name: "old"},
+		},
+		Inputs: []codeexecutor.InputRecord{{
+			From: "host://old",
+			To:   "work/old",
+		}},
+		Outputs: []codeexecutor.OutputRecord{{
+			Globs: []string{"out/old"},
+		}},
+	}
+	latest := cloneReconcileMetadata(base)
+	updated := codeexecutor.WorkspaceMetadata{
+		Version:    2,
+		CreatedAt:  updateTime,
+		UpdatedAt:  updateTime,
+		LastAccess: updateTime,
+		Skills: map[string]codeexecutor.SkillMeta{
+			"new": {Name: "new"},
+		},
+		Inputs: []codeexecutor.InputRecord{{
+			From: "host://new",
+			To:   "work/new",
+		}},
+		Outputs: []codeexecutor.OutputRecord{{
+			Globs: []string{"out/new"},
+		}},
+		Prepared: map[string]codeexecutor.PreparedRecord{
+			"changed": {Key: "changed"},
+		},
+	}
+
+	got := mergeReconcileMetadata(
+		latest,
+		base,
+		updated,
+		[]string{"changed"},
+	)
+
+	require.Equal(t, 2, got.Version)
+	require.True(t, got.CreatedAt.Equal(updateTime))
+	require.True(t, got.UpdatedAt.Equal(updateTime))
+	require.True(t, got.LastAccess.Equal(updateTime))
+	require.Contains(t, got.Skills, "new")
+	require.NotContains(t, got.Skills, "old")
+	require.Equal(t, "host://new", got.Inputs[0].From)
+	require.Equal(t, []string{"out/new"}, got.Outputs[0].Globs)
+	require.Contains(t, got.Prepared, "changed")
+}
+
+func TestReconciler_SavePreparedReturnsLoadMetadataError(t *testing.T) {
+	rec := NewReconciler().(*defaultReconciler)
+	err := rec.saveReconcileMetadata(
+		context.Background(),
+		&fakeEngine{fs: &fakeFS{collectErr: fmt.Errorf("collect failed")}},
+		codeexecutor.Workspace{Path: t.TempDir()},
+		codeexecutor.WorkspaceMetadata{},
+		codeexecutor.WorkspaceMetadata{},
+		nil,
+	)
+
+	require.ErrorContains(t, err, "collect failed")
+}
+
+func TestReconciler_RequiredFailurePropagatesPartialSaveError(
+	t *testing.T,
+) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	metadataDirectory := &orderReq{
+		key:   "changed",
+		kind:  KindCommand,
+		phase: PhaseCommand,
+		apply: func() {
+			metaPath := filepath.Join(ws.Path, codeexecutor.MetaFileName)
+			require.NoError(t, os.Remove(metaPath))
+			require.NoError(t, os.Mkdir(metaPath, 0o755))
+		},
+	}
+	requiredFail := &orderReq{
+		key:      "bad",
+		kind:     KindCommand,
+		phase:    PhaseCommand,
+		applyErr: fmt.Errorf("boom"),
+	}
+
+	warnings, _, err := NewReconciler().Reconcile(
+		ctx,
+		eng,
+		ws,
+		"",
+		[]Requirement{metadataDirectory, requiredFail},
+	)
+	require.Empty(t, warnings)
+	require.ErrorContains(t, err, "save metadata after partial apply")
+	require.ErrorContains(t, err, "is a directory")
+}
+
+func TestReconciler_OptionalRequirementFailureIsWarning(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+
+	bad := &orderReq{
+		key:      "bad",
+		kind:     KindCommand,
+		phase:    PhaseCommand,
+		optional: true,
+		applyErr: fmt.Errorf("boom"),
+	}
+	good := &orderReq{
+		key:   "good",
+		kind:  KindCommand,
+		phase: PhaseCommand,
+		apply: func() {},
+	}
+	rec := NewReconciler()
+	warnings, _, err := rec.Reconcile(
+		ctx, eng, ws, "", []Requirement{bad, good},
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, warnings)
+	require.Contains(t, warnings[0], "optional requirement")
+}
+
+func TestReconciler_StaleRetryDisposition(t *testing.T) {
+	stale := fmt.Errorf("rotated: %w", codeexecutor.ErrWorkspaceStale)
+
+	t.Run("metadata load stale is retry safe", func(t *testing.T) {
+		eng := &fakeEngine{fs: &fakeFS{collectErr: stale}}
+		req := &orderReq{
+			key:   "never-applied",
+			kind:  KindFile,
+			phase: PhaseFile,
+		}
+
+		_, _, err := NewReconciler().Reconcile(
+			context.Background(),
+			eng,
+			codeexecutor.Workspace{ID: "ws", Path: t.TempDir()},
+			"",
+			[]Requirement{req},
+		)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+		require.False(t, errors.Is(err, ErrReconcileRetryUnsafe))
+	})
+
+	t.Run("command not started is retry safe", func(t *testing.T) {
+		eng, ws := newTestEngine(t)
+		req := &orderReq{
+			key:      "stale-command",
+			kind:     KindCommand,
+			phase:    PhaseCommand,
+			applyErr: stale,
+		}
+
+		warnings, _, err := NewReconciler().Reconcile(
+			context.Background(), eng, ws, "", []Requirement{req},
+		)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+		require.False(t, errors.Is(err, ErrReconcileRetryUnsafe))
+		require.Empty(t, warnings)
+	})
+
+	t.Run("stale after successful command is retry unsafe", func(t *testing.T) {
+		eng, ws := newTestEngine(t)
+		var laterCalls int
+		success := &orderReq{
+			key:   "successful-command",
+			kind:  KindCommand,
+			phase: PhaseCommand,
+			apply: func() {},
+		}
+		later := &orderReq{
+			key:      "later-stale",
+			kind:     KindCommand,
+			phase:    PhaseCommand,
+			apply:    func() { laterCalls++ },
+			applyErr: stale,
+		}
+
+		_, _, err := NewReconciler().Reconcile(
+			context.Background(), eng, ws, "",
+			[]Requirement{success, later},
+		)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+		require.ErrorIs(t, err, ErrReconcileRetryUnsafe)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceRetryUnsafe)
+		require.False(t, codeexecutor.IsWorkspaceRetrySafe(err))
+		require.Equal(t, 1, laterCalls)
+	})
+
+	t.Run("stale after failed optional command is retry unsafe",
+		func(t *testing.T) {
+			eng, ws := newTestEngine(t)
+			optionalFailure := &orderReq{
+				key:      "optional-command",
+				kind:     KindCommand,
+				phase:    PhaseCommand,
+				optional: true,
+				applyErr: errors.New("timeout after submission"),
+			}
+			laterStale := &orderReq{
+				key:      "later-stale",
+				kind:     KindCommand,
+				phase:    PhaseCommand,
+				applyErr: stale,
+			}
+
+			warnings, _, err := NewReconciler().Reconcile(
+				context.Background(), eng, ws, "",
+				[]Requirement{optionalFailure, laterStale},
+			)
+			require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+			require.ErrorIs(t, err, ErrReconcileRetryUnsafe)
+			require.Len(t, warnings, 1)
+			require.Contains(t, warnings[0], "optional requirement")
+		},
+	)
+
+	t.Run("optional stale remains a control-flow error", func(t *testing.T) {
+		eng, ws := newTestEngine(t)
+		var nextCalls int
+		optional := &orderReq{
+			key:      "optional-stale",
+			kind:     KindFile,
+			phase:    PhaseFile,
+			optional: true,
+			applyErr: stale,
+		}
+		next := &orderReq{
+			key:   "must-not-run",
+			kind:  KindCommand,
+			phase: PhaseCommand,
+			apply: func() { nextCalls++ },
+		}
+
+		warnings, _, err := NewReconciler().Reconcile(
+			context.Background(), eng, ws, "",
+			[]Requirement{optional, next},
+		)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+		require.False(t, errors.Is(err, ErrReconcileRetryUnsafe))
+		require.Empty(t, warnings)
+		require.Zero(t, nextCalls)
+	})
+
+	t.Run("metadata commit stale after command is retry unsafe",
+		func(t *testing.T) {
+			fs := &fakeFS{}
+			eng := &fakeEngine{
+				fs: fs,
+				runner: &fakeRunner{
+					err: stale,
+				},
+			}
+			req := &orderReq{
+				key:   "successful-command",
+				kind:  KindCommand,
+				phase: PhaseCommand,
+				apply: func() {},
+			}
+
+			_, _, err := NewReconciler().Reconcile(
+				context.Background(),
+				eng,
+				codeexecutor.Workspace{
+					ID:   "ws",
+					Path: t.TempDir(),
+				},
+				"",
+				[]Requirement{req},
+			)
+			require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+			require.ErrorIs(t, err, ErrReconcileRetryUnsafe)
+		},
+	)
+
+	t.Run("marker stale after command is retry unsafe", func(t *testing.T) {
+		req, err := NewCommandRequirement(CommandSpec{
+			Cmd:        "setup",
+			MarkerPath: "work/.setup-complete",
+		})
+		require.NoError(t, err)
+		eng := &fakeEngine{
+			fs: &fakeFS{
+				putErr: stale,
+			},
+			runner: &fakeRunner{
+				res: codeexecutor.RunResult{ExitCode: 0},
+			},
+		}
+
+		_, _, err = NewReconciler().Reconcile(
+			context.Background(),
+			eng,
+			codeexecutor.Workspace{ID: "ws", Path: t.TempDir()},
+			"",
+			[]Requirement{req},
+		)
+		require.ErrorIs(t, err, codeexecutor.ErrWorkspaceStale)
+		require.ErrorIs(t, err, ErrReconcileRetryUnsafe)
+	})
+}
+
+func TestPreparationGeneration(t *testing.T) {
+	recA := newReconciler("process-a", nil)
+	recB := newReconciler("process-b", nil)
+
+	legacy, err := recA.preparationGeneration("")
+	require.NoError(t, err)
+	require.Empty(t, legacy)
+
+	a1, err := recA.preparationGeneration("instance-1")
+	require.NoError(t, err)
+	a1Again, err := recA.preparationGeneration("instance-1")
+	require.NoError(t, err)
+	a2, err := recA.preparationGeneration("instance-2")
+	require.NoError(t, err)
+	b1, err := recB.preparationGeneration("instance-1")
+	require.NoError(t, err)
+
+	require.NotEmpty(t, a1)
+	require.Equal(t, a1, a1Again)
+	require.NotEqual(t, a1, a2)
+	require.NotEqual(t, a1, b1,
+		"a reused instance ID must not match metadata from another process")
+
+	broken := newReconciler("", errors.New("entropy unavailable"))
+	legacy, err = broken.preparationGeneration("")
+	require.NoError(t, err)
+	require.Empty(t, legacy)
+	_, err = broken.preparationGeneration("instance-1")
+	require.ErrorContains(t, err, "entropy unavailable")
+
+	empty := newReconciler("", nil)
+	_, err = empty.preparationGeneration("instance-1")
+	require.ErrorContains(t, err, "process generation epoch is empty")
+}
+
+func TestReconciler_InstanceRotationInvalidatesPreparedRecord(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	rec := newReconciler("process-a", nil)
+
+	req, err := NewFileRequirement(FileSpec{
+		Target:  "work/seed.txt",
+		Content: []byte("seed"),
+	})
+	require.NoError(t, err)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{req},
+	)
+	require.NoError(t, err)
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	generation1 := md.Prepared[req.Key()].Generation
+	require.NotEmpty(t, generation1)
+
+	target := filepath.Join(ws.Path, "work/seed.txt")
+	infoBefore, err := os.Stat(target)
+	require.NoError(t, err)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{req},
+	)
+	require.NoError(t, err)
+	infoUnchanged, err := os.Stat(target)
+	require.NoError(t, err)
+	require.Equal(t, infoBefore.ModTime(), infoUnchanged.ModTime(),
+		"same instance should skip unchanged bootstrap files")
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-2", []Requirement{req},
+	)
+	require.NoError(t, err)
+
+	md, err = codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	generation2 := md.Prepared[req.Key()].Generation
+	require.NotEmpty(t, generation2)
+	require.NotEqual(t, generation1, generation2)
+
+	infoAfter, err := os.Stat(target)
+	require.NoError(t, err)
+	require.NotEqual(t, infoBefore.ModTime(), infoAfter.ModTime(),
+		"instance rotation must re-apply bootstrap files")
+}
+
+func TestReconciler_InstanceRotationRerunsMarkerlessCommand(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	rec := NewReconciler()
+	logPath := filepath.Join(ws.Path, "work/bootstrap.log")
+
+	cmd, err := NewCommandRequirement(CommandSpec{
+		Cmd:  "bash",
+		Args: []string{"-lc", "mkdir -p work && echo run >> work/bootstrap.log"},
+	})
+	require.NoError(t, err)
+
+	countRuns := func() int {
+		data, err := os.ReadFile(logPath)
+		if os.IsNotExist(err) {
+			return 0
+		}
+		require.NoError(t, err)
+		if len(data) == 0 {
+			return 0
+		}
+		return strings.Count(string(data), "run\n")
+	}
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, countRuns(),
+		"first reconcile on instance-1 must run marker-less command")
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, countRuns(),
+		"same instance must skip marker-less command via Prepared")
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-2", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, countRuns(),
+		"instance rotation must rerun marker-less command")
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Contains(t, md.Prepared, cmd.Key())
+	wantGeneration, err := rec.(*defaultReconciler).preparationGeneration(
+		"instance-2",
+	)
+	require.NoError(t, err)
+	require.Equal(t, wantGeneration, md.Prepared[cmd.Key()].Generation)
+}
+
+func TestReconciler_LegacyPreparedMetadataRotatesBootstrap(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	rec := newReconciler("process-a", nil)
+
+	req, err := NewFileRequirement(FileSpec{
+		Target:  "work/seed.txt",
+		Content: []byte("seed-v2"),
+	})
+	require.NoError(t, err)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{req},
+	)
+	require.NoError(t, err)
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Contains(t, md.Prepared, req.Key())
+	require.NotEmpty(t, md.Prepared[req.Key()].Fingerprint)
+	require.NotEmpty(t, md.Prepared[req.Key()].Generation)
+
+	legacyRecord := md.Prepared[req.Key()]
+	legacyRecord.Generation = ""
+	md.Prepared[req.Key()] = legacyRecord
+	require.NoError(t, codeexecutor.SaveMetadata(ws.Path, md))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(ws.Path, "work/seed.txt"),
+		[]byte("seed-v1"),
+		0o644,
+	))
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-2", []Requirement{req},
+	)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(filepath.Join(ws.Path, "work/seed.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "seed-v2", string(got))
+
+	md, err = codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.NotEmpty(t, md.Prepared[req.Key()].Generation)
+}
+
+func TestReconciler_PartialSaveRecordsGeneration(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	rec := newReconciler("process-a", nil)
+
+	var applyCount atomic.Int32
+	applied := &orderReq{
+		key:      "applied",
+		kind:     KindCommand,
+		phase:    PhaseCommand,
+		apply:    func() { applyCount.Add(1) },
+		sentinel: true,
+	}
+	requiredFail := &orderReq{
+		key:      "bad",
+		kind:     KindCommand,
+		phase:    PhaseCommand,
+		applyErr: fmt.Errorf("boom"),
+	}
+
+	_, _, err := rec.Reconcile(
+		ctx,
+		eng,
+		ws,
+		"instance-1",
+		[]Requirement{applied, requiredFail},
+	)
+	require.ErrorContains(t, err, "required requirement \"bad\" failed")
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Contains(t, md.Prepared, applied.Key())
+	wantGeneration, err := rec.preparationGeneration("instance-1")
+	require.NoError(t, err)
+	require.Equal(t, wantGeneration,
+		md.Prepared[applied.Key()].Generation)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{applied},
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), applyCount.Load(),
+		"partial progress must be reused on the same generation")
+}
+
+func TestReconciler_InstanceRotationRetainsInactivePreparedRecords(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	rec := newReconciler("process-a", nil)
+
+	reqA, err := NewFileRequirement(FileSpec{
+		Key:     "file-a",
+		Target:  "work/a.txt",
+		Content: []byte("a"),
+	})
+	require.NoError(t, err)
+	reqB, err := NewFileRequirement(FileSpec{
+		Key:     "file-b",
+		Target:  "work/b.txt",
+		Content: []byte("b"),
+	})
+	require.NoError(t, err)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-1", []Requirement{reqA, reqB},
+	)
+	require.NoError(t, err)
+	before, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	oldBGeneration := before.Prepared[reqB.Key()].Generation
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-2", []Requirement{reqA},
+	)
+	require.NoError(t, err)
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.Contains(t, md.Prepared, reqA.Key())
+	require.Contains(t, md.Prepared, reqB.Key(),
+		"inactive records remain cached but cannot satisfy another generation")
+	require.Equal(t, oldBGeneration, md.Prepared[reqB.Key()].Generation)
+
+	_, _, err = rec.Reconcile(
+		ctx, eng, ws, "instance-2", []Requirement{reqB},
+	)
+	require.NoError(t, err)
+	md, err = codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	require.NotEqual(t, oldBGeneration,
+		md.Prepared[reqB.Key()].Generation)
+}
+
+func TestReconciler_ProcessRestartInvalidatesReusedInstanceID(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	logPath := filepath.Join(ws.Path, "work/restart.log")
+	cmd, err := NewCommandRequirement(CommandSpec{
+		Cmd: "bash",
+		Args: []string{
+			"-lc", "mkdir -p work && echo run >> work/restart.log",
+		},
+	})
+	require.NoError(t, err)
+
+	recA := newReconciler("process-a", nil)
+	_, _, err = recA.Reconcile(
+		ctx, eng, ws, "reused-instance", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+	_, _, err = recA.Reconcile(
+		ctx, eng, ws, "reused-instance", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+
+	recB := newReconciler("process-b", nil)
+	_, _, err = recB.Reconcile(
+		ctx, eng, ws, "reused-instance", []Requirement{cmd},
+	)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+	require.Equal(t, 2, strings.Count(string(data), "run\n"))
+}
+
+func TestReconciler_ConcurrentRotationsDoNotTrustStaleRecord(t *testing.T) {
+	ctx := context.Background()
+	eng, ws := newTestEngine(t)
+	recA := newReconciler("process-a", nil)
+	recB := newReconciler("process-a", nil)
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	oldReq := &orderReq{
+		key:   "shared-bootstrap",
+		kind:  KindCommand,
+		phase: PhaseCommand,
+		apply: func() {
+			close(entered)
+			<-release
+		},
+	}
+	newReq := &orderReq{
+		key:   oldReq.key,
+		kind:  KindCommand,
+		phase: PhaseCommand,
+		apply: func() {},
+	}
+
+	oldDone := make(chan error, 1)
+	go func() {
+		_, _, err := recA.Reconcile(
+			ctx, eng, ws, "instance-2", []Requirement{oldReq},
+		)
+		oldDone <- err
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("old-generation reconcile did not reach Apply")
+	}
+
+	_, _, err := recB.Reconcile(
+		ctx, eng, ws, "instance-3", []Requirement{newReq},
+	)
+	require.NoError(t, err)
+	close(release)
+	require.NoError(t, <-oldDone)
+
+	md, err := codeexecutor.LoadMetadata(ws.Path)
+	require.NoError(t, err)
+	oldGeneration, err := recA.preparationGeneration("instance-2")
+	require.NoError(t, err)
+	require.Equal(t, oldGeneration,
+		md.Prepared[oldReq.Key()].Generation,
+		"the late writer may win storage, but its provenance remains stale")
+
+	var reapplied atomic.Int32
+	currentReq := &orderReq{
+		key:   oldReq.key,
+		kind:  KindCommand,
+		phase: PhaseCommand,
+		apply: func() { reapplied.Add(1) },
+	}
+	_, _, err = recB.Reconcile(
+		ctx, eng, ws, "instance-3", []Requirement{currentReq},
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), reapplied.Load(),
+		"a stale writer must not authorize a skip on the current generation")
+}
+
+// observe the reconciler's phase ordering and locking semantics.
+type orderReq struct {
+	key      string
+	kind     Kind
+	phase    Phase
+	optional bool
+	sentinel bool
+	apply    func()
+	applyErr error
+}
+
+func (r *orderReq) Key() string  { return r.key }
+func (r *orderReq) Kind() Kind   { return r.kind }
+func (r *orderReq) Phase() Phase { return r.phase }
+func (r *orderReq) Required() bool {
+	return !r.optional
+}
+func (r *orderReq) Target() string { return r.key }
+
+func (r *orderReq) Fingerprint(
+	_ context.Context, _ ApplyContext,
+) (string, error) {
+	return r.key, nil
+}
+
+func (r *orderReq) SentinelExists(
+	_ context.Context, _ ApplyContext,
+) (bool, error) {
+	return r.sentinel, nil
+}
+
+func (r *orderReq) Apply(_ context.Context, _ ApplyContext) error {
+	if r.apply != nil {
+		r.apply()
+	}
+	return r.applyErr
+}

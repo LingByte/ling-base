@@ -1,0 +1,34 @@
+//
+// Tencent is pleased to support the open source community by making trpc-agent-go available.
+//
+// Copyright (C) 2025 Tencent.  All rights reserved.
+//
+// trpc-agent-go is licensed under the Apache License Version 2.0.
+//
+
+package promptinjection
+
+import (
+	"context"
+
+	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/currentinput"
+	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
+	promptreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/promptinjection/review"
+)
+
+func (p *Plugin) buildReviewRequest(ctx context.Context, messages []model.Message) *promptreview.Request {
+	req := currentinput.Build(ctx, messages, p.tokenCounter, func(entry guardtranscript.Entry) promptreview.TranscriptEntry {
+		return promptreview.TranscriptEntry{
+			Role:    entry.Role,
+			Content: entry.Content,
+		}
+	})
+	if req == nil {
+		return nil
+	}
+	return &promptreview.Request{
+		LastUserInput: req.LastUserInput,
+		Transcript:    req.Transcript,
+	}
+}

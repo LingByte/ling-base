@@ -1,0 +1,21 @@
+module github.com/LingByte/ling-base/agentkit/model/tiktoken
+
+go 1.23
+
+replace github.com/LingByte/ling-base/agentkit => ../../
+
+require (
+	github.com/stretchr/testify v1.11.1
+	github.com/tiktoken-go/tokenizer v0.7.0
+	github.com/LingByte/ling-base/agentkit v0.2.1
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb // indirect
+)

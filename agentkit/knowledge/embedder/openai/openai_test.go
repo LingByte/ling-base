@@ -1,0 +1,1119 @@
+//
+// Tencent is pleased to support the open source community by making trpc-agent-go available.
+//
+// Copyright (C) 2025 Tencent.  All rights reserved.
+//
+// trpc-agent-go is licensed under the Apache License Version 2.0.
+//
+//
+
+package openai
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/LingByte/ling-base/agentkit/knowledge/embedder"
+	"github.com/openai/openai-go/option"
+)
+
+// TestEmbedderInterface verifies that our Embedder implements the interface.
+func TestEmbedderInterface(t *testing.T) {
+	var _ embedder.Embedder = (*Embedder)(nil)
+	var _ embedder.BatchEmbedder = (*Embedder)(nil)
+}
+
+// TestNewEmbedder tests the constructor with various options.
+func TestNewEmbedder(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     []Option
+		expected *Embedder
+	}{
+		{
+			name: "default options",
+			opts: []Option{},
+			expected: &Embedder{
+				model:          DefaultModel,
+				dimensions:     DefaultDimensions,
+				encodingFormat: DefaultEncodingFormat,
+			},
+		},
+		{
+			name: "custom options",
+			opts: []Option{
+				WithModel(ModelTextEmbedding3Large),
+				WithDimensions(3072),
+				WithEncodingFormat(EncodingFormatFloat),
+				WithUser("test-user"),
+				WithAPIKey("test-key"),
+			},
+			expected: &Embedder{
+				model:          ModelTextEmbedding3Large,
+				dimensions:     3072,
+				encodingFormat: EncodingFormatFloat,
+				user:           "test-user",
+				apiKey:         "test-key",
+			},
+		},
+		{
+			name: "with organization and base URL",
+			opts: []Option{
+				WithOrganization("test-org"),
+				WithBaseURL("https://api.example.com"),
+			},
+			expected: &Embedder{
+				model:          DefaultModel,
+				dimensions:     DefaultDimensions,
+				encodingFormat: DefaultEncodingFormat,
+				organization:   "test-org",
+				baseURL:        "https://api.example.com",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := New(tt.opts...)
+
+			if e.model != tt.expected.model {
+				t.Errorf("expected model %s, got %s", tt.expected.model, e.model)
+			}
+			if e.dimensions != tt.expected.dimensions {
+				t.Errorf("expected dimensions %d, got %d", tt.expected.dimensions, e.dimensions)
+			}
+			if e.encodingFormat != tt.expected.encodingFormat {
+				t.Errorf("expected encoding format %s, got %s", tt.expected.encodingFormat, e.encodingFormat)
+			}
+			if e.user != tt.expected.user {
+				t.Errorf("expected user %s, got %s", tt.expected.user, e.user)
+			}
+			if e.apiKey != tt.expected.apiKey {
+				t.Errorf("expected apiKey %s, got %s", tt.expected.apiKey, e.apiKey)
+			}
+			if e.organization != tt.expected.organization {
+				t.Errorf("expected organization %s, got %s", tt.expected.organization, e.organization)
+			}
+			if e.baseURL != tt.expected.baseURL {
+				t.Errorf("expected baseURL %s, got %s", tt.expected.baseURL, e.baseURL)
+			}
+		})
+	}
+}
+
+// TestWithRequestOptions tests the WithRequestOptions option function.
+func TestWithRequestOptions(t *testing.T) {
+	// Test that WithRequestOptions can be called and doesn't panic.
+	// We don't need to test the actual OpenAI options behavior here,
+	// just ensure the option function works.
+	e := New(WithRequestOptions())
+	if e == nil {
+		t.Fatal("expected non-nil embedder")
+	}
+
+	// Verify other fields still have default values.
+	if e.model != DefaultModel {
+		t.Errorf("expected default model %s, got %s", DefaultModel, e.model)
+	}
+}
+
+// TestGetDimensions tests the GetDimensions method.
+func TestGetDimensions(t *testing.T) {
+	tests := []struct {
+		name       string
+		dimensions int
+	}{
+		{"default dimensions", DefaultDimensions},
+		{"custom dimensions", 512},
+		{"large dimensions", 3072},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := New(WithDimensions(tt.dimensions))
+			if got := e.GetDimensions(); got != tt.dimensions {
+				t.Errorf("GetDimensions() = %d, want %d", got, tt.dimensions)
+			}
+		})
+	}
+}
+
+// TestRequestDimensionsForwarding verifies how the dimensions parameter is
+// forwarded to the embeddings API:
+//
+//   - Explicit WithDimensions: always forwarded for any model id (this is the
+//     regression test for issue #1664, where dimensions configured for
+//     text-embedding-v4 on a DashScope-compatible gateway was silently dropped).
+//   - Implicit (no WithDimensions) on the text-embedding-3-* family: the
+//     historical default (DefaultDimensions=1536) is forwarded to preserve the
+//     existing wire contract for callers who already provisioned downstream
+//     stores against that default.
+//   - Implicit on any other model: the parameter is omitted so the model's
+//     server-side default is used and gateways/models that reject the field
+//     keep working.
+func TestRequestDimensionsForwarding(t *testing.T) {
+	tests := []struct {
+		name           string
+		opts           []Option
+		wantDimensions int64 // 0 means "must be omitted"
+	}{
+		{
+			name:           "explicit dimensions on text-embedding-3-small",
+			opts:           []Option{WithModel(ModelTextEmbedding3Small), WithDimensions(256)},
+			wantDimensions: 256,
+		},
+		{
+			name:           "explicit dimensions on text-embedding-v4",
+			opts:           []Option{WithModel("text-embedding-v4"), WithDimensions(1536)},
+			wantDimensions: 1536,
+		},
+		{
+			name:           "implicit dimensions on text-embedding-3-small (legacy default)",
+			opts:           []Option{WithModel(ModelTextEmbedding3Small)},
+			wantDimensions: int64(DefaultDimensions),
+		},
+		{
+			name:           "implicit dimensions on text-embedding-3-large (legacy default)",
+			opts:           []Option{WithModel(ModelTextEmbedding3Large)},
+			wantDimensions: int64(DefaultDimensions),
+		},
+		{
+			name:           "no explicit dimensions on ada-002 (model rejects param)",
+			opts:           []Option{WithModel(ModelTextEmbeddingAda002)},
+			wantDimensions: 0,
+		},
+		{
+			name:           "no explicit dimensions on text-embedding-v4",
+			opts:           []Option{WithModel("text-embedding-v4")},
+			wantDimensions: 0,
+		},
+		{
+			name:           "no explicit dimensions on custom OpenAI-compatible model",
+			opts:           []Option{WithModel("custom-embedder")},
+			wantDimensions: 0,
+		},
+		{
+			// Guard against the text-embedding-3 prefix accidentally
+			// matching unrelated ids that share the leading characters.
+			name:           "no explicit dimensions on text-embedding-30 (prefix-collision guard)",
+			opts:           []Option{WithModel("text-embedding-30")},
+			wantDimensions: 0,
+		},
+		{
+			name:           "no explicit dimensions on text-embedding-3rd-party (prefix-collision guard)",
+			opts:           []Option{WithModel("text-embedding-3rd-party")},
+			wantDimensions: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// captured is written by the handler goroutine and read by the
+			// test goroutine after GetEmbedding returns. The HTTP round trip
+			// provides the happens-before edge, so a plain shared variable
+			// is safe; decode errors are surfaced via decodeErr instead of
+			// t.Fatalf, since t.Fatalf from a non-test goroutine only exits
+			// that goroutine and would leave the test running with bad data.
+			var (
+				captured  map[string]any
+				decodeErr error
+			)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !strings.HasSuffix(r.URL.Path, "/embeddings") {
+					http.Error(w, "not found", http.StatusNotFound)
+					return
+				}
+				if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+					decodeErr = err
+					http.Error(w, "bad request", http.StatusBadRequest)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"object": "list",
+					"data": []map[string]any{
+						{"object": "embedding", "index": 0, "embedding": []float64{0.1}},
+					},
+					"usage": map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+				})
+			}))
+			defer srv.Close()
+
+			opts := append([]Option{WithBaseURL(srv.URL), WithAPIKey("dummy")}, tt.opts...)
+			emb := New(opts...)
+			if _, err := emb.GetEmbedding(context.Background(), "hello"); err != nil {
+				t.Fatalf("GetEmbedding err: %v", err)
+			}
+			if decodeErr != nil {
+				t.Fatalf("decode request body: %v", decodeErr)
+			}
+
+			got, present := captured["dimensions"]
+			if tt.wantDimensions == 0 {
+				if present {
+					t.Fatalf("dimensions should not be sent, but got %v", got)
+				}
+				return
+			}
+			if !present {
+				t.Fatalf("dimensions=%d expected in request, but absent", tt.wantDimensions)
+			}
+			gotF, ok := got.(float64)
+			if !ok {
+				t.Fatalf("dimensions field is not numeric: %T (%v)", got, got)
+			}
+			if int64(gotF) != tt.wantDimensions {
+				t.Errorf("dimensions = %v, want %d", got, tt.wantDimensions)
+			}
+		})
+	}
+}
+
+// TestGetEmbeddingValidation tests input validation.
+func TestGetEmbeddingValidation(t *testing.T) {
+	e := New()
+	ctx := context.Background()
+
+	// Test empty text.
+	_, err := e.GetEmbedding(ctx, "")
+	if err == nil {
+		t.Error("expected error for empty text, got nil")
+	}
+
+	// Test empty text with usage.
+	_, _, err = e.GetEmbeddingWithUsage(ctx, "")
+	if err == nil {
+		t.Error("expected error for empty text with usage, got nil")
+	}
+}
+
+func TestEmbedder_GetEmbedding(t *testing.T) {
+	// Prepare fake OpenAI server.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Respond only to embeddings endpoint.
+		if !strings.HasSuffix(r.URL.Path, "/embeddings") {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		rsp := map[string]any{
+			"object": "list",
+			"data": []map[string]any{
+				{"object": "embedding", "index": 0, "embedding": []float64{0.1, 0.2, 0.3}},
+			},
+			"model": "text-embedding-3-small",
+			"usage": map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+		}
+		_ = json.NewEncoder(w).Encode(rsp)
+	}))
+	defer srv.Close()
+
+	emb := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithModel(ModelTextEmbedding3Small),
+		WithDimensions(3),
+	)
+
+	vec, err := emb.GetEmbedding(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("GetEmbedding err: %v", err)
+	}
+	if len(vec) != 3 || vec[0] != 0.1 {
+		t.Fatalf("unexpected embedding vector: %v", vec)
+	}
+
+	// Test GetEmbeddingWithUsage.
+	vec2, usage, err := emb.GetEmbeddingWithUsage(context.Background(), "hi")
+	if err != nil || len(vec2) != 3 || usage == nil {
+		t.Fatalf("GetEmbeddingWithUsage failed")
+	}
+
+	// Empty text should return error.
+	if _, err := emb.GetEmbedding(context.Background(), ""); err == nil {
+		t.Fatalf("expected error for empty text")
+	}
+
+	// Test alternate encoding format path.
+	emb2 := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithEncodingFormat(EncodingFormatBase64),
+	)
+	if _, err := emb2.GetEmbedding(context.Background(), "world"); err != nil {
+		t.Fatalf("base64 embedding failed: %v", err)
+	}
+
+	emb3 := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithModel(ModelTextEmbeddingAda002),
+	)
+	if _, err := emb3.GetEmbedding(context.Background(), "test"); err != nil {
+		t.Fatalf("ada embedding failed: %v", err)
+	}
+}
+
+// embeddingItem builds one data item of an OpenAI-compatible batch response.
+func embeddingItem(index int, vector []float64) map[string]any {
+	return map[string]any{"object": "embedding", "index": index, "embedding": vector}
+}
+
+// embeddingItemWithoutIndex builds a data item that omits the required index
+// field, as a non-conforming gateway may do.
+func embeddingItemWithoutIndex(vector []float64) map[string]any {
+	return map[string]any{"object": "embedding", "embedding": vector}
+}
+
+// newBatchServer serves the given data items for every embeddings request and
+// records the decoded request bodies.
+func newBatchServer(t *testing.T, data func(inputs []string) []map[string]any) (*httptest.Server, *[][]string) {
+	t.Helper()
+	var requests [][]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/embeddings") {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		var body struct {
+			Input json.RawMessage `json:"input"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// A batch request must carry a JSON array of strings, not a single
+		// string, otherwise the provider computes only one vector.
+		var inputs []string
+		if err := json.Unmarshal(body.Input, &inputs); err != nil {
+			http.Error(w, "input is not an array of strings: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		requests = append(requests, inputs)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"object": "list",
+			"data":   data(inputs),
+			"model":  "bge-m3",
+			"usage":  map[string]any{"prompt_tokens": len(inputs), "total_tokens": len(inputs)},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &requests
+}
+
+// TestEmbedder_GetEmbeddings_SendsOneArrayRequest verifies that a batch is sent
+// as a single request whose input is the array of texts in caller order.
+func TestEmbedder_GetEmbeddings_SendsOneArrayRequest(t *testing.T) {
+	texts := []string{"first", "second", "third"}
+	srv, requests := newBatchServer(t, func(inputs []string) []map[string]any {
+		items := make([]map[string]any, len(inputs))
+		for i := range inputs {
+			items[i] = embeddingItem(i, []float64{float64(i)})
+		}
+		return items
+	})
+
+	emb := New(WithBaseURL(srv.URL), WithAPIKey("dummy"), WithModel("bge-m3"), WithDimensions(1))
+	vectors, err := emb.GetEmbeddings(context.Background(), texts)
+	if err != nil {
+		t.Fatalf("GetEmbeddings() error = %v", err)
+	}
+
+	if len(*requests) != 1 {
+		t.Fatalf("http requests = %d, want 1", len(*requests))
+	}
+	if !slices.Equal((*requests)[0], texts) {
+		t.Errorf("request input = %v, want %v", (*requests)[0], texts)
+	}
+	if len(vectors) != len(texts) {
+		t.Fatalf("vectors = %d, want %d", len(vectors), len(texts))
+	}
+}
+
+// TestEmbedder_GetEmbeddings_RestoresInputOrder verifies that vectors are
+// returned in input order even when the provider replies out of order.
+func TestEmbedder_GetEmbeddings_RestoresInputOrder(t *testing.T) {
+	srv, _ := newBatchServer(t, func(inputs []string) []map[string]any {
+		return []map[string]any{
+			embeddingItem(2, []float64{30}),
+			embeddingItem(0, []float64{10}),
+			embeddingItem(1, []float64{20}),
+		}
+	})
+
+	emb := New(WithBaseURL(srv.URL), WithAPIKey("dummy"), WithModel("bge-m3"), WithDimensions(1))
+	vectors, err := emb.GetEmbeddings(context.Background(), []string{"a", "b", "c"})
+	if err != nil {
+		t.Fatalf("GetEmbeddings() error = %v", err)
+	}
+
+	want := [][]float64{{10}, {20}, {30}}
+	for i := range want {
+		if !slices.Equal(vectors[i], want[i]) {
+			t.Errorf("vectors[%d] = %v, want %v", i, vectors[i], want[i])
+		}
+	}
+}
+
+// TestEmbedder_GetEmbeddings_RejectsUnmappableResponse verifies that responses
+// which cannot be bound back to the input are rejected instead of guessed.
+func TestEmbedder_GetEmbeddings_RejectsUnmappableResponse(t *testing.T) {
+	tests := []struct {
+		name string
+		data func(inputs []string) []map[string]any
+	}{
+		{
+			name: "count mismatch",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{embeddingItem(0, []float64{1})}
+			},
+		},
+		{
+			name: "duplicate index",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					embeddingItem(0, []float64{1}),
+					embeddingItem(0, []float64{2}),
+				}
+			},
+		},
+		{
+			name: "index out of range",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					embeddingItem(0, []float64{1}),
+					embeddingItem(7, []float64{2}),
+				}
+			},
+		},
+		{
+			// Where int is 32 bits, narrowing this index before the range
+			// check wraps it to the valid slot 0, so the check compares the
+			// response value itself. The literal is typed to keep the test
+			// buildable on those targets.
+			name: "index beyond the 32-bit range",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					{"object": "embedding", "index": int64(1) << 32, "embedding": []float64{1}},
+					embeddingItem(1, []float64{2}),
+				}
+			},
+		},
+		{
+			name: "empty vector",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					embeddingItem(0, []float64{1}),
+					embeddingItem(1, []float64{}),
+				}
+			},
+		},
+		{
+			// An omitted index decodes to zero, which the remaining checks
+			// cannot tell apart from a supplied zero. The mapping is then
+			// inferred rather than provided, so the response is rejected.
+			name: "missing index",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					embeddingItemWithoutIndex([]float64{1}),
+					embeddingItem(1, []float64{2}),
+				}
+			},
+		},
+		{
+			name: "null index",
+			data: func(inputs []string) []map[string]any {
+				return []map[string]any{
+					{"object": "embedding", "index": nil, "embedding": []float64{1}},
+					embeddingItem(1, []float64{2}),
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := newBatchServer(t, tt.data)
+			emb := New(
+				WithBaseURL(srv.URL),
+				WithAPIKey("dummy"),
+				WithModel("bge-m3"),
+				WithDimensions(1),
+				WithMaxRetries(0),
+			)
+			if _, err := emb.GetEmbeddings(context.Background(), []string{"a", "b"}); err == nil {
+				t.Fatal("GetEmbeddings() error = nil, want an error")
+			}
+		})
+	}
+}
+
+// TestEmbedder_GetEmbeddings_RetriesWholeBatch verifies that a rejected batch
+// response is retried as one request carrying the complete input. Retrying a
+// failed batch as per-text requests would multiply the request count that
+// batching is meant to reduce.
+func TestEmbedder_GetEmbeddings_RetriesWholeBatch(t *testing.T) {
+	texts := []string{"first", "second", "third"}
+	attempts := 0
+	srv, requests := newBatchServer(t, func(inputs []string) []map[string]any {
+		attempts++
+		if attempts == 1 {
+			// Fewer vectors than inputs cannot be mapped back to the batch.
+			return []map[string]any{embeddingItem(0, []float64{1})}
+		}
+		items := make([]map[string]any, len(inputs))
+		for i := range inputs {
+			items[i] = embeddingItem(i, []float64{float64(i)})
+		}
+		return items
+	})
+
+	emb := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithModel("bge-m3"),
+		WithDimensions(1),
+		WithMaxRetries(1),
+		WithRetryBackoff([]time.Duration{time.Millisecond}),
+	)
+
+	vectors, err := emb.GetEmbeddings(context.Background(), texts)
+	if err != nil {
+		t.Fatalf("GetEmbeddings() error = %v", err)
+	}
+	if len(vectors) != len(texts) {
+		t.Fatalf("vectors = %d, want %d", len(vectors), len(texts))
+	}
+	if len(*requests) != 2 {
+		t.Fatalf("http requests = %d, want 2 (first attempt and retry)", len(*requests))
+	}
+	for i, inputs := range *requests {
+		if !slices.Equal(inputs, texts) {
+			t.Errorf("request %d input = %v, want the whole batch %v", i, inputs, texts)
+		}
+	}
+}
+
+// TestEmbedder_GetEmbeddings_RejectsEmptyInput verifies input validation before
+// any request is sent.
+func TestEmbedder_GetEmbeddings_RejectsEmptyInput(t *testing.T) {
+	emb := New(WithMaxRetries(0))
+
+	if _, err := emb.GetEmbeddings(context.Background(), nil); err == nil {
+		t.Error("GetEmbeddings(nil) error = nil, want an error")
+	}
+	if _, err := emb.GetEmbeddings(context.Background(), []string{}); err == nil {
+		t.Error("GetEmbeddings(empty) error = nil, want an error")
+	}
+	if _, err := emb.GetEmbeddings(context.Background(), []string{"ok", ""}); err == nil {
+		t.Error("GetEmbeddings() accepted an empty text, want an error")
+	}
+}
+
+// TestEmbedder_GetEmbeddings_HonorsContextCancellation verifies that a
+// cancelled context aborts the batch request.
+func TestEmbedder_GetEmbeddings_HonorsContextCancellation(t *testing.T) {
+	srv, _ := newBatchServer(t, func(inputs []string) []map[string]any {
+		items := make([]map[string]any, len(inputs))
+		for i := range inputs {
+			items[i] = embeddingItem(i, []float64{float64(i)})
+		}
+		return items
+	})
+
+	emb := New(WithBaseURL(srv.URL), WithAPIKey("dummy"), WithModel("bge-m3"), WithMaxRetries(0))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := emb.GetEmbeddings(ctx, []string{"a", "b"})
+	if err == nil {
+		t.Fatal("GetEmbeddings() error = nil, want a cancellation error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("GetEmbeddings() error = %v, want it to wrap context.Canceled", err)
+	}
+}
+
+// TestGetEmbedding_EmptyResponse tests handling of empty embedding responses
+func TestGetEmbedding_EmptyResponse(t *testing.T) {
+	t.Run("empty data array", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			rsp := map[string]any{
+				"object": "list",
+				"data":   []map[string]any{},
+				"model":  "text-embedding-3-small",
+			}
+			_ = json.NewEncoder(w).Encode(rsp)
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(0),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("GetEmbedding should return error for empty data")
+		}
+		if !strings.Contains(err.Error(), "received empty embedding response") {
+			t.Fatalf("GetEmbedding error = %v, want empty response", err)
+		}
+	})
+
+	t.Run("empty embedding vector", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			rsp := map[string]any{
+				"object": "list",
+				"data": []map[string]any{
+					{"object": "embedding", "index": 0, "embedding": []float64{}},
+				},
+				"model": "text-embedding-3-small",
+			}
+			_ = json.NewEncoder(w).Encode(rsp)
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(0),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("GetEmbedding should return error for empty vector")
+		}
+		if !strings.Contains(err.Error(), "received empty embedding vector") {
+			t.Fatalf("GetEmbedding error = %v, want empty vector", err)
+		}
+	})
+}
+
+// TestGetEmbeddingWithUsage_EmptyResponse tests handling of empty responses with usage
+func TestGetEmbeddingWithUsage_EmptyResponse(t *testing.T) {
+	t.Run("empty data array with usage", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			rsp := map[string]any{
+				"object": "list",
+				"data":   []map[string]any{},
+				"model":  "text-embedding-3-small",
+				"usage":  map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+			}
+			_ = json.NewEncoder(w).Encode(rsp)
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(0),
+		)
+
+		_, _, err := emb.GetEmbeddingWithUsage(context.Background(), "test")
+		if err == nil {
+			t.Fatal("GetEmbeddingWithUsage should return error")
+		}
+		if !strings.Contains(err.Error(), "received empty embedding response") {
+			t.Fatalf("GetEmbeddingWithUsage error = %v, want empty response", err)
+		}
+	})
+
+	t.Run("empty embedding vector with usage", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			rsp := map[string]any{
+				"object": "list",
+				"data": []map[string]any{
+					{"object": "embedding", "index": 0, "embedding": []float64{}},
+				},
+				"model": "text-embedding-3-small",
+				"usage": map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+			}
+			_ = json.NewEncoder(w).Encode(rsp)
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(0),
+		)
+
+		_, _, err := emb.GetEmbeddingWithUsage(context.Background(), "test")
+		if err == nil {
+			t.Fatal("GetEmbeddingWithUsage should return error")
+		}
+		if !strings.Contains(err.Error(), "received empty embedding vector") {
+			t.Fatalf("GetEmbeddingWithUsage error = %v, want empty vector", err)
+		}
+	})
+}
+
+// TestGetEmbedding_EmptyDataArray tests the log.WarnContext path for empty data array
+func TestGetEmbedding_EmptyDataArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		rsp := map[string]any{
+			"object": "list",
+			"data":   []map[string]any{},
+			"model":  "text-embedding-3-small",
+		}
+		_ = json.NewEncoder(w).Encode(rsp)
+	}))
+	defer srv.Close()
+
+	emb := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithMaxRetries(0),
+	)
+
+	_, err := emb.GetEmbedding(context.Background(), "test")
+	if err == nil {
+		t.Fatal("GetEmbedding should return error")
+	}
+	if !strings.Contains(err.Error(), "received empty embedding response") {
+		t.Fatalf("GetEmbedding error = %v, want empty response", err)
+	}
+}
+
+// TestRetryLogic tests the retry logic with rate limit errors.
+func TestRetryLogic(t *testing.T) {
+	t.Run("retry on rate limit error", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			if attemptCount <= 2 {
+				// Return rate limit error for first 2 attempts
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error": map[string]any{
+						"message": "Rate limit exceeded",
+						"type":    "rate_limit_error",
+						"code":    "429",
+					},
+				})
+				return
+			}
+			// Success on 3rd attempt
+			w.Header().Set("Content-Type", "application/json")
+			rsp := map[string]any{
+				"object": "list",
+				"data": []map[string]any{
+					{"object": "embedding", "index": 0, "embedding": []float64{0.1, 0.2, 0.3}},
+				},
+				"model": "text-embedding-3-small",
+				"usage": map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+			}
+			_ = json.NewEncoder(w).Encode(rsp)
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(3),
+			WithRetryBackoff([]time.Duration{10 * time.Millisecond, 20 * time.Millisecond}),
+			// Disable SDK internal retry to test our retry logic
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		vec, err := emb.GetEmbedding(context.Background(), "test")
+		if err != nil {
+			t.Fatalf("GetEmbedding should succeed after retries: %v", err)
+		}
+		if len(vec) != 3 {
+			t.Errorf("Expected 3 dimensions, got %d", len(vec))
+		}
+		if attemptCount != 3 {
+			t.Errorf("Expected 3 attempts, got %d", attemptCount)
+		}
+	})
+
+	t.Run("max retries exceeded", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			// Always return rate limit error
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
+					"message": "Rate limit exceeded",
+					"type":    "rate_limit_error",
+					"code":    "429",
+				},
+			})
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(2),
+			WithRetryBackoff([]time.Duration{5 * time.Millisecond}),
+			// Disable SDK internal retry to test our retry logic
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("Expected error after max retries exceeded")
+		}
+		// Initial attempt + 2 retries = 3 total attempts
+		if attemptCount != 3 {
+			t.Errorf("Expected 3 attempts (1 initial + 2 retries), got %d", attemptCount)
+		}
+	})
+
+	t.Run("retry on empty embedding response", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			w.Header().Set("Content-Type", "application/json")
+			if attemptCount == 1 {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"object": "list",
+					"data":   []map[string]any{},
+					"model":  "text-embedding-3-small",
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"object": "list",
+				"data": []map[string]any{
+					{"object": "embedding", "index": 0, "embedding": []float64{0.1, 0.2, 0.3}},
+				},
+				"model": "text-embedding-3-small",
+			})
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(1),
+			WithRetryBackoff([]time.Duration{time.Millisecond}),
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		vec, err := emb.GetEmbedding(context.Background(), "test")
+		if err != nil {
+			t.Fatalf("GetEmbedding should succeed after empty response retry: %v", err)
+		}
+		if len(vec) != 3 {
+			t.Errorf("Expected 3 dimensions, got %d", len(vec))
+		}
+		if attemptCount != 2 {
+			t.Errorf("Expected 2 attempts, got %d", attemptCount)
+		}
+	})
+
+	t.Run("retry on any error", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			// Return bad request error (400)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
+					"message": "Invalid request",
+					"type":    "invalid_request_error",
+				},
+			})
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(3),
+			WithRetryBackoff([]time.Duration{5 * time.Millisecond}),
+			// Disable SDK internal retry to test our retry logic
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("Expected error for bad request")
+		}
+		// Should retry on any error: Initial attempt + 3 retries = 4 total attempts
+		if attemptCount != 4 {
+			t.Errorf("Expected 4 attempts (1 initial + 3 retries), got %d", attemptCount)
+		}
+	})
+
+	t.Run("no retry when maxRetries is 0", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
+					"message": "Rate limit exceeded",
+					"type":    "rate_limit_error",
+				},
+			})
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(0), // Explicitly disable retries
+			// Disable SDK internal retry to test our retry logic
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("Expected error when retries disabled")
+		}
+		if attemptCount != 1 {
+			t.Errorf("Expected 1 attempt (no retries), got %d", attemptCount)
+		}
+	})
+
+	t.Run("negative maxRetries treated as 0", func(t *testing.T) {
+		attemptCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attemptCount++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
+					"message": "Rate limit exceeded",
+					"type":    "rate_limit_error",
+				},
+			})
+		}))
+		defer srv.Close()
+
+		emb := New(
+			WithBaseURL(srv.URL),
+			WithAPIKey("dummy"),
+			WithMaxRetries(-5), // Negative value should be treated as 0
+			WithRequestOptions(option.WithMaxRetries(0)),
+		)
+
+		_, err := emb.GetEmbedding(context.Background(), "test")
+		if err == nil {
+			t.Fatal("Expected error when retries disabled")
+		}
+		if attemptCount != 1 {
+			t.Errorf("Expected 1 attempt (negative maxRetries treated as 0), got %d", attemptCount)
+		}
+	})
+}
+
+// TestGetBackoffDuration tests the getBackoffDuration method.
+func TestGetBackoffDuration(t *testing.T) {
+	t.Run("default backoff", func(t *testing.T) {
+		emb := New()
+		expected := []time.Duration{100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond}
+		for i, want := range expected {
+			if got := emb.getBackoffDuration(i); got != want {
+				t.Errorf("Expected %v for attempt %d, got %v", want, i, got)
+			}
+		}
+		// Attempt beyond default slice length should return last element
+		if got := emb.getBackoffDuration(10); got != 800*time.Millisecond {
+			t.Errorf("Expected 800ms for attempt beyond slice, got %v", got)
+		}
+	})
+
+	t.Run("empty backoff slice", func(t *testing.T) {
+		emb := New(WithRetryBackoff(nil))
+		if got := emb.getBackoffDuration(0); got != 0 {
+			t.Errorf("Expected 0 for empty backoff, got %v", got)
+		}
+	})
+
+	t.Run("within backoff slice", func(t *testing.T) {
+		emb := New(WithRetryBackoff([]time.Duration{
+			100 * time.Millisecond,
+			200 * time.Millisecond,
+			300 * time.Millisecond,
+		}))
+
+		if got := emb.getBackoffDuration(0); got != 100*time.Millisecond {
+			t.Errorf("Expected 100ms for attempt 0, got %v", got)
+		}
+		if got := emb.getBackoffDuration(1); got != 200*time.Millisecond {
+			t.Errorf("Expected 200ms for attempt 1, got %v", got)
+		}
+		if got := emb.getBackoffDuration(2); got != 300*time.Millisecond {
+			t.Errorf("Expected 300ms for attempt 2, got %v", got)
+		}
+	})
+
+	t.Run("exceeds backoff slice length", func(t *testing.T) {
+		emb := New(WithRetryBackoff([]time.Duration{
+			100 * time.Millisecond,
+			200 * time.Millisecond,
+		}))
+
+		// Attempt index 5 exceeds slice length, should return last element
+		if got := emb.getBackoffDuration(5); got != 200*time.Millisecond {
+			t.Errorf("Expected 200ms for attempt beyond slice, got %v", got)
+		}
+	})
+}
+
+// TestRetryWithContextCancellation tests retry behavior when context is cancelled.
+func TestRetryWithContextCancellation(t *testing.T) {
+	attemptCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
+				"message": "Rate limit exceeded",
+			},
+		})
+	}))
+	defer srv.Close()
+
+	emb := New(
+		WithBaseURL(srv.URL),
+		WithAPIKey("dummy"),
+		WithMaxRetries(5),
+		WithRetryBackoff([]time.Duration{100 * time.Millisecond}),
+		// Disable SDK internal retry to test our retry logic
+		WithRequestOptions(option.WithMaxRetries(0)),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel context shortly after first request
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := emb.GetEmbedding(ctx, "test")
+	if err == nil {
+		t.Fatal("Expected error when context is cancelled")
+	}
+	// Should have made at least 1 attempt but not all 6 (1 + 5 retries)
+	if attemptCount == 0 {
+		t.Error("Expected at least 1 attempt")
+	}
+}

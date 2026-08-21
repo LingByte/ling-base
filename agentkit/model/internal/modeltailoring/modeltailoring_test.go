@@ -1,0 +1,117 @@
+//
+// Tencent is pleased to support the open source community by making trpc-agent-go available.
+//
+// Copyright (C) 2025 Tencent.  All rights reserved.
+//
+// trpc-agent-go is licensed under the Apache License Version 2.0.
+//
+//
+
+package modeltailoring
+
+import (
+	"context"
+	"testing"
+
+	"github.com/LingByte/ling-base/agentkit/internal/modelrequest"
+	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/stretchr/testify/require"
+)
+
+func TestApplyResult_NilRequest(t *testing.T) {
+	updated := ApplyResult(
+		context.Background(),
+		"test.Model",
+		nil,
+		[]model.Message{model.NewUserMessage("q")},
+	)
+
+	require.False(t, updated)
+}
+
+func TestApplyResult_PreservesOriginalOnEmptyResult(t *testing.T) {
+	tests := []struct {
+		name     string
+		tailored []model.Message
+	}{
+		{name: "nil result", tailored: nil},
+		{name: "empty slice result", tailored: []model.Message{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := []model.Message{
+				model.NewSystemMessage("sys"),
+				model.NewUserMessage("q"),
+			}
+			req := &model.Request{Messages: append([]model.Message(nil), original...)}
+
+			updated := ApplyResult(
+				context.Background(), "test.Model", req, tt.tailored,
+			)
+
+			require.False(t, updated)
+			require.Equal(t, original, req.Messages)
+		})
+	}
+}
+
+func TestApplyResult_AppliesTailoredMessages(t *testing.T) {
+	tailored := []model.Message{model.NewUserMessage("trimmed")}
+	req := &model.Request{Messages: []model.Message{
+		model.NewSystemMessage("sys"),
+		model.NewUserMessage("q"),
+	}}
+
+	updated := ApplyResult(
+		context.Background(), "test.Model", req, tailored,
+	)
+
+	require.True(t, updated)
+	require.Equal(t, tailored, req.Messages)
+}
+
+func TestApplyResult_AllowsEmptyResultForEmptyOriginal(t *testing.T) {
+	req := &model.Request{}
+	tailored := []model.Message{}
+
+	updated := ApplyResult(
+		context.Background(), "test.Model", req, tailored,
+	)
+
+	require.True(t, updated)
+	require.Equal(t, tailored, req.Messages)
+}
+
+func TestObserveChangesReportsMutatingStrategy(t *testing.T) {
+	ctx, observer := modelrequest.ObserveTokenTailoring(
+		context.Background(),
+		nil,
+	)
+	req := &model.Request{Messages: []model.Message{
+		model.NewUserMessage("question"),
+	}}
+	finishObservation := ObserveChanges(ctx, "test.Model", req, 100)
+	req.Messages[0].Content = "mutated in place"
+	finishObservation()
+
+	require.Equal(t, []modelrequest.TokenTailoringRecord{{
+		Provider:       "test.Model",
+		MaxInputTokens: 100,
+		BeforeMessages: 1,
+		AfterMessages:  1,
+	}}, observer.Snapshot())
+}
+
+func TestObserveChangesDoesNotReportUnchangedRequest(t *testing.T) {
+	ctx, observer := modelrequest.ObserveTokenTailoring(
+		context.Background(),
+		nil,
+	)
+	messages := []model.Message{model.NewUserMessage("question")}
+	req := &model.Request{Messages: messages}
+
+	finishObservation := ObserveChanges(ctx, "test.Model", req, 100)
+	finishObservation()
+	require.Empty(t, observer.Snapshot())
+}
