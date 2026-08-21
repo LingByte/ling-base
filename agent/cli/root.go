@@ -491,6 +491,7 @@ type options struct {
 	createConfig    string // --create-config global|local
 	loop            bool   // --loop: autonomous goal-spec iteration
 	maxIterations   int    // --max-iterations: outer-loop cap for --loop
+	deep            bool   // --deep: wrap prompt in deep-thinking template
 }
 
 // resolveResumeID selects the prior session to seed from, if any.
@@ -564,6 +565,7 @@ func NewRootCommand() *cobra.Command {
 	f.StringVar(&opts.createConfig, "create-config", "", "Create a starter TOML config and exit: global (~/.ling-agent/config.toml) or local (./.ling-agent/config.toml)")
 	f.BoolVar(&opts.loop, "loop", false, "Autonomous loop: iterate against the goal spec (PRD.md or .ling-agent/GOAL.md) until complete or --max-iterations. Requires --dangerously-skip-permissions.")
 	f.IntVar(&opts.maxIterations, "max-iterations", 0, "Max iterations for --loop (0 = default 10, hard cap 50)")
+	f.BoolVar(&opts.deep, "deep", false, "Wrap the prompt in a deep-thinking template (bidirectional steel-man argumentation)")
 
 	return cmd
 }
@@ -925,8 +927,13 @@ func run(cmd *cobra.Command, opts *options) error {
 			partial = newPartialEmitter(out, sessionID, &writeMu).emit
 		}
 	}
+	// --deep wraps the user's prompt in the deep-thinking template.
+	submittedPrompt := opts.prompt
+	if opts.deep && submittedPrompt != "" {
+		submittedPrompt = prompt.DeepThinkingPrompt(submittedPrompt)
+	}
 	res, err := loop.Run(ctx, agent.Options{
-		Prompt:          opts.prompt,
+		Prompt:          submittedPrompt,
 		Model:           model,
 		System:          sysPrompt,
 		MaxTurns:        opts.maxTurns,

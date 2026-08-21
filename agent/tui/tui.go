@@ -847,6 +847,7 @@ var commandList = []cmdInfo{
 	{"/compact", "", "Summarize and compact the conversation history now"},
 	{"/add-dir", "<path>", "Add a directory to the prompt context"},
 	{"/plan", "[off]", "Enter (or leave) read-only plan mode"},
+	{"/deep", "<问题>", "深度思考模式：钢人论证法分析问题后再回答"},
 	{"/doctor", "", "Run environment diagnostics"},
 	{"/diff", "[args]", "Show git diff of the working tree"},
 	{"/commit", "<msg>", "Stage all changes and commit (asks first)"},
@@ -1441,6 +1442,20 @@ func (m *Model) handleSlash(input string) (tea.Model, tea.Cmd) {
 			m.sess.PermissionMode = string(permission.ModePlan)
 			m.appendLine(bannerStyle.Render("Entered plan mode: read-only exploration; mutations are blocked. /plan off to leave."))
 		}
+	case "/deep":
+		if m.busyGuard("/deep") {
+			break
+		}
+		if len(args) == 0 {
+			m.appendLine(errStyle.Render("usage: /deep <你的问题>"))
+			break
+		}
+		question := strings.Join(args, " ")
+		deepPrompt := deepThinkingPrompt(question)
+		m.appendLine(bannerStyle.Render("深度思考模式 — 钢人论证法"))
+		m.appendLine(userStyle.Render("› ") + question)
+		m.setState(stateRunning)
+		return m, m.startTurn(deepPrompt)
 	case "/doctor":
 		if m.sess.Doctor == nil {
 			m.appendLine(errStyle.Render("doctor is not available"))
