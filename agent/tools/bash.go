@@ -1,96 +1,154 @@
-// Copyright (c) 2026 LingByte. All rights reserved.
-// SPDX-License-Identifier: MIT
-
 package tools
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agent"
+	"github.com/LingByte/ling-base/agent/native/bashparser"
+	"github.com/LingByte/ling-base/agent/permission"
+	"github.com/LingByte/ling-base/agent/sandbox"
+	"github.com/LingByte/ling-base/agent/schema"
 )
 
-const defaultBashTimeout = 30 * time.Second
+// bashDefaultTimeout is applied when the model doesn't specify one.
+const bashDefaultTimeout = 2 * time.Minute
 
-// BashTool executes shell commands.
-type BashTool struct {
-	CWD     string
-	Timeout time.Duration
+// bashMaxOutput caps combined output length to protect the context window.
+const bashMaxOutput = 30000
+
+// BashInput is the Bash tool's input.
+type BashInput struct {
+	Command         string `json:"command" jsonschema:"description=The shell command to execute"`
+	Description     string `json:"description,omitempty" jsonschema:"description=A short description of what the command does"`
+	Timeout         int    `json:"timeout,omitempty" jsonschema:"description=Timeout in milliseconds (default 120000)"`
+	RunInBackground bool   `json:"run_in_background,omitempty" jsonschema:"description=Run detached and return a shell id immediately; read its output with BashOutput and stop it with KillShell"`
 }
 
-// NewBash creates a bash tool that runs commands in cwd.
-func NewBash(cwd string) *BashTool {
-	return &BashTool{CWD: cwd, Timeout: defaultBashTimeout}
+// Bash executes shell commands via a sandbox.Executor. When run_in_background is
+// set, it launches a detached shell tracked by the (optional) ShellStore.
+type Bash struct {
+	schema   *schema.Schema
+	executor sandbox.Executor
+	shells   *ShellStore
 }
 
-type bashArgs struct {
-	Command string `json:"command"`
-	Timeout int    `json:"timeout,omitempty"` // seconds, 0 = default
-}
-
-const bashSchema = `{"type":"object","properties":{"command":{"type":"string","description":"The shell command to execute."},"timeout":{"type":"integer","description":"Timeout in seconds. Default: 30."}},"required":["command"]}`
-
-func (t *BashTool) Name() string { return "bash" }
-func (t *BashTool) Description() string {
-	return "Execute a shell command in the working directory and return stdout/stderr."
-}
-func (t *BashTool) Schema() json.RawMessage { return json.RawMessage(bashSchema) }
-
-func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, progress func(string)) (agent.ToolResult, error) {
-	var a bashArgs
-	if err := json.Unmarshal(raw, &a); err != nil {
-		return agent.ToolResult{}, fmt.Errorf("invalid args: %w", err)
-	}
-	if a.Command == "" {
-		return agent.ToolResult{}, fmt.Errorf("command is required")
-	}
-
-	timeout := t.Timeout
-	if a.Timeout > 0 {
-		timeout = time.Duration(a.Timeout) * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd", "/c", a.Command)
-	} else {
-		cmd = exec.CommandContext(ctx, "bash", "-c", a.Command)
-	}
-	cmd.Dir = t.CWD
-
-	output, err := cmd.CombinedOutput()
-	result := string(output)
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return agent.ToolResult{
-			Content: fmt.Sprintf("Command timed out after %s.\nOutput so far:\n%s", timeout, result),
-			IsError: true,
-		}, nil
-	}
-
+// NewBash constructs the Bash tool with the given executor. The optional
+// ShellStore backs run_in_background (omit it to disable background shells).
+func NewBash(executor sandbox.Executor, shells ...*ShellStore) (*Bash, error) {
+	s, err := schema.For[BashInput]()
 	if err != nil {
-		exitCode := -1
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
+		return nil, fmt.Errorf("bash: build schema: %w", err)
+	}
+	b := &Bash{schema: s, executor: executor}
+	if len(shells) > 0 {
+		b.shells = shells[0]
+	}
+	return b, nil
+}
+
+func (b *Bash) Name() string { return "Bash" }
+
+func (b *Bash) Description(context.Context) (string, error) {
+	return "Executes a shell command and returns its combined output. Commands run via bash. " +
+		"Provide an optional timeout in milliseconds (default 120000, max 600000). " +
+		"Prefer the Read/Glob/Grep tools over cat/find/grep where possible.", nil
+}
+
+func (b *Bash) InputSchema() json.RawMessage { return b.schema.Raw }
+
+func (b *Bash) ValidateInput(raw json.RawMessage) error {
+	if err := b.schema.Validate(raw); err != nil {
+		return err
+	}
+	var in BashInput
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return err
+	}
+	if strings.TrimSpace(in.Command) == "" {
+		return fmt.Errorf("command must not be empty")
+	}
+	return nil
+}
+
+// PermissionRequest derives a rule specifier from the command via the bash
+// parser (e.g. "git status"), falling back to the raw command on parse error.
+func (b *Bash) PermissionRequest(raw json.RawMessage) permission.PermissionRequest {
+	var in BashInput
+	_ = json.Unmarshal(raw, &in)
+	spec := in.Command
+	if a, err := bashparser.Parse(in.Command); err == nil {
+		if p := a.Prefix(); p != "" {
+			spec = p
 		}
-		return agent.ToolResult{
-			Content: fmt.Sprintf("Command failed (exit %d):\n%s", exitCode, result),
-			IsError: true,
-		}, nil
+	}
+	return permission.PermissionRequest{Specifier: spec}
+}
+
+// CheckPermissions: Bash is a command-executing (exec-class) tool.
+func (b *Bash) CheckPermissions(pctx permission.Context, _ permission.PermissionRequest) permission.Decision {
+	return execClassDecision(pctx)
+}
+
+func (b *Bash) Execute(ctx context.Context, tctx Context, raw json.RawMessage) ([]Result, error) {
+	var in BashInput
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, err
 	}
 
-	// Trim trailing whitespace for cleaner output.
-	result = strings.TrimRight(result, "\n\r ")
-	if result == "" {
-		result = "(command produced no output)"
+	// Background: launch detached, return a shell id immediately.
+	if in.RunInBackground {
+		if b.shells == nil {
+			return []Result{{Content: "background execution is not available", IsError: true}}, nil
+		}
+		id, err := b.shells.Start(b.executor, sandbox.Request{Command: in.Command, WorkingDir: tctx.WorkingDir})
+		if err != nil {
+			return []Result{{Content: fmt.Sprintf("Failed to start background command: %v", err), IsError: true}}, nil
+		}
+		return []Result{{Content: fmt.Sprintf("Started background shell %s. Read its output with BashOutput(bash_id=%q) and stop it with KillShell(shell_id=%q).", id, id, id)}}, nil
 	}
-	return agent.ToolResult{Content: result}, nil
+
+	timeout := bashDefaultTimeout
+	if in.Timeout > 0 {
+		timeout = min(time.Duration(in.Timeout)*time.Millisecond, 10*time.Minute)
+	}
+
+	resp, err := b.executor.Run(ctx, sandbox.Request{
+		Command:    in.Command,
+		WorkingDir: tctx.WorkingDir,
+		Timeout:    timeout,
+	})
+	if err != nil {
+		return []Result{{Content: fmt.Sprintf("Failed to run command: %v", err), IsError: true}}, nil
+	}
+
+	return []Result{{Content: formatBashOutput(resp), IsError: resp.ExitCode != 0}}, nil
+}
+
+// formatBashOutput combines stdout/stderr and annotates non-zero exit / timeout,
+// truncating to bashMaxOutput.
+func formatBashOutput(resp sandbox.Response) string {
+	var b strings.Builder
+	b.WriteString(resp.Stdout)
+	if resp.Stderr != "" {
+		if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
+			b.WriteString("\n")
+		}
+		b.WriteString(resp.Stderr)
+	}
+	out := b.String()
+	if len(out) > bashMaxOutput {
+		out = out[:bashMaxOutput] + "\n... [output truncated]"
+	}
+	if resp.TimedOut {
+		out += fmt.Sprintf("\n[command timed out, exit code %d]", resp.ExitCode)
+	} else if resp.ExitCode != 0 {
+		out += fmt.Sprintf("\n[exit code %d]", resp.ExitCode)
+	}
+	if out == "" {
+		return "[no output]"
+	}
+	return out
 }
