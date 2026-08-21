@@ -4,6 +4,12 @@ go 1.26.2
 
 replace github.com/LingByte/ling-base/ocr => ../
 
+// Force the old monolithic google.golang.org/genproto to a version compatible
+// with the split modules (genproto/googleapis/api and genproto/googleapis/rpc).
+// Without this replace, consumers pulling this module may hit ambiguous import
+// errors when other dependencies use the split genproto modules.
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7
+
 require (
 	cloud.google.com/go/vision v1.2.0
 	github.com/LingByte/ling-base/ocr v0.0.0
