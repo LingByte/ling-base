@@ -153,6 +153,13 @@ export default function HomePage() {
               查看文档
               <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
             </Link>
+            <Link
+              href="/playground"
+              className="inline-flex items-center gap-2 rounded-lg border border-fd-border px-6 py-2.5 text-sm font-medium transition hover:bg-fd-accent"
+            >
+              <Terminal className="size-4" />
+              Playground
+            </Link>
             <a
               href="https://github.com/LingByte/ling-base"
               target="_blank"

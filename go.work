@@ -108,6 +108,7 @@ use (
 	./common/videoutil
 	./example
 	./lingcli
+	./docs/wasm
 	./common/mq
 	./common/mq/activemq
 	./common/mq/factory
