@@ -24,11 +24,12 @@ import (
 // DeepSeek, Gemini, Moonshot, Qiniu-compatible endpoints, etc.) without
 // changing the agent loop or tool layer.
 type RelayProvider struct {
-	client       *relay.Client
-	model        string
-	temperature  *float64
-	maxTokens    int
-	providerName string // for display
+	client          *relay.Client
+	model           string
+	temperature     *float64
+	maxTokens       int
+	providerName    string // for display
+	reasoningEffort string  // optional: low/medium/high for reasoning models
 }
 
 // NewRelayProvider builds a provider backed by a relay.Client.
@@ -58,6 +59,13 @@ func NewRelayProviderFromConfig(baseURL, apiKey, model string, temperature *floa
 		maxTokens:    maxTokens,
 		providerName: "relay",
 	}
+}
+
+// SetReasoningEffort configures the reasoning effort level sent to the
+// model. Use reasoning.OpenAIEffort() to map a canonical level to the
+// OpenAI-compatible enum. Empty string means no reasoning effort is sent.
+func (p *RelayProvider) SetReasoningEffort(effort string) {
+	p.reasoningEffort = effort
 }
 
 // ProviderName returns the human-readable provider label.
@@ -165,9 +173,10 @@ func (p *RelayProvider) translateRequest(params anthropic.BetaMessageNewParams) 
 	}
 
 	req := &relay.ChatRequest{
-		Model:       model,
-		Temperature: p.temperature,
-		MaxTokens:   &maxTokens,
+		Model:           model,
+		Temperature:     p.temperature,
+		MaxTokens:       &maxTokens,
+		ReasoningEffort: p.reasoningEffort,
 	}
 
 	// System prompt → a leading system message.

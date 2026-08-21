@@ -22,6 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agent/config"
 	"github.com/LingByte/ling-base/agent/doctor"
 	"github.com/LingByte/ling-base/agent/lsp"
+	"github.com/LingByte/ling-base/agent/swarm"
 	"github.com/LingByte/ling-base/agent/mcp"
 	"github.com/LingByte/ling-base/agent/memory"
 	"github.com/LingByte/ling-base/agent/permission"
@@ -707,10 +708,18 @@ func run(cmd *cobra.Command, opts *options) error {
 	// first use, and shut down at session end. Not downloaded.
 	lspPool := lsp.NewPool(ctx, cwd, cfg.LSP.Disabled, nil)
 	defer lspPool.Close()
+	// Multi-agent swarm supervisor for parallel background tasks.
+	homeDir, _ := os.UserHomeDir()
+	swarmRoot := filepath.Join(homeDir, ".ling-agent", "swarm")
+	swarmSupervisor := swarm.New(swarm.Config{
+		Root:     swarmRoot,
+		RepoRoot: cwd,
+	})
 	base, err := tools.DefaultRegistry(executor,
 		tools.WithBrowserEngine(browserEngine),
 		tools.WithShellStore(shellStore),
 		tools.WithLSP(lspPool),
+		tools.WithSwarm(swarmSupervisor),
 	)
 	if err != nil {
 		return err
