@@ -1,0 +1,43 @@
+# scheduler
+
+Distributed task scheduler with distributed locking and task dispatch, ensuring scheduled jobs run on exactly one node in a cluster.
+
+## Features
+
+- Cron expression scheduling (via `common/cron`) and interval scheduling
+- Distributed lock integration (via the `lock` package): only the lock holder executes the job
+- Pluggable `LockFactory`: use Redis, etcd, Zookeeper, or in-memory for single-node/testing
+- Context-aware job execution with timeout
+- Job metadata: name, description, tags, singleton mode
+- Graceful shutdown: stop accepting new ticks, wait for running jobs
+- Job status tracking: last run, next run, error count
+- Optional job event listener for monitoring/metrics
+
+## Key types
+
+- `Config` — scheduler configuration (LockFactory, LockTTL, etc.)
+- `LockFactory` / `LockFactoryFunc` — creates a distributed lock per job
+- `Scheduler` — the scheduler instance (`New`, `Start`, `Stop`, `Add`, `Remove`)
+
+## Quick start
+
+```go
+import (
+    "github.com/LingByte/ling-base/common/scheduler"
+    lockmemory "github.com/LingByte/ling-base/common/lock/memory"
+    "github.com/LingByte/ling-base/common/lock"
+)
+
+lockMgr := lockmemory.NewManager()
+s := scheduler.New(scheduler.Config{
+    LockFactory: scheduler.LockFactoryFunc(func(jobName string) (lock.Locker, error) {
+        return lockMgr.NewMutex("scheduler:"+jobName, lock.WithTTL(30*time.Second))
+    }),
+})
+s.Start()
+
+s.Add("cleanup", "*/5 * * * *", func(ctx context.Context) error {
+    return cleanupDatabase(ctx)
+})
+defer s.Stop()
+```

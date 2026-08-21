@@ -157,4 +157,6 @@ require (
 replace github.com/LingByte/ling-base => ../
 replace github.com/LingByte/ling-base/agent => ../agent
 replace github.com/LingByte/ling-base/relay => ../relay
+replace github.com/LingByte/ling-base/relay/relaykit => ../relay/relaykit
+replace github.com/LingByte/ling-base/version => ../version
 replace github.com/LingByte/ling-base/voice/recognizer => ../voice/recognizer

@@ -1,0 +1,39 @@
+# geoip
+
+IP geolocation lookup with automatic selection between a domestic (China) API and an international API.
+
+## Features
+
+- Auto-selects domestic (whois.pconline.com.cn) or international (ip-api.com) API
+- Explicit `GetIPLocationCN` / `GetIPLocationGlobal` variants
+- Private/internal IP detection
+- CIDR list membership checking
+
+## Key types
+
+- `IPLocationResponse` -- pconline API response (province, city)
+- `IPGeolocationResponse` -- ip-api response (country, city, lat/lon, ISP, ...)
+
+## Key functions
+
+- `GetIPLocation(ip)` -- auto-select API; returns country, city, location string
+- `GetIPLocationCN(ip)` -- force domestic API
+- `GetIPLocationGlobal(ip)` -- force international API
+- `GetRealAddressByIP(ip)` -- single display string
+- `IsIP(s)`, `ParseIP(s)`, `IsPrivateIP(ip)`, `IsInternalIP(ipStr)`
+- `IsIpInCIDRList(ip, cidrList)` -- check IP against CIDR or single-IP entries
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/geoip"
+
+country, city, location, err := geoip.GetIPLocation("8.8.8.8")
+// -> "United States", "Mountain View", "Mountain View, United States", nil
+
+addr := geoip.GetRealAddressByIP("8.8.8.8")
+```
+
+## License
+
+MIT

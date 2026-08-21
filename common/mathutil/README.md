@@ -1,0 +1,36 @@
+# mathutil
+
+Mathematical utilities: range helpers, rounding, statistics, number theory, and range mapping.
+
+## Features
+
+- Range: Clamp, Min, Max, MinMax, InRange, MinSlice, MaxSlice
+- Precision: Round, RoundTo, FloorTo, CeilTo, Truncate
+- Statistics: Sum, Mean, Median, Mode, Variance, StdDev, Percentile, Quantile
+- Number theory: GCD, LCM, IsPrime, Factorial, Fibonacci
+- Mapping: MapRange, Lerp
+
+## Key functions
+
+- `Clamp(value, min, max)`, `Min(a, b)`, `Max(a, b)`, `InRange(value, min, max)`
+- `Round(x, precision)`, `RoundTo(x, to)`, `Truncate(x, precision)`
+- `Sum(s)`, `Mean(s)`, `Median(s)`, `Mode(s)`, `StdDev(s)`, `Percentile(s, p)`
+- `GCD(a, b)`, `LCM(a, b)`, `IsPrime(n)`, `Factorial(n)`, `Fibonacci(n)`
+- `MapRange(x, inMin, inMax, outMin, outMax)`, `Lerp(a, b, t)`
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/mathutil"
+
+mathutil.Clamp(15, 0, 10)                   // 10
+mathutil.Round(3.14159, 2)                  // 3.14
+mathutil.Sum([]float64{1, 2, 3})            // 6
+mathutil.Mean([]float64{1, 2, 3})           // 2
+mathutil.GCD(12, 18)                        // 6
+mathutil.Percentile([]float64{1, 2, 3, 4, 5}, 90) // 4.6
+```
+
+## License
+
+MIT

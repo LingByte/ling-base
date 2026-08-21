@@ -1,0 +1,44 @@
+# idgen
+
+ID generation utilities: Snowflake, UUID v4/v7, ShortID (Base62), Ordered UUID, and random strings.
+
+## Features
+
+- Snowflake: Twitter-style distributed unique IDs (microsecond precision, 10-bit machine ID)
+- UUID v4: random UUIDs (RFC 4122)
+- UUID v7: time-ordered UUIDs (RFC 9562)
+- ShortID: Base62-encoded compact IDs from snowflake or random bytes
+- Ordered UUID: lexicographically sortable (ULID-style, 32 hex chars)
+- Random text and numeric strings
+
+## Key types
+
+- `Snowflake` -- snowflake ID generator (machine ID from `MACHINE_ID` env var)
+
+## Key functions
+
+- `SnowflakeNext()` / `SnowflakeNextUint()` -- package-level snowflake IDs
+- `NewSnowflake()` / `NewSnowflakeWithID(machineID)` -- custom generator
+- `UUIDv4()` / `UUIDv4Bytes()` -- random UUID
+- `UUIDv7()` / `UUIDv7Bytes()` -- time-ordered UUID
+- `OrderedUUID()` -- sortable 32-char hex string
+- `ShortID()` / `ShortIDFromID(id)` -- Base62 short ID
+- `RandText(n)` / `RandNumberText(n)` -- random strings
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/idgen"
+
+id := idgen.SnowflakeNext()       // int64
+uid := idgen.SnowflakeNextUint()  // uint (sign-bit cleared)
+
+u4 := idgen.UUIDv4()   // "550e8400-e29b-41d4-a716-446655440000"
+u7 := idgen.UUIDv7()   // time-ordered
+sid := idgen.ShortID() // "7B3XkQ9m2P"
+ouid := idgen.OrderedUUID() // sortable hex
+```
+
+## License
+
+MIT

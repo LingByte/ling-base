@@ -1,0 +1,28 @@
+# nltime
+
+Parses natural-language time expressions into `time.Time` or `time.Duration` values.
+
+## Supported expressions
+
+- Relative: `3 days ago`, `in 2 hours`, `5 minutes from now`
+- Absolute: `today`, `yesterday`, `tomorrow`, `now`, `noon`, `midnight`
+- Short: `3d ago`, `2h from now`, `5m ago`, `10s later`
+- Named: `next monday`, `last friday`, `this weekend`
+- Time of day: `3pm`, `10:30`, `noon`, `midnight`
+- Combined: `tomorrow at 3pm`, `next monday 10:00`
+
+## Key functions
+
+- `Parse(expr string, now time.Time) (time.Time, error)` — parse a time expression
+- `MustParse(expr string, now time.Time) time.Time` — panic on error
+- `ParseDuration(expr string) (time.Duration, error)` — parse a duration expression
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/nltime"
+
+t, err := nltime.Parse("3 days ago", time.Now())
+t, err = nltime.Parse("tomorrow at 3pm", time.Now())
+d, err := nltime.ParseDuration("2 hours 30 minutes")
+```

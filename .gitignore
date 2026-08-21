@@ -46,5 +46,5 @@ apidocs/assets/.DS_Store
 !/lingcli/embed_source/.gitkeep
 
 # agent: only ignore compiled binaries, not source
-/agent/cmd/ling-agent/ling-agent
+/example/cmd/ling-agent/ling-agent
 /bin/
