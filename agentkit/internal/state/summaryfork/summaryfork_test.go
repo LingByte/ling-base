@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -29,22 +29,22 @@ func TestAttachSnapshotsRequest(t *testing.T) {
 	text := "part"
 	index := 1
 	maxTokens := 10
-	req := &model.Request{
-		Messages: []model.Message{{
-			Role: model.RoleAssistant,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+	req := &compat.Request{
+		Messages: []compat.Message{{
+			Role: compat.RoleAssistant,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &text,
 			}, {
-				Type: model.ContentTypeVideo,
-				Video: &model.Video{
+				Type: compat.ContentTypeVideo,
+				Video: &compat.Video{
 					Data:   []byte("video"),
 					Format: "mp4",
 				},
 			}},
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				Index: &index,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`{"q":"original"}`),
 				},
 				ExtraFields: map[string]any{
@@ -52,13 +52,13 @@ func TestAttachSnapshotsRequest(t *testing.T) {
 				},
 			}},
 		}},
-		GenerationConfig: model.GenerationConfig{
+		GenerationConfig: compat.GenerationConfig{
 			MaxTokens: &maxTokens,
 			Stop:      []string{"END"},
 		},
-		StructuredOutput: &model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		StructuredOutput: &compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Schema: map[string]any{"type": "object"},
 			},
 		},
@@ -102,18 +102,18 @@ func TestAttachSnapshotsRequest(t *testing.T) {
 }
 
 func TestAttachHandlesNilAndZeroValueRequest(t *testing.T) {
-	Attach(nil, &model.Request{})
+	Attach(nil, &compat.Request{})
 	Attach(agent.NewInvocation(), nil)
 
 	inv := agent.NewInvocation()
 	_, ok := Request(inv)
 	require.False(t, ok)
 
-	inv.SetState(stateKey, (*model.Request)(nil))
+	inv.SetState(stateKey, (*compat.Request)(nil))
 	_, ok = Request(inv)
 	require.False(t, ok)
 
-	Attach(inv, &model.Request{})
+	Attach(inv, &compat.Request{})
 	got, ok := Request(inv)
 	require.True(t, ok)
 	require.NotNil(t, got)
@@ -125,29 +125,29 @@ func TestAttachHandlesNilAndZeroValueRequest(t *testing.T) {
 
 func TestAttachSnapshotsMultimodalPartsAndTools(t *testing.T) {
 	text := "text"
-	req := &model.Request{
-		Messages: []model.Message{{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{
+	req := &compat.Request{
+		Messages: []compat.Message{{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{
 				{
-					Type: model.ContentTypeText,
+					Type: compat.ContentTypeText,
 					Text: &text,
 				},
 				{
-					Type: model.ContentTypeImage,
-					Image: &model.Image{
+					Type: compat.ContentTypeImage,
+					Image: &compat.Image{
 						Data: []byte{1, 2, 3},
 					},
 				},
 				{
-					Type: model.ContentTypeAudio,
-					Audio: &model.Audio{
+					Type: compat.ContentTypeAudio,
+					Audio: &compat.Audio{
 						Data: []byte{4, 5, 6},
 					},
 				},
 				{
-					Type: model.ContentTypeFile,
-					File: &model.File{
+					Type: compat.ContentTypeFile,
+					File: &compat.File{
 						Data: []byte{7, 8, 9},
 					},
 				},
@@ -165,8 +165,8 @@ func TestAttachSnapshotsMultimodalPartsAndTools(t *testing.T) {
 	req.Messages[0].ContentParts[1].Image.Data[0] = 9
 	req.Messages[0].ContentParts[2].Audio.Data[0] = 9
 	req.Messages[0].ContentParts[3].File.Data[0] = 9
-	req.Tools["lookup"] = stubTool{name: "changed"}
-	req.Tools["extra"] = stubTool{name: "extra"}
+	req.Tools.(map[string]tool.Tool)["lookup"] = stubTool{name: "changed"}
+	req.Tools.(map[string]tool.Tool)["extra"] = stubTool{name: "extra"}
 
 	got, ok := Request(inv)
 	require.True(t, ok)
@@ -176,51 +176,51 @@ func TestAttachSnapshotsMultimodalPartsAndTools(t *testing.T) {
 	require.Equal(t, []byte{4, 5, 6}, parts[2].Audio.Data)
 	require.Equal(t, []byte{7, 8, 9}, parts[3].File.Data)
 	require.Len(t, got.Tools, 1)
-	require.Equal(t, "lookup", got.Tools["lookup"].Declaration().Name)
+	require.Equal(t, "lookup", got.Tools.(map[string]tool.Tool)["lookup"].Declaration().Name)
 }
 
 func TestAppendResponseExtendsSnapshot(t *testing.T) {
 	inv := agent.NewInvocation()
-	Attach(inv, &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage("question"),
+	Attach(inv, &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage("question"),
 		},
 	})
 
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{{
-		Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID: "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "lookup",
 				},
 			}},
 		},
 	}}})
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{{
-		Message: model.NewToolMessage("call_1", "lookup", "result"),
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewToolMessage("call_1", "lookup", "result"),
 	}}})
 
 	got, ok := Request(inv)
 	require.True(t, ok)
 	require.Len(t, got.Messages, 4)
-	require.Equal(t, model.RoleAssistant, got.Messages[2].Role)
+	require.Equal(t, compat.RoleAssistant, got.Messages[2].Role)
 	require.Len(t, got.Messages[2].ToolCalls, 1)
-	require.Equal(t, model.RoleTool, got.Messages[3].Role)
+	require.Equal(t, compat.RoleTool, got.Messages[3].Role)
 	require.Equal(t, "result", got.Messages[3].Content)
 }
 
 func TestInvocationViewAppendIsIsolated(t *testing.T) {
 	invocation := agent.NewInvocation()
-	Attach(invocation, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	Attach(invocation, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	})
 
 	view := invocation.View()
-	AppendResponse(view, &model.Response{Choices: []model.Choice{{
-		Message: model.NewAssistantMessage("answer"),
+	AppendResponse(view, &compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewAssistantMessage("answer"),
 	}}})
 
 	viewRequest, ok := Request(view)
@@ -235,10 +235,10 @@ func TestInvocationViewAppendIsIsolated(t *testing.T) {
 
 func TestInvocationViewRequestContentRefIsIsolated(t *testing.T) {
 	invocation := agent.NewInvocation()
-	Attach(invocation, &model.Request{Messages: []model.Message{{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{{
-			ContentRef: &model.ContentRef{ArtifactName: "original"},
+	Attach(invocation, &compat.Request{Messages: []compat.Message{{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{{
+			ContentRef: &compat.ContentRef{ArtifactName: "original"},
 		}},
 	}}})
 
@@ -255,8 +255,8 @@ func TestInvocationViewRequestContentRefIsIsolated(t *testing.T) {
 
 func TestInvalidateClearsSnapshotUntilNextAttach(t *testing.T) {
 	inv := agent.NewInvocation()
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	}
 	Attach(inv, req)
 	_, ok := Request(inv)
@@ -266,8 +266,8 @@ func TestInvalidateClearsSnapshotUntilNextAttach(t *testing.T) {
 	_, ok = Request(inv)
 	require.False(t, ok)
 
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{{
-		Message: model.NewAssistantMessage("ignored"),
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewAssistantMessage("ignored"),
 	}}})
 	_, ok = Request(inv)
 	require.False(t, ok)
@@ -280,21 +280,21 @@ func TestInvalidateClearsSnapshotUntilNextAttach(t *testing.T) {
 }
 
 func TestAppendResponseNoopsWithoutPayload(t *testing.T) {
-	AppendResponse(nil, &model.Response{Choices: []model.Choice{{
-		Message: model.NewAssistantMessage("ignored"),
+	AppendResponse(nil, &compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewAssistantMessage("ignored"),
 	}}})
-	AppendResponse(agent.NewInvocation(), &model.Response{Choices: []model.Choice{{
-		Message: model.NewAssistantMessage("ignored"),
+	AppendResponse(agent.NewInvocation(), &compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewAssistantMessage("ignored"),
 	}}})
 
 	inv := agent.NewInvocation()
-	Attach(inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	Attach(inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	})
 
 	AppendResponse(inv, nil)
-	AppendResponse(inv, &model.Response{})
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{{}}})
+	AppendResponse(inv, &compat.Response{})
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{{}}})
 
 	got, ok := Request(inv)
 	require.True(t, ok)
@@ -303,12 +303,12 @@ func TestAppendResponseNoopsWithoutPayload(t *testing.T) {
 
 func TestAppendResponseUsesDeltaFallback(t *testing.T) {
 	inv := agent.NewInvocation()
-	Attach(inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	Attach(inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	})
 
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{{
-		Delta: model.NewAssistantMessage("streamed"),
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{{
+		Delta: compat.NewAssistantMessage("streamed"),
 	}}})
 
 	got, ok := Request(inv)
@@ -319,18 +319,18 @@ func TestAppendResponseUsesDeltaFallback(t *testing.T) {
 
 func TestAppendResponseKeepsPrimaryChoiceOnly(t *testing.T) {
 	inv := agent.NewInvocation()
-	Attach(inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	Attach(inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	})
 
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{
 		{
 			Index:   1,
-			Message: model.NewAssistantMessage("alternative"),
+			Message: compat.NewAssistantMessage("alternative"),
 		},
 		{
 			Index:   0,
-			Message: model.NewAssistantMessage("primary"),
+			Message: compat.NewAssistantMessage("primary"),
 		},
 	}})
 
@@ -342,18 +342,18 @@ func TestAppendResponseKeepsPrimaryChoiceOnly(t *testing.T) {
 
 func TestAppendResponseFallsBackToFirstChoice(t *testing.T) {
 	inv := agent.NewInvocation()
-	Attach(inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("question")},
+	Attach(inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("question")},
 	})
 
-	AppendResponse(inv, &model.Response{Choices: []model.Choice{
+	AppendResponse(inv, &compat.Response{Choices: []compat.Choice{
 		{
 			Index:   2,
-			Message: model.NewAssistantMessage("first"),
+			Message: compat.NewAssistantMessage("first"),
 		},
 		{
 			Index:   3,
-			Message: model.NewAssistantMessage("second"),
+			Message: compat.NewAssistantMessage("second"),
 		},
 	}})
 

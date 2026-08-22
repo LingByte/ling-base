@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // IdentityRequestProcessor implements identity processing logic.
@@ -56,7 +56,7 @@ func NewIdentityRequestProcessor(agentName, description string, opts ...Option) 
 func (p *IdentityRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil {
@@ -81,7 +81,7 @@ func (p *IdentityRequestProcessor) ProcessRequest(
 
 	// Initialize messages slice if nil.
 	if req.Messages == nil {
-		req.Messages = make([]model.Message, 0)
+		req.Messages = make([]compat.Message, 0)
 	}
 
 	// Create identity message if we have name or description.
@@ -109,8 +109,8 @@ func (p *IdentityRequestProcessor) ProcessRequest(
 			}
 		} else {
 			// No existing system message, create new one
-			identityMsg := model.NewSystemMessage(identityContent)
-			req.Messages = append([]model.Message{identityMsg}, req.Messages...)
+			identityMsg := compat.NewSystemMessage(identityContent)
+			req.Messages = append([]compat.Message{identityMsg}, req.Messages...)
 			log.DebugContext(
 				ctx,
 				"Identity request processor: added identity message",
@@ -123,7 +123,7 @@ func (p *IdentityRequestProcessor) ProcessRequest(
 	if err := agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingIdentity),
+		event.WithObject(compat.ObjectTypePreprocessingIdentity),
 	)); err != nil {
 		log.DebugContext(
 			ctx,

@@ -32,7 +32,7 @@ import (
 	metricinmemory "github.com/LingByte/ling-base/agentkit/evaluation/metric/inmemory"
 	evalstatus "github.com/LingByte/ling-base/agentkit/evaluation/status"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	serverevaluation "github.com/LingByte/ling-base/agentkit/server/evaluation"
 	atrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
@@ -47,7 +47,7 @@ type fakeRunner struct {
 	err    error
 }
 
-func (f *fakeRunner) Run(ctx context.Context, userID string, sessionID string, message model.Message, runOpts ...agent.RunOption) (<-chan *event.Event, error) {
+func (f *fakeRunner) Run(ctx context.Context, userID string, sessionID string, message compat.Message, runOpts ...agent.RunOption) (<-chan *event.Event, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -110,10 +110,10 @@ func (s *recordedAPIServer) ServeHTTP(writer http.ResponseWriter, request *http.
 func makeFinalEvent(text string) *event.Event {
 	return &event.Event{
 		InvocationID: "generated-invocation",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: text},
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: text},
 			}},
 		},
 	}
@@ -157,12 +157,12 @@ func buildStringCaseSpec(ctx context.Context, item *DatasetItem) (*CaseSpec, err
 		EvalCase: &evalset.EvalCase{
 			EvalID: item.ID,
 			Conversation: []*evalset.Invocation{{
-				UserContent: &model.Message{
-					Role:    model.RoleUser,
+				UserContent: &compat.Message{
+					Role:    compat.RoleUser,
 					Content: prompt,
 				},
-				FinalResponse: &model.Message{
-					Role:    model.RoleAssistant,
+				FinalResponse: &compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: expectedOutput,
 				},
 			}},
@@ -378,7 +378,7 @@ func TestExtractFinalOutputValidatesInferenceDetails(t *testing.T) {
 	require.Error(t, err)
 	output, err := extractFinalOutput(&coreevaluation.EvaluationInferenceDetails{
 		Inferences: []*evalset.Invocation{{
-			FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+			FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 		}},
 	})
 	require.NoError(t, err)
@@ -853,8 +853,8 @@ func TestSyncEvalSetUpsertsAndDeletesCases(t *testing.T) {
 	require.NoError(t, evalSetManager.AddCase(ctx, "demo-app", "dataset-1", &evalset.EvalCase{
 		EvalID: "stale-case",
 		Conversation: []*evalset.Invocation{{
-			UserContent:   &model.Message{Role: model.RoleUser, Content: "old"},
-			FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "old"},
+			UserContent:   &compat.Message{Role: compat.RoleUser, Content: "old"},
+			FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "old"},
 		}},
 	}))
 	require.NoError(t, handler.syncEvalSet(ctx, "dataset-1", []*CaseSpec{
@@ -862,8 +862,8 @@ func TestSyncEvalSetUpsertsAndDeletesCases(t *testing.T) {
 			EvalCase: &evalset.EvalCase{
 				EvalID: "item-1",
 				Conversation: []*evalset.Invocation{{
-					UserContent:   &model.Message{Role: model.RoleUser, Content: "new"},
-					FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "answer"},
+					UserContent:   &compat.Message{Role: compat.RoleUser, Content: "new"},
+					FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "answer"},
 				}},
 			},
 		},
@@ -1077,7 +1077,7 @@ func TestProcessCaseReturnsTraceCreationErrors(t *testing.T) {
 						SessionID: "session-1",
 						UserID:    "demo-user",
 						Inferences: []*evalset.Invocation{{
-							FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+							FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 						}},
 					},
 				}},
@@ -1110,8 +1110,8 @@ func TestProcessCaseReturnsTraceCreationErrors(t *testing.T) {
 		EvalCase: &evalset.EvalCase{
 			EvalID: "item-1",
 			Conversation: []*evalset.Invocation{{
-				UserContent:   &model.Message{Role: model.RoleUser, Content: "say hello"},
-				FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+				UserContent:   &compat.Message{Role: compat.RoleUser, Content: "say hello"},
+				FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 			}},
 		},
 	}}))
@@ -1127,8 +1127,8 @@ func TestProcessCaseReturnsTraceCreationErrors(t *testing.T) {
 		EvalCase: &evalset.EvalCase{
 			EvalID: "item-1",
 			Conversation: []*evalset.Invocation{{
-				UserContent:   &model.Message{Role: model.RoleUser, Content: "say hello"},
-				FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+				UserContent:   &compat.Message{Role: compat.RoleUser, Content: "say hello"},
+				FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 			}},
 		},
 	})
@@ -1485,8 +1485,8 @@ func buildTestCaseSpec(evalCaseID string) *CaseSpec {
 		EvalCase: &evalset.EvalCase{
 			EvalID: evalCaseID,
 			Conversation: []*evalset.Invocation{{
-				UserContent:   &model.Message{Role: model.RoleUser, Content: "say hello"},
-				FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+				UserContent:   &compat.Message{Role: compat.RoleUser, Content: "say hello"},
+				FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 			}},
 		},
 	}
@@ -1505,7 +1505,7 @@ func buildEvaluationResult(
 					SessionID: "session-1",
 					UserID:    "demo-user",
 					Inferences: []*evalset.Invocation{{
-						FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "hello"},
+						FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 					}},
 				},
 			}},

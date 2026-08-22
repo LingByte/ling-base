@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval/review"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -27,7 +27,7 @@ type Plugin struct {
 	reviewer          review.Reviewer
 	defaultToolPolicy ToolPolicy
 	toolPolicies      map[string]ToolPolicy
-	tokenCounter      model.TokenCounter
+	tokenCounter      compat.TokenCounter
 }
 
 // New creates a new approval plugin.
@@ -52,7 +52,7 @@ func New(options ...Option) (*Plugin, error) {
 		reviewer:          opts.reviewer,
 		defaultToolPolicy: opts.defaultToolPolicy,
 		toolPolicies:      opts.toolPolicies,
-		tokenCounter:      model.NewSimpleTokenCounter(),
+		tokenCounter:      compat.NewSimpleTokenCounter(),
 	}, nil
 }
 

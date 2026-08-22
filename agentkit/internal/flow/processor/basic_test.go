@@ -15,28 +15,28 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestBasicReqProc_ProcessReq(t *testing.T) {
 	tests := []struct {
 		name       string
 		processor  *BasicRequestProcessor
-		request    *model.Request
+		request    *compat.Request
 		invocation *agent.Invocation
 		wantStream bool
 	}{
 		{
 			name: "sets generation config",
 			processor: NewBasicRequestProcessor(
-				WithGenerationConfig(model.GenerationConfig{
+				WithGenerationConfig(compat.GenerationConfig{
 					MaxTokens:   intPtr(100),
 					Temperature: floatPtr(0.7),
 					Stream:      false,
 				}),
 			),
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -47,8 +47,8 @@ func TestBasicReqProc_ProcessReq(t *testing.T) {
 		{
 			name:      "run options override stream false",
 			processor: NewBasicRequestProcessor(),
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -62,10 +62,10 @@ func TestBasicReqProc_ProcessReq(t *testing.T) {
 		{
 			name: "run options override stream true",
 			processor: NewBasicRequestProcessor(
-				WithGenerationConfig(model.GenerationConfig{Stream: false}),
+				WithGenerationConfig(compat.GenerationConfig{Stream: false}),
 			),
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -79,8 +79,8 @@ func TestBasicReqProc_ProcessReq(t *testing.T) {
 		{
 			name:      "default stream setting",
 			processor: NewBasicRequestProcessor(),
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -118,7 +118,7 @@ func TestBasicReqProc_ModelRequestExtraFields(t *testing.T) {
 	fields := map[string]any{
 		"prompt_cache_key": "cache-1",
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	inv := &agent.Invocation{
 		AgentName:    "test-agent",
 		InvocationID: "test-123",
@@ -147,7 +147,7 @@ func TestBasicReqProc_ModelRequestHeaders(t *testing.T) {
 	headers := map[string]string{
 		"X-Session-ID": "session-1",
 	}
-	req := &model.Request{
+	req := &compat.Request{
 		Headers: map[string]string{
 			"X-Session-ID": "request-default",
 		},
@@ -175,7 +175,7 @@ func TestBasicReqProc_ModelRequestHeaders(t *testing.T) {
 		)
 	}
 
-	req = &model.Request{}
+	req = &compat.Request{}
 	NewBasicRequestProcessor().ProcessRequest(
 		context.Background(),
 		inv,
@@ -214,5 +214,5 @@ func TestBasicReqProc_NilRequestAndInvocation(t *testing.T) {
 	p.ProcessRequest(context.Background(), &agent.Invocation{AgentName: "a"}, nil, ch)
 
 	// Nil invocation -> no event, but should not panic.
-	p.ProcessRequest(context.Background(), nil, &model.Request{}, ch)
+	p.ProcessRequest(context.Background(), nil, &compat.Request{}, ch)
 }

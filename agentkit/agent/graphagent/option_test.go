@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -175,7 +175,7 @@ func TestWithContextCompactionOptions(t *testing.T) {
 	WithContextCompactionOversizedToolResultMaxTokens(-1)(opts)
 	require.Equal(t, 4096, opts.ContextCompactionOversizedToolResultMaxTokens)
 
-	counter := model.NewSimpleTokenCounter(model.WithApproxRunesPerToken(1))
+	counter := compat.NewSimpleTokenCounter(compat.WithApproxRunesPerToken(1))
 	WithContextCompactionTokenCounter(counter)(opts)
 	require.Same(t, counter, opts.ContextCompactionTokenCounter)
 	WithContextCompactionTokenCounter(nil)(opts)
@@ -268,8 +268,8 @@ func TestWithEventMessageProjector(t *testing.T) {
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
+		msg compat.Message,
+	) compat.Message {
 		msg.Content = "projected"
 		return msg
 	}
@@ -281,7 +281,7 @@ func TestWithEventMessageProjector(t *testing.T) {
 	got := opts.EventMessageProjector(
 		nil,
 		event.Event{},
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Equal(t, "projected", got.Content)
 }
@@ -349,7 +349,7 @@ func TestGraphAgent_ReasoningContentMode(t *testing.T) {
 
 			invocation := agent.NewInvocation(
 				agent.WithInvocationSession(sess),
-				agent.WithInvocationMessage(model.NewUserMessage("test")),
+				agent.WithInvocationMessage(compat.NewUserMessage("test")),
 				agent.WithInvocationID("test-invocation"),
 			)
 
@@ -417,7 +417,7 @@ func TestGraphAgent_SummaryFormatter(t *testing.T) {
 
 			invocation := agent.NewInvocation(
 				agent.WithInvocationSession(sess),
-				agent.WithInvocationMessage(model.NewUserMessage("test")),
+				agent.WithInvocationMessage(compat.NewUserMessage("test")),
 				agent.WithInvocationID("test-invocation"),
 			)
 

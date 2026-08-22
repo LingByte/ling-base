@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 )
 
 // shouldUseDirectCodeMode keeps CodeMode as an explicit execution strategy.
@@ -32,7 +31,7 @@ func shouldUseDirectCodeMode(input string) bool {
 
 // GenerateStream provides a streaming interface for the agent's generation process.
 // It follows the same logic as Generate but returns a channel of chunks.
-func (a *Agent) GenerateStream(ctx context.Context, sessionID, userInput string) (<-chan gomodel.StreamChunk, error) {
+func (a *Agent) GenerateStream(ctx context.Context, sessionID, userInput string) (<-chan StreamChunk, error) {
 	if a.InputGuardrails != nil {
 		transformed, err := a.InputGuardrails.ValidateAndTransform(ctx, userInput)
 		if err != nil {
@@ -47,13 +46,13 @@ func (a *Agent) GenerateStream(ctx context.Context, sessionID, userInput string)
 	}
 
 	// Helper to wrap immediate result in a stream.
-	immediateStream := func(val any, err error) (<-chan gomodel.StreamChunk, error) {
-		ch := make(chan gomodel.StreamChunk, 1)
+	immediateStream := func(val any, err error) (<-chan StreamChunk, error) {
+		ch := make(chan StreamChunk, 1)
 		if err != nil {
-			ch <- gomodel.StreamChunk{Err: err, Done: true}
+			ch <- StreamChunk{Err: err, Done: true}
 		} else {
 			str := fmt.Sprint(val)
-			ch <- gomodel.StreamChunk{Delta: str, FullText: str, Done: true}
+			ch <- StreamChunk{Delta: str, FullText: str, Done: true}
 		}
 		close(ch)
 		return ch, nil
@@ -127,12 +126,12 @@ func (a *Agent) GenerateStream(ctx context.Context, sessionID, userInput string)
 	sb.WriteString("\n\n")
 
 	prompt := sb.String()
-	stream, err := a.model.GenerateStream(ctx, prompt)
+	stream, err := a.generateStream(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	outCh := make(chan gomodel.StreamChunk)
+	outCh := make(chan StreamChunk)
 
 	if a.Guardrails != nil {
 		go func() {
@@ -151,10 +150,10 @@ func (a *Agent) GenerateStream(ctx context.Context, sessionID, userInput string)
 			finalText := full.String()
 			validatedText, gErr := a.Guardrails.ValidateAndRepair(ctx, finalText)
 			if gErr != nil {
-				outCh <- gomodel.StreamChunk{Err: gErr, Done: true}
+				outCh <- StreamChunk{Err: gErr, Done: true}
 				return
 			}
-			outCh <- gomodel.StreamChunk{Delta: validatedText, FullText: validatedText, Done: true}
+			outCh <- StreamChunk{Delta: validatedText, FullText: validatedText, Done: true}
 			a.storeMemory(sessionID, "assistant", validatedText, nil)
 		}()
 	} else {

@@ -16,16 +16,16 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWithMessagesOption_SetsRunOptions(t *testing.T) {
-	msgs := []model.Message{
-		model.NewSystemMessage("s"),
-		model.NewUserMessage("hi"),
+	msgs := []compat.Message{
+		compat.NewSystemMessage("s"),
+		compat.NewUserMessage("hi"),
 	}
 	var ro RunOptions
 	WithMessages(msgs)(&ro)
@@ -189,8 +189,8 @@ func (*invocationTestCodeExecutor) CodeBlockDelimiter() codeexecutor.CodeBlockDe
 }
 
 func TestMultipleRunOptions(t *testing.T) {
-	msgs := []model.Message{
-		model.NewUserMessage("test"),
+	msgs := []compat.Message{
+		compat.NewUserMessage("test"),
 	}
 	state := map[string]any{"key": "value"}
 	filter := map[string]any{"filter": "test"}

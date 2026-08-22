@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
 	"github.com/LingByte/ling-base/agentkit/knowledge/embedder"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/summary"
 )
@@ -54,7 +54,7 @@ type IndexTextBuilder func(
 	sess *session.Session,
 	evt *event.Event,
 	baseText string,
-	role model.Role,
+	role compat.Role,
 ) string
 
 // ServiceOpts holds all configuration for the pgvector

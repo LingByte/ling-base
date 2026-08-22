@@ -12,25 +12,25 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCanonicalizeResponse_RewritesFinalToolCallIDsWithoutMutatingOriginal(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-1"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 2,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "lookup",
 						Arguments: []byte(`{"q":"go"}`),
 					},
@@ -53,19 +53,19 @@ func TestCanonicalizeResponse_RewritesFinalToolCallIDsWithoutMutatingOriginal(t 
 func TestCanonicalizeResponse_RewritesMultipleToolCalls(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-multi"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-multi",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(`{"q":"one"}`),
 						},
@@ -73,7 +73,7 @@ func TestCanonicalizeResponse_RewritesMultipleToolCalls(t *testing.T) {
 					{
 						ID:   "call-2",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(`{"q":"two"}`),
 						},
@@ -100,16 +100,16 @@ func TestCanonicalizeResponse_RewritesMultipleToolCalls(t *testing.T) {
 func TestCanonicalizeResponse_UsesChoiceAndSlotToDisambiguateDuplicateRawIDs(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-dup"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-dup",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 1,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-1", Type: "function"},
 						{ID: "call-1", Type: "function"},
 					},
@@ -117,9 +117,9 @@ func TestCanonicalizeResponse_UsesChoiceAndSlotToDisambiguateDuplicateRawIDs(t *
 			},
 			{
 				Index: 7,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-1", Type: "function"},
 					},
 				},
@@ -148,15 +148,15 @@ func TestCanonicalizeResponse_UsesChoiceAndSlotToDisambiguateDuplicateRawIDs(t *
 
 func TestCanonicalizeResponse_SameResponseAndToolCallIDsAcrossInvocationsRemainDistinct(t *testing.T) {
 	t.Parallel()
-	baseResponse := &model.Response{
+	baseResponse := &compat.Response{
 		ID:        "rsp-shared",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
@@ -184,14 +184,14 @@ func TestCanonicalizeResponse_SameResponseAndToolCallIDsAcrossInvocationsRemainD
 
 func TestCanonicalizeResponse_PartialResponseIsNoOp(t *testing.T) {
 	t.Parallel()
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-partial",
 		IsPartial: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Delta: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Delta: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
@@ -206,22 +206,22 @@ func TestCanonicalizeResponse_PartialResponseIsNoOp(t *testing.T) {
 func TestCanonicalizeResponse_RewritesFinalMessageAndDeltaToolCalls(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-1"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
 			},
-			Delta: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Delta: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
@@ -241,15 +241,15 @@ func TestCanonicalizeResponse_RewritesFinalMessageAndDeltaToolCalls(t *testing.T
 func TestCanonicalizeResponse_RewritesFinalDeltaOnlyToolCalls(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-1"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 3,
-			Delta: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Delta: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-9",
 					Type: "function",
 				}},
@@ -268,15 +268,15 @@ func TestCanonicalizeResponse_RewritesFinalDeltaOnlyToolCalls(t *testing.T) {
 
 func TestCanonicalizeResponse_BestEffortWithMissingFields(t *testing.T) {
 	t.Parallel()
-	baseResponse := &model.Response{
+	baseResponse := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
@@ -286,7 +286,7 @@ func TestCanonicalizeResponse_BestEffortWithMissingFields(t *testing.T) {
 	testCases := []struct {
 		name   string
 		inv    *agent.Invocation
-		rsp    *model.Response
+		rsp    *compat.Response
 		wantID string
 	}{
 		{
@@ -304,7 +304,7 @@ func TestCanonicalizeResponse_BestEffortWithMissingFields(t *testing.T) {
 		{
 			name: "empty response id",
 			inv:  agent.NewInvocation(agent.WithInvocationID("inv-1")),
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:        "",
 				Done:      true,
 				IsPartial: false,
@@ -315,15 +315,15 @@ func TestCanonicalizeResponse_BestEffortWithMissingFields(t *testing.T) {
 		{
 			name: "empty tool call id",
 			inv:  agent.NewInvocation(agent.WithInvocationID("inv-1")),
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:        "rsp-1",
 				Done:      true,
 				IsPartial: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID:   "",
 							Type: "function",
 						}},
@@ -348,13 +348,13 @@ func TestCanonicalizeResponse_BestEffortWithMissingFields(t *testing.T) {
 func TestCanonicalizeResponse_NoToolCallsIsNoOp(t *testing.T) {
 	t.Parallel()
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-no-tool"))
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-no-tool",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("done"),
+			Message: compat.NewAssistantMessage("done"),
 		}},
 	}
 	canonicalized, err := canonicalizeResponse(inv, rsp)

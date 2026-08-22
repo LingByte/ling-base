@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 )
 
@@ -72,13 +72,13 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 	tests := []struct {
 		name    string
 		planner *Planner
-		want    *model.Request
+		want    *compat.Request
 	}{
 		{
 			name:    "empty planner",
 			planner: &Planner{},
-			want: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			want: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					ReasoningEffort: nil,
 					ThinkingEnabled: nil,
 					ThinkingTokens:  nil,
@@ -90,8 +90,8 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 			planner: &Planner{
 				reasoningEffort: stringPtr("low"),
 			},
-			want: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			want: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					ReasoningEffort: stringPtr("low"),
 					ThinkingEnabled: nil,
 					ThinkingTokens:  nil,
@@ -104,8 +104,8 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 				thinkingEnabled: boolPtr(true),
 				thinkingTokens:  intPtr(1500),
 			},
-			want: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			want: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					ReasoningEffort: nil,
 					ThinkingEnabled: boolPtr(true),
 					ThinkingTokens:  intPtr(1500),
@@ -119,8 +119,8 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 				thinkingEnabled: boolPtr(false),
 				thinkingTokens:  intPtr(2000),
 			},
-			want: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			want: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					ReasoningEffort: stringPtr("high"),
 					ThinkingEnabled: boolPtr(false),
 					ThinkingTokens:  intPtr(2000),
@@ -133,7 +133,7 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			invocation := &agent.Invocation{}
-			req := &model.Request{}
+			req := &compat.Request{}
 
 			result := tt.planner.BuildPlanningInstruction(ctx, invocation, req)
 
@@ -160,7 +160,7 @@ func TestPlanner_ProcessPlanningResponse(t *testing.T) {
 	p := New(Options{})
 	ctx := context.Background()
 	invocation := &agent.Invocation{}
-	response := &model.Response{}
+	response := &compat.Response{}
 
 	result := p.ProcessPlanningResponse(ctx, invocation, response)
 	if result != nil {

@@ -11,13 +11,13 @@ package dify
 
 import (
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/cloudernative/dify-sdk-go"
 )
 
 // StreamingRespHandler handles the streaming response content
 // return the content will be added to the final aggregated content
-type StreamingRespHandler func(resp *model.Response) (string, error)
+type StreamingRespHandler func(resp *compat.Response) (string, error)
 
 // Option configures the DifyAgent
 type Option func(*DifyAgent)

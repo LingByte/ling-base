@@ -12,7 +12,7 @@ package graph
 
 import (
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const graphCallOptionsKey = "graph_call_options"
@@ -52,7 +52,7 @@ func WithCallOptions(opts ...CallOption) agent.RunOption {
 
 // WithCallGenerationConfigPatch applies a GenerationConfigPatch to all LLM
 // nodes in the current graph scope.
-func WithCallGenerationConfigPatch(p model.GenerationConfigPatch) CallOption {
+func WithCallGenerationConfigPatch(p compat.GenerationConfigPatch) CallOption {
 	return func(c *callOptions) {
 		if c == nil {
 			return
@@ -135,13 +135,13 @@ func DesignateNodeWithPath(path NodePath, opts ...CallOption) CallOption {
 }
 
 type callOptions struct {
-	generation              model.GenerationConfigPatch
+	generation              compat.GenerationConfigPatch
 	resumeStateOverrideKeys map[string]struct{}
 	nodes                   map[string]*callNodeOptions
 }
 
 type callNodeOptions struct {
-	generation model.GenerationConfigPatch
+	generation compat.GenerationConfigPatch
 	child      *callOptions
 }
 
@@ -294,7 +294,7 @@ func cloneCallNodeOptions(in *callNodeOptions) *callNodeOptions {
 	return out
 }
 
-func isEmptyGenPatch(p model.GenerationConfigPatch) bool {
+func isEmptyGenPatch(p compat.GenerationConfigPatch) bool {
 	return p.MaxTokens == nil &&
 		p.Temperature == nil &&
 		p.TopP == nil &&
@@ -309,8 +309,8 @@ func isEmptyGenPatch(p model.GenerationConfigPatch) bool {
 }
 
 func cloneGenPatch(
-	p model.GenerationConfigPatch,
-) model.GenerationConfigPatch {
+	p compat.GenerationConfigPatch,
+) compat.GenerationConfigPatch {
 	out := p
 	if p.Stop != nil {
 		out.Stop = append([]string{}, p.Stop...)
@@ -319,9 +319,9 @@ func cloneGenPatch(
 }
 
 func mergeGenPatch(
-	base model.GenerationConfigPatch,
-	override model.GenerationConfigPatch,
-) model.GenerationConfigPatch {
+	base compat.GenerationConfigPatch,
+	override compat.GenerationConfigPatch,
+) compat.GenerationConfigPatch {
 	out := cloneGenPatch(base)
 	if override.MaxTokens != nil {
 		out.MaxTokens = override.MaxTokens
@@ -503,9 +503,9 @@ func scopeCallOptionsForSubgraph(
 func generationPatchForNode(
 	opts *callOptions,
 	nodeID string,
-) model.GenerationConfigPatch {
+) compat.GenerationConfigPatch {
 	if opts == nil {
-		return model.GenerationConfigPatch{}
+		return compat.GenerationConfigPatch{}
 	}
 	out := cloneGenPatch(opts.generation)
 	if nodeID == "" {

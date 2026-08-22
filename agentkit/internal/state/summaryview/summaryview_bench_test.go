@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var summaryViewBenchmarkSink *View
@@ -97,8 +97,8 @@ func BenchmarkRebaseItems(b *testing.B) {
 	}
 }
 
-func summaryViewSplitBenchmarkMessages(messages []model.Message) ([]model.Message, []int) {
-	after := make([]model.Message, 0, len(messages)*2-1)
+func summaryViewSplitBenchmarkMessages(messages []compat.Message) ([]compat.Message, []int) {
+	after := make([]compat.Message, 0, len(messages)*2-1)
 	sourceIndexes := make([]int, 0, len(messages)*2-1)
 	for i := range messages {
 		after = append(after, messages[i])
@@ -115,18 +115,18 @@ func summaryViewSplitBenchmarkMessages(messages []model.Message) ([]model.Messag
 func summaryViewBenchmarkInput(
 	historySize int,
 	stateDeltaBytes int,
-) (*agent.Invocation, *model.Request) {
+) (*agent.Invocation, *compat.Request) {
 	invocation := agent.NewInvocation()
-	messages := make([]model.Message, 1, historySize+1)
-	messages[0] = model.NewSystemMessage("benchmark system prompt")
+	messages := make([]compat.Message, 1, historySize+1)
+	messages[0] = compat.NewSystemMessage("benchmark system prompt")
 	items := make([]Item, historySize)
 	for i := range items {
-		message := model.Message{
-			Role:    model.RoleAssistant,
+		message := compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: fmt.Sprintf("model-visible history item %d", i),
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				ID: fmt.Sprintf("call-%d", i),
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "benchmark_tool",
 					Arguments: bytes.Repeat([]byte{'a' + byte(i%26)}, 64),
 				},
@@ -148,5 +148,5 @@ func summaryViewBenchmarkInput(
 		Items:                items,
 		ContentRequestLength: len(messages),
 	})
-	return invocation, &model.Request{Messages: messages}
+	return invocation, &compat.Request{Messages: messages}
 }

@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/cloudernative/dify-sdk-go"
 	"trpc.group/trpc-go/trpc-a2a-go/protocol"
@@ -56,7 +56,7 @@ func TestDefaultDifyEventConverter_ConvertToEvent(t *testing.T) {
 		if choice.Message.Content != "Hello, world!" {
 			t.Errorf("expected content 'Hello, world!', got '%s'", choice.Message.Content)
 		}
-		if choice.Message.Role != model.RoleAssistant {
+		if choice.Message.Role != compat.RoleAssistant {
 			t.Errorf("expected role assistant, got '%s'", choice.Message.Role)
 		}
 		if !event.Response.Done {
@@ -167,8 +167,8 @@ func TestDefaultDifyEventConverter_ConvertToEvent(t *testing.T) {
 		if evt == nil {
 			t.Fatal("expected event, got nil")
 		}
-		if evt.Response.Object != model.ObjectTypeChatCompletion {
-			t.Errorf("expected Object type '%s', got '%s'", model.ObjectTypeChatCompletion, evt.Response.Object)
+		if evt.Response.Object != compat.ObjectTypeChatCompletion {
+			t.Errorf("expected Object type '%s', got '%s'", compat.ObjectTypeChatCompletion, evt.Response.Object)
 		}
 	})
 
@@ -217,7 +217,7 @@ func TestDefaultDifyEventConverter_ConvertStreamingToEvent(t *testing.T) {
 		if event.Response == nil {
 			t.Fatal("expected response, got nil")
 		}
-		if event.Response.Object != model.ObjectTypeChatCompletionChunk {
+		if event.Response.Object != compat.ObjectTypeChatCompletionChunk {
 			t.Errorf("expected object type chat completion chunk, got '%s'", event.Response.Object)
 		}
 		if len(event.Response.Choices) != 1 {
@@ -228,7 +228,7 @@ func TestDefaultDifyEventConverter_ConvertStreamingToEvent(t *testing.T) {
 		if choice.Delta.Content != "Hello" {
 			t.Errorf("expected delta content 'Hello', got '%s'", choice.Delta.Content)
 		}
-		if choice.Delta.Role != model.RoleAssistant {
+		if choice.Delta.Role != compat.RoleAssistant {
 			t.Errorf("expected role assistant, got '%s'", choice.Delta.Role)
 		}
 		if !event.Response.IsPartial {
@@ -368,8 +368,8 @@ func TestDefaultDifyEventConverter_ConvertStreamingToEvent(t *testing.T) {
 		if evt == nil {
 			t.Fatal("expected event, got nil")
 		}
-		if evt.Response.Object != model.ObjectTypeChatCompletionChunk {
-			t.Errorf("expected Object type '%s', got '%s'", model.ObjectTypeChatCompletionChunk, evt.Response.Object)
+		if evt.Response.Object != compat.ObjectTypeChatCompletionChunk {
+			t.Errorf("expected Object type '%s', got '%s'", compat.ObjectTypeChatCompletionChunk, evt.Response.Object)
 		}
 	})
 }
@@ -379,8 +379,8 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("converts basic message", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello, assistant!",
 			},
 			Session: &session.Session{
@@ -411,8 +411,8 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("converts streaming message", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream this!",
 			},
 			Session: &session.Session{
@@ -431,8 +431,8 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles nil session", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test message",
 			},
 			Session: nil,
@@ -449,8 +449,8 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles empty user ID", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test message",
 			},
 			Session: &session.Session{
@@ -470,12 +470,12 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 	t.Run("handles content parts", func(t *testing.T) {
 		textContent := "Additional text"
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Main content",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &textContent,
 					},
 				},
@@ -498,13 +498,13 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles image content parts", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Check this image",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL: "http://example.com/image.jpg",
 						},
 					},
@@ -527,13 +527,13 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles file content parts", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Check this file",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name: "document.pdf",
 						},
 					},
@@ -556,10 +556,10 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles unknown content parts", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
 						Type: "unknown_type",
 					},
@@ -575,7 +575,7 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 			t.Errorf("expected no error, got: %v", err)
 		}
 
-		if val, ok := req.Inputs["other_content_type"].(model.ContentType); !ok || val != "unknown_type" {
+		if val, ok := req.Inputs["other_content_type"].(compat.ContentType); !ok || val != "unknown_type" {
 			t.Errorf("expected other_content_type to be 'unknown_type', got: %v", req.Inputs["other_content_type"])
 		}
 	})
@@ -583,12 +583,12 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 	t.Run("handles text content part without main content", func(t *testing.T) {
 		textContent := "Only text part"
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &textContent,
 					},
 				},
@@ -610,12 +610,12 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles nil text in text content part", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Main",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: nil,
 					},
 				},
@@ -637,13 +637,13 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles empty image URL", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL: "",
 						},
 					},
@@ -666,13 +666,13 @@ func TestDefaultDifyRequestConverter_ConvertToDifyRequest(t *testing.T) {
 
 	t.Run("handles empty file name", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name: "",
 						},
 					},
@@ -719,8 +719,8 @@ func TestCustomConverters(t *testing.T) {
 		customConverter := &customTestRequestConverter{}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test query",
 			},
 		}
@@ -755,16 +755,16 @@ func (c *customTestEventConverter) ConvertToEvent(
 		content = "CUSTOM: " + resp.Answer
 	}
 
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: content,
 	}
 
 	return event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
-			Choices:   []model.Choice{{Message: message}},
+		event.WithResponse(&compat.Response{
+			Choices:   []compat.Choice{{Message: message}},
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
 			Done:      true,
@@ -781,17 +781,17 @@ func (c *customTestEventConverter) ConvertStreamingToEvent(
 		return nil
 	}
 
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "CUSTOM: " + resp.ChatMessageStreamResponse.Answer,
 	}
 
 	return event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
-			Object:    model.ObjectTypeChatCompletionChunk,
-			Choices:   []model.Choice{{Delta: message}},
+		event.WithResponse(&compat.Response{
+			Object:    compat.ObjectTypeChatCompletionChunk,
+			Choices:   []compat.Choice{{Delta: message}},
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
 			IsPartial: true,

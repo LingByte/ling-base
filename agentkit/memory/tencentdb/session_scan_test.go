@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -31,19 +31,19 @@ func TestSessionScanTimestampAndStateEdges(t *testing.T) {
 		AppName: "app",
 		UserID:  "user",
 		Events: []event.Event{
-			{ID: "old", Timestamp: base, Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewUserMessage("old"),
+			{ID: "old", Timestamp: base, Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("old"),
 			}}}},
 			{ID: "nil-response", Timestamp: base.Add(time.Second)},
-			{ID: "system", Timestamp: base.Add(2 * time.Second), Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewSystemMessage("system"),
+			{ID: "system", Timestamp: base.Add(2 * time.Second), Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewSystemMessage("system"),
 			}}}},
-			{ID: "empty", Timestamp: base.Add(3 * time.Second), Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewUserMessage("   "),
+			{ID: "empty", Timestamp: base.Add(3 * time.Second), Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("   "),
 			}}}},
-			{ID: "user", Timestamp: base.Add(4 * time.Second), Response: &model.Response{Choices: []model.Choice{{
+			{ID: "user", Timestamp: base.Add(4 * time.Second), Response: &compat.Response{Choices: []compat.Choice{{
 				Index:   2,
-				Message: model.NewUserMessage("new"),
+				Message: compat.NewUserMessage("new"),
 			}}}},
 		},
 	}
@@ -83,11 +83,11 @@ func TestSessionScanTimestampAndStateEdges(t *testing.T) {
 	clearBestEffortSyntheticTimestamp(stateSess)
 	assert.Zero(t, readBestEffortSyntheticTimestamp(stateSess))
 
-	assert.Empty(t, messageText(model.Message{Role: model.RoleUser}))
-	assert.Empty(t, messageText(model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+	assert.Empty(t, messageText(compat.Message{Role: compat.RoleUser}))
+	assert.Empty(t, messageText(compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 		}},
 	}))
 }

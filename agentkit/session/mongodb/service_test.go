@@ -26,7 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/mongodb"
 )
@@ -375,8 +375,8 @@ func TestGetSession_LoadsEventsAndSummaries(t *testing.T) {
 		InvocationID: "i",
 		Author:       "user",
 		Timestamp:    now.Add(-time.Minute),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "hello"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}}},
 	}
 	e2 := event.Event{
@@ -384,8 +384,8 @@ func TestGetSession_LoadsEventsAndSummaries(t *testing.T) {
 		InvocationID: "i",
 		Author:       "assistant",
 		Timestamp:    now,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "hi"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "hi"},
 		}}},
 	}
 	e1Bytes, err := json.Marshal(e1)
@@ -631,8 +631,8 @@ func TestListSessions_NonMetaLoadsEventsAndSummaries(t *testing.T) {
 		InvocationID: "i",
 		Author:       "user",
 		Timestamp:    now,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "hello"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}}},
 	}
 	evtBytes, err := json.Marshal(evt)
@@ -1072,9 +1072,9 @@ func TestUpdateSessionState_NoMatchReturnsSessionNotFound(t *testing.T) {
 func nonPartialResponseEvent(t *testing.T) *event.Event {
 	t.Helper()
 	e := event.New("test-invocation", "test-author")
-	e.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: "hi"}},
+	e.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: "hi"}},
 		},
 	}
 	e.IsPartial = false
@@ -2136,13 +2136,13 @@ func TestCleanupExpiredTracks_UsesSessionGroupCleanup(t *testing.T) {
 
 // -- WindowService ----------------------------------------------------------
 
-func windowEventForTest(id string, role model.Role, content string, ts time.Time) event.Event {
+func windowEventForTest(id string, role compat.Role, content string, ts time.Time) event.Event {
 	return event.Event{
 		ID:        id,
 		Author:    string(role),
 		Timestamp: ts,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: role, Content: content},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: role, Content: content},
 		}}},
 	}
 }
@@ -2151,9 +2151,9 @@ func TestGetEventWindow_LoadsOrderedEntries(t *testing.T) {
 	now := time.Now()
 	sessionCreatedAt := now.Add(-10 * time.Minute)
 	evts := []event.Event{
-		windowEventForTest("u1", model.RoleUser, "one", now.Add(-3*time.Minute)),
-		windowEventForTest("a1", model.RoleAssistant, "two", now.Add(-2*time.Minute)),
-		windowEventForTest("u2", model.RoleUser, "three", now.Add(-time.Minute)),
+		windowEventForTest("u1", compat.RoleUser, "one", now.Add(-3*time.Minute)),
+		windowEventForTest("a1", compat.RoleAssistant, "two", now.Add(-2*time.Minute)),
+		windowEventForTest("u2", compat.RoleUser, "three", now.Add(-time.Minute)),
 	}
 	ids := []primitive.ObjectID{
 		primitive.NewObjectID(),
@@ -2277,7 +2277,7 @@ func TestGetEventWindow_MissingActiveSessionReturnsAnchorNotFound(t *testing.T) 
 func TestGetEventWindow_RoleFilteredAnchorIsNotFound(t *testing.T) {
 	now := time.Now()
 	sessionCreatedAt := now.Add(-time.Hour)
-	evt := windowEventForTest("u1", model.RoleUser, "hello", now)
+	evt := windowEventForTest("u1", compat.RoleUser, "hello", now)
 	eventBytes, err := json.Marshal(evt)
 	require.NoError(t, err)
 	findOneCalls := 0
@@ -2311,7 +2311,7 @@ func TestGetEventWindow_RoleFilteredAnchorIsNotFound(t *testing.T) {
 	_, err = s.GetEventWindow(context.Background(), session.EventWindowRequest{
 		Key:           session.Key{AppName: "app", UserID: "u", SessionID: "s"},
 		AnchorEventID: "u1",
-		Roles:         []model.Role{model.RoleAssistant},
+		Roles:         []compat.Role{compat.RoleAssistant},
 		Before:        1,
 		After:         1,
 	})
@@ -2358,7 +2358,7 @@ func TestQueryWindowBatch_PropagatesFindAndCursorErrors(t *testing.T) {
 	cursor := &mongoWindowEntry{
 		id: primitive.NewObjectID(),
 		entry: session.EventWindowEntry{
-			Event:     windowEventForTest("anchor", model.RoleUser, "anchor", time.Now()),
+			Event:     windowEventForTest("anchor", compat.RoleUser, "anchor", time.Now()),
 			CreatedAt: time.Now(),
 		},
 	}
@@ -2391,8 +2391,8 @@ func TestQueryWindowBatch_PropagatesFindAndCursorErrors(t *testing.T) {
 
 func TestReverseWindowEntries(t *testing.T) {
 	entries := []session.EventWindowEntry{
-		{Event: windowEventForTest("one", model.RoleUser, "one", time.Now())},
-		{Event: windowEventForTest("two", model.RoleUser, "two", time.Now())},
+		{Event: windowEventForTest("one", compat.RoleUser, "one", time.Now())},
+		{Event: windowEventForTest("two", compat.RoleUser, "two", time.Now())},
 	}
 	reverseWindowEntries(entries)
 	assert.Equal(t, "two", entries[0].Event.ID)

@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // IsToolCallArgumentsJSONRepairEnabled reports whether tool call arguments JSON repair is enabled.
@@ -71,7 +71,7 @@ func chooseToolCallArguments(arguments []byte, repaired []byte) ([]byte, bool) {
 }
 
 // RepairToolCallArgumentsInPlace repairs the tool call arguments in place when needed.
-func RepairToolCallArgumentsInPlace(ctx context.Context, toolCall *model.ToolCall) {
+func RepairToolCallArgumentsInPlace(ctx context.Context, toolCall *compat.ToolCall) {
 	if toolCall == nil {
 		return
 	}
@@ -83,14 +83,14 @@ func RepairToolCallArgumentsInPlace(ctx context.Context, toolCall *model.ToolCal
 }
 
 // RepairToolCallsArgumentsInPlace repairs tool call arguments in place when needed.
-func RepairToolCallsArgumentsInPlace(ctx context.Context, toolCalls []model.ToolCall) {
+func RepairToolCallsArgumentsInPlace(ctx context.Context, toolCalls []compat.ToolCall) {
 	for i := range toolCalls {
 		RepairToolCallArgumentsInPlace(ctx, &toolCalls[i])
 	}
 }
 
 // RepairResponseToolCallArgumentsInPlace repairs tool call arguments inside the response in place when needed.
-func RepairResponseToolCallArgumentsInPlace(ctx context.Context, response *model.Response) {
+func RepairResponseToolCallArgumentsInPlace(ctx context.Context, response *compat.Response) {
 	if response == nil || response.IsPartial {
 		return
 	}

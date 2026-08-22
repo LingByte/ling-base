@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -189,16 +189,16 @@ func (a *codexAgent) emitFinalResponse(
 	if strings.TrimSpace(result.FinalMessage) != "" {
 		finalContent = strings.TrimSpace(result.FinalMessage)
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     strings.TrimSpace(result.FinalMessageID),
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
 		Usage:  result.Usage,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: finalContent,
 				},
 			},
@@ -297,20 +297,20 @@ func (a *codexAgent) emitRunError(ctx context.Context, invocation *agent.Invocat
 	if len(combined) == 0 {
 		msg = runErr.Error()
 	}
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: msg,
 				},
 			},
 		},
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeRunError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeRunError,
 			Message: msg,
 		},
 	}
@@ -318,26 +318,26 @@ func (a *codexAgent) emitRunError(ctx context.Context, invocation *agent.Invocat
 }
 
 // emitCodexError emits the terminal error response observed in the Codex transcript.
-func (a *codexAgent) emitCodexError(ctx context.Context, invocation *agent.Invocation, out chan<- *event.Event, responseErr *model.ResponseError) {
+func (a *codexAgent) emitCodexError(ctx context.Context, invocation *agent.Invocation, out chan<- *event.Event, responseErr *compat.ResponseError) {
 	a.emitEvent(ctx, invocation, out, errorEventFromResponseError(invocation.InvocationID, a.name, responseErr, true))
 }
 
 // emitFlowError emits an error response event and stops further invocation processing.
 func (a *codexAgent) emitFlowError(ctx context.Context, invocation *agent.Invocation, out chan<- *event.Event, combined []byte, flowErr error) {
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: string(combined),
 				},
 			},
 		},
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: flowErr.Error(),
 		},
 	}

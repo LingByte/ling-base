@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // ErrorTypeAgentCallbackError is used for errors from agent callbacks (before/after hooks).
@@ -37,14 +37,14 @@ const (
 // - customResponse: if not nil, this response will be returned to user and agent execution will be skipped.
 // - error: if not nil, agent execution will be stopped with this error.
 // Deprecated: Use BeforeAgentCallbackStructured instead for better type safety and context passing.
-type BeforeAgentCallback = func(ctx context.Context, invocation *Invocation) (*model.Response, error)
+type BeforeAgentCallback = func(ctx context.Context, invocation *Invocation) (*compat.Response, error)
 
 // AfterAgentCallback is called after the agent runs.
 // Returns (customResponse, error).
 // - customResponse: if not nil, this response will be used instead of the actual agent response.
 // - error: if not nil, this error will be returned.
 // Deprecated: Use AfterAgentCallbackStructured instead for better type safety and context passing.
-type AfterAgentCallback = func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error)
+type AfterAgentCallback = func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error)
 
 // BeforeAgentArgs contains all parameters for before agent callback.
 type BeforeAgentArgs struct {
@@ -57,7 +57,7 @@ type BeforeAgentResult struct {
 	// Context if not nil, will be used by the framework for subsequent operations.
 	Context context.Context
 	// CustomResponse if not nil, will skip agent execution and return this response.
-	CustomResponse *model.Response
+	CustomResponse *compat.Response
 }
 
 // BeforeAgentCallbackStructured is called before the agent runs.
@@ -87,7 +87,7 @@ type AfterAgentResult struct {
 	// Context if not nil, will be used by the framework for subsequent operations.
 	Context context.Context
 	// CustomResponse if not nil, will replace the original response.
-	CustomResponse *model.Response
+	CustomResponse *compat.Response
 }
 
 // AfterAgentCallbackStructured is called after the agent runs.

@@ -10,7 +10,7 @@ package agent
 
 import (
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -31,12 +31,12 @@ func (p *SurfacePatch) SetGlobalInstruction(text string) {
 }
 
 // SetFewShot sets the few-shot surface override.
-func (p *SurfacePatch) SetFewShot(examples [][]model.Message) {
+func (p *SurfacePatch) SetFewShot(examples [][]compat.Message) {
 	p.patch.SetFewShot(examples)
 }
 
 // SetModel sets the model surface override.
-func (p *SurfacePatch) SetModel(m model.Model) {
+func (p *SurfacePatch) SetModel(m compat.Model) {
 	p.patch.SetModel(m)
 }
 

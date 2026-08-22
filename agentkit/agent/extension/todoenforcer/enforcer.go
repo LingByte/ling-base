@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool/todo"
 )
@@ -146,8 +146,8 @@ func (e *Enforcer) Register(r *extension.Registry) {
 //     a missed nudge.
 func (e *Enforcer) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -197,7 +197,7 @@ func (e *Enforcer) beforeModel(
 	if msg == "" {
 		return nil, nil
 	}
-	args.Request.Messages = append(args.Request.Messages, model.NewUserMessage(msg))
+	args.Request.Messages = append(args.Request.Messages, compat.NewUserMessage(msg))
 	return nil, nil
 }
 
@@ -264,8 +264,8 @@ func (e *Enforcer) declareBlockerToolName() string {
 // answer to clients and session history.
 func (e *Enforcer) afterModel(
 	ctx context.Context,
-	args *model.AfterModelArgs,
-) (*model.AfterModelResult, error) {
+	args *compat.AfterModelArgs,
+) (*compat.AfterModelResult, error) {
 	if args == nil || args.Response == nil {
 		return nil, nil
 	}
@@ -333,14 +333,14 @@ func (e *Enforcer) afterModel(
 		PendingCount:    len(pending),
 		InProgressCount: len(inProgress),
 	})
-	return &model.AfterModelResult{
+	return &compat.AfterModelResult{
 		CustomResponse: blockedControlResponse(args.Response),
 	}, nil
 }
 
-func blockedControlResponse(src *model.Response) *model.Response {
+func blockedControlResponse(src *compat.Response) *compat.Response {
 	if src == nil {
-		return &model.Response{Done: false}
+		return &compat.Response{Done: false}
 	}
 	rsp := src.Clone()
 	rsp.Done = false
@@ -354,7 +354,7 @@ func blockedControlResponse(src *model.Response) *model.Response {
 // predicate but narrows it to successful final text responses.
 // Tool-call responses are a continuation signal rather than an exit
 // signal, and error responses must surface without todo enforcement.
-func (e *Enforcer) shouldConsiderResponse(rsp *model.Response) bool {
+func (e *Enforcer) shouldConsiderResponse(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}

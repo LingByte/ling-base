@@ -19,7 +19,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummary "github.com/LingByte/ling-base/agentkit/session/internal/summary"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func (m *mockSummarizerImpl) Summarize(ctx context.Context, sess *session.Sessio
 
 func (m *mockSummarizerImpl) SetPrompt(prompt string) {}
 
-func (m *mockSummarizerImpl) SetModel(mdl model.Model) {}
+func (m *mockSummarizerImpl) SetModel(mdl compat.Model) {}
 
 func (m *mockSummarizerImpl) Metadata() map[string]any {
 	return map[string]any{}
@@ -799,8 +799,8 @@ func TestEnqueueSummaryJob_QueueFull_FallbackToSyncWithCascade(t *testing.T) {
 	// Add an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	sess.Events = append(sess.Events, *e)
 
@@ -857,8 +857,8 @@ func TestEnqueueSummaryJob_NoAsyncWorkers_FallbackToSyncWithCascade(t *testing.T
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "tool-usage"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e1.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	sess.Events = append(sess.Events, *e1)
 
@@ -866,8 +866,8 @@ func TestEnqueueSummaryJob_NoAsyncWorkers_FallbackToSyncWithCascade(t *testing.T
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "other-key"
 	e2.Version = event.CurrentVersion
-	e2.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "world"},
+	e2.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "world"},
 	}}}
 	sess.Events = append(sess.Events, *e2)
 
@@ -906,8 +906,8 @@ func TestEnqueueSummaryJob_SingleFilterKey_PersistsBothKeys(t *testing.T) {
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "tool-usage"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e1.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	sess.Events = append(sess.Events, *e1)
 
@@ -915,8 +915,8 @@ func TestEnqueueSummaryJob_SingleFilterKey_PersistsBothKeys(t *testing.T) {
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "tool-usage" // Same filterKey as e1.
 	e2.Version = event.CurrentVersion
-	e2.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "world"},
+	e2.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "world"},
 	}}}
 	sess.Events = append(sess.Events, *e2)
 
@@ -947,8 +947,8 @@ func TestEnqueueSummaryJob_FullSessionKey_NoCascade(t *testing.T) {
 	// Add an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	sess.Events = append(sess.Events, *e)
 
@@ -1155,7 +1155,7 @@ func (f *fakeSummarizer) Summarize(ctx context.Context, sess *session.Session) (
 	return f.out, nil
 }
 func (f *fakeSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeSummarizer) SetModel(m model.Model)   {}
+func (f *fakeSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 type fakeErrorSummarizer struct{}
@@ -1165,7 +1165,7 @@ func (f *fakeErrorSummarizer) Summarize(ctx context.Context, sess *session.Sessi
 	return "", fmt.Errorf("summarizer error")
 }
 func (f *fakeErrorSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeErrorSummarizer) SetModel(m model.Model)   {}
+func (f *fakeErrorSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeErrorSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestPickSummaryText(t *testing.T) {

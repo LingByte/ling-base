@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	publicagent "github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func boolPtr(v bool) *bool {
@@ -24,24 +24,24 @@ func TestResolveInvokeAgentStream(t *testing.T) {
 	tests := []struct {
 		name       string
 		invocation *publicagent.Invocation
-		genCfg     *model.GenerationConfig
+		genCfg     *compat.GenerationConfig
 		want       bool
 	}{
 		{
 			name:       "invocation override true",
 			invocation: &publicagent.Invocation{RunOptions: publicagent.RunOptions{Stream: boolPtr(true)}},
-			genCfg:     &model.GenerationConfig{Stream: false},
+			genCfg:     &compat.GenerationConfig{Stream: false},
 			want:       true,
 		},
 		{
 			name:       "invocation override false",
 			invocation: &publicagent.Invocation{RunOptions: publicagent.RunOptions{Stream: boolPtr(false)}},
-			genCfg:     &model.GenerationConfig{Stream: true},
+			genCfg:     &compat.GenerationConfig{Stream: true},
 			want:       false,
 		},
 		{
 			name:   "generation config fallback",
-			genCfg: &model.GenerationConfig{Stream: true},
+			genCfg: &compat.GenerationConfig{Stream: true},
 			want:   true,
 		},
 		{

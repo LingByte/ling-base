@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -130,7 +130,7 @@ func TestIngestWorker_TryEnqueue_QueueFullReturnsFalse(t *testing.T) {
 
 	job := &ingestJob{
 		UserKey:  memory.UserKey{AppName: "a", UserID: "u"},
-		Messages: []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 	}
 	// First one is picked up by the worker (blocked in handler).
 	w.tryEnqueue(context.Background(), job)
@@ -149,7 +149,7 @@ func TestIngestWorker_Ingest_EmptyMessagesIsNoOp(t *testing.T) {
 	err := w.ingest(context.Background(),
 		memory.UserKey{AppName: "a", UserID: "u"},
 		&session.Session{},
-		[]model.Message{{Role: model.RoleUser, Content: "   "}}, // whitespace → filtered out
+		[]compat.Message{{Role: compat.RoleUser, Content: "   "}}, // whitespace → filtered out
 		ingestOptions{},
 	)
 	assert.NoError(t, err)
@@ -170,7 +170,7 @@ func TestIngestWorker_Ingest_CreatesAndTerminalStatus(t *testing.T) {
 	err := w.ingest(context.Background(),
 		memory.UserKey{AppName: "a", UserID: "u"},
 		nil,
-		[]model.Message{{Role: model.RoleUser, Content: "hi"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ingestOptions{
 			metadata: map[string]any{"k": "v"},
 			agentID:  "agent",
@@ -194,7 +194,7 @@ func TestIngestWorker_IngestHostedForwardsInference(t *testing.T) {
 	err := w.ingest(context.Background(),
 		memory.UserKey{AppName: "app", UserID: "u"},
 		nil,
-		[]model.Message{{Role: model.RoleUser, Content: "store this message"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "store this message"}},
 		ingestOptions{infer: false},
 	)
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestIngestWorker_IngestSelfHostedOSSUsesSyncCreate(t *testing.T) {
 	err := w.ingest(context.Background(),
 		memory.UserKey{AppName: "app", UserID: "u"},
 		nil,
-		[]model.Message{{Role: model.RoleUser, Content: "hi"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ingestOptions{metadata: map[string]any{"k": "v"}, infer: true},
 	)
 	require.NoError(t, err)
@@ -256,7 +256,7 @@ func TestIngestWorker_IngestSelfHostedOSSForwardsOptionalFields(t *testing.T) {
 	err := w.ingest(context.Background(),
 		memory.UserKey{AppName: "app", UserID: "u"},
 		nil,
-		[]model.Message{{Role: model.RoleUser, Content: "deploy the service"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "deploy the service"}},
 		ingestOptions{
 			agentID:        "agent-1",
 			expirationDate: "2026-08-01",
@@ -382,7 +382,7 @@ func TestProcess_LogsErrorButRecovers(t *testing.T) {
 		w.process(&ingestJob{
 			Ctx:      context.Background(),
 			UserKey:  memory.UserKey{AppName: "a", UserID: "u"},
-			Messages: []model.Message{{Role: model.RoleUser, Content: "x"}},
+			Messages: []compat.Message{{Role: compat.RoleUser, Content: "x"}},
 		})
 	})
 }

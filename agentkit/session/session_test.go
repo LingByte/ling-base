@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1042,12 +1042,12 @@ func (m *MockService) Close() error {
 }
 
 // Helper function to create a test event with specified role
-func createTestEvent(role model.Role, content string, timestamp time.Time, stateDelta StateMap) *event.Event {
+func createTestEvent(role compat.Role, content string, timestamp time.Time, stateDelta StateMap) *event.Event {
 	return &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
+					Message: compat.Message{
 						Role:    role,
 						Content: content,
 					},
@@ -1096,34 +1096,34 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 		{
 			name: "events already start with user",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "user msg 1", now, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 1", now.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg 1", now, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 1", now.Add(time.Minute), nil),
 			}, nil),
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "user msg 1", now, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 1", now.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg 1", now, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 1", now.Add(time.Minute), nil),
 			},
 			description: "Should keep all events when already starting with user",
 		},
 		{
 			name: "remove assistant events at beginning",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleAssistant, "assistant msg 1", now, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 2", now.Add(time.Minute), nil),
-				*createTestEvent(model.RoleUser, "user msg 1", now.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 3", now.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 1", now, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 2", now.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg 1", now.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 3", now.Add(3*time.Minute), nil),
 			}, nil),
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "user msg 1", now.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 3", now.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg 1", now.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 3", now.Add(3*time.Minute), nil),
 			},
 			description: "Should remove events before first user event",
 		},
 		{
 			name: "all assistant events",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleAssistant, "assistant msg 1", now, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg 2", now.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 1", now, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg 2", now.Add(time.Minute), nil),
 			}, nil),
 			expectedEvents: []event.Event{},
 			description:    "Should clear all events when no user event found",
@@ -1131,12 +1131,12 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 		{
 			name: "mixed roles with user at end",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleSystem, "system msg", now, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg", now.Add(time.Minute), nil),
-				*createTestEvent(model.RoleUser, "user msg", now.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleSystem, "system msg", now, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg", now.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg", now.Add(2*time.Minute), nil),
 			}, nil),
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "user msg", now.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "user msg", now.Add(2*time.Minute), nil),
 			},
 			description: "Should keep events from first user event to end",
 		},
@@ -1192,48 +1192,48 @@ func TestApplyEventFiltering(t *testing.T) {
 		{
 			name: "event number limit",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
-				*createTestEvent(model.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
 			}, nil),
 			options: []Option{WithEventNum(2)},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
 			},
 			description: "Should keep only the last N events",
 		},
 		{
 			name: "event time filter",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "old msg", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "newer msg", baseTime.Add(5*time.Minute), nil),
-				*createTestEvent(model.RoleUser, "newest msg", baseTime.Add(8*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "old msg", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "newer msg", baseTime.Add(5*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "newest msg", baseTime.Add(8*time.Minute), nil),
 			}, nil),
 			options: []Option{WithEventTime(baseTime.Add(4 * time.Minute))},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "newest msg", baseTime.Add(8*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "newest msg", baseTime.Add(8*time.Minute), nil),
 			},
 			description: "Should keep events after specified time",
 		},
 		{
 			name: "event time filter - no matching events",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "old msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "old msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
 			}, nil),
 			options: []Option{WithEventTime(baseTime.Add(10 * time.Minute))},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "old msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleUser, "old msg 1", baseTime, nil),
 			},
 			description: "Should clear all events when none match time filter",
 		},
 		{
 			name: "not user message",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleAssistant, "old msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "old msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
 			}, nil),
 			options:        []Option{WithEventTime(baseTime.Add(10 * time.Minute))},
 			expectedEvents: []event.Event{},
@@ -1242,33 +1242,33 @@ func TestApplyEventFiltering(t *testing.T) {
 		{
 			name: "both number and time filters",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
-				*createTestEvent(model.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
-				*createTestEvent(model.RoleUser, "msg 5", baseTime.Add(4*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 5", baseTime.Add(4*time.Minute), nil),
 			}, nil),
 			options: []Option{
 				WithEventNum(3),
 				WithEventTime(baseTime.Add(90 * time.Second)),
 			},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
-				*createTestEvent(model.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
-				*createTestEvent(model.RoleUser, "msg 5", baseTime.Add(4*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 3", baseTime.Add(2*time.Minute), nil),
+				*createTestEvent(compat.RoleAssistant, "msg 4", baseTime.Add(3*time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 5", baseTime.Add(4*time.Minute), nil),
 			},
 			description: "Should apply number limit first, then time filter",
 		},
 		{
 			name: "no filtering options",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
 			}, nil),
 			options: []Option{},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "msg 2", baseTime.Add(time.Minute), nil),
 			},
 			description: "Should keep all events when no filters applied",
 		},
@@ -1314,7 +1314,7 @@ func TestApplyEventStateDelta(t *testing.T) {
 		{
 			name:          "nil session",
 			inputSession:  nil,
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key": []byte("value")}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key": []byte("value")}),
 			expectedState: nil,
 			description:   "Should handle nil session gracefully",
 		},
@@ -1328,14 +1328,14 @@ func TestApplyEventStateDelta(t *testing.T) {
 		{
 			name:          "nil session state",
 			inputSession:  createTestSession([]event.Event{}, nil),
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key1": []byte("value1")}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key1": []byte("value1")}),
 			expectedState: StateMap{"key1": []byte("value1")},
 			description:   "Should initialize state when nil",
 		},
 		{
 			name:         "merge into existing state",
 			inputSession: createTestSession([]event.Event{}, StateMap{"existing": []byte("old_value")}),
-			inputEvent:   createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"new_key": []byte("new_value")}),
+			inputEvent:   createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"new_key": []byte("new_value")}),
 			expectedState: StateMap{
 				"existing": []byte("old_value"),
 				"new_key":  []byte("new_value"),
@@ -1345,14 +1345,14 @@ func TestApplyEventStateDelta(t *testing.T) {
 		{
 			name:          "overwrite existing state key",
 			inputSession:  createTestSession([]event.Event{}, StateMap{"key": []byte("old_value")}),
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key": []byte("new_value")}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key": []byte("new_value")}),
 			expectedState: StateMap{"key": []byte("new_value")},
 			description:   "Should overwrite existing state keys",
 		},
 		{
 			name:          "empty state delta",
 			inputSession:  createTestSession([]event.Event{}, StateMap{"existing": []byte("value")}),
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{}),
 			expectedState: StateMap{"existing": []byte("value")},
 			description:   "Should leave state unchanged when delta is empty",
 		},
@@ -1400,7 +1400,7 @@ func TestApplyEventStateDeltaMap(t *testing.T) {
 		{
 			name:          "nil state",
 			inputState:    nil,
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key": []byte("value")}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key": []byte("value")}),
 			expectedState: nil,
 			description:   "Should handle nil state gracefully",
 		},
@@ -1414,7 +1414,7 @@ func TestApplyEventStateDeltaMap(t *testing.T) {
 		{
 			name:       "merge into existing state",
 			inputState: StateMap{"existing": []byte("old_value")},
-			inputEvent: createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"new_key": []byte("new_value")}),
+			inputEvent: createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"new_key": []byte("new_value")}),
 			expectedState: StateMap{
 				"existing": []byte("old_value"),
 				"new_key":  []byte("new_value"),
@@ -1424,7 +1424,7 @@ func TestApplyEventStateDeltaMap(t *testing.T) {
 		{
 			name:          "overwrite existing state key",
 			inputState:    StateMap{"key": []byte("old_value")},
-			inputEvent:    createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key": []byte("new_value")}),
+			inputEvent:    createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key": []byte("new_value")}),
 			expectedState: StateMap{"key": []byte("new_value")},
 			description:   "Should overwrite existing state keys",
 		},
@@ -1454,7 +1454,7 @@ func TestApplyEventStateDeltaMap_CopiesValues(t *testing.T) {
 		"key":   []byte("value"),
 		"nilKV": nil,
 	}
-	ev := createTestEvent(model.RoleUser, "test", time.Now(), delta)
+	ev := createTestEvent(compat.RoleUser, "test", time.Now(), delta)
 
 	ApplyEventStateDeltaMap(state, ev)
 
@@ -1625,7 +1625,7 @@ func TestUpdateUserSession(t *testing.T) {
 		{
 			name:            "nil session",
 			inputSession:    nil,
-			inputEvent:      createTestEvent(model.RoleUser, "test", now, nil),
+			inputEvent:      createTestEvent(compat.RoleUser, "test", now, nil),
 			options:         []Option{},
 			expectedEvents:  nil,
 			expectedState:   nil,
@@ -1645,10 +1645,10 @@ func TestUpdateUserSession(t *testing.T) {
 		{
 			name:         "successful update with user event",
 			inputSession: createTestSession([]event.Event{}, nil),
-			inputEvent:   createTestEvent(model.RoleUser, "new message", now, StateMap{"key": []byte("value")}),
+			inputEvent:   createTestEvent(compat.RoleUser, "new message", now, StateMap{"key": []byte("value")}),
 			options:      []Option{},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "new message", now, StateMap{"key": []byte("value")}),
+				*createTestEvent(compat.RoleUser, "new message", now, StateMap{"key": []byte("value")}),
 			},
 			expectedState:   StateMap{"key": []byte("value")},
 			expectTimestamp: true,
@@ -1657,15 +1657,15 @@ func TestUpdateUserSession(t *testing.T) {
 		{
 			name: "update with filtering",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "old msg 1", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
+				*createTestEvent(compat.RoleUser, "old msg 1", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "old msg 2", baseTime.Add(time.Minute), nil),
 			}, StateMap{"existing": []byte("value")}),
-			inputEvent: createTestEvent(model.RoleUser, "new message", now, StateMap{"new_key": []byte("new_value")}),
+			inputEvent: createTestEvent(compat.RoleUser, "new message", now, StateMap{"new_key": []byte("new_value")}),
 			options:    []Option{WithEventNum(2)},
 			// After filtering to keep last 2 events: [assistant msg, user new message]
 			// After ensuring user start: [user new message] (assistant event at beginning is removed)
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "new message", now, StateMap{"new_key": []byte("new_value")}),
+				*createTestEvent(compat.RoleUser, "new message", now, StateMap{"new_key": []byte("new_value")}),
 			},
 			expectedState: StateMap{
 				"existing": []byte("value"),
@@ -1677,13 +1677,13 @@ func TestUpdateUserSession(t *testing.T) {
 		{
 			name: "ensure user start after adding assistant event",
 			inputSession: createTestSession([]event.Event{
-				*createTestEvent(model.RoleUser, "user msg", baseTime, nil),
+				*createTestEvent(compat.RoleUser, "user msg", baseTime, nil),
 			}, nil),
-			inputEvent: createTestEvent(model.RoleAssistant, "assistant msg", now, nil),
+			inputEvent: createTestEvent(compat.RoleAssistant, "assistant msg", now, nil),
 			options:    []Option{},
 			expectedEvents: []event.Event{
-				*createTestEvent(model.RoleUser, "user msg", baseTime, nil),
-				*createTestEvent(model.RoleAssistant, "assistant msg", now, nil),
+				*createTestEvent(compat.RoleUser, "user msg", baseTime, nil),
+				*createTestEvent(compat.RoleAssistant, "assistant msg", now, nil),
 			},
 			expectedState:   StateMap{},
 			expectTimestamp: true,
@@ -1706,11 +1706,11 @@ func TestUpdateUserSession(t *testing.T) {
 			name:         "response is partial",
 			inputSession: createTestSession([]event.Event{}, nil),
 			inputEvent: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					IsPartial: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Role:    "user",
 								Content: "hello word",
 							},
@@ -1730,11 +1730,11 @@ func TestUpdateUserSession(t *testing.T) {
 			name:         "response is invalid",
 			inputSession: createTestSession([]event.Event{}, nil),
 			inputEvent: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					IsPartial: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Role:    "assistant",
 								Content: "",
 							},
@@ -2633,7 +2633,7 @@ func TestSession_HasStateKeyWithPrefix_EmptyStateMap(t *testing.T) {
 
 func TestApplyEventStateDelta_InitializesStateAndCopiesNilValue(t *testing.T) {
 	sess := &Session{}
-	ev := createTestEvent(model.RoleUser, "test", time.Now(), StateMap{"key": nil})
+	ev := createTestEvent(compat.RoleUser, "test", time.Now(), StateMap{"key": nil})
 
 	sess.ApplyEventStateDelta(ev)
 

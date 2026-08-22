@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/assert"
@@ -87,18 +87,18 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 				EventCreatedAt: createdAt,
 				Event: event.Event{
 					ID: "evt-1",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									Role:    model.RoleAssistant,
+								Message: compat.Message{
+									Role:    compat.RoleAssistant,
 									Content: "remembered detail",
 								},
 							},
 						},
 					},
 				},
-				Role:  model.RoleAssistant,
+				Role:  compat.RoleAssistant,
 				Text:  "assistant: remembered detail",
 				Score: 0.91,
 			},
@@ -114,11 +114,11 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-0",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "what happened earlier?",
 									},
 								},
@@ -130,11 +130,11 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleAssistant,
+									Message: compat.Message{
+										Role:    compat.RoleAssistant,
 										Content: "remembered detail",
 									},
 								},
@@ -146,11 +146,11 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-2",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "thanks, that helps",
 									},
 								},
@@ -200,7 +200,7 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 	)
 	require.Len(t, resp.Results[0].Context, 3)
 	assert.Equal(t, "evt-0", resp.Results[0].Context[0].EventID)
-	assert.Equal(t, model.RoleAssistant, resp.Results[0].Context[1].Role)
+	assert.Equal(t, compat.RoleAssistant, resp.Results[0].Context[1].Role)
 	assert.Equal(t, "remembered detail", resp.Results[0].Context[1].Content)
 	assert.Equal(t, session.SearchModeHybrid, svc.lastSearchReq.SearchMode)
 	assert.Equal(t, []string{"sess"}, svc.lastSearchReq.SessionIDs)
@@ -211,7 +211,7 @@ func TestSearchTool_CurrentHidden(t *testing.T) {
 	assert.Equal(t, 2, svc.lastWindowReq.After)
 	assert.ElementsMatch(
 		t,
-		[]model.Role{model.RoleUser, model.RoleAssistant, model.RoleTool},
+		[]compat.Role{compat.RoleUser, compat.RoleAssistant, compat.RoleTool},
 		svc.lastSearchReq.Roles,
 	)
 }
@@ -234,16 +234,16 @@ func TestSearchTool_CurrentHiddenPrefersSummaryCutoff(
 				EventCreatedAt: lastIncludedAt.Add(-time.Minute),
 				Event: event.Event{
 					ID: "evt-1",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								Role:    model.RoleAssistant,
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "remembered detail",
 							},
 						}},
 					},
 				},
-				Role:  model.RoleAssistant,
+				Role:  compat.RoleAssistant,
 				Text:  "remembered detail",
 				Score: 0.91,
 			},
@@ -293,10 +293,10 @@ func TestSearchTool_CurrentHiddenFiltersSameTimestampAfterBoundary(
 	hiddenEvent := event.Event{
 		ID:        "covered",
 		Timestamp: cutoff,
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hidden budget detail",
 				},
 			}},
@@ -305,10 +305,10 @@ func TestSearchTool_CurrentHiddenFiltersSameTimestampAfterBoundary(
 	visibleEvent := event.Event{
 		ID:        "visible",
 		Timestamp: cutoff,
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "visible budget detail",
 				},
 			}},
@@ -338,7 +338,7 @@ func TestSearchTool_CurrentHiddenFiltersSameTimestampAfterBoundary(
 				SessionKey:       key,
 				EventCreatedAt:   cutoff,
 				Event:            visibleEvent,
-				Role:             model.RoleUser,
+				Role:             compat.RoleUser,
 				Text:             "visible budget detail",
 				Score:            0.9,
 				SessionCreatedAt: current.CreatedAt,
@@ -347,7 +347,7 @@ func TestSearchTool_CurrentHiddenFiltersSameTimestampAfterBoundary(
 				SessionKey:       key,
 				EventCreatedAt:   cutoff,
 				Event:            hiddenEvent,
-				Role:             model.RoleUser,
+				Role:             compat.RoleUser,
 				Text:             "hidden budget detail",
 				Score:            0.8,
 				SessionCreatedAt: current.CreatedAt,
@@ -389,10 +389,10 @@ func TestSearchTool_CurrentHiddenStateFallbackKeepsEventBoundary(
 	hiddenEvent := event.Event{
 		ID:        "covered",
 		Timestamp: cutoff,
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hidden state detail",
 				},
 			}},
@@ -401,10 +401,10 @@ func TestSearchTool_CurrentHiddenStateFallbackKeepsEventBoundary(
 	visibleEvent := event.Event{
 		ID:        "visible",
 		Timestamp: cutoff,
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "visible state detail",
 				},
 			}},
@@ -425,7 +425,7 @@ func TestSearchTool_CurrentHiddenStateFallbackKeepsEventBoundary(
 				SessionKey:       key,
 				EventCreatedAt:   cutoff,
 				Event:            visibleEvent,
-				Role:             model.RoleUser,
+				Role:             compat.RoleUser,
 				Text:             "visible state detail",
 				Score:            0.9,
 				SessionCreatedAt: current.CreatedAt,
@@ -434,7 +434,7 @@ func TestSearchTool_CurrentHiddenStateFallbackKeepsEventBoundary(
 				SessionKey:       key,
 				EventCreatedAt:   cutoff,
 				Event:            hiddenEvent,
-				Role:             model.RoleUser,
+				Role:             compat.RoleUser,
 				Text:             "hidden state detail",
 				Score:            0.8,
 				SessionCreatedAt: current.CreatedAt,
@@ -506,18 +506,18 @@ func TestSearchTool_FallbackQuery(t *testing.T) {
 						EventCreatedAt: createdAt,
 						Event: event.Event{
 							ID: "evt-budget",
-							Response: &model.Response{
-								Choices: []model.Choice{
+							Response: &compat.Response{
+								Choices: []compat.Choice{
 									{
-										Message: model.Message{
-											Role:    model.RoleAssistant,
+										Message: compat.Message{
+											Role:    compat.RoleAssistant,
 											Content: "Alice said the April budget review had to move up by one week.",
 										},
 									},
 								},
 							},
 						},
-						Role:  model.RoleAssistant,
+						Role:  compat.RoleAssistant,
 						Score: 0.88,
 					},
 				}, nil
@@ -559,10 +559,10 @@ func TestSearchTool_CurrentHiddenSessionScanFallback(t *testing.T) {
 		{
 			ID:        "evt-before",
 			Timestamp: createdAt,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "[Turn 031] David Hopkins: I agree the new Act will put more pressure on schools.",
 					},
 				}},
@@ -571,10 +571,10 @@ func TestSearchTool_CurrentHiddenSessionScanFallback(t *testing.T) {
 		{
 			ID:        "evt-after",
 			Timestamp: summaryUpdatedAt.Add(time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "[Turn 220] Later speaker: unrelated follow-up",
 					},
 				}},
@@ -653,10 +653,10 @@ func TestSearchTool_CurrentHiddenScanKeepsSameTimestampBoundary(
 		{
 			ID:        "covered",
 			Timestamp: cutoff,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "covered budget detail",
 					},
 				}},
@@ -665,10 +665,10 @@ func TestSearchTool_CurrentHiddenScanKeepsSameTimestampBoundary(
 		{
 			ID:        "visible",
 			Timestamp: cutoff,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "visible budget detail",
 					},
 				}},
@@ -814,10 +814,10 @@ func TestSearchTool_CurrentSessionIncludesToolResults(
 				EventCreatedAt: createdAt,
 				Event: event.Event{
 					ID: "evt-tool",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								Role:     model.RoleTool,
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-1",
 								ToolName: "web_fetch",
 								Content:  "HTTP 200 with product details",
@@ -825,7 +825,7 @@ func TestSearchTool_CurrentSessionIncludesToolResults(
 						}},
 					},
 				},
-				Role:  model.RoleTool,
+				Role:  compat.RoleTool,
 				Text:  "web_fetch: HTTP 200 with product details",
 				Score: 0.88,
 			},
@@ -841,10 +841,10 @@ func TestSearchTool_CurrentSessionIncludesToolResults(
 				{
 					Event: event.Event{
 						ID: "evt-user",
-						Response: &model.Response{
-							Choices: []model.Choice{{
-								Message: model.Message{
-									Role:    model.RoleUser,
+						Response: &compat.Response{
+							Choices: []compat.Choice{{
+								Message: compat.Message{
+									Role:    compat.RoleUser,
 									Content: "fetch the product page",
 								},
 							}},
@@ -855,10 +855,10 @@ func TestSearchTool_CurrentSessionIncludesToolResults(
 				{
 					Event: event.Event{
 						ID: "evt-tool",
-						Response: &model.Response{
-							Choices: []model.Choice{{
-								Message: model.Message{
-									Role:     model.RoleTool,
+						Response: &compat.Response{
+							Choices: []compat.Choice{{
+								Message: compat.Message{
+									Role:     compat.RoleTool,
 									ToolID:   "call-1",
 									ToolName: "web_fetch",
 									Content:  "HTTP 200 with product details",
@@ -891,19 +891,19 @@ func TestSearchTool_CurrentSessionIncludesToolResults(
 	require.True(t, ok)
 	require.Len(t, resp.Results, 1)
 	assert.Equal(t, ScopeCurrentSession, resp.Results[0].Scope)
-	assert.Equal(t, model.RoleTool, resp.Results[0].Role)
+	assert.Equal(t, compat.RoleTool, resp.Results[0].Role)
 	assert.Contains(t, resp.Results[0].Snippet, "tool: web_fetch: HTTP 200 with product details")
 	assert.Equal(t, "call-1", resp.Results[0].ToolCallID)
 	assert.Equal(t, "web_fetch", resp.Results[0].ToolName)
 	assert.Equal(t, len("HTTP 200 with product details"), resp.Results[0].ContentBytes)
 	assert.False(t, resp.Results[0].ContentTruncated)
 	require.Len(t, resp.Results[0].Context, 2)
-	assert.Equal(t, model.RoleTool, resp.Results[0].Context[1].Role)
+	assert.Equal(t, compat.RoleTool, resp.Results[0].Context[1].Role)
 	assert.Equal(t, "web_fetch: HTTP 200 with product details", resp.Results[0].Context[1].Content)
 	assert.Nil(t, svc.lastSearchReq.CreatedBefore)
 	assert.ElementsMatch(
 		t,
-		[]model.Role{model.RoleUser, model.RoleAssistant, model.RoleTool},
+		[]compat.Role{compat.RoleUser, compat.RoleAssistant, compat.RoleTool},
 		svc.lastSearchReq.Roles,
 	)
 }
@@ -923,11 +923,11 @@ func TestLoadTool(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "first question",
 									},
 								},
@@ -939,11 +939,11 @@ func TestLoadTool(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-2",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleAssistant,
+									Message: compat.Message{
+										Role:    compat.RoleAssistant,
 										Content: "second answer",
 									},
 								},
@@ -981,13 +981,13 @@ func TestLoadTool(t *testing.T) {
 	assert.Equal(t, loadContextNote, resp.Note)
 	require.Len(t, resp.Messages, 2)
 	assert.Equal(t, "evt-1", resp.Messages[0].EventID)
-	assert.Equal(t, model.RoleUser, resp.Messages[0].Role)
+	assert.Equal(t, compat.RoleUser, resp.Messages[0].Role)
 	assert.Equal(t, "first question", resp.Messages[0].Content)
 	assert.Equal(t, "sess", svc.lastWindowReq.Key.SessionID)
 	assert.Equal(t, "evt-2", svc.lastWindowReq.AnchorEventID)
 	assert.ElementsMatch(
 		t,
-		[]model.Role{model.RoleUser, model.RoleAssistant, model.RoleTool},
+		[]compat.Role{compat.RoleUser, compat.RoleAssistant, compat.RoleTool},
 		svc.lastWindowReq.Roles,
 	)
 }
@@ -1007,10 +1007,10 @@ func TestLoadTool_IncludesToolResults(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-user",
-						Response: &model.Response{
-							Choices: []model.Choice{{
-								Message: model.Message{
-									Role:    model.RoleUser,
+						Response: &compat.Response{
+							Choices: []compat.Choice{{
+								Message: compat.Message{
+									Role:    compat.RoleUser,
 									Content: "run the lookup",
 								},
 							}},
@@ -1021,10 +1021,10 @@ func TestLoadTool_IncludesToolResults(t *testing.T) {
 				{
 					Event: event.Event{
 						ID: "evt-tool",
-						Response: &model.Response{
-							Choices: []model.Choice{{
-								Message: model.Message{
-									Role:     model.RoleTool,
+						Response: &compat.Response{
+							Choices: []compat.Choice{{
+								Message: compat.Message{
+									Role:     compat.RoleTool,
 									ToolID:   "call-1",
 									ToolName: "db_query",
 									Content:  "row_count=42",
@@ -1057,7 +1057,7 @@ func TestLoadTool_IncludesToolResults(t *testing.T) {
 	resp, ok := result.(*LoadSessionResponse)
 	require.True(t, ok)
 	require.Len(t, resp.Messages, 2)
-	assert.Equal(t, model.RoleTool, resp.Messages[1].Role)
+	assert.Equal(t, compat.RoleTool, resp.Messages[1].Role)
 	assert.Equal(t, "db_query: row_count=42", resp.Messages[1].Content)
 	assert.Equal(t, "call-1", resp.Messages[1].ToolCallID)
 	assert.Equal(t, "db_query", resp.Messages[1].ToolName)
@@ -1070,10 +1070,10 @@ func TestLoadTool_LoadsToolResultByToolCallIDWithContentWindow(t *testing.T) {
 	createdAt := time.Date(2025, 4, 7, 11, 0, 0, 0, time.UTC)
 	toolEvent := event.Event{
 		ID: "evt-tool",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "call-1",
 					ToolName: "db_query",
 					Content:  "0123456789abcdefghij",
@@ -1134,10 +1134,10 @@ func TestLoadTool_CapsNeighborToolResultsWithContentLimit(t *testing.T) {
 	makeToolEvent := func(eventID, toolID, content string) event.Event {
 		return event.Event{
 			ID: eventID,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:     model.RoleTool,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:     compat.RoleTool,
 						ToolID:   toolID,
 						ToolName: "db_query",
 						Content:  content,

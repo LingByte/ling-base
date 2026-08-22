@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/toolorder"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -98,12 +98,12 @@ func NewWorkflowSpanName(workflowName string) string {
 }
 
 type telemetryMessage struct {
-	Role             model.Role          `json:"role"`
+	Role             compat.Role          `json:"role"`
 	Content          string              `json:"content,omitempty"`
-	ContentParts     []model.ContentPart `json:"content_parts,omitempty"`
+	ContentParts     []compat.ContentPart `json:"content_parts,omitempty"`
 	ToolCallID       string              `json:"tool_call_id,omitempty"`
 	Name             string              `json:"name,omitempty"`
-	ToolCalls        []model.ToolCall    `json:"tool_calls,omitempty"`
+	ToolCalls        []compat.ToolCall    `json:"tool_calls,omitempty"`
 	ReasoningContent string              `json:"reasoning_content,omitempty"`
 }
 
@@ -114,7 +114,7 @@ type telemetryChoice struct {
 	FinishReason *string          `json:"finish_reason,omitempty"`
 }
 
-func telemetryMessageFromModel(msg model.Message) telemetryMessage {
+func telemetryMessageFromModel(msg compat.Message) telemetryMessage {
 	return telemetryMessage{
 		Role:             msg.Role,
 		Content:          msg.Content,
@@ -126,7 +126,7 @@ func telemetryMessageFromModel(msg model.Message) telemetryMessage {
 	}
 }
 
-func marshalTelemetryMessages(messages []model.Message) ([]byte, error) {
+func marshalTelemetryMessages(messages []compat.Message) ([]byte, error) {
 	out := make([]telemetryMessage, len(messages))
 	for i, msg := range messages {
 		out[i] = telemetryMessageFromModel(msg)
@@ -134,7 +134,7 @@ func marshalTelemetryMessages(messages []model.Message) ([]byte, error) {
 	return json.Marshal(out)
 }
 
-func marshalTelemetryChoices(choices []model.Choice) ([]byte, error) {
+func marshalTelemetryChoices(choices []compat.Choice) ([]byte, error) {
 	out := make([]telemetryChoice, len(choices))
 	for i, choice := range choices {
 		out[i] = telemetryChoice{
@@ -163,7 +163,7 @@ type ChatTraceState struct {
 // traceChunkAttributes contains per-response chunk trace inputs.
 type traceChunkAttributes struct {
 	Invocation       *agent.Invocation
-	Response         *model.Response
+	Response         *compat.Response
 	EventID          string
 	TimeToFirstToken time.Duration
 }
@@ -175,7 +175,7 @@ type traceChunkAttributes struct {
 // attributes are rebuilt and written again under the new policy. Base chat
 // attributes may be rewritten on those refreshes. When req is nil, only base
 // attributes are written and request commit state is not latched.
-func (s *ChatTraceState) commitRequest(span trace.Span, req *model.Request, taskType string) {
+func (s *ChatTraceState) commitRequest(span trace.Span, req *compat.Request, taskType string) {
 	if !span.IsRecording() {
 		return
 	}
@@ -377,7 +377,7 @@ func resolveInvocationAgentIdentity(invoke *agent.Invocation) (string, string) {
 }
 
 // TraceBeforeInvokeAgent traces the before invocation of an agent.
-func TraceBeforeInvokeAgent(span trace.Span, invoke *agent.Invocation, agentDescription, instructions string, genConfig *model.GenerationConfig) {
+func TraceBeforeInvokeAgent(span trace.Span, invoke *agent.Invocation, agentDescription, instructions string, genConfig *compat.GenerationConfig) {
 	if !span.IsRecording() {
 		return
 	}
@@ -412,12 +412,12 @@ func traceBeforeInvokeAgentInvocation(span trace.Span, invoke *agent.Invocation)
 	setInvokeAgentInputMessageAttributes(span, invoke.Message)
 }
 
-func setInvokeAgentInputMessageAttributes(span trace.Span, msg model.Message) {
+func setInvokeAgentInputMessageAttributes(span trace.Span, msg compat.Message) {
 	setStringAttribute(span, OperationInvokeAgent, semconvtrace.KeyGenAIInputMessages, "<not json serializable>", func() ([]byte, error) {
-		return marshalTelemetryMessages([]model.Message{msg})
+		return marshalTelemetryMessages([]compat.Message{msg})
 	})
 	setStringAttribute(span, OperationInvokeAgent, semconvtrace.KeyGenAIInputMessagesOTel, "<not json serializable>", func() ([]byte, error) {
-		return marshalOTelTelemetryMessages([]model.Message{msg})
+		return marshalOTelTelemetryMessages([]compat.Message{msg})
 	})
 }
 
@@ -440,7 +440,7 @@ func beforeInvokeAgentAttributes(invoke *agent.Invocation) []attribute.KeyValue 
 	return attrs
 }
 
-func setInvokeAgentGenerationConfigAttributes(span trace.Span, genConfig *model.GenerationConfig) {
+func setInvokeAgentGenerationConfigAttributes(span trace.Span, genConfig *compat.GenerationConfig) {
 	if genConfig != nil {
 		span.SetAttributes(attribute.Bool(semconvtrace.KeyGenAIRequestIsStream, genConfig.Stream))
 		if len(genConfig.Stop) > 0 {
@@ -530,8 +530,8 @@ func TraceAfterInvokeAgent(
 // It is used to keep TraceChat signatures stable as parameters evolve.
 type TraceChatAttributes struct {
 	Invocation       *agent.Invocation
-	Request          *model.Request
-	Response         *model.Response
+	Request          *compat.Request
+	Response         *compat.Response
 	EventID          string
 	TimeToFirstToken time.Duration
 	TaskType         string
@@ -594,7 +594,7 @@ func buildInvocationAttributes(invoke *agent.Invocation) []attribute.KeyValue {
 }
 
 // buildRequestAttributes builds request-related attributes.
-func buildRequestAttributes(req *model.Request) []attribute.KeyValue {
+func buildRequestAttributes(req *compat.Request) []attribute.KeyValue {
 	if req == nil {
 		return nil
 	}
@@ -635,9 +635,10 @@ func buildRequestAttributes(req *model.Request) []attribute.KeyValue {
 	})
 
 	// Add tool definitions as best-effort structured array (JSON string fallback)
-	if len(req.Tools) > 0 {
-		definitions := make([]*tool.Declaration, 0, len(req.Tools))
-		for _, t := range toolorder.SortedTools(req.Tools) {
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
+	if len(toolsMap) > 0 {
+		definitions := make([]*tool.Declaration, 0, len(toolsMap))
+		for _, t := range toolorder.SortedTools(toolsMap) {
 			definitions = append(definitions, t.Declaration())
 		}
 		if len(definitions) > 0 {
@@ -659,7 +660,7 @@ func buildRequestAttributes(req *model.Request) []attribute.KeyValue {
 }
 
 // buildResponseAttributes builds response-related attributes.
-func buildResponseAttributes(rsp *model.Response, errorTypeFallback string) []attribute.KeyValue {
+func buildResponseAttributes(rsp *compat.Response, errorTypeFallback string) []attribute.KeyValue {
 	if rsp == nil {
 		return nil
 	}
@@ -727,7 +728,7 @@ func buildResponseAttributes(rsp *model.Response, errorTypeFallback string) []at
 	return attrs
 }
 
-func responseErrorAttributes(respErr *model.ResponseError, fallback string) []attribute.KeyValue {
+func responseErrorAttributes(respErr *compat.ResponseError, fallback string) []attribute.KeyValue {
 	if respErr == nil {
 		return nil
 	}

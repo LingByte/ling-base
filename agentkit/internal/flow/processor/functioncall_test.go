@@ -38,7 +38,7 @@ import (
 	knowledgegraph "github.com/LingByte/ling-base/agentkit/knowledge/graph"
 	knowledgetool "github.com/LingByte/ling-base/agentkit/knowledge/tool"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -56,25 +56,25 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
-// mockModel implements model.Model for testing
+// mockModel implements compat.Model for testing
 type mockModel struct {
 	ShouldError bool
-	responses   []*model.Response
+	responses   []*compat.Response
 	currentIdx  int
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{
 		Name: "mock",
 	}
 }
 
-func (m *mockModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *mockModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	if m.ShouldError {
 		return nil, errors.New("mock model error")
 	}
 
-	respChan := make(chan *model.Response, len(m.responses))
+	respChan := make(chan *compat.Response, len(m.responses))
 
 	go func() {
 		defer close(respChan)
@@ -145,12 +145,12 @@ func TestFunctionCallResponseProcessor_RecordsExecutionTraceToolsAndSkills(t *te
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-lookup", Function: model.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"city":"Paris"}`)}},
-		{ID: "call-skill", Function: model.FunctionDefinitionParam{Name: "skill_load", Arguments: []byte(`{"skill":"research"}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-lookup", Function: compat.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"city":"Paris"}`)}},
+		{ID: "call-skill", Function: compat.FunctionDefinitionParam{Name: "skill_load", Arguments: []byte(`{"skill":"research"}`)}},
 	}}}}}
 	ch := make(chan *event.Event, 1)
-	NewFunctionCallResponseProcessor(false, callbacks).ProcessResponse(ctx, inv, &model.Request{Tools: tools}, rsp, ch)
+	NewFunctionCallResponseProcessor(false, callbacks).ProcessResponse(ctx, inv, &compat.Request{Tools: tools}, rsp, ch)
 	executionTrace := agent.BuildExecutionTrace(inv, atrace.TraceStatusCompleted)
 	require.NotNil(t, executionTrace)
 	require.Len(t, executionTrace.Steps, 1)
@@ -181,11 +181,11 @@ func TestFunctionCallResponseProcessor_RecordsExecutionTraceToolErrors(t *testin
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-error", Function: model.FunctionDefinitionParam{Name: "unstable", Arguments: []byte(`{"attempt":1}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-error", Function: compat.FunctionDefinitionParam{Name: "unstable", Arguments: []byte(`{"attempt":1}`)}},
 	}}}}}
 	ch := make(chan *event.Event, 1)
-	NewFunctionCallResponseProcessor(false, nil).ProcessResponse(ctx, inv, &model.Request{Tools: tools}, rsp, ch)
+	NewFunctionCallResponseProcessor(false, nil).ProcessResponse(ctx, inv, &compat.Request{Tools: tools}, rsp, ch)
 	executionTrace := agent.BuildExecutionTrace(inv, atrace.TraceStatusCompleted)
 	require.NotNil(t, executionTrace)
 	require.Len(t, executionTrace.Steps, 1)
@@ -223,12 +223,12 @@ func TestFunctionCallResponseProcessor_RecordsParallelPerCallTraceToolsInCallOrd
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-slow", Function: model.FunctionDefinitionParam{Name: "slow", Arguments: []byte(`{"index":0}`)}},
-		{ID: "call-fast", Function: model.FunctionDefinitionParam{Name: "fast", Arguments: []byte(`{"index":1}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-slow", Function: compat.FunctionDefinitionParam{Name: "slow", Arguments: []byte(`{"index":0}`)}},
+		{ID: "call-fast", Function: compat.FunctionDefinitionParam{Name: "fast", Arguments: []byte(`{"index":1}`)}},
 	}}}}}
 	ch := make(chan *event.Event, 2)
-	NewFunctionCallResponseProcessor(true, nil).ProcessResponse(ctx, inv, &model.Request{Tools: tools}, rsp, ch)
+	NewFunctionCallResponseProcessor(true, nil).ProcessResponse(ctx, inv, &compat.Request{Tools: tools}, rsp, ch)
 	executionTrace := agent.BuildExecutionTrace(inv, atrace.TraceStatusCompleted)
 	require.NotNil(t, executionTrace)
 	require.Len(t, executionTrace.Steps, 1)
@@ -255,9 +255,9 @@ func TestFunctionCallResponseProcessor_RecordsParallelTerminalToolErrors(t *test
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
-		{ID: "call-ok", Function: model.FunctionDefinitionParam{Name: "ok", Arguments: []byte(`{"index":1}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
+		{ID: "call-ok", Function: compat.FunctionDefinitionParam{Name: "ok", Arguments: []byte(`{"index":1}`)}},
 	}}}}}
 	_, err := NewFunctionCallResponseProcessor(true, nil).handleFunctionCalls(
 		ctx,
@@ -293,8 +293,8 @@ func TestFunctionCallResponseProcessor_RecordsSequentialTerminalToolErrors(t *te
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
 	}}}}}
 	_, err := NewFunctionCallResponseProcessor(false, nil).handleFunctionCalls(
 		ctx,
@@ -329,13 +329,13 @@ func TestFunctionCallResponseProcessor_RecordsSequentialPerCallTerminalToolError
 			},
 		},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop", Arguments: []byte(`{"index":0}`)}},
 	}}}}}
 	_, err := NewFunctionCallResponseProcessor(false, nil).handleFunctionCallsAndSendEventWithRequest(
 		ctx,
 		inv,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		rsp,
 		make(chan *event.Event, 1),
 	)
@@ -358,8 +358,8 @@ func TestRecordExecutionTraceToolResults_HandlesEmptyResultsAndNilContext(t *tes
 	inv, ctx := newExecutionTraceProcessorInvocation(t)
 	recordExecutionTraceToolResults(ctx, inv, []toolResult{{}}, nil)
 	recordExecutionTraceToolResults(nil, inv, []toolResult{{
-		event: &event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
+		event: &event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
 				ToolID:   "call-skill",
 				ToolName: "skill_load",
 				Content:  "loaded",
@@ -383,8 +383,8 @@ func TestExecutionTraceToolResultHelpersHandleFallbacks(t *testing.T) {
 	_, ok := executionTraceToolFromResult(toolResult{}, nil)
 	require.False(t, ok)
 	recordedTool, ok := executionTraceToolFromResult(toolResult{
-		event: &event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
+		event: &event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
 				ToolID:   "call-1",
 				ToolName: "original",
 				Content:  `{"old":true}`,
@@ -398,8 +398,8 @@ func TestExecutionTraceToolResultHelpersHandleFallbacks(t *testing.T) {
 	require.Equal(t, "original", recordedTool.Name)
 	require.Equal(t, map[string]any{"final": true}, recordedTool.Result)
 	recordedTool, ok = executionTraceToolFromResult(toolResult{
-		event: &event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
+		event: &event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
 				ToolID:  "call-2",
 				Content: `"ok"`,
 			},
@@ -408,8 +408,8 @@ func TestExecutionTraceToolResultHelpersHandleFallbacks(t *testing.T) {
 	}, nil)
 	require.True(t, ok)
 	require.Equal(t, "fallback", recordedTool.Name)
-	message, ok := executionTraceToolMessageFromChoice(model.Choice{
-		Delta: model.Message{
+	message, ok := executionTraceToolMessageFromChoice(compat.Choice{
+		Delta: compat.Message{
 			ToolID:   "call-delta",
 			ToolName: "delta",
 			Content:  "chunk",
@@ -419,9 +419,9 @@ func TestExecutionTraceToolResultHelpersHandleFallbacks(t *testing.T) {
 	require.Equal(t, executionTraceToolMessage{id: "call-delta", name: "delta", content: "chunk"}, message)
 	_, ok = executionTraceFirstToolMessage(nil)
 	require.False(t, ok)
-	_, ok = executionTraceFirstToolMessage(&event.Event{Response: &model.Response{Choices: []model.Choice{{}}}})
+	_, ok = executionTraceFirstToolMessage(&event.Event{Response: &compat.Response{Choices: []compat.Choice{{}}}})
 	require.False(t, ok)
-	_, ok = executionTraceToolMessageFromChoice(model.Choice{})
+	_, ok = executionTraceToolMessageFromChoice(compat.Choice{})
 	require.False(t, ok)
 }
 
@@ -610,10 +610,10 @@ func TestExecuteSingleToolCallSequential_DisableTracingSkipsSpanCreation(t *test
 		}),
 	)
 	invocation.AgentName = "test-agent"
-	response := &model.Response{}
-	toolCall := model.ToolCall{
+	response := &compat.Response{}
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"message":"hello"}`),
 		},
@@ -706,10 +706,10 @@ func TestExecuteSingleToolCallSequential_MarksAutoMemoryPolluted(t *testing.T) {
 			p := NewFunctionCallResponseProcessor(false, nil)
 			invocation := agent.NewInvocation()
 			invocation.Session = session.NewSession("test-app", "user-1", "session-1")
-			response := &model.Response{}
-			toolCall := model.ToolCall{
+			response := &compat.Response{}
+			toolCall := compat.ToolCall{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      tt.toolName,
 					Arguments: []byte(`{"query":"hello"}`),
 				},
@@ -783,10 +783,10 @@ func TestExecuteSingleToolCallSequential_AddsToolCallArgsExtension(t *testing.T)
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	invocation := agent.NewInvocation()
 	invocation.AgentName = "test-agent"
-	response := &model.Response{Model: "mock-model"}
-	toolCall := model.ToolCall{
+	response := &compat.Response{Model: "mock-model"}
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "gametime",
 			Arguments: []byte(originalArgs),
 		},
@@ -830,18 +830,18 @@ func TestExecuteToolCallsInParallel_DisableTracingSkipsSpanCreation(t *testing.T
 		}),
 	)
 	invocation.AgentName = "test-agent"
-	response := &model.Response{}
-	toolCalls := []model.ToolCall{
+	response := &compat.Response{}
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "tool1",
 				Arguments: []byte(`{}`),
 			},
 		},
 		{
 			ID: "call-2",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "tool2",
 				Arguments: []byte(`{}`),
 			},
@@ -1231,9 +1231,9 @@ func TestExecuteToolCall_MapsSubAgentToTransfer(t *testing.T) {
 
 	// Original tool call uses sub-agent name directly.
 	originalArgs := []byte(`{"message":"What's the weather like in Tokyo?"}`)
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "weather-agent",
 			Arguments: originalArgs,
 		},
@@ -1271,19 +1271,19 @@ func TestExecuteSingleToolCallSequential_AttachesMappedToolStateDelta(
 			},
 		},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "weather-agent",
 			Arguments: []byte(`{"message":"weather"}`),
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{tc},
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{tc},
 			},
 		}},
 	}
@@ -1324,12 +1324,12 @@ func TestFunctionCallResponseProcessor_AttachStateDelta(t *testing.T) {
 	p := &FunctionCallResponseProcessor{}
 	inv := &agent.Invocation{AgentName: "tester"}
 	args := []byte(`{"ok":true}`)
-	choice := &model.Choice{
-		Message: model.Message{
+	choice := &compat.Choice{
+		Message: compat.Message{
 			ToolID:   "call-1",
 			Content:  `{"result":"ok"}`,
 			ToolName: "tool",
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 		},
 	}
 	resultJSON := []byte(choice.Message.Content)
@@ -1374,10 +1374,10 @@ func TestExecuteSingleToolCallSequential_PreservesCustomInvocationState(
 	p := NewFunctionCallResponseProcessor(false, nil)
 	inv := &agent.Invocation{AgentName: agentName, Model: &mockModel{}}
 	ctx := agent.NewInvocationContext(context.Background(), inv)
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	toolCall := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	toolCall := compat.ToolCall{
 		ID: toolCallID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(emptyJSONObject),
 		},
@@ -1432,10 +1432,10 @@ func TestExecuteSingleToolCallSequential_UsesCallbackInvocationState(
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: agentName, Model: &mockModel{}}
 	ctx := agent.NewInvocationContext(context.Background(), inv)
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	toolCall := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	toolCall := compat.ToolCall{
 		ID: toolCallID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(emptyJSONObject),
 		},
@@ -1503,10 +1503,10 @@ func TestExecuteSingleToolCallSequential_CallbackStateKeepsSession(
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv)
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	toolCall := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	toolCall := compat.ToolCall{
 		ID: toolCallID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(emptyJSONObject),
 		},
@@ -1590,17 +1590,17 @@ func TestHandleFunctionCalls_SequentialKeepsCallbackSession(t *testing.T) {
 			writeKey:    secondDeltaKey,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -1656,17 +1656,17 @@ func TestHandleFunctionCalls_SequentialSnapshotsSession(t *testing.T) {
 			sessionValue: []byte(laterValue),
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -1726,17 +1726,17 @@ func TestHandleFunctionCalls_SequentialKeepsCurrentSessionMutation(
 			deltaKey:     secondDeltaKey,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -1808,17 +1808,17 @@ func TestHandleFunctionCalls_SequentialReplaysCallbackSessionDeltas(
 			writeKey:    secondDeltaKey,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -1886,17 +1886,17 @@ func TestHandleFunctionCalls_SequentialReplaysFallbackSessionDeltas(
 			writeKey:    secondDeltaKey,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -2018,17 +2018,17 @@ func TestHandleFunctionCalls_SequentialStateSnapshots(t *testing.T) {
 			deltaKey:    secondDeltaKey,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -2087,17 +2087,17 @@ func TestHandleFunctionCalls_ParallelIsolatesInvocationState(t *testing.T) {
 			wrote:           secondWrote,
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: firstCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      firstToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
 		},
 		{
 			ID: secondCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      secondToolName,
 				Arguments: []byte(emptyJSONObject),
 			},
@@ -2131,11 +2131,11 @@ func TestAttachStateDeltaToToolResults_ReplaysPendingStateDeltas(
 		AgentName: "tester",
 		Session:   &session.Session{State: session.StateMap{}},
 	}
-	choice := model.Choice{
-		Message: model.Message{
+	choice := compat.Choice{
+		Message: compat.Message{
 			ToolID:  "call-2",
 			Content: `{"ok":true}`,
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 		},
 	}
 	results := []toolResult{
@@ -2214,11 +2214,11 @@ func newSkillLoadToolCall(
 	t *testing.T,
 	id string,
 	skillName string,
-) model.ToolCall {
+) compat.ToolCall {
 	t.Helper()
-	return model.ToolCall{
+	return compat.ToolCall{
 		ID: id,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "skill_load",
 			Arguments: marshalSkillLoadArgs(t, skillName),
 		},
@@ -2226,13 +2226,13 @@ func newSkillLoadToolCall(
 }
 
 func newToolCallResponseWithCalls(
-	toolCalls []model.ToolCall,
-) *model.Response {
-	return &model.Response{
+	toolCalls []compat.ToolCall,
+) *compat.Response {
+	return &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:      model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:      compat.RoleAssistant,
 				ToolCalls: toolCalls,
 			},
 		}},
@@ -2257,7 +2257,7 @@ func TestHandleFunctionCalls_SequentialUsesMergedInvocationStateDelta(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		newSkillLoadToolCall(t, "call-1", "a"),
 		newSkillLoadToolCall(t, "call-2", "b"),
 	}
@@ -2304,7 +2304,7 @@ func TestHandleFunctionCalls_ParallelUsesMergedInvocationStateDelta(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		newSkillLoadToolCall(t, "call-1", "a"),
 		newSkillLoadToolCall(t, "call-2", "b"),
 	}
@@ -2349,9 +2349,9 @@ func TestExecuteToolCall(t *testing.T) {
 
 	// Original tool call uses sub-agent name directly.
 	originalArgs := []byte(`{"message":"What's the weather like in Tokyo?"}`)
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "weather-agent",
 			Arguments: originalArgs,
 		},
@@ -2376,9 +2376,9 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultSkipsNullToolMessage(t *t
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "final",
 			Arguments: []byte(`{}`),
 		},
@@ -2401,7 +2401,7 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultSkipsNullToolMessage(t *t
 	choices := execution.choices
 	require.NoError(t, err)
 	require.Len(t, choices, 1)
-	require.Equal(t, model.RoleTool, choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	require.Equal(t, tc.ID, choices[0].Message.ToolID)
 	require.Equal(t, "null", choices[0].Message.Content)
 	first := <-eventCh
@@ -2442,9 +2442,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_Nil_NoOverride(t *testing.T)
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "echo-agent"}
 
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{}`),
 		},
@@ -2460,7 +2460,7 @@ func TestExecuteToolCall_ToolResultMessagesCallback_Nil_NoOverride(t *testing.T)
 
 	wantBytes, err := json.Marshal(resultValue)
 	require.NoError(t, err)
-	assert.Equal(t, model.RoleTool, choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	assert.Equal(t, pc.ID, choices[0].Message.ToolID)
 	assert.Equal(t, "echo", choices[0].Message.ToolName)
 	assert.Equal(t, string(wantBytes), choices[0].Message.Content)
@@ -2504,22 +2504,22 @@ func TestProcessResponse_ToolResultMessagesNoAttachmentBudgetByDefault(
 		InvocationID: "inv-1",
 		AgentName:    "echo-agent",
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "first",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-2",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "second",
 							Arguments: []byte(`{}`),
 						},
@@ -2582,22 +2582,22 @@ func TestProcessResponse_ToolResultMessagesShareAttachmentBudget(
 		InvocationID: "inv-1",
 		AgentName:    "echo-agent",
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "first",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-2",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "second",
 							Arguments: []byte(`{}`),
 						},
@@ -2661,22 +2661,22 @@ func TestProcessResponse_ToolResultMessagesBudgetIsPerPass(
 		InvocationID: "inv-1",
 		AgentName:    "echo-agent",
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "first",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-2",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "second",
 							Arguments: []byte(`{}`),
 						},
@@ -2733,14 +2733,14 @@ func TestProcessResponse_ToolExecutionDoesNotInheritAttachmentBudget(
 		InvocationID: "inv-1",
 		AgentName:    "echo-agent",
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "media",
 						Arguments: []byte(`{}`),
 					},
@@ -2801,22 +2801,22 @@ func TestProcessResponse_ParallelToolResultMessagesShareAttachmentBudget(
 		InvocationID: "inv-1",
 		AgentName:    "echo-agent",
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "first",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-2",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "second",
 							Arguments: []byte(`{}`),
 						},
@@ -2851,8 +2851,8 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithSingleMessage(t 
 
 	callbacks := tool.NewCallbacks()
 	callbacks.RegisterToolResultMessages(func(ctx context.Context, in *tool.ToolResultMessagesInput) (any, error) {
-		return model.Message{
-			Role:    model.RoleUser,
+		return compat.Message{
+			Role:    compat.RoleUser,
 			Content: "from-callback",
 			ToolID:  in.ToolCallID,
 		}, nil
@@ -2861,9 +2861,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithSingleMessage(t 
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "echo-agent"}
 
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "call-2",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{}`),
 		},
@@ -2877,7 +2877,7 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithSingleMessage(t 
 	require.Len(t, choices, 1)
 
 	msg := choices[0].Message
-	assert.Equal(t, model.RoleUser, msg.Role)
+	assert.Equal(t, compat.RoleUser, msg.Role)
 	assert.Equal(t, "from-callback", msg.Content)
 	assert.Equal(t, pc.ID, msg.ToolID)
 }
@@ -2896,14 +2896,14 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithMultipleMessages
 
 	callbacks := tool.NewCallbacks()
 	callbacks.RegisterToolResultMessages(func(ctx context.Context, in *tool.ToolResultMessagesInput) (any, error) {
-		return []model.Message{
+		return []compat.Message{
 			{
-				Role:    model.RoleTool,
+				Role:    compat.RoleTool,
 				Content: `{"ok":true}`,
 				ToolID:  in.ToolCallID,
 			},
 			{
-				Role:    model.RoleUser,
+				Role:    compat.RoleUser,
 				Content: "second-message",
 			},
 		}, nil
@@ -2912,9 +2912,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithMultipleMessages
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "echo-agent"}
 
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "call-3",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{}`),
 		},
@@ -2927,12 +2927,12 @@ func TestExecuteToolCall_ToolResultMessagesCallback_OverrideWithMultipleMessages
 	require.NoError(t, err)
 	require.Len(t, choices, 2)
 
-	assert.Equal(t, model.RoleTool, choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	assert.Equal(t, pc.ID, choices[0].Message.ToolID)
 	assert.Equal(t, "echo", choices[0].Message.ToolName)
 	assert.Equal(t, `{"ok":true}`, choices[0].Message.Content)
 
-	assert.Equal(t, model.RoleUser, choices[1].Message.Role)
+	assert.Equal(t, compat.RoleUser, choices[1].Message.Role)
 	assert.Equal(t, "second-message", choices[1].Message.Content)
 }
 
@@ -2956,9 +2956,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_Error(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "error-agent"}
 
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-error",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "error-tool",
 			Arguments: []byte(`{}`),
 		},
@@ -2999,9 +2999,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_Panic(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "panic-agent"}
 
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-panic",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "panic-tool",
 			Arguments: []byte(`{}`),
 		},
@@ -3048,9 +3048,9 @@ func TestExecuteToolCall_ToolResultMessagesCallback_UnsupportedReturnType(t *tes
 	p := NewFunctionCallResponseProcessor(false, callbacks)
 	inv := &agent.Invocation{AgentName: "echo-agent"}
 
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-unsupported",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{}`),
 		},
@@ -3065,47 +3065,47 @@ func TestExecuteToolCall_ToolResultMessagesCallback_UnsupportedReturnType(t *tes
 
 	wantBytes, err := json.Marshal(resultValue)
 	require.NoError(t, err)
-	assert.Equal(t, model.RoleTool, execution.choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, execution.choices[0].Message.Role)
 	assert.Equal(t, string(wantBytes), execution.choices[0].Message.Content)
 }
 
 func TestAfterToolMessagesHook_ReplacesToolResultMessages(t *testing.T) {
-	req := &model.Request{Messages: []model.Message{
-		model.NewUserMessage("look up data"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage("look up data"),
 	}}
-	toolCalls := []model.ToolCall{{
+	toolCalls := []compat.ToolCall{{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "lookup",
 			Arguments: []byte(`{"q":"data"}`),
 		},
 	}}
-	llmResponse := &model.Response{Choices: []model.Choice{{
-		Message: model.Message{
-			Role:      model.RoleAssistant,
+	llmResponse := &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{
+			Role:      compat.RoleAssistant,
 			ToolCalls: toolCalls,
 		},
 	}}}
-	toolEvent := event.NewResponseEvent("inv-1", "agent", &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{{
+	toolEvent := event.NewResponseEvent("inv-1", "agent", &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{{
 			Index:   7,
-			Message: model.NewToolMessage("call-1", "lookup", "raw result"),
+			Message: compat.NewToolMessage("call-1", "lookup", "raw result"),
 		}},
 	})
 
-	var sawMessages []model.Message
+	var sawMessages []compat.Message
 	mgr := plugin.MustNewManager(afterToolMessagesTestPlugin{
 		hook: func(ctx context.Context, args *plugin.AfterToolMessagesArgs) (*plugin.AfterToolMessagesResult, error) {
 			require.Len(t, args.Messages, 3)
 			require.Len(t, args.ToolCalls, 1)
 			require.Equal(t, "lookup", args.ToolCalls[0].Function.Name)
 			require.Equal(t, "raw result", args.ToolResultMessages[0].Content)
-			sawMessages = append([]model.Message(nil), args.Messages...)
+			sawMessages = append([]compat.Message(nil), args.Messages...)
 			msg := args.ToolResultMessages[0]
 			msg.Content = "summary result_ref=refs/node.md"
 			return &plugin.AfterToolMessagesResult{
-				ToolResultMessages: []model.Message{msg},
+				ToolResultMessages: []compat.Message{msg},
 			}, nil
 		},
 	})
@@ -3128,25 +3128,25 @@ func TestAfterToolMessagesHook_ReplacesToolResultMessages(t *testing.T) {
 }
 
 func TestAfterToolMessagesHook_RejectsInvalidReplacement(t *testing.T) {
-	llmResponse := &model.Response{Choices: []model.Choice{{
-		Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+	llmResponse := &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "lookup"},
+				Function: compat.FunctionDefinitionParam{Name: "lookup"},
 			}},
 		},
 	}}}
-	toolEvent := event.NewResponseEvent("inv-1", "agent", &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{{
-			Message: model.NewToolMessage("call-1", "lookup", "raw result"),
+	toolEvent := event.NewResponseEvent("inv-1", "agent", &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{{
+			Message: compat.NewToolMessage("call-1", "lookup", "raw result"),
 		}},
 	})
 	mgr := plugin.MustNewManager(afterToolMessagesTestPlugin{
 		hook: func(ctx context.Context, args *plugin.AfterToolMessagesArgs) (*plugin.AfterToolMessagesResult, error) {
 			return &plugin.AfterToolMessagesResult{
-				ToolResultMessages: []model.Message{model.NewAssistantMessage("bad")},
+				ToolResultMessages: []compat.Message{compat.NewAssistantMessage("bad")},
 			}, nil
 		},
 	})
@@ -3156,7 +3156,7 @@ func TestAfterToolMessagesHook_RejectsInvalidReplacement(t *testing.T) {
 	err := p.applyAfterToolMessagesHooks(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		llmResponse,
 		toolEvent,
 	)
@@ -3166,21 +3166,21 @@ func TestAfterToolMessagesHook_RejectsInvalidReplacement(t *testing.T) {
 }
 
 func TestAfterToolMessagesHook_SkipsMinimalToolPlaceholder(t *testing.T) {
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-empty",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name: "noop",
 		},
 	}
-	llmResponse := &model.Response{Choices: []model.Choice{{
-		Message: model.Message{
-			Role:      model.RoleAssistant,
-			ToolCalls: []model.ToolCall{toolCall},
+	llmResponse := &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{
+			Role:      compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{toolCall},
 		},
 	}}}
-	toolEvent := event.NewResponseEvent("inv-1", "agent", &model.Response{
-		Object:  model.ObjectTypeToolResponse,
-		Choices: []model.Choice{newMinimalToolChoice(toolCall, 0)},
+	toolEvent := event.NewResponseEvent("inv-1", "agent", &compat.Response{
+		Object:  compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{newMinimalToolChoice(toolCall, 0)},
 	})
 	called := false
 	mgr := plugin.MustNewManager(afterToolMessagesTestPlugin{
@@ -3195,7 +3195,7 @@ func TestAfterToolMessagesHook_SkipsMinimalToolPlaceholder(t *testing.T) {
 	err := p.applyAfterToolMessagesHooks(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		llmResponse,
 		toolEvent,
 	)
@@ -3233,24 +3233,24 @@ func TestPerToolCallResultEventsParallelEmitAsCompleted(t *testing.T) {
 			delta: map[string][]byte{stateKey: []byte("fast")},
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "call-slow",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "slow",
 				Arguments: []byte(`{}`),
 			},
 		},
 		{
 			ID: "call-fast",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "fast",
 				Arguments: []byte(`{}`),
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("run tools")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("run tools")},
 		Tools:    tools,
 	}
 	rsp := newToolCallResponseWithCalls(toolCalls)
@@ -3272,7 +3272,7 @@ func TestPerToolCallResultEventsParallelEmitAsCompleted(t *testing.T) {
 			afterToolIDs = append(afterToolIDs, msg.ToolID)
 			msg.Content = "after:" + msg.Content
 			return &plugin.AfterToolMessagesResult{
-				ToolResultMessages: []model.Message{msg},
+				ToolResultMessages: []compat.Message{msg},
 			}, nil
 		},
 	})
@@ -3397,9 +3397,9 @@ func TestPerToolCallResultEventsSequentialEmitBeforeNextToolCompletes(t *testing
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
-		{ID: "call-first", Function: model.FunctionDefinitionParam{Name: "first"}},
-		{ID: "call-second", Function: model.FunctionDefinitionParam{Name: "second"}},
+	toolCalls := []compat.ToolCall{
+		{ID: "call-first", Function: compat.FunctionDefinitionParam{Name: "first"}},
+		{ID: "call-second", Function: compat.FunctionDefinitionParam{Name: "second"}},
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-per-call-sequential"),
@@ -3415,7 +3415,7 @@ func TestPerToolCallResultEventsSequentialEmitBeforeNextToolCompletes(t *testing
 		_, err := p.handleFunctionCallsAndSendEventWithRequest(
 			ctx,
 			inv,
-			&model.Request{Tools: tools},
+			&compat.Request{Tools: tools},
 			newToolCallResponseWithCalls(toolCalls),
 			eventChan,
 		)
@@ -3465,9 +3465,9 @@ func TestPerToolCallResultEventsOrdinaryErrorDoesNotCancelSiblings(t *testing.T)
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
-		{ID: "call-bad", Function: model.FunctionDefinitionParam{Name: "bad"}},
-		{ID: "call-good", Function: model.FunctionDefinitionParam{Name: "good"}},
+	toolCalls := []compat.ToolCall{
+		{ID: "call-bad", Function: compat.FunctionDefinitionParam{Name: "bad"}},
+		{ID: "call-good", Function: compat.FunctionDefinitionParam{Name: "good"}},
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-per-call-error"),
@@ -3483,7 +3483,7 @@ func TestPerToolCallResultEventsOrdinaryErrorDoesNotCancelSiblings(t *testing.T)
 	).handleFunctionCallsAndSendEventWithRequest(
 		context.Background(),
 		inv,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		newToolCallResponseWithCalls(toolCalls),
 		eventChan,
 	)
@@ -3494,7 +3494,7 @@ func TestPerToolCallResultEventsOrdinaryErrorDoesNotCancelSiblings(t *testing.T)
 	results := make(map[string]string, 2)
 	for i := 0; i < 2; i++ {
 		evt := <-eventChan
-		require.Equal(t, model.ObjectTypeToolResponse, evt.Object)
+		require.Equal(t, compat.ObjectTypeToolResponse, evt.Object)
 		require.Len(t, evt.Response.Choices, 1)
 		msg := evt.Response.Choices[0].Message
 		results[msg.ToolID] = msg.Content
@@ -3505,7 +3505,7 @@ func TestPerToolCallResultEventsOrdinaryErrorDoesNotCancelSiblings(t *testing.T)
 
 func newStopErrorFirstToolRound(
 	stateKey string,
-) (map[string]tool.Tool, []model.ToolCall) {
+) (map[string]tool.Tool, []compat.ToolCall) {
 	goodStarted := make(chan struct{})
 	tools := map[string]tool.Tool{
 		"good": &mockInvocationStateDeltaTool{
@@ -3526,9 +3526,9 @@ func newStopErrorFirstToolRound(
 			},
 		},
 	}
-	return tools, []model.ToolCall{
-		{ID: "call-good", Function: model.FunctionDefinitionParam{Name: "good"}},
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop"}},
+	return tools, []compat.ToolCall{
+		{ID: "call-good", Function: compat.FunctionDefinitionParam{Name: "good"}},
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop"}},
 	}
 }
 
@@ -3566,7 +3566,7 @@ func TestPerToolCallResultEventsParallelStopErrorFirstKeepsLaterSiblingResult(
 		).handleFunctionCallsAndSendEventWithRequest(
 			ctx,
 			inv,
-			&model.Request{Tools: tools},
+			&compat.Request{Tools: tools},
 			newToolCallResponseWithCalls(toolCalls),
 			eventChan,
 		)
@@ -3574,12 +3574,12 @@ func TestPerToolCallResultEventsParallelStopErrorFirstKeepsLaterSiblingResult(
 	}()
 
 	completed := <-eventChan
-	require.Equal(t, model.ObjectTypeToolResponse, completed.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, completed.Object)
 	require.Equal(t, []string{"call-good"}, completed.GetToolResultIDs())
 	require.Empty(t, completed.StateDelta)
 	require.True(t, toolresultround.IsIncomplete(completed))
 	errEvent := <-eventChan
-	require.Equal(t, model.ObjectTypeError, errEvent.Object)
+	require.Equal(t, compat.ObjectTypeError, errEvent.Object)
 	require.Equal(t, []byte("good"), errEvent.StateDelta[stateKey])
 	require.Equal(t, []byte("ran"), errEvent.StateDelta["post"])
 	require.True(t, toolresultround.IsIncomplete(errEvent))
@@ -3616,9 +3616,9 @@ func TestPerToolCallResultEventsParallelStopErrorWinsAfterToolMessagesError(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
-		{ID: "call-fast", Function: model.FunctionDefinitionParam{Name: "fast"}},
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop"}},
+	toolCalls := []compat.ToolCall{
+		{ID: "call-fast", Function: compat.FunctionDefinitionParam{Name: "fast"}},
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop"}},
 	}
 	mgr := plugin.MustNewManager(afterToolMessagesTestPlugin{
 		hook: func(
@@ -3643,7 +3643,7 @@ func TestPerToolCallResultEventsParallelStopErrorWinsAfterToolMessagesError(
 	).handleFunctionCallsAndSendEventWithRequest(
 		ctx,
 		inv,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		newToolCallResponseWithCalls(toolCalls),
 		eventChan,
 	)
@@ -3651,7 +3651,7 @@ func TestPerToolCallResultEventsParallelStopErrorWinsAfterToolMessagesError(
 	require.True(t, ok)
 	require.Equal(t, "late stop", stopErr.Error())
 	require.Len(t, eventChan, 1)
-	require.Equal(t, model.ObjectTypeError, (<-eventChan).Object)
+	require.Equal(t, compat.ObjectTypeError, (<-eventChan).Object)
 }
 
 func TestPerToolCallResultEventsSequentialStopErrorCarriesCompletedState(
@@ -3673,9 +3673,9 @@ func TestPerToolCallResultEventsSequentialStopErrorCarriesCompletedState(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
-		{ID: "call-good", Function: model.FunctionDefinitionParam{Name: "good"}},
-		{ID: "call-stop", Function: model.FunctionDefinitionParam{Name: "stop"}},
+	toolCalls := []compat.ToolCall{
+		{ID: "call-good", Function: compat.FunctionDefinitionParam{Name: "good"}},
+		{ID: "call-stop", Function: compat.FunctionDefinitionParam{Name: "stop"}},
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-per-call-sequential-stop"),
@@ -3691,7 +3691,7 @@ func TestPerToolCallResultEventsSequentialStopErrorCarriesCompletedState(
 	).handleFunctionCallsAndSendEventWithRequest(
 		context.Background(),
 		inv,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		newToolCallResponseWithCalls(toolCalls),
 		eventChan,
 	)
@@ -3704,7 +3704,7 @@ func TestPerToolCallResultEventsSequentialStopErrorCarriesCompletedState(
 	require.Equal(t, []string{"call-good"}, completed.GetToolResultIDs())
 	require.Empty(t, completed.StateDelta)
 	errEvent := <-eventChan
-	require.Equal(t, model.ObjectTypeError, errEvent.Object)
+	require.Equal(t, compat.ObjectTypeError, errEvent.Object)
 	require.Equal(t, []byte("good"), errEvent.StateDelta[stateKey])
 }
 
@@ -3717,7 +3717,7 @@ func TestPerToolCallResultEventsParallelCancellationKeepsReadyState(
 	var callsReturned sync.WaitGroup
 	callsReturned.Add(2)
 	tools := make(map[string]tool.Tool, 2)
-	toolCalls := make([]model.ToolCall, 0, 2)
+	toolCalls := make([]compat.ToolCall, 0, 2)
 	for i := 0; i < 2; i++ {
 		name := fmt.Sprintf("tool-%d", i)
 		callID := fmt.Sprintf("call-%d", i)
@@ -3730,9 +3730,9 @@ func TestPerToolCallResultEventsParallelCancellationKeepsReadyState(
 			},
 			delta: map[string][]byte{stateKey: []byte(name)},
 		}
-		toolCalls = append(toolCalls, model.ToolCall{
+		toolCalls = append(toolCalls, compat.ToolCall{
 			ID: callID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name: name,
 			},
 		})
@@ -3764,7 +3764,7 @@ func TestPerToolCallResultEventsParallelCancellationKeepsReadyState(
 		).handleFunctionCallsAndSendEventWithRequest(
 			ctx,
 			inv,
-			&model.Request{Tools: tools},
+			&compat.Request{Tools: tools},
 			newToolCallResponseWithCalls(toolCalls),
 			eventChan,
 		)
@@ -3789,7 +3789,7 @@ func TestPerToolCallResultEventsParallelCancellationKeepsReadyState(
 	require.ErrorIs(t, <-done, context.Canceled)
 	select {
 	case errEvent := <-persisted:
-		require.Equal(t, model.ObjectTypeError, errEvent.Object)
+		require.Equal(t, compat.ObjectTypeError, errEvent.Object)
 		for i := 0; i < 2; i++ {
 			name := fmt.Sprintf("tool-%d", i)
 			require.Equal(
@@ -3834,9 +3834,9 @@ func TestPerToolCallResultEventsCanceledBeforeFirstResultPersistsRoundMarker(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
-		{ID: "call-first", Function: model.FunctionDefinitionParam{Name: "first"}},
-		{ID: "call-second", Function: model.FunctionDefinitionParam{Name: "second"}},
+	toolCalls := []compat.ToolCall{
+		{ID: "call-first", Function: compat.FunctionDefinitionParam{Name: "first"}},
+		{ID: "call-second", Function: compat.FunctionDefinitionParam{Name: "second"}},
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-per-call-canceled-before-result"),
@@ -3863,7 +3863,7 @@ func TestPerToolCallResultEventsCanceledBeforeFirstResultPersistsRoundMarker(
 	).handleFunctionCallsAndSendEventWithRequest(
 		ctx,
 		inv,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		newToolCallResponseWithCalls(toolCalls),
 		eventChan,
 	)
@@ -3900,9 +3900,9 @@ func TestPerToolCallResultEventsKeepLongRunnerBatchOnLegacyPath(t *testing.T) {
 			ToolResultEventPerCallEnabled: true,
 		}),
 	)
-	rsp := newToolCallResponseWithCalls([]model.ToolCall{
-		{ID: "call-long", Function: model.FunctionDefinitionParam{Name: "long"}},
-		{ID: "call-fast", Function: model.FunctionDefinitionParam{Name: "fast"}},
+	rsp := newToolCallResponseWithCalls([]compat.ToolCall{
+		{ID: "call-long", Function: compat.FunctionDefinitionParam{Name: "long"}},
+		{ID: "call-fast", Function: compat.FunctionDefinitionParam{Name: "fast"}},
 	})
 	assert.False(t, NewFunctionCallResponseProcessor(
 		true,
@@ -3940,9 +3940,9 @@ func TestPerToolCallResultEventsKeepMappedDeferredTransferOnLegacyPath(t *testin
 			),
 		}),
 	)
-	rsp := newToolCallResponseWithCalls([]model.ToolCall{
-		{ID: "call-child", Function: model.FunctionDefinitionParam{Name: "child"}},
-		{ID: "call-fast", Function: model.FunctionDefinitionParam{Name: "fast"}},
+	rsp := newToolCallResponseWithCalls([]compat.ToolCall{
+		{ID: "call-child", Function: compat.FunctionDefinitionParam{Name: "child"}},
+		{ID: "call-fast", Function: compat.FunctionDefinitionParam{Name: "fast"}},
 	})
 
 	assert.False(t, NewFunctionCallResponseProcessor(
@@ -3972,23 +3972,23 @@ func TestPerToolCallResultEventsSingleCallFallsBackAndUnknownCallsRemainEligible
 	assert.False(t, p.shouldEmitToolResultEventPerToolCall(
 		context.Background(),
 		inv,
-		newToolCallResponseWithCalls([]model.ToolCall{{
+		newToolCallResponseWithCalls([]compat.ToolCall{{
 			ID:       "call-known",
-			Function: model.FunctionDefinitionParam{Name: "known"},
+			Function: compat.FunctionDefinitionParam{Name: "known"},
 		}}),
 		map[string]tool.Tool{"known": knownTool},
 	))
 	assert.True(t, p.shouldEmitToolResultEventPerToolCall(
 		context.Background(),
 		inv,
-		newToolCallResponseWithCalls([]model.ToolCall{
+		newToolCallResponseWithCalls([]compat.ToolCall{
 			{
 				ID:       "call-unknown-1",
-				Function: model.FunctionDefinitionParam{Name: "unknown-1"},
+				Function: compat.FunctionDefinitionParam{Name: "unknown-1"},
 			},
 			{
 				ID:       "call-unknown-2",
-				Function: model.FunctionDefinitionParam{Name: "unknown-2"},
+				Function: compat.FunctionDefinitionParam{Name: "unknown-2"},
 			},
 		}),
 		nil,
@@ -4011,20 +4011,20 @@ func TestCloneToolResultForStateFinalizationDetachesNestedEventData(
 			TriggerID:   "parent-call",
 			TriggerName: "parent-tool",
 		},
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				ContentParts: []model.ContentPart{{
-					Type:       model.ContentTypeText,
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				ContentParts: []compat.ContentPart{{
+					Type:       compat.ContentTypeText,
 					Text:       &text,
-					Image:      &model.Image{Data: []byte{1}},
-					Audio:      &model.Audio{Data: []byte{2}},
-					File:       &model.File{Data: []byte{3}},
-					ContentRef: &model.ContentRef{ArtifactRef: "artifact://result@1"},
+					Image:      &compat.Image{Data: []byte{1}},
+					Audio:      &compat.Audio{Data: []byte{2}},
+					File:       &compat.File{Data: []byte{3}},
+					ContentRef: &compat.ContentRef{ArtifactRef: "artifact://result@1"},
 				}},
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID:    "nested-call",
 					Index: &toolCallIndex,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Arguments: []byte(`{"value":"original"}`),
 					},
 					ExtraFields: map[string]any{
@@ -4091,13 +4091,13 @@ func TestCloneToolResultForStateFinalizationDetachesNestedEventData(
 func TestReplacementToolChoices_PreservesOriginalOrder(t *testing.T) {
 	finishReason := "tool_calls"
 	choices, err := replacementToolChoices(
-		[]model.Choice{
-			{Index: 10, Message: model.NewToolMessage("call-1", "lookup", "raw 1"), FinishReason: &finishReason},
-			{Index: 11, Message: model.NewToolMessage("call-2", "lookup", "raw 2"), FinishReason: &finishReason},
+		[]compat.Choice{
+			{Index: 10, Message: compat.NewToolMessage("call-1", "lookup", "raw 1"), FinishReason: &finishReason},
+			{Index: 11, Message: compat.NewToolMessage("call-2", "lookup", "raw 2"), FinishReason: &finishReason},
 		},
-		[]model.Message{
-			model.NewToolMessage("call-2", "lookup", "summary 2"),
-			model.NewToolMessage("call-1", "lookup", "summary 1"),
+		[]compat.Message{
+			compat.NewToolMessage("call-2", "lookup", "summary 2"),
+			compat.NewToolMessage("call-1", "lookup", "summary 1"),
 		},
 	)
 	require.NoError(t, err)
@@ -4116,12 +4116,12 @@ func TestAfterToolMessagesHelpers_EdgeCases(t *testing.T) {
 	assert.Nil(t, toolResultMessagesFromEvent(nil))
 	assert.Nil(t, toolResultMessagesFromEvent(&event.Event{}))
 
-	toolEvent := event.NewResponseEvent("inv", "agent", &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleTool, ToolID: "empty"}},
-			{Delta: model.NewToolMessage("call-delta", "lookup", "delta payload")},
-			{Message: model.NewToolMessage("call-message", "lookup", "message payload")},
+	toolEvent := event.NewResponseEvent("inv", "agent", &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleTool, ToolID: "empty"}},
+			{Delta: compat.NewToolMessage("call-delta", "lookup", "delta payload")},
+			{Message: compat.NewToolMessage("call-message", "lookup", "message payload")},
 		},
 	})
 	messages := toolResultMessagesFromEvent(toolEvent)
@@ -4132,95 +4132,95 @@ func TestAfterToolMessagesHelpers_EdgeCases(t *testing.T) {
 	msg, ok := assistantMessageFromToolCallResponse(nil)
 	assert.False(t, ok)
 	assert.Empty(t, msg)
-	msg, ok = assistantMessageFromToolCallResponse(&model.Response{})
+	msg, ok = assistantMessageFromToolCallResponse(&compat.Response{})
 	assert.False(t, ok)
 	assert.Empty(t, msg)
-	msg, ok = assistantMessageFromToolCallResponse(&model.Response{Choices: []model.Choice{{
-		Message: model.NewAssistantMessage("assistant payload"),
+	msg, ok = assistantMessageFromToolCallResponse(&compat.Response{Choices: []compat.Choice{{
+		Message: compat.NewAssistantMessage("assistant payload"),
 	}}})
 	assert.True(t, ok)
 	assert.Equal(t, "assistant payload", msg.Content)
-	msg, ok = assistantMessageFromToolCallResponse(&model.Response{Choices: []model.Choice{{
-		Delta: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+	msg, ok = assistantMessageFromToolCallResponse(&compat.Response{Choices: []compat.Choice{{
+		Delta: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "lookup"},
+				Function: compat.FunctionDefinitionParam{Name: "lookup"},
 			}},
 		},
 	}}})
 	assert.True(t, ok)
 	assert.Len(t, msg.ToolCalls, 1)
-	msg, ok = assistantMessageFromToolCallResponse(&model.Response{Choices: []model.Choice{{}}})
+	msg, ok = assistantMessageFromToolCallResponse(&compat.Response{Choices: []compat.Choice{{}}})
 	assert.False(t, ok)
 	assert.Empty(t, msg)
 
 	assert.Nil(t, toolCallsFromResponse(nil))
-	assert.Nil(t, toolCallsFromResponse(&model.Response{}))
-	assert.Nil(t, toolCallsFromResponse(&model.Response{Choices: []model.Choice{{}}}))
-	calls := toolCallsFromResponse(&model.Response{Choices: []model.Choice{{
-		Delta: model.Message{ToolCalls: []model.ToolCall{{
+	assert.Nil(t, toolCallsFromResponse(&compat.Response{}))
+	assert.Nil(t, toolCallsFromResponse(&compat.Response{Choices: []compat.Choice{{}}}))
+	calls := toolCallsFromResponse(&compat.Response{Choices: []compat.Choice{{
+		Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID:       "call-delta",
-			Function: model.FunctionDefinitionParam{Name: "lookup"},
+			Function: compat.FunctionDefinitionParam{Name: "lookup"},
 		}}},
 	}}})
 	require.Len(t, calls, 1)
 	assert.Equal(t, "call-delta", calls[0].ID)
 
-	_, err := replacementToolChoices(nil, []model.Message{model.NewToolMessage("call-1", "lookup", "summary")})
+	_, err := replacementToolChoices(nil, []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "original tool result messages are empty")
 	_, err = replacementToolChoices(
-		[]model.Choice{{Message: model.NewToolMessage("call-1", "lookup", "raw")}},
-		[]model.Message{
-			model.NewToolMessage("call-1", "lookup", "summary"),
-			model.NewToolMessage("call-2", "lookup", "summary"),
+		[]compat.Choice{{Message: compat.NewToolMessage("call-1", "lookup", "raw")}},
+		[]compat.Message{
+			compat.NewToolMessage("call-1", "lookup", "summary"),
+			compat.NewToolMessage("call-2", "lookup", "summary"),
 		},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "replacement count")
 	_, err = replacementToolChoices(
-		[]model.Choice{{Message: model.NewToolMessage("call-1", "lookup", "raw")}},
-		[]model.Message{{Role: model.RoleTool, Content: "missing id"}},
+		[]compat.Choice{{Message: compat.NewToolMessage("call-1", "lookup", "raw")}},
+		[]compat.Message{{Role: compat.RoleTool, Content: "missing id"}},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing tool id")
 	_, err = replacementToolChoices(
-		[]model.Choice{{Message: model.NewToolMessage("call-1", "lookup", "raw")}},
-		[]model.Message{{Role: model.RoleAssistant, ToolID: "call-1", Content: "summary"}},
+		[]compat.Choice{{Message: compat.NewToolMessage("call-1", "lookup", "raw")}},
+		[]compat.Message{{Role: compat.RoleAssistant, ToolID: "call-1", Content: "summary"}},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must use role")
 	_, err = replacementToolChoices(
-		[]model.Choice{
-			{Message: model.NewToolMessage("call-1", "lookup", "raw")},
-			{Message: model.NewToolMessage("call-2", "lookup", "raw")},
+		[]compat.Choice{
+			{Message: compat.NewToolMessage("call-1", "lookup", "raw")},
+			{Message: compat.NewToolMessage("call-2", "lookup", "raw")},
 		},
-		[]model.Message{
-			model.NewToolMessage("call-1", "lookup", "summary"),
-			model.NewToolMessage("call-1", "lookup", "summary again"),
+		[]compat.Message{
+			compat.NewToolMessage("call-1", "lookup", "summary"),
+			compat.NewToolMessage("call-1", "lookup", "summary again"),
 		},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate tool id")
 	_, err = replacementToolChoices(
-		[]model.Choice{{Message: model.NewToolMessage("call-1", "lookup", "raw")}},
-		[]model.Message{model.NewToolMessage("call-2", "lookup", "summary")},
+		[]compat.Choice{{Message: compat.NewToolMessage("call-1", "lookup", "raw")}},
+		[]compat.Message{compat.NewToolMessage("call-2", "lookup", "summary")},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "replacement missing tool id")
 
-	updated := replaceChoiceToolMessage(model.Choice{}, model.NewToolMessage("call-new", "lookup", "summary"))
+	updated := replaceChoiceToolMessage(compat.Choice{}, compat.NewToolMessage("call-new", "lookup", "summary"))
 	assert.Equal(t, "call-new", updated.Message.ToolID)
 	assert.Equal(t, "summary", updated.Message.Content)
-	index := toolChoiceIndexByID([]model.Choice{
-		{Index: 4, Delta: model.NewToolMessage("call-delta", "lookup", "raw")},
-		{Index: 5, Message: model.Message{Role: model.RoleAssistant}},
+	index := toolChoiceIndexByID([]compat.Choice{
+		{Index: 4, Delta: compat.NewToolMessage("call-delta", "lookup", "raw")},
+		{Index: 5, Message: compat.Message{Role: compat.RoleAssistant}},
 	})
 	assert.Equal(t, 4, index["call-delta"])
 	assert.Len(t, index, 1)
 	assert.Nil(t, cloneModelMessages(nil))
-	cloned := cloneModelMessages([]model.Message{model.NewUserMessage("hello")})
+	cloned := cloneModelMessages([]compat.Message{compat.NewUserMessage("hello")})
 	require.Len(t, cloned, 1)
 	assert.Equal(t, "hello", cloned[0].Content)
 }
@@ -4242,27 +4242,27 @@ func TestExecuteToolCallsInParallel(t *testing.T) {
 		},
 	}
 	inv := &agent.Invocation{}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "func-1",
 				Arguments: []byte(`{}`),
 			},
 		},
 		{
 			ID: "call-2",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "func-2",
 				Arguments: []byte(`{}`),
 			},
 		},
 	}
-	response := &model.Response{
-		Choices: []model.Choice{
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
+				Message: compat.Message{
 					ToolCalls: toolCalls,
 				},
 			},
@@ -4296,16 +4296,16 @@ func TestFunctionCallResponseProcessor_ToolIterationLimitEmitsFlowError(t *testi
 	require.False(t, firstExceeded, "first iteration should not exceed limit")
 
 	// Build a minimal tool-call response so IsToolCallResponse() returns true.
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   "call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "dummy-tool",
 								Arguments: []byte(`{}`),
 							},
@@ -4318,14 +4318,14 @@ func TestFunctionCallResponseProcessor_ToolIterationLimitEmitsFlowError(t *testi
 
 	eventChan := make(chan *event.Event, 1)
 
-	p.ProcessResponse(ctx, inv, &model.Request{}, rsp, eventChan)
+	p.ProcessResponse(ctx, inv, &compat.Request{}, rsp, eventChan)
 
 	select {
 	case evt := <-eventChan:
 		require.NotNil(t, evt.Response, "expected response event")
 		require.NotNil(t, evt.Response.Error, "expected error in response")
-		require.Equal(t, model.ObjectTypeError, evt.Response.Object)
-		require.Equal(t, model.ErrorTypeFlowError, evt.Response.Error.Type)
+		require.Equal(t, compat.ObjectTypeError, evt.Response.Object)
+		require.Equal(t, compat.ErrorTypeFlowError, evt.Response.Error.Type)
 		require.Contains(t, evt.Response.Error.Message, "max tool iterations (1) exceeded")
 	default:
 		t.Fatalf("expected an event to be emitted when tool iteration limit is exceeded")
@@ -4345,7 +4345,7 @@ func TestFunctionCallResponseProcessor_SchedulesToolLimitFinalization(t *testing
 	}
 	calllimit.Configure(inv, nil, &instruction)
 	var callCount atomic.Int32
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"echo": &mockCallableTool{
 				declaration: &tool.Declaration{Name: "echo"},
@@ -4356,14 +4356,14 @@ func TestFunctionCallResponseProcessor_SchedulesToolLimitFinalization(t *testing
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`{}`),
 					},
@@ -4408,7 +4408,7 @@ func TestFunctionCallResponseProcessor_SchedulesToolLimitFinalizationOnError(
 		MaxToolIterations: 1,
 	}
 	calllimit.Configure(inv, nil, &instruction)
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"echo": &mockCallableTool{
 				declaration: &tool.Declaration{Name: "echo"},
@@ -4418,14 +4418,14 @@ func TestFunctionCallResponseProcessor_SchedulesToolLimitFinalizationOnError(
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`{}`),
 					},
@@ -4456,7 +4456,7 @@ func TestFunctionCallResponseProcessor_RejectsToolCallDuringFinalization(t *test
 	_, ok := calllimit.ActivateForLLM(inv, true)
 	require.True(t, ok)
 	var callCount atomic.Int32
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"echo": &mockCallableTool{
 				declaration: &tool.Declaration{Name: "echo"},
@@ -4467,14 +4467,14 @@ func TestFunctionCallResponseProcessor_RejectsToolCallDuringFinalization(t *test
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`{}`),
 					},
@@ -4492,7 +4492,7 @@ func TestFunctionCallResponseProcessor_RejectsToolCallDuringFinalization(t *test
 	case evt := <-eventChan:
 		require.NotNil(t, evt.Response)
 		require.NotNil(t, evt.Response.Error)
-		require.Equal(t, model.ErrorTypeFlowError, evt.Response.Error.Type)
+		require.Equal(t, compat.ErrorTypeFlowError, evt.Response.Error.Type)
 		require.Contains(t, evt.Response.Error.Message, "disabled")
 	default:
 		t.Fatal("expected a flow error event")
@@ -4520,7 +4520,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_AllDeferred(
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			toolName: &mockTool{
 				name:        toolName,
@@ -4528,16 +4528,16 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_AllDeferred(
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   callID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      toolName,
 								Arguments: []byte(`{}`),
 							},
@@ -4588,21 +4588,21 @@ func TestFunctionCallResponseProcessor_WithExternalTools_AllDeferredDoesNotFinal
 	instruction := "finish after the tool result"
 	calllimit.Configure(inv, nil, &instruction)
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			toolName: externalTool,
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   callID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      toolName,
 								Arguments: []byte(`{}`),
 							},
@@ -4655,21 +4655,21 @@ func TestFunctionCallResponseProcessor_WithExternalTools_UnknownStops(
 			agent.WithExternalTools([]tool.Tool{externalTool}),
 		),
 	}
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			externalToolName: externalTool,
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   externalCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      externalToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -4677,7 +4677,7 @@ func TestFunctionCallResponseProcessor_WithExternalTools_UnknownStops(
 						{
 							ID:   unknownCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      unknownToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -4696,7 +4696,7 @@ func TestFunctionCallResponseProcessor_WithExternalTools_UnknownStops(
 		require.NotNil(t, ev.Response)
 		require.Len(t, ev.Response.Choices, 1)
 		msg := ev.Response.Choices[0].Message
-		require.Equal(t, model.RoleTool, msg.Role)
+		require.Equal(t, compat.RoleTool, msg.Role)
 		require.Equal(t, unknownCallID, msg.ToolID)
 	case <-time.After(time.Second):
 		t.Fatalf("expected a tool error response event")
@@ -4725,10 +4725,10 @@ func TestFunctionCallResponseProcessor_WaitsForToolResponseCompletion(
 	sess.UpdateUserSession(event.NewResponseEvent(
 		inv.InvocationID,
 		inv.AgentName,
-		&model.Response{
+		&compat.Response{
 			Done: false,
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage(toolName),
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage(toolName),
 			}},
 		},
 	))
@@ -4736,7 +4736,7 @@ func TestFunctionCallResponseProcessor_WaitsForToolResponseCompletion(
 		return nil
 	})
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			toolName: &mockCallableTool{
 				declaration: &tool.Declaration{Name: toolName},
@@ -4746,15 +4746,15 @@ func TestFunctionCallResponseProcessor_WaitsForToolResponseCompletion(
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -4823,7 +4823,7 @@ func TestFunctionCallResponseProcessor_NoWaitWithoutAppender(t *testing.T) {
 		agent.WithInvocationAgent(&mockAgentWithTools{name: "test-agent"}),
 		agent.WithInvocationModel(&mockModel{}),
 	)
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			toolName: &mockCallableTool{
 				declaration: &tool.Declaration{Name: toolName},
@@ -4833,15 +4833,15 @@ func TestFunctionCallResponseProcessor_NoWaitWithoutAppender(t *testing.T) {
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -4903,15 +4903,15 @@ func TestFunctionCallResponseProcessor_HandleFunctionCallsAndSendEvent_NilEvent(
 		},
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -4970,15 +4970,15 @@ func TestFunctionCallResponseProcessor_HandleFunctionCallsAndSendEvent_Canceled(
 		},
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -5044,15 +5044,15 @@ func TestFunctionCallResponseProcessor_CanceledBeforeToolResponseEmit(
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -5129,15 +5129,15 @@ func TestFunctionCallResponseProcessor_PersistsToolResponseAfterDeadline(
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -5229,8 +5229,8 @@ func TestPersistFunctionResponseAfterDeadline_UsesRoutedSessionService(
 	userEvent := event.NewResponseEvent(
 		"user-invocation",
 		"user",
-		&model.Response{Choices: []model.Choice{{
-			Message: model.NewUserMessage("question"),
+		&compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("question"),
 		}}},
 	)
 	require.NoError(t, service.AppendEvent(
@@ -5252,8 +5252,8 @@ func TestPersistFunctionResponseAfterDeadline_UsesRoutedSessionService(
 				replacement := event.NewResponseEvent(
 					"other-invocation",
 					"test-agent",
-					&model.Response{Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					&compat.Response{Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"call-1",
 							"echo",
 							"[redacted]",
@@ -5280,9 +5280,9 @@ func TestPersistFunctionResponseAfterDeadline_UsesRoutedSessionService(
 	evt := event.NewResponseEvent(
 		inv.InvocationID,
 		inv.AgentName,
-		&model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				Role:     model.RoleTool,
+		&compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  "late evidence",
 				ToolID:   "call-1",
 				ToolName: "echo",
@@ -5345,9 +5345,9 @@ func TestPersistFunctionResponseAfterDeadline_FallbacksAndErrors(
 	evt := event.NewResponseEvent(
 		"test-invocation",
 		"test-agent",
-		&model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				Role:     model.RoleTool,
+		&compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  "late evidence",
 				ToolID:   "call-1",
 				ToolName: "echo",
@@ -5442,8 +5442,8 @@ func TestPersistFunctionResponseAfterDeadline_AppliesEventPlugins(
 				replacement := event.NewResponseEvent(
 					"",
 					"test-agent",
-					&model.Response{Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					&compat.Response{Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"call-1",
 							"echo",
 							"[redacted]",
@@ -5474,8 +5474,8 @@ func TestPersistFunctionResponseAfterDeadline_AppliesEventPlugins(
 	original := event.NewResponseEvent(
 		"test-invocation",
 		"test-agent",
-		&model.Response{Choices: []model.Choice{{
-			Message: model.NewToolMessage(
+		&compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewToolMessage(
 				"call-1",
 				"echo",
 				"secret tool output",
@@ -5580,8 +5580,8 @@ func TestPersistFunctionResponseAfterDeadline_PluginErrorPersistsOriginal(
 			evt := event.NewResponseEvent(
 				"test-invocation",
 				"test-agent",
-				&model.Response{Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				&compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"call-1",
 						"echo",
 						"secret tool output",
@@ -5636,15 +5636,15 @@ func TestFunctionCallResponseProcessor_HandleFunctionCallsAndSendEvent_Warns(
 		},
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   callID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{}`),
 					},
@@ -5695,16 +5695,16 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 	ctx := context.Background()
 	p := NewFunctionCallResponseProcessor(false, nil)
 
-	makeReq := func(tools map[string]tool.Tool) *model.Request {
-		return &model.Request{Tools: tools}
+	makeReq := func(tools map[string]tool.Tool) *compat.Request {
+		return &compat.Request{Tools: tools}
 	}
 
-	makeRsp := func(toolCalls []model.ToolCall) *model.Response {
-		return &model.Response{
-			Choices: []model.Choice{
+	makeRsp := func(toolCalls []compat.ToolCall) *compat.Response {
+		return &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:      model.RoleAssistant,
+					Message: compat.Message{
+						Role:      compat.RoleAssistant,
 						ToolCalls: toolCalls,
 					},
 				},
@@ -5760,7 +5760,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 
 	t.Run("request tools nil", func(t *testing.T) {
 		inv := makeInvWithFilter(tool.NewIncludeToolNamesFilter(toolName))
-		req := &model.Request{}
+		req := &compat.Request{}
 		deferred, executable, unknown := p.toolExecutionDecision(
 			ctx,
 			inv,
@@ -5793,7 +5793,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 		req := makeReq(map[string]tool.Tool{
 			toolName: &mockTool{name: toolName},
 		})
-		rsp := &model.Response{}
+		rsp := &compat.Response{}
 
 		deferred, executable, unknown := p.toolExecutionDecision(
 			ctx,
@@ -5811,11 +5811,11 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 		req := makeReq(map[string]tool.Tool{
 			toolName: &mockTool{name: toolName},
 		})
-		rsp := makeRsp([]model.ToolCall{
+		rsp := makeRsp([]compat.ToolCall{
 			{
 				ID:   unknownCallID,
 				Type: toolCallType,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      unknownTool,
 					Arguments: []byte(toolArgJSON),
 				},
@@ -5823,7 +5823,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 			{
 				ID:   toolCallID,
 				Type: toolCallType,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(toolArgJSON),
 				},
@@ -5846,11 +5846,11 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 		req := makeReq(map[string]tool.Tool{
 			toolName: &mockTool{name: toolName},
 		})
-		rsp := makeRsp([]model.ToolCall{
+		rsp := makeRsp([]compat.ToolCall{
 			{
 				ID:   unknownCallID,
 				Type: toolCallType,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      unknownTool,
 					Arguments: []byte(toolArgJSON),
 				},
@@ -5858,7 +5858,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionDecision(t *testing.T) {
 			{
 				ID:   toolCallID,
 				Type: toolCallType,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(toolArgJSON),
 				},
@@ -5904,7 +5904,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_MixedStopsWithoutFina
 	instruction := "finish after the tool result"
 	calllimit.Configure(inv, nil, &instruction)
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			autoToolName: &mockTool{
 				name:   autoToolName,
@@ -5916,16 +5916,16 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_MixedStopsWithoutFina
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   autoCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      autoToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -5933,7 +5933,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_MixedStopsWithoutFina
 						{
 							ID:   extCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      extToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -5952,7 +5952,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_MixedStopsWithoutFina
 		require.NotNil(t, ev.Response)
 		require.Len(t, ev.Response.Choices, 1)
 		msg := ev.Response.Choices[0].Message
-		require.Equal(t, model.RoleTool, msg.Role)
+		require.Equal(t, compat.RoleTool, msg.Role)
 		require.Equal(t, autoCallID, msg.ToolID)
 		require.Equal(t, autoToolName, msg.ToolName)
 
@@ -5991,7 +5991,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholders(
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			autoToolName: &mockNilLongRunningTool{
 				name: autoToolName,
@@ -6002,16 +6002,16 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholders(
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   autoCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      autoToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -6019,7 +6019,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholders(
 						{
 							ID:   extCallID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      extToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -6064,7 +6064,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholdersPar(
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			autoToolName: &mockNilLongRunningTool{
 				name: autoToolName,
@@ -6075,17 +6075,17 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholdersPar(
 			},
 		},
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							Index: intPtr(0),
 							ID:    autoCallID,
 							Type:  "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      autoToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -6094,7 +6094,7 @@ func TestFunctionCallResponseProcessor_ToolExecutionFilter_NoPlaceholdersPar(
 							Index: intPtr(1),
 							ID:    extCallID,
 							Type:  "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      extToolName,
 								Arguments: []byte(`{}`),
 							},
@@ -6127,18 +6127,18 @@ func TestFlow_EnableParallelTools_ForcesSerialExecution(t *testing.T) {
 
 	// Create a mock model that returns tool calls
 	mockModel := &mockModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{
 								{
 									Index: func() *int { i := 0; return &i }(),
 									ID:    "call-1",
 									Type:  "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      tool1.Declaration().Name,
 										Arguments: []byte(`{}`),
 									},
@@ -6147,7 +6147,7 @@ func TestFlow_EnableParallelTools_ForcesSerialExecution(t *testing.T) {
 									Index: func() *int { i := 1; return &i }(),
 									ID:    "call-2",
 									Type:  "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      tool2.Declaration().Name,
 										Arguments: []byte(`{}`),
 									},
@@ -6156,7 +6156,7 @@ func TestFlow_EnableParallelTools_ForcesSerialExecution(t *testing.T) {
 									Index: func() *int { i := 2; return &i }(),
 									ID:    "call-3",
 									Type:  "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      tool3.Declaration().Name,
 										Arguments: []byte(`{}`),
 									},
@@ -6186,7 +6186,7 @@ func TestFlow_EnableParallelTools_ForcesSerialExecution(t *testing.T) {
 	startTime := time.Now()
 	eventChan := make(chan *event.Event, 100)
 	p := NewFunctionCallResponseProcessor(false, nil)
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: toolMap,
 	}
 	rsp := mockModel.responses[0]
@@ -6196,7 +6196,7 @@ func TestFlow_EnableParallelTools_ForcesSerialExecution(t *testing.T) {
 
 	var toolCallEvent *event.Event
 	for evt := range eventChan {
-		if evt.Object == model.ObjectTypeToolResponse {
+		if evt.Object == compat.ObjectTypeToolResponse {
 			toolCallEvent = evt
 			break
 		}
@@ -6270,13 +6270,13 @@ func (m *mockAgentWithTools) FindSubAgent(name string) agent.Agent {
 
 // createMockModelWithTools creates a mock model that returns tool calls for the given tools
 func createMockModelWithTools(tools []tool.Tool) *mockModel {
-	toolCalls := make([]model.ToolCall, len(tools))
+	toolCalls := make([]compat.ToolCall, len(tools))
 	for i, tool := range tools {
-		toolCalls[i] = model.ToolCall{
+		toolCalls[i] = compat.ToolCall{
 			Index: func(idx int) *int { return &idx }(i),
 			ID:    fmt.Sprintf("call-%d", i+1),
 			Type:  "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      tool.Declaration().Name,
 				Arguments: []byte(`{}`),
 			},
@@ -6284,17 +6284,17 @@ func createMockModelWithTools(tools []tool.Tool) *mockModel {
 	}
 
 	return &mockModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:      "test-response",
 				Object:  "chat.completion",
 				Created: time.Now().Unix(),
 				Model:   "test-model",
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:      model.RoleAssistant,
+						Message: compat.Message{
+							Role:      compat.RoleAssistant,
 							ToolCalls: toolCalls,
 						},
 					},
@@ -6332,7 +6332,7 @@ func runParallelToolTest(t *testing.T, tc parallelTestCase) {
 	}
 	startTime := time.Now()
 	p := NewFunctionCallResponseProcessor(!tc.disableParallel, nil)
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: toolMap,
 	}
 	rsp := mockModel.responses[0]
@@ -6343,7 +6343,7 @@ func runParallelToolTest(t *testing.T, tc parallelTestCase) {
 	// Collect tool call response event
 	var toolCallEvent *event.Event
 	for evt := range eventChan {
-		if evt.Object == model.ObjectTypeToolResponse {
+		if evt.Object == compat.ObjectTypeToolResponse {
 			toolCallEvent = evt
 			break
 		}
@@ -6523,20 +6523,20 @@ func TestRunParallelToolCall_LongRunningToolNoImmediateResult(t *testing.T) {
 		"long": &mockNilLongRunningTool{name: "long"},
 	}
 
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-long",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "long",
 			Arguments: []byte(`{}`),
 		},
 	}
 
 	inv := &agent.Invocation{AgentName: "long-agent"}
-	llmResp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+	llmResp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					tc,
 				},
 			},
@@ -6587,15 +6587,15 @@ func TestRunParallelToolCall_PanicUsesModifiedArgsExtension(t *testing.T) {
 	tools := map[string]tool.Tool{
 		"panic": &mockTool{name: "panic", shouldPanic: true},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-panic",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "panic",
 			Arguments: []byte(originalArgs),
 		},
 	}
 	inv := &agent.Invocation{AgentName: "panic-agent"}
-	llmResp := &model.Response{Model: "mock"}
+	llmResp := &compat.Response{Model: "mock"}
 	resultChan := make(chan toolResult, 1)
 
 	err := p.runParallelToolCall(
@@ -6644,24 +6644,24 @@ func TestHandleFunctionCalls_ParallelLongRunningNilResultUsesModifiedArgs(
 		"long-a": &mockNilLongRunningTool{name: "long-a"},
 		"long-b": &mockNilLongRunningTool{name: "long-b"},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "call-a",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "long-a",
 				Arguments: []byte(`{"action":"query"}`),
 			},
 		},
 		{
 			ID: "call-b",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "long-b",
 				Arguments: []byte(`{"action":"query"}`),
 			},
 		},
 	}
-	llmResp := &model.Response{Model: "mock", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: toolCalls},
+	llmResp := &compat.Response{Model: "mock", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: toolCalls},
 	}}}
 	inv := &agent.Invocation{InvocationID: "inv-long", AgentName: "agent"}
 
@@ -6695,9 +6695,9 @@ func TestExecuteToolCall_ToolNotFound_ReturnsErrorChoice(t *testing.T) {
 
 	tools := map[string]tool.Tool{} // No tools available.
 
-	pc2 := model.ToolCall{
+	pc2 := compat.ToolCall{
 		ID: "call-404",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "non-existent-tool",
 			Arguments: []byte(`{}`),
 		},
@@ -6719,9 +6719,9 @@ func TestExecuteToolCall_ToolNotFoundSuggestsSimilarTool(t *testing.T) {
 		"alpha_tool": &mockTool{name: "alpha_tool"},
 		"web_fetch":  &mockTool{name: "web_fetch"},
 	}
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		ID: "call-duck",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "alpha_too",
 			Arguments: []byte(`{}`),
 		},
@@ -6746,9 +6746,9 @@ func TestExecuteToolCall_ToolNotFoundOmitsDistantSuggestions(t *testing.T) {
 	tools := map[string]tool.Tool{
 		"web_fetch": &mockTool{name: "web_fetch"},
 	}
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		ID: "call-missing",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "totally_missing",
 			Arguments: []byte(`{}`),
 		},
@@ -6777,9 +6777,9 @@ func TestExecuteToolCall_ToolNameSuggestionsCanBeDisabled(t *testing.T) {
 	tools := map[string]tool.Tool{
 		"alpha_tool": &mockTool{name: "alpha_tool"},
 	}
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		ID: "call-missing",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "alpha_too",
 			Arguments: []byte(`{}`),
 		},
@@ -6929,8 +6929,8 @@ func TestFindCompatibleTool(t *testing.T) {
 func TestExecuteSingleToolCallSequential_MissingTool_UsesFallbackDecl(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, nil)
 	inv := &agent.Invocation{AgentName: "a", Model: &mockModel{}}
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	tc := model.ToolCall{ID: "id1", Function: model.FunctionDefinitionParam{Name: "missing"}}
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	tc := compat.ToolCall{ID: "id1", Function: compat.FunctionDefinitionParam{Name: "missing"}}
 	ch := make(chan *event.Event, 4)
 	ev, err := p.executeSingleToolCallSequential(context.Background(), inv, rsp, map[string]tool.Tool{}, ch, 0, tc)
 	require.NoError(t, err)
@@ -7054,9 +7054,9 @@ func TestExecuteToolCall_MarshalError_IsIgnorable(t *testing.T) {
 	ctx := context.Background()
 	p := NewFunctionCallResponseProcessor(false, nil)
 	inv := &agent.Invocation{AgentName: "a", Model: &mockModel{}}
-	pc := model.ToolCall{
+	pc := compat.ToolCall{
 		ID: "c1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "bad",
 			Arguments: []byte(`{}`),
 		},
@@ -7118,10 +7118,10 @@ func (t *stateOnlyPlaceholderDeltaTool) StateDeltaForInvocation(
 func TestExecuteSingleToolCallSequential_AttachesStateDelta(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, nil)
 	inv := &agent.Invocation{AgentName: "a", Model: &mockModel{}}
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	tc := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	tc := compat.ToolCall{
 		ID: "c1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "withdelta",
 			Arguments: []byte(`{}`),
 		},
@@ -7142,10 +7142,10 @@ func TestExecuteSingleToolCallSequential_SkipsStateDeltaOnError(
 ) {
 	p := NewFunctionCallResponseProcessor(false, nil)
 	inv := &agent.Invocation{AgentName: "a", Model: &mockModel{}}
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	tc := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	tc := compat.ToolCall{
 		ID: "c1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "errdelta",
 			Arguments: []byte(`{}`),
 		},
@@ -7167,10 +7167,10 @@ func TestExecuteSingleToolCallSequential_StateOnlyPlaceholderSkipsStateDeltaProv
 		InvocationID: "inv-state-only-provider",
 		Model:        &mockModel{},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{}}}
-	tc := model.ToolCall{
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
+	tc := compat.ToolCall{
 		ID: "c1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "state-only",
 			Arguments: []byte(`{}`),
 		},
@@ -7201,7 +7201,7 @@ func TestExecuteToolCallsInParallel_StateOnlyPlaceholderSkipsStateDeltaProvider(
 		InvocationID: "inv-state-only-provider-parallel",
 		Model:        &mockModel{},
 	}
-	rsp := &model.Response{Choices: []model.Choice{{}}}
+	rsp := &compat.Response{Choices: []compat.Choice{{}}}
 	stateOnlyTool := &stateOnlyPlaceholderDeltaTool{
 		finalResultStreamTool: finalResultStreamTool{
 			name:       "state-only",
@@ -7217,17 +7217,17 @@ func TestExecuteToolCallsInParallel_StateOnlyPlaceholderSkipsStateDeltaProvider(
 			},
 		},
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "call-state",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "state-only",
 				Arguments: []byte(`{}`),
 			},
 		},
 		{
 			ID: "call-echo",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "echo",
 				Arguments: []byte(`{}`),
 			},
@@ -7325,8 +7325,8 @@ func (m *innerTextPrefStreamTool) StreamableCall(
 // Test that newToolCallResponseEvent constructs events via helpers and fills metadata correctly.
 func TestNewToolCallResponseEvent_Constructor(t *testing.T) {
 	inv := &agent.Invocation{InvocationID: "inv-1", AgentName: "tester", Branch: "main"}
-	base := &model.Response{Model: "unit-model"}
-	choices := []model.Choice{{Index: 0, Message: model.Message{Role: model.RoleTool, ToolID: "call-1", Content: "ok"}}}
+	base := &compat.Response{Model: "unit-model"}
+	choices := []compat.Choice{{Index: 0, Message: compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: "ok"}}}
 
 	evt := newToolCallResponseEvent(inv, base, choices)
 
@@ -7336,7 +7336,7 @@ func TestNewToolCallResponseEvent_Constructor(t *testing.T) {
 	require.Equal(t, inv.InvocationID, evt.InvocationID)
 	require.Equal(t, inv.AgentName, evt.Author)
 	require.Equal(t, inv.Branch, evt.Branch)
-	require.Equal(t, model.ObjectTypeToolResponse, evt.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, evt.Object)
 	require.Equal(t, "unit-model", evt.Model)
 	require.Len(t, evt.Choices, 1)
 	require.Equal(t, "call-1", evt.Choices[0].Message.ToolID)
@@ -7348,9 +7348,9 @@ func TestExecuteStreamableTool_EmitsPartialEvents(t *testing.T) {
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-stream", AgentName: "tester", Branch: "b1", Model: &mockModel{}}
 
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-xyz",
-		Function: model.FunctionDefinitionParam{Name: "streamer"},
+		Function: compat.FunctionDefinitionParam{Name: "streamer"},
 	}
 
 	st := &mockStreamTool{name: "streamer", chunks: []any{"hello", " world"}}
@@ -7380,14 +7380,14 @@ func TestExecuteStreamableTool_EmitsPartialEvents(t *testing.T) {
 	for i, e := range evts {
 		require.NotNil(t, e)
 		require.NotNil(t, e.Response)
-		require.Equal(t, model.ObjectTypeToolResponse, e.Object)
+		require.Equal(t, compat.ObjectTypeToolResponse, e.Object)
 		require.True(t, e.IsPartial, "event %d should be partial", i)
 		require.False(t, e.Done)
 		require.Equal(t, inv.InvocationID, e.InvocationID)
 		require.Equal(t, inv.AgentName, e.Author)
 		require.Equal(t, inv.Branch, e.Branch)
 		require.Len(t, e.Choices, 1)
-		require.Equal(t, model.RoleTool, e.Choices[0].Delta.Role)
+		require.Equal(t, compat.RoleTool, e.Choices[0].Delta.Role)
 		require.Equal(t, "call-xyz", e.Choices[0].Delta.ToolID)
 		require.Equal(t, "call-xyz", e.Choices[0].Message.ToolID)
 	}
@@ -7404,7 +7404,7 @@ func TestExecuteCallableTool_ErrorWrap(t *testing.T) {
 		},
 	}
 	_, _, err := p.executeCallableTool(context.Background(),
-		model.ToolCall{Function: model.FunctionDefinitionParam{
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{
 			Name: "t",
 		}}, tl,
 	)
@@ -7421,7 +7421,7 @@ func TestExecuteCallableTool_ErrorWrapDropsPartialResult(t *testing.T) {
 		},
 	}
 	_, result, err := p.executeCallableTool(context.Background(),
-		model.ToolCall{Function: model.FunctionDefinitionParam{
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{
 			Name: "t",
 		}}, tl,
 	)
@@ -7444,7 +7444,7 @@ func TestExecuteCallableTool_NoRetryPolicyCallsToolOnCanceledContext(t *testing.
 		},
 	}
 	_, result, err := p.executeCallableTool(ctx,
-		model.ToolCall{Function: model.FunctionDefinitionParam{
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{
 			Name: "t",
 		}}, tl,
 	)
@@ -7498,7 +7498,7 @@ func TestProcessStreamChunk_ForwardsEvent(t *testing.T) {
 	var finalResult streamFinalResult
 	var innerEventState streamInnerEventState
 	err := f.processStreamChunk(ctx, inv,
-		model.ToolCall{ID: "x"},
+		compat.ToolCall{ID: "x"},
 		tool.StreamChunk{Content: ev}, ch, &contents, &finalResult,
 		&innerEventState, tool.InnerTextModeInclude, false,
 	)
@@ -7525,9 +7525,9 @@ func TestExecuteToolCall_MarshalErrorIgnored(t *testing.T) {
 			},
 		},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "id",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "t",
 			Arguments: []byte(`{}`),
 		},
@@ -7573,10 +7573,10 @@ func TestHandleFunctionCalls_SkipSummarizationSequential_SetsEndInvocation(t *te
 	tools := map[string]tool.Tool{"t1": t1}
 	inv := &agent.Invocation{InvocationID: "inv-s", AgentName: "agent"}
 
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
-			ID: "c1", Function: model.FunctionDefinitionParam{Name: "t1", Arguments: []byte(`{}`)},
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
+			ID: "c1", Function: compat.FunctionDefinitionParam{Name: "t1", Arguments: []byte(`{}`)},
 		}}},
 	}}}
 	evenChan := make(chan *event.Event, 10)
@@ -7608,10 +7608,10 @@ func TestHandleFunctionCalls_SkipSummarization_NoChildEvents_SetsEndInvocation(t
 	tools := map[string]tool.Tool{"t1": t1}
 	inv := &agent.Invocation{InvocationID: "inv-nc", AgentName: "agent"}
 
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
-			ID: "c1", Function: model.FunctionDefinitionParam{Name: "t1", Arguments: []byte(`{}`)},
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
+			ID: "c1", Function: compat.FunctionDefinitionParam{Name: "t1", Arguments: []byte(`{}`)},
 		}}},
 	}}}
 
@@ -7642,11 +7642,11 @@ func TestHandleFunctionCalls_SkipSummarization_Parallel_PropagatesFlag(t *testin
 	tools := map[string]tool.Tool{"ts": tSkip, "to": tOther}
 	inv := &agent.Invocation{InvocationID: "inv-p", AgentName: "agent"}
 
-	toolCalls := []model.ToolCall{
-		{ID: "c1", Function: model.FunctionDefinitionParam{Name: "ts", Arguments: []byte(`{}`)}},
-		{ID: "c2", Function: model.FunctionDefinitionParam{Name: "to", Arguments: []byte(`{}`)}},
+	toolCalls := []compat.ToolCall{
+		{ID: "c1", Function: compat.FunctionDefinitionParam{Name: "ts", Arguments: []byte(`{}`)}},
+		{ID: "c2", Function: compat.FunctionDefinitionParam{Name: "to", Arguments: []byte(`{}`)}},
 	}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{Message: model.Message{ToolCalls: toolCalls}}}}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{Message: compat.Message{ToolCalls: toolCalls}}}}
 
 	evt, err := p.handleFunctionCalls(ctx, inv, rsp, tools, nil)
 	require.NoError(t, err)
@@ -7681,11 +7681,11 @@ func TestProcessResponse_AfterToolCallbackSkipSummarizationEndsInvocation(
 	}
 	tools := map[string]tool.Tool{"t": tl}
 	inv := &agent.Invocation{InvocationID: "inv-cb", AgentName: "agent"}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "t",
 				Arguments: []byte("{}"),
 			},
@@ -7730,11 +7730,11 @@ func TestProcessResponse_AfterToolCallbackSkipSummarization_LongRunningNilResult
 	}
 	tools := map[string]tool.Tool{"t": tl}
 	inv := &agent.Invocation{InvocationID: "inv-nil", AgentName: "agent"}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "t",
 				Arguments: []byte("{}"),
 			},
@@ -7793,25 +7793,25 @@ func TestHandleFunctionCalls_AfterToolCallbackSkipSummarizationParallelError(
 	}
 	tools := map[string]tool.Tool{"te": tErr, "to": tOther}
 	inv := &agent.Invocation{InvocationID: "inv-perr", AgentName: "agent"}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "te",
 				Arguments: []byte("{}"),
 			},
 		},
 		{
 			ID: "c2",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "to",
 				Arguments: []byte("{}"),
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model:   "m",
-		Choices: []model.Choice{{Message: model.Message{ToolCalls: toolCalls}}},
+		Choices: []compat.Choice{{Message: compat.Message{ToolCalls: toolCalls}}},
 	}
 
 	evt, err := p.handleFunctionCalls(context.Background(), inv, rsp, tools, nil)
@@ -7852,25 +7852,25 @@ func TestHandleFunctionCalls_AfterToolCallbackSkipSummarizationParallelLongRunni
 	}
 	tools := map[string]tool.Tool{"to": tOther, "tn": tNil}
 	inv := &agent.Invocation{InvocationID: "inv-par-nil", AgentName: "agent"}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "to",
 				Arguments: []byte("{}"),
 			},
 		},
 		{
 			ID: "c2",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "tn",
 				Arguments: []byte("{}"),
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model:   "m",
-		Choices: []model.Choice{{Message: model.Message{ToolCalls: toolCalls}}},
+		Choices: []compat.Choice{{Message: compat.Message{ToolCalls: toolCalls}}},
 	}
 
 	evt, err := p.handleFunctionCalls(context.Background(), inv, rsp, tools, nil)
@@ -7884,7 +7884,7 @@ func TestHandleFunctionCalls_AfterToolCallbackSkipSummarizationParallelLongRunni
 	require.False(t, evt.IsFinalResponse())
 
 	indices := map[string]int{}
-	var nilChoice *model.Choice
+	var nilChoice *compat.Choice
 	for i := range evt.Response.Choices {
 		choice := &evt.Response.Choices[i]
 		indices[choice.Message.ToolID] = choice.Index
@@ -7910,8 +7910,8 @@ func (s *finalOnlyInnerEventStreamTool) StreamableCall(ctx context.Context, _ []
 	go func() {
 		defer st.Writer.Close()
 		// Final full assistant message only, no deltas prior.
-		inner := event.New("inv-final", "child", event.WithResponse(&model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "final"},
+		inner := event.New("inv-final", "child", event.WithResponse(&compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "final"},
 		}}}))
 		inner.Branch = "br"
 		st.Writer.Send(tool.StreamChunk{Content: inner}, nil)
@@ -7924,7 +7924,7 @@ func TestExecuteStreamableTool_ForwardsFinalOnlyInnerMessage(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-final", AgentName: "parent", Branch: "br", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "c1", Function: model.FunctionDefinitionParam{Name: "inner-final"}}
+	tc := compat.ToolCall{ID: "c1", Function: compat.FunctionDefinitionParam{Name: "inner-final"}}
 	st := &finalOnlyInnerEventStreamTool{name: "inner-final"}
 	ch := make(chan *event.Event, 2)
 
@@ -7940,7 +7940,7 @@ func TestExecuteStreamableTool_ForwardsFinalOnlyInnerMessage(t *testing.T) {
 		require.Equal(t, inv.Branch, e.Branch)
 		require.NotNil(t, e.Response)
 		require.False(t, e.Response.IsPartial)
-		require.Equal(t, model.RoleAssistant, e.Choices[0].Message.Role)
+		require.Equal(t, compat.RoleAssistant, e.Choices[0].Message.Role)
 		require.Equal(t, "final", e.Choices[0].Message.Content)
 	default:
 		t.Fatalf("expected the final inner assistant message to be forwarded")
@@ -7991,7 +7991,7 @@ func TestExecuteTool_RespectsStreamInnerPreference(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-pref", AgentName: "tester", Model: &mockModel{}}
-	toolCall := model.ToolCall{ID: "call-1", Function: model.FunctionDefinitionParam{Name: "pref"}}
+	toolCall := compat.ToolCall{ID: "call-1", Function: compat.FunctionDefinitionParam{Name: "pref"}}
 	ch := make(chan *event.Event, 2)
 
 	// preferInner=false => should call callable path
@@ -8012,7 +8012,7 @@ func TestExecuteTool_RespectsStreamInnerPreference(t *testing.T) {
 	select {
 	case e := <-ch:
 		require.NotNil(t, e)
-		require.Equal(t, model.ObjectTypeToolResponse, e.Object)
+		require.Equal(t, compat.ObjectTypeToolResponse, e.Object)
 		require.True(t, e.IsPartial)
 	default:
 		t.Fatalf("expected a partial tool.response event when streaming")
@@ -8027,30 +8027,30 @@ func TestExecuteStreamableTool_HidesInnerAssistantText(t *testing.T) {
 		AgentName:    "tester",
 		Model:        &mockModel{},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-inner-text",
-		Function: model.FunctionDefinitionParam{Name: "pref"},
+		Function: compat.FunctionDefinitionParam{Name: "pref"},
 	}
 	partText := "part-text"
 
 	toolCallEvent := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: &partText,
 						},
 						{
-							Type: model.ContentTypeFile,
-							File: &model.File{Name: "report.txt"},
+							Type: compat.ContentTypeFile,
+							File: &compat.File{Name: "report.txt"},
 						},
 					},
-					ToolCalls: []model.ToolCall{{
+					ToolCalls: []compat.ToolCall{{
 						ID: "child-tool",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(`{"q":"x"}`),
 						},
@@ -8060,10 +8060,10 @@ func TestExecuteStreamableTool_HidesInnerAssistantText(t *testing.T) {
 		},
 	}
 	textEvent := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "hello"},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "hello"},
 			}},
 		},
 	}
@@ -8099,7 +8099,7 @@ func TestExecuteStreamableTool_HidesInnerAssistantText(t *testing.T) {
 	require.Len(t, forwarded[0].Choices[0].Message.ContentParts, 1)
 	require.Equal(
 		t,
-		model.ContentTypeFile,
+		compat.ContentTypeFile,
 		forwarded[0].Choices[0].Message.ContentParts[0].Type,
 	)
 }
@@ -8107,12 +8107,12 @@ func TestExecuteStreamableTool_HidesInnerAssistantText(t *testing.T) {
 func TestFilterForwardedInnerTextEvent_DropsTextOnlyContentParts(t *testing.T) {
 	partText := "secret"
 	ev := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{{
-						Type: model.ContentTypeText,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{{
+						Type: compat.ContentTypeText,
 						Text: &partText,
 					}},
 				},
@@ -8134,18 +8134,18 @@ func TestFilterForwardedInnerTextEvent_PreservesNonTextContentParts(
 ) {
 	partText := "hidden"
 	ev := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: &partText,
 						},
 						{
-							Type: model.ContentTypeImage,
-							Image: &model.Image{
+							Type: compat.ContentTypeImage,
+							Image: &compat.Image{
 								URL: "https://example.com/image.png",
 							},
 						},
@@ -8164,7 +8164,7 @@ func TestFilterForwardedInnerTextEvent_PreservesNonTextContentParts(
 	require.Len(t, filtered.Response.Choices[0].Delta.ContentParts, 1)
 	require.Equal(
 		t,
-		model.ContentTypeImage,
+		compat.ContentTypeImage,
 		filtered.Response.Choices[0].Delta.ContentParts[0].Type,
 	)
 }
@@ -8221,8 +8221,8 @@ func TestShouldEmitFilteredInnerEvent_SupplementalSignals(t *testing.T) {
 		{
 			name: "error event",
 			ev: &event.Event{
-				Response: &model.Response{
-					Error: &model.ResponseError{Message: errMessage},
+				Response: &compat.Response{
+					Error: &compat.ResponseError{Message: errMessage},
 				},
 			},
 			want: true,
@@ -8230,8 +8230,8 @@ func TestShouldEmitFilteredInnerEvent_SupplementalSignals(t *testing.T) {
 		{
 			name: "tool response object",
 			ev: &event.Event{
-				Response: &model.Response{
-					Object: model.ObjectTypeToolResponse,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeToolResponse,
 				},
 			},
 			want: true,
@@ -8239,8 +8239,8 @@ func TestShouldEmitFilteredInnerEvent_SupplementalSignals(t *testing.T) {
 		{
 			name: "chat completion object",
 			ev: &event.Event{
-				Response: &model.Response{
-					Object: model.ObjectTypeChatCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeChatCompletion,
 				},
 			},
 			want: false,
@@ -8263,9 +8263,9 @@ func TestClearForwardedMessageText_NilMessage(t *testing.T) {
 }
 
 func TestRemoveForwardedTextContentParts_NoText(t *testing.T) {
-	parts := []model.ContentPart{{
-		Type: model.ContentTypeImage,
-		Image: &model.Image{
+	parts := []compat.ContentPart{{
+		Type: compat.ContentTypeImage,
+		Image: &compat.Image{
 			URL: "https://example.com/image.png",
 		},
 	}}
@@ -8281,7 +8281,7 @@ func TestResponseHasForwardablePayload_SupplementalCases(t *testing.T) {
 	partText := "visible"
 	tests := []struct {
 		name string
-		rsp  *model.Response
+		rsp  *compat.Response
 		want bool
 	}{
 		{
@@ -8290,18 +8290,18 @@ func TestResponseHasForwardablePayload_SupplementalCases(t *testing.T) {
 		},
 		{
 			name: "response error",
-			rsp: &model.Response{
-				Error: &model.ResponseError{Message: errMessage},
+			rsp: &compat.Response{
+				Error: &compat.ResponseError{Message: errMessage},
 			},
 			want: true,
 		},
 		{
 			name: "message content parts",
-			rsp: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						ContentParts: []model.ContentPart{{
-							Type: model.ContentTypeText,
+			rsp: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						ContentParts: []compat.ContentPart{{
+							Type: compat.ContentTypeText,
 							Text: &partText,
 						}},
 					},
@@ -8311,8 +8311,8 @@ func TestResponseHasForwardablePayload_SupplementalCases(t *testing.T) {
 		},
 		{
 			name: "finish reason",
-			rsp: &model.Response{
-				Choices: []model.Choice{{
+			rsp: &compat.Response{
+				Choices: []compat.Choice{{
 					FinishReason: &finishStop,
 				}},
 			},
@@ -8332,8 +8332,8 @@ func TestResponseHasForwardablePayload_SupplementalCases(t *testing.T) {
 }
 
 func TestMergeParallelToolCallResponseEvents_PropagatesSkipSummarization(t *testing.T) {
-	e1 := event.New("inv", "a", event.WithResponse(&model.Response{Model: "m1"}))
-	e2 := event.New("inv", "a", event.WithResponse(&model.Response{Model: "m1"}))
+	e1 := event.New("inv", "a", event.WithResponse(&compat.Response{Model: "m1"}))
+	e2 := event.New("inv", "a", event.WithResponse(&compat.Response{Model: "m1"}))
 	e2.Actions = &event.EventActions{SkipSummarization: true}
 
 	merged := mergeParallelToolCallResponseEvents([]*event.Event{e1, e2})
@@ -8351,10 +8351,10 @@ func TestMergeParallelToolCallResponseEvents_ReturnsNilOnEmptyInput(t *testing.T
 }
 
 func TestMergeParallelToolCallResponseEvents_MergesStateDelta(t *testing.T) {
-	e1 := event.New("inv1", "author", event.WithResponse(&model.Response{Model: "m"}))
+	e1 := event.New("inv1", "author", event.WithResponse(&compat.Response{Model: "m"}))
 	e1.StateDelta = map[string][]byte{"k1": []byte("v1")}
 
-	e2 := event.New("inv2", "author", event.WithResponse(&model.Response{Model: "m"}))
+	e2 := event.New("inv2", "author", event.WithResponse(&compat.Response{Model: "m"}))
 	e2.StateDelta = map[string][]byte{
 		"k2": []byte("v2"),
 		"k1": []byte("override"),
@@ -8367,14 +8367,14 @@ func TestMergeParallelToolCallResponseEvents_MergesStateDelta(t *testing.T) {
 }
 
 func TestMergeParallelToolCallResponseEvents_MergesToolCallArgs(t *testing.T) {
-	e1 := event.New("inv1", "author", event.WithResponse(&model.Response{Model: "m"}))
+	e1 := event.New("inv1", "author", event.WithResponse(&compat.Response{Model: "m"}))
 	require.NoError(t, event.SetExtension(
 		e1,
 		event.ToolCallArgsExtensionKey,
 		map[string]string{"call-1": `{"action":"query"}`},
 	))
 
-	e2 := event.New("inv2", "author", event.WithResponse(&model.Response{Model: "m"}))
+	e2 := event.New("inv2", "author", event.WithResponse(&compat.Response{Model: "m"}))
 	require.NoError(t, event.SetExtension(
 		e2,
 		event.ToolCallArgsExtensionKey,
@@ -8420,11 +8420,11 @@ func TestHandleFunctionCalls_FunctionTool_SkipSummarization_EndInvocation(
 	)
 	tools := map[string]tool.Tool{"ft": ft}
 	inv := &agent.Invocation{InvocationID: "inv-ft", AgentName: "a"}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name: "ft", Arguments: []byte(`{}`),
 			},
 		}}},
@@ -8467,11 +8467,11 @@ func TestHandleFunctionCalls_StreamableFunctionTool_SkipSummarization_EndInvocat
 	inv := &agent.Invocation{InvocationID: "inv-st", AgentName: "a",
 		Model: &mockModel{},
 	}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name: "st", Arguments: []byte(`{}`),
 			},
 		}}},
@@ -8483,7 +8483,7 @@ func TestHandleFunctionCalls_StreamableFunctionTool_SkipSummarization_EndInvocat
 	var final *event.Event
 	for e := range ch {
 		if e != nil && e.Response != nil && !e.IsPartial &&
-			e.Object == model.ObjectTypeToolResponse {
+			e.Object == compat.ObjectTypeToolResponse {
 			final = e
 			break
 		}
@@ -8514,11 +8514,11 @@ func TestHandleFunctionCalls_NamedTool_PropagatesSkipSummarization(t *testing.T)
 	tools := map[string]tool.Tool{name: named}
 
 	inv := &agent.Invocation{InvocationID: "inv-nt", AgentName: "ag"}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name: name, Arguments: []byte(`{}`),
 			},
 		}}},
@@ -8559,7 +8559,7 @@ func TestExecuteStreamableTool_ChunkStructJSON(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-json", AgentName: "tester", Branch: "br", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "c1", Function: model.FunctionDefinitionParam{Name: "s"}}
+	tc := compat.ToolCall{ID: "c1", Function: compat.FunctionDefinitionParam{Name: "s"}}
 	st := &structStreamTool{name: "s"}
 	ch := make(chan *event.Event, 4)
 	_, res, _, err := f.executeStreamableTool(ctx, inv, tc, st, ch)
@@ -8740,9 +8740,9 @@ func TestExecuteStreamableTool_PreservesFinalResultChunk(t *testing.T) {
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &finalResultStreamTool{
 		name:   "final",
@@ -8772,9 +8772,9 @@ func TestExecuteStreamableTool_FinalResultChunkEmitsStateDelta(t *testing.T) {
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &finalResultStreamTool{
 		name:       "final",
@@ -8816,9 +8816,9 @@ func TestExecuteStreamableTool_FinalResultChunkStateDeltaUsesAgentInjection(t *t
 		agent.WithInvocationModel(&mockModel{}),
 	)
 	inv.AgentName = "tester"
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &finalResultStreamTool{
 		name:       "final",
@@ -8848,9 +8848,9 @@ func TestExecuteStreamableTool_FinalResultStateChunkNilResultOverridesMergedCont
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &finalResultStreamTool{
 		name:       "final",
@@ -8881,9 +8881,9 @@ func TestExecuteStreamableTool_FinalResultChunkNilResultFallsBackToMergedContent
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &finalResultStreamTool{name: "final"}
 	ch := make(chan *event.Event, 4)
@@ -8912,9 +8912,9 @@ func TestExecuteStreamableTool_ErrorEventStopsBeforeStaleFinalResult(t *testing.
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &errorThenFinalResultStreamTool{name: "final"}
 	ch := make(chan *event.Event, 4)
@@ -8924,7 +8924,7 @@ func TestExecuteStreamableTool_ErrorEventStopsBeforeStaleFinalResult(t *testing.
 
 	evt := <-ch
 	require.NotNil(t, evt)
-	require.Equal(t, model.ObjectTypeError, evt.Object)
+	require.Equal(t, compat.ObjectTypeError, evt.Object)
 	require.NotNil(t, evt.Error)
 	require.Equal(t, "after callback failed", evt.Error.Message)
 
@@ -8944,9 +8944,9 @@ func TestExecuteStreamableTool_RetryingNodeErrorDoesNotStopStream(t *testing.T) 
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &retryingNodeErrorThenFinalResultStreamTool{name: "final"}
 	ch := make(chan *event.Event, 4)
@@ -8975,9 +8975,9 @@ func TestExecuteStreamableTool_RetryingToolResponseErrorDoesNotStopStream(t *tes
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &retryingToolResponseErrorThenFinalResultStreamTool{name: "final"}
 	ch := make(chan *event.Event, 8)
@@ -8987,7 +8987,7 @@ func TestExecuteStreamableTool_RetryingToolResponseErrorDoesNotStopStream(t *tes
 
 	first := <-ch
 	require.NotNil(t, first)
-	require.Equal(t, model.ObjectTypeToolResponse, first.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, first.Object)
 	require.NotNil(t, first.Response)
 	require.NotNil(t, first.Response.Error)
 	require.Contains(t, first.StateDelta, graph.MetadataKeyTool)
@@ -9047,9 +9047,9 @@ func TestExecuteStreamableTool_TerminalToolResponseErrorStopsStream(t *testing.T
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	st := &terminalToolResponseErrorStreamTool{name: "final"}
 	ch := make(chan *event.Event, 4)
@@ -9059,7 +9059,7 @@ func TestExecuteStreamableTool_TerminalToolResponseErrorStopsStream(t *testing.T
 
 	evt := <-ch
 	require.NotNil(t, evt)
-	require.Equal(t, model.ObjectTypeToolResponse, evt.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, evt.Object)
 	require.NotNil(t, evt.Response)
 	require.NotNil(t, evt.Response.Error)
 	require.Contains(t, evt.StateDelta, graph.MetadataKeyTool)
@@ -9074,9 +9074,9 @@ func TestProcessStreamChunk_PointerFinalResultChunkMarksSeen(t *testing.T) {
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "final"},
+		Function: compat.FunctionDefinitionParam{Name: "final"},
 	}
 	var contents []any
 	finalResult := streamFinalResult{}
@@ -9113,7 +9113,7 @@ func TestProcessStreamChunk_NilPointerFinalResultChunkDoesNotMarkSeen(t *testing
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{Model: &mockModel{}}
-	tc := model.ToolCall{ID: "c1", Function: model.FunctionDefinitionParam{Name: "final"}}
+	tc := compat.ToolCall{ID: "c1", Function: compat.FunctionDefinitionParam{Name: "final"}}
 	var contents []any
 	finalResult := streamFinalResult{}
 	var innerEventState streamInnerEventState
@@ -9182,9 +9182,9 @@ func TestExecuteStreamableTool_DefaultDoesNotEnableStructuredStreamErrors(t *tes
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "plain"},
+		Function: compat.FunctionDefinitionParam{Name: "plain"},
 	}
 	st := &structuredErrorPreferenceStreamTool{
 		name: "plain",
@@ -9192,7 +9192,7 @@ func TestExecuteStreamableTool_DefaultDoesNotEnableStructuredStreamErrors(t *tes
 			Content: event.NewErrorEvent(
 				"inv-unstructured-default",
 				"child",
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				"boom",
 			),
 		},
@@ -9205,7 +9205,7 @@ func TestExecuteStreamableTool_DefaultDoesNotEnableStructuredStreamErrors(t *tes
 
 	evt := <-ch
 	require.NotNil(t, evt)
-	require.Equal(t, model.ObjectTypeError, evt.Object)
+	require.Equal(t, compat.ObjectTypeError, evt.Object)
 }
 
 func TestExecuteStreamableTool_OptInEnablesStructuredStreamErrors(t *testing.T) {
@@ -9217,9 +9217,9 @@ func TestExecuteStreamableTool_OptInEnablesStructuredStreamErrors(t *testing.T) 
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "plain"},
+		Function: compat.FunctionDefinitionParam{Name: "plain"},
 	}
 	st := &structuredErrorOptInStreamTool{
 		structuredErrorPreferenceStreamTool: structuredErrorPreferenceStreamTool{
@@ -9229,7 +9229,7 @@ func TestExecuteStreamableTool_OptInEnablesStructuredStreamErrors(t *testing.T) 
 				Content: event.NewErrorEvent(
 					"inv-structured-option",
 					"child",
-					model.ErrorTypeFlowError,
+					compat.ErrorTypeFlowError,
 					"boom",
 				),
 			},
@@ -9243,7 +9243,7 @@ func TestExecuteStreamableTool_OptInEnablesStructuredStreamErrors(t *testing.T) 
 
 	evt := <-ch
 	require.NotNil(t, evt)
-	require.Equal(t, model.ObjectTypeError, evt.Object)
+	require.Equal(t, compat.ObjectTypeError, evt.Object)
 }
 
 // stream tool forwarding inner *event.Event
@@ -9257,11 +9257,11 @@ func (s *innerEventStreamTool) StreamableCall(ctx context.Context, _ []byte) (*t
 	go func() {
 		defer st.Writer.Close()
 		// delta chunk
-		ev1 := event.New("inv-fwd", "child", event.WithResponse(&model.Response{Choices: []model.Choice{{Delta: model.Message{Content: "abc"}}}}))
+		ev1 := event.New("inv-fwd", "child", event.WithResponse(&compat.Response{Choices: []compat.Choice{{Delta: compat.Message{Content: "abc"}}}}))
 		ev1.Branch = "b"
 		st.Writer.Send(tool.StreamChunk{Content: ev1}, nil)
 		// final full assistant message
-		ev2 := event.New("inv-fwd", "child", event.WithResponse(&model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "def"}}}}))
+		ev2 := event.New("inv-fwd", "child", event.WithResponse(&compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "def"}}}}))
 		ev2.Branch = "b"
 		st.Writer.Send(tool.StreamChunk{Content: ev2}, nil)
 	}()
@@ -9272,7 +9272,7 @@ func TestExecuteStreamableTool_ForwardsInnerEvents(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-fwd", AgentName: "parent", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "c1", Function: model.FunctionDefinitionParam{Name: "inner"}}
+	tc := compat.ToolCall{ID: "c1", Function: compat.FunctionDefinitionParam{Name: "inner"}}
 	st := &innerEventStreamTool{name: "inner"}
 	ch := make(chan *event.Event, 4)
 	_, res, _, err := f.executeStreamableTool(ctx, inv, tc, st, ch)
@@ -9304,9 +9304,9 @@ func (s *duplicateInnerEventStreamTool) StreamableCall(ctx context.Context, _ []
 		ev1 := event.New(
 			"inv-fwd",
 			"child",
-			event.WithResponse(&model.Response{
-				Choices: []model.Choice{{
-					Delta: model.Message{
+			event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{{
+					Delta: compat.Message{
 						Content: "abc",
 					},
 				}},
@@ -9317,10 +9317,10 @@ func (s *duplicateInnerEventStreamTool) StreamableCall(ctx context.Context, _ []
 		ev2 := event.New(
 			"inv-fwd",
 			"child",
-			event.WithResponse(&model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "abc",
 					},
 				}},
@@ -9346,11 +9346,11 @@ func (s *duplicateFullInnerEventStreamTool) StreamableCall(ctx context.Context, 
 			ev := event.New(
 				"inv-fwd",
 				"child",
-				event.WithResponse(&model.Response{
+				event.WithResponse(&compat.Response{
 					ID: uuid.New().String(),
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "abc",
 						},
 					}},
@@ -9372,9 +9372,9 @@ func TestExecuteStreamableTool_PreservesRepeatedInnerFinalMessageByDefault(t *te
 		Branch:       "b",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "inner"},
+		Function: compat.FunctionDefinitionParam{Name: "inner"},
 	}
 	st := &duplicateInnerEventStreamTool{name: "inner"}
 	ch := make(chan *event.Event, 4)
@@ -9392,9 +9392,9 @@ func TestExecuteStreamableTool_DoesNotDedupDistinctInnerFinalMessagesWithSameCon
 		Branch:       "b",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "inner"},
+		Function: compat.FunctionDefinitionParam{Name: "inner"},
 	}
 	st := &duplicateFullInnerEventStreamTool{name: "inner"}
 	ch := make(chan *event.Event, 4)
@@ -9416,9 +9416,9 @@ func (s *suffixMatchedInnerEventStreamTool) StreamableCall(ctx context.Context, 
 		ev1 := event.New(
 			"inv-fwd",
 			"child",
-			event.WithResponse(&model.Response{
-				Choices: []model.Choice{{
-					Delta: model.Message{
+			event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{{
+					Delta: compat.Message{
 						Content: "xabc",
 					},
 				}},
@@ -9429,10 +9429,10 @@ func (s *suffixMatchedInnerEventStreamTool) StreamableCall(ctx context.Context, 
 		ev2 := event.New(
 			"inv-fwd",
 			"child",
-			event.WithResponse(&model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "abc",
 					},
 				}},
@@ -9453,9 +9453,9 @@ func TestExecuteStreamableTool_DoesNotDedupSuffixMatchedInnerFinalMessage(t *tes
 		Branch:       "b",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID:       "c1",
-		Function: model.FunctionDefinitionParam{Name: "inner"},
+		Function: compat.FunctionDefinitionParam{Name: "inner"},
 	}
 	st := &suffixMatchedInnerEventStreamTool{name: "inner"}
 	ch := make(chan *event.Event, 4)
@@ -9589,13 +9589,13 @@ func TestHandleFunctionCallsAndSendEvent_StopErrorEmitsErrorEvent(t *testing.T) 
 	}
 	tools := map[string]tool.Tool{"err": errTool}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "m",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{{
 					ID: "c1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "err",
 						Arguments: []byte(`{}`),
 					},
@@ -9609,7 +9609,7 @@ func TestHandleFunctionCallsAndSendEvent_StopErrorEmitsErrorEvent(t *testing.T) 
 	select {
 	case e := <-evtCh:
 		require.NotNil(t, e)
-		require.Equal(t, model.ObjectTypeError, e.Object)
+		require.Equal(t, compat.ObjectTypeError, e.Object)
 	default:
 		t.Fatalf("expected error event to be sent")
 	}
@@ -9632,11 +9632,11 @@ func TestProcessResponse_StopError_SetsEndInvocation(t *testing.T) {
 		},
 	}
 	tools := map[string]tool.Tool{"err": errTool}
-	req := &model.Request{Tools: tools}
-	rsp := &model.Response{Model: "m", Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: []model.ToolCall{{
+	req := &compat.Request{Tools: tools}
+	rsp := &compat.Response{Model: "m", Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: []compat.ToolCall{{
 			ID: "c1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "err",
 				Arguments: []byte(`{}`),
 			},
@@ -9706,20 +9706,20 @@ func TestExecuteToolCallsInParallel_ErrgroupCancelsSiblings(t *testing.T) {
 		"slow":    slow,
 		"stopper": stopper,
 	}
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			ID:       "call-slow",
-			Function: model.FunctionDefinitionParam{Name: "slow", Arguments: []byte(`{}`)},
+			Function: compat.FunctionDefinitionParam{Name: "slow", Arguments: []byte(`{}`)},
 		},
 		{
 			ID:       "call-stopper",
-			Function: model.FunctionDefinitionParam{Name: "stopper", Arguments: []byte(`{}`)},
+			Function: compat.FunctionDefinitionParam{Name: "stopper", Arguments: []byte(`{}`)},
 		},
 	}
-	llmResp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:      model.RoleAssistant,
+	llmResp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:      compat.RoleAssistant,
 				ToolCalls: toolCalls,
 			},
 		}},
@@ -9815,7 +9815,7 @@ func TestExecuteTool_UnsupportedToolType(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{}
-	tc := model.ToolCall{Function: model.FunctionDefinitionParam{Name: "only"}}
+	tc := compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "only"}}
 	_, _, _, err := p.executeTool(ctx, inv, tc, &onlyTool{}, nil)
 	require.Error(t, err)
 }
@@ -9824,7 +9824,7 @@ func TestExecuteTool_OriginalOnlyStreamWrapperDoesNotPanic(t *testing.T) {
 	p := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{}
-	tc := model.ToolCall{Function: model.FunctionDefinitionParam{Name: "stream"}}
+	tc := compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "stream"}}
 	wrapper := &originalOnlyStreamWrapper{
 		original: &mockStreamTool{name: "stream"},
 	}
@@ -9851,7 +9851,7 @@ func TestProcessStreamChunk_EmptyText_NoEvent(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{Model: &mockModel{}}
-	tc := model.ToolCall{ID: "x", Function: model.FunctionDefinitionParam{Name: "t"}}
+	tc := compat.ToolCall{ID: "x", Function: compat.FunctionDefinitionParam{Name: "t"}}
 	out := make([]any, 0)
 	var finalResult streamFinalResult
 	var innerEventState streamInnerEventState
@@ -9880,7 +9880,7 @@ func TestProcessStreamChunk_TextWithoutEventChannel_AppendsContent(t *testing.T)
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{Model: &mockModel{}}
-	tc := model.ToolCall{ID: "x", Function: model.FunctionDefinitionParam{Name: "t"}}
+	tc := compat.ToolCall{ID: "x", Function: compat.FunctionDefinitionParam{Name: "t"}}
 	out := make([]any, 0)
 	var finalResult streamFinalResult
 	var innerEventState streamInnerEventState
@@ -9916,7 +9916,7 @@ func TestExecuteToolWithCallbacks_BeforeCustomResult(t *testing.T) {
 	_, res, _, _, _, err := p.executeToolWithCallbacks(
 		ctx,
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -9980,9 +9980,9 @@ func TestExecuteToolWithCallbacks_PluginBeforeToolShortCircuit(t *testing.T) {
 		},
 	}
 
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-1",
-		Function: model.FunctionDefinitionParam{Name: "t"},
+		Function: compat.FunctionDefinitionParam{Name: "t"},
 	}
 
 	_, res, _, _, _, err := proc.executeToolWithCallbacks(
@@ -10039,9 +10039,9 @@ func TestExecuteToolWithCallbacks_PluginAfterToolOverrides(t *testing.T) {
 		},
 	}
 
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-1",
-		Function: model.FunctionDefinitionParam{Name: "t"},
+		Function: compat.FunctionDefinitionParam{Name: "t"},
 	}
 
 	_, res, _, _, _, err := proc.executeToolWithCallbacks(
@@ -10090,7 +10090,7 @@ func TestExecuteToolWithCallbacks_AfterToolReceivesNormalizedResultAndMeta(t *te
 	_, res, _, _, _, err := proc.executeToolWithCallbacks(
 		context.Background(),
 		nil,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10127,7 +10127,7 @@ func TestExecuteToolWithCallbacks_AfterToolCanRequestSkipSummarization(
 	_, res, _, _, skipSummarization, err := proc.executeToolWithCallbacks(
 		context.Background(),
 		nil,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10177,7 +10177,7 @@ func TestExecuteToolWithCallbacks_PluginAfterToolReceivesNormalizedResultAndMeta
 	_, res, _, _, _, err := proc.executeToolWithCallbacks(
 		context.Background(),
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10220,7 +10220,7 @@ func TestExecuteToolWithCallbacks_PluginAfterToolCanRequestSkipSummarization(
 	_, res, _, _, skipSummarization, err := proc.executeToolWithCallbacks(
 		context.Background(),
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10266,9 +10266,9 @@ func TestExecuteToolWithCallbacks_PluginBeforeToolError(t *testing.T) {
 			return "x", nil
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-1",
-		Function: model.FunctionDefinitionParam{Name: "t"},
+		Function: compat.FunctionDefinitionParam{Name: "t"},
 	}
 
 	_, _, _, _, _, err := proc.executeToolWithCallbacks(
@@ -10332,9 +10332,9 @@ func TestExecuteToolWithCallbacks_PluginBeforeToolArgsModified(
 			return "x", nil
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(originalArgs),
 		},
@@ -10366,9 +10366,9 @@ func TestExecuteToolWithCallbacks_RepairsToolCallArgumentsWhenEnabled(t *testing
 			return "ok", nil
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "t",
 			Arguments: []byte("{a:2}"),
 		},
@@ -10408,9 +10408,9 @@ func TestExecuteToolWithCallbacks_PluginAfterToolError(t *testing.T) {
 			return "x", nil
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-1",
-		Function: model.FunctionDefinitionParam{Name: "t"},
+		Function: compat.FunctionDefinitionParam{Name: "t"},
 	}
 
 	_, _, _, _, _, err := proc.executeToolWithCallbacks(
@@ -10465,9 +10465,9 @@ func TestExecuteToolWithCallbacks_PluginAfterToolOverrideClearsErr(
 			return nil, toolErr
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "call-1",
-		Function: model.FunctionDefinitionParam{Name: "t"},
+		Function: compat.FunctionDefinitionParam{Name: "t"},
 	}
 
 	_, res, _, _, _, err := proc.executeToolWithCallbacks(
@@ -10523,9 +10523,9 @@ func TestExecuteToolWithCallbacks_LocalAfterToolCustomResultReplacesFailedResult
 			return nil, errors.New("Tool Exec Failed: connection timeout")
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "mcp_tool",
 			Arguments: []byte(`{"query":"test"}`),
 		},
@@ -10576,9 +10576,9 @@ func TestExecuteToolCall_LocalAfterToolCustomResultProducesToolMessage(
 			return nil, errors.New("Tool Exec Failed")
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "mcp_tool",
 			Arguments: []byte(`{}`),
 		},
@@ -10599,7 +10599,7 @@ func TestExecuteToolCall_LocalAfterToolCustomResultProducesToolMessage(
 	require.NoError(t, err)
 	require.NotNil(t, choices)
 	require.Len(t, choices, 1)
-	require.Equal(t, model.RoleTool, choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	require.Equal(t, "call-1", choices[0].Message.ToolID)
 	require.Contains(t, choices[0].Message.Content, "Formatted error")
 }
@@ -10632,9 +10632,9 @@ func TestExecuteToolWithCallbacks_StopErrorPreservedWithCustomResult(
 			return nil, agent.NewStopError("max iterations reached")
 		},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-stop",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "stop_tool",
 			Arguments: []byte(`{}`),
 		},
@@ -10668,7 +10668,7 @@ func TestExecuteToolWithCallbacks_BeforeError(t *testing.T) {
 	_, _, _, _, _, err := p.executeToolWithCallbacks(
 		ctx,
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10689,7 +10689,7 @@ func TestExecuteToolWithCallbacks_AfterOverrideAndError(t *testing.T) {
 	_, res, _, _, _, err := p.executeToolWithCallbacks(
 		ctx,
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10708,7 +10708,7 @@ func TestExecuteToolWithCallbacks_AfterOverrideAndError(t *testing.T) {
 	_, _, _, _, _, err = p.executeToolWithCallbacks(
 		ctx,
 		inv2,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		tl,
 		nil,
 	)
@@ -10744,7 +10744,7 @@ func TestExecuteStreamableTool_StreamableCallError(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-s", AgentName: "tester", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "x", Function: model.FunctionDefinitionParam{Name: "s"}}
+	tc := compat.ToolCall{ID: "x", Function: compat.FunctionDefinitionParam{Name: "s"}}
 	st := &errStreamTool{name: "s"}
 	ch := make(chan *event.Event, 1)
 	_, res, _, err := f.executeStreamableTool(ctx, inv, tc, st, ch)
@@ -10756,7 +10756,7 @@ func TestExecuteStreamableTool_StreamReaderError(t *testing.T) {
 	f := NewFunctionCallResponseProcessor(false, nil)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-sr", AgentName: "tester", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "x", Function: model.FunctionDefinitionParam{Name: "s"}}
+	tc := compat.ToolCall{ID: "x", Function: compat.FunctionDefinitionParam{Name: "s"}}
 	st := &recvErrStreamTool{name: "s"}
 	ch := make(chan *event.Event, 1)
 	_, res, _, err := f.executeStreamableTool(ctx, inv, tc, st, ch)
@@ -10772,7 +10772,7 @@ func TestExecuteStreamableTool_AgentToolRunErrorDefaultsToPlainTextFallback(t *t
 		"call-1",
 	)
 	inv := &agent.Invocation{InvocationID: "inv-agent-tool-err", AgentName: "tester", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "call-1", Function: model.FunctionDefinitionParam{Name: "agent-tool"}}
+	tc := compat.ToolCall{ID: "call-1", Function: compat.FunctionDefinitionParam{Name: "agent-tool"}}
 	st := agenttool.NewTool(&runErrorSubAgent{name: "err-agent"}, agenttool.WithStreamInner(true))
 	ch := make(chan *event.Event, 1)
 	_, res, _, err := f.executeStreamableTool(ctx, inv, tc, st, ch)
@@ -10780,7 +10780,7 @@ func TestExecuteStreamableTool_AgentToolRunErrorDefaultsToPlainTextFallback(t *t
 	require.Equal(t, "agent tool run error: boom", res)
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeToolResponse, ev.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, ev.Object)
 	require.True(t, ev.IsPartial)
 	require.NotNil(t, ev.Response)
 	require.Len(t, ev.Response.Choices, 1)
@@ -10807,7 +10807,7 @@ func TestExecuteToolWithCallbacks_AgentToolRunErrorAfterBeforeToolContextReplace
 	f := NewFunctionCallResponseProcessor(false, callbacks)
 	ctx := context.Background()
 	inv := &agent.Invocation{InvocationID: "inv-agent-tool-before", AgentName: "tester", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "call-1", Function: model.FunctionDefinitionParam{Name: "agent-tool"}}
+	tc := compat.ToolCall{ID: "call-1", Function: compat.FunctionDefinitionParam{Name: "agent-tool"}}
 	st := agenttool.NewTool(&runErrorSubAgent{name: "err-agent"}, agenttool.WithStreamInner(true))
 	ch := make(chan *event.Event, 1)
 	_, res, _, _, _, err := f.executeToolWithCallbacks(
@@ -10821,7 +10821,7 @@ func TestExecuteToolWithCallbacks_AgentToolRunErrorAfterBeforeToolContextReplace
 	require.Equal(t, "agent tool run error: boom", res)
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeToolResponse, ev.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, ev.Object)
 	require.True(t, ev.IsPartial)
 	require.NotNil(t, ev.Response)
 	require.Len(t, ev.Response.Choices, 1)
@@ -10843,7 +10843,7 @@ func TestExecuteStreamableTool_AgentToolRunErrorWithStructuredStreamErrorsOptIn(
 		"call-1",
 	)
 	inv := &agent.Invocation{InvocationID: "inv-agent-tool-structured", AgentName: "tester", Branch: "b", Model: &mockModel{}}
-	tc := model.ToolCall{ID: "call-1", Function: model.FunctionDefinitionParam{Name: "agent-tool"}}
+	tc := compat.ToolCall{ID: "call-1", Function: compat.FunctionDefinitionParam{Name: "agent-tool"}}
 	st := agenttool.NewTool(
 		&runErrorSubAgent{name: "err-agent"},
 		agenttool.WithStreamInner(true),
@@ -10855,7 +10855,7 @@ func TestExecuteStreamableTool_AgentToolRunErrorWithStructuredStreamErrorsOptIn(
 	require.Nil(t, res)
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeError, ev.Object)
+	require.Equal(t, compat.ObjectTypeError, ev.Object)
 	require.NotNil(t, ev.Error)
 	require.Contains(t, ev.Error.Message, "agent tool run error")
 	require.False(t, ev.IsPartial)
@@ -10886,9 +10886,9 @@ func TestExecuteToolWithCallbacks_BeforeToolContextReplacementDoesNotReinjectToo
 		Branch:       "b",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "callable",
 			Arguments: []byte(`{}`),
 		},
@@ -10933,7 +10933,7 @@ func TestExecuteTool_NamedTool(t *testing.T) {
 	_, res, _, _, _, err := p.executeToolWithCallbacks(
 		ctx,
 		inv,
-		model.ToolCall{Function: model.FunctionDefinitionParam{Name: "t"}},
+		compat.ToolCall{Function: compat.FunctionDefinitionParam{Name: "t"}},
 		nameTool,
 		nil,
 	)
@@ -10990,9 +10990,9 @@ func TestExecuteToolWithCallbacks_ToolPermissionPolicyDenySkipsExecution(
 	_, res, modifiedArgs, suppressDefault, _, err := p.executeToolWithCallbacks(
 		context.Background(),
 		inv,
-		model.ToolCall{
+		compat.ToolCall{
 			ID: toolCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      toolName,
 				Arguments: []byte(originalArgs),
 			},
@@ -11028,8 +11028,8 @@ func TestExecuteToolCall_ToolPermissionResultSkipsToolResultMessagesCallback(
 		_ *tool.ToolResultMessagesInput,
 	) (any, error) {
 		calledResultMessages = true
-		return model.Message{
-			Role:    model.RoleUser,
+		return compat.Message{
+			Role:    compat.RoleUser,
 			Content: "overridden",
 		}, nil
 	})
@@ -11052,9 +11052,9 @@ func TestExecuteToolCall_ToolPermissionResultSkipsToolResultMessagesCallback(
 	execution, err := p.executeToolCall(
 		context.Background(),
 		inv,
-		model.ToolCall{
+		compat.ToolCall{
 			ID: toolCallID,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      toolName,
 				Arguments: []byte(`{}`),
 			},
@@ -11068,7 +11068,7 @@ func TestExecuteToolCall_ToolPermissionResultSkipsToolResultMessagesCallback(
 	require.False(t, calledTool)
 	require.False(t, calledResultMessages)
 	require.Len(t, choices, 1)
-	require.Equal(t, model.RoleTool, choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	require.Equal(t, toolCallID, choices[0].Message.ToolID)
 	require.Equal(t, toolName, choices[0].Message.ToolName)
 	require.JSONEq(t, permissionJSON, choices[0].Message.Content)
@@ -11103,13 +11103,13 @@ func TestExecuteSingleToolCallSequential_ToolPermissionResultSkipsStateDelta(
 		executeSingleToolCallSequential(
 			context.Background(),
 			&agent.Invocation{AgentName: "a", Model: &mockModel{}},
-			&model.Response{Choices: []model.Choice{{}}},
+			&compat.Response{Choices: []compat.Choice{{}}},
 			map[string]tool.Tool{toolName: tl},
 			make(chan *event.Event, 1),
 			0,
-			model.ToolCall{
+			compat.ToolCall{
 				ID: toolCallID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(`{}`),
 				},
@@ -11148,13 +11148,13 @@ func TestExecuteSingleToolCallSequential_ToolPermissionResultIgnoresToolSkipSumm
 		executeSingleToolCallSequential(
 			context.Background(),
 			&agent.Invocation{AgentName: "a", Model: &mockModel{}},
-			&model.Response{Choices: []model.Choice{{}}},
+			&compat.Response{Choices: []compat.Choice{{}}},
 			map[string]tool.Tool{toolName: tl},
 			make(chan *event.Event, 1),
 			0,
-			model.ToolCall{
+			compat.ToolCall{
 				ID: toolCallID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(`{}`),
 				},
@@ -11203,9 +11203,9 @@ func TestExecuteToolWithCallbacks_ToolPermissionCheckerAskSkipsRunPolicy(
 		executeToolWithCallbacks(
 			context.Background(),
 			inv,
-			model.ToolCall{
+			compat.ToolCall{
 				ID: "call-ask",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(`{}`),
 				},
@@ -11254,9 +11254,9 @@ func TestExecuteToolWithCallbacks_ToolPermissionReceivesMetadata(
 		executeToolWithCallbacks(
 			context.Background(),
 			inv,
-			model.ToolCall{
+			compat.ToolCall{
 				ID: "call-allow",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      toolName,
 					Arguments: []byte(`{}`),
 				},
@@ -11287,9 +11287,9 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultAfterToolContextReplaceme
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "final",
 			Arguments: []byte(`{}`),
 		},
@@ -11312,7 +11312,7 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultAfterToolContextReplaceme
 	choices := execution.choices
 	require.NoError(t, err)
 	require.Len(t, choices, 1)
-	require.Equal(t, model.RoleTool, choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	require.Equal(t, tc.ID, choices[0].Message.ToolID)
 	require.Equal(t, "null", choices[0].Message.Content)
 	first := <-eventCh
@@ -11333,18 +11333,18 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultAfterToolContextReplaceme
 func TestExecuteToolCall_StreamableFinalStateOnlyResultStillRunsToolResultMessagesCallback(t *testing.T) {
 	ctx := context.Background()
 	callbacks := tool.NewCallbacks()
-	var gotDefault model.Message
+	var gotDefault compat.Message
 	var called bool
 	callbacks.RegisterToolResultMessages(func(
 		_ context.Context,
 		in *tool.ToolResultMessagesInput,
 	) (any, error) {
 		called = true
-		msg, ok := in.DefaultToolMessage.(model.Message)
+		msg, ok := in.DefaultToolMessage.(compat.Message)
 		require.True(t, ok)
 		gotDefault = msg
-		return model.Message{
-			Role:    model.RoleTool,
+		return compat.Message{
+			Role:    compat.RoleTool,
 			ToolID:  in.ToolCallID,
 			Content: `{"from":"callback"}`,
 		}, nil
@@ -11356,9 +11356,9 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultStillRunsToolResultMessag
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "final",
 			Arguments: []byte(`{}`),
 		},
@@ -11381,7 +11381,7 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultStillRunsToolResultMessag
 	choices := execution.choices
 	require.NoError(t, err)
 	require.True(t, called)
-	require.Equal(t, model.RoleTool, gotDefault.Role)
+	require.Equal(t, compat.RoleTool, gotDefault.Role)
 	require.Equal(t, tc.ID, gotDefault.ToolID)
 	require.Equal(t, "null", gotDefault.Content)
 	require.Len(t, choices, 1)
@@ -11405,9 +11405,9 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultCallbackError(t *testing.
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "final",
 			Arguments: []byte(`{}`),
 		},
@@ -11449,9 +11449,9 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultCallbackFallsBackToDefaul
 		Branch:       "br",
 		Model:        &mockModel{},
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "final",
 			Arguments: []byte(`{}`),
 		},
@@ -11474,7 +11474,7 @@ func TestExecuteToolCall_StreamableFinalStateOnlyResultCallbackFallsBackToDefaul
 	choices := execution.choices
 	require.NoError(t, err)
 	require.Len(t, choices, 1)
-	require.Equal(t, model.RoleTool, choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	require.Equal(t, tc.ID, choices[0].Message.ToolID)
 	require.Equal(t, "null", choices[0].Message.Content)
 }
@@ -11500,21 +11500,21 @@ func TestHandleFunctionCalls_PreservesStateOnlyToolChoiceAlongsideOtherToolResul
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "m",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-state",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "state-only",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-echo",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "echo",
 							Arguments: []byte(`{}`),
 						},
@@ -11595,21 +11595,21 @@ func TestHandleFunctionCalls_PreservesCallbackDefaultStateOnlyToolChoiceAlongsid
 			},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "m",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call-state",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "state-only",
 							Arguments: []byte(`{}`),
 						},
 					},
 					{
 						ID: "call-echo",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "echo",
 							Arguments: []byte(`{}`),
 						},
@@ -11664,17 +11664,17 @@ func TestExecuteSingleToolCallSequential_SetsTransferTag(t *testing.T) {
 		},
 	}
 
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-transfer",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      transfer.TransferToolName,
 			Arguments: []byte(`{"message":"hi"}`),
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Model: "model-x",
-		Choices: []model.Choice{
-			{Message: model.Message{ToolCalls: []model.ToolCall{tc}}},
+		Choices: []compat.Choice{
+			{Message: compat.Message{ToolCalls: []compat.ToolCall{tc}}},
 		},
 	}
 
@@ -11767,9 +11767,9 @@ func TestExecuteToolWithCallbacks_RetryDoesNotReplayCallbacks(t *testing.T) {
 			InitialInterval: 0,
 		}),
 	)
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "retry-tool",
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -11815,9 +11815,9 @@ func TestExecuteCallableTool_RetryOnResultError(t *testing.T) {
 			},
 		}),
 	)
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "retry-tool",
 			Arguments: []byte(`{}`),
 		},
@@ -11853,9 +11853,9 @@ func TestExecuteCallableTool_DoesNotRetryStopError(t *testing.T) {
 			},
 		}),
 	)
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "stop-tool",
 			Arguments: []byte(`{}`),
 		},
@@ -12130,9 +12130,9 @@ func TestFunctionCallResponseProcessor_ToolConcurrencyScopeLimitsCalls(
 			_, err := processor.executeToolCall(
 				ctx,
 				nil,
-				model.ToolCall{
+				compat.ToolCall{
 					ID: fmt.Sprintf("call-%d", i),
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "subagent",
 						Arguments: []byte(`{}`),
 					},

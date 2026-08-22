@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/source"
 	tracksvc "github.com/LingByte/ling-base/agentkit/server/agui/internal/track"
@@ -314,7 +314,7 @@ func TestAttachToolResultInputSourceMetadata(t *testing.T) {
 		ev := agentevent.NewResponseEvent(
 			"inv-1",
 			toolResultInputEventAuthor,
-			&model.Response{},
+			&compat.Response{},
 		)
 		rr := &runner{}
 
@@ -332,7 +332,7 @@ func TestAttachToolResultInputSourceMetadata(t *testing.T) {
 		ev := agentevent.NewResponseEvent(
 			"inv-1",
 			toolResultInputEventAuthor,
-			&model.Response{},
+			&compat.Response{},
 		)
 		rr := &runner{
 			eventSourceMetadataEnabled: true,
@@ -361,7 +361,7 @@ func TestAttachToolResultInputSourceMetadata(t *testing.T) {
 		ev := agentevent.NewResponseEvent(
 			"inv-1",
 			toolResultInputEventAuthor,
-			&model.Response{},
+			&compat.Response{},
 		)
 		rr := &runner{
 			eventSourceMetadataEnabled: true,
@@ -396,7 +396,7 @@ func TestAttachToolResultInputSourceMetadata(t *testing.T) {
 		ev := agentevent.NewResponseEvent(
 			"inv-1",
 			toolResultInputEventAuthor,
-			&model.Response{},
+			&compat.Response{},
 		)
 		rr := &runner{
 			eventSourceMetadataEnabled: true,
@@ -448,7 +448,7 @@ func TestRunToolResultInputTranslationReusesTrackedSourceMetadata(
 
 	rr, ok := New(
 		&fakeRunner{
-			run: func(context.Context, string, string, model.Message,
+			run: func(context.Context, string, string, compat.Message,
 				...agent.RunOption) (<-chan *agentevent.Event, error) {
 				ch := make(chan *agentevent.Event)
 				close(ch)
@@ -489,7 +489,7 @@ func TestRunToolResultInputTranslationSuppressesSyntheticSourceMetadata(
 ) {
 	rr, ok := New(
 		&fakeRunner{
-			run: func(context.Context, string, string, model.Message,
+			run: func(context.Context, string, string, compat.Message,
 				...agent.RunOption) (<-chan *agentevent.Event, error) {
 				ch := make(chan *agentevent.Event)
 				close(ch)

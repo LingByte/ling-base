@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/graphagent"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // ExampleGraphAgent_Run demonstrates running a GraphAgent.
@@ -57,7 +57,7 @@ func ExampleGraphAgent_Run() {
 
 	// Run the agent
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("process this")),
+		agent.WithInvocationMessage(compat.NewUserMessage("process this")),
 	)
 
 	events, err := graphAgent.Run(context.Background(), invocation)

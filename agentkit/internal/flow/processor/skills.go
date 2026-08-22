@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/jsonutils"
 	"github.com/LingByte/ling-base/agentkit/internal/skillprofile"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
 
@@ -368,7 +368,7 @@ func normalizeSkillLoadMode(mode string) string {
 
 // ProcessRequest implements flow.RequestProcessor.
 func (p *SkillsRequestProcessor) ProcessRequest(
-	ctx context.Context, inv *agent.Invocation, req *model.Request,
+	ctx context.Context, inv *agent.Invocation, req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	repo := p.repositoryForInvocation(ctx, inv)
@@ -422,7 +422,7 @@ func (p *SkillsRequestProcessor) ProcessRequest(
 		finishProcessorLatencySpan(promptSpan, promptStarted, nil)
 		agent.EmitEvent(ctx, inv, ch, event.New(
 			inv.InvocationID, inv.AgentName,
-			event.WithObject(model.ObjectTypePreprocessingInstruction),
+			event.WithObject(compat.ObjectTypePreprocessingInstruction),
 		))
 		return
 	}
@@ -496,7 +496,7 @@ func (p *SkillsRequestProcessor) ProcessRequest(
 	// injected, for consistent trace semantics.
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID, inv.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingInstruction),
+		event.WithObject(compat.ObjectTypePreprocessingInstruction),
 	))
 }
 
@@ -548,7 +548,7 @@ func (p *SkillsRequestProcessor) applyRequestedSkillLoads(
 	ev := event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(delta),
 	)
 	if p.loadStateDeltaHook != nil {
@@ -619,7 +619,7 @@ func (p *SkillsRequestProcessor) maybeCapLoadedSkills(
 		agent.EmitEvent(ctx, inv, ch, event.New(
 			inv.InvocationID,
 			inv.AgentName,
-			event.WithObject(model.ObjectTypeStateUpdate),
+			event.WithObject(compat.ObjectTypeStateUpdate),
 			event.WithStateDelta(delta),
 		))
 	}
@@ -750,7 +750,7 @@ func appendSkillsToOrderFromToolResponseEvent(
 	if ev.Response == nil {
 		return order
 	}
-	if ev.Object != model.ObjectTypeToolResponse {
+	if ev.Object != compat.ObjectTypeToolResponse {
 		return order
 	}
 	if len(ev.Choices) == 0 {
@@ -759,7 +759,7 @@ func appendSkillsToOrderFromToolResponseEvent(
 
 	for j := 0; j < len(ev.Choices); j++ {
 		msg := ev.Choices[j].Message
-		if msg.Role != model.RoleTool {
+		if msg.Role != compat.RoleTool {
 			continue
 		}
 		if msg.ToolName != skillToolLoad &&
@@ -794,7 +794,7 @@ func fillLoadedSkillOrderAlphabetically(
 	return append(order, sorted...)
 }
 
-func skillNameFromToolResponse(msg model.Message) string {
+func skillNameFromToolResponse(msg compat.Message) string {
 	switch msg.ToolName {
 	case skillToolLoad:
 		return parseLoadedSkillFromText(msg.Content)
@@ -836,7 +836,7 @@ func (p *SkillsRequestProcessor) maybeClearSkillStateForTurn(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(delta),
 	))
 }
@@ -896,7 +896,7 @@ func (p *SkillsRequestProcessor) maybeOffloadLoadedSkills(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(delta),
 	))
 }
@@ -904,7 +904,7 @@ func (p *SkillsRequestProcessor) maybeOffloadLoadedSkills(
 func (p *SkillsRequestProcessor) injectOverview(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	repo skill.Repository,
 ) {
 	cacheCtx, cacheSpan, cacheStarted := startProcessorLatencySpan(
@@ -1060,7 +1060,7 @@ func startsWithSectionHeader(text string, header string) bool {
 }
 
 func (p *SkillsRequestProcessor) mergeOverview(
-	req *model.Request,
+	req *compat.Request,
 	overview string,
 	prepend bool,
 ) {
@@ -1085,8 +1085,8 @@ func (p *SkillsRequestProcessor) mergeOverview(
 		}
 		return
 	}
-	msg := model.NewSystemMessage(overview)
-	req.Messages = append([]model.Message{msg}, req.Messages...)
+	msg := compat.NewSystemMessage(overview)
+	req.Messages = append([]compat.Message{msg}, req.Messages...)
 }
 
 // applyOverviewCap splits the available summaries into a "rendered"
@@ -1103,7 +1103,7 @@ func (p *SkillsRequestProcessor) applyOverviewCap(
 
 func prioritizeSummariesForRequest(
 	sums []skill.Summary,
-	messages []model.Message,
+	messages []compat.Message,
 ) (sorted []skill.Summary, topRecommendation string) {
 	if len(sums) < 2 {
 		return sums, ""
@@ -1148,14 +1148,14 @@ func prioritizeSummariesForRequest(
 	return out, top
 }
 
-func overviewQueryWeights(messages []model.Message) map[string]int {
+func overviewQueryWeights(messages []compat.Message) map[string]int {
 	if len(messages) == 0 {
 		return nil
 	}
 	var query strings.Builder
 	for i := len(messages) - 1; i >= 0; i-- {
 		msg := messages[i]
-		if msg.Role != model.RoleUser {
+		if msg.Role != compat.RoleUser {
 			continue
 		}
 		if text := strings.TrimSpace(overviewMessageText(msg)); text != "" {
@@ -1225,7 +1225,7 @@ func overviewTokens(text string) []string {
 	return out
 }
 
-func overviewMessageText(msg model.Message) string {
+func overviewMessageText(msg compat.Message) string {
 	if msg.Content != "" {
 		return msg.Content
 	}
@@ -1862,7 +1862,7 @@ func (p *SkillsRequestProcessor) buildDocsText(
 // mergeIntoSystem appends content into the existing system message when
 // available; otherwise, it creates a new system message at the front.
 func (p *SkillsRequestProcessor) mergeIntoSystem(
-	req *model.Request, content string,
+	req *compat.Request, content string,
 ) {
 	if req == nil || content == "" {
 		return
@@ -1876,6 +1876,6 @@ func (p *SkillsRequestProcessor) mergeIntoSystem(
 		}
 		return
 	}
-	msg := model.NewSystemMessage(content)
-	req.Messages = append([]model.Message{msg}, req.Messages...)
+	msg := compat.NewSystemMessage(content)
+	req.Messages = append([]compat.Message{msg}, req.Messages...)
 }

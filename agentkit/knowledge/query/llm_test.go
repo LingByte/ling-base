@@ -14,24 +14,24 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type stubModel struct {
 	content string
 	err     error
-	apiErr  *model.ResponseError
-	capture *model.Request
+	apiErr  *compat.ResponseError
+	capture *compat.Request
 }
 
-func (s *stubModel) GenerateContent(_ context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (s *stubModel) GenerateContent(_ context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	s.capture = req
 	if s.err != nil {
 		return nil, s.err
 	}
-	ch := make(chan *model.Response, 1)
-	resp := &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Content: s.content}}},
+	ch := make(chan *compat.Response, 1)
+	resp := &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Content: s.content}}},
 	}
 	if s.apiErr != nil {
 		resp.Error = s.apiErr
@@ -41,8 +41,8 @@ func (s *stubModel) GenerateContent(_ context.Context, req *model.Request) (<-ch
 	return ch, nil
 }
 
-func (s *stubModel) Info() model.Info {
-	return model.Info{Name: "stub"}
+func (s *stubModel) Info() compat.Info {
+	return compat.Info{Name: "stub"}
 }
 
 func TestLLMEnhancer_Basic(t *testing.T) {
@@ -79,13 +79,13 @@ func TestLLMEnhancer_WithHistory(t *testing.T) {
 	if len(m.capture.Messages) != 4 {
 		t.Fatalf("expected 4 messages, got %d", len(m.capture.Messages))
 	}
-	if m.capture.Messages[0].Role != model.RoleSystem {
+	if m.capture.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("first message should be system, got %s", m.capture.Messages[0].Role)
 	}
-	if m.capture.Messages[1].Role != model.RoleUser {
+	if m.capture.Messages[1].Role != compat.RoleUser {
 		t.Fatalf("second message should be user history, got %s", m.capture.Messages[1].Role)
 	}
-	if m.capture.Messages[2].Role != model.RoleAssistant {
+	if m.capture.Messages[2].Role != compat.RoleAssistant {
 		t.Fatalf("third message should be assistant history, got %s", m.capture.Messages[2].Role)
 	}
 	if m.capture.Messages[3].Content != "how to configure it?" {
@@ -136,7 +136,7 @@ func TestLLMEnhancer_ModelError(t *testing.T) {
 }
 
 func TestLLMEnhancer_APIError(t *testing.T) {
-	m := &stubModel{apiErr: &model.ResponseError{Message: "rate limited"}}
+	m := &stubModel{apiErr: &compat.ResponseError{Message: "rate limited"}}
 	e := NewLLMEnhancer(m)
 
 	_, err := e.EnhanceQuery(context.Background(), &Request{Query: "test"})

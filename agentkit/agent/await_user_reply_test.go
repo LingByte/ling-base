@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -37,12 +37,12 @@ func TestMarkAwaitingUserReply_AttachesToFinalEvent(t *testing.T) {
 		event.NewResponseEvent(
 			"inv-1",
 			"clarifier",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Please provide your account id.",
 					},
 				}},
@@ -77,12 +77,12 @@ func TestAwaitUserReplyRoute_AttachEventNormalizesExtension(t *testing.T) {
 	evt := event.NewResponseEvent(
 		"inv-1",
 		"clarifier",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Need your phone number.",
 				},
 			}},
@@ -148,13 +148,13 @@ func TestMarkAwaitingUserReply_DoesNotAttachToPartialEvent(t *testing.T) {
 		event.NewResponseEvent(
 			"inv-partial",
 			"clarifier",
-			&model.Response{
+			&compat.Response{
 				Done:      false,
 				IsPartial: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "thinking...",
 					},
 				}},
@@ -195,12 +195,12 @@ func TestMarkAwaitingUserReply_DoesNotAttachToToolResult(t *testing.T) {
 		event.NewResponseEvent(
 			"inv-tool-result",
 			"clarifier",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call-1",
 						Content: "ok",
 					},
@@ -314,12 +314,12 @@ func TestAwaitUserReplyRoute_StateAndAttachEventErrors(t *testing.T) {
 	evt := event.NewResponseEvent(
 		"inv-1",
 		"clarifier",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Please share your city.",
 				},
 			}},
@@ -372,12 +372,12 @@ func TestAttachAwaitUserReplyRoute_WithoutPendingRoute(t *testing.T) {
 	evt := event.NewResponseEvent(
 		"inv-1",
 		"clarifier",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Please share your city.",
 				},
 			}},
@@ -397,12 +397,12 @@ func TestAwaitUserReplyRoute_AttachEventPreservesStateDelta(t *testing.T) {
 	evt := event.NewResponseEvent(
 		"inv-1",
 		"clarifier",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Need your city.",
 				},
 			}},

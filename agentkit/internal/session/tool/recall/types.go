@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -83,7 +83,7 @@ type SearchSessionHit struct {
 	SessionID string                 `json:"session_id"`
 	EventID   string                 `json:"event_id"`
 	Created   time.Time              `json:"created"`
-	Role      model.Role             `json:"role,omitempty"`
+	Role      compat.Role             `json:"role,omitempty"`
 	Score     float64                `json:"score"`
 	Snippet   string                 `json:"snippet"`
 	Context   []LoadedSessionMessage `json:"context,omitempty"`
@@ -119,7 +119,7 @@ type LoadSessionRequest struct {
 // LoadedSessionMessage is one historical message returned by session_load.
 type LoadedSessionMessage struct {
 	EventID string     `json:"event_id"`
-	Role    model.Role `json:"role"`
+	Role    compat.Role `json:"role"`
 	Created time.Time  `json:"created"`
 	Content string     `json:"content"`
 
@@ -447,7 +447,7 @@ func summaryBoundaryForFilter(
 
 func extractSessionMessageText(
 	evt event.Event,
-) (string, model.Role, bool) {
+) (string, compat.Role, bool) {
 	if evt.Response == nil || evt.Response.IsPartial ||
 		len(evt.Choices) == 0 {
 		return "", "", false
@@ -460,12 +460,12 @@ func extractSessionMessageText(
 
 	role := msg.Role
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	if msg.ToolID != "" || role == model.RoleTool {
-		role = model.RoleTool
+	if msg.ToolID != "" || role == compat.RoleTool {
+		role = compat.RoleTool
 	}
-	if role != model.RoleUser && role != model.RoleAssistant && role != model.RoleTool {
+	if role != compat.RoleUser && role != compat.RoleAssistant && role != compat.RoleTool {
 		return "", "", false
 	}
 
@@ -473,7 +473,7 @@ func extractSessionMessageText(
 	if text == "" {
 		return "", "", false
 	}
-	if role == model.RoleTool {
+	if role == compat.RoleTool {
 		toolName := strings.TrimSpace(msg.ToolName)
 		if toolName != "" {
 			text = toolName + ": " + text
@@ -498,7 +498,7 @@ func toolResultMetadata(
 	for _, choice := range evt.Choices {
 		msg := choice.Message
 		role := msg.Role
-		if msg.ToolID != "" || role == model.RoleTool {
+		if msg.ToolID != "" || role == compat.RoleTool {
 			text := visibleMessageText(msg)
 			return strings.TrimSpace(msg.ToolID),
 				strings.TrimSpace(msg.ToolName),
@@ -525,7 +525,7 @@ func toolResultEventIDByToolCallID(
 		for _, choice := range evt.Choices {
 			msg := choice.Message
 			if msg.ToolID == toolCallID &&
-				(msg.Role == model.RoleTool || msg.ToolID != "") {
+				(msg.Role == compat.RoleTool || msg.ToolID != "") {
 				return evt.ID
 			}
 		}
@@ -583,7 +583,7 @@ func loadedMessageFromEvent(
 
 func skipsSelectedAnchorToolResult(
 	eventID string,
-	msg model.Message,
+	msg compat.Message,
 	contentWindow loadContentWindow,
 ) bool {
 	if contentWindow.AnchorEventID == "" ||
@@ -591,7 +591,7 @@ func skipsSelectedAnchorToolResult(
 		contentWindow.ToolCallID == "" {
 		return false
 	}
-	if msg.ToolID == "" && msg.Role != model.RoleTool {
+	if msg.ToolID == "" && msg.Role != compat.RoleTool {
 		return false
 	}
 	return strings.TrimSpace(msg.ToolID) != contentWindow.ToolCallID
@@ -600,7 +600,7 @@ func skipsSelectedAnchorToolResult(
 func loadedMessageFromModelMessage(
 	eventID string,
 	createdAt time.Time,
-	msg model.Message,
+	msg compat.Message,
 	contentWindow loadContentWindow,
 ) (LoadedSessionMessage, bool) {
 	if len(msg.ToolCalls) > 0 {
@@ -609,12 +609,12 @@ func loadedMessageFromModelMessage(
 
 	role := msg.Role
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	if msg.ToolID != "" || role == model.RoleTool {
-		role = model.RoleTool
+	if msg.ToolID != "" || role == compat.RoleTool {
+		role = compat.RoleTool
 	}
-	if role != model.RoleUser && role != model.RoleAssistant && role != model.RoleTool {
+	if role != compat.RoleUser && role != compat.RoleAssistant && role != compat.RoleTool {
 		return LoadedSessionMessage{}, false
 	}
 
@@ -629,7 +629,7 @@ func loadedMessageFromModelMessage(
 		Created: createdAt,
 		Content: text,
 	}
-	if role != model.RoleTool {
+	if role != compat.RoleTool {
 		return loaded, true
 	}
 
@@ -665,7 +665,7 @@ func loadedMessageFromModelMessage(
 	return loaded, true
 }
 
-func visibleMessageText(msg model.Message) string {
+func visibleMessageText(msg compat.Message) string {
 	text := strings.TrimSpace(msg.Content)
 	if text != "" || len(msg.ContentParts) == 0 {
 		return text

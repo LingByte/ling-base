@@ -18,7 +18,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	pgvec "github.com/pgvector/pgvector-go"
 	"github.com/stretchr/testify/assert"
@@ -177,10 +177,10 @@ func TestSearchEvents_Success(t *testing.T) {
 	eventCreatedAt := time.Date(2025, 1, 2, 4, 5, 6, 0, time.UTC)
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Hello there",
 				}},
 			},
@@ -220,7 +220,7 @@ func TestSearchEvents_Success(t *testing.T) {
 	assert.Equal(t, "sess-2", results[0].SessionKey.SessionID)
 	assert.Equal(t, sessionCreatedAt, results[0].SessionCreatedAt)
 	assert.Equal(t, eventCreatedAt, results[0].EventCreatedAt)
-	assert.Equal(t, model.RoleAssistant, results[0].Role)
+	assert.Equal(t, compat.RoleAssistant, results[0].Role)
 	assert.Contains(t, results[0].Text, "SessionDate")
 	assert.Equal(t, "inv-1", results[0].Event.InvocationID)
 	assert.InDelta(t, 0.95, results[0].Score, 1e-9)
@@ -235,12 +235,12 @@ func TestSearchEvents_HybridSuccess(t *testing.T) {
 	s, mock, db := newTestService(t, emb)
 	defer db.Close()
 
-	makeEventBytes := func(invID string, role model.Role, content string) []byte {
+	makeEventBytes := func(invID string, role compat.Role, content string) []byte {
 		evt := event.Event{
 			InvocationID: invID,
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
 						Role:    role,
 						Content: content,
 					}},
@@ -260,12 +260,12 @@ func TestSearchEvents_HybridSuccess(t *testing.T) {
 	).AddRow(
 		"app", "user", "sess-a",
 		time.Now(), time.Now(),
-		makeEventBytes("inv-a", model.RoleAssistant, "A"),
+		makeEventBytes("inv-a", compat.RoleAssistant, "A"),
 		"A", "assistant", 0.91,
 	).AddRow(
 		"app", "user", "sess-b",
 		time.Now(), time.Now().Add(time.Second),
-		makeEventBytes("inv-b", model.RoleAssistant, "B"),
+		makeEventBytes("inv-b", compat.RoleAssistant, "B"),
 		"B", "assistant", 0.88,
 	)
 
@@ -278,12 +278,12 @@ func TestSearchEvents_HybridSuccess(t *testing.T) {
 	).AddRow(
 		"app", "user", "sess-b",
 		time.Now(), time.Now().Add(time.Second),
-		makeEventBytes("inv-b", model.RoleAssistant, "B"),
+		makeEventBytes("inv-b", compat.RoleAssistant, "B"),
 		"B", "assistant", 0.70,
 	).AddRow(
 		"app", "user", "sess-c",
 		time.Now(), time.Now().Add(2*time.Second),
-		makeEventBytes("inv-c", model.RoleUser, "C"),
+		makeEventBytes("inv-c", compat.RoleUser, "C"),
 		"C", "user", 0.65,
 	)
 
@@ -330,10 +330,10 @@ func TestSearchEvents_HybridKeywordErrorFallsBackToDense(t *testing.T) {
 
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Dense only",
 				}},
 			},
@@ -388,10 +388,10 @@ func TestSearchEvents_FallbackTextAndRoleFromEvent(t *testing.T) {
 
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Fallback text",
 				}},
 			},
@@ -428,7 +428,7 @@ func TestSearchEvents_FallbackTextAndRoleFromEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "Fallback text", results[0].Text)
-	assert.Equal(t, model.RoleUser, results[0].Role)
+	assert.Equal(t, compat.RoleUser, results[0].Role)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -620,7 +620,7 @@ func TestBuildSearchEventsSQL_Filters(t *testing.T) {
 			},
 			SessionIDs:        []string{"sess-1", "sess-2", "sess-1"},
 			ExcludeSessionIDs: []string{"sess-3"},
-			Roles:             []model.Role{model.RoleAssistant},
+			Roles:             []compat.Role{compat.RoleAssistant},
 			CreatedAfter:      &after,
 			CreatedBefore:     &before,
 			MinScore:          0.7,
@@ -696,7 +696,7 @@ func TestBuildKeywordSearchEventsSQL_Filters(t *testing.T) {
 			},
 			SessionIDs:        []string{"sess-1", "sess-2"},
 			ExcludeSessionIDs: []string{"sess-3"},
-			Roles:             []model.Role{model.RoleAssistant},
+			Roles:             []compat.Role{compat.RoleAssistant},
 			CreatedAfter:      &after,
 			CreatedBefore:     &before,
 			MinScore:          0.7,
@@ -794,7 +794,7 @@ func TestMergeHybridEventResults_DistinctEventIDs(t *testing.T) {
 					ID:           "evt-user",
 					InvocationID: "inv-a",
 				},
-				Role:           model.RoleUser,
+				Role:           compat.RoleUser,
 				Text:           "user question",
 				EventCreatedAt: now,
 				DenseScore:     0.9,
@@ -809,7 +809,7 @@ func TestMergeHybridEventResults_DistinctEventIDs(t *testing.T) {
 					ID:           "evt-assistant",
 					InvocationID: "inv-a",
 				},
-				Role:           model.RoleAssistant,
+				Role:           compat.RoleAssistant,
 				Text:           "assistant answer",
 				EventCreatedAt: now.Add(time.Second),
 				DenseScore:     0.8,
@@ -837,10 +837,10 @@ func TestCompactRoles(t *testing.T) {
 	assert.Equal(
 		t,
 		[]string{"assistant", "user"},
-		compactRoles([]model.Role{
-			model.RoleAssistant,
-			model.RoleUser,
-			model.RoleAssistant,
+		compactRoles([]compat.Role{
+			compat.RoleAssistant,
+			compat.RoleUser,
+			compat.RoleAssistant,
 			"",
 		}),
 	)

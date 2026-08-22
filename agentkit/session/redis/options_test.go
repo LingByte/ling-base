@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +27,7 @@ func (f *fakeRedisOptionsSummarizer) Summarize(ctx context.Context, sess *sessio
 	return "test summary", nil
 }
 func (f *fakeRedisOptionsSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeRedisOptionsSummarizer) SetModel(m model.Model)   {}
+func (f *fakeRedisOptionsSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeRedisOptionsSummarizer) Metadata() map[string]any { return map[string]any{"test": "data"} }
 
 func TestWithAsyncSummaryNum(t *testing.T) {

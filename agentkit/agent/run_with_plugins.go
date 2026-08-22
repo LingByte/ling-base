@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func pluginAgentCallbacks(inv *Invocation) *Callbacks {
@@ -53,7 +53,7 @@ func pluginAgentCallbacks(inv *Invocation) *Callbacks {
 //  4. AfterAgent fires after the sub-agent's event stream closes and
 //     receives the last non-partial response event in `args.FullResponseEvent`
 //     (nil if there wasn't one). If `args.Error` is non-nil, it was
-//     derived from the sub-agent's final `model.ResponseError`.
+//     derived from the sub-agent's final `compat.ResponseError`.
 //
 //  5. AfterAgent.CustomResponse APPENDS an extra response event to the
 //     forwarded stream. In consumers that track "last response" (the graph
@@ -101,7 +101,7 @@ func RunWithPlugins(
 func singleResponseEventChan(
 	ctx context.Context,
 	invocation *Invocation,
-	rsp *model.Response,
+	rsp *compat.Response,
 ) <-chan *event.Event {
 	out := make(chan *event.Event, 1)
 	runCtx := CloneContext(ctx)

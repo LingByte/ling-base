@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
 	"github.com/stretchr/testify/assert"
@@ -381,8 +381,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", longContentLen)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", longContentLen)},
 				}}},
 			},
 		}}
@@ -396,8 +396,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", shortContentLen)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", shortContentLen)},
 				}}},
 			},
 		}}
@@ -415,8 +415,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						Content:          "short answer",
 						ReasoningContent: reasoning,
 					},
@@ -433,17 +433,17 @@ func TestCheckTokenThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", contentLen)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", contentLen)},
 				}}},
 			},
 		}}
 
 		conversationText := (&sessionSummarizer{}).extractConversationText(sess.Events)
-		counter := model.NewSimpleTokenCounter()
+		counter := compat.NewSimpleTokenCounter()
 		tokens, err := counter.CountTokens(
 			context.Background(),
-			model.Message{Content: conversationText},
+			compat.Message{Content: conversationText},
 		)
 		assert.NoError(t, err)
 
@@ -461,16 +461,16 @@ func TestCheckTokenThreshold(t *testing.T) {
 					ID:        "event-1",
 					Author:    "user",
 					Timestamp: baseTime.Add(-2 * time.Hour),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: strings.Repeat("a", 800)},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: strings.Repeat("a", 800)},
 					}}},
 				},
 				{
 					ID:        "event-2",
 					Author:    "assistant",
 					Timestamp: baseTime,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "short"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "short"},
 					}}},
 				},
 			},
@@ -491,8 +491,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 				{
 					Author:    "user",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: strings.Repeat("a", 800)},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: strings.Repeat("a", 800)},
 					}}},
 				},
 			},
@@ -519,8 +519,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "user",
 					FilterKey: appName,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: "short user message",
 						},
 					}}},
@@ -529,8 +529,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "assistant",
 					FilterKey: "sub-agent-abc-123",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: strings.Repeat("x", 2000),
 						},
 					}}},
@@ -555,16 +555,16 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "user",
 					FilterKey: appName,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "hi"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "hi"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "child-agent-xyz",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: strings.Repeat("a", 800),
 						},
 					}}},
@@ -584,8 +584,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "assistant",
 					FilterKey: "my-app/sub-agent",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: strings.Repeat("a", 800),
 						},
 					}}},
@@ -608,8 +608,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "assistant",
 					FilterKey: branch,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: strings.Repeat("a", 800),
 						},
 					}}},
@@ -636,16 +636,16 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "system",
 					FilterKey: "",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "prev summary"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "prev summary"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: branch,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content: strings.Repeat("a", 800),
 						},
 					}}},
@@ -670,24 +670,24 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "user",
 					FilterKey: appName,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "root context"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "root context"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: branch,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: strings.Repeat("a", 800)},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: strings.Repeat("a", 800)},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: branch + "/tool",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: strings.Repeat("b", 800)},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: strings.Repeat("b", 800)},
 					}}},
 				},
 			},
@@ -710,16 +710,16 @@ func TestCheckTokenThreshold(t *testing.T) {
 					Author:    "user",
 					FilterKey: appName,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: strings.Repeat("r", 800)},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: strings.Repeat("r", 800)},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: branch,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "short branch message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "short branch message"},
 					}}},
 				},
 			},
@@ -735,8 +735,8 @@ func TestCheckTokenThreshold(t *testing.T) {
 				{
 					Author:    "tool",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call-1",
 							ToolName: "read_file",
 							Content:  strings.Repeat("x", 2000),
@@ -777,7 +777,7 @@ func TestCheckTokenThreshold_NoUsage(t *testing.T) {
 		Events: []event.Event{
 			{
 				Timestamp: time.Now(),
-				Response:  &model.Response{Usage: nil},
+				Response:  &compat.Response{Usage: nil},
 			},
 		},
 	}
@@ -788,13 +788,13 @@ type testFixedTokenCounter struct {
 	tokens int
 }
 
-func (c testFixedTokenCounter) CountTokens(_ context.Context, _ model.Message) (int, error) {
+func (c testFixedTokenCounter) CountTokens(_ context.Context, _ compat.Message) (int, error) {
 	return c.tokens, nil
 }
 
 func (c testFixedTokenCounter) CountTokensRange(
 	_ context.Context,
-	_ []model.Message,
+	_ []compat.Message,
 	start,
 	end int,
 ) (int, error) {
@@ -805,10 +805,10 @@ func (c testFixedTokenCounter) CountTokensRange(
 }
 
 type testCaptureTokenCounter struct {
-	lastMessage model.Message
+	lastMessage compat.Message
 }
 
-func (c *testCaptureTokenCounter) CountTokens(_ context.Context, message model.Message) (int, error) {
+func (c *testCaptureTokenCounter) CountTokens(_ context.Context, message compat.Message) (int, error) {
 	c.lastMessage = message
 	if strings.TrimSpace(message.ReasoningContent) != "" {
 		return 1000, nil
@@ -818,7 +818,7 @@ func (c *testCaptureTokenCounter) CountTokens(_ context.Context, message model.M
 
 func (c *testCaptureTokenCounter) CountTokensRange(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	start,
 	end int,
 ) (int, error) {
@@ -843,7 +843,7 @@ type testContextTokenCounter struct {
 	miss  int
 }
 
-func (c *testContextTokenCounter) CountTokens(ctx context.Context, _ model.Message) (int, error) {
+func (c *testContextTokenCounter) CountTokens(ctx context.Context, _ compat.Message) (int, error) {
 	if ctx != nil && ctx.Value(c.key) == c.value {
 		c.hit++
 		return 1000, nil
@@ -854,14 +854,14 @@ func (c *testContextTokenCounter) CountTokens(ctx context.Context, _ model.Messa
 
 func (c *testContextTokenCounter) CountTokensRange(
 	ctx context.Context,
-	_ []model.Message,
+	_ []compat.Message,
 	start,
 	end int,
 ) (int, error) {
 	if start >= end {
 		return 0, nil
 	}
-	tokens, err := c.CountTokens(ctx, model.Message{})
+	tokens, err := c.CountTokens(ctx, compat.Message{})
 	if err != nil {
 		return 0, err
 	}
@@ -877,8 +877,8 @@ func TestSetTokenCounter_AffectsCheckTokenThreshold(t *testing.T) {
 		{
 			Author:    "user",
 			Timestamp: time.Now(),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: "a"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: "a"},
 			}}},
 		},
 	}}
@@ -897,8 +897,8 @@ func TestSetTokenCounter_NilResetsToDefault(t *testing.T) {
 		{
 			Author:    "user",
 			Timestamp: time.Now(),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: strings.Repeat("a", shortContentLen)},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: strings.Repeat("a", shortContentLen)},
 			}}},
 		},
 	}}
@@ -1013,8 +1013,8 @@ func TestCheckContextThreshold_NoCtx_UsesFallback(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1034,8 +1034,8 @@ func TestCheckContextThreshold_NoCtx_BelowThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1056,8 +1056,8 @@ func TestCheckContextThreshold_WithInvocationModel(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1080,8 +1080,8 @@ func TestCheckContextThreshold_ModelSwitchChangesThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1117,8 +1117,8 @@ func TestCheckContextThreshold_CustomRatio(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1144,8 +1144,8 @@ func TestCheckContextThreshold_MinTokenThreshold(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1171,8 +1171,8 @@ func TestCheckContextThreshold_CustomFallbackContextWindow(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1298,8 +1298,8 @@ func TestWithContextThreshold_SummarizerModelFallback(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1334,8 +1334,8 @@ func TestWithContextThreshold_ExplicitFallbackWindowPreserved(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1367,8 +1367,8 @@ func TestWithContextThreshold_ReusedOptionDoesNotLeakResolvedFallback(t *testing
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1394,8 +1394,8 @@ func TestWithContextThreshold_UnknownSummarizerModel(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1418,8 +1418,8 @@ func TestWithContextThreshold_NilSummarizerModel(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		},
@@ -1429,25 +1429,25 @@ func TestWithContextThreshold_NilSummarizerModel(t *testing.T) {
 	assert.True(t, result)
 }
 
-// fakeModelWithName implements model.Model with a configurable name.
+// fakeModelWithName implements compat.Model with a configurable name.
 type fakeModelWithName struct {
 	name string
 }
 
 func (m *fakeModelWithName) GenerateContent(
-	_ context.Context, _ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ context.Context, _ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done:    true,
-		Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+		Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *fakeModelWithName) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *fakeModelWithName) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type fakeModelWithContextWindow struct {
@@ -1455,8 +1455,8 @@ type fakeModelWithContextWindow struct {
 	window int
 }
 
-func (m *fakeModelWithContextWindow) Info() model.Info {
-	return model.Info{
+func (m *fakeModelWithContextWindow) Info() compat.Info {
+	return compat.Info{
 		Name:          m.name,
 		ContextWindow: m.window,
 	}

@@ -44,7 +44,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	knowledgetool "github.com/LingByte/ling-base/agentkit/knowledge/tool"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 	"github.com/LingByte/ling-base/agentkit/prompt"
 	"github.com/LingByte/ling-base/agentkit/skill"
@@ -66,15 +66,15 @@ func defaultCodeExecutor() codeexecutor.CodeExecutor {
 type LLMAgent struct {
 	name                    string
 	mu                      sync.RWMutex
-	model                   model.Model
-	models                  map[string]model.Model // Registered models for switching
+	model                   compat.Model
+	models                  map[string]compat.Model // Registered models for switching
 	modelSelector           agent.ModelSelector
 	description             string
 	instruction             prompt.Text
 	systemPrompt            prompt.Text
 	modelInstructions       map[string]prompt.Text
 	modelGlobalInstructions map[string]prompt.Text
-	genConfig               model.GenerationConfig
+	genConfig               compat.GenerationConfig
 	flow                    flow.Flow
 	tools                   []tool.Tool     // All tools (user tools + framework tools)
 	userToolNames           map[string]bool // Names of tools explicitly registered
@@ -88,7 +88,7 @@ type LLMAgent struct {
 	outputKey            string         // Key to store output in session state
 	outputSchema         map[string]any // JSON schema for output validation
 	inputSchema          map[string]any // JSON schema for input validation
-	structuredOutput     *model.StructuredOutput
+	structuredOutput     *compat.StructuredOutput
 	structuredOutputType reflect.Type
 	option               Options
 }
@@ -744,8 +744,8 @@ func applySkillsExecutorFallback(options *Options) {
 
 // initializeModels initializes the models map and determines the initial
 // model based on WithModel and WithModels options.
-func initializeModels(options *Options) (model.Model, map[string]model.Model) {
-	models := make(map[string]model.Model)
+func initializeModels(options *Options) (compat.Model, map[string]compat.Model) {
+	models := make(map[string]compat.Model)
 
 	// Case 1: No models configured at all.
 	if options.Model == nil && len(options.Models) == 0 {
@@ -1597,7 +1597,7 @@ func (a *LLMAgent) Run(ctx context.Context, invocation *agent.Invocation) (e <-c
 		// Handle actual errors
 		if startedSpan {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeRunError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeRunError)))
 			span.End()
 		}
 		finishOwnedExecutionTraceStep(invocation, traceLease, nil, err)
@@ -1618,7 +1618,7 @@ func llmAgentTraceInputSnapshot(invocation *agent.Invocation) *atrace.Snapshot {
 	if invocation == nil {
 		return nil
 	}
-	payload, err := json.Marshal([]model.Message{invocation.Message})
+	payload, err := json.Marshal([]compat.Message{invocation.Message})
 	if err != nil {
 		return nil
 	}
@@ -1689,7 +1689,7 @@ func (e *haveCustomResponseError) Error() string {
 }
 
 type baseModelResolution struct {
-	Model              model.Model
+	Model              compat.Model
 	AllowAgentSelector bool
 }
 
@@ -1921,7 +1921,7 @@ func finalizeWrappedTelemetry(
 				fullRespEvent,
 				tokenUsage,
 				tracker.FirstTokenTimeDuration(),
-				model.ErrorTypeRunError,
+				compat.ErrorTypeRunError,
 			)
 		} else if responseErrorType != "" {
 			span.SetStatus(codes.Error, responseErrorType)
@@ -1947,7 +1947,7 @@ func resolveWrappedResponseErrorType(fullRespEvent *event.Event, responseErrorTy
 	}
 	return itelemetry.FormatResponseErrorLabel(
 		fullRespEvent.Response.Error,
-		model.ErrorTypeRunError,
+		compat.ErrorTypeRunError,
 	)
 }
 
@@ -1971,13 +1971,13 @@ func recordWrappedEventTelemetry(
 	if evt.Response != nil && evt.Response.Error != nil {
 		*responseErrorType = itelemetry.FormatResponseErrorLabel(
 			evt.Response.Error,
-			model.ErrorTypeRunError,
+			compat.ErrorTypeRunError,
 		)
 	}
 	return fullRespEvent
 }
 
-func addWrappedTokenUsage(tokenUsage *itelemetry.TokenUsage, usage *model.Usage) {
+func addWrappedTokenUsage(tokenUsage *itelemetry.TokenUsage, usage *compat.Usage) {
 	if usage == nil {
 		return
 	}
@@ -2355,7 +2355,7 @@ func (a *LLMAgent) SetToolSets(toolSets []tool.ToolSet) {
 // SetModel sets the model for this agent in a concurrency-safe way.
 // This allows callers to manage multiple models externally and switch
 // dynamically during runtime.
-func (a *LLMAgent) SetModel(m model.Model) {
+func (a *LLMAgent) SetModel(m compat.Model) {
 	a.mu.Lock()
 	a.model = m
 	a.mu.Unlock()
@@ -2406,7 +2406,7 @@ func (a *LLMAgent) SetPrompts(
 }
 
 // SetModelInstructions updates the model-specific instruction overrides.
-// Key: model.Info().Name, Value: instruction text.
+// Key: compat.Info().Name, Value: instruction text.
 func (a *LLMAgent) SetModelInstructions(instructions map[string]string) {
 	copied := cloneTextPromptMap(instructions)
 	a.mu.Lock()
@@ -2416,7 +2416,7 @@ func (a *LLMAgent) SetModelInstructions(instructions map[string]string) {
 
 // SetModelGlobalInstructions updates the model-specific system prompt
 // overrides.
-// Key: model.Info().Name, Value: system prompt text.
+// Key: compat.Info().Name, Value: system prompt text.
 func (a *LLMAgent) SetModelGlobalInstructions(prompts map[string]string) {
 	copied := cloneTextPromptMap(prompts)
 	a.mu.Lock()

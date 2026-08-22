@@ -20,14 +20,14 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Reporter records chat trace and metrics for one direct model call.
 type Reporter struct {
 	ctx          context.Context
 	invocation   *agent.Invocation
-	request      *model.Request
+	request      *compat.Request
 	span         oteltrace.Span
 	startedSpan  bool
 	traceState   itelemetry.ChatTraceState
@@ -40,8 +40,8 @@ type Reporter struct {
 // StartChat starts opt-in chat telemetry for direct model usage.
 func StartChat(
 	ctx context.Context,
-	llm model.Model,
-	request *model.Request,
+	llm compat.Model,
+	request *compat.Request,
 	enabled bool,
 ) *Reporter {
 	if !enabled {
@@ -75,7 +75,7 @@ func StartChat(
 	return reporter
 }
 
-func invocationView(ctx context.Context, llm model.Model) *agent.Invocation {
+func invocationView(ctx context.Context, llm compat.Model) *agent.Invocation {
 	inv, ok := agent.InvocationFromContext(ctx)
 	if !ok || inv == nil {
 		return &agent.Invocation{Model: llm}
@@ -94,7 +94,7 @@ func invocationView(ctx context.Context, llm model.Model) *agent.Invocation {
 }
 
 // TrackResponse records telemetry state for one model response.
-func (r *Reporter) TrackResponse(response *model.Response) {
+func (r *Reporter) TrackResponse(response *compat.Response) {
 	if r == nil || response == nil {
 		return
 	}

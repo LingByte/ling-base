@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/steerext"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -27,10 +27,10 @@ import (
 
 func TestRunQueuedUserMessageConsumedTrackedInMessagesSnapshot(t *testing.T) {
 	sessionService := inmemory.NewSessionService()
-	queued := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
+	queued := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
 		ID: "queued-user-1",
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("Only use the first three chapters"),
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("Only use the first three chapters"),
 		}},
 	})
 	queued.ID = "event-queued-user-1"
@@ -42,9 +42,9 @@ func TestRunQueuedUserMessageConsumedTrackedInMessagesSnapshot(t *testing.T) {
 			Status: steerext.QueuedUserMessageStatusConsumed,
 		},
 	))
-	completion := agentevent.NewResponseEvent("inv-1", "agui.runner", &model.Response{
+	completion := agentevent.NewResponseEvent("inv-1", "agui.runner", &compat.Response{
 		ID:     "runner-completion-1",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
 	agentEvents := make(chan *agentevent.Event, 2)
@@ -53,7 +53,7 @@ func TestRunQueuedUserMessageConsumedTrackedInMessagesSnapshot(t *testing.T) {
 	close(agentEvents)
 
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
 	}
@@ -100,29 +100,29 @@ func TestRunQueuedUserMessageConsumedTrackedInMessagesSnapshot(t *testing.T) {
 func TestRunQueuedUserMessageContentPartsTrackedInMessagesSnapshot(t *testing.T) {
 	sessionService := inmemory.NewSessionService()
 	text := "图中有哪些信息?"
-	queued := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
+	queued := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
 		ID: "queued-user-multimodal",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleUser,
-				ContentParts: []model.ContentPart{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleUser,
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL:    "https://example.com/images/1.jpeg",
 							Format: "image/jpeg",
 						},
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "report.txt",
 							Data:     []byte("report"),
 							MimeType: "text/plain",
 						},
 					},
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &text,
 					},
 				},
@@ -136,9 +136,9 @@ func TestRunQueuedUserMessageContentPartsTrackedInMessagesSnapshot(t *testing.T)
 			Status: steerext.QueuedUserMessageStatusConsumed,
 		},
 	))
-	completion := agentevent.NewResponseEvent("inv-1", "agui.runner", &model.Response{
+	completion := agentevent.NewResponseEvent("inv-1", "agui.runner", &compat.Response{
 		ID:     "runner-completion-1",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
 	agentEvents := make(chan *agentevent.Event, 2)
@@ -147,7 +147,7 @@ func TestRunQueuedUserMessageContentPartsTrackedInMessagesSnapshot(t *testing.T)
 	close(agentEvents)
 
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
 	}

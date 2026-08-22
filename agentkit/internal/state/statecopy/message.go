@@ -12,11 +12,11 @@ package statecopy
 
 import (
 	"github.com/LingByte/ling-base/agentkit/internal/jsonmap"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Message returns a deep copy of message.
-func Message(message model.Message) model.Message {
+func Message(message compat.Message) compat.Message {
 	cloned := message
 	cloned.ContentParts = cloneContentParts(message.ContentParts)
 	cloned.ToolCalls = cloneToolCalls(message.ToolCalls)
@@ -24,29 +24,29 @@ func Message(message model.Message) model.Message {
 }
 
 // Messages returns deep copies of messages and preserves a nil input.
-func Messages(messages []model.Message) []model.Message {
+func Messages(messages []compat.Message) []compat.Message {
 	if messages == nil {
 		return nil
 	}
-	cloned := make([]model.Message, len(messages))
+	cloned := make([]compat.Message, len(messages))
 	for i := range messages {
 		cloned[i] = Message(messages[i])
 	}
 	return cloned
 }
 
-func cloneContentParts(parts []model.ContentPart) []model.ContentPart {
+func cloneContentParts(parts []compat.ContentPart) []compat.ContentPart {
 	if parts == nil {
 		return nil
 	}
-	cloned := make([]model.ContentPart, len(parts))
+	cloned := make([]compat.ContentPart, len(parts))
 	for i := range parts {
 		cloned[i] = cloneContentPart(parts[i])
 	}
 	return cloned
 }
 
-func cloneContentPart(part model.ContentPart) model.ContentPart {
+func cloneContentPart(part compat.ContentPart) compat.ContentPart {
 	cloned := part
 	if part.Text != nil {
 		text := *part.Text
@@ -79,11 +79,11 @@ func cloneContentPart(part model.ContentPart) model.ContentPart {
 	return cloned
 }
 
-func cloneToolCalls(toolCalls []model.ToolCall) []model.ToolCall {
+func cloneToolCalls(toolCalls []compat.ToolCall) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i := range toolCalls {
 		cloned[i] = toolCalls[i]
 		cloned[i].Function.Arguments = append(

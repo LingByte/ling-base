@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -39,7 +39,7 @@ type sequenceTokenCounter struct {
 
 func (c *sequenceTokenCounter) CountTokens(
 	_ context.Context,
-	_ model.Message,
+	_ compat.Message,
 ) (int, error) {
 	idx := c.calls
 	c.calls++
@@ -57,7 +57,7 @@ func (c *sequenceTokenCounter) CountTokens(
 
 func (c *sequenceTokenCounter) CountTokensRange(
 	context.Context,
-	[]model.Message,
+	[]compat.Message,
 	int,
 	int,
 ) (int, error) {
@@ -104,10 +104,10 @@ func TestCompactIncrementEvents_PreservesCurrentAndRecentRequests(t *testing.T) 
 			RequestID:    requestID,
 			InvocationID: invocationID,
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: done,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-"+requestID, "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-"+requestID, "worker", content),
 				}},
 			},
 		}
@@ -154,10 +154,10 @@ func TestCompactIncrementEvents_AddsRecoverablePlaceholderRef(t *testing.T) {
 		RequestID:    "req-old",
 		InvocationID: "inv-old",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-old", "worker", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-old", "worker", content),
 			}},
 		},
 	}
@@ -171,10 +171,10 @@ func TestCompactIncrementEvents_AddsRecoverablePlaceholderRef(t *testing.T) {
 				RequestID:    "req-current",
 				InvocationID: "inv-current",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage("tool-call-current", "worker", "ok"),
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage("tool-call-current", "worker", "ok"),
 					}},
 				},
 			},
@@ -202,10 +202,10 @@ func TestCompactIncrementEvents_SkipsWhenCurrentUnitIsMissing(t *testing.T) {
 		RequestID:    "req-old",
 		InvocationID: "inv-old",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					"tool-call-req-old",
 					"worker",
 					strings.Repeat("old-result ", 64),
@@ -236,10 +236,10 @@ func TestCompactIncrementEvents_UsesInvocationFallbackWhenRequestIDMissing(t *te
 		return event.Event{
 			InvocationID: invocationID,
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-"+invocationID, "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-"+invocationID, "worker", content),
 				}},
 			},
 		}
@@ -276,10 +276,10 @@ func TestCompactIncrementEvents_KeepRecentCompletedRequestsOnly(t *testing.T) {
 		return event.Event{
 			RequestID: requestID,
 			FilterKey: "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: done,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-"+requestID, "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-"+requestID, "worker", content),
 				}},
 			},
 		}
@@ -321,10 +321,10 @@ func TestCompactIncrementEvents_SkipRecentFuncProtectsHistoricalPass(t *testing.
 			RequestID:    requestID,
 			InvocationID: "inv-" + requestID,
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-"+requestID, "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-"+requestID, "worker", content),
 				}},
 			},
 		}
@@ -369,10 +369,10 @@ func TestCompactIncrementEvents_SkipRecentFuncDoesNotDisableOversizedPass(t *tes
 			RequestID:    requestID,
 			InvocationID: "inv-" + requestID,
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-"+requestID, "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-"+requestID, "worker", content),
 				}},
 			},
 		}
@@ -415,7 +415,7 @@ func TestCompactIncrementEvents_SkipRecentFuncDoesNotDisableOversizedPass(t *tes
 }
 
 func TestCompactHistoricalToolResultMessage_SkipsWhenPlaceholderIsNotSmaller(t *testing.T) {
-	msg := model.NewToolMessage("tool-call-short", "worker", "shorter")
+	msg := compat.NewToolMessage("tool-call-short", "worker", "shorter")
 
 	compacted, changed, savedTokens := compactHistoricalToolResultMessage(
 		context.Background(),
@@ -434,10 +434,10 @@ func TestCompactIncrementEvents_ForceCleansOnlyUnprotectedToolNames(t *testing.T
 			RequestID:    requestID,
 			InvocationID: invocationID,
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(toolCallID, "shell", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(toolCallID, "shell", content),
 				}},
 			},
 		}
@@ -483,14 +483,14 @@ func TestCompactIncrementEvents_MissingToolNameDoesNotForceClean(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID: "tool-call-current",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "shell",
 							Arguments: []byte(`{}`),
 						},
@@ -503,10 +503,10 @@ func TestCompactIncrementEvents_MissingToolNameDoesNotForceClean(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "", "short result"),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "", "short result"),
 			}},
 		},
 	}
@@ -541,10 +541,10 @@ func TestCompactIncrementEvents_KeepToolNameSkipsCompaction(t *testing.T) {
 			RequestID:    "req-keep",
 			InvocationID: "inv-keep",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-keep", "session_load", keptContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-keep", "session_load", keptContent),
 				}},
 			},
 		},
@@ -552,10 +552,10 @@ func TestCompactIncrementEvents_KeepToolNameSkipsCompaction(t *testing.T) {
 			RequestID:    "req-compact",
 			InvocationID: "inv-compact",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-compact", "shell", compactedContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-compact", "shell", compactedContent),
 				}},
 			},
 		},
@@ -563,10 +563,10 @@ func TestCompactIncrementEvents_KeepToolNameSkipsCompaction(t *testing.T) {
 			RequestID:    "req-current",
 			InvocationID: "inv-current",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-current", "worker", currentContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-current", "worker", currentContent),
 				}},
 			},
 		},
@@ -602,10 +602,10 @@ func TestCompactIncrementEvents_KeepToolNameWinsOverForceClean(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "session_load", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "session_load", content),
 			}},
 		},
 	}
@@ -674,7 +674,7 @@ func TestContextCompactionSessionLoadRecoveryDerivedFromRequestTools(t *testing.
 	)
 	p := NewContentRequestProcessor(WithEnableContextCompaction(true))
 
-	cfg := p.contextCompactionConfigForInvocation(inv, &model.Request{
+	cfg := p.contextCompactionConfigForInvocation(inv, &compat.Request{
 		Tools: map[string]tool.Tool{
 			sessionLoadToolName: contextCompactionTestTool{
 				name: sessionLoadToolName,
@@ -683,14 +683,14 @@ func TestContextCompactionSessionLoadRecoveryDerivedFromRequestTools(t *testing.
 	})
 	require.True(t, cfg.SessionLoadRecoveryEnabled)
 
-	cfg = p.contextCompactionConfigForInvocation(inv, &model.Request{
+	cfg = p.contextCompactionConfigForInvocation(inv, &compat.Request{
 		Tools: map[string]tool.Tool{
 			"alias": contextCompactionTestTool{name: sessionLoadToolName},
 		},
 	})
 	require.True(t, cfg.SessionLoadRecoveryEnabled)
 
-	cfg = p.contextCompactionConfigForInvocation(inv, &model.Request{
+	cfg = p.contextCompactionConfigForInvocation(inv, &compat.Request{
 		Tools: map[string]tool.Tool{
 			"worker": contextCompactionTestTool{name: "worker"},
 		},
@@ -699,7 +699,7 @@ func TestContextCompactionSessionLoadRecoveryDerivedFromRequestTools(t *testing.
 
 	cfg = p.contextCompactionConfigForInvocation(
 		agent.NewInvocation(agent.WithInvocationSession(&session.Session{})),
-		&model.Request{
+		&compat.Request{
 			Tools: map[string]tool.Tool{
 				sessionLoadToolName: contextCompactionTestTool{
 					name: sessionLoadToolName,
@@ -720,10 +720,10 @@ func TestTruncateOversizedToolResultMessages_SkipsForceCleanForCurrentMessages(t
 	shellContent := "short shell output"
 	keptContent := "HEAD-" + strings.Repeat("keep-", 200) + "-TAIL"
 	workerContent := "HEAD-" + strings.Repeat("worker-", 200) + "-TAIL"
-	messages := []model.Message{
-		model.NewToolMessage("tool-call-shell", "shell", shellContent),
-		model.NewToolMessage("tool-call-load", "session_load", keptContent),
-		model.NewToolMessage("tool-call-worker", "worker", workerContent),
+	messages := []compat.Message{
+		compat.NewToolMessage("tool-call-shell", "shell", shellContent),
+		compat.NewToolMessage("tool-call-load", "session_load", keptContent),
+		compat.NewToolMessage("tool-call-worker", "worker", workerContent),
 	}
 
 	got := p.truncateOversizedToolResultMessages(messages)
@@ -745,8 +745,8 @@ func TestTruncateOversizedToolResultMessages_MissingToolNameSkipsNamedRules(t *t
 		WithContextCompactionOversizedToolResultMaxTokens(16),
 		WithContextCompactionForceCleanToolNames("shell"),
 	)
-	messages := []model.Message{
-		model.NewToolMessage(
+	messages := []compat.Message{
+		compat.NewToolMessage(
 			"tool-call-shell",
 			"",
 			"HEAD-"+strings.Repeat("shell-", 200)+"-TAIL",
@@ -780,10 +780,10 @@ func TestCompactIncrementEvents_TruncatesOversizedCurrentToolResult(t *testing.T
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "worker", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "worker", content),
 			}},
 		},
 	}
@@ -817,10 +817,10 @@ func TestCompactIncrementEvents_AddsRecoverableTruncationRef(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "worker", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "worker", content),
 			}},
 		},
 	}
@@ -850,10 +850,10 @@ func TestCompactIncrementEvents_CurrentResultNoSessionLoadHint(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					"tool-call-current",
 					"worker",
 					content,
@@ -891,10 +891,10 @@ func TestCompactIncrementEvents_CurrentResultWithEventIDHasSessionLoadHint(
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					"tool-call-current",
 					"worker",
 					content,
@@ -930,10 +930,10 @@ func TestCompactIncrementEvents_HistoryResultHasSessionLoadHint(t *testing.T) {
 			RequestID:    "req-current",
 			InvocationID: "inv-current",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"tool-call-current",
 						"worker",
 						"ok",
@@ -946,10 +946,10 @@ func TestCompactIncrementEvents_HistoryResultHasSessionLoadHint(t *testing.T) {
 			RequestID:    "req-history",
 			InvocationID: "inv-history",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"tool-call-history",
 						"worker",
 						content,
@@ -986,10 +986,10 @@ func TestCompactIncrementEvents_DoesNotTruncateSessionLoadResult(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-session-load", sessionLoadToolName, content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-session-load", sessionLoadToolName, content),
 			}},
 		},
 	}
@@ -1018,10 +1018,10 @@ func TestCompactIncrementEvents_TruncatesOversizedHistoricalToolResult(t *testin
 			RequestID:    "req-current",
 			InvocationID: "inv-current",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-current", "worker", "ok"),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-current", "worker", "ok"),
 				}},
 			},
 		},
@@ -1029,10 +1029,10 @@ func TestCompactIncrementEvents_TruncatesOversizedHistoricalToolResult(t *testin
 			RequestID:    "req-history",
 			InvocationID: "inv-history",
 			FilterKey:    "test-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage("tool-call-history", "worker", content),
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage("tool-call-history", "worker", content),
 				}},
 			},
 		},
@@ -1065,10 +1065,10 @@ func TestCompactIncrementEvents_Pass2WorksWithoutPass1Context(t *testing.T) {
 	evt := event.Event{
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "worker", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "worker", content),
 			}},
 		},
 	}
@@ -1103,10 +1103,10 @@ func TestCompactIncrementEvents_Pass2RequiresEnabled(t *testing.T) {
 		RequestID:    "req-current",
 		InvocationID: "inv-current",
 		FilterKey:    "test-agent",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("tool-call-current", "worker", content),
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("tool-call-current", "worker", content),
 			}},
 		},
 	}
@@ -1131,11 +1131,11 @@ func TestCompactIncrementEvents_Pass2RequiresEnabled(t *testing.T) {
 
 func TestTruncateOversizedToolResultMessage_PreservesContentParts(t *testing.T) {
 	partText := "structured payload"
-	msg := model.Message{
-		Role:    model.RoleTool,
+	msg := compat.Message{
+		Role:    compat.RoleTool,
 		Content: "HEAD-" + strings.Repeat("middle-", 400) + "-TAIL",
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &partText,
 		}},
 		ToolID:   "tool-call-current",
@@ -1155,8 +1155,8 @@ func TestTruncateOversizedToolResultMessage_PreservesContentParts(t *testing.T) 
 }
 
 func TestTruncateOversizedToolResultMessage_UsesConfiguredCounter(t *testing.T) {
-	counter := model.NewSimpleTokenCounter(model.WithApproxRunesPerToken(1))
-	msg := model.NewToolMessage(
+	counter := compat.NewSimpleTokenCounter(compat.WithApproxRunesPerToken(1))
+	msg := compat.NewToolMessage(
 		"tool-call-current",
 		"worker",
 		"HEAD-"+strings.Repeat("middle-", 80)+"-TAIL",
@@ -1206,10 +1206,10 @@ func TestTruncateMiddleWithRef_UsesToolCallIDOnlyRecoveryMarker(t *testing.T) {
 
 func TestTruncateOversizedToolResultMessage_ContentPartsOnlyKeepsPayload(t *testing.T) {
 	partText := strings.Repeat("segment-", 400)
-	msg := model.Message{
-		Role: model.RoleTool,
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+	msg := compat.Message{
+		Role: compat.RoleTool,
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &partText,
 		}},
 		ToolID:   "tool-call-current",
@@ -1229,7 +1229,7 @@ func TestTruncateOversizedToolResultMessage_ContentPartsOnlyKeepsPayload(t *test
 
 func TestToolResultCompactionHelpers_HandleTokenCounterErrors(t *testing.T) {
 	errCountTokens := errors.New("count tokens")
-	msg := model.NewToolMessage(
+	msg := compat.NewToolMessage(
 		"tool-call-current",
 		"worker",
 		"large result",
@@ -1292,14 +1292,14 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 				RequestID:    "req-old",
 				InvocationID: "inv-old",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID: "tool-call-old",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "worker",
 									Arguments: []byte(`{}`),
 								},
@@ -1312,10 +1312,10 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 				RequestID:    "req-old",
 				InvocationID: "inv-old",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"tool-call-old",
 							"worker",
 							strings.Repeat("old-result ", 64),
@@ -1327,14 +1327,14 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 				RequestID:    "req-recent",
 				InvocationID: "inv-recent",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID: "tool-call-recent",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "worker",
 									Arguments: []byte(`{}`),
 								},
@@ -1347,10 +1347,10 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 				RequestID:    "req-recent",
 				InvocationID: "inv-recent",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"tool-call-recent",
 							"worker",
 							strings.Repeat("recent-result ", 64),
@@ -1365,12 +1365,12 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationID("inv-current"),
 		agent.WithInvocationEventFilterKey("test-agent"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 	)
 	inv.AgentName = "test-agent"
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p := NewContentRequestProcessor(
 		WithAddSessionSummary(false),
 		WithEnableContextCompaction(true),
@@ -1380,10 +1380,10 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithoutSummary(
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	require.Len(t, req.Messages, 5)
-	require.Equal(t, model.RoleAssistant, req.Messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, req.Messages[0].Role)
 	require.Contains(t, req.Messages[1].Content, historicalToolResultPlaceholder)
 	require.Equal(t, "tool-call-old", req.Messages[1].ToolID)
-	require.Equal(t, model.RoleAssistant, req.Messages[2].Role)
+	require.Equal(t, compat.RoleAssistant, req.Messages[2].Role)
 	require.Contains(t, req.Messages[3].Content, "recent-result")
 	require.Equal(t, "hello", req.Messages[4].Content)
 
@@ -1397,14 +1397,14 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithInvocationF
 			{
 				InvocationID: "inv-old",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID: "tool-call-old",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "worker",
 									Arguments: []byte(`{}`),
 								},
@@ -1416,10 +1416,10 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithInvocationF
 			{
 				InvocationID: "inv-old",
 				FilterKey:    "test-agent",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"tool-call-old",
 							"worker",
 							strings.Repeat("old-result ", 64),
@@ -1434,11 +1434,11 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithInvocationF
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationID("inv-current"),
 		agent.WithInvocationEventFilterKey("test-agent"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	inv.AgentName = "test-agent"
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p := NewContentRequestProcessor(
 		WithAddSessionSummary(false),
 		WithEnableContextCompaction(true),
@@ -1448,8 +1448,8 @@ func TestContentRequestProcessor_ProcessRequest_ContextCompactionWithInvocationF
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	require.Len(t, req.Messages, 3)
-	require.Equal(t, model.RoleAssistant, req.Messages[0].Role)
-	require.Equal(t, model.RoleTool, req.Messages[1].Role)
+	require.Equal(t, compat.RoleAssistant, req.Messages[0].Role)
+	require.Equal(t, compat.RoleTool, req.Messages[1].Role)
 	require.Contains(t, req.Messages[1].Content, historicalToolResultPlaceholder)
 	require.Equal(t, "tool-call-old", req.Messages[1].ToolID)
 	require.Equal(t, "worker", req.Messages[1].ToolName)

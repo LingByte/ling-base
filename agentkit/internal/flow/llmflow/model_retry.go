@@ -13,18 +13,18 @@ import (
 	"context"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type modelRetryCallbackBinder interface {
 	WithModelRetryCallbacks(
 		context.Context,
-		func(context.Context, *model.Request) (
+		func(context.Context, *compat.Request) (
 			context.Context,
-			*model.Response,
+			*compat.Response,
 			error,
 		),
-		func(context.Context, *model.Request, *model.Response) (
+		func(context.Context, *compat.Request, *compat.Response) (
 			context.Context,
 			error,
 		),
@@ -35,7 +35,7 @@ func contextWithModelRetryCallbacks(
 	ctx context.Context,
 	flow *Flow,
 	invocation *agent.Invocation,
-	callModel model.Model,
+	callModel compat.Model,
 ) context.Context {
 	binder, ok := callModel.(modelRetryCallbackBinder)
 	if ctx == nil || flow == nil || !ok {
@@ -45,8 +45,8 @@ func contextWithModelRetryCallbacks(
 		ctx,
 		func(
 			callbackCtx context.Context,
-			req *model.Request,
-		) (context.Context, *model.Response, error) {
+			req *compat.Request,
+		) (context.Context, *compat.Response, error) {
 			return flow.runBeforeModelCallbacks(
 				callbackCtx,
 				invocation,
@@ -55,8 +55,8 @@ func contextWithModelRetryCallbacks(
 		},
 		func(
 			callbackCtx context.Context,
-			req *model.Request,
-			resp *model.Response,
+			req *compat.Request,
+			resp *compat.Response,
 		) (context.Context, error) {
 			updatedCtx, _, err := flow.runAfterModelCallbacks(
 				callbackCtx,

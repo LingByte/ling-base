@@ -22,7 +22,8 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/LingByte/ling-base/agentkit/tool"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	trunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -39,12 +40,12 @@ const (
 )
 
 type recordedModelRequest struct {
-	messages  []model.Message
+	messages  []compat.Message
 	toolNames []string
 }
 
 type recordingModel struct {
-	responses []*model.Response
+	responses []*compat.Response
 
 	mu       sync.Mutex
 	requests []recordedModelRequest
@@ -53,19 +54,19 @@ type recordingModel struct {
 
 func (m *recordingModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if req != nil {
-		toolNames := make([]string, 0, len(req.Tools))
-		for name := range req.Tools {
+		toolNames := make([]string, 0, len(req.Tools.(map[string]tool.Tool)))
+		for name := range req.Tools.(map[string]tool.Tool) {
 			toolNames = append(toolNames, name)
 		}
 		sort.Strings(toolNames)
 		m.requests = append(m.requests, recordedModelRequest{
-			messages:  append([]model.Message(nil), req.Messages...),
+			messages:  append([]compat.Message(nil), req.Messages...),
 			toolNames: toolNames,
 		})
 	}
@@ -76,14 +77,14 @@ func (m *recordingModel) GenerateContent(
 	resp := m.responses[m.nextIdx]
 	m.nextIdx++
 
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- resp
 	close(ch)
 	return ch, nil
 }
 
-func (m *recordingModel) Info() model.Info {
-	return model.Info{Name: "recording-model"}
+func (m *recordingModel) Info() compat.Info {
+	return compat.Info{Name: "recording-model"}
 }
 
 func (m *recordingModel) Requests() []recordedModelRequest {
@@ -92,10 +93,10 @@ func (m *recordingModel) Requests() []recordedModelRequest {
 	return append([]recordedModelRequest(nil), m.requests...)
 }
 
-func nonSystemMessages(messages []model.Message) []model.Message {
-	filtered := make([]model.Message, 0, len(messages))
+func nonSystemMessages(messages []compat.Message) []compat.Message {
+	filtered := make([]compat.Message, 0, len(messages))
 	for _, msg := range messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			continue
 		}
 		filtered = append(filtered, msg)
@@ -106,18 +107,18 @@ func nonSystemMessages(messages []model.Message) []model.Message {
 func TestOpenAIExternalToolFlowThroughRealRunner(t *testing.T) {
 	toolCallFinishReason := finishReasonToolCalls
 	modelStub := &recordingModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				Done: true,
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{
 								{
 									ID:   integrationToolCallID,
 									Type: "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      integrationToolName,
 										Arguments: []byte(`{"query":"go"}`),
 									},
@@ -130,9 +131,9 @@ func TestOpenAIExternalToolFlowThroughRealRunner(t *testing.T) {
 			},
 			{
 				Done: true,
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.NewAssistantMessage("final answer"),
+						Message: compat.NewAssistantMessage("final answer"),
 					},
 				},
 			},
@@ -246,12 +247,12 @@ func TestOpenAIExternalToolFlowThroughRealRunner(t *testing.T) {
 	require.Len(t, round2Requests, 2)
 	round2Messages := nonSystemMessages(round2Requests[1].messages)
 	require.Len(t, round2Messages, 3)
-	assert.Equal(t, model.RoleUser, round2Messages[0].Role)
+	assert.Equal(t, compat.RoleUser, round2Messages[0].Role)
 	assert.Equal(t, integrationUserMessage, round2Messages[0].Content)
-	assert.Equal(t, model.RoleAssistant, round2Messages[1].Role)
+	assert.Equal(t, compat.RoleAssistant, round2Messages[1].Role)
 	require.Len(t, round2Messages[1].ToolCalls, 1)
 	assert.Equal(t, integrationToolCallID, round2Messages[1].ToolCalls[0].ID)
-	assert.Equal(t, model.RoleTool, round2Messages[2].Role)
+	assert.Equal(t, compat.RoleTool, round2Messages[2].Role)
 	assert.Equal(t, integrationToolResult, round2Messages[2].Content)
 	assert.Equal(t, integrationToolCallID, round2Messages[2].ToolID)
 

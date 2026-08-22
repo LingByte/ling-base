@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +29,7 @@ func TestAgentCallbacks_Before_NoCb(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -39,15 +39,15 @@ func TestAgentCallbacks_Before_NoCb(t *testing.T) {
 
 func TestAgentCallbacks_Before_Custom(t *testing.T) {
 	callbacks := NewCallbacks()
-	customResponse := &model.Response{ID: "custom-agent-response"}
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
+	customResponse := &compat.Response{ID: "custom-agent-response"}
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
 		return customResponse, nil
 	})
 	args := &BeforeAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -58,7 +58,7 @@ func TestAgentCallbacks_Before_Custom(t *testing.T) {
 
 func TestAgentCallbacks_Before_Structured(t *testing.T) {
 	callbacks := NewCallbacks()
-	customResponse := &model.Response{ID: "custom-agent-response-structured"}
+	customResponse := &compat.Response{ID: "custom-agent-response-structured"}
 	ctxWithValue := context.WithValue(context.Background(), "user_id", "123")
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		require.Equal(t, "test-invocation", args.Invocation.InvocationID)
@@ -72,7 +72,7 @@ func TestAgentCallbacks_Before_Structured(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -84,14 +84,14 @@ func TestAgentCallbacks_Before_Structured(t *testing.T) {
 
 func TestAgentCallbacks_Before_Err(t *testing.T) {
 	callbacks := NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
 		return nil, context.DeadlineExceeded
 	})
 	args := &BeforeAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -104,15 +104,15 @@ func TestAgentCallbacks_Before_PanicRecovery(t *testing.T) {
 	callbacks.RegisterBeforeAgent(func(
 		_ context.Context,
 		_ *Invocation,
-	) (*model.Response, error) {
+	) (*compat.Response, error) {
 		panic("boom")
 	})
 	args := &BeforeAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello",
 			},
 		},
@@ -127,17 +127,17 @@ func TestAgentCallbacks_Before_PanicRecovery(t *testing.T) {
 
 func TestAgentCallbacks_Before_Multi(t *testing.T) {
 	callbacks := NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
 		return nil, nil
 	})
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
-		return &model.Response{ID: "second"}, nil
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
+		return &compat.Response{ID: "second"}, nil
 	})
 	args := &BeforeAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -165,7 +165,7 @@ func TestAgentCallbacks_Clone_PreservesOptionsAndDoesNotShareSlices(t *testing.T
 	) {
 		trail = append(trail, "orig-response")
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "orig"},
+			CustomResponse: &compat.Response{ID: "orig"},
 		}, nil
 	})
 
@@ -175,7 +175,7 @@ func TestAgentCallbacks_Clone_PreservesOptionsAndDoesNotShareSlices(t *testing.T
 	) {
 		trail = append(trail, "clone-response")
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "clone"},
+			CustomResponse: &compat.Response{ID: "clone"},
 		}, nil
 	})
 
@@ -212,7 +212,7 @@ func TestAgentCallbacks_After_NoCb(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -224,12 +224,12 @@ func TestAgentCallbacks_After_NoCb(t *testing.T) {
 
 func TestAgentCallbacks_After_CustomResp(t *testing.T) {
 	callbacks := NewCallbacks()
-	customResponse := &model.Response{ID: "custom-after-response"}
-	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
+	customResponse := &compat.Response{ID: "custom-after-response"}
+	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
 		return customResponse, nil
 	})
 	args := &AfterAgentArgs{
-		Invocation: &Invocation{InvocationID: "test-invocation", AgentName: "test-agent", Message: model.Message{Role: model.RoleUser, Content: "Hello"}},
+		Invocation: &Invocation{InvocationID: "test-invocation", AgentName: "test-agent", Message: compat.Message{Role: compat.RoleUser, Content: "Hello"}},
 		Error:      nil,
 	}
 	result, err := callbacks.RunAfterAgent(context.Background(), args)
@@ -241,14 +241,14 @@ func TestAgentCallbacks_After_CustomResp(t *testing.T) {
 
 func TestAgentCallbacks_AfterAgent_Error(t *testing.T) {
 	callbacks := NewCallbacks()
-	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
+	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
 		return nil, context.DeadlineExceeded
 	})
 	args := &AfterAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -264,15 +264,15 @@ func TestAgentCallbacks_After_PanicRecovery(t *testing.T) {
 		_ context.Context,
 		_ *Invocation,
 		_ error,
-	) (*model.Response, error) {
+	) (*compat.Response, error) {
 		panic("boom")
 	})
 	args := &AfterAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello",
 			},
 		},
@@ -289,7 +289,7 @@ func TestAgentCallbacks_After_PanicRecovery(t *testing.T) {
 func TestAgentCallbacks_After_RunErr(t *testing.T) {
 	callbacks := NewCallbacks()
 	runError := context.DeadlineExceeded
-	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
+	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
 		require.Equal(t, runError, runErr)
 		return nil, nil
 	})
@@ -297,7 +297,7 @@ func TestAgentCallbacks_After_RunErr(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: runError,
 	}
@@ -309,17 +309,17 @@ func TestAgentCallbacks_After_RunErr(t *testing.T) {
 
 func TestAgentCallbacks_After_Multi(t *testing.T) {
 	callbacks := NewCallbacks()
-	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
+	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
 		return nil, nil
 	})
-	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
-		return &model.Response{ID: "second"}, nil
+	callbacks.RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
+		return &compat.Response{ID: "second"}, nil
 	})
 	args := &AfterAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -333,10 +333,10 @@ func TestAgentCallbacks_After_Multi(t *testing.T) {
 func TestCallbacksChainRegistration(t *testing.T) {
 	// Test chain registration.
 	callbacks := NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
+		RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
 			return nil, nil
 		}).
-		RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*model.Response, error) {
+		RegisterAfterAgent(func(ctx context.Context, invocation *Invocation, runErr error) (*compat.Response, error) {
 			return nil, nil
 		})
 
@@ -355,7 +355,7 @@ func TestCallbacksChainRegistration(t *testing.T) {
 
 func TestAgentCallbacks_Structured_Before_Custom(t *testing.T) {
 	callbacks := NewCallbacks()
-	customResponse := &model.Response{ID: "custom-structured-response"}
+	customResponse := &compat.Response{ID: "custom-structured-response"}
 	ctxWithValue := context.WithValue(context.Background(), "user_id", "123")
 
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
@@ -369,7 +369,7 @@ func TestAgentCallbacks_Structured_Before_Custom(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -381,7 +381,7 @@ func TestAgentCallbacks_Structured_Before_Custom(t *testing.T) {
 
 func TestAgentCallbacks_Structured_After_Custom(t *testing.T) {
 	callbacks := NewCallbacks()
-	customResponse := &model.Response{ID: "custom-structured-after"}
+	customResponse := &compat.Response{ID: "custom-structured-after"}
 	ctxWithValue := context.WithValue(context.Background(), "trace_id", "456")
 
 	callbacks.RegisterAfterAgent(func(ctx context.Context, args *AfterAgentArgs) (*AfterAgentResult, error) {
@@ -395,7 +395,7 @@ func TestAgentCallbacks_Structured_After_Custom(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -411,15 +411,15 @@ func TestAgentCallbacks_Mixed_Callbacks(t *testing.T) {
 	callbacks := NewCallbacks()
 
 	// Register old signature before callback
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*model.Response, error) {
-		return &model.Response{ID: "old-before"}, nil
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *Invocation) (*compat.Response, error) {
+		return &compat.Response{ID: "old-before"}, nil
 	})
 
 	// Register new signature after callback
 	callbacks.RegisterAfterAgent(func(ctx context.Context, args *AfterAgentArgs) (*AfterAgentResult, error) {
 		return &AfterAgentResult{
 			Context:        context.WithValue(ctx, "mixed", true),
-			CustomResponse: &model.Response{ID: "new-after"},
+			CustomResponse: &compat.Response{ID: "new-after"},
 		}, nil
 	})
 
@@ -428,7 +428,7 @@ func TestAgentCallbacks_Mixed_Callbacks(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	beforeResult, err := callbacks.RunBeforeAgent(context.Background(), beforeArgs)
@@ -441,7 +441,7 @@ func TestAgentCallbacks_Mixed_Callbacks(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -483,7 +483,7 @@ func TestAgentCallbacks_ContextPropagation(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	beforeResult, err := callbacks.RunBeforeAgent(context.Background(), beforeArgs)
@@ -496,7 +496,7 @@ func TestAgentCallbacks_ContextPropagation(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -519,7 +519,7 @@ func TestAgentCallbacks_Before_EmptyResult(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -538,14 +538,14 @@ func TestAgentCallbacks_Before_NilResult(t *testing.T) {
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		// Second callback returns a custom response.
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "second"},
+			CustomResponse: &compat.Response{ID: "second"},
 		}, nil
 	})
 	args := &BeforeAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -566,7 +566,7 @@ func TestAgentCallbacks_After_EmptyResult(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -586,14 +586,14 @@ func TestAgentCallbacks_After_NilResult(t *testing.T) {
 	callbacks.RegisterAfterAgent(func(ctx context.Context, args *AfterAgentArgs) (*AfterAgentResult, error) {
 		// Second callback returns a custom response.
 		return &AfterAgentResult{
-			CustomResponse: &model.Response{ID: "second"},
+			CustomResponse: &compat.Response{ID: "second"},
 		}, nil
 	})
 	args := &AfterAgentArgs{
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error: nil,
 	}
@@ -624,7 +624,7 @@ func TestAgentCallbacks_DefaultBehavior_StopOnError(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	_, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -656,7 +656,7 @@ func TestAgentCallbacks_ContinueOnError_ContinuesExecution(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	_, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -674,13 +674,13 @@ func TestAgentCallbacks_ContinueOnResponse_ContinuesExecution(t *testing.T) {
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		executed = append(executed, 1)
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "response 1"},
+			CustomResponse: &compat.Response{ID: "response 1"},
 		}, nil
 	})
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		executed = append(executed, 2)
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "response 2"},
+			CustomResponse: &compat.Response{ID: "response 2"},
 		}, nil
 	})
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
@@ -692,7 +692,7 @@ func TestAgentCallbacks_ContinueOnResponse_ContinuesExecution(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -716,13 +716,13 @@ func TestAgentCallbacks_BothOptions_ContinuesExecution(t *testing.T) {
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		executed = append(executed, 2)
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "response 1"},
+			CustomResponse: &compat.Response{ID: "response 1"},
 		}, nil
 	})
 	callbacks.RegisterBeforeAgent(func(ctx context.Context, args *BeforeAgentArgs) (*BeforeAgentResult, error) {
 		executed = append(executed, 3)
 		return &BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "response 2"},
+			CustomResponse: &compat.Response{ID: "response 2"},
 		}, nil
 	})
 
@@ -730,7 +730,7 @@ func TestAgentCallbacks_BothOptions_ContinuesExecution(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 	}
 	result, err := callbacks.RunBeforeAgent(context.Background(), args)
@@ -748,14 +748,14 @@ func TestAgentCallbacks_After_FullResponseEvent(t *testing.T) {
 	fullRespEvent := event.NewResponseEvent(
 		"test-invocation",
 		"test-agent",
-		&model.Response{
+		&compat.Response{
 			ID:   "test-response",
 			Done: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Hello, world!",
 					},
 				},
@@ -773,7 +773,7 @@ func TestAgentCallbacks_After_FullResponseEvent(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		Error:             nil,
 		FullResponseEvent: fullRespEvent,
@@ -801,7 +801,7 @@ func TestAgentCallbacks_After_FullResponseEvent_Nil(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		FullResponseEvent: nil,
 		Error:             nil,
@@ -819,19 +819,19 @@ func TestAgentCallbacks_After_FullResponseEvent_WithError(t *testing.T) {
 	fullRespEvent := event.NewResponseEvent(
 		"test-invocation",
 		"test-agent",
-		&model.Response{
+		&compat.Response{
 			ID:   "test-response",
 			Done: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Error occurred",
 					},
 				},
 			},
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Type:    "test_error",
 				Message: "test error message",
 			},
@@ -851,7 +851,7 @@ func TestAgentCallbacks_After_FullResponseEvent_WithError(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		FullResponseEvent: fullRespEvent,
 		Error:             testError,
@@ -871,14 +871,14 @@ func TestAgentCallbacks_After_FullResponseEvent_MultiCallback(t *testing.T) {
 	fullRespEvent := event.NewResponseEvent(
 		"test-invocation",
 		"test-agent",
-		&model.Response{
+		&compat.Response{
 			ID:   "test-response",
 			Done: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Multi callback test",
 					},
 				},
@@ -900,7 +900,7 @@ func TestAgentCallbacks_After_FullResponseEvent_MultiCallback(t *testing.T) {
 		Invocation: &Invocation{
 			InvocationID: "test-invocation",
 			AgentName:    "test-agent",
-			Message:      model.Message{Role: model.RoleUser, Content: "Hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "Hello"},
 		},
 		FullResponseEvent: fullRespEvent,
 		Error:             nil,

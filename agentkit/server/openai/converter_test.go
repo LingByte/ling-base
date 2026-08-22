@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestConverter_convertRequest(t *testing.T) {
 		name    string
 		req     *openAIRequest
 		wantErr bool
-		check   func(t *testing.T, messages []model.Message)
+		check   func(t *testing.T, messages []compat.Message)
 	}{
 		{
 			name: "valid request with single message",
@@ -48,9 +48,9 @@ func TestConverter_convertRequest(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			check: func(t *testing.T, messages []model.Message) {
+			check: func(t *testing.T, messages []compat.Message) {
 				assert.Len(t, messages, 1)
-				assert.Equal(t, model.RoleUser, messages[0].Role)
+				assert.Equal(t, compat.RoleUser, messages[0].Role)
 				assert.Equal(t, "Hello", messages[0].Content)
 			},
 		},
@@ -69,10 +69,10 @@ func TestConverter_convertRequest(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			check: func(t *testing.T, messages []model.Message) {
+			check: func(t *testing.T, messages []compat.Message) {
 				assert.Len(t, messages, 2)
-				assert.Equal(t, model.RoleSystem, messages[0].Role)
-				assert.Equal(t, model.RoleUser, messages[1].Role)
+				assert.Equal(t, compat.RoleSystem, messages[0].Role)
+				assert.Equal(t, compat.RoleUser, messages[1].Role)
 			},
 		},
 		{
@@ -120,7 +120,7 @@ func TestConverter_convertRequest(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			check: func(t *testing.T, messages []model.Message) {
+			check: func(t *testing.T, messages []compat.Message) {
 				assert.Len(t, messages, 1)
 				assert.Len(t, messages[0].ToolCalls, 1)
 				assert.Equal(t, "call-123", messages[0].ToolCalls[0].ID)
@@ -140,9 +140,9 @@ func TestConverter_convertRequest(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			check: func(t *testing.T, messages []model.Message) {
+			check: func(t *testing.T, messages []compat.Message) {
 				assert.Len(t, messages, 1)
-				assert.Equal(t, model.RoleTool, messages[0].Role)
+				assert.Equal(t, compat.RoleTool, messages[0].Role)
 				assert.Equal(t, "call-123", messages[0].ToolID)
 				assert.Equal(t, "test_function", messages[0].ToolName)
 				assert.Equal(t, "result", messages[0].Content)
@@ -170,7 +170,7 @@ func TestConverter_convertRequest(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			check: func(t *testing.T, messages []model.Message) {
+			check: func(t *testing.T, messages []compat.Message) {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, "Hello", messages[0].Content)
 				// Note: ImageURL handling would need to check the message's image URLs
@@ -201,31 +201,31 @@ func TestConverter_convertRole(t *testing.T) {
 	tests := []struct {
 		name    string
 		role    string
-		want    model.Role
+		want    compat.Role
 		wantErr bool
 	}{
 		{
 			name:    "system role",
 			role:    "system",
-			want:    model.RoleSystem,
+			want:    compat.RoleSystem,
 			wantErr: false,
 		},
 		{
 			name:    "user role",
 			role:    "user",
-			want:    model.RoleUser,
+			want:    compat.RoleUser,
 			wantErr: false,
 		},
 		{
 			name:    "assistant role",
 			role:    "assistant",
-			want:    model.RoleAssistant,
+			want:    compat.RoleAssistant,
 			wantErr: false,
 		},
 		{
 			name:    "tool role",
 			role:    "tool",
-			want:    model.RoleTool,
+			want:    compat.RoleTool,
 			wantErr: false,
 		},
 		{
@@ -261,11 +261,11 @@ func TestConverter_convertToResponse(t *testing.T) {
 			name: "valid event with message",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleAssistant,
+							Message: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "Hello, world!",
 							},
 						},
@@ -286,17 +286,17 @@ func TestConverter_convertToResponse(t *testing.T) {
 			name: "event with usage",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleAssistant,
+							Message: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "Hello",
 							},
 						},
 					},
 					Created: time.Now().Unix(),
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 						TotalTokens:      15,
@@ -314,11 +314,11 @@ func TestConverter_convertToResponse(t *testing.T) {
 			name: "event with finish reason",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleAssistant,
+							Message: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "Hello",
 							},
 							FinishReason: stringPtr("stop"),
@@ -336,8 +336,8 @@ func TestConverter_convertToResponse(t *testing.T) {
 			name: "event with no choices",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 					Created: time.Now().Unix(),
 				},
 			},
@@ -370,11 +370,11 @@ func TestConverter_convertToChunk(t *testing.T) {
 			name: "valid chunk with delta",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
-								Role:    model.RoleAssistant,
+							Delta: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "Hello",
 							},
 						},
@@ -395,11 +395,11 @@ func TestConverter_convertToChunk(t *testing.T) {
 			name: "chunk with finish reason",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
-								Role:    model.RoleAssistant,
+							Delta: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "",
 							},
 							FinishReason: stringPtr("stop"),
@@ -418,10 +418,10 @@ func TestConverter_convertToChunk(t *testing.T) {
 			name: "empty delta without finish reason",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Role:    "", // Empty role to ensure delta is truly empty
 								Content: "",
 							},
@@ -440,16 +440,16 @@ func TestConverter_convertToChunk(t *testing.T) {
 			name: "chunk with tool calls",
 			evt: &event.Event{
 				ID: "event-123",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{
+							Delta: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-123",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "test_function",
 											Arguments: []byte(`{"arg": "value"}`),
 										},
@@ -485,13 +485,13 @@ func TestConverter_convertModelMessageToOpenAI(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		msg   model.Message
+		msg   compat.Message
 		check func(t *testing.T, openAIMsg *openAIMessage)
 	}{
 		{
 			name: "simple message",
-			msg: model.Message{
-				Role:    model.RoleUser,
+			msg: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello",
 			},
 			check: func(t *testing.T, openAIMsg *openAIMessage) {
@@ -501,14 +501,14 @@ func TestConverter_convertModelMessageToOpenAI(t *testing.T) {
 		},
 		{
 			name: "message with tool calls",
-			msg: model.Message{
-				Role:    model.RoleAssistant,
+			msg: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "",
-				ToolCalls: []model.ToolCall{
+				ToolCalls: []compat.ToolCall{
 					{
 						ID:   "call-123",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "test_function",
 							Arguments: []byte(`{"arg": "value"}`),
 						},
@@ -524,8 +524,8 @@ func TestConverter_convertModelMessageToOpenAI(t *testing.T) {
 		},
 		{
 			name: "tool response message",
-			msg: model.Message{
-				Role:     model.RoleTool,
+			msg: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  "result",
 				ToolID:   "call-123",
 				ToolName: "test_function",
@@ -564,10 +564,10 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 			events: []*event.Event{
 				{
 					ID: "event-1",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "Hello",
 								},
 							},
@@ -576,10 +576,10 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-2",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: " world",
 								},
 							},
@@ -588,15 +588,15 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-3",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "!",
 								},
 							},
 						},
-						Usage: &model.Usage{
+						Usage: &compat.Usage{
 							PromptTokens:     10,
 							CompletionTokens: 3,
 							TotalTokens:      13,
@@ -623,15 +623,15 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 			events: []*event.Event{
 				{
 					ID: "event-1",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
-									ToolCalls: []model.ToolCall{
+								Delta: compat.Message{
+									ToolCalls: []compat.ToolCall{
 										{
 											ID:   "call-1",
 											Type: "function",
-											Function: model.FunctionDefinitionParam{
+											Function: compat.FunctionDefinitionParam{
 												Name: "test",
 											},
 										},
@@ -639,7 +639,7 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 								},
 							},
 						},
-						Usage: &model.Usage{
+						Usage: &compat.Usage{
 							PromptTokens:     5,
 							CompletionTokens: 2,
 							TotalTokens:      7,
@@ -660,11 +660,11 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 			events: []*event.Event{
 				{
 					ID: "event-observation",
-					Response: &model.Response{
-						Object: model.ObjectTypeChatCompletionChunk,
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Object: compat.ObjectTypeChatCompletionChunk,
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "good luck",
 								},
 							},
@@ -673,16 +673,16 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-final",
-					Response: &model.Response{
-						Object: model.ObjectTypeChatCompletion,
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Object: compat.ObjectTypeChatCompletion,
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "practice makes perfect",
 								},
 							},
 						},
-						Usage: &model.Usage{
+						Usage: &compat.Usage{
 							PromptTokens:     3,
 							CompletionTokens: 4,
 							TotalTokens:      7,
@@ -704,12 +704,12 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 			events: []*event.Event{
 				{
 					ID: "event-observation-1",
-					Response: &model.Response{
-						Object:    model.ObjectTypeChatCompletionChunk,
+					Response: &compat.Response{
+						Object:    compat.ObjectTypeChatCompletionChunk,
 						IsPartial: true,
-						Choices: []model.Choice{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "good luck",
 								},
 							},
@@ -718,12 +718,12 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-observation-2",
-					Response: &model.Response{
-						Object:    model.ObjectTypeChatCompletionChunk,
+					Response: &compat.Response{
+						Object:    compat.ObjectTypeChatCompletionChunk,
 						IsPartial: true,
-						Choices: []model.Choice{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "practice makes perfect",
 								},
 							},
@@ -732,16 +732,16 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-tool-call",
-					Response: &model.Response{
-						Object: model.ObjectTypeChatCompletion,
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Object: compat.ObjectTypeChatCompletion,
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									ToolCalls: []model.ToolCall{
+								Message: compat.Message{
+									ToolCalls: []compat.ToolCall{
 										{
 											ID:   "call-1",
 											Type: "function",
-											Function: model.FunctionDefinitionParam{
+											Function: compat.FunctionDefinitionParam{
 												Name: "shell",
 											},
 										},
@@ -753,12 +753,12 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-final",
-					Response: &model.Response{
-						Object: model.ObjectTypeChatCompletion,
+					Response: &compat.Response{
+						Object: compat.ObjectTypeChatCompletion,
 						Done:   true,
-						Choices: []model.Choice{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "practice makes perfect",
 								},
 							},
@@ -767,8 +767,8 @@ func TestConverter_aggregateStreamingEvents(t *testing.T) {
 				},
 				{
 					ID: "event-runner-completion",
-					Response: &model.Response{
-						Object: model.ObjectTypeRunnerCompletion,
+					Response: &compat.Response{
+						Object: compat.ObjectTypeRunnerCompletion,
 						Done:   true,
 					},
 				},
@@ -1120,11 +1120,11 @@ func TestConverter_convertToChunk_WithRole(t *testing.T) {
 
 	evt := &event.Event{
 		ID: "event-123",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "",
 					},
 				},
@@ -1144,16 +1144,16 @@ func TestConverter_convertToChunk_WithToolCalls(t *testing.T) {
 
 	evt := &event.Event{
 		ID: "event-123",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Delta: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name: "test",
 								},
 							},
@@ -1176,11 +1176,11 @@ func TestConverter_convertToChunk_ContentNil(t *testing.T) {
 
 	evt := &event.Event{
 		ID: "event-123",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role: model.RoleAssistant,
+					Delta: compat.Message{
+						Role: compat.RoleAssistant,
 					},
 					FinishReason: stringPtr("stop"),
 				},
@@ -1201,10 +1201,10 @@ func TestConverter_aggregateStreamingEvents_NoFinalEvent(t *testing.T) {
 	events := []*event.Event{
 		{
 			ID: "event-1",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Delta: model.Message{
+						Delta: compat.Message{
 							Content: "Hello",
 						},
 					},
@@ -1213,10 +1213,10 @@ func TestConverter_aggregateStreamingEvents_NoFinalEvent(t *testing.T) {
 		},
 		{
 			ID: "event-2",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Delta: model.Message{
+						Delta: compat.Message{
 							Content: " world",
 						},
 					},
@@ -1239,10 +1239,10 @@ func TestConverter_aggregateStreamingEvents_NonStreamingMessageContent(t *testin
 	events := []*event.Event{
 		{
 			ID: "event-1",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
+						Message: compat.Message{
 							Content: "Hello world",
 						},
 					},
@@ -1263,15 +1263,15 @@ func TestConverter_aggregateStreamingEvents_NonStreamingToolCalls(t *testing.T) 
 	events := []*event.Event{
 		{
 			ID: "event-1",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{
 								{
 									ID:   "call-1",
 									Type: "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name: "test",
 									},
 								},
@@ -1279,7 +1279,7 @@ func TestConverter_aggregateStreamingEvents_NonStreamingToolCalls(t *testing.T) 
 						},
 					},
 				},
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     5,
 					CompletionTokens: 2,
 					TotalTokens:      7,
@@ -1303,16 +1303,16 @@ func TestConverter_aggregateStreamingEvents_FrameworkFinishReason(t *testing.T) 
 	events := []*event.Event{
 		{
 			ID: "event-1",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Delta: model.Message{
+						Delta: compat.Message{
 							Content: "Hello",
 						},
 						FinishReason: &finishReason,
 					},
 				},
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     5,
 					CompletionTokens: 2,
 					TotalTokens:      7,
@@ -1331,8 +1331,8 @@ func TestConverter_aggregateStreamingEvents_FrameworkFinishReason(t *testing.T) 
 func TestConverter_convertModelMessageToOpenAI_EmptyContent(t *testing.T) {
 	conv := newConverter("gpt-3.5-turbo")
 
-	msg := model.Message{
-		Role:    model.RoleAssistant,
+	msg := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "",
 	}
 
@@ -1345,8 +1345,8 @@ func TestConverter_convertModelMessageToOpenAI_EmptyContent(t *testing.T) {
 func TestConverter_convertModelMessageToOpenAI_WithToolID(t *testing.T) {
 	conv := newConverter("gpt-3.5-turbo")
 
-	msg := model.Message{
-		Role:     model.RoleTool,
+	msg := compat.Message{
+		Role:     compat.RoleTool,
 		Content:  "result",
 		ToolID:   "call-123",
 		ToolName: "test_function",

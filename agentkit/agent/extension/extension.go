@@ -14,7 +14,7 @@ import (
 	"runtime/debug"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -42,7 +42,7 @@ type Extension interface {
 // the public Extension / Registry authoring contract.
 type Contributions struct {
 	agentCallbacks *agent.Callbacks
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 	toolCallbacks  *tool.Callbacks
 	tools          []tool.Tool
 }
@@ -69,7 +69,7 @@ func Collect(extensions []Extension) (*Contributions, error) {
 	}
 	contrib := &Contributions{
 		agentCallbacks: agent.NewCallbacks(),
-		modelCallbacks: model.NewCallbacks(),
+		modelCallbacks: compat.NewCallbacks(),
 		toolCallbacks:  tool.NewCallbacks(),
 	}
 	seen := make(map[string]struct{}, len(extensions))
@@ -133,7 +133,7 @@ func (c *Contributions) AgentCallbacks() *agent.Callbacks {
 // ModelCallbacks returns an independent copy of the contributed
 // model callback chain, or nil when no extension contributed model
 // callbacks.
-func (c *Contributions) ModelCallbacks() *model.Callbacks {
+func (c *Contributions) ModelCallbacks() *compat.Callbacks {
 	if c == nil || !hasModelContent(c.modelCallbacks) {
 		return nil
 	}
@@ -194,7 +194,7 @@ func hasAgentContent(c *agent.Callbacks) bool {
 	return c != nil && (len(c.BeforeAgent) > 0 || len(c.AfterAgent) > 0)
 }
 
-func hasModelContent(c *model.Callbacks) bool {
+func hasModelContent(c *compat.Callbacks) bool {
 	return c != nil && (len(c.BeforeModel) > 0 || len(c.AfterModel) > 0)
 }
 

@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginbase "github.com/LingByte/ling-base/agentkit/plugin"
 )
 
@@ -51,8 +51,8 @@ func (p *plugin) Register(r *pluginbase.Registry) {
 
 func (p *plugin) afterModel(
 	ctx context.Context,
-	args *model.AfterModelArgs,
-) (*model.AfterModelResult, error) {
+	args *compat.AfterModelArgs,
+) (*compat.AfterModelResult, error) {
 	if args == nil || args.Response == nil {
 		return nil, nil
 	}

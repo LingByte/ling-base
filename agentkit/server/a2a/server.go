@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -377,7 +377,7 @@ func isStructuredTaskErrorEvent(
 }
 
 func taskErrorState(
-	respErr *model.ResponseError,
+	respErr *compat.ResponseError,
 ) protocol.TaskState {
 	if respErr != nil &&
 		respErr.Type == agent.ErrorTypeStopAgentError {
@@ -642,7 +642,7 @@ func (m *messageProcessor) processStreamingMessage(
 	userID string,
 	ctxID string,
 	a2aMsg *protocol.Message,
-	agentMsg *model.Message,
+	agentMsg *compat.Message,
 	handler taskmanager.TaskHandler,
 	runnerOpts []agent.RunOption,
 ) (*taskmanager.MessageProcessingResult, error) {
@@ -1090,7 +1090,7 @@ func (m *messageProcessor) processMessage(
 	userID string,
 	ctxID string,
 	a2aMsg *protocol.Message,
-	agentMsg *model.Message,
+	agentMsg *compat.Message,
 	runnerOpts []agent.RunOption,
 ) (*taskmanager.MessageProcessingResult, error) {
 	if agentMsg == nil {

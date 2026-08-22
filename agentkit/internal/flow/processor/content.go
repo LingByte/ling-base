@@ -34,7 +34,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/util/message"
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -232,7 +232,7 @@ type ContentRequestProcessor struct {
 	// ContextCompactionConfig controls request-side historical tool-result
 	// compaction before messages are sent to the model.
 	ContextCompactionConfig ContextCompactionConfig
-	fewShotResolver         func(*agent.Invocation) [][]model.Message
+	fewShotResolver         func(*agent.Invocation) [][]compat.Message
 }
 
 type contentRequestRuntimeConfig struct {
@@ -240,7 +240,7 @@ type contentRequestRuntimeConfig struct {
 }
 
 type projectedHistory struct {
-	messages []model.Message
+	messages []compat.Message
 	items    []summaryview.Item
 }
 
@@ -249,8 +249,8 @@ type projectedHistory struct {
 type EventMessageProjector func(
 	inv *agent.Invocation,
 	evt event.Event,
-	msg model.Message,
-) model.Message
+	msg compat.Message,
+) compat.Message
 
 // ContentOption is a functional option for configuring the ContentRequestProcessor.
 type ContentOption func(*ContentRequestProcessor)
@@ -521,7 +521,7 @@ func WithContextCompactionOversizedToolResultMaxTokens(tokens int) ContentOption
 
 // WithContextCompactionTokenCounter sets the token counter used by context
 // compaction for request thresholds and tool-result budgets.
-func WithContextCompactionTokenCounter(counter model.TokenCounter) ContentOption {
+func WithContextCompactionTokenCounter(counter compat.TokenCounter) ContentOption {
 	return func(p *ContentRequestProcessor) {
 		if counter == nil {
 			return
@@ -577,7 +577,7 @@ func toolNameSet(names []string) map[string]struct{} {
 
 // WithFewShotResolver sets an invocation-aware few-shot resolver.
 func WithFewShotResolver(
-	resolver func(*agent.Invocation) [][]model.Message,
+	resolver func(*agent.Invocation) [][]compat.Message,
 ) ContentOption {
 	return func(p *ContentRequestProcessor) {
 		p.fewShotResolver = resolver
@@ -653,7 +653,7 @@ func NewContentRequestProcessor(opts ...ContentOption) *ContentRequestProcessor 
 func (p *ContentRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil {
@@ -684,7 +684,7 @@ func (p *ContentRequestProcessor) ProcessRequest(
 		true,
 	)
 
-	if model.HasPayload(invocation.Message) && needToAddInvocationMessage {
+	if compat.HasPayload(invocation.Message) && needToAddInvocationMessage {
 		msg := p.projectEventMessage(
 			invocation,
 			event.Event{},
@@ -710,13 +710,13 @@ func (p *ContentRequestProcessor) ProcessRequest(
 	agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingContent),
+		event.WithObject(compat.ObjectTypePreprocessingContent),
 	))
 }
 
 func (p *ContentRequestProcessor) injectFewShotMessages(
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if p == nil || req == nil || p.fewShotResolver == nil {
 		return
@@ -749,7 +749,7 @@ func (p *ContentRequestProcessor) runtimeConfigFromInvocation(
 func (p *ContentRequestProcessor) appendSessionMessages(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	skipHistory bool,
 	includeInvocationMessage bool,
 ) (bool, *summaryview.View) {
@@ -818,7 +818,7 @@ func (p *ContentRequestProcessor) appendSessionMessages(
 func modelVisibleHistoryView(
 	invocation *agent.Invocation,
 	history projectedHistory,
-	appended []model.Message,
+	appended []compat.Message,
 	messageStart int,
 	previousSummary string,
 	previousSummaryInItems bool,
@@ -875,7 +875,7 @@ func (p *ContentRequestProcessor) sessionSummaryForRequest(
 func (p *ContentRequestProcessor) appendPreloadMemoryContext(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	userContextBlocks []string,
 ) []string {
 	// PreloadMemory: 0 = disabled, -1 = all, N > 0 = adaptive preload budget.
@@ -895,7 +895,7 @@ func (p *ContentRequestProcessor) appendPreloadMemoryContext(
 
 func (p *ContentRequestProcessor) appendSummaryContext(
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	summaryText string,
 	userContextBlocks []string,
 ) []string {
@@ -909,8 +909,8 @@ func (p *ContentRequestProcessor) appendSummaryContext(
 			p.formatSummaryForUser(summaryText),
 		)
 	}
-	summaryMsg := model.Message{
-		Role:    model.RoleSystem,
+	summaryMsg := compat.Message{
+		Role:    compat.RoleSystem,
 		Content: p.formatSummary(summaryText),
 	}
 	p.injectSystemContextMessage(req, summaryMsg)
@@ -920,7 +920,7 @@ func (p *ContentRequestProcessor) appendSummaryContext(
 func (p *ContentRequestProcessor) appendPreloadSessionRecallContext(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	skipHistory bool,
 	userContextBlocks []string,
 ) []string {
@@ -940,7 +940,7 @@ func (p *ContentRequestProcessor) appendPreloadSessionRecallContext(
 
 func (p *ContentRequestProcessor) sessionHistoryAfterCutoff(
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	skipHistory bool,
 	includeInvocationMessage bool,
 	summaryCutoff summaryHistoryCutoff,
@@ -970,10 +970,10 @@ func (p *ContentRequestProcessor) sessionHistoryAfterCutoff(
 // It merges the content into an existing system message if one exists,
 // or prepends as a new system message if none exists.
 func (p *ContentRequestProcessor) injectSystemContextMessage(
-	req *model.Request,
-	msg model.Message,
+	req *compat.Request,
+	msg compat.Message,
 ) {
-	if msg.Role != model.RoleSystem {
+	if msg.Role != compat.RoleSystem {
 		return
 	}
 	systemMsgIndex := findSystemMessageIndex(req.Messages)
@@ -985,7 +985,7 @@ func (p *ContentRequestProcessor) injectSystemContextMessage(
 		req.Messages[systemMsgIndex].Content += "\n\n" + msg.Content
 		return
 	}
-	req.Messages = append([]model.Message{msg}, req.Messages...)
+	req.Messages = append([]compat.Message{msg}, req.Messages...)
 }
 
 func appendUserContextBlock(blocks []string, content string) []string {
@@ -997,7 +997,7 @@ func appendUserContextBlock(blocks []string, content string) []string {
 
 // injectInjectedContextMessages inserts per-run context messages into the request
 // before session-derived history is appended.
-func (p *ContentRequestProcessor) injectInjectedContextMessages(invocation *agent.Invocation, req *model.Request) {
+func (p *ContentRequestProcessor) injectInjectedContextMessages(invocation *agent.Invocation, req *compat.Request) {
 	if invocation == nil || req == nil {
 		return
 	}
@@ -1011,7 +1011,7 @@ func (p *ContentRequestProcessor) injectInjectedContextMessages(invocation *agen
 // injectLateContextMessages inserts per-run context messages close to the
 // latest user turn. It keeps assistant/tool tails intact by inserting before
 // the latest user message rather than appending after tool results.
-func (p *ContentRequestProcessor) injectLateContextMessages(invocation *agent.Invocation, req *model.Request) {
+func (p *ContentRequestProcessor) injectLateContextMessages(invocation *agent.Invocation, req *compat.Request) {
 	if invocation == nil || req == nil {
 		return
 	}
@@ -1020,21 +1020,21 @@ func (p *ContentRequestProcessor) injectLateContextMessages(invocation *agent.In
 		return
 	}
 	insertAt := lateContextInsertIndex(req.Messages)
-	out := make([]model.Message, 0, len(req.Messages)+len(messages))
+	out := make([]compat.Message, 0, len(req.Messages)+len(messages))
 	out = append(out, req.Messages[:insertAt]...)
 	out = append(out, messages...)
 	out = append(out, req.Messages[insertAt:]...)
 	req.Messages = out
 }
 
-func lateContextInsertIndex(messages []model.Message) int {
+func lateContextInsertIndex(messages []compat.Message) int {
 	for i := len(messages) - 1; i >= 0; i-- {
 		if userLikeRole(messages[i].Role) {
 			return i
 		}
 	}
 	insertAt := 0
-	for insertAt < len(messages) && messages[insertAt].Role == model.RoleSystem {
+	for insertAt < len(messages) && messages[insertAt].Role == compat.RoleSystem {
 		insertAt++
 	}
 	return insertAt
@@ -1145,13 +1145,13 @@ func (p *ContentRequestProcessor) getSessionSummaryText(inv *agent.Invocation) (
 
 // getSessionSummaryMessage returns the current-branch session summary as a
 // system message if available and non-empty, along with its event cutoff.
-func (p *ContentRequestProcessor) getSessionSummaryMessage(inv *agent.Invocation) (*model.Message, time.Time) {
+func (p *ContentRequestProcessor) getSessionSummaryMessage(inv *agent.Invocation) (*compat.Message, time.Time) {
 	text, cutoff := p.getSessionSummaryText(inv)
 	if text == "" {
 		return nil, time.Time{}
 	}
 	content := p.formatSummary(text)
-	return &model.Message{Role: model.RoleSystem, Content: content}, cutoff.CutoffTime()
+	return &compat.Message{Role: compat.RoleSystem, Content: content}, cutoff.CutoffTime()
 }
 
 // prependSummaryUserMessage prepends the session summary as a user message
@@ -1169,9 +1169,9 @@ func (p *ContentRequestProcessor) getSessionSummaryMessage(inv *agent.Invocation
 // after this call.
 func (p *ContentRequestProcessor) prependSummaryUserMessage(
 	summaryText string,
-	messages []model.Message,
-	reqPrefix []model.Message,
-) []model.Message {
+	messages []compat.Message,
+	reqPrefix []compat.Message,
+) []compat.Message {
 	if summaryText == "" {
 		return messages
 	}
@@ -1184,9 +1184,9 @@ func (p *ContentRequestProcessor) prependSummaryUserMessage(
 
 func prependUserContextMessage(
 	formatted string,
-	messages []model.Message,
-	reqPrefix []model.Message,
-) []model.Message {
+	messages []compat.Message,
+	reqPrefix []compat.Message,
+) []compat.Message {
 	if formatted == "" {
 		return messages
 	}
@@ -1195,7 +1195,7 @@ func prependUserContextMessage(
 		if !userLikeRole(messages[i].Role) {
 			continue
 		}
-		merged := make([]model.Message, len(messages))
+		merged := make([]compat.Message, len(messages))
 		copy(merged, messages)
 		if merged[i].Content == "" {
 			merged[i].Content = formatted
@@ -1219,17 +1219,17 @@ func prependUserContextMessage(
 	}
 
 	// Case 3: prepend as independent user message.
-	out := make([]model.Message, 0, len(messages)+1)
-	out = append(out, model.Message{
-		Role:    model.RoleUser,
+	out := make([]compat.Message, 0, len(messages)+1)
+	out = append(out, compat.Message{
+		Role:    compat.RoleUser,
 		Content: formatted,
 	})
 	out = append(out, messages...)
 	return out
 }
 
-func userLikeRole(role model.Role) bool {
-	return role == model.RoleUser || role == ""
+func userLikeRole(role compat.Role) bool {
+	return role == compat.RoleUser || role == ""
 }
 
 // formatSummaryForUser returns a user-role-friendly summary text.
@@ -1289,7 +1289,7 @@ func (p *ContentRequestProcessor) formatSummary(summary string) string {
 
 // getHistoryMessages gets history messages for the current filter, potentially truncated by MaxHistoryRuns.
 // This method is used when AddSessionSummary is false to get recent history messages.
-func (p *ContentRequestProcessor) getIncrementMessages(inv *agent.Invocation, since time.Time) []model.Message {
+func (p *ContentRequestProcessor) getIncrementMessages(inv *agent.Invocation, since time.Time) []compat.Message {
 	return p.getIncrementMessagesAfterCutoff(
 		inv,
 		nil,
@@ -1299,15 +1299,15 @@ func (p *ContentRequestProcessor) getIncrementMessages(inv *agent.Invocation, si
 
 func (p *ContentRequestProcessor) getIncrementMessagesAfterCutoff(
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	cutoff summaryHistoryCutoff,
-) []model.Message {
+) []compat.Message {
 	return p.getIncrementHistoryAfterCutoff(inv, req, cutoff).messages
 }
 
 func (p *ContentRequestProcessor) getIncrementHistoryAfterCutoff(
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	cutoff summaryHistoryCutoff,
 ) projectedHistory {
 	if inv.Session == nil {
@@ -1371,7 +1371,7 @@ func (p *ContentRequestProcessor) getIncrementHistoryAfterCutoff(
 	}
 
 	// insert invocation message
-	if !includedInvocationMessage && model.HasPayload(inv.Message) {
+	if !includedInvocationMessage && compat.HasPayload(inv.Message) {
 		events = p.insertInvocationMessage(events, inv)
 	}
 
@@ -1600,11 +1600,11 @@ func (p *ContentRequestProcessor) projectHistoryAcrossSummaryCutoff(
 		_, seen := seenTurns[key]
 		if hasKey && !seen {
 			role, _ := historyRoleForMessages(projected)
-			if role != model.RoleSystem {
+			if role != compat.RoleSystem {
 				seenTurns[key] = struct{}{}
 			}
 			if userEvt, ok := coveredUsers[key]; ok &&
-				(role == model.RoleAssistant || role == model.RoleTool) {
+				(role == compat.RoleAssistant || role == compat.RoleTool) {
 				appendEvent(userEvt, summaryview.Boundary{})
 			}
 		}
@@ -1624,13 +1624,13 @@ func (p *ContentRequestProcessor) projectHistoryAcrossSummaryCutoff(
 
 func effectiveEventForMessage(
 	evt event.Event,
-	msg model.Message,
+	msg compat.Message,
 ) event.Event {
 	effective := cloneEventForContentSnapshot(evt)
 	if effective.Response == nil {
-		effective.Response = &model.Response{}
+		effective.Response = &compat.Response{}
 	}
-	effective.Response.Choices = []model.Choice{{Message: msg}}
+	effective.Response.Choices = []compat.Choice{{Message: msg}}
 	return effective
 }
 
@@ -1663,7 +1663,7 @@ func (p *ContentRequestProcessor) mergeProjectedUserMessages(
 	for i := range history.items {
 		item := history.items[i]
 		msg := item.Message
-		if msg.Role != model.RoleUser ||
+		if msg.Role != compat.RoleUser ||
 			!strings.HasPrefix(msg.Content, contextPrefix) {
 			appendCurrent()
 			merged.messages = append(merged.messages, msg)
@@ -1726,7 +1726,7 @@ func (p *ContentRequestProcessor) coveredUserEventsBeforeCutoff(
 			tailStarted[key] = struct{}{}
 			continue
 		}
-		if role == model.RoleUser {
+		if role == compat.RoleUser {
 			coveredUsers[key] = evt
 		}
 	}
@@ -1743,7 +1743,7 @@ func historyTurnKeyForEvent(evt event.Event) (historyTurnKey, bool) {
 	}, true
 }
 
-func historyRoleForEvent(evt event.Event) (model.Role, bool) {
+func historyRoleForEvent(evt event.Event) (compat.Role, bool) {
 	for _, choice := range evt.Choices {
 		if role, ok := historyRoleForMessage(choice.Message); ok {
 			return role, true
@@ -1752,7 +1752,7 @@ func historyRoleForEvent(evt event.Event) (model.Role, bool) {
 	return "", false
 }
 
-func historyRoleForMessages(messages []model.Message) (model.Role, bool) {
+func historyRoleForMessages(messages []compat.Message) (compat.Role, bool) {
 	for _, msg := range messages {
 		if role, ok := historyRoleForMessage(msg); ok {
 			return role, true
@@ -1761,18 +1761,18 @@ func historyRoleForMessages(messages []model.Message) (model.Role, bool) {
 	return "", false
 }
 
-func historyRoleForMessage(msg model.Message) (model.Role, bool) {
-	if userLikeRole(msg.Role) && model.HasPayload(msg) {
-		return model.RoleUser, true
+func historyRoleForMessage(msg compat.Message) (compat.Role, bool) {
+	if userLikeRole(msg.Role) && compat.HasPayload(msg) {
+		return compat.RoleUser, true
 	}
 	if msg.Role.IsValid() {
 		return msg.Role, true
 	}
 	if msg.ToolID != "" {
-		return model.RoleTool, true
+		return compat.RoleTool, true
 	}
 	if len(msg.ToolCalls) > 0 {
-		return model.RoleAssistant, true
+		return compat.RoleAssistant, true
 	}
 	return "", false
 }
@@ -1799,7 +1799,7 @@ func addToolCallIDToRestore(
 func (p *ContentRequestProcessor) latestCompleteToolRoundBeforeCutoff(
 	events []event.Event,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	filter string,
 	cutoff eventHistoryCutoff,
 ) map[int]event.Event {
@@ -1927,11 +1927,11 @@ func toolCallEventForResumeTail(evt event.Event) (event.Event, bool) {
 	return cloned, true
 }
 
-func cloneToolCallsForResumeTail(toolCalls []model.ToolCall) []model.ToolCall {
+func cloneToolCallsForResumeTail(toolCalls []compat.ToolCall) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i := range toolCalls {
 		cloned[i] = toolCalls[i]
 		cloned[i].Function.Arguments = append(
@@ -1978,7 +1978,7 @@ func compactResumeToolRound(
 				changed = true
 			}
 			message := choice.Message
-			if message.Role != model.RoleTool || message.ToolID == "" ||
+			if message.Role != compat.RoleTool || message.ToolID == "" ||
 				cfg.keepToolResult(message) {
 				continue
 			}
@@ -2019,7 +2019,7 @@ func compactResumeToolRound(
 
 func compactOversizedResumeToolCallArguments(
 	ctx context.Context,
-	message *model.Message,
+	message *compat.Message,
 	cfg ContextCompactionConfig,
 ) bool {
 	if message == nil {
@@ -2033,7 +2033,7 @@ func compactOversizedResumeToolCallArguments(
 		}
 		tokens, err := cfg.TokenCounter.CountTokens(
 			ctx,
-			model.NewUserMessage(string(arguments)),
+			compat.NewUserMessage(string(arguments)),
 		)
 		if err != nil || tokens <= cfg.ToolResultMaxTokens {
 			continue
@@ -2048,7 +2048,7 @@ func compactOversizedResumeToolCallArguments(
 
 func (p *ContentRequestProcessor) contextCompactionConfigForInvocation(
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) ContextCompactionConfig {
 	cfg := p.ContextCompactionConfig
 	cfg.SessionLoadRecoveryEnabled = sessionLoadRecoverySupported(inv, req)
@@ -2057,7 +2057,7 @@ func (p *ContentRequestProcessor) contextCompactionConfigForInvocation(
 
 func sessionLoadRecoverySupported(
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) bool {
 	if inv == nil || inv.Session == nil || inv.SessionService == nil {
 		return false
@@ -2068,14 +2068,18 @@ func sessionLoadRecoverySupported(
 	return requestHasTool(req, sessionLoadToolName)
 }
 
-func requestHasTool(req *model.Request, name string) bool {
-	if req == nil || len(req.Tools) == 0 || name == "" {
+func requestHasTool(req *compat.Request, name string) bool {
+	if req == nil || name == "" {
 		return false
 	}
-	if tl := req.Tools[name]; toolHasName(tl, name) {
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
+	if len(toolsMap) == 0 {
+		return false
+	}
+	if tl := toolsMap[name]; toolHasName(tl, name) {
 		return true
 	}
-	for _, tl := range req.Tools {
+	for _, tl := range toolsMap {
 		if toolHasName(tl, name) {
 			return true
 		}
@@ -2092,8 +2096,8 @@ func toolHasName(tl tool.Tool, name string) bool {
 }
 
 func annotateUserMessagesWithAttachedFiles(
-	messages []model.Message,
-) []model.Message {
+	messages []compat.Message,
+) []compat.Message {
 	if len(messages) == 0 {
 		return messages
 	}
@@ -2104,8 +2108,8 @@ func annotateUserMessagesWithAttachedFiles(
 }
 
 func annotateUserMessageWithAttachedFiles(
-	msg model.Message,
-) model.Message {
+	msg compat.Message,
+) compat.Message {
 	if !userLikeRole(msg.Role) {
 		return msg
 	}
@@ -2119,20 +2123,20 @@ func annotateUserMessageWithAttachedFiles(
 	if text == "" {
 		return msg
 	}
-	annotation := model.ContentPart{
-		Type: model.ContentTypeText,
+	annotation := compat.ContentPart{
+		Type: compat.ContentTypeText,
 		Text: &text,
 	}
-	parts := make([]model.ContentPart, 0, len(msg.ContentParts)+1)
+	parts := make([]compat.ContentPart, 0, len(msg.ContentParts)+1)
 	parts = append(parts, annotation)
 	parts = append(parts, msg.ContentParts...)
 	msg.ContentParts = parts
 	return msg
 }
 
-func hasAttachedFilesAnnotation(parts []model.ContentPart) bool {
+func hasAttachedFilesAnnotation(parts []compat.ContentPart) bool {
 	for _, part := range parts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		if strings.HasPrefix(
@@ -2146,7 +2150,7 @@ func hasAttachedFilesAnnotation(parts []model.ContentPart) bool {
 }
 
 func buildAttachedFilesAnnotationText(
-	parts []model.ContentPart,
+	parts []compat.ContentPart,
 ) string {
 	names, count := fileNamesForAnnotation(parts)
 	if count == 0 {
@@ -2168,12 +2172,12 @@ func buildAttachedFilesAnnotationText(
 }
 
 func fileNamesForAnnotation(
-	parts []model.ContentPart,
+	parts []compat.ContentPart,
 ) ([]string, int) {
 	names := make([]string, 0, len(parts))
 	count := 0
 	for _, part := range parts {
-		if part.Type != model.ContentTypeFile || part.File == nil {
+		if part.Type != compat.ContentTypeFile || part.File == nil {
 			continue
 		}
 		count++
@@ -2185,7 +2189,7 @@ func fileNamesForAnnotation(
 	return names, count
 }
 
-func fileLabelForAnnotation(file *model.File, count int) string {
+func fileLabelForAnnotation(file *compat.File, count int) string {
 	if file == nil {
 		return fmt.Sprintf(attachedFileNameFallbackFmt, count)
 	}
@@ -2208,7 +2212,7 @@ func fileLabelForAnnotation(file *model.File, count int) string {
 	return fmt.Sprintf("%s @ %s", name, ref)
 }
 
-func fileMimeLabel(file *model.File) string {
+func fileMimeLabel(file *compat.File) string {
 	if file == nil {
 		return ""
 	}
@@ -2275,7 +2279,7 @@ func fileNameFromArtifactRef(fileID string) string {
 // If the trim boundary falls on a tool-result message whose corresponding
 // tool_use was truncated, the boundary is advanced past any such orphaned
 // results to prevent API 400 "unexpected tool_use_id" errors.
-func maxHistoryRunsStartIndex(messages []model.Message, maxRuns int) int {
+func maxHistoryRunsStartIndex(messages []compat.Message, maxRuns int) int {
 	if len(messages) <= maxRuns {
 		return 0
 	}
@@ -2283,7 +2287,7 @@ func maxHistoryRunsStartIndex(messages []model.Message, maxRuns int) int {
 
 	// Only scan the truncated prefix when the boundary actually falls on a
 	// tool-result message; otherwise there's nothing to skip.
-	if messages[startIdx].Role != model.RoleTool || messages[startIdx].ToolID == "" {
+	if messages[startIdx].Role != compat.RoleTool || messages[startIdx].ToolID == "" {
 		return startIdx
 	}
 
@@ -2299,7 +2303,7 @@ func maxHistoryRunsStartIndex(messages []model.Message, maxRuns int) int {
 
 	// Skip orphaned tool results whose corresponding call was truncated.
 	for startIdx < len(messages) &&
-		messages[startIdx].Role == model.RoleTool &&
+		messages[startIdx].Role == compat.RoleTool &&
 		messages[startIdx].ToolID != "" {
 		if _, orphaned := truncatedToolIDs[messages[startIdx].ToolID]; orphaned {
 			startIdx++
@@ -2314,13 +2318,13 @@ func maxHistoryRunsStartIndex(messages []model.Message, maxRuns int) int {
 // processReasoningContent applies reasoning content stripping based on the
 // configured mode and request boundaries.
 func (p *ContentRequestProcessor) processReasoningContent(
-	msg model.Message,
+	msg compat.Message,
 	messageRequestID string,
 	currentRequestID string,
 	requestHasToolCalls bool,
-) model.Message {
+) compat.Message {
 	// Only process assistant messages with reasoning content.
-	if msg.Role != model.RoleAssistant || msg.ReasoningContent == "" {
+	if msg.Role != compat.RoleAssistant || msg.ReasoningContent == "" {
 		return msg
 	}
 
@@ -2347,8 +2351,8 @@ func (p *ContentRequestProcessor) processReasoningContent(
 func (p *ContentRequestProcessor) projectEventMessage(
 	inv *agent.Invocation,
 	evt event.Event,
-	msg model.Message,
-) model.Message {
+	msg compat.Message,
+) compat.Message {
 	if p == nil || p.EventMessageProjector == nil {
 		return msg
 	}
@@ -2358,7 +2362,7 @@ func (p *ContentRequestProcessor) projectEventMessage(
 // getCurrentInvocationMessages gets messages only from the current invocation.
 // This is used when include_contents=none to preserve tool call history within
 // the current ReAct loop while isolating from parent/other branch history.
-func (p *ContentRequestProcessor) getCurrentInvocationMessages(inv *agent.Invocation) []model.Message {
+func (p *ContentRequestProcessor) getCurrentInvocationMessages(inv *agent.Invocation) []compat.Message {
 	return p.getCurrentInvocationHistory(inv).messages
 }
 
@@ -2381,7 +2385,7 @@ func (p *ContentRequestProcessor) getCurrentInvocationHistory(
 		}
 	}
 	if !containsInvocationMessage(events, inv.Message) &&
-		model.HasPayload(inv.Message) {
+		compat.HasPayload(inv.Message) {
 		events = p.insertInvocationMessage(events, inv)
 	}
 
@@ -2417,7 +2421,7 @@ func (p *ContentRequestProcessor) getCurrentInvocationHistory(
 	}
 	for i := range history.items {
 		truncated := p.truncateOversizedToolResultMessages(
-			[]model.Message{history.items[i].Message},
+			[]compat.Message{history.items[i].Message},
 		)[0]
 		truncated = annotateUserMessageWithAttachedFiles(truncated)
 		history.items[i].Message = truncated
@@ -2470,7 +2474,7 @@ func normalizeCurrentInvocationEvent(evt event.Event) event.Event {
 
 func containsInvocationMessage(
 	events []event.Event,
-	invocationMessage model.Message,
+	invocationMessage compat.Message,
 ) bool {
 	for _, evt := range events {
 		if len(evt.Choices) == 0 {
@@ -2488,7 +2492,7 @@ func (p *ContentRequestProcessor) projectMessagesForEvent(
 	evt event.Event,
 	currentRequestID string,
 	toolCallRequestIDs map[string]struct{},
-) []model.Message {
+) []compat.Message {
 	ev := evt
 	if p.isOtherAgentReply(inv.AgentName, inv.Branch, &ev) {
 		ev = p.convertForeignEvent(&ev)
@@ -2497,7 +2501,7 @@ func (p *ContentRequestProcessor) projectMessagesForEvent(
 		return nil
 	}
 
-	var messages []model.Message
+	var messages []compat.Message
 	for _, choice := range ev.Choices {
 		msg := choice.Message
 		msg = p.processReasoningContent(
@@ -2538,8 +2542,8 @@ func requestHasToolCalls(requestIDs map[string]struct{}, requestID string) bool 
 }
 
 func (p *ContentRequestProcessor) truncateOversizedToolResultMessages(
-	messages []model.Message,
-) []model.Message {
+	messages []compat.Message,
+) []compat.Message {
 	cfg := normalizeContextCompactionConfig(p.ContextCompactionConfig)
 	oversizedActive := cfg.OversizedToolResultMaxTokens > 0
 	if !cfg.Enabled || !oversizedActive {
@@ -2561,7 +2565,7 @@ func (p *ContentRequestProcessor) truncateOversizedToolResultMessages(
 			continue
 		}
 		if !cloned {
-			messages = append([]model.Message(nil), messages...)
+			messages = append([]compat.Message(nil), messages...)
 			cloned = true
 		}
 		messages[i] = msg
@@ -2571,11 +2575,11 @@ func (p *ContentRequestProcessor) truncateOversizedToolResultMessages(
 
 func (p *ContentRequestProcessor) insertInvocationMessage(
 	events []event.Event, inv *agent.Invocation) []event.Event {
-	if !model.HasPayload(inv.Message) {
+	if !compat.HasPayload(inv.Message) {
 		return events
 	}
-	userMsgEvent := event.NewResponseEvent(inv.InvocationID, "user", &model.Response{
-		Choices: []model.Choice{
+	userMsgEvent := event.NewResponseEvent(inv.InvocationID, "user", &compat.Response{
+		Choices: []compat.Choice{
 			{Message: inv.Message},
 		},
 	})
@@ -2600,16 +2604,16 @@ func (p *ContentRequestProcessor) insertInvocationMessage(
 }
 
 func (p *ContentRequestProcessor) mergeUserMessages(
-	messages []model.Message,
-) []model.Message {
+	messages []compat.Message,
+) []compat.Message {
 	if len(messages) <= 1 {
 		return messages
 	}
 	if !p.AddContextPrefix {
 		return messages
 	}
-	var merged []model.Message
-	var current *model.Message
+	var merged []compat.Message
+	var current *compat.Message
 	appendCurrent := func() {
 		if current == nil {
 			return
@@ -2619,7 +2623,7 @@ func (p *ContentRequestProcessor) mergeUserMessages(
 	}
 	for i := range messages {
 		msg := messages[i]
-		if msg.Role != model.RoleUser ||
+		if msg.Role != compat.RoleUser ||
 			!strings.HasPrefix(msg.Content, contextPrefix) {
 			appendCurrent()
 			merged = append(merged, msg)
@@ -2724,7 +2728,7 @@ func (p *ContentRequestProcessor) restorePreCutoffToolCallEvent(
 		return event.Event{}, false
 	}
 
-	var choices []model.Choice
+	var choices []compat.Choice
 	for _, choice := range evt.Response.Choices {
 		if filtered, ok := filterToolCallChoice(
 			choice,
@@ -2737,7 +2741,7 @@ func (p *ContentRequestProcessor) restorePreCutoffToolCallEvent(
 		return event.Event{}, false
 	}
 	restored := evt
-	restored.Response = &model.Response{
+	restored.Response = &compat.Response{
 		Done:    evt.Response.Done,
 		Object:  evt.Response.Object,
 		Choices: choices,
@@ -2746,9 +2750,9 @@ func (p *ContentRequestProcessor) restorePreCutoffToolCallEvent(
 }
 
 func filterToolCallChoice(
-	choice model.Choice,
+	choice compat.Choice,
 	neededToolCallIDs map[string]struct{},
-) (model.Choice, bool) {
+) (compat.Choice, bool) {
 	messageToolCalls := filterToolCallsByID(
 		choice.Message.ToolCalls,
 		neededToolCallIDs,
@@ -2758,9 +2762,9 @@ func filterToolCallChoice(
 		neededToolCallIDs,
 	)
 	if len(messageToolCalls) == 0 && len(deltaToolCalls) == 0 {
-		return model.Choice{}, false
+		return compat.Choice{}, false
 	}
-	filtered := model.Choice{Index: choice.Index}
+	filtered := compat.Choice{Index: choice.Index}
 	if len(messageToolCalls) > 0 {
 		filtered.Message = minimalToolCallMessage(
 			choice.Message.Role,
@@ -2777,26 +2781,26 @@ func filterToolCallChoice(
 }
 
 func minimalToolCallMessage(
-	role model.Role,
-	toolCalls []model.ToolCall,
-) model.Message {
+	role compat.Role,
+	toolCalls []compat.ToolCall,
+) compat.Message {
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	return model.Message{
+	return compat.Message{
 		Role:      role,
 		ToolCalls: toolCalls,
 	}
 }
 
 func filterToolCallsByID(
-	toolCalls []model.ToolCall,
+	toolCalls []compat.ToolCall,
 	neededIDs map[string]struct{},
-) []model.ToolCall {
+) []compat.ToolCall {
 	if len(toolCalls) == 0 || len(neededIDs) == 0 {
 		return nil
 	}
-	filtered := make([]model.ToolCall, 0, len(toolCalls))
+	filtered := make([]compat.ToolCall, 0, len(toolCalls))
 	for _, toolCall := range toolCalls {
 		if _, ok := neededIDs[toolCall.ID]; ok {
 			filtered = append(filtered, toolCall)
@@ -2830,7 +2834,7 @@ func isStrictInvocationMessage(evt event.Event, inv *agent.Invocation) bool {
 func isCurrentInvocationUserMessage(evt event.Event, inv *agent.Invocation) bool {
 	return isCurrentInvocationEvent(evt, inv) &&
 		len(evt.Choices) > 0 &&
-		evt.Choices[0].Message.Role == model.RoleUser
+		evt.Choices[0].Message.Role == compat.RoleUser
 }
 
 func isCurrentInvocationEvent(evt event.Event, inv *agent.Invocation) bool {
@@ -2907,7 +2911,7 @@ func (p *ContentRequestProcessor) hasCompactedCurrentInvocationToolResultsAfterC
 func eventHasCompactedToolResult(evt event.Event) bool {
 	for _, choice := range evt.Choices {
 		msg := choice.Message
-		if msg.Role == model.RoleTool && msg.ToolID != "" &&
+		if msg.Role == compat.RoleTool && msg.ToolID != "" &&
 			strings.HasPrefix(
 				strings.TrimSpace(msg.Content),
 				compactedToolResultPlaceholder,
@@ -2928,7 +2932,7 @@ func eventWouldCompactCurrentToolResult(
 	}
 	for _, choice := range evt.Choices {
 		msg := choice.Message
-		if msg.Role != model.RoleTool || msg.ToolID == "" ||
+		if msg.Role != compat.RoleTool || msg.ToolID == "" ||
 			cfg.keepToolResult(msg) {
 			continue
 		}
@@ -2978,14 +2982,14 @@ func filterSubtree(eventFilterKey, filterKey string) bool {
 	return strings.HasPrefix(eventFilterKey, filterKey)
 }
 
-func invocationMessageEqual(invMsg model.Message, evtMsg model.Message) bool {
+func invocationMessageEqual(invMsg compat.Message, evtMsg compat.Message) bool {
 	if invMsg.Role == "" {
-		if evtMsg.Role != model.RoleUser {
+		if evtMsg.Role != compat.RoleUser {
 			return false
 		}
 		return invMsg.Content == evtMsg.Content
 	}
-	return model.MessagesEqual(invMsg, evtMsg)
+	return compat.MessagesEqual(invMsg, evtMsg)
 }
 
 // isOtherAgentReply checks whether the event is a reply from another agent.
@@ -3027,12 +3031,12 @@ func (p *ContentRequestProcessor) convertForeignEvent(evt *event.Event) event.Ev
 
 	// Build content parts for context.
 	var contents []string
-	var contentParts []model.ContentPart
+	var contentParts []compat.ContentPart
 	if p.AddContextPrefix {
 		prefix := contextPrefix
 		contents = append(contents, contextPrefix)
-		contentParts = append(contentParts, model.ContentPart{
-			Type: model.ContentTypeText,
+		contentParts = append(contentParts, compat.ContentPart{
+			Type: compat.ContentTypeText,
 			Text: &prefix,
 		})
 	}
@@ -3041,8 +3045,8 @@ func (p *ContentRequestProcessor) convertForeignEvent(evt *event.Event) event.Ev
 		if len(choice.Message.ContentParts) > 0 {
 			if p.AddContextPrefix {
 				prefix := fmt.Sprintf("[%s] said:", evt.Author)
-				contentParts = append(contentParts, model.ContentPart{
-					Type: model.ContentTypeText,
+				contentParts = append(contentParts, compat.ContentPart{
+					Type: compat.ContentTypeText,
 					Text: &prefix,
 				})
 			}
@@ -3083,8 +3087,8 @@ func (p *ContentRequestProcessor) convertForeignEvent(evt *event.Event) event.Ev
 
 	// Set the converted message.
 	if len(contents) > 0 || len(contentParts) > 0 {
-		msg := model.Message{
-			Role: model.RoleUser,
+		msg := compat.Message{
+			Role: compat.RoleUser,
 		}
 		if len(contents) > 0 {
 			msg.Content = strings.Join(contents, " ")
@@ -3092,7 +3096,7 @@ func (p *ContentRequestProcessor) convertForeignEvent(evt *event.Event) event.Ev
 		if len(contentParts) > 0 {
 			msg.ContentParts = contentParts
 		}
-		convertedEvent.Response.Choices = []model.Choice{
+		convertedEvent.Response.Choices = []compat.Choice{
 			{
 				Index:   0,
 				Message: msg,
@@ -3242,7 +3246,7 @@ func stripToolCallsFromEvent(evt event.Event) (event.Event, bool) {
 		return evt, false
 	}
 	response := *evt.Response
-	response.Choices = make([]model.Choice, 0, len(evt.Response.Choices))
+	response.Choices = make([]compat.Choice, 0, len(evt.Response.Choices))
 	for _, choice := range evt.Response.Choices {
 		choice.Message.ToolCalls = nil
 		choice.Delta.ToolCalls = nil
@@ -3265,7 +3269,7 @@ func omitToolResultChoices(
 		return evt, false
 	}
 	response := *evt.Response
-	response.Choices = make([]model.Choice, 0, len(evt.Response.Choices))
+	response.Choices = make([]compat.Choice, 0, len(evt.Response.Choices))
 	for choiceIndex, choice := range evt.Response.Choices {
 		if _, drop := dropChoiceIndices[choiceIndex]; drop {
 			continue
@@ -3279,7 +3283,7 @@ func omitToolResultChoices(
 	return evt, true
 }
 
-func hasNonToolPayload(msg model.Message) bool {
+func hasNonToolPayload(msg compat.Message) bool {
 	return msg.Content != "" || len(msg.ContentParts) > 0
 }
 
@@ -3489,7 +3493,7 @@ func orderToolResultChoicesByCallOrder(
 	}
 
 	response := *evt.Response
-	response.Choices = append([]model.Choice(nil), evt.Response.Choices...)
+	response.Choices = append([]compat.Choice(nil), evt.Response.Choices...)
 	sort.SliceStable(response.Choices, func(i, j int) bool {
 		iOrder, iKnown := orderByID[toolResponseIDFromChoice(response.Choices[i])]
 		jOrder, jKnown := orderByID[toolResponseIDFromChoice(response.Choices[j])]
@@ -3568,7 +3572,7 @@ func toolResponseMatchesByCallEventFiltered(
 	return responseMatchesByCallEvent
 }
 
-func toolResponseIDFromChoice(choice model.Choice) string {
+func toolResponseIDFromChoice(choice compat.Choice) string {
 	if choice.Message.ToolID != "" {
 		return choice.Message.ToolID
 	}
@@ -3603,7 +3607,7 @@ func filterToolResponseEvent(events []event.Event, match matchedToolResponseEven
 		return evt
 	}
 	response := *evt.Response
-	response.Choices = make([]model.Choice, 0, len(match.choiceIndices))
+	response.Choices = make([]compat.Choice, 0, len(match.choiceIndices))
 	for _, choiceIndex := range match.choiceIndices {
 		if choiceIndex < 0 || choiceIndex >= len(evt.Response.Choices) {
 			continue
@@ -3626,14 +3630,14 @@ func (p *ContentRequestProcessor) mergeFunctionResponseEvents(
 	mergedEvent := functionResponseEvents[0]
 
 	// Collect all tool response messages, preserving each individual ToolID.
-	var allChoices []model.Choice
+	var allChoices []compat.Choice
 	for _, evt := range functionResponseEvents {
 		for _, choice := range evt.Choices {
 			message := choice.Message
 			if message.ToolID == "" {
 				message = choice.Delta
 			}
-			if message.ToolID != "" && model.HasPayload(message) {
+			if message.ToolID != "" && compat.HasPayload(message) {
 				allChoices = append(allChoices, choice)
 			}
 		}
@@ -3667,7 +3671,7 @@ func toStringSet(ids []string) map[string]struct{} {
 func (p *ContentRequestProcessor) getPreloadMemoryMessage(
 	ctx context.Context,
 	inv *agent.Invocation,
-) *model.Message {
+) *compat.Message {
 	reader := preloadMemoryReader(inv)
 	if reader == nil || inv.Session == nil {
 		return nil
@@ -3704,7 +3708,7 @@ func (p *ContentRequestProcessor) getAdaptivePreloadMemoryMessage(
 	reader memory.Reader,
 	userKey memory.UserKey,
 	budget int,
-) *model.Message {
+) *compat.Message {
 	const preloadProbeExtra = 1
 	probeLimit := budget + preloadProbeExtra
 	probeEntries, err := reader.ReadMemories(ctx, userKey, probeLimit)
@@ -3754,7 +3758,7 @@ func (p *ContentRequestProcessor) loadPreloadMemoryMessage(
 	reader memory.Reader,
 	userKey memory.UserKey,
 	limit int,
-) *model.Message {
+) *compat.Message {
 	memories, err := reader.ReadMemories(ctx, userKey, limit)
 	if err != nil {
 		log.WarnfContext(ctx, "Failed to preload memories: %v", err)
@@ -3776,25 +3780,25 @@ func preloadMemoryReader(inv *agent.Invocation) memory.Reader {
 func newPreloadMemoryMessage(
 	memories []*memory.Entry,
 	playbookOverride string,
-) *model.Message {
+) *compat.Message {
 	if len(memories) == 0 {
 		return nil
 	}
-	return &model.Message{
-		Role:    model.RoleSystem,
+	return &compat.Message{
+		Role:    compat.RoleSystem,
 		Content: buildPreloadMemoryPrompt(playbookOverride, memories),
 	}
 }
 
 // buildPreloadSearchQuery extracts the current user text used for adaptive
 // preload search.
-func buildPreloadSearchQuery(msg model.Message) string {
+func buildPreloadSearchQuery(msg compat.Message) string {
 	parts := make([]string, 0, 1+len(msg.ContentParts))
 	if text := strings.TrimSpace(msg.Content); text != "" {
 		parts = append(parts, text)
 	}
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		text := strings.TrimSpace(*part.Text)
@@ -3809,7 +3813,7 @@ func buildPreloadSearchQuery(msg model.Message) string {
 func (p *ContentRequestProcessor) getPreloadSessionRecallMessage(
 	ctx context.Context,
 	inv *agent.Invocation,
-) *model.Message {
+) *compat.Message {
 	if inv == nil || inv.Session == nil || inv.SessionService == nil {
 		return nil
 	}
@@ -3852,15 +3856,15 @@ func (p *ContentRequestProcessor) getPreloadSessionRecallMessage(
 	if len(results) == 0 {
 		return nil
 	}
-	return &model.Message{
-		Role: model.RoleSystem,
+	return &compat.Message{
+		Role: compat.RoleSystem,
 		Content: formatSessionRecallContent(
 			results,
 		),
 	}
 }
 
-func extractSearchQueryText(msg model.Message) string {
+func extractSearchQueryText(msg compat.Message) string {
 	if text := strings.TrimSpace(msg.Content); text != "" {
 		return text
 	}

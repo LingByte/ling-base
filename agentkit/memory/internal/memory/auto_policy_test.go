@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type countingOperator struct {
@@ -70,13 +70,13 @@ func (e nonComparableUnwrappingExtractor) UnwrapMemoryExtractor() extractor.Memo
 
 type requestRecordingModel struct {
 	*mockModel
-	requests []*model.Request
+	requests []*compat.Request
 }
 
 func (m *requestRecordingModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.requests = append(m.requests, request)
 	return m.mockModel.GenerateContent(ctx, request)
 }
@@ -148,9 +148,9 @@ func newExtractorWithOperation(
 	payload, err := json.Marshal(args)
 	require.NoError(t, err)
 	return extractor.NewExtractor(
-		newMockModelWithToolCalls([]model.ToolCall{{
+		newMockModelWithToolCalls([]compat.ToolCall{{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      toolName,
 				Arguments: payload,
 			},
@@ -225,9 +225,9 @@ func TestNonCooperatingDecoratorFallsBackConsistentlyToMergeSimilar(t *testing.T
 		t.Run(string(policy), func(t *testing.T) {
 			args, err := json.Marshal(map[string]any{"memory": "User likes green tea."})
 			require.NoError(t, err)
-			recording := &requestRecordingModel{mockModel: newMockModelWithToolCalls([]model.ToolCall{{
+			recording := &requestRecordingModel{mockModel: newMockModelWithToolCalls([]compat.ToolCall{{
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      memory.AddToolName,
 					Arguments: args,
 				},
@@ -241,7 +241,7 @@ func TestNonCooperatingDecoratorFallsBackConsistentlyToMergeSimilar(t *testing.T
 			require.NoError(t, worker.createAutoMemory(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{model.NewUserMessage("I like green tea.")},
+				[]compat.Message{compat.NewUserMessage("I like green tea.")},
 			))
 			require.Len(t, recording.requests, 1)
 			assert.Contains(t, recording.requests[0].Tools, memory.UpdateToolName)
@@ -261,9 +261,9 @@ func TestCooperatingDecoratorPreservesUpdatePolicy(t *testing.T) {
 		t.Run(string(policy), func(t *testing.T) {
 			args, err := json.Marshal(map[string]any{"memory": "User likes green tea."})
 			require.NoError(t, err)
-			recording := &requestRecordingModel{mockModel: newMockModelWithToolCalls([]model.ToolCall{{
+			recording := &requestRecordingModel{mockModel: newMockModelWithToolCalls([]compat.ToolCall{{
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      memory.AddToolName,
 					Arguments: args,
 				},
@@ -279,7 +279,7 @@ func TestCooperatingDecoratorPreservesUpdatePolicy(t *testing.T) {
 			require.NoError(t, worker.createAutoMemory(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{model.NewUserMessage("I like green tea.")},
+				[]compat.Message{compat.NewUserMessage("I like green tea.")},
 			))
 			assert.Equal(t, policy, worker.updatePolicy)
 			require.Len(t, recording.requests, 1)
@@ -320,7 +320,7 @@ func TestUpdatePolicies_KeepOperationFailuresBestEffort(t *testing.T) {
 			err := worker.createAutoMemory(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{model.NewUserMessage("I like tea and coffee.")},
+				[]compat.Message{compat.NewUserMessage("I like tea and coffee.")},
 			)
 
 			require.NoError(t, err)
@@ -348,7 +348,7 @@ func TestUpdatePolicies_PersistenceFailureAdvancesWatermark(t *testing.T) {
 			worker.updatePolicy = policy
 			sess := newTestSession("app", "user")
 			first := time.Date(2026, 8, 5, 10, 0, 0, 0, time.UTC)
-			appendSessionMessage(sess, first, model.NewUserMessage("I like tea and coffee."))
+			appendSessionMessage(sess, first, compat.NewUserMessage("I like tea and coffee."))
 
 			require.NoError(t, worker.EnqueueJob(context.Background(), sess))
 			assert.True(t, readLastExtractAt(sess).Equal(first))
@@ -730,8 +730,8 @@ func TestPreserveHistoryPolicy_DoesNotSearchPerOperation(t *testing.T) {
 		MemoryKind: memory.KindFact,
 	})
 	worker := NewAutoMemoryWorker(AutoMemoryConfig{Extractor: ext}, operator)
-	require.NoError(t, worker.createAutoMemory(context.Background(), reconcileUserKey(), []model.Message{
-		model.NewUserMessage("Alice visited Bob at 4pm on December 1st, 2025."),
+	require.NoError(t, worker.createAutoMemory(context.Background(), reconcileUserKey(), []compat.Message{
+		compat.NewUserMessage("Alice visited Bob at 4pm on December 1st, 2025."),
 	}))
 	assert.Equal(t, 1, operator.searchCalls)
 	assert.Equal(t, 1, operator.updateCalls)
@@ -793,9 +793,9 @@ func TestUpdatePolicies_SearchBehavior(t *testing.T) {
 			require.NoError(t, worker.createAutoMemory(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{
-					model.NewUserMessage("I like tea."),
-					model.NewAssistantMessage("Assistant-only detail."),
+				[]compat.Message{
+					compat.NewUserMessage("I like tea."),
+					compat.NewAssistantMessage("Assistant-only detail."),
 				},
 			))
 			assert.Equal(t, test.searchCalls, operator.searchCalls)
@@ -807,28 +807,28 @@ func TestUpdatePolicies_SearchBehavior(t *testing.T) {
 }
 
 func TestPolicySearchQuery_IncludesAssistantAndBoundsUTF8(t *testing.T) {
-	query := buildPolicySearchQuery([]model.Message{
-		model.NewUserMessage("user fact"),
-		model.NewAssistantMessage("assistant fact"),
-		model.NewToolMessage("call", "tool", "ignored"),
+	query := buildPolicySearchQuery([]compat.Message{
+		compat.NewUserMessage("user fact"),
+		compat.NewAssistantMessage("assistant fact"),
+		compat.NewToolMessage("call", "tool", "ignored"),
 		{
-			Role:    model.RoleAssistant,
+			Role:    compat.RoleAssistant,
 			Content: "assistant tool result ignored",
 			ToolID:  "tool-call",
 		},
 		{
-			Role:      model.RoleAssistant,
+			Role:      compat.RoleAssistant,
 			Content:   "assistant tool call ignored",
-			ToolCalls: []model.ToolCall{{Type: "function"}},
+			ToolCalls: []compat.ToolCall{{Type: "function"}},
 		},
 	})
 	assert.Contains(t, query, "user fact")
 	assert.Contains(t, query, "assistant fact")
 	assert.NotContains(t, query, "ignored")
 
-	query = buildPolicySearchQuery([]model.Message{
-		model.NewUserMessage(strings.Repeat("history ", maxPolicySearchQueryBytes)),
-		model.NewAssistantMessage(strings.Repeat("中文", maxPolicySearchQueryBytes)),
+	query = buildPolicySearchQuery([]compat.Message{
+		compat.NewUserMessage(strings.Repeat("history ", maxPolicySearchQueryBytes)),
+		compat.NewAssistantMessage(strings.Repeat("中文", maxPolicySearchQueryBytes)),
 	})
 	assert.LessOrEqual(t, len(query), maxPolicySearchQueryBytes)
 	assert.True(t, utf8.ValidString(query))

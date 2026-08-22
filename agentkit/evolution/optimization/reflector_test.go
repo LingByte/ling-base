@@ -17,14 +17,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type reflectionModel struct {
 	response     string
-	request      *model.Request
+	request      *compat.Request
 	generateErr  error
 	nilResponses bool
 	apiError     string
@@ -38,45 +38,45 @@ type blockingReflectionModel struct {
 
 func (m *blockingReflectionModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
+	*compat.Request,
+) (<-chan *compat.Response, error) {
 	close(m.entered)
 	<-m.release
 	return nil, errors.New("released")
 }
 
-func (*blockingReflectionModel) Info() model.Info {
-	return model.Info{Name: "blocking-reflection-test"}
+func (*blockingReflectionModel) Info() compat.Info {
+	return compat.Info{Name: "blocking-reflection-test"}
 }
 
 type chunkedReflectionModel struct {
 	chunks  []string
-	request *model.Request
+	request *compat.Request
 }
 
 func (m *chunkedReflectionModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.request = request
-	responses := make(chan *model.Response, len(m.chunks))
+	responses := make(chan *compat.Response, len(m.chunks))
 	for _, chunk := range m.chunks {
-		responses <- &model.Response{Choices: []model.Choice{{
-			Delta: model.Message{Content: chunk},
+		responses <- &compat.Response{Choices: []compat.Choice{{
+			Delta: compat.Message{Content: chunk},
 		}}}
 	}
 	close(responses)
 	return responses, nil
 }
 
-func (*chunkedReflectionModel) Info() model.Info {
-	return model.Info{Name: "chunked-reflection-test"}
+func (*chunkedReflectionModel) Info() compat.Info {
+	return compat.Info{Name: "chunked-reflection-test"}
 }
 
 func (m *reflectionModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.request = request
 	if m.generateErr != nil {
 		return nil, m.generateErr
@@ -84,15 +84,15 @@ func (m *reflectionModel) GenerateContent(
 	if m.nilResponses {
 		return nil, nil
 	}
-	responses := make(chan *model.Response, 1)
-	response := &model.Response{}
+	responses := make(chan *compat.Response, 1)
+	response := &compat.Response{}
 	if m.apiError != "" {
-		response.Error = &model.ResponseError{Message: m.apiError}
+		response.Error = &compat.ResponseError{Message: m.apiError}
 	} else if m.stream {
-		response.Choices = []model.Choice{{Delta: model.Message{Content: m.response}}}
+		response.Choices = []compat.Choice{{Delta: compat.Message{Content: m.response}}}
 	} else {
-		response.Choices = []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: m.response},
+		response.Choices = []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: m.response},
 		}}
 	}
 	responses <- response
@@ -170,7 +170,7 @@ func TestReflectorParsingAndModelFailures(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "nil reflection candidate")
 
-	request := &model.Request{}
+	request := &compat.Request{}
 	_, err = generateText(context.Background(), &reflectionModel{generateErr: errors.New("offline")}, request)
 	require.ErrorContains(t, err, "offline")
 	_, err = generateText(context.Background(), &reflectionModel{nilResponses: true}, request)
@@ -199,7 +199,7 @@ func TestPrepareReflectionFieldBoundsBeforeRedaction(t *testing.T) {
 	assert.NotContains(t, prepared, tailSecret)
 }
 
-func (*reflectionModel) Info() model.Info { return model.Info{Name: "reflection-test"} }
+func (*reflectionModel) Info() compat.Info { return compat.Info{Name: "reflection-test"} }
 
 func TestLLMReflectorChangesOnlySelectedComponent(t *testing.T) {
 	modelStub := &reflectionModel{response: "```json\n" +

@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/telemetry/errs"
 )
 
@@ -25,7 +25,7 @@ func strPtr(s string) *string {
 func TestFormatResponseErrorLabel(t *testing.T) {
 	tests := []struct {
 		name     string
-		respErr  *model.ResponseError
+		respErr  *compat.ResponseError
 		fallback string
 		expected string
 	}{
@@ -37,7 +37,7 @@ func TestFormatResponseErrorLabel(t *testing.T) {
 		},
 		{
 			name: "response error with type and code returns type code",
-			respErr: &model.ResponseError{
+			respErr: &compat.ResponseError{
 				Type: "api_error",
 				Code: strPtr("500"),
 			},
@@ -46,7 +46,7 @@ func TestFormatResponseErrorLabel(t *testing.T) {
 		},
 		{
 			name: "response error with type only returns type",
-			respErr: &model.ResponseError{
+			respErr: &compat.ResponseError{
 				Type: "timeout",
 			},
 			fallback: "default_error",
@@ -54,7 +54,7 @@ func TestFormatResponseErrorLabel(t *testing.T) {
 		},
 		{
 			name: "response error with code only uses fallback",
-			respErr: &model.ResponseError{
+			respErr: &compat.ResponseError{
 				Code: strPtr("404"),
 			},
 			fallback: "default_error",
@@ -62,7 +62,7 @@ func TestFormatResponseErrorLabel(t *testing.T) {
 		},
 		{
 			name: "response error with empty code ignores code",
-			respErr: &model.ResponseError{
+			respErr: &compat.ResponseError{
 				Type: "validation_error",
 				Code: strPtr(""),
 			},
@@ -86,29 +86,29 @@ func TestToErrorType(t *testing.T) {
 		name      string
 		err       error
 		errorType string
-		mockFunc  func(error) *model.ResponseError
+		mockFunc  func(error) *compat.ResponseError
 		expected  string
 	}{
 		{
 			name:      "nil error returns default errorType",
 			err:       nil,
 			errorType: "default_error",
-			mockFunc:  func(err error) *model.ResponseError { return nil },
+			mockFunc:  func(err error) *compat.ResponseError { return nil },
 			expected:  "default_error",
 		},
 		{
 			name:      "error with nil ResponseError returns default errorType",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc:  func(err error) *model.ResponseError { return nil },
+			mockFunc:  func(err error) *compat.ResponseError { return nil },
 			expected:  "default_error",
 		},
 		{
 			name:      "ResponseError with empty Type and nil Code returns default errorType",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "",
 					Code:    nil,
@@ -120,8 +120,8 @@ func TestToErrorType(t *testing.T) {
 			name:      "ResponseError with Type but nil Code returns Type",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "rate_limit",
 					Code:    nil,
@@ -133,8 +133,8 @@ func TestToErrorType(t *testing.T) {
 			name:      "ResponseError with empty Type but non-nil Code returns errorType_Code",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "",
 					Code:    strPtr("404"),
@@ -146,8 +146,8 @@ func TestToErrorType(t *testing.T) {
 			name:      "ResponseError with Type and Code returns Type_Code",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "api_error",
 					Code:    strPtr("500"),
@@ -159,8 +159,8 @@ func TestToErrorType(t *testing.T) {
 			name:      "ResponseError with Type and Code, Type overrides default errorType",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "timeout",
 					Code:    strPtr("408"),
@@ -172,8 +172,8 @@ func TestToErrorType(t *testing.T) {
 			name:      "ResponseError with Type and empty Code string",
 			err:       errors.New("some error"),
 			errorType: "default_error",
-			mockFunc: func(err error) *model.ResponseError {
-				return &model.ResponseError{
+			mockFunc: func(err error) *compat.ResponseError {
+				return &compat.ResponseError{
 					Message: err.Error(),
 					Type:    "validation_error",
 					Code:    strPtr(""),
@@ -203,14 +203,14 @@ func TestToErrorType(t *testing.T) {
 }
 
 func TestToErrorType_UsesRealResponseErrorConversion(t *testing.T) {
-	err := fmt.Errorf("wrapped: %w", &model.ResponseError{
+	err := fmt.Errorf("wrapped: %w", &compat.ResponseError{
 		Message: "rate limit",
-		Type:    model.ErrorTypeAPIError,
+		Type:    compat.ErrorTypeAPIError,
 		Code:    strPtr("429"),
 	})
 
 	got := ToErrorType(err, "default_error")
-	want := model.ErrorTypeAPIError + "_429"
+	want := compat.ErrorTypeAPIError + "_429"
 	if got != want {
 		t.Fatalf("ToErrorType(%v, %q) = %q, want %q", err, "default_error", got, want)
 	}

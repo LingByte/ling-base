@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -80,8 +80,8 @@ func (c pluginManagerChain) AgentCallbacks() *agent.Callbacks {
 	return out
 }
 
-func (c pluginManagerChain) ModelCallbacks() *model.Callbacks {
-	out := model.NewCallbacks()
+func (c pluginManagerChain) ModelCallbacks() *compat.Callbacks {
+	out := compat.NewCallbacks()
 	hasCallbacks := false
 	for _, manager := range c {
 		callbacks := manager.ModelCallbacks()
@@ -90,10 +90,10 @@ func (c pluginManagerChain) ModelCallbacks() *model.Callbacks {
 		}
 		hasCallbacks = true
 		current := callbacks
-		out.RegisterBeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+		out.RegisterBeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			return current.RunBeforeModel(ctx, args)
 		})
-		out.RegisterAfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		out.RegisterAfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			return current.RunAfterModel(ctx, args)
 		})
 	}

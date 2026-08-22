@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
@@ -81,17 +81,17 @@ func TestProcessEventCmd_WithValidEvents(t *testing.T) {
 	evt1 := &event.Event{
 		ID:        "e1",
 		Timestamp: now,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done:    true,
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}},
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}},
 		},
 	}
 	evt2 := &event.Event{
 		ID:        "e2",
 		Timestamp: now.Add(time.Second),
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done:    true,
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "world"}}},
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "world"}}},
 		},
 	}
 

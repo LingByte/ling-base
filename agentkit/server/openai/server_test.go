@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
@@ -69,11 +69,11 @@ func (m *mockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 					return
 				case ch <- &event.Event{
 					ID: "test-event-id",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
-									Role:    model.RoleAssistant,
+								Delta: compat.Message{
+									Role:    compat.RoleAssistant,
 									Content: word,
 								},
 							},
@@ -87,11 +87,11 @@ func (m *mockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 			finishReason := "stop"
 			ch <- &event.Event{
 				ID: "test-event-id-final",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
-								Role:    model.RoleAssistant,
+							Delta: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "",
 							},
 							FinishReason: &finishReason,
@@ -99,7 +99,7 @@ func (m *mockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 					},
 					Done:    true,
 					Created: time.Now().Unix(),
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 						TotalTokens:      15,
@@ -112,11 +112,11 @@ func (m *mockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 		finishReason := "stop"
 		ch <- &event.Event{
 			ID: "test-event-id",
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: m.response,
 						},
 						FinishReason: &finishReason,
@@ -124,7 +124,7 @@ func (m *mockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 				},
 				Done:    true,
 				Created: time.Now().Unix(),
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     10,
 					CompletionTokens: 5,
 					TotalTokens:      15,
@@ -142,7 +142,7 @@ type mockRunner struct {
 	err    error
 }
 
-func (m *mockRunner) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -756,7 +756,7 @@ type mockRunnerWithError struct {
 	err error
 }
 
-func (m *mockRunnerWithError) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithError) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return nil, m.err
 }
 
@@ -769,7 +769,7 @@ type mockRunnerWithEmptyEvents struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithEmptyEvents) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithEmptyEvents) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -782,7 +782,7 @@ type mockRunnerWithNilEvents struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithNilEvents) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithNilEvents) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -795,7 +795,7 @@ type mockRunnerWithAggregateError struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithAggregateError) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithAggregateError) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -808,7 +808,7 @@ type mockRunnerWithPartialEvents struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithPartialEvents) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithPartialEvents) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -821,7 +821,7 @@ type mockRunnerWithContextCancel struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithContextCancel) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithContextCancel) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -834,7 +834,7 @@ type mockRunnerWithFinalChunk struct {
 	events chan *event.Event
 }
 
-func (m *mockRunnerWithFinalChunk) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunnerWithFinalChunk) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	return m.events, nil
 }
 
@@ -1148,10 +1148,10 @@ func TestServer_handleStreaming_NilEvent(t *testing.T) {
 	ch <- nil
 	ch <- &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "Hello",
 					},
 				},
@@ -1215,10 +1215,10 @@ func TestServer_handleStreaming_PartialEvent(t *testing.T) {
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "Hello",
 					},
 				},
@@ -1256,10 +1256,10 @@ func TestServer_handleStreaming_FinalChunk(t *testing.T) {
 	finishReason := "stop"
 	ch <- &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "Hello",
 					},
 				},
@@ -1269,10 +1269,10 @@ func TestServer_handleStreaming_FinalChunk(t *testing.T) {
 	}
 	ch <- &event.Event{
 		ID: "test-id-final",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "",
 					},
 					FinishReason: &finishReason,
@@ -1280,7 +1280,7 @@ func TestServer_handleStreaming_FinalChunk(t *testing.T) {
 			},
 			Done:    true,
 			Created: time.Now().Unix(),
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     10,
 				CompletionTokens: 5,
 				TotalTokens:      15,
@@ -1321,13 +1321,13 @@ func TestServer_sendFinalChunk(t *testing.T) {
 	finishReason := "stop"
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
 					FinishReason: &finishReason,
 				},
 			},
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     10,
 				CompletionTokens: 5,
 				TotalTokens:      15,
@@ -1350,8 +1350,8 @@ func TestServer_sendFinalChunk_NoUsage(t *testing.T) {
 	flusher := &mockFlusher{ResponseWriter: w}
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{},
+		Response: &compat.Response{
+			Choices: []compat.Choice{},
 		},
 	}
 
@@ -1371,10 +1371,10 @@ func TestServer_processStreamingChunk_ConvertError(t *testing.T) {
 	// Create an event that will cause convertToChunk to return error.
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "test",
 					},
 				},
@@ -1397,10 +1397,10 @@ func TestServer_processStreamingChunk_NilChunk(t *testing.T) {
 	// Create an event that will return nil chunk.
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "",
 						Role:    "",
 					},
@@ -1478,10 +1478,10 @@ func TestServer_processStreamingChunk_WriteChunkError(t *testing.T) {
 	// Create an event that will cause writeChunk to fail.
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "test",
 					},
 				},
@@ -1508,10 +1508,10 @@ func TestServer_processStreamingChunk_NotFinal(t *testing.T) {
 	flusher := &mockFlusher{ResponseWriter: w}
 	evt := &event.Event{
 		ID: "test-id",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
+					Delta: compat.Message{
 						Content: "test",
 					},
 				},
@@ -1559,13 +1559,13 @@ func TestServer_handleChatCompletions_PathWithSlash(t *testing.T) {
 type mockRunnerCapturing struct {
 	events  chan *event.Event
 	gotOpts agent.RunOptions
-	gotMsg  model.Message
+	gotMsg  compat.Message
 }
 
 func (m *mockRunnerCapturing) Run(
 	ctx context.Context,
 	userID, sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	m.gotOpts = agent.NewRunOptions(opts...)
@@ -1585,16 +1585,16 @@ func newToolCallEventsNonStreaming(t *testing.T) chan *event.Event {
 	finishReason := finishReasonToolCalls
 	ch <- &event.Event{
 		ID: "evt-tool-call",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "client_search",
 									Arguments: []byte(`{"query":"go"}`),
 								},
@@ -1606,7 +1606,7 @@ func newToolCallEventsNonStreaming(t *testing.T) chan *event.Event {
 			},
 			Done:    true,
 			Created: time.Now().Unix(),
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     8,
 				CompletionTokens: 4,
 				TotalTokens:      12,
@@ -1813,16 +1813,16 @@ func TestServer_handleStreaming_ToolCallResponse(t *testing.T) {
 	ch := make(chan *event.Event, 2)
 	ch <- &event.Event{
 		ID: "evt-tool-delta",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Delta: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "client_search",
 									Arguments: []byte(`{"query":"go"}`),
 								},
@@ -1837,16 +1837,16 @@ func TestServer_handleStreaming_ToolCallResponse(t *testing.T) {
 	finishReason := finishReasonToolCalls
 	ch <- &event.Event{
 		ID: "evt-tool-final",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta:        model.Message{},
+					Delta:        compat.Message{},
 					FinishReason: &finishReason,
 				},
 			},
 			Done:    true,
 			Created: time.Now().Unix(),
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     8,
 				CompletionTokens: 4,
 				TotalTokens:      12,
@@ -2004,11 +2004,11 @@ func TestServer_handleNonStreaming_ParallelToolResultResume(t *testing.T) {
 	finishReason := finishReasonStop
 	ch <- &event.Event{
 		ID: "evt-final",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "combined answer",
 					},
 					FinishReason: &finishReason,
@@ -2016,7 +2016,7 @@ func TestServer_handleNonStreaming_ParallelToolResultResume(t *testing.T) {
 			},
 			Done:    true,
 			Created: time.Now().Unix(),
-			Usage:   &model.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+			Usage:   &compat.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
 		},
 	}
 	close(ch)
@@ -2050,7 +2050,7 @@ func TestServer_handleNonStreaming_ParallelToolResultResume(t *testing.T) {
 	s.handleChatCompletions(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, model.RoleTool, runner.gotMsg.Role)
+	assert.Equal(t, compat.RoleTool, runner.gotMsg.Role)
 	assert.Equal(t, "call-2", runner.gotMsg.ToolID)
 	require.Len(t, runner.gotOpts.Messages, 1)
 	assert.Equal(t, "assistant", string(runner.gotOpts.Messages[0].Role))
@@ -2077,11 +2077,11 @@ func TestServer_handleStreaming_ParallelToolResultResume(t *testing.T) {
 	finishReason := finishReasonStop
 	ch <- &event.Event{
 		ID: "evt-stream",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "combined answer",
 					},
 				},
@@ -2091,16 +2091,16 @@ func TestServer_handleStreaming_ParallelToolResultResume(t *testing.T) {
 	}
 	ch <- &event.Event{
 		ID: "evt-final",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta:        model.Message{},
+					Delta:        compat.Message{},
 					FinishReason: &finishReason,
 				},
 			},
 			Done:    true,
 			Created: time.Now().Unix(),
-			Usage:   &model.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+			Usage:   &compat.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
 		},
 	}
 	close(ch)
@@ -2136,7 +2136,7 @@ func TestServer_handleStreaming_ParallelToolResultResume(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, contentTypeEventStream, w.Header().Get(headerContentType))
-	assert.Equal(t, model.RoleTool, runner.gotMsg.Role)
+	assert.Equal(t, compat.RoleTool, runner.gotMsg.Role)
 	assert.Equal(t, "call-2", runner.gotMsg.ToolID)
 	require.Len(t, runner.gotOpts.Messages, 1)
 	require.NotNil(t, runner.gotOpts.UserMessageRewriter)
@@ -2184,10 +2184,10 @@ func TestServer_handleNonStreaming_AssistantLastMessagePrefill(t *testing.T) {
 	s.handleChatCompletions(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, model.RoleAssistant, runner.gotMsg.Role)
+	assert.Equal(t, compat.RoleAssistant, runner.gotMsg.Role)
 	assert.Equal(t, "partial ", runner.gotMsg.Content)
 	require.Len(t, runner.gotOpts.Messages, 1)
-	assert.Equal(t, model.RoleUser, runner.gotOpts.Messages[0].Role)
+	assert.Equal(t, compat.RoleUser, runner.gotOpts.Messages[0].Role)
 }
 
 // parseSSEChunks extracts openAIChunk payloads from an SSE response body.

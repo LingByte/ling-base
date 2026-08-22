@@ -36,7 +36,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -65,91 +65,91 @@ type streamingGraphAgentModel struct {
 type usageGraphAgentModel struct {
 	name    string
 	content string
-	usage   model.Usage
+	usage   compat.Usage
 }
 
 func (m *staticGraphAgentModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:   "graphagent-response-" + m.name,
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *staticGraphAgentModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *staticGraphAgentModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *emptyIDGraphAgentModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:   "",
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *emptyIDGraphAgentModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *emptyIDGraphAgentModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *streamingGraphAgentModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, len(m.deltas)+1)
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, len(m.deltas)+1)
 	for _, delta := range m.deltas {
-		ch <- &model.Response{
+		ch <- &compat.Response{
 			ID:        "graphagent-response-" + m.name,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.NewAssistantMessage(delta),
+			Choices: []compat.Choice{{
+				Delta: compat.NewAssistantMessage(delta),
 			}},
 		}
 	}
-	ch <- &model.Response{
+	ch <- &compat.Response{
 		ID:   "graphagent-response-" + m.name,
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(m.final),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(m.final),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *streamingGraphAgentModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *streamingGraphAgentModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *usageGraphAgentModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:   "graphagent-response-" + m.name,
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 		Usage: &m.usage,
 	}
@@ -157,25 +157,25 @@ func (m *usageGraphAgentModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *usageGraphAgentModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *usageGraphAgentModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type disableTracingModel struct{}
 
-func (m *disableTracingModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	out := make(chan *model.Response, 1)
-	out <- &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("ok")},
+func (m *disableTracingModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	out := make(chan *compat.Response, 1)
+	out <- &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("ok")},
 		},
 	}
 	close(out)
 	return out, nil
 }
 
-func (m *disableTracingModel) Info() model.Info {
-	return model.Info{Name: "disable-tracing-model"}
+func (m *disableTracingModel) Info() compat.Info {
+	return compat.Info{Name: "disable-tracing-model"}
 }
 
 func useSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
@@ -413,7 +413,7 @@ func TestGraphAgentRun_DisableTracingFastPath_PreservesVisibleCompletion(t *test
 		if evt != nil && evt.Done && evt.Object == graph.ObjectTypeGraphExecution {
 			sawRawCompletion = true
 		}
-		if evt != nil && evt.Done && evt.Object == model.ObjectTypeChatCompletion &&
+		if evt != nil && evt.Done && evt.Object == compat.ObjectTypeChatCompletion &&
 			len(evt.StateDelta) > 0 {
 			sawVisibleCompletion = true
 		}
@@ -475,7 +475,7 @@ func TestGraphAgentRun_DisableTracingSubAgentSkipsSpanCreation(t *testing.T) {
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-disable-tracing-subagent"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			DisableTracing: true,
 		}),
@@ -801,7 +801,7 @@ func TestGraphAgentWithRuntimeState(t *testing.T) {
 
 	// Test that runtime state is properly merged.
 	ctx := context.Background()
-	message := model.NewUserMessage("test message")
+	message := compat.NewUserMessage("test message")
 
 	// Create invocation with runtime state.
 	invocation := &agent.Invocation{
@@ -847,11 +847,11 @@ func TestGraphAgentRuntimeStateOverridesBaseState(t *testing.T) {
 	g, err := graph.NewStateGraph(schema).
 		AddNode("process", func(ctx context.Context, state graph.State) (any, error) {
 			input := state["input"].(string)
-			// Return a response that can be converted to model.Response.
-			return &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			// Return a response that can be converted to compat.Response.
+			return &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "processed: " + input,
 					},
 				}},
@@ -874,7 +874,7 @@ func TestGraphAgentRuntimeStateOverridesBaseState(t *testing.T) {
 
 	// Test with runtime state that overrides base state.
 	invocation := &agent.Invocation{
-		Message: model.NewUserMessage("runtime input"),
+		Message: compat.NewUserMessage("runtime input"),
 		RunOptions: agent.RunOptions{
 			RuntimeState: graph.State{"input": "runtime input"},
 		},
@@ -959,7 +959,7 @@ func TestGraphAgentWithSubAgents(t *testing.T) {
 
 	// Test running the graph with sub-agent.
 	invocation := &agent.Invocation{
-		Message: model.NewUserMessage("test input"),
+		Message: compat.NewUserMessage("test input"),
 	}
 
 	events, err := graphAgent.Run(context.Background(), invocation)
@@ -999,7 +999,7 @@ func (s *stubSummarizer) Summarize(_ context.Context, _ *session.Session) (strin
 	return s.summary, nil
 }
 func (s *stubSummarizer) SetPrompt(prompt string)  {}
-func (s *stubSummarizer) SetModel(m model.Model)   {}
+func (s *stubSummarizer) SetModel(m compat.Model)   {}
 func (s *stubSummarizer) Metadata() map[string]any { return nil }
 
 var _ summary.SessionSummarizer = (*stubSummarizer)(nil)
@@ -1032,10 +1032,10 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 	go func() {
 		defer close(ch)
 		for i := 0; i < m.eventCount; i++ {
-			response := &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			response := &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: m.eventContent,
 					},
 				}},
@@ -1083,7 +1083,7 @@ func TestGraphAgent_InvocationContextAccess(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation-123",
 		AgentName:    "test-graph-agent",
-		Message:      model.NewUserMessage("Test invocation context access"),
+		Message:      compat.NewUserMessage("Test invocation context access"),
 	}
 
 	// Create context with invocation (simulating what runner does).
@@ -1175,7 +1175,7 @@ func TestGraphAgent_CreateInitialStateWithSession(t *testing.T) {
 	// Create a simple graph.
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1186,7 +1186,7 @@ func TestGraphAgent_CreateInitialStateWithSession(t *testing.T) {
 			if !ok {
 				return nil, fmt.Errorf("messages not found in state")
 			}
-			msgSlice, ok := messages.([]model.Message)
+			msgSlice, ok := messages.([]compat.Message)
 			if !ok || len(msgSlice) == 0 {
 				return nil, fmt.Errorf("expected non-empty messages")
 			}
@@ -1207,9 +1207,9 @@ func TestGraphAgent_CreateInitialStateWithSession(t *testing.T) {
 		Events: []event.Event{
 			{
 				InvocationID: "inv-1",
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{Role: model.RoleUser, Content: "Hello"},
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{Role: compat.RoleUser, Content: "Hello"},
 					}},
 				},
 			},
@@ -1218,7 +1218,7 @@ func TestGraphAgent_CreateInitialStateWithSession(t *testing.T) {
 
 	// Create invocation with session.
 	invocation := &agent.Invocation{
-		Message: model.NewUserMessage("Test message"),
+		Message: compat.NewUserMessage("Test message"),
 		Session: sess,
 	}
 
@@ -1239,7 +1239,7 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary(t *testing.T) {
 	const agentName = "test-agent"
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1267,18 +1267,18 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary(t *testing.T) {
 
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
 	graphAgent.setupInvocation(invocation)
 
 	state := graphAgent.createInitialState(context.Background(), invocation)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleSystem, messages[0].Role)
+	require.Equal(t, compat.RoleSystem, messages[0].Role)
 	require.Contains(t, messages[0].Content, "branch summary content")
-	require.Equal(t, model.RoleUser, messages[1].Role)
+	require.Equal(t, compat.RoleUser, messages[1].Role)
 	require.Equal(t, "hello", messages[1].Content)
 }
 
@@ -1286,7 +1286,7 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary_Disabled(t *testing.T) 
 	const agentName = "test-agent"
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1314,16 +1314,16 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary_Disabled(t *testing.T) 
 
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
 	graphAgent.setupInvocation(invocation)
 
 	state := graphAgent.createInitialState(context.Background(), invocation)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleUser, messages[0].Role)
+	require.Equal(t, compat.RoleUser, messages[0].Role)
 	require.Equal(t, "hello", messages[0].Content)
 }
 
@@ -1338,7 +1338,7 @@ func TestGraphAgent_CreateInitialStateWithEventMessageProjector(
 
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1357,9 +1357,9 @@ func TestGraphAgent_CreateInitialStateWithEventMessageProjector(
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
-		if msg.Role != model.RoleUser {
+		msg compat.Message,
+	) compat.Message {
+		if msg.Role != compat.RoleUser {
 			return msg
 		}
 		msg.Content = "Projected: " + msg.Content
@@ -1376,9 +1376,9 @@ func TestGraphAgent_CreateInitialStateWithEventMessageProjector(
 	userEvt := event.NewResponseEvent(
 		invocationID,
 		"user",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("hello"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("hello"),
 			}},
 		},
 	)
@@ -1392,7 +1392,7 @@ func TestGraphAgent_CreateInitialStateWithEventMessageProjector(
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationMessage(
-			model.NewUserMessage("hello"),
+			compat.NewUserMessage("hello"),
 		),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
@@ -1404,7 +1404,7 @@ func TestGraphAgent_CreateInitialStateWithEventMessageProjector(
 		context.Background(),
 		invocation,
 	)
-	messages, ok := graph.GetStateValue[[]model.Message](
+	messages, ok := graph.GetStateValue[[]compat.Message](
 		state,
 		graph.StateKeyMessages,
 	)
@@ -1422,7 +1422,7 @@ func TestGraphAgent_CreateInitialStateWithPreserveForeignMessages(t *testing.T) 
 
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1448,9 +1448,9 @@ func TestGraphAgent_CreateInitialStateWithPreserveForeignMessages(t *testing.T) 
 	assistantEvt := event.NewResponseEvent(
 		invocationID,
 		"other-agent",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("foreign assistant"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("foreign assistant"),
 			}},
 		},
 	)
@@ -1464,7 +1464,7 @@ func TestGraphAgent_CreateInitialStateWithPreserveForeignMessages(t *testing.T) 
 	}
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
 	invocation.InvocationID = invocationID
@@ -1474,12 +1474,12 @@ func TestGraphAgent_CreateInitialStateWithPreserveForeignMessages(t *testing.T) 
 	graphAgent.setupInvocation(invocation)
 
 	state := graphAgent.createInitialState(context.Background(), invocation)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleUser, messages[0].Role)
+	require.Equal(t, compat.RoleUser, messages[0].Role)
 	require.Equal(t, "hello", messages[0].Content)
-	require.Equal(t, model.RoleAssistant, messages[1].Role)
+	require.Equal(t, compat.RoleAssistant, messages[1].Role)
 	require.Equal(t, "foreign assistant", messages[1].Content)
 }
 
@@ -1489,7 +1489,7 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary_FromService(t *testing.
 
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1512,9 +1512,9 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary_FromService(t *testing.
 	sess, err := sessSvc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
 
-	evt := event.NewResponseEvent("inv-1", agentName, &model.Response{
-		Choices: []model.Choice{{Message: model.Message{
-			Role:    model.RoleUser,
+	evt := event.NewResponseEvent("inv-1", agentName, &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "hi there",
 		}}},
 	})
@@ -1529,16 +1529,16 @@ func TestGraphAgent_CreateInitialStateWithSessionSummary_FromService(t *testing.
 
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(storedSess),
-		agent.WithInvocationMessage(model.NewUserMessage("next turn")),
+		agent.WithInvocationMessage(compat.NewUserMessage("next turn")),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
 	graphAgent.setupInvocation(invocation)
 
 	state := graphAgent.createInitialState(ctx, invocation)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.GreaterOrEqual(t, len(messages), 1)
-	require.Equal(t, model.RoleSystem, messages[0].Role)
+	require.Equal(t, compat.RoleSystem, messages[0].Role)
 	require.Contains(t, messages[0].Content, "auto summary from service")
 	// Summary already covers prior history, so the latest run may start with summary only.
 }
@@ -1547,7 +1547,7 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 	const agentName = "test-agent"
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -1576,14 +1576,14 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 			{
 				RequestID: "req-old",
 				FilterKey: agentName,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID: "tool-call-old",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "worker",
 									Arguments: []byte(`{}`),
 								},
@@ -1596,10 +1596,10 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 				ID:        "event-old",
 				RequestID: "req-old",
 				FilterKey: agentName,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"tool-call-old",
 							"worker",
 							strings.Repeat("old-result ", 64),
@@ -1610,14 +1610,14 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 			{
 				RequestID: "req-recent",
 				FilterKey: agentName,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID: "tool-call-recent",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "worker",
 									Arguments: []byte(`{}`),
 								},
@@ -1629,10 +1629,10 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 			{
 				RequestID: "req-recent",
 				FilterKey: agentName,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"tool-call-recent",
 							"worker",
 							strings.Repeat("recent-result ", 64),
@@ -1645,18 +1645,18 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationEventFilterKey(agentName),
 	)
 	graphAgent.setupInvocation(invocation)
 
 	state := graphAgent.createInitialState(context.Background(), invocation)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.Len(t, messages, 5)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Contains(t, messages[1].Content, "Previous tool call succeeded")
 	require.Contains(t, messages[1].Content, "read-only or idempotent tools")
 	require.Contains(t, messages[1].Content, "do not repeat side-effecting")
@@ -1665,9 +1665,9 @@ func TestGraphAgent_CreateInitialStateWithContextCompaction(t *testing.T) {
 	require.Contains(t, messages[1].Content, "tool_name: worker")
 	require.Equal(t, "tool-call-old", messages[1].ToolID)
 	require.Equal(t, "worker", messages[1].ToolName)
-	require.Equal(t, model.RoleAssistant, messages[2].Role)
+	require.Equal(t, compat.RoleAssistant, messages[2].Role)
 	require.Contains(t, messages[3].Content, "recent-result")
-	require.Equal(t, model.RoleTool, messages[3].Role)
+	require.Equal(t, compat.RoleTool, messages[3].Role)
 	require.Equal(t, "tool-call-recent", messages[3].ToolID)
 	require.Equal(t, "worker", messages[3].ToolName)
 	require.Equal(t, "hello", messages[4].Content)
@@ -1702,7 +1702,7 @@ func TestGraphAgent_CreateInitialStateWithResume(t *testing.T) {
 
 	// Test resume with "resume" message - should skip adding user_input.
 	invocation := &agent.Invocation{
-		Message: model.NewUserMessage("resume"),
+		Message: compat.NewUserMessage("resume"),
 		RunOptions: agent.RunOptions{
 			RuntimeState: graph.State{
 				graph.CfgKeyCheckpointID: "checkpoint-123",
@@ -1720,7 +1720,7 @@ func TestGraphAgent_CreateInitialStateWithResume(t *testing.T) {
 
 	// Test resume with meaningful message - should add user_input.
 	invocation2 := &agent.Invocation{
-		Message: model.NewUserMessage("meaningful input"),
+		Message: compat.NewUserMessage("meaningful input"),
 		RunOptions: agent.RunOptions{
 			RuntimeState: graph.State{
 				graph.CfgKeyCheckpointID: "checkpoint-123",
@@ -1740,7 +1740,7 @@ func TestGraphAgent_CreateInitialStateWithResume(t *testing.T) {
 func TestGraphAgent_CreateInitialStateWithToolMessageDoesNotSetUserInput(t *testing.T) {
 	schema := graph.NewStateSchema().
 		AddField("messages", graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		}).
 		AddField(graph.StateKeyUserInput, graph.StateField{
@@ -1760,9 +1760,9 @@ func TestGraphAgent_CreateInitialStateWithToolMessageDoesNotSetUserInput(t *test
 	graphAgent, err := New("test-agent", g)
 	require.NoError(t, err)
 
-	toolMsg := model.NewToolMessage("call-1", "calc", "result")
-	toolEvt := event.NewResponseEvent("inv", "test-agent", &model.Response{
-		Choices: []model.Choice{{Index: 0, Message: toolMsg}},
+	toolMsg := compat.NewToolMessage("call-1", "calc", "result")
+	toolEvt := event.NewResponseEvent("inv", "test-agent", &compat.Response{
+		Choices: []compat.Choice{{Index: 0, Message: toolMsg}},
 	})
 
 	sess := &session.Session{
@@ -1781,10 +1781,10 @@ func TestGraphAgent_CreateInitialStateWithToolMessageDoesNotSetUserInput(t *test
 	_, hasUserInput := state[graph.StateKeyUserInput]
 	require.False(t, hasUserInput)
 
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.NotEmpty(t, messages)
-	require.Equal(t, model.RoleTool, messages[len(messages)-1].Role)
+	require.Equal(t, compat.RoleTool, messages[len(messages)-1].Role)
 	require.Equal(t, "call-1", messages[len(messages)-1].ToolID)
 	require.Equal(t, "result", messages[len(messages)-1].Content)
 }
@@ -1792,7 +1792,7 @@ func TestGraphAgent_CreateInitialStateWithToolMessageDoesNotSetUserInput(t *test
 func TestGraphAgent_CreateInitialStateWithToolMessageNoSession(t *testing.T) {
 	schema := graph.NewStateSchema().
 		AddField(graph.StateKeyMessages, graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		}).
 		AddField(graph.StateKeyUserInput, graph.StateField{
@@ -1809,7 +1809,7 @@ func TestGraphAgent_CreateInitialStateWithToolMessageNoSession(t *testing.T) {
 	require.NoError(t, err)
 	graphAgent, err := New("test-agent", g)
 	require.NoError(t, err)
-	toolMsg := model.NewToolMessage("call-1", "calc", "result")
+	toolMsg := compat.NewToolMessage("call-1", "calc", "result")
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("inv"),
 		agent.WithInvocationMessage(toolMsg),
@@ -1818,10 +1818,10 @@ func TestGraphAgent_CreateInitialStateWithToolMessageNoSession(t *testing.T) {
 	state := graphAgent.createInitialState(context.Background(), invocation)
 	_, hasUserInput := state[graph.StateKeyUserInput]
 	require.False(t, hasUserInput)
-	messages, ok := graph.GetStateValue[[]model.Message](state, graph.StateKeyMessages)
+	messages, ok := graph.GetStateValue[[]compat.Message](state, graph.StateKeyMessages)
 	require.True(t, ok)
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleTool, messages[0].Role)
+	require.Equal(t, compat.RoleTool, messages[0].Role)
 	require.Equal(t, "call-1", messages[0].ToolID)
 	require.Equal(t, "result", messages[0].Content)
 }
@@ -1900,13 +1900,13 @@ func TestGraphAgent_BeforeCallbackReturnsResponse(t *testing.T) {
 
 	// Create callbacks that return early.
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{
 			Object: "before.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "early return",
 				},
 			}},
@@ -1955,7 +1955,7 @@ func TestGraphAgent_BeforeCallbackReturnsError(t *testing.T) {
 
 	// Create callbacks that return error.
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, errors.New("before callback failed")
 	})
 
@@ -1978,7 +1978,7 @@ func TestGraphAgent_BeforeCallbackReturnsError(t *testing.T) {
 	}
 	require.Len(t, collected, 1)
 	require.NotNil(t, collected[0].Error)
-	require.Equal(t, model.ErrorTypeFlowError, collected[0].Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, collected[0].Error.Type)
 	require.Contains(t, collected[0].Error.Message, "before callback failed")
 }
 
@@ -2006,14 +2006,14 @@ func TestGraphAgent_AfterCallbackReturnsResponse(t *testing.T) {
 		ctx context.Context,
 		inv *agent.Invocation,
 		err error,
-	) (*model.Response, error) {
+	) (*compat.Response, error) {
 		callbackErr = err
-		return &model.Response{
+		return &compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "after callback",
 				},
 			}},
@@ -2027,7 +2027,7 @@ func TestGraphAgent_AfterCallbackReturnsResponse(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-after",
 		AgentName:    "test-after",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	events, err := ga.Run(context.Background(), inv)
@@ -2070,7 +2070,7 @@ func TestGraphAgent_AfterCallbackReturnsError(t *testing.T) {
 
 	// Create callbacks with after agent error.
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		return nil, errors.New("after callback failed")
 	})
 
@@ -2081,7 +2081,7 @@ func TestGraphAgent_AfterCallbackReturnsError(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-after-err",
 		AgentName:    "test-after-err",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	events, err := ga.Run(context.Background(), inv)
@@ -2131,7 +2131,7 @@ func TestGraphAgent_AfterCallbackReceivesExecutionError(t *testing.T) {
 		ctx context.Context,
 		inv *agent.Invocation,
 		err error,
-	) (*model.Response, error) {
+	) (*compat.Response, error) {
 		callbackErr = err
 		return nil, nil
 	})
@@ -2146,7 +2146,7 @@ func TestGraphAgent_AfterCallbackReceivesExecutionError(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-after-exec-err",
 		AgentName:    "test-after-exec-err",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	events, err := ga.Run(context.Background(), inv)
@@ -2182,7 +2182,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesAfterAgentResponse(t *t
 	)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -2218,7 +2218,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesOutputWithCaptureContex
 	)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -2258,7 +2258,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_WithCaptureContext_AfterCallback
 	)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -2288,7 +2288,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesVisibleResponseWithoutC
 	ga, err := New("test-hidden-completion-visible-response", g)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -2303,7 +2303,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesVisibleResponseWithoutC
 		}
 	}
 	require.NotNil(t, visibleEvent)
-	require.Equal(t, model.ObjectTypeChatCompletion, visibleEvent.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visibleEvent.Object)
 	require.Equal(t, "test-hidden-completion-visible-response", visibleEvent.Author)
 	require.Len(t, visibleEvent.Response.Choices, 1)
 	require.Equal(t, "child-final", visibleEvent.Response.Choices[0].Message.Content)
@@ -2325,7 +2325,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesStateOnlyVisibleRespons
 	ga, err := New("test-hidden-completion-state-only", g)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -2335,7 +2335,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_PreservesStateOnlyVisibleRespons
 	var visibleEvent *event.Event
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -2359,7 +2359,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_GraphEmitFinalModelResponses_Ded
 	ga, err := New("test-hidden-completion-dedup", g)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithGraphEmitFinalModelResponses(true),
@@ -2375,7 +2375,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_GraphEmitFinalModelResponses_Ded
 			require.Equal(t, "answer", evt.Response.Choices[0].Message.Content)
 			assistantResponses++
 		}
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -2402,7 +2402,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_GraphEmitFinalModelResponses_Ded
 	ga, err := New("test-hidden-completion-dedup-empty-id", g)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithGraphEmitFinalModelResponses(true),
@@ -2458,7 +2458,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_GraphEmitFinalModelResponses_Aft
 	)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithGraphEmitFinalModelResponses(true),
@@ -2480,7 +2480,7 @@ func TestGraphAgent_GraphTerminalMessagesOnly_DefaultCompatibility(
 ) {
 	ga := newSerialTerminalMessageGraphAgent(t, "", "")
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithGraphEmitFinalModelResponses(true),
 		)),
@@ -2524,7 +2524,7 @@ func TestGraphAgent_GraphTerminalMessagesOnly_HidesIntermediateAgentNodes(
 	require.True(t, ok)
 	require.True(t, isTerminalMessageNode(ga.graph, finalNode))
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithGraphEmitFinalModelResponses(true),
 			agent.WithGraphTerminalMessagesOnly(true),
@@ -2571,7 +2571,7 @@ func TestGraphAgent_GraphTerminalMessagesOnly_HidesIntermediateAgentNodes_NoBarr
 ) {
 	ga := newSerialTerminalMessageGraphAgent(t, "", "")
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableTracing(true),
 			agent.WithGraphEmitFinalModelResponses(true),
@@ -2635,7 +2635,7 @@ func TestGraphAgent_GraphTerminalMessagesOnly_KeepsParallelTerminalNodes(
 	require.NoError(t, err)
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithGraphEmitFinalModelResponses(true),
 			agent.WithGraphTerminalMessagesOnly(true),
@@ -3019,9 +3019,9 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	nonTerminalAgentEvent := &event.Event{
 		FilterKey: "root/first/child",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("draft"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("draft"),
 			}},
 		},
 	}
@@ -3029,9 +3029,9 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	terminalAgentEvent := &event.Event{
 		FilterKey: "root/final",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -3039,10 +3039,10 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	nonTerminalLLMEvent := &event.Event{
 		Author: "draft_llm",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID: "draft-response",
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("draft"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("draft"),
 			}},
 		},
 	}
@@ -3050,10 +3050,10 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	terminalLLMEvent := &event.Event{
 		Author: "final_llm",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID: "final-response",
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -3061,10 +3061,10 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	unknownAuthorEvent := &event.Event{
 		Author: "external",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID: "external-response",
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -3074,9 +3074,9 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 
 	emptyResponseIDEvent := &event.Event{
 		Author: "final_llm",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -3094,9 +3094,9 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 	}
 	ambiguousScopeEvent := &event.Event{
 		FilterKey: "root/child/grand/leaf",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -3107,7 +3107,7 @@ func TestTerminalMessageFilterAllows(t *testing.T) {
 		"graph-agent",
 		event.WithObject(graph.ObjectTypeGraphExecution),
 	)
-	rawCompletion.Response = &model.Response{
+	rawCompletion.Response = &compat.Response{
 		Done:   true,
 		Object: graph.ObjectTypeGraphExecution,
 	}
@@ -3196,12 +3196,12 @@ func TestGraphAgent_DisableGraphCompletionEvent_WithAfterCallbackCustomResponse(
 	callbacks := agent.NewCallbacks()
 	callbacks.RegisterAfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 		return &agent.AfterAgentResult{
-			CustomResponse: &model.Response{
+			CustomResponse: &compat.Response{
 				Object: "after.custom",
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "after callback",
 					},
 				}},
@@ -3215,7 +3215,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_WithAfterCallbackCustomResponse(
 	)
 	require.NoError(t, err)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -3227,7 +3227,7 @@ func TestGraphAgent_DisableGraphCompletionEvent_WithAfterCallbackCustomResponse(
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
 		collected = append(collected, evt)
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -3247,7 +3247,7 @@ func TestGraphAgent_BarrierWaitsForCompletion(t *testing.T) {
 
 	schema := graph.NewStateSchema().
 		AddField(graph.StateKeyMessages, graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 	g, err := graph.NewStateGraph(schema).
@@ -3360,7 +3360,7 @@ func TestGraphAgent_RunWithBarrierEmitError(t *testing.T) {
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].Response)
 	require.NotNil(t, events[0].Response.Error)
-	require.Equal(t, model.ErrorTypeFlowError, events[0].Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, events[0].Response.Error.Type)
 	require.Contains(t, events[0].Response.Error.Message, "add notice channel")
 }
 
@@ -3598,8 +3598,8 @@ func TestRecordTraceEvent(t *testing.T) {
 			&trackerErr,
 		)
 	}
-	newUsage := func() *model.Usage {
-		return &model.Usage{
+	newUsage := func() *compat.Usage {
+		return &compat.Usage{
 			PromptTokens:     1,
 			CompletionTokens: 2,
 			TotalTokens:      3,
@@ -3629,11 +3629,11 @@ func TestRecordTraceEvent(t *testing.T) {
 		{
 			name: "tracks partial response without updating final event",
 			buildEvent: func() *event.Event {
-				return event.NewResponseEvent("inv", "graph-agent", &model.Response{
+				return event.NewResponseEvent("inv", "graph-agent", &compat.Response{
 					IsPartial: true,
-					Choices: []model.Choice{{
-						Delta: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "chunk",
 						},
 					}},
@@ -3647,7 +3647,7 @@ func TestRecordTraceEvent(t *testing.T) {
 		{
 			name: "ignores invalid non terminal response",
 			buildEvent: func() *event.Event {
-				return event.NewResponseEvent("inv", "graph-agent", &model.Response{
+				return event.NewResponseEvent("inv", "graph-agent", &compat.Response{
 					Usage: newUsage(),
 				})
 			},
@@ -3656,7 +3656,7 @@ func TestRecordTraceEvent(t *testing.T) {
 		{
 			name: "records graph execution completion response",
 			buildEvent: func() *event.Event {
-				return event.NewResponseEvent("inv", "graph-agent", &model.Response{
+				return event.NewResponseEvent("inv", "graph-agent", &compat.Response{
 					Object: graph.ObjectTypeGraphExecution,
 					Done:   true,
 					Usage:  newUsage(),
@@ -3672,7 +3672,7 @@ func TestRecordTraceEvent(t *testing.T) {
 		{
 			name: "records error response",
 			buildEvent: func() *event.Event {
-				evt := event.NewErrorEvent("inv", "graph-agent", model.ErrorTypeFlowError, "boom")
+				evt := event.NewErrorEvent("inv", "graph-agent", compat.ErrorTypeFlowError, "boom")
 				evt.Usage = newUsage()
 				return evt
 			},
@@ -3689,9 +3689,9 @@ func TestRecordTraceEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tracker := newTracker()
 			tokenUsage := &itelemetry.TokenUsage{}
-			initialFullRespEvent := event.NewResponseEvent("inv", "graph-agent", &model.Response{
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("existing"),
+			initialFullRespEvent := event.NewResponseEvent("inv", "graph-agent", &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("existing"),
 				}},
 			})
 
@@ -3749,7 +3749,7 @@ func TestGraphAgent_RunWithBarrier_EmitEventError(t *testing.T) {
 	inv := &agent.Invocation{
 		AgentName:    "emit-error-test",
 		InvocationID: "inv-emit-error",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	// Create output channel with buffer size 0 to make EmitEvent block
@@ -3807,7 +3807,7 @@ func TestGraphAgent_RunWithBarrier_EmitEventError(t *testing.T) {
 	}
 	require.NotNil(t, errorTypeAttr, "expected error type attribute to be set")
 	errorTypeValue := errorTypeAttr.Value.AsString()
-	require.Equal(t, model.ErrorTypeFlowError, errorTypeValue, "expected error type to be FlowError")
+	require.Equal(t, compat.ErrorTypeFlowError, errorTypeValue, "expected error type to be FlowError")
 }
 
 func TestGraphAgent_Run_RecordsStreamTraceAttribute(t *testing.T) {
@@ -3870,7 +3870,7 @@ func TestGraphAgent_Run_RecordsStreamTraceAttribute(t *testing.T) {
 			invocation := &agent.Invocation{
 				InvocationID: "test-invocation",
 				AgentName:    "stream-trace-test",
-				Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+				Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 				RunOptions: agent.RunOptions{
 					Stream: tc.stream,
 				},
@@ -3921,12 +3921,12 @@ func TestGraphAgent_GraphTerminalMessagesOnly_TracksHiddenNodeUsage(
 	}()
 	trace.Tracer = tp.Tracer("graph-terminal-usage-test")
 
-	firstUsage := model.Usage{
+	firstUsage := compat.Usage{
 		PromptTokens:     2,
 		CompletionTokens: 3,
 		TotalTokens:      5,
 	}
-	finalUsage := model.Usage{
+	finalUsage := compat.Usage{
 		PromptTokens:     5,
 		CompletionTokens: 7,
 		TotalTokens:      12,
@@ -3938,7 +3938,7 @@ func TestGraphAgent_GraphTerminalMessagesOnly_TracksHiddenNodeUsage(
 	)
 
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("test")),
+		agent.WithInvocationMessage(compat.NewUserMessage("test")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithGraphEmitFinalModelResponses(true),
 			agent.WithGraphTerminalMessagesOnly(true),
@@ -3995,10 +3995,10 @@ func TestGraphAgent_Run_TraceAfterInvokeAgent(t *testing.T) {
 
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-			return &model.Response{
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("graph result"),
+		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+			return &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("graph result"),
 				}},
 			}, nil
 		})
@@ -4012,7 +4012,7 @@ func TestGraphAgent_Run_TraceAfterInvokeAgent(t *testing.T) {
 	stream := true
 	eventChan, err := ga.Run(ctx, &agent.Invocation{
 		InvocationID: "inv-trace-after",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 		RunOptions:   agent.RunOptions{Stream: &stream},
 	})
 	require.NoError(t, err)
@@ -4128,7 +4128,7 @@ func TestGraphAgent_Run_ExecutionTraceCapturesComplexGraph(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello graph trace"),
+		compat.NewUserMessage("hello graph trace"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -4312,17 +4312,17 @@ func TestResolveGraphAgentErrorType(t *testing.T) {
 			fullRespEvent: event.NewResponseEvent(
 				"inv",
 				"graph-agent",
-				&model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}}},
+				&compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}}},
 			),
-			operationErrorType: model.ErrorTypeFlowError,
-			want:               model.ErrorTypeFlowError,
+			operationErrorType: compat.ErrorTypeFlowError,
+			want:               compat.ErrorTypeFlowError,
 		},
 		{
 			name: "final success clears prior response errors",
 			fullRespEvent: event.NewResponseEvent(
 				"inv",
 				"graph-agent",
-				&model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}}},
+				&compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}}},
 			),
 			want: "",
 		},
@@ -4341,15 +4341,15 @@ func TestResolveGraphAgentErrorType(t *testing.T) {
 			fullRespEvent: event.NewResponseEvent(
 				"inv",
 				"graph-agent",
-				&model.Response{
-					Error: &model.ResponseError{
-						Type:    model.ErrorTypeFlowError,
+				&compat.Response{
+					Error: &compat.ResponseError{
+						Type:    compat.ErrorTypeFlowError,
 						Code:    &code,
 						Message: "graph failed",
 					},
 				},
 			),
-			want: model.ErrorTypeFlowError + "_70002",
+			want: compat.ErrorTypeFlowError + "_70002",
 		},
 	}
 
@@ -4393,7 +4393,7 @@ func newUsageChildGraphAgent(
 	t *testing.T,
 	name string,
 	final string,
-	usage model.Usage,
+	usage compat.Usage,
 ) *GraphAgent {
 	t.Helper()
 
@@ -4459,8 +4459,8 @@ func newSerialTerminalMessageGraphAgent(
 
 func newSerialUsageTerminalMessageGraphAgent(
 	t *testing.T,
-	firstUsage model.Usage,
-	finalUsage model.Usage,
+	firstUsage compat.Usage,
+	finalUsage compat.Usage,
 ) *GraphAgent {
 	t.Helper()
 

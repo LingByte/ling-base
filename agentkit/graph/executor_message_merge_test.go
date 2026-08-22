@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,10 +27,10 @@ func TestMessagesReducerAppliesMessageOps(t *testing.T) {
 
 	sg.
 		AddNode("seed", func(ctx context.Context, s State) (any, error) {
-			return State{StateKeyMessages: []model.Message{model.NewUserMessage("u")}}, nil
+			return State{StateKeyMessages: []compat.Message{compat.NewUserMessage("u")}}, nil
 		}).
 		AddNode("op", func(ctx context.Context, s State) (any, error) {
-			return State{StateKeyMessages: AppendMessages{Items: []model.Message{model.NewAssistantMessage("a")}}, StateKeyLastResponse: "a"}, nil
+			return State{StateKeyMessages: AppendMessages{Items: []compat.Message{compat.NewAssistantMessage("a")}}, StateKeyLastResponse: "a"}, nil
 		}).
 		SetEntryPoint("seed").
 		AddEdge("seed", "op").
@@ -68,14 +68,14 @@ func TestAddToolsConditionalEdgesRoutesToTools(t *testing.T) {
 	sg.
 		AddNode("llm", func(ctx context.Context, s State) (any, error) {
 			// Simulate an assistant message containing a tool call
-			msgs := []model.Message{
-				model.NewUserMessage("hi"),
+			msgs := []compat.Message{
+				compat.NewUserMessage("hi"),
 				{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							Type:     "function",
-							Function: model.FunctionDefinitionParam{Name: "dummy"},
+							Function: compat.FunctionDefinitionParam{Name: "dummy"},
 							ID:       "call-1",
 						},
 					},

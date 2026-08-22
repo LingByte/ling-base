@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 )
 
@@ -52,10 +52,10 @@ func TestDefaultA2AMessageToAgentMessageConvertsAllPartKinds(t *testing.T) {
 	if len(converted.ContentParts) != 6 {
 		t.Fatalf("content part count = %d, want 6", len(converted.ContentParts))
 	}
-	if converted.ContentParts[0].Type != model.ContentTypeImage ||
-		converted.ContentParts[1].Type != model.ContentTypeAudio ||
-		converted.ContentParts[2].Type != model.ContentTypeFile ||
-		converted.ContentParts[3].Type != model.ContentTypeImage {
+	if converted.ContentParts[0].Type != compat.ContentTypeImage ||
+		converted.ContentParts[1].Type != compat.ContentTypeAudio ||
+		converted.ContentParts[2].Type != compat.ContentTypeFile ||
+		converted.ContentParts[3].Type != compat.ContentTypeImage {
 		t.Fatalf("file content types = %#v", converted.ContentParts[:4])
 	}
 	if got := *converted.ContentParts[4].Text; got != "plain" {
@@ -93,9 +93,9 @@ func TestDefaultEventConverterMetadataAndFiltering(t *testing.T) {
 	evt := event.New("invocation", "agent",
 		event.WithTag("tag"),
 		event.WithStateDelta(map[string][]byte{"key": []byte(`"value"`)}),
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:     "response",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 		}),
 	)
 	metadata := converter.buildMessageMetadata(evt)
@@ -142,17 +142,17 @@ func TestDefaultEventConverterMetadataAndFiltering(t *testing.T) {
 		!converter.shouldEmitEvent(&event.Event{}) {
 		t.Fatal("events without response should be emitted")
 	}
-	if !converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	if !converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 	}))) {
 		t.Fatal("non-graph event should be emitted")
 	}
-	if converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&model.Response{
+	if converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&compat.Response{
 		Object: "graph.node.start",
 	}))) {
 		t.Fatal("graph.node.start should be filtered by default")
 	}
-	if !converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&model.Response{
+	if !converter.shouldEmitEvent(event.New("inv", "agent", event.WithResponse(&compat.Response{
 		Object: graph.ObjectTypeGraphExecution,
 	}))) {
 		t.Fatal("graph.execution should be emitted by default")
@@ -177,10 +177,10 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 	t.Run("terminal error", func(t *testing.T) {
 		result, err := converter.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{
+			event.New("inv", "agent", event.WithResponse(&compat.Response{
 				Done:   true,
-				Object: model.ObjectTypeError,
-				Error:  &model.ResponseError{Message: "failed"},
+				Object: compat.ObjectTypeError,
+				Error:  &compat.ResponseError{Message: "failed"},
 			})),
 			options,
 		)
@@ -194,7 +194,7 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 			context.Background(),
 			event.New("inv", "agent",
 				event.WithTag("state"),
-				event.WithResponse(&model.Response{ID: "response"}),
+				event.WithResponse(&compat.Response{ID: "response"}),
 			),
 			options,
 		)
@@ -212,7 +212,7 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 	t.Run("response ID only is skipped", func(t *testing.T) {
 		result, err := converter.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{ID: "response"})),
+			event.New("inv", "agent", event.WithResponse(&compat.Response{ID: "response"})),
 			options,
 		)
 		if err != nil || result != nil {
@@ -232,7 +232,7 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 		}}
 		result, err := mapped.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{ID: "response"})),
+			event.New("inv", "agent", event.WithResponse(&compat.Response{ID: "response"})),
 			options,
 		)
 		if err != nil {
@@ -252,8 +252,8 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 		}}
 		if _, err := failing.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{
-				Choices: []model.Choice{{Delta: model.Message{Content: "text"}}},
+			event.New("inv", "agent", event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{{Delta: compat.Message{Content: "text"}}},
 			})),
 			options,
 		); !errors.Is(err, wantErr) {
@@ -264,10 +264,10 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 	t.Run("text and reasoning", func(t *testing.T) {
 		result, err := converter.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{
+			event.New("inv", "agent", event.WithResponse(&compat.Response{
 				ID:        "response",
 				IsPartial: true,
-				Choices: []model.Choice{{Delta: model.Message{
+				Choices: []compat.Choice{{Delta: compat.Message{
 					Content:          "answer",
 					ReasoningContent: "thinking",
 				}}},
@@ -288,9 +288,9 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 	t.Run("final message", func(t *testing.T) {
 		result, err := converter.ConvertStreamingToA2AMessage(
 			context.Background(),
-			event.New("inv", "agent", event.WithResponse(&model.Response{
+			event.New("inv", "agent", event.WithResponse(&compat.Response{
 				ID: "response",
-				Choices: []model.Choice{{Message: model.Message{
+				Choices: []compat.Choice{{Message: compat.Message{
 					Content: "final",
 				}}},
 			})),
@@ -309,37 +309,37 @@ func TestDefaultEventConverterStreamingBranches(t *testing.T) {
 
 func TestDefaultEventConverterForwardsContentParts(t *testing.T) {
 	text := "content part"
-	contentParts := []model.ContentPart{
-		{Type: model.ContentTypeText, Text: &text},
-		{Type: model.ContentTypeImage, Image: &model.Image{
+	contentParts := []compat.ContentPart{
+		{Type: compat.ContentTypeText, Text: &text},
+		{Type: compat.ContentTypeImage, Image: &compat.Image{
 			Data: []byte("image"), Format: "image/png",
 		}},
-		{Type: model.ContentTypeImage, Image: &model.Image{
+		{Type: compat.ContentTypeImage, Image: &compat.Image{
 			URL: "https://example.com/image.png", Format: "image/png",
 		}},
-		{Type: model.ContentTypeAudio, Audio: &model.Audio{
+		{Type: compat.ContentTypeAudio, Audio: &compat.Audio{
 			Data: []byte("audio"), Format: "audio/wav",
 		}},
-		{Type: model.ContentTypeFile, File: &model.File{
+		{Type: compat.ContentTypeFile, File: &compat.File{
 			Name: "raw.pdf", Data: []byte("file"), MimeType: "application/pdf",
 		}},
-		{Type: model.ContentTypeFile, File: &model.File{
+		{Type: compat.ContentTypeFile, File: &compat.File{
 			Name: "url.pdf", URL: "https://example.com/url.pdf", MimeType: "application/pdf",
 		}},
 	}
 	for _, partial := range []bool{false, true} {
 		t.Run(map[bool]string{false: "message-send", true: "message-stream"}[partial], func(t *testing.T) {
-			message := model.Message{ContentParts: contentParts}
-			choice := model.Choice{Message: message}
+			message := compat.Message{ContentParts: contentParts}
+			choice := compat.Choice{Message: message}
 			if partial {
-				choice = model.Choice{Delta: message}
+				choice = compat.Choice{Delta: message}
 			}
 			result, err := (&defaultEventToA2AMessage{}).ConvertStreamingToA2AMessage(
 				context.Background(),
-				event.New("inv", "agent", event.WithResponse(&model.Response{
+				event.New("inv", "agent", event.WithResponse(&compat.Response{
 					ID:        "response",
 					IsPartial: partial,
-					Choices:   []model.Choice{choice},
+					Choices:   []compat.Choice{choice},
 				})),
 				EventToA2AStreamingOptions{CtxID: "context", TaskID: "task"},
 			)
@@ -371,26 +371,26 @@ func TestDefaultEventConverterToolAndCodeEvents(t *testing.T) {
 	options := EventToA2AStreamingOptions{CtxID: "context", TaskID: "task"}
 	toolResultText := "content-parts-only result"
 
-	toolEvent := event.New("inv", "agent", event.WithResponse(&model.Response{
+	toolEvent := event.New("inv", "agent", event.WithResponse(&compat.Response{
 		ID: "tool-response",
-		Choices: []model.Choice{
-			{Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{
+			{Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "lookup",
 						Arguments: []byte(`{"city":"Shenzhen"}`),
 					},
 				}},
 			}},
-			{Message: model.Message{
-				Role:     model.RoleTool,
+			{Message: compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   "call",
 				ToolName: "lookup",
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &toolResultText,
 				}},
 			}},
@@ -414,7 +414,7 @@ func TestDefaultEventConverterToolAndCodeEvents(t *testing.T) {
 	if !ok {
 		t.Fatalf("tool response data = %#v", message.Parts[1].DataContent())
 	}
-	contentParts, ok := responseData[ia2a.ToolCallFieldContentParts].([]model.ContentPart)
+	contentParts, ok := responseData[ia2a.ToolCallFieldContentParts].([]compat.ContentPart)
 	if !ok || len(contentParts) != 1 || contentParts[0].Text == nil ||
 		*contentParts[0].Text != toolResultText {
 		t.Fatalf("tool response content parts = %#v", responseData)
@@ -422,22 +422,22 @@ func TestDefaultEventConverterToolAndCodeEvents(t *testing.T) {
 	if _, exists := responseData[ia2a.ToolCallFieldResponse]; exists {
 		t.Fatalf("empty tool response content was serialized: %#v", responseData)
 	}
-	deltaToolEvent := event.New("inv", "agent", event.WithResponse(&model.Response{
+	deltaToolEvent := event.New("inv", "agent", event.WithResponse(&compat.Response{
 		ID:        "delta-tool-response",
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Delta: model.Message{
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{
+			{Delta: compat.Message{
+				ToolCalls: []compat.ToolCall{{
 					ID:   "delta-call",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "lookup",
 						Arguments: []byte(`{"city":"Shenzhen"}`),
 					},
 				}},
 			}},
-			{Delta: model.Message{
-				Role:     model.RoleTool,
+			{Delta: compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   "delta-call",
 				ToolName: "lookup",
 				Content:  `{"temperature":30}`,
@@ -478,10 +478,10 @@ func TestDefaultEventConverterToolAndCodeEvents(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			codeEvent := event.New("inv", "agent",
 				event.WithTag(test.tag),
-				event.WithResponse(&model.Response{
+				event.WithResponse(&compat.Response{
 					ID:     "code-response",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{{Message: model.Message{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{{Message: compat.Message{
 						Content: "print(1)",
 					}}},
 				}),
@@ -508,15 +508,15 @@ func TestDefaultEventConverterToolAndCodeEvents(t *testing.T) {
 
 func TestDefaultEventConverterInternalEmptyBranches(t *testing.T) {
 	converter := &defaultEventToA2AMessage{}
-	empty := event.New("inv", "agent", event.WithResponse(&model.Response{}))
+	empty := event.New("inv", "agent", event.WithResponse(&compat.Response{}))
 	if result, err := converter.convertToolCallToA2AMessage(empty); err != nil || result != nil {
 		t.Fatalf("empty tool result = %#v, err = %v", result, err)
 	}
 	if result, err := converter.convertCodeExecutionToA2AMessage(empty); err != nil || result != nil {
 		t.Fatalf("empty code result = %#v, err = %v", result, err)
 	}
-	choice := event.New("inv", "agent", event.WithResponse(&model.Response{
-		Choices: []model.Choice{{Message: model.Message{}}},
+	choice := event.New("inv", "agent", event.WithResponse(&compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{}}},
 	}))
 	if result, err := converter.convertToolCallToA2AMessage(choice); err != nil || result != nil {
 		t.Fatalf("contentless tool result = %#v, err = %v", result, err)
@@ -534,7 +534,7 @@ func TestConvertFilePartResolution(t *testing.T) {
 	tests := []struct {
 		name     string
 		part     *protocol.Part
-		wantType model.ContentType
+		wantType compat.ContentType
 	}{
 		{
 			name: "metadata image wins",
@@ -545,11 +545,11 @@ func TestConvertFilePartResolution(t *testing.T) {
 				}
 				return part
 			}(),
-			wantType: model.ContentTypeImage,
+			wantType: compat.ContentTypeImage,
 		},
-		{name: "mime audio", part: protocol.NewRawPart([]byte("audio"), "audio/wav"), wantType: model.ContentTypeAudio},
-		{name: "short image format", part: protocol.NewRawPart([]byte("image"), "png"), wantType: model.ContentTypeImage},
-		{name: "short audio format", part: protocol.NewRawPart([]byte("audio"), "mp3"), wantType: model.ContentTypeAudio},
+		{name: "mime audio", part: protocol.NewRawPart([]byte("audio"), "audio/wav"), wantType: compat.ContentTypeAudio},
+		{name: "short image format", part: protocol.NewRawPart([]byte("image"), "png"), wantType: compat.ContentTypeImage},
+		{name: "short audio format", part: protocol.NewRawPart([]byte("audio"), "mp3"), wantType: compat.ContentTypeAudio},
 		{
 			name: "legacy filename",
 			part: func() *protocol.Part {
@@ -557,11 +557,11 @@ func TestConvertFilePartResolution(t *testing.T) {
 				part.Filename = ia2a.FilePartMetadataContentTypeAudio
 				return part
 			}(),
-			wantType: model.ContentTypeAudio,
+			wantType: compat.ContentTypeAudio,
 		},
-		{name: "generic raw", part: protocol.NewRawPart([]byte("file"), "application/pdf"), wantType: model.ContentTypeFile},
-		{name: "image URL", part: protocol.NewURLPart("https://example.com/image", "image/png"), wantType: model.ContentTypeImage},
-		{name: "audio URL uses file", part: protocol.NewURLPart("https://example.com/audio", "audio/wav"), wantType: model.ContentTypeFile},
+		{name: "generic raw", part: protocol.NewRawPart([]byte("file"), "application/pdf"), wantType: compat.ContentTypeFile},
+		{name: "image URL", part: protocol.NewURLPart("https://example.com/image", "image/png"), wantType: compat.ContentTypeImage},
+		{name: "audio URL uses file", part: protocol.NewURLPart("https://example.com/audio", "audio/wav"), wantType: compat.ContentTypeFile},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -570,7 +570,7 @@ func TestConvertFilePartResolution(t *testing.T) {
 				t.Fatalf("converted parts = %#v, want %s", parts, test.wantType)
 			}
 			if _, ok := test.part.Content.(protocol.URL); ok &&
-				parts[0].Type == model.ContentTypeFile &&
+				parts[0].Type == compat.ContentTypeFile &&
 				(parts[0].File == nil || parts[0].File.URL != test.part.URLContent()) {
 				t.Fatalf("converted URL part = %#v", parts[0])
 			}

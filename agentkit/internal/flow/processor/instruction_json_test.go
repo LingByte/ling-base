@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -61,13 +61,13 @@ func TestInstructionProc_JSONInjection_StructuredOutput(t *testing.T) {
 		WithStructuredOutputSchema(schema),
 	)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
 	inv := &agent.Invocation{AgentName: "a", InvocationID: "id-1"}
 	ch := make(chan *event.Event, 1)
 
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
-	if len(req.Messages) == 0 || req.Messages[0].Role != model.RoleSystem {
+	if len(req.Messages) == 0 || req.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("expected a system message to be created")
 	}
 	content := req.Messages[0].Content
@@ -95,13 +95,13 @@ func TestInstructionProc_JSONInjection_StructuredOutput_AllowsTools(
 		WithStructuredOutputSchema(schema),
 	)
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
 	}
 	inv := &agent.Invocation{
 		AgentName:    "a",
 		InvocationID: "id-1",
-		Message:      model.NewUserMessage("hi"),
+		Message:      compat.NewUserMessage("hi"),
 		Agent: &instructionTestAgent{
 			tools: []tool.Tool{
 				instructionTestTool{
@@ -114,7 +114,7 @@ func TestInstructionProc_JSONInjection_StructuredOutput_AllowsTools(
 
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
-	if len(req.Messages) == 0 || req.Messages[0].Role != model.RoleSystem {
+	if len(req.Messages) == 0 || req.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("expected a system message to be created")
 	}
 	content := req.Messages[0].Content
@@ -143,13 +143,13 @@ func TestInstructionProc_JSONInjection_OutputSchema(t *testing.T) {
 		WithOutputSchema(schema),
 	)
 
-	req := &model.Request{Messages: []model.Message{}}
+	req := &compat.Request{Messages: []compat.Message{}}
 	inv := &agent.Invocation{AgentName: "a", InvocationID: "id-2"}
 	ch := make(chan *event.Event, 1)
 
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
-	if len(req.Messages) == 0 || req.Messages[0].Role != model.RoleSystem {
+	if len(req.Messages) == 0 || req.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("expected a system message to be created")
 	}
 	content := req.Messages[0].Content
@@ -181,13 +181,13 @@ func TestInstructionProc_JSONInjection_UsesInvocationStructuredOutput(t *testing
 		WithStructuredOutputSchema(staticSchema),
 	)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
 	inv := &agent.Invocation{
 		AgentName:    "a",
 		InvocationID: "id-3",
-		StructuredOutput: &model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		StructuredOutput: &compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Name:   "run_output",
 				Schema: runSchema,
 			},
@@ -197,7 +197,7 @@ func TestInstructionProc_JSONInjection_UsesInvocationStructuredOutput(t *testing
 
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
-	if len(req.Messages) == 0 || req.Messages[0].Role != model.RoleSystem {
+	if len(req.Messages) == 0 || req.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("expected a system message to be created")
 	}
 	content := req.Messages[0].Content
@@ -228,7 +228,7 @@ func TestInstructionProc_JSONInjection_AppendsSchemaAfterPlaceholderRendering(
 		WithOutputSchema(schema),
 	)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
 	inv := &agent.Invocation{
 		AgentName:    "a",
 		InvocationID: "id-4",
@@ -240,7 +240,7 @@ func TestInstructionProc_JSONInjection_AppendsSchemaAfterPlaceholderRendering(
 
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
-	if len(req.Messages) == 0 || req.Messages[0].Role != model.RoleSystem {
+	if len(req.Messages) == 0 || req.Messages[0].Role != compat.RoleSystem {
 		t.Fatalf("expected a system message to be created")
 	}
 	content := req.Messages[0].Content

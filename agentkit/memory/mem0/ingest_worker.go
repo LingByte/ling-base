@@ -19,7 +19,7 @@ import (
 
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -28,7 +28,7 @@ type ingestJob struct {
 	UserKey  memory.UserKey
 	Session  *session.Session
 	LatestTs time.Time
-	Messages []model.Message
+	Messages []compat.Message
 	Options  ingestOptions
 }
 
@@ -171,7 +171,7 @@ func (w *ingestWorker) ingest(
 	ctx context.Context,
 	userKey memory.UserKey,
 	_ *session.Session,
-	messages []model.Message,
+	messages []compat.Message,
 	reqOpts ingestOptions,
 ) error {
 	apiMsgs := make([]apiMessage, 0, len(messages))

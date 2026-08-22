@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	"github.com/LingByte/ling-base/agentkit/internal/toolsurface"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/transfer"
@@ -702,7 +702,7 @@ func (at *Tool) buildDynamicSubInvocation(
 		return nil, nil, nil, err
 	}
 
-	message := model.NewUserMessage(spec.request)
+	message := compat.NewUserMessage(spec.request)
 	childKey := at.buildDynamicChildFilterKey(parentInv, baseAgent)
 	nodeID := dynamicSurfaceNodeID(at.name)
 	subInv := parentInv.Clone(
@@ -1060,7 +1060,7 @@ func (at *Tool) selectDynamicSkills(
 // the code-defined boundary.
 func (at *Tool) dynamicChildInvocationOptions(
 	baseAgent agent.Agent,
-	message model.Message,
+	message compat.Message,
 	childKey string,
 	nodeID string,
 	patch agent.SurfacePatch,

@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/parallelagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -38,15 +38,15 @@ func (a *rawTerminalRecoveryAgent) Run(
 	ch := make(chan *event.Event, 2)
 	go func() {
 		defer close(ch)
-		ch <- event.NewErrorEvent("", a.name, model.ErrorTypeFlowError, "child boom")
+		ch <- event.NewErrorEvent("", a.name, compat.ErrorTypeFlowError, "child boom")
 		ch <- event.NewResponseEvent(
 			"",
 			a.name,
-			&model.Response{
-				Object: model.ObjectTypeChatCompletion,
+			&compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("recovered"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("recovered"),
 				}},
 			},
 			event.WithStateDelta(map[string][]byte{
@@ -137,7 +137,7 @@ func TestSubgraph_DisableGraphCompletionEvent_PreservesWrappedGraphAgentOutput(t
 	require.NoError(t, err)
 
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage(userInput)),
+		agent.WithInvocationMessage(compat.NewUserMessage(userInput)),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -187,7 +187,7 @@ func TestSubgraph_DisableGraphCompletionEvent_PreservesNestedCycleEscalation(t *
 		cycleagent.WithMaxIterations(2),
 		cycleagent.WithEscalationFunc(func(evt *event.Event) bool {
 			return evt != nil &&
-				evt.Object == model.ObjectTypeChatCompletion &&
+				evt.Object == compat.ObjectTypeChatCompletion &&
 				len(evt.StateDelta) > 0
 		}),
 	)
@@ -224,7 +224,7 @@ func TestSubgraph_DisableGraphCompletionEvent_PreservesNestedCycleEscalation(t *
 	require.NoError(t, err)
 
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage(userInput)),
+		agent.WithInvocationMessage(compat.NewUserMessage(userInput)),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -237,7 +237,7 @@ func TestSubgraph_DisableGraphCompletionEvent_PreservesNestedCycleEscalation(t *
 	for evt := range eventCh {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
 		if evt != nil &&
-			evt.Object == model.ObjectTypeChatCompletion &&
+			evt.Object == compat.ObjectTypeChatCompletion &&
 			len(evt.StateDelta) > 0 &&
 			evt.StateDelta[childValueKey] != nil {
 			childVisibleCompletionCount++
@@ -287,7 +287,7 @@ func TestSubgraph_RawTerminalSuccessClearsPriorTerminalError(t *testing.T) {
 
 	eventCh, err := parentAgent.Run(
 		context.Background(),
-		agent.NewInvocation(agent.WithInvocationMessage(model.NewUserMessage("hello"))),
+		agent.NewInvocation(agent.WithInvocationMessage(compat.NewUserMessage("hello"))),
 	)
 	require.NoError(t, err)
 
@@ -356,7 +356,7 @@ func TestSubgraph_DisableGraphCompletionEvent_DropsStaleOutputAfterChildAfterCal
 	require.NoError(t, err)
 
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -442,7 +442,7 @@ func TestSubgraph_DefaultCompatibility_PreservesOutputAfterChildAfterCallbackErr
 
 	eventCh, err := parentAgent.Run(
 		context.Background(),
-		agent.NewInvocation(agent.WithInvocationMessage(model.NewUserMessage("hello"))),
+		agent.NewInvocation(agent.WithInvocationMessage(compat.NewUserMessage("hello"))),
 	)
 	require.NoError(t, err)
 
@@ -498,7 +498,7 @@ func TestSubgraph_DisableGraphExecutorEvents_ChildFailureStopsParentGraphWhenEna
 	require.NoError(t, err)
 
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithDisableGraphExecutorEvents(true),
@@ -560,7 +560,7 @@ func TestSubgraph_DisableGraphCompletionEvent_ChildFailureKeepsLegacyCompatibili
 	)
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		)),
@@ -618,7 +618,7 @@ func TestSubgraph_DisableGraphCompletionEvent_ChildFailureStopsParentGraphWhenEn
 	)
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithPropagateChildAgentErrors(true),
@@ -691,7 +691,7 @@ func TestSubgraph_DisableGraphCompletionEvent_ParallelChildFailureStopsParentGra
 	)
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 			agent.WithPropagateChildAgentErrors(true),
@@ -738,11 +738,11 @@ func TestSubgraph_DisableGraphExecutorEvents_PreservesChildAfterCallbackCustomRe
 			return nil, nil
 		}
 		return &agent.AfterAgentResult{
-			CustomResponse: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
+			CustomResponse: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("recovered"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("recovered"),
 				}},
 			},
 		}, nil
@@ -765,7 +765,7 @@ func TestSubgraph_DisableGraphExecutorEvents_PreservesChildAfterCallbackCustomRe
 	)
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithDisableGraphExecutorEvents(true),
 		)),

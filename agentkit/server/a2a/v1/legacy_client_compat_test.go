@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	legacyclient "trpc.group/trpc-go/trpc-a2a-go/client"
 	legacyprotocol "trpc.group/trpc-go/trpc-a2a-go/protocol"
@@ -400,7 +400,7 @@ func (r *legacyRecordingRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.userIDs <- userID
@@ -420,7 +420,7 @@ func (r *legacyGateRunner) Run(
 	ctx context.Context,
 	_ string,
 	_ string,
-	_ model.Message,
+	_ compat.Message,
 	_ ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	out := make(chan *event.Event)
@@ -454,17 +454,17 @@ func newLegacyImmediateRunner(text string) runner.Runner {
 func legacyResponseEvents(text string) []*event.Event {
 	return []*event.Event{
 		{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:   "legacy-response",
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(text),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(text),
 				}},
 			},
 		},
 		{
-			Response: &model.Response{
-				Object: model.ObjectTypeRunnerCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 		},

@@ -33,7 +33,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	"github.com/LingByte/ling-base/agentkit/internal/state/livesession"
 	"github.com/LingByte/ling-base/agentkit/internal/teamtrace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
@@ -82,7 +82,7 @@ type graphWrapperAgent struct {
 func newGraphAgentWithAfterCallback(
 	t *testing.T,
 	state graph.State,
-	customResponse *model.Response,
+	customResponse *compat.Response,
 ) *graphagent.GraphAgent {
 	t.Helper()
 	sg := graph.NewStateGraph(graph.MessagesStateSchema())
@@ -123,14 +123,14 @@ func newGraphAgentWithAfterCallbackError(
 
 func (m *fixedResponseModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	go func() {
 		defer close(ch)
-		ch <- &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage(m.response),
+		ch <- &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage(m.response),
 			}},
 			Done: true,
 		}
@@ -138,8 +138,8 @@ func (m *fixedResponseModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *fixedResponseModel) Info() model.Info {
-	return model.Info{Name: "fixed-response-model"}
+func (m *fixedResponseModel) Info() compat.Info {
+	return compat.Info{Name: "fixed-response-model"}
 }
 
 func (a *visibleCompletionThenAfterAgent) Run(
@@ -168,11 +168,11 @@ func (a *visibleCompletionThenAfterAgent) Run(
 			return
 		}
 		ch <- visibleCompletion
-		ch <- event.NewResponseEvent(invocationID, author, &model.Response{
+		ch <- event.NewResponseEvent(invocationID, author, &compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("after callback"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("after callback"),
 			}},
 		})
 	}()
@@ -194,11 +194,11 @@ func (a *assistantThenVisibleCompletionAgent) Run(
 				author = invocation.AgentName
 			}
 		}
-		assistantEvent := event.NewResponseEvent(invocationID, author, &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		assistantEvent := event.NewResponseEvent(invocationID, author, &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("draft"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("draft"),
 			}},
 		})
 		rawCompletion := graph.NewGraphCompletionEvent(
@@ -232,12 +232,12 @@ func (a *assistantThenVisibleStateOnlyCompletionAgent) Run(
 				author = invocation.AgentName
 			}
 		}
-		assistantEvent := event.NewResponseEvent(invocationID, author, &model.Response{
+		assistantEvent := event.NewResponseEvent(invocationID, author, &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("wrapped-final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			}},
 		})
 		rawCompletion := graph.NewGraphCompletionEvent(
@@ -272,12 +272,12 @@ func (a *assistantThenVisibleStateOnlyCompletionWithoutResponseIDAgent) Run(
 				author = invocation.AgentName
 			}
 		}
-		assistantEvent := event.NewResponseEvent(invocationID, author, &model.Response{
+		assistantEvent := event.NewResponseEvent(invocationID, author, &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("wrapped-final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			}},
 		})
 		rawCompletion := graph.NewGraphCompletionEvent(
@@ -427,10 +427,10 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 	eventChan := make(chan *event.Event, 1)
 
 	response := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.NewAssistantMessage("Hello from mock agent!"),
+					Message: compat.NewAssistantMessage("Hello from mock agent!"),
 				},
 			},
 		},
@@ -519,7 +519,7 @@ func (w *graphWrapperAgent) FindSubAgent(name string) agent.Agent {
 
 type toolSurfaceRecordingModel struct {
 	name    string
-	message model.Message
+	message compat.Message
 
 	mu       sync.Mutex
 	requests int
@@ -528,24 +528,24 @@ type toolSurfaceRecordingModel struct {
 
 func (m *toolSurfaceRecordingModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	_ = ctx
-	toolNames := make(map[string]bool, len(request.Tools))
-	for name := range request.Tools {
+	toolNames := make(map[string]bool, len(request.Tools.(map[string]tool.Tool)))
+	for name := range request.Tools.(map[string]tool.Tool) {
 		toolNames[name] = true
 	}
 	m.mu.Lock()
 	m.requests++
 	m.tools = append(m.tools, toolNames)
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	go func() {
 		defer close(ch)
-		ch <- &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		ch <- &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
 				Message: m.message,
 			}},
@@ -554,8 +554,8 @@ func (m *toolSurfaceRecordingModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *toolSurfaceRecordingModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *toolSurfaceRecordingModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *toolSurfaceRecordingModel) sawTool(name string) bool {
@@ -731,8 +731,8 @@ type resumeAwareToolLoopModel struct {
 
 func (m *resumeAwareToolLoopModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	_ = ctx
 	hasAssistantToolCall := false
 	hasToolResult := false
@@ -742,7 +742,7 @@ func (m *resumeAwareToolLoopModel) GenerateContent(
 				hasAssistantToolCall = true
 			}
 		}
-		if msg.Role == model.RoleTool &&
+		if msg.Role == compat.RoleTool &&
 			msg.ToolID == m.toolCallID &&
 			msg.ToolName == m.toolName {
 			hasToolResult = true
@@ -757,28 +757,28 @@ func (m *resumeAwareToolLoopModel) GenerateContent(
 	if hasToolResult && !hasAssistantToolCall {
 		return nil, fmt.Errorf("tool result for %s is missing its assistant tool call history", m.toolName)
 	}
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	go func() {
 		defer close(ch)
-		message := model.Message{
-			Role:    model.RoleAssistant,
+		message := compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: m.finalText,
 		}
 		if !hasToolResult {
 			message.Content = ""
-			message.ToolCalls = []model.ToolCall{{
+			message.ToolCalls = []compat.ToolCall{{
 				Type: "function",
 				ID:   m.toolCallID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      m.toolName,
 					Arguments: m.toolArgs,
 				},
 			}}
 		}
-		ch <- &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		ch <- &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
 				Message: message,
 			}},
@@ -787,8 +787,8 @@ func (m *resumeAwareToolLoopModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *resumeAwareToolLoopModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *resumeAwareToolLoopModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *resumeAwareToolLoopModel) requestCount() int {
@@ -816,7 +816,7 @@ func newHandoffTestInnerGraphAgent(
 	graphName string,
 	workerName string,
 	externalToolName string,
-	m model.Model,
+	m compat.Model,
 ) *handoffTestInnerGraphAgent {
 	t.Helper()
 	innerLLM := llmagent.New(
@@ -1094,7 +1094,7 @@ func TestShouldSuppressGraphRuntimeSessionEvent(t *testing.T) {
 	require.True(t, shouldSuppressGraphRuntimeSessionEvent(inv, graphEvent))
 	require.False(t, shouldSuppressGraphRuntimeSessionEvent(
 		inv,
-		event.New("inv", "author", event.WithObject("model.response")),
+		event.New("inv", "author", event.WithObject("compat.response")),
 	))
 }
 
@@ -1320,18 +1320,18 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentInterruptResume(t *testing.T
 		graphagent.WithCheckpointSaver(saver),
 	)
 	require.NoError(t, err)
-	siblingToolCall := model.ToolCall{
+	siblingToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-sibling",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "sibling_tool",
 			Arguments: []byte(`{"request":"start"}`),
 		},
 	}
-	childToolCall := model.ToolCall{
+	childToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-child",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      childAgentName,
 			Arguments: []byte(`{"request":"start"}`),
 		},
@@ -1339,14 +1339,14 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentInterruptResume(t *testing.T
 	initialRuntime := map[string]any{
 		graph.CfgKeyLineageID:    parentLineageID,
 		graph.CfgKeyCheckpointNS: parentNamespace,
-		graph.StateKeyMessages: []model.Message{{
-			Role:      model.RoleAssistant,
-			ToolCalls: []model.ToolCall{siblingToolCall, childToolCall},
+		graph.StateKeyMessages: []compat.Message{{
+			Role:      compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{siblingToolCall, childToolCall},
 		}},
 	}
 	initialInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-initial"),
-		agent.WithInvocationMessage(model.NewUserMessage("start")),
+		agent.WithInvocationMessage(compat.NewUserMessage("start")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(initialRuntime),
 		)),
@@ -1402,7 +1402,7 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentInterruptResume(t *testing.T
 	}
 	resumeInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-resume"),
-		agent.WithInvocationMessage(model.NewUserMessage("resume")),
+		agent.WithInvocationMessage(compat.NewUserMessage("resume")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(resumeRuntime),
 		)),
@@ -1528,18 +1528,18 @@ func TestTool_Call_GraphToolsNodeAgentToolCustomWrappedGraphAgentInterruptResume
 		graphagent.WithCheckpointSaver(saver),
 	)
 	require.NoError(t, err)
-	siblingToolCall := model.ToolCall{
+	siblingToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-sibling",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "sibling_tool",
 			Arguments: []byte(`{"request":"start"}`),
 		},
 	}
-	childToolCall := model.ToolCall{
+	childToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-child",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      wrapperAgentName,
 			Arguments: []byte(`{"request":"start"}`),
 		},
@@ -1547,14 +1547,14 @@ func TestTool_Call_GraphToolsNodeAgentToolCustomWrappedGraphAgentInterruptResume
 	initialRuntime := map[string]any{
 		graph.CfgKeyLineageID:    parentLineageID,
 		graph.CfgKeyCheckpointNS: parentNamespace,
-		graph.StateKeyMessages: []model.Message{{
-			Role:      model.RoleAssistant,
-			ToolCalls: []model.ToolCall{siblingToolCall, childToolCall},
+		graph.StateKeyMessages: []compat.Message{{
+			Role:      compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{siblingToolCall, childToolCall},
 		}},
 	}
 	initialInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-wrapper-initial"),
-		agent.WithInvocationMessage(model.NewUserMessage("start")),
+		agent.WithInvocationMessage(compat.NewUserMessage("start")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(initialRuntime),
 		)),
@@ -1628,7 +1628,7 @@ func TestTool_Call_GraphToolsNodeAgentToolCustomWrappedGraphAgentInterruptResume
 	}
 	resumeInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-wrapper-resume"),
-		agent.WithInvocationMessage(model.NewUserMessage("resume")),
+		agent.WithInvocationMessage(compat.NewUserMessage("resume")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(resumeRuntime),
 		)),
@@ -1684,12 +1684,12 @@ func TestTool_Call_HandoffNodeSelectsGraphAgentToolWithNestedExternalAgentNode(t
 	)
 	outerModel := &toolSurfaceRecordingModel{
 		name: "outer-model",
-		message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+		message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
 				ID:   "call-handoff",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: handoffToolName,
 					Arguments: []byte(
 						`{"agent_id":"` + handoffAgentID + `","task":"` + handoffTask + `"}`,
@@ -1700,12 +1700,12 @@ func TestTool_Call_HandoffNodeSelectsGraphAgentToolWithNestedExternalAgentNode(t
 	}
 	innerModel := &toolSurfaceRecordingModel{
 		name: "inner-model",
-		message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+		message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
 				ID:   innerToolCallID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      innerExternalTool,
 					Arguments: []byte(expectedInnerToolArg),
 				},
@@ -1787,7 +1787,7 @@ func TestTool_Call_HandoffNodeSelectsGraphAgentToolWithNestedExternalAgentNode(t
 	require.NoError(t, err)
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("outer-handoff-invocation"),
-		agent.WithInvocationMessage(model.NewUserMessage("start handoff")),
+		agent.WithInvocationMessage(compat.NewUserMessage("start handoff")),
 		agent.WithInvocationSession(session.NewSession("app", "user", "handoff-session")),
 	)
 	events, err := outerAgent.Run(
@@ -1860,7 +1860,7 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 	)
 	childSchema := graph.MessagesStateSchema().
 		AddField(stateKeyInnerToolRequest, graph.StateField{Type: reflect.TypeOf(innerToolRequest{})}).
-		AddField(stateKeyInnerToolMessage, graph.StateField{Type: reflect.TypeOf(model.Message{})}).
+		AddField(stateKeyInnerToolMessage, graph.StateField{Type: reflect.TypeOf(compat.Message{})}).
 		AddField(stateKeyAfterOut, graph.StateField{Type: reflect.TypeOf("")})
 	childGraph := graph.NewStateGraph(childSchema)
 	childGraph.AddAgentNode(
@@ -1871,8 +1871,8 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 			if !ok || raw == nil {
 				return nil
 			}
-			msg, ok := raw.(model.Message)
-			if !ok || msg.Role != model.RoleTool {
+			msg, ok := raw.(compat.Message)
+			if !ok || msg.Role != compat.RoleTool {
 				return nil
 			}
 			return graph.State{graph.StateKeyAgentInputMessage: &msg}
@@ -1916,7 +1916,7 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 		}
 		return graph.State{
 			stateKeyInnerToolRequest: nil,
-			stateKeyInnerToolMessage: model.NewToolMessage(req.ToolCallID, req.Name, text),
+			stateKeyInnerToolMessage: compat.NewToolMessage(req.ToolCallID, req.Name, text),
 		}, nil
 	})
 	childCompiled := childGraph.AddEdge(innerWorkerName, innerGateNodeID).
@@ -1942,10 +1942,10 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 	parentSchema := graph.MessagesStateSchema().
 		AddField(stateKeyAfterOut, graph.StateField{Type: reflect.TypeOf("")})
 	parentGraph := graph.NewStateGraph(parentSchema)
-	childToolCall := model.ToolCall{
+	childToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-child-graph",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      childGraphName,
 			Arguments: []byte(`{"request":"start"}`),
 		},
@@ -1954,9 +1954,9 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 		_ = ctx
 		_ = state
 		return graph.State{
-			graph.StateKeyMessages: graph.AppendMessages{Items: []model.Message{{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{childToolCall},
+			graph.StateKeyMessages: graph.AppendMessages{Items: []compat.Message{{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{childToolCall},
 			}}},
 		}, nil
 	})
@@ -1989,7 +1989,7 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 	parentSession := session.NewSession("app", "user", "agenttool-agentnode-history")
 	initialInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-agentnode-initial"),
-		agent.WithInvocationMessage(model.NewUserMessage("start")),
+		agent.WithInvocationMessage(compat.NewUserMessage("start")),
 		agent.WithInvocationSession(parentSession),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(map[string]any{
@@ -2043,7 +2043,7 @@ func TestTool_Call_GraphToolsNodeAgentToolGraphAgentAgentNodeResumeKeepsChildHis
 	require.NotEmpty(t, childFilterKey)
 	resumeInvocation := agent.NewInvocation(
 		agent.WithInvocationID("parent-agentnode-resume"),
-		agent.WithInvocationMessage(model.NewUserMessage("resume")),
+		agent.WithInvocationMessage(compat.NewUserMessage("resume")),
 		agent.WithInvocationSession(parentSession),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRuntimeState(map[string]any{
@@ -2131,11 +2131,11 @@ func TestTool_Call_DisableGraphCompletionEvent_PrefersAfterCallbackCustomRespons
 	ga := newGraphAgentWithAfterCallback(
 		t,
 		graph.State{graph.StateKeyLastResponse: "child-final"},
-		&model.Response{
+		&compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("after callback"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("after callback"),
 			}},
 		},
 	)
@@ -2162,11 +2162,11 @@ func TestTool_Call_DisableGraphCompletionEvent_FinalOnlyPrefersAfterCallback(
 	ga := newGraphAgentWithAfterCallback(
 		t,
 		graph.State{graph.StateKeyLastResponse: "child-final"},
-		&model.Response{
+		&compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage(afterCallbackText),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage(afterCallbackText),
 			}},
 		},
 	)
@@ -2250,10 +2250,10 @@ func TestTool_Call_DisableGraphCompletionEvent_SharedSessionPrefersAfterCallback
 		graph.State{
 			graph.StateKeyLastResponse: "child-final",
 		},
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("after callback"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("after callback"),
 			}},
 		},
 	)
@@ -2381,10 +2381,10 @@ func TestCollectFinalResponse_SkipsNilEvents(t *testing.T) {
 		ch <- event.NewResponseEvent(
 			"invocation",
 			"author",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(finalContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(finalContent),
 				}},
 			},
 		)
@@ -2405,20 +2405,20 @@ func TestCollectFinalResponse_SkipsNilEvents(t *testing.T) {
 
 		ch := make(chan *event.Event, 5)
 		ch <- &event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(partialContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(partialContent),
 				}},
 			},
 		}
 		ch <- event.NewResponseEvent(
 			"invocation",
 			"author",
-			&model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+			&compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						Content: toolContent,
 					},
 				}},
@@ -2427,30 +2427,30 @@ func TestCollectFinalResponse_SkipsNilEvents(t *testing.T) {
 		ch <- event.NewResponseEvent(
 			"invocation",
 			"author",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(""),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(""),
 				}},
 			},
 		)
 		ch <- event.NewResponseEvent(
 			"invocation",
 			"author",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(firstContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(firstContent),
 				}},
 			},
 		)
 		ch <- event.NewResponseEvent(
 			"invocation",
 			"author",
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(lastContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(lastContent),
 				}},
 			},
 		)
@@ -2523,11 +2523,11 @@ func (m *streamingMockAgent) Run(ctx context.Context, inv *agent.Invocation) (<-
 	go func() {
 		defer close(ch)
 		// delta 1
-		ch <- &event.Event{Response: &model.Response{IsPartial: true, Choices: []model.Choice{{Delta: model.Message{Content: "hello"}}}}}
+		ch <- &event.Event{Response: &compat.Response{IsPartial: true, Choices: []compat.Choice{{Delta: compat.Message{Content: "hello"}}}}}
 		// delta 2
-		ch <- &event.Event{Response: &model.Response{IsPartial: true, Choices: []model.Choice{{Delta: model.Message{Content: " world"}}}}}
+		ch <- &event.Event{Response: &compat.Response{IsPartial: true, Choices: []compat.Choice{{Delta: compat.Message{Content: " world"}}}}}
 		// final full assistant message (should not be forwarded by UI typically)
-		ch <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "ignored full"}}}}}
+		ch <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "ignored full"}}}}}
 	}()
 	return ch, nil
 }
@@ -2555,14 +2555,14 @@ func (m *completionWaitAgent) Run(ctx context.Context, inv *agent.Invocation) (<
 		_ = agent.EmitEvent(ctx, inv, ch, barrier)
 
 		if err := inv.AddNoticeChannelAndWait(ctx, completionID, 500*time.Millisecond); err != nil {
-			errEvt := event.NewErrorEvent(inv.InvocationID, m.name, model.ErrorTypeFlowError, err.Error())
+			errEvt := event.NewErrorEvent(inv.InvocationID, m.name, compat.ErrorTypeFlowError, err.Error())
 			_ = agent.EmitEvent(ctx, inv, ch, errEvt)
 			return
 		}
 
-		done := event.NewResponseEvent(inv.InvocationID, m.name, &model.Response{
+		done := event.NewResponseEvent(inv.InvocationID, m.name, &compat.Response{
 			Done:    true,
-			Choices: []model.Choice{{Message: model.NewAssistantMessage("done")}},
+			Choices: []compat.Choice{{Message: compat.NewAssistantMessage("done")}},
 		})
 		_ = agent.EmitEvent(ctx, inv, ch, done)
 	}()
@@ -2619,14 +2619,14 @@ func (m *graphCompletionMockAgent) Run(
 		evt := event.NewResponseEvent(
 			inv.InvocationID,
 			m.name,
-			&model.Response{
+			&compat.Response{
 				Object: graph.ObjectTypeGraphExecution,
 				Done:   true,
 			},
 		)
 		if !m.stateOnly {
-			evt.Response.Choices = []model.Choice{{
-				Message: model.NewAssistantMessage(
+			evt.Response.Choices = []compat.Choice{{
+				Message: compat.NewAssistantMessage(
 					graphCompletionMsg,
 				),
 			}}
@@ -2674,7 +2674,7 @@ func (m *visibleCompletionBarrierAgent) Run(
 		_ = inv.AddNoticeChannel(ctx, completionID)
 		_ = agent.EmitEvent(ctx, inv, ch, barrier)
 		if err := inv.AddNoticeChannelAndWait(ctx, completionID, 500*time.Millisecond); err != nil {
-			errEvt := event.NewErrorEvent(inv.InvocationID, m.name, model.ErrorTypeFlowError, err.Error())
+			errEvt := event.NewErrorEvent(inv.InvocationID, m.name, compat.ErrorTypeFlowError, err.Error())
 			_ = agent.EmitEvent(ctx, inv, ch, errEvt)
 			return
 		}
@@ -2682,7 +2682,7 @@ func (m *visibleCompletionBarrierAgent) Run(
 			errEvt := event.NewErrorEvent(
 				inv.InvocationID,
 				m.name,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				"visible completion not mirrored before barrier completion",
 			)
 			_ = agent.EmitEvent(ctx, inv, ch, errEvt)
@@ -2758,10 +2758,10 @@ func (m *sessionMirrorAgent) Run(ctx context.Context, inv *agent.Invocation) (<-
 		toolResult := event.NewResponseEvent(
 			inv.InvocationID,
 			m.name,
-			&model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+			&compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  toolID,
 						Content: "ok",
 					},
@@ -2782,7 +2782,7 @@ func (m *sessionMirrorAgent) Run(ctx context.Context, inv *agent.Invocation) (<-
 			errEvt := event.NewErrorEvent(
 				inv.InvocationID,
 				m.name,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				err.Error(),
 			)
 			_ = agent.EmitEvent(ctx, inv, ch, errEvt)
@@ -2793,16 +2793,16 @@ func (m *sessionMirrorAgent) Run(ctx context.Context, inv *agent.Invocation) (<-
 			errEvt := event.NewErrorEvent(
 				inv.InvocationID,
 				m.name,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				"tool result not mirrored to session",
 			)
 			_ = agent.EmitEvent(ctx, inv, ch, errEvt)
 			return
 		}
 
-		done := event.NewResponseEvent(inv.InvocationID, m.name, &model.Response{
+		done := event.NewResponseEvent(inv.InvocationID, m.name, &compat.Response{
 			Done:    true,
-			Choices: []model.Choice{{Message: model.NewAssistantMessage("done")}},
+			Choices: []compat.Choice{{Message: compat.NewAssistantMessage("done")}},
 		})
 		_ = agent.EmitEvent(ctx, inv, ch, done)
 	}()
@@ -2833,10 +2833,10 @@ func (m *liveSessionHistoryAgent) Run(
 	}
 
 	ch := make(chan *event.Event, 1)
-	ch <- event.NewResponseEvent(invocationID, author, &model.Response{
+	ch <- event.NewResponseEvent(invocationID, author, &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("saw-live-session"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("saw-live-session"),
 		}},
 	})
 	close(ch)
@@ -2899,7 +2899,7 @@ func countSessionAssistantContent(sess *session.Session, content string) int {
 			continue
 		}
 		for _, choice := range evt.Response.Choices {
-			if choice.Message.Role == model.RoleAssistant &&
+			if choice.Message.Role == compat.RoleAssistant &&
 				choice.Message.Content == content {
 				count++
 			}
@@ -2945,7 +2945,7 @@ type filterKeyAgent struct {
 func (m *filterKeyAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *event.Event, error) {
 	m.seen = inv.GetEventFilterKey()
 	ch := make(chan *event.Event, 1)
-	ch <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage(m.seen)}}}}
+	ch <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage(m.seen)}}}}
 	close(ch)
 	return ch, nil
 }
@@ -2963,8 +2963,8 @@ type structuredOutputCaptureModel struct {
 
 func (m *structuredOutputCaptureModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	if req != nil &&
 		req.StructuredOutput != nil &&
@@ -2973,19 +2973,19 @@ func (m *structuredOutputCaptureModel) GenerateContent(
 		m.schemaName = req.StructuredOutput.JSONSchema.Name
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(`{"status":"ok"}`),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(`{"status":"ok"}`),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *structuredOutputCaptureModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *structuredOutputCaptureModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *structuredOutputCaptureModel) Snapshot() (bool, string) {
@@ -3139,19 +3139,19 @@ func TestTool_shouldMirrorEventToSession_Cases(t *testing.T) {
 	})
 
 	t.Run("partial response", func(t *testing.T) {
-		evt := event.NewResponseEvent("inv", "author", &model.Response{
+		evt := event.NewResponseEvent("inv", "author", &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "x"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "x"},
 			}},
 		})
 		require.False(t, shouldMirrorEventToSession(evt))
 	})
 
 	t.Run("invalid content", func(t *testing.T) {
-		evt := event.NewResponseEvent("inv", "author", &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage(""),
+		evt := event.NewResponseEvent("inv", "author", &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage(""),
 			}},
 		})
 		require.False(t, shouldMirrorEventToSession(evt))
@@ -3170,7 +3170,7 @@ func TestTool_visibleCompletionSessionEvent_RestoresAgentAuthor(t *testing.T) {
 
 	require.NotNil(t, visible)
 	require.Equal(t, "child-agent", visible.Author)
-	require.Equal(t, model.ObjectTypeChatCompletion, visible.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visible.Object)
 }
 
 func TestTool_sessionHasEventID_Cases(t *testing.T) {
@@ -3187,9 +3187,9 @@ func TestTool_sessionHasEventID_Cases(t *testing.T) {
 		existsID  = "exists"
 		missingID = "missing"
 	)
-	evt := event.NewResponseEvent(inv.InvocationID, "a", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("seed"),
+	evt := event.NewResponseEvent(inv.InvocationID, "a", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("seed"),
 		}},
 	})
 	evt.ID = existsID
@@ -3212,18 +3212,18 @@ func TestTool_appendEvent_AppenderError_FallbackUpdatesSession(t *testing.T) {
 		return errors.New(appendErrMsg)
 	})
 
-	evt := event.NewResponseEvent(inv.InvocationID, "a", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("ok"),
+	evt := event.NewResponseEvent(inv.InvocationID, "a", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	})
 
 	sess.UpdateUserSession(event.NewResponseEvent(
 		inv.InvocationID,
 		"user",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("seed"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("seed"),
 			}},
 		},
 	))
@@ -3244,9 +3244,9 @@ func TestTool_appendEvent_AppenderError_EmptyIDUpdatesSession(t *testing.T) {
 		return errors.New("append failed")
 	})
 
-	evt := event.NewResponseEvent(inv.InvocationID, "a", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("ok"),
+	evt := event.NewResponseEvent(inv.InvocationID, "a", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	})
 	evt.ID = ""
@@ -3254,9 +3254,9 @@ func TestTool_appendEvent_AppenderError_EmptyIDUpdatesSession(t *testing.T) {
 	sess.UpdateUserSession(event.NewResponseEvent(
 		inv.InvocationID,
 		"user",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("seed"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("seed"),
 			}},
 		},
 	))
@@ -3272,7 +3272,7 @@ func TestTool_ensureUserMessageForCall_EarlyReturns(t *testing.T) {
 	t.Run("non user role", func(t *testing.T) {
 		inv := agent.NewInvocation(
 			agent.WithInvocationSession(sess),
-			agent.WithInvocationMessage(model.NewAssistantMessage("x")),
+			agent.WithInvocationMessage(compat.NewAssistantMessage("x")),
 		)
 		at.ensureUserMessageForCall(context.Background(), inv)
 		require.Equal(t, 0, sess.GetEventCount())
@@ -3281,7 +3281,7 @@ func TestTool_ensureUserMessageForCall_EarlyReturns(t *testing.T) {
 	t.Run("empty content", func(t *testing.T) {
 		inv := agent.NewInvocation(
 			agent.WithInvocationSession(sess),
-			agent.WithInvocationMessage(model.NewUserMessage("")),
+			agent.WithInvocationMessage(compat.NewUserMessage("")),
 		)
 		at.ensureUserMessageForCall(context.Background(), inv)
 		require.Equal(t, 0, sess.GetEventCount())
@@ -3293,12 +3293,12 @@ func TestTool_ensureUserMessageForCall_SkipsWhenUserExists(t *testing.T) {
 	sess := session.NewSession("app", "user", "session")
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 	)
 
-	userEvt := event.NewResponseEvent(inv.InvocationID, "user", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("seed"),
+	userEvt := event.NewResponseEvent(inv.InvocationID, "user", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("seed"),
 		}},
 	})
 	sess.UpdateUserSession(userEvt)
@@ -3310,15 +3310,15 @@ func TestTool_ensureUserMessageForCall_SkipsWhenUserExists(t *testing.T) {
 func TestTool_ensureUserMessageForCall_AppendsWhenOnlyOtherUserExists(t *testing.T) {
 	at := NewTool(&mockAgent{name: "x", description: "x"})
 	sess := session.NewSession("app", "user", "session")
-	sess.UpdateUserSession(event.NewResponseEvent("other-inv", "user", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("existing user"),
+	sess.UpdateUserSession(event.NewResponseEvent("other-inv", "user", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("existing user"),
 		}},
 	}))
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("child-inv"),
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("tool input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("tool input")),
 	)
 
 	at.ensureUserMessageForCall(context.Background(), inv)
@@ -3375,7 +3375,7 @@ func TestTool_wrapWithCallSemantics_NotifyCompletionError(t *testing.T) {
 	sess := session.NewSession("app", "user", "session")
 	badInv := &agent.Invocation{
 		Session: sess,
-		Message: model.NewAssistantMessage("x"),
+		Message: compat.NewAssistantMessage("x"),
 	}
 
 	src := make(chan *event.Event, 1)
@@ -3415,10 +3415,10 @@ func TestTool_wrapWithCallSemantics_FillsMissingInvocationFields(t *testing.T) {
 	)
 
 	src := make(chan *event.Event, 1)
-	evt := event.NewResponseEvent(child.InvocationID, "child", &model.Response{
+	evt := event.NewResponseEvent(child.InvocationID, "child", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("child answer"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("child answer"),
 		}},
 	})
 	evt.InvocationID = ""
@@ -3446,7 +3446,7 @@ func TestTool_wrapWithCallSemantics_ForwardsNilEvents(t *testing.T) {
 	sess := session.NewSession("app", "user", "session")
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewAssistantMessage("x")),
+		agent.WithInvocationMessage(compat.NewAssistantMessage("x")),
 	)
 
 	src := make(chan *event.Event, 1)
@@ -4193,7 +4193,7 @@ func TestShouldDeferStreamCompletion_NoSession(t *testing.T) {
 func TestTool_wrapWithCompletion_NilInvocation(t *testing.T) {
 	at := NewTool(&mockAgent{name: "wrap", description: "wrap"})
 	src := make(chan *event.Event, 1)
-	src <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}}}}
+	src <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}}}}
 	close(src)
 
 	out := at.wrapWithCompletion(context.Background(), nil, src)
@@ -4226,7 +4226,7 @@ func (m *inspectAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *
 		}
 	}
 	ch := make(chan *event.Event, 1)
-	ch <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage(strings.Join(matched, "|"))}}}}
+	ch <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage(strings.Join(matched, "|"))}}}}
 	close(ch)
 	return ch, nil
 }
@@ -4251,8 +4251,8 @@ func TestTool_HistoryScope_ParentBranch_Call_InheritsParentHistory(t *testing.T)
 
 	// Append a parent user event (content "PARENT") so that snapshot/session
 	// filtering retains it as part of history.
-	parentEvt := event.NewResponseEvent(parent.InvocationID, "parent", &model.Response{
-		Choices: []model.Choice{{Message: model.NewUserMessage("PARENT")}},
+	parentEvt := event.NewResponseEvent(parent.InvocationID, "parent", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewUserMessage("PARENT")}},
 	})
 	agent.InjectIntoEvent(parent, parentEvt)
 	sess.Events = append(sess.Events, *parentEvt)
@@ -4673,11 +4673,11 @@ func TestTool_StreamableCall_DisableGraphCompletionEvent_PrefersAfterCallbackCus
 	ga := newGraphAgentWithAfterCallback(
 		t,
 		graph.State{graph.StateKeyLastResponse: "child-final"},
-		&model.Response{
+		&compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("after callback"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("after callback"),
 			}},
 		},
 	)
@@ -4726,11 +4726,11 @@ func TestTool_StreamableCall_DisableGraphCompletionEvent_PrefersAfterCallbackCus
 	ga := newGraphAgentWithAfterCallback(
 		t,
 		graph.State{graphStateKey: "child-state"},
-		&model.Response{
+		&compat.Response{
 			Object: "after.custom",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("after callback"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("after callback"),
 			}},
 		},
 	)
@@ -4847,7 +4847,7 @@ func TestTool_StreamableCall_DisableGraphCompletionEvent_SuppressesVisibleComple
 		require.NoError(t, recvErr)
 		if evt, ok := chunk.Content.(*event.Event); ok {
 			require.False(t, graph.IsVisibleGraphCompletionEvent(evt))
-			if evt.Object == model.ObjectTypeError {
+			if evt.Object == compat.ObjectTypeError {
 				sawError = true
 			}
 			continue
@@ -4887,7 +4887,7 @@ func TestTool_StreamableCall_DisableGraphCompletionEvent_DropsPendingFinalResult
 		}
 		require.NoError(t, recvErr)
 		if evt, ok := chunk.Content.(*event.Event); ok {
-			if evt.Object == model.ObjectTypeError &&
+			if evt.Object == compat.ObjectTypeError &&
 				evt.Error != nil &&
 				evt.Error.Message == "after callback failed" {
 				sawError = true
@@ -4970,7 +4970,7 @@ func TestTool_StreamableCall_RunErrorWithStructuredStreamErrorsReturnsErrorEvent
 	require.NoError(t, err)
 	ev, ok := chunk.Content.(*event.Event)
 	require.True(t, ok)
-	require.Equal(t, model.ObjectTypeError, ev.Object)
+	require.Equal(t, compat.ObjectTypeError, ev.Object)
 	require.NotNil(t, ev.Error)
 	require.Contains(t, ev.Error.Message, "agent tool run error")
 	_, err = r.Recv()
@@ -5053,8 +5053,8 @@ type eventErrorMockAgent struct{ name string }
 func (m *eventErrorMockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
-			Error: &model.ResponseError{Message: "event error occurred"},
+		Response: &compat.Response{
+			Error: &compat.ResponseError{Message: "event error occurred"},
 		},
 	}
 	close(ch)
@@ -5247,7 +5247,7 @@ func TestTool_callWithParentInvocation_NoSessionFallback(t *testing.T) {
 	at := NewTool(&mockAgent{name: "test", description: "test"})
 	parent := agent.NewInvocation()
 
-	res, err := at.callWithParentInvocation(context.Background(), parent, model.NewUserMessage("hi"), nil)
+	res, err := at.callWithParentInvocation(context.Background(), parent, compat.NewUserMessage("hi"), nil)
 	require.NoError(t, err)
 	require.Equal(t, "Hello from mock agent!", res)
 }
@@ -5263,7 +5263,7 @@ func TestTool_callWithParentInvocation_DoesNotInheritParentToolSurface(t *testin
 	externalTool := newAgentToolTestTool(externalToolName)
 	childModel := &toolSurfaceRecordingModel{
 		name:    "child-model",
-		message: model.NewAssistantMessage("child done"),
+		message: compat.NewAssistantMessage("child done"),
 	}
 	child := llmagent.New(
 		"child-agent",
@@ -5318,7 +5318,7 @@ func TestTool_callWithParentInvocation_PreservesRunStructuredOutput(t *testing.T
 	res, err := at.callWithParentInvocation(
 		context.Background(),
 		parent,
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		nil,
 	)
 	require.NoError(t, err)
@@ -5356,7 +5356,7 @@ func TestTool_callWithParentInvocation_PinStructuredOutputUsesChildContract(t *t
 	res, err := at.callWithParentInvocation(
 		context.Background(),
 		parent,
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		nil,
 	)
 	require.NoError(t, err)
@@ -5386,7 +5386,7 @@ func TestTool_callWithParentInvocation_RestoresLiveSessionFromParallelClone(
 	res, err := at.callWithParentInvocation(
 		context.Background(),
 		parent,
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		nil,
 	)
 	require.NoError(t, err)
@@ -5445,10 +5445,10 @@ func appendAssistantEventForTest(sess *session.Session, content string) {
 	if sess == nil {
 		return
 	}
-	evt := event.NewResponseEvent("parent", "parent", &model.Response{
+	evt := event.NewResponseEvent("parent", "parent", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(content),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(content),
 		}},
 	})
 	sess.EventMu.Lock()
@@ -5563,7 +5563,7 @@ func (m *nilEventMockAgent) Run(ctx context.Context, invocation *agent.Invocatio
 	ch := make(chan *event.Event, 2)
 	go func() {
 		ch <- nil // Send nil event
-		ch <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}}}}
+		ch <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}}}}
 		close(ch)
 	}()
 	return ch, nil
@@ -5639,7 +5639,7 @@ func TestTool_WithPinModel_ClearsModelName(t *testing.T) {
 		}),
 	)
 
-	opts := agentTool.childInvocationOptions(context.Background(), parentInv, model.NewUserMessage("test"), "child-key", nil)
+	opts := agentTool.childInvocationOptions(context.Background(), parentInv, compat.NewUserMessage("test"), "child-key", nil)
 
 	// Apply options to a new invocation to verify ModelName is cleared
 	childInv := parentInv.Clone(opts...)
@@ -5664,7 +5664,7 @@ func TestTool_WithPinModel_ClearsModel(t *testing.T) {
 		}),
 	)
 
-	opts := agentTool.childInvocationOptions(context.Background(), parentInv, model.NewUserMessage("test"), "child-key", nil)
+	opts := agentTool.childInvocationOptions(context.Background(), parentInv, compat.NewUserMessage("test"), "child-key", nil)
 
 	childInv := parentInv.Clone(opts...)
 	if childInv.RunOptions.Model != nil {
@@ -5679,7 +5679,7 @@ func TestTool_WithPinModel_ClearsModelSelector(t *testing.T) {
 	}
 	agentTool := NewTool(mockAgent, WithPinModel(true))
 
-	selector := func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+	selector := func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 		return &fixedResponseModel{}, nil
 	}
 	parentInv := agent.NewInvocation(
@@ -5688,7 +5688,7 @@ func TestTool_WithPinModel_ClearsModelSelector(t *testing.T) {
 		}),
 	)
 
-	opts := agentTool.childInvocationOptions(context.Background(), parentInv, model.NewUserMessage("test"), "child-key", nil)
+	opts := agentTool.childInvocationOptions(context.Background(), parentInv, compat.NewUserMessage("test"), "child-key", nil)
 
 	childInv := parentInv.Clone(opts...)
 	if childInv.RunOptions.ModelSelector != nil {
@@ -5714,7 +5714,7 @@ func TestTool_WithPinStructuredOutput_ClearsRunStructuredOutput(t *testing.T) {
 	opts := agentTool.childInvocationOptions(
 		context.Background(),
 		parentInv,
-		model.NewUserMessage("test"),
+		compat.NewUserMessage("test"),
 		"child-key",
 		nil,
 	)
@@ -5740,7 +5740,7 @@ func TestTool_WithPinRunOptions_PreservesRuntimeState(t *testing.T) {
 	opts := agentTool.childInvocationOptions(
 		context.Background(),
 		parentInv,
-		model.NewUserMessage("test"),
+		compat.NewUserMessage("test"),
 		"child-key",
 		runtimeState,
 	)
@@ -5784,7 +5784,7 @@ func TestTool_ChildInvocationOptions_ClearsInheritedToolRunOptions(t *testing.T)
 	opts := agentTool.childInvocationOptions(
 		context.Background(),
 		parentInv,
-		model.NewUserMessage("test"),
+		compat.NewUserMessage("test"),
 		"child-key",
 		nil,
 	)
@@ -5817,7 +5817,7 @@ func TestTool_WithPinModel_Disabled_PreservesModelName(t *testing.T) {
 	agentTool := NewTool(mockAgent, WithPinModel(false))
 
 	parentModel := &fixedResponseModel{}
-	parentSelector := func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+	parentSelector := func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 		return &fixedResponseModel{}, nil
 	}
 	parentInv := agent.NewInvocation(
@@ -5828,7 +5828,7 @@ func TestTool_WithPinModel_Disabled_PreservesModelName(t *testing.T) {
 		}),
 	)
 
-	opts := agentTool.childInvocationOptions(context.Background(), parentInv, model.NewUserMessage("test"), "child-key", nil)
+	opts := agentTool.childInvocationOptions(context.Background(), parentInv, compat.NewUserMessage("test"), "child-key", nil)
 
 	childInv := parentInv.Clone(opts...)
 	if childInv.RunOptions.ModelName != "parent-model" {
@@ -5866,10 +5866,10 @@ func (a *parentMetadataCapturingAgent) Run(
 	ch <- &event.Event{
 		InvocationID: inv.InvocationID,
 		Author:       a.name,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("ok")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("ok")},
 			},
 		},
 	}

@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +39,7 @@ func TestInstructionProc_Request(t *testing.T) {
 		name         string
 		instruction  string
 		systemPrompt string
-		request      *model.Request
+		request      *compat.Request
 		invocation   *agent.Invocation
 		wantMessages int
 	}{
@@ -47,8 +47,8 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "adds instruction message",
 			instruction:  "Be helpful and concise",
 			systemPrompt: "",
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -60,8 +60,8 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "adds system prompt message",
 			instruction:  "",
 			systemPrompt: "You are a helpful assistant",
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -73,8 +73,8 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "adds both instruction and system prompt as one message",
 			instruction:  "Be concise",
 			systemPrompt: "You are helpful",
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -86,8 +86,8 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "no instruction or system prompt provided",
 			instruction:  "",
 			systemPrompt: "",
-			request: &model.Request{
-				Messages: []model.Message{},
+			request: &compat.Request{
+				Messages: []compat.Message{},
 			},
 			invocation: &agent.Invocation{
 				AgentName:    "test-agent",
@@ -99,9 +99,9 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "doesn't duplicate instruction when already exists",
 			instruction:  "Be helpful",
 			systemPrompt: "",
-			request: &model.Request{
-				Messages: []model.Message{
-					model.NewSystemMessage("Be helpful"),
+			request: &compat.Request{
+				Messages: []compat.Message{
+					compat.NewSystemMessage("Be helpful"),
 				},
 			},
 			invocation: &agent.Invocation{
@@ -114,9 +114,9 @@ func TestInstructionProc_Request(t *testing.T) {
 			name:         "appends instruction to existing system message",
 			instruction:  "Be concise",
 			systemPrompt: "",
-			request: &model.Request{
-				Messages: []model.Message{
-					model.NewSystemMessage("You are helpful"),
+			request: &compat.Request{
+				Messages: []compat.Message{
+					compat.NewSystemMessage("You are helpful"),
 				},
 			},
 			invocation: &agent.Invocation{
@@ -143,7 +143,7 @@ func TestInstructionProc_Request(t *testing.T) {
 			if tt.instruction != "" && tt.wantMessages > 0 {
 				found := false
 				for _, msg := range tt.request.Messages {
-					if msg.Role == model.RoleSystem && strings.Contains(msg.Content, tt.instruction) {
+					if msg.Role == compat.RoleSystem && strings.Contains(msg.Content, tt.instruction) {
 						found = true
 						break
 					}
@@ -157,7 +157,7 @@ func TestInstructionProc_Request(t *testing.T) {
 			if tt.systemPrompt != "" && tt.wantMessages > 0 {
 				found := false
 				for _, msg := range tt.request.Messages {
-					if msg.Role == model.RoleSystem && strings.Contains(msg.Content, tt.systemPrompt) {
+					if msg.Role == compat.RoleSystem && strings.Contains(msg.Content, tt.systemPrompt) {
 						found = true
 						break
 					}
@@ -179,7 +179,7 @@ func TestInstructionProcessor_RuntimeStatePlaceholders(t *testing.T) {
 			"version":  2,
 		}},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	processor := NewInstructionRequestProcessor(
 		"Draft: {runtime:document}",
 		"Version: {runtime:version}",
@@ -193,7 +193,7 @@ func TestInstructionProcessor_RuntimeStatePlaceholders(t *testing.T) {
 	)
 
 	require.Len(t, req.Messages, 1)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Equal(
 		t,
 		"Version: 2\n\nDraft: Current draft",
@@ -204,35 +204,35 @@ func TestInstructionProcessor_RuntimeStatePlaceholders(t *testing.T) {
 func TestFindSystemMessageIndex(t *testing.T) {
 	tests := []struct {
 		name     string
-		messages []model.Message
+		messages []compat.Message
 		want     int
 	}{
 		{
 			name:     "empty messages",
-			messages: []model.Message{},
+			messages: []compat.Message{},
 			want:     -1,
 		},
 		{
 			name: "no system message",
-			messages: []model.Message{
-				{Role: model.RoleUser, Content: "Hello"},
+			messages: []compat.Message{
+				{Role: compat.RoleUser, Content: "Hello"},
 			},
 			want: -1,
 		},
 		{
 			name: "has system message at start",
-			messages: []model.Message{
-				model.NewSystemMessage("System prompt"),
-				{Role: model.RoleUser, Content: "Hello"},
+			messages: []compat.Message{
+				compat.NewSystemMessage("System prompt"),
+				{Role: compat.RoleUser, Content: "Hello"},
 			},
 			want: 0,
 		},
 		{
 			name: "has system message in middle",
-			messages: []model.Message{
-				{Role: model.RoleUser, Content: "Hello"},
-				model.NewSystemMessage("System prompt"),
-				{Role: model.RoleAssistant, Content: "Hi"},
+			messages: []compat.Message{
+				{Role: compat.RoleUser, Content: "Hello"},
+				compat.NewSystemMessage("System prompt"),
+				{Role: compat.RoleAssistant, Content: "Hi"},
 			},
 			want: 1,
 		},
@@ -249,8 +249,8 @@ func TestFindSystemMessageIndex(t *testing.T) {
 
 func TestInstructionProcessor_DynamicGetters(t *testing.T) {
 	ctx := context.Background()
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	inv := &agent.Invocation{
 		AgentName:    testAgentName,
@@ -280,7 +280,7 @@ func TestInstructionProcessor_DynamicGetters(t *testing.T) {
 		t.Fatalf("expected system message added")
 	}
 	sysMsg := req.Messages[0]
-	if sysMsg.Role != model.RoleSystem {
+	if sysMsg.Role != compat.RoleSystem {
 		t.Fatalf("expected system role, got %s", sysMsg.Role)
 	}
 	if !strings.Contains(sysMsg.Content, testDynamicInstruction) {
@@ -293,8 +293,8 @@ func TestInstructionProcessor_DynamicGetters(t *testing.T) {
 
 func TestInstructionProcessor_DynamicResolvers(t *testing.T) {
 	ctx := context.Background()
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	inv := &agent.Invocation{
 		AgentName:    testAgentName,
@@ -334,7 +334,7 @@ func TestInstructionProcessor_DynamicResolvers(t *testing.T) {
 	require.Equal(t, 0, getterInstructionCalls)
 	require.Equal(t, 0, getterSystemPromptCalls)
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Contains(t, req.Messages[0].Content, testResolvedInstruction)
 	require.Contains(t, req.Messages[0].Content, testResolvedSystemPrompt)
 	require.NotContains(t, req.Messages[0].Content, testDynamicInstruction)
@@ -343,8 +343,8 @@ func TestInstructionProcessor_DynamicResolvers(t *testing.T) {
 
 func TestInstructionProcessor_RunOptionsOverrideWithoutResolvers(t *testing.T) {
 	ctx := context.Background()
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	inv := &agent.Invocation{
 		AgentName:    testAgentName,
@@ -365,7 +365,7 @@ func TestInstructionProcessor_RunOptionsOverrideWithoutResolvers(t *testing.T) {
 
 	require.NotEmpty(t, req.Messages)
 	sysMsg := req.Messages[0]
-	require.Equal(t, model.RoleSystem, sysMsg.Role)
+	require.Equal(t, compat.RoleSystem, sysMsg.Role)
 	require.Contains(t, sysMsg.Content, testRunInstruction)
 	require.Contains(t, sysMsg.Content, testRunSystemPrompt)
 	require.NotContains(t, sysMsg.Content, testResolvedInstruction)
@@ -378,8 +378,8 @@ func TestInstructionProcessor_ResolversOverrideRunOptions(
 	t *testing.T,
 ) {
 	ctx := context.Background()
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	inv := &agent.Invocation{
 		AgentName:    testAgentName,
@@ -405,7 +405,7 @@ func TestInstructionProcessor_ResolversOverrideRunOptions(
 
 	require.NotEmpty(t, req.Messages)
 	sysMsg := req.Messages[0]
-	require.Equal(t, model.RoleSystem, sysMsg.Role)
+	require.Equal(t, compat.RoleSystem, sysMsg.Role)
 	require.Contains(t, sysMsg.Content, testResolvedInstruction)
 	require.Contains(t, sysMsg.Content, testResolvedSystemPrompt)
 	require.NotContains(t, sysMsg.Content, testRunInstruction)
@@ -438,8 +438,8 @@ func TestInstructionProcessor_ProcessRequest_EmptyInstructionDoesNotEmitEvent(
 		AgentName:    testAgentName,
 		InvocationID: testInvocationID,
 	}
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
 	}
 	eventCh := make(chan *event.Event, 1)
 	processor := NewInstructionRequestProcessor("", "")
@@ -447,7 +447,7 @@ func TestInstructionProcessor_ProcessRequest_EmptyInstructionDoesNotEmitEvent(
 	processor.ProcessRequest(ctx, inv, req, eventCh)
 
 	require.Len(t, req.Messages, 1)
-	require.Equal(t, model.RoleUser, req.Messages[0].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[0].Role)
 	require.Len(t, eventCh, 0)
 }
 
@@ -473,7 +473,7 @@ func TestInstructionProcessor_SendPreprocessingEvent(t *testing.T) {
 		require.Equal(t, inv.AgentName, evt.Author)
 		require.Equal(
 			t,
-			model.ObjectTypePreprocessingInstruction,
+			compat.ObjectTypePreprocessingInstruction,
 			evt.Object,
 		)
 	default:

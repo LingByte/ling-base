@@ -12,7 +12,7 @@ package translator
 import (
 	"errors"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
 	aguitypes "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/types"
 )
@@ -58,14 +58,14 @@ func (t *translator) closeTextStreamsBeforeToolEvent() []aguievents.Event {
 	return t.closeCurrentTextStream()
 }
 
-func (t *translator) translateReasoningMessageEvents(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) translateReasoningMessageEvents(rsp *compat.Response) ([]aguievents.Event, error) {
 	if t.concurrentMessageStreamsEnabled {
 		return t.concurrentReasoningEvents(rsp)
 	}
 	return t.reasoningEvents(rsp)
 }
 
-func (t *translator) translateTextMessageEvents(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) translateTextMessageEvents(rsp *compat.Response) ([]aguievents.Event, error) {
 	if t.concurrentMessageStreamsEnabled {
 		return t.concurrentTextMessageEvent(rsp)
 	}
@@ -203,7 +203,7 @@ func (t *translator) closeOpenReasoningStreams() []aguievents.Event {
 	return events
 }
 
-func (t *translator) concurrentReasoningEvents(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) concurrentReasoningEvents(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -215,7 +215,7 @@ func (t *translator) concurrentReasoningEvents(rsp *model.Response) ([]aguievent
 	choice := rsp.Choices[0]
 	reasoningDelta := ""
 	contentDelta := ""
-	if rsp.Object == model.ObjectTypeChatCompletionChunk {
+	if rsp.Object == compat.ObjectTypeChatCompletionChunk {
 		reasoningDelta = choice.Delta.ReasoningContent
 		contentDelta = choice.Delta.Content
 	} else {
@@ -224,7 +224,7 @@ func (t *translator) concurrentReasoningEvents(rsp *model.Response) ([]aguievent
 	}
 	var events []aguievents.Event
 	switch rsp.Object {
-	case model.ObjectTypeChatCompletionChunk:
+	case compat.ObjectTypeChatCompletionChunk:
 		if reasoningDelta != "" {
 			if !t.reasoningStreams.isOpen(reasoningID) {
 				if wasStarted {
@@ -252,7 +252,7 @@ func (t *translator) concurrentReasoningEvents(rsp *model.Response) ([]aguievent
 				events = append(events, t.closeReasoningStream(reasoningID)...)
 			}
 		}
-	case model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletion:
 		if t.reasoningStreams.isOpen(reasoningID) {
 			events = append(events, t.closeReasoningStream(reasoningID)...)
 			return events, nil
@@ -275,7 +275,7 @@ func (t *translator) concurrentReasoningEvents(rsp *model.Response) ([]aguievent
 	return events, nil
 }
 
-func (t *translator) concurrentTextMessageEvent(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) concurrentTextMessageEvent(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -286,7 +286,7 @@ func (t *translator) concurrentTextMessageEvent(rsp *model.Response) ([]aguieven
 	t.recordResponseID(rsp.ID)
 	var events []aguievents.Event
 	switch rsp.Object {
-	case model.ObjectTypeChatCompletionChunk:
+	case compat.ObjectTypeChatCompletionChunk:
 		if rsp.Choices[0].Delta.Content != "" {
 			if !t.textStreams.isOpen(rsp.ID) {
 				if wasStarted {
@@ -305,7 +305,7 @@ func (t *translator) concurrentTextMessageEvent(rsp *model.Response) ([]aguieven
 		}
 	// For streaming response, don't need to emit final completion event.
 	// It means the response is ended.
-	case model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletion:
 		if t.textStreams.isOpen(rsp.ID) {
 			events = append(events, t.closeTextStream(rsp.ID)...)
 			return events, nil

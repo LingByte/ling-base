@@ -33,7 +33,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -1832,9 +1832,9 @@ func emitTerminalGraphErrorEvent(
 			WithPregelEventStepNumber(-1),
 			WithPregelEventError(err.Error()),
 			WithPregelEventResponseError(
-				model.ResponseErrorFromError(
+				compat.ResponseErrorFromError(
 					err,
-					model.ErrorTypeFlowError,
+					compat.ErrorTypeFlowError,
 				),
 			),
 		))
@@ -1855,7 +1855,7 @@ func emitTerminalGraphErrorEvent(
 		event.NewErrorEvent(
 			invocationID,
 			author,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			err.Error(),
 		),
 	)
@@ -4054,9 +4054,9 @@ func (e *Executor) emitNodeErrorEvent(
 		WithNodeEventStepNumber(step),
 		WithNodeEventError(err.Error()),
 		WithNodeEventResponseError(
-			model.ResponseErrorFromError(
+			compat.ResponseErrorFromError(
 				err,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 			),
 		),
 	}

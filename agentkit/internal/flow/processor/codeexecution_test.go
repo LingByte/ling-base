@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/calllimit"
 	iprocessor "github.com/LingByte/ling-base/agentkit/internal/flow/processor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -38,16 +38,16 @@ func TestCodeExecutionResponseProcessor_EmitsCodeAndResultEvents(t *testing.T) {
 		AgentName: "test-agent",
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant,
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant,
 				Content: "```bash\necho hello\n```"}},
 		},
 	}
 
 	ch := make(chan *event.Event, 4)
-	proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+	proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 	if assert.NotEmpty(t, rsp.Choices) {
 		assert.Equal(t, "", rsp.Choices[0].Message.Content)
@@ -58,9 +58,9 @@ func TestCodeExecutionResponseProcessor_EmitsCodeAndResultEvents(t *testing.T) {
 	}
 	if assert.Len(t, evts, 2) {
 		// Both events have the same Object type (code execution)
-		assert.Equal(t, model.ObjectTypePostprocessingCodeExecution,
+		assert.Equal(t, compat.ObjectTypePostprocessingCodeExecution,
 			evts[0].Response.Object)
-		assert.Equal(t, model.ObjectTypePostprocessingCodeExecution,
+		assert.Equal(t, compat.ObjectTypePostprocessingCodeExecution,
 			evts[1].Response.Object)
 		// The distinction is made via the Tag field
 		assert.Contains(t, evts[0].Tag, event.CodeExecutionTag)       // code execution event has "code" tag
@@ -118,18 +118,18 @@ func TestCodeExecutionResponseProcessor_SkipsCallLimitFinalization(
 			}
 			tt.activate(t, inv)
 			content := "```bash\necho hello\n```"
-			rsp := &model.Response{
+			rsp := &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: content,
 					},
 				}},
 			}
 			ch := make(chan *event.Event, 4)
 
-			proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+			proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 			require.Zero(t, exec.calls)
 			require.Len(t, ch, 0)
@@ -176,11 +176,11 @@ func TestCodeExecutionResponseProcessor_SkipsNonExecutableBlocks(
 				Session:   &session.Session{ID: "test-session"},
 				AgentName: "test-agent",
 			}
-			rsp := &model.Response{
+			rsp := &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: tc.content,
 					},
 				}},
@@ -190,7 +190,7 @@ func TestCodeExecutionResponseProcessor_SkipsNonExecutableBlocks(
 			proc.ProcessResponse(
 				ctx,
 				inv,
-				&model.Request{},
+				&compat.Request{},
 				rsp,
 				ch,
 			)
@@ -222,18 +222,18 @@ func TestCodeExecutionResponseProcessor_UsesRunCodeExecutorOverride(
 			CodeExecutor: &stubExec{output: "override"},
 		},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{
+			{Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "```bash\necho hello\n```",
 			}},
 		},
 	}
 
 	ch := make(chan *event.Event, 4)
-	proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+	proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 	require.Len(t, ch, 2)
 	<-ch
@@ -279,18 +279,18 @@ func TestCodeExecutionResponseProcessor_UsesSharedWorkspaceSessionKey(
 				Session:   tc.sess,
 				AgentName: "test-agent",
 			}
-			rsp := &model.Response{
+			rsp := &compat.Response{
 				Done: true,
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "```bash\necho hello\n```",
 					}},
 				},
 			}
 
 			ch := make(chan *event.Event, 4)
-			proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+			proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 			require.Equal(t, tc.want, exec.lastInput.ExecutionID)
 		})

@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin/errormessage"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -101,7 +101,7 @@ func TestPlugin_RunnerIntegration_RewritesPersistedErrorEventContent(
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("trigger"),
+		compat.NewUserMessage("trigger"),
 	)
 	require.NoError(t, err)
 	for range ch {
@@ -129,7 +129,7 @@ func TestPlugin_RunnerIntegration_RewritesPersistedErrorEventContent(
 	require.Len(t, errorEvent.Response.Choices, 1)
 	require.Equal(
 		t,
-		model.RoleAssistant,
+		compat.RoleAssistant,
 		errorEvent.Response.Choices[0].Message.Role,
 	)
 	require.Equal(
@@ -171,7 +171,7 @@ func TestPlugin_RunnerIntegration_WithoutPluginUsesDefaultFallback(
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("trigger"),
+		compat.NewUserMessage("trigger"),
 	)
 	require.NoError(t, err)
 	for range ch {

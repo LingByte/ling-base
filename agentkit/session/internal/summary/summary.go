@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
@@ -139,7 +139,7 @@ func prependPrevSummary(prevSummary string, delta []event.Event, now time.Time) 
 	out := make([]event.Event, 0, len(delta)+1)
 	out = append(out, event.Event{
 		Author:    authorSystem,
-		Response:  &model.Response{Choices: []model.Choice{{Message: model.Message{Content: prevSummary}}}},
+		Response:  &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: prevSummary}}}},
 		Timestamp: now,
 	})
 	out = append(out, delta...)

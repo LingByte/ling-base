@@ -31,7 +31,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/programsession"
 	"github.com/LingByte/ling-base/agentkit/internal/skillstage"
 	"github.com/LingByte/ling-base/agentkit/internal/workspaceprep"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	toolskill "github.com/LingByte/ling-base/agentkit/tool/skill"
@@ -221,7 +221,7 @@ func TestExecTool_AutoStagesInvocationMessageFiles(t *testing.T) {
 	exec := localexec.New()
 	tl := NewExecTool(exec)
 
-	msg := model.NewUserMessage("upload")
+	msg := compat.NewUserMessage("upload")
 	msg.AddFileData("notes.txt", []byte("hello from upload"), "text/plain")
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(msg),
@@ -250,20 +250,20 @@ func TestExecTool_AutoStagesSessionFilesAcrossTurns(t *testing.T) {
 	exec := localexec.New()
 	tl := NewExecTool(exec)
 
-	prior := model.NewUserMessage("uploaded earlier")
+	prior := compat.NewUserMessage("uploaded earlier")
 	prior.AddFileData("history.txt", []byte("session upload"), "text/plain")
 	sess := &session.Session{
 		ID: "sess-history",
 		Events: []event.Event{{
-			Response: &model.Response{
-				Choices: []model.Choice{{
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
 					Message: prior,
 				}},
 			},
 		}},
 	}
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("use previous upload")),
+		agent.WithInvocationMessage(compat.NewUserMessage("use previous upload")),
 		agent.WithInvocationSession(sess),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -289,7 +289,7 @@ func TestExecTool_AutoStageFailureDoesNotBlockCommand(t *testing.T) {
 	exec := localexec.New()
 	tl := NewExecTool(exec)
 
-	msg := model.NewUserMessage("upload")
+	msg := compat.NewUserMessage("upload")
 	msg.AddFileIDWithName("provider-file-1", "missing.txt")
 	inv := agent.NewInvocation(agent.WithInvocationMessage(msg))
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -401,7 +401,7 @@ func TestExecTool_SharesWorkspaceWithSkillRun(t *testing.T) {
 	execTool := NewExecTool(exec, WithWorkspaceRegistry(reg))
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-workspace-exec"}),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)

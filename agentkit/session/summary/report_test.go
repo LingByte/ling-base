@@ -15,27 +15,27 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
 
 type reportModel struct {
-	request   *model.Request
-	usage     *model.Usage
-	responses []*model.Response
+	request   *compat.Request
+	usage     *compat.Usage
+	responses []*compat.Response
 }
 
-func (m *reportModel) Info() model.Info {
-	return model.Info{Name: "report"}
+func (m *reportModel) Info() compat.Info {
+	return compat.Info{Name: "report"}
 }
 
 func (m *reportModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.request = req
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	if len(m.responses) > 0 {
 		go func() {
 			defer close(ch)
@@ -45,11 +45,11 @@ func (m *reportModel) GenerateContent(
 		}()
 		return ch, nil
 	}
-	ch <- &model.Response{
+	ch <- &compat.Response{
 		Done:  true,
 		Usage: m.usage,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "summary"},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "summary"},
 		}},
 	}
 	close(ch)
@@ -87,8 +87,8 @@ func newReportSession() *session.Session {
 			Author:    "user",
 			Timestamp: time.Now(),
 			FilterKey: "app",
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: "hello"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: "hello"},
 			}}},
 		}},
 	}
@@ -125,9 +125,9 @@ func TestSessionSummarizer_ReportHookStandaloneCall(t *testing.T) {
 	SetTokenCounter(testFixedTokenCounter{tokens: 7})
 
 	var got Report
-	m := &reportModel{usage: &model.Usage{
+	m := &reportModel{usage: &compat.Usage{
 		PromptTokens: 123,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens: 45,
 		},
 	}}
@@ -162,9 +162,9 @@ func TestSessionSummarizer_ReportHookCacheSafeForkCall(t *testing.T) {
 	SetTokenCounter(testFixedTokenCounter{tokens: 3})
 
 	var got Report
-	parent := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system"),
-		model.NewUserMessage("conversation"),
+	parent := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system"),
+		compat.NewUserMessage("conversation"),
 	}}
 	m := &reportModel{}
 	s := NewSummarizer(
@@ -209,13 +209,13 @@ type rangeErrorTokenCounter struct {
 	tokens int
 }
 
-func (c rangeErrorTokenCounter) CountTokens(_ context.Context, _ model.Message) (int, error) {
+func (c rangeErrorTokenCounter) CountTokens(_ context.Context, _ compat.Message) (int, error) {
 	return c.tokens, nil
 }
 
 func (c rangeErrorTokenCounter) CountTokensRange(
 	_ context.Context,
-	_ []model.Message,
+	_ []compat.Message,
 	_,
 	_ int,
 ) (int, error) {
@@ -227,27 +227,27 @@ func TestReportAccountingHelpers(t *testing.T) {
 	SetTokenCounter(rangeErrorTokenCounter{tokens: 4})
 
 	require.Zero(t, estimateRequestPromptTokens(context.Background(), nil))
-	require.Zero(t, estimateRequestPromptTokens(context.Background(), &model.Request{}))
+	require.Zero(t, estimateRequestPromptTokens(context.Background(), &compat.Request{}))
 	require.Equal(
 		t,
 		8,
 		estimateRequestPromptTokens(
 			context.Background(),
-			&model.Request{Messages: []model.Message{
-				model.NewSystemMessage("system"),
-				model.NewUserMessage("user"),
+			&compat.Request{Messages: []compat.Message{
+				compat.NewSystemMessage("system"),
+				compat.NewUserMessage("user"),
 			}},
 		),
 	)
 
 	require.False(t, usageHasTokenCounts(nil))
-	require.False(t, usageHasTokenCounts(&model.Usage{}))
-	require.True(t, usageHasTokenCounts(&model.Usage{TotalTokens: 1}))
-	require.True(t, usageHasTokenCounts(&model.Usage{
-		PromptTokensDetails: model.PromptTokensDetails{CacheReadTokens: 1},
+	require.False(t, usageHasTokenCounts(&compat.Usage{}))
+	require.True(t, usageHasTokenCounts(&compat.Usage{TotalTokens: 1}))
+	require.True(t, usageHasTokenCounts(&compat.Usage{
+		PromptTokensDetails: compat.PromptTokensDetails{CacheReadTokens: 1},
 	}))
-	require.True(t, usageHasTokenCounts(&model.Usage{
-		PromptTokensDetails: model.PromptTokensDetails{CacheCreationTokens: 1},
+	require.True(t, usageHasTokenCounts(&compat.Usage{
+		PromptTokensDetails: compat.PromptTokensDetails{CacheCreationTokens: 1},
 	}))
 }
 
@@ -286,14 +286,14 @@ func TestSessionSummarizer_ReportHookEstimatesAfterBeforeModelCallback(t *testin
 	SetTokenCounter(testFixedTokenCounter{tokens: 5})
 
 	var got Report
-	callbacks := model.NewCallbacks()
+	callbacks := compat.NewCallbacks()
 	callbacks.RegisterBeforeModel(func(
 		_ context.Context,
-		args *model.BeforeModelArgs,
-	) (*model.BeforeModelResult, error) {
+		args *compat.BeforeModelArgs,
+	) (*compat.BeforeModelResult, error) {
 		args.Request.Messages = append(
 			args.Request.Messages,
-			model.NewSystemMessage("callback-added"),
+			compat.NewSystemMessage("callback-added"),
 		)
 		return nil, nil
 	})
@@ -319,16 +319,16 @@ func TestSessionSummarizer_ReportHookCustomResponseCall(t *testing.T) {
 	SetTokenCounter(testFixedTokenCounter{tokens: 5})
 
 	var got Report
-	callbacks := model.NewCallbacks()
+	callbacks := compat.NewCallbacks()
 	callbacks.RegisterBeforeModel(func(
 		_ context.Context,
-		_ *model.BeforeModelArgs,
-	) (*model.BeforeModelResult, error) {
-		return &model.BeforeModelResult{
-			CustomResponse: &model.Response{
+		_ *compat.BeforeModelArgs,
+	) (*compat.BeforeModelResult, error) {
+		return &compat.BeforeModelResult{
+			CustomResponse: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{Content: "callback summary"},
+				Choices: []compat.Choice{{
+					Message: compat.Message{Content: "callback summary"},
 				}},
 			},
 		}, nil
@@ -355,11 +355,11 @@ func TestSessionSummarizer_ReportHookKeepsUsageFromEarlierResponse(t *testing.T)
 	SetTokenCounter(testFixedTokenCounter{tokens: 1})
 
 	var got Report
-	m := &reportModel{responses: []*model.Response{
+	m := &reportModel{responses: []*compat.Response{
 		{
-			Usage: &model.Usage{PromptTokens: 21},
-			Choices: []model.Choice{{
-				Message: model.Message{Content: "summary"},
+			Usage: &compat.Usage{PromptTokens: 21},
+			Choices: []compat.Choice{{
+				Message: compat.Message{Content: "summary"},
 			}},
 		},
 		{Done: true},

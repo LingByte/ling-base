@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -28,11 +28,11 @@ func TestSessionService_GetEventWindow(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, evt := range []event.Event{
-		windowTestEvent("u1", model.RoleUser, "one"),
+		windowTestEvent("u1", compat.RoleUser, "one"),
 		windowTestToolCallEvent("call-only"),
-		windowTestEvent("a1", model.RoleAssistant, "two"),
+		windowTestEvent("a1", compat.RoleAssistant, "two"),
 		windowTestToolEvent("t1", "calc", "three"),
-		windowTestEvent("u2", model.RoleUser, "four"),
+		windowTestEvent("u2", compat.RoleUser, "four"),
 	} {
 		evt := evt
 		require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
@@ -43,10 +43,10 @@ func TestSessionService_GetEventWindow(t *testing.T) {
 		AnchorEventID: "t1",
 		Before:        2,
 		After:         1,
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 	})
 	require.NoError(t, err)
@@ -60,13 +60,13 @@ func TestSessionService_GetEventWindowUsesRawSessionEvents(t *testing.T) {
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
 
-	evt := windowTestEvent("a1", model.RoleAssistant, "leading assistant")
+	evt := windowTestEvent("a1", compat.RoleAssistant, "leading assistant")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	got, err := svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "a1",
-		Roles:         []model.Role{model.RoleAssistant},
+		Roles:         []compat.Role{compat.RoleAssistant},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"a1"}, windowTestIDs(got))
@@ -93,13 +93,13 @@ func TestSessionService_GetEventWindowValidation(t *testing.T) {
 	require.Contains(t, err.Error(), "anchor event not found")
 }
 
-func windowTestEvent(id string, role model.Role, content string) event.Event {
+func windowTestEvent(id string, role compat.Role, content string) event.Event {
 	return event.Event{
 		ID:        id,
 		Timestamp: time.Unix(int64(len(id)), 0).UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -109,15 +109,15 @@ func windowTestEvent(id string, role model.Role, content string) event.Event {
 }
 
 func windowTestToolEvent(id, name, content string) event.Event {
-	evt := windowTestEvent(id, model.RoleTool, content)
+	evt := windowTestEvent(id, compat.RoleTool, content)
 	evt.Response.Choices[0].Message.ToolID = "call-" + id
 	evt.Response.Choices[0].Message.ToolName = name
 	return evt
 }
 
 func windowTestToolCallEvent(id string) event.Event {
-	evt := windowTestEvent(id, model.RoleAssistant, "")
-	evt.Response.Choices[0].Message.ToolCalls = []model.ToolCall{{
+	evt := windowTestEvent(id, compat.RoleAssistant, "")
+	evt.Response.Choices[0].Message.ToolCalls = []compat.ToolCall{{
 		ID: "call-" + id,
 	}}
 	return evt

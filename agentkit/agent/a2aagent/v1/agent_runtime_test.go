@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/client"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 	protocolserver "trpc.group/trpc-go/trpc-a2a-go/v2/server"
@@ -241,7 +241,7 @@ func TestStreamingSetupAndConverterErrorsBecomeEvents(t *testing.T) {
 	wantErr := errors.New("convert")
 	invocation := &agent.Invocation{
 		InvocationID: "invocation",
-		Message:      model.NewUserMessage("hello"),
+		Message:      compat.NewUserMessage("hello"),
 	}
 	remote := &A2AAgent{
 		name:             "remote",
@@ -294,10 +294,10 @@ func TestProcessStreamingEventsFlushesAndStopsOnTerminalError(t *testing.T) {
 			return []*event.Event{event.New(
 				"invocation",
 				"remote",
-				event.WithResponse(&model.Response{
+				event.WithResponse(&compat.Response{
 					ID:        "response",
 					IsPartial: true,
-					Choices: []model.Choice{{Delta: model.Message{
+					Choices: []compat.Choice{{Delta: compat.Message{
 						Content: "buffered",
 					}}},
 				}),
@@ -306,10 +306,10 @@ func TestProcessStreamingEventsFlushesAndStopsOnTerminalError(t *testing.T) {
 		return []*event.Event{event.New(
 			"invocation",
 			"remote",
-			event.WithResponse(&model.Response{
+			event.WithResponse(&compat.Response{
 				ID: "response",
-				Choices: []model.Choice{{Message: model.Message{
-					Role: model.RoleTool,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role: compat.RoleTool,
 				}}},
 			}),
 		)}, nil
@@ -346,9 +346,9 @@ func TestProcessStreamingEventsFlushesAndStopsOnTerminalError(t *testing.T) {
 		return []*event.Event{event.New(
 			"invocation",
 			"remote",
-			event.WithResponse(&model.Response{
+			event.WithResponse(&compat.Response{
 				Done:  true,
-				Error: &model.ResponseError{Message: "failed"},
+				Error: &compat.ResponseError{Message: "failed"},
 			}),
 		)}, nil
 	}}
@@ -428,7 +428,7 @@ func TestStreamingLifecycleAndAggregationHelpers(t *testing.T) {
 
 	remote := &A2AAgent{name: "remote"}
 	builder := &strings.Builder{}
-	parts := []model.ContentPart{}
+	parts := []compat.ContentPart{}
 	responseID := remote.aggregateEventContent(
 		&event.Event{},
 		"existing",
@@ -438,8 +438,8 @@ func TestStreamingLifecycleAndAggregationHelpers(t *testing.T) {
 	if responseID != "existing" {
 		t.Fatalf("empty aggregate response ID = %q", responseID)
 	}
-	errorEvent := event.New("inv", "remote", event.WithResponse(&model.Response{
-		Error: &model.ResponseError{Message: "failed"},
+	errorEvent := event.New("inv", "remote", event.WithResponse(&compat.Response{
+		Error: &compat.ResponseError{Message: "failed"},
 	}))
 	if got := remote.aggregateEventContent(errorEvent, "existing", builder, nil); got != "existing" {
 		t.Fatalf("error aggregate response ID = %q", got)
@@ -471,7 +471,7 @@ func TestStreamingLifecycleAndAggregationHelpers(t *testing.T) {
 	)
 
 	artifactContent := make(map[string]string)
-	artifactParts := make(map[string][]model.ContentPart)
+	artifactParts := make(map[string][]compat.ContentPart)
 	var artifactOrder []string
 	recordArtifactChunk(
 		&protocol.TaskArtifactUpdateEvent{

@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/translator"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -34,7 +34,7 @@ type waitCancelRunner struct {
 	ctxCh chan context.Context
 }
 
-func (w *waitCancelRunner) Run(ctx context.Context, userID, sessionID string, _ model.Message,
+func (w *waitCancelRunner) Run(ctx context.Context, userID, sessionID string, _ compat.Message,
 	_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 	w.ctxCh <- ctx
 	ch := make(chan *agentevent.Event)
@@ -119,7 +119,7 @@ type blockingRunRunner struct {
 	calls   int32
 }
 
-func (b *blockingRunRunner) Run(ctx context.Context, userID, sessionID string, _ model.Message,
+func (b *blockingRunRunner) Run(ctx context.Context, userID, sessionID string, _ compat.Message,
 	_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 	atomic.AddInt32(&b.calls, 1)
 	select {

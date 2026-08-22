@@ -17,19 +17,19 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
-func mkMsg(role model.Role, content string) model.Message {
-	return model.Message{Role: role, Content: content}
+func mkMsg(role compat.Role, content string) compat.Message {
+	return compat.Message{Role: role, Content: content}
 }
 
-func mkEvent(ts time.Time, msg model.Message) event.Event {
+func mkEvent(ts time.Time, msg compat.Message) event.Event {
 	return event.Event{
 		Timestamp: ts,
-		Response: &model.Response{
-			Choices: []model.Choice{{Message: msg}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Message: msg}},
 		},
 	}
 }
@@ -81,39 +81,39 @@ func TestScanDeltaSince_FiltersBySinceAndSkipsNonChat(t *testing.T) {
 
 	sess.Events = []event.Event{
 		// Before since - ignored.
-		mkEvent(old, mkMsg(model.RoleUser, "way before")),
+		mkEvent(old, mkMsg(compat.RoleUser, "way before")),
 		// Tool role - skipped.
-		mkEvent(newer, mkMsg(model.RoleTool, "tool-output")),
+		mkEvent(newer, mkMsg(compat.RoleTool, "tool-output")),
 		// Event with tool calls - skipped.
 		{
 			Timestamp: newer,
-			Response: &model.Response{
-				Choices: []model.Choice{{Message: model.Message{
-					Role:      model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{ID: "x"}},
+			Response: &compat.Response{
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:      compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{ID: "x"}},
 				}}},
 			},
 		},
 		// Event with ToolID set - skipped.
 		{
 			Timestamp: newer,
-			Response: &model.Response{
-				Choices: []model.Choice{{Message: model.Message{
-					Role:   model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:   compat.RoleAssistant,
 					ToolID: "t1",
 				}}},
 			},
 		},
 		// Non-chat role (system) - skipped.
-		mkEvent(newer, mkMsg(model.RoleSystem, "sys")),
+		mkEvent(newer, mkMsg(compat.RoleSystem, "sys")),
 		// Empty content and empty parts - skipped.
-		mkEvent(newer, mkMsg(model.RoleUser, "")),
+		mkEvent(newer, mkMsg(compat.RoleUser, "")),
 		// Event with nil Response - latest ts still updates but no msgs.
 		{Timestamp: newer.Add(time.Second), Response: nil},
 		// Valid user message at `mid`.
-		mkEvent(mid, mkMsg(model.RoleUser, "hello")),
+		mkEvent(mid, mkMsg(compat.RoleUser, "hello")),
 		// Valid assistant message at `newer`.
-		mkEvent(newer, mkMsg(model.RoleAssistant, "hi there")),
+		mkEvent(newer, mkMsg(compat.RoleAssistant, "hi there")),
 	}
 
 	latest, msgs := scanDeltaSince(sess, old)
@@ -128,7 +128,7 @@ func TestScanDeltaSince_FiltersBySinceAndSkipsNonChat(t *testing.T) {
 func TestScanDeltaSince_ZeroSinceIncludesAll(t *testing.T) {
 	sess := &session.Session{}
 	t1 := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	sess.Events = []event.Event{mkEvent(t1, mkMsg(model.RoleUser, "msg"))}
+	sess.Events = []event.Event{mkEvent(t1, mkMsg(compat.RoleUser, "msg"))}
 	latest, msgs := scanDeltaSince(sess, time.Time{})
 	require.Len(t, msgs, 1)
 	assert.True(t, latest.Equal(t1))

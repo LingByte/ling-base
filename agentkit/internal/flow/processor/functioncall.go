@@ -37,7 +37,7 @@ import (
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -114,7 +114,7 @@ type toolEventStateDelta struct {
 	invocation      *agent.Invocation
 	sessionBaseline session.StateMap
 	args            []byte
-	choice          model.Choice
+	choice          compat.Choice
 	// stateDeltaInput is the tool result message content the framework would
 	// send without a result formatter, so formatting never redefines the state
 	// protocol. A ToolResultMessages rewrite still owns it.
@@ -159,7 +159,7 @@ func (e *toolResultRoundError) Unwrap() error {
 
 type toolCallExecution struct {
 	ctx          context.Context
-	choices      []model.Choice
+	choices      []compat.Choice
 	modifiedArgs []byte
 	// stateDeltaInput carries the content consumed by the tool state protocol,
 	// as documented on toolEventStateDelta. It is populated even when rendering
@@ -294,8 +294,8 @@ func NewFunctionCallResponseProcessor(
 func (p *FunctionCallResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil || rsp == nil || rsp.IsPartial || !rsp.IsToolCallResponse() {
@@ -393,10 +393,10 @@ func emitToolIterationLimitError(
 	ch chan<- *event.Event,
 	message string,
 ) {
-	resp := &model.Response{
-		Object: model.ObjectTypeError,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+	resp := &compat.Response{
+		Object: compat.ObjectTypeError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: message,
 		},
 		Done: true,
@@ -411,8 +411,8 @@ func emitToolIterationLimitError(
 func (p *FunctionCallResponseProcessor) toolExecutionDecision(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 ) (deferred bool, executable bool, unknown bool) {
 	if invocation == nil {
 		return false, true, false
@@ -420,11 +420,12 @@ func (p *FunctionCallResponseProcessor) toolExecutionDecision(
 	if req == nil || req.Tools == nil || rsp == nil {
 		return false, true, false
 	}
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
 	if len(rsp.Choices) == 0 {
 		return false, true, false
 	}
 	for _, tc := range rsp.Choices[0].Message.ToolCalls {
-		tl, ok := req.Tools[tc.Function.Name]
+		tl, ok := toolsMap[tc.Function.Name]
 		if !ok {
 			unknown = true
 			continue
@@ -441,14 +442,14 @@ func (p *FunctionCallResponseProcessor) toolExecutionDecision(
 func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendEvent(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
 	return p.handleFunctionCallsAndSendEventWithRequest(
 		ctx,
 		invocation,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		llmResponse,
 		eventChan,
 	)
@@ -457,13 +458,13 @@ func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendEvent(
 func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendEventWithRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
+	req *compat.Request,
+	llmResponse *compat.Response,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
 	var tools map[string]tool.Tool
 	if req != nil {
-		tools = req.Tools
+		tools, _ = req.Tools.(map[string]tool.Tool)
 	}
 	if p.shouldEmitToolResultEventPerToolCall(
 		ctx,
@@ -498,7 +499,7 @@ func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendEventWithReque
 		agent.EmitEvent(ctx, invocation, eventChan, event.NewErrorEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			err.Error(),
 		))
 		return nil, err
@@ -574,7 +575,7 @@ func emitFunctionResponseEventAndWait(
 func (p *FunctionCallResponseProcessor) shouldEmitToolResultEventPerToolCall(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 ) bool {
 	if invocation == nil ||
@@ -614,8 +615,8 @@ func (p *FunctionCallResponseProcessor) shouldEmitToolResultEventPerToolCall(
 func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendPerCallResultEventsWithRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
+	req *compat.Request,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
@@ -651,7 +652,7 @@ func (p *FunctionCallResponseProcessor) handleFunctionCallsAndSendPerCallResultE
 	errorEvent := event.NewErrorEvent(
 		invocation.InvocationID,
 		invocation.AgentName,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 		err.Error(),
 	)
 	var roundErr *toolResultRoundError
@@ -790,14 +791,14 @@ func funcRespWaitTimeout(ctx context.Context) time.Duration {
 func (p *FunctionCallResponseProcessor) handleFunctionCalls(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
 	return p.handleFunctionCallsWithRequest(
 		ctx,
 		invocation,
-		&model.Request{Tools: tools},
+		&compat.Request{Tools: tools},
 		llmResponse,
 		tools,
 		eventChan,
@@ -807,8 +808,8 @@ func (p *FunctionCallResponseProcessor) handleFunctionCalls(
 func (p *FunctionCallResponseProcessor) handleFunctionCallsWithRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
+	req *compat.Request,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
@@ -893,9 +894,9 @@ func (p *FunctionCallResponseProcessor) handleFunctionCallsWithRequest(
 func (p *FunctionCallResponseProcessor) executeToolCallsSequentiallyAndEmitPerCallResultEvents(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
-	toolCalls []model.ToolCall,
+	req *compat.Request,
+	llmResponse *compat.Response,
+	toolCalls []compat.ToolCall,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
@@ -974,9 +975,9 @@ func (p *FunctionCallResponseProcessor) executeToolCallsSequentiallyAndEmitPerCa
 func (p *FunctionCallResponseProcessor) executeToolCallsInParallelAndEmitPerCallResultEvents(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
-	toolCalls []model.ToolCall,
+	req *compat.Request,
+	llmResponse *compat.Response,
+	toolCalls []compat.ToolCall,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, error) {
@@ -1115,7 +1116,7 @@ func cloneToolResultForStateFinalization(result toolResult) toolResult {
 	return cloned
 }
 
-func deepCloneToolResultResponseMessages(response *model.Response) {
+func deepCloneToolResultResponseMessages(response *compat.Response) {
 	if response == nil {
 		return
 	}
@@ -1130,7 +1131,7 @@ func deepCloneToolResultResponseMessages(response *model.Response) {
 	}
 }
 
-func cloneToolResultMessage(message model.Message) model.Message {
+func cloneToolResultMessage(message compat.Message) compat.Message {
 	cloned := message
 	cloned.ContentParts = cloneToolResultContentParts(message.ContentParts)
 	cloned.ToolCalls = cloneToolResultToolCalls(message.ToolCalls)
@@ -1138,12 +1139,12 @@ func cloneToolResultMessage(message model.Message) model.Message {
 }
 
 func cloneToolResultContentParts(
-	parts []model.ContentPart,
-) []model.ContentPart {
+	parts []compat.ContentPart,
+) []compat.ContentPart {
 	if parts == nil {
 		return nil
 	}
-	cloned := make([]model.ContentPart, len(parts))
+	cloned := make([]compat.ContentPart, len(parts))
 	for i, part := range parts {
 		cloned[i] = part
 		if part.Text != nil {
@@ -1178,11 +1179,11 @@ func cloneToolResultContentParts(
 	return cloned
 }
 
-func cloneToolResultToolCalls(toolCalls []model.ToolCall) []model.ToolCall {
+func cloneToolResultToolCalls(toolCalls []compat.ToolCall) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i, toolCall := range toolCalls {
 		cloned[i] = toolCall
 		cloned[i].Function.Arguments = append(
@@ -1272,8 +1273,8 @@ func (p *FunctionCallResponseProcessor) finalizeToolRoundError(
 func (p *FunctionCallResponseProcessor) applyAfterToolMessagesAndEmit(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
+	req *compat.Request,
+	llmResponse *compat.Response,
 	eventChan chan<- *event.Event,
 	result toolResult,
 	toolResultRoundIncomplete bool,
@@ -1310,8 +1311,8 @@ type afterToolMessagesManager interface {
 func (p *FunctionCallResponseProcessor) applyAfterToolMessagesHooks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	llmResponse *model.Response,
+	req *compat.Request,
+	llmResponse *compat.Response,
 	toolResultEvent *event.Event,
 ) error {
 	if invocation == nil || invocation.Plugins == nil ||
@@ -1353,17 +1354,17 @@ func (p *FunctionCallResponseProcessor) applyAfterToolMessagesHooks(
 	return nil
 }
 
-func toolResultMessagesFromEvent(ev *event.Event) []model.Message {
+func toolResultMessagesFromEvent(ev *event.Event) []compat.Message {
 	if ev == nil || ev.Response == nil {
 		return nil
 	}
-	messages := make([]model.Message, 0, len(ev.Response.Choices))
+	messages := make([]compat.Message, 0, len(ev.Response.Choices))
 	for _, choice := range ev.Response.Choices {
 		msg := choice.Message
 		if msg.ToolID == "" && choice.Delta.ToolID != "" {
 			msg = choice.Delta
 		}
-		if msg.ToolID == "" || !model.HasPayload(msg) {
+		if msg.ToolID == "" || !compat.HasPayload(msg) {
 			continue
 		}
 		messages = append(messages, msg)
@@ -1372,11 +1373,11 @@ func toolResultMessagesFromEvent(ev *event.Event) []model.Message {
 }
 
 func afterToolMessagesView(
-	req *model.Request,
-	llmResponse *model.Response,
-	toolResultMessages []model.Message,
-) []model.Message {
-	var messages []model.Message
+	req *compat.Request,
+	llmResponse *compat.Response,
+	toolResultMessages []compat.Message,
+) []compat.Message {
+	var messages []compat.Message
 	if req != nil && len(req.Messages) > 0 {
 		messages = append(messages, req.Messages...)
 	}
@@ -1388,23 +1389,23 @@ func afterToolMessagesView(
 }
 
 func assistantMessageFromToolCallResponse(
-	rsp *model.Response,
-) (model.Message, bool) {
+	rsp *compat.Response,
+) (compat.Message, bool) {
 	if rsp == nil || len(rsp.Choices) == 0 {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	msg := rsp.Choices[0].Message
-	if len(msg.ToolCalls) > 0 || model.HasPayload(msg) {
+	if len(msg.ToolCalls) > 0 || compat.HasPayload(msg) {
 		return msg, true
 	}
 	delta := rsp.Choices[0].Delta
-	if len(delta.ToolCalls) > 0 || model.HasPayload(delta) {
+	if len(delta.ToolCalls) > 0 || compat.HasPayload(delta) {
 		return delta, true
 	}
-	return model.Message{}, false
+	return compat.Message{}, false
 }
 
-func toolCallsFromResponse(rsp *model.Response) []model.ToolCall {
+func toolCallsFromResponse(rsp *compat.Response) []compat.ToolCall {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil
 	}
@@ -1415,15 +1416,15 @@ func toolCallsFromResponse(rsp *model.Response) []model.ToolCall {
 	if len(calls) == 0 {
 		return nil
 	}
-	out := make([]model.ToolCall, len(calls))
+	out := make([]compat.ToolCall, len(calls))
 	copy(out, calls)
 	return out
 }
 
 func replacementToolChoices(
-	originalChoices []model.Choice,
-	replacements []model.Message,
-) ([]model.Choice, error) {
+	originalChoices []compat.Choice,
+	replacements []compat.Message,
+) ([]compat.Choice, error) {
 	original := toolChoiceIndexByID(originalChoices)
 	if len(original) == 0 {
 		return nil, errors.New("after tool messages: original tool result messages are empty")
@@ -1435,16 +1436,16 @@ func replacementToolChoices(
 			len(original),
 		)
 	}
-	byID := make(map[string]model.Message, len(replacements))
+	byID := make(map[string]compat.Message, len(replacements))
 	for _, msg := range replacements {
 		if msg.ToolID == "" {
 			return nil, errors.New("after tool messages: replacement tool message missing tool id")
 		}
-		if msg.Role != model.RoleTool {
+		if msg.Role != compat.RoleTool {
 			return nil, fmt.Errorf(
 				"after tool messages: replacement for tool id %q must use role %q",
 				msg.ToolID,
-				model.RoleTool,
+				compat.RoleTool,
 			)
 		}
 		if _, ok := byID[msg.ToolID]; ok {
@@ -1455,7 +1456,7 @@ func replacementToolChoices(
 		}
 		byID[msg.ToolID] = msg
 	}
-	choices := make([]model.Choice, 0, len(original))
+	choices := make([]compat.Choice, 0, len(original))
 	for _, choice := range originalChoices {
 		msg := choice.Message
 		if msg.ToolID == "" && choice.Delta.ToolID != "" {
@@ -1483,7 +1484,7 @@ func replacementToolChoices(
 	return choices, nil
 }
 
-func replaceChoiceToolMessage(choice model.Choice, msg model.Message) model.Choice {
+func replaceChoiceToolMessage(choice compat.Choice, msg compat.Message) compat.Choice {
 	updated := choice
 	if updated.Message.ToolID != "" {
 		updated.Message = msg
@@ -1497,7 +1498,7 @@ func replaceChoiceToolMessage(choice model.Choice, msg model.Message) model.Choi
 	return updated
 }
 
-func toolChoiceIndexByID(choices []model.Choice) map[string]int {
+func toolChoiceIndexByID(choices []compat.Choice) map[string]int {
 	out := make(map[string]int, len(choices))
 	for _, choice := range choices {
 		msg := choice.Message
@@ -1512,11 +1513,11 @@ func toolChoiceIndexByID(choices []model.Choice) map[string]int {
 	return out
 }
 
-func cloneModelMessages(messages []model.Message) []model.Message {
+func cloneModelMessages(messages []compat.Message) []compat.Message {
 	if len(messages) == 0 {
 		return nil
 	}
-	out := make([]model.Message, len(messages))
+	out := make([]compat.Message, len(messages))
 	copy(out, messages)
 	return out
 }
@@ -1525,11 +1526,11 @@ func cloneModelMessages(messages []model.Message) []model.Message {
 func (p *FunctionCallResponseProcessor) executeSingleToolCallSequential(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 	index int,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) (*event.Event, error) {
 	result, err := p.executeSingleToolCallSequentialResult(
 		ctx,
@@ -1557,11 +1558,11 @@ func (p *FunctionCallResponseProcessor) executeSingleToolCallSequential(
 func (p *FunctionCallResponseProcessor) executeSingleToolCallSequentialResult(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 	index int,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) (toolResult, error) {
 	ctx, span, startedSpan := itrace.StartSpan(ctx, invocation, itelemetry.NewExecuteToolSpanName(toolCall.Function.Name))
 	if startedSpan {
@@ -1584,7 +1585,7 @@ func (p *FunctionCallResponseProcessor) executeSingleToolCallSequentialResult(
 	if err != nil {
 		traceError = err.Error()
 		choice := p.createErrorChoice(index, toolCall.ID, err.Error())
-		choices = []model.Choice{*choice}
+		choices = []compat.Choice{*choice}
 		if !execution.shouldIgnoreError {
 			returnErr = err
 		}
@@ -1745,8 +1746,8 @@ func toolNamePollutesAutoMemory(name string) bool {
 func (p *FunctionCallResponseProcessor) executeToolCallsInParallel(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
-	toolCalls []model.ToolCall,
+	llmResponse *compat.Response,
+	toolCalls []compat.ToolCall,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 ) (*event.Event, []toolResult, error) {
@@ -1801,8 +1802,8 @@ func (p *FunctionCallResponseProcessor) executeToolCallsInParallel(
 func (p *FunctionCallResponseProcessor) startParallelToolCalls(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
-	toolCalls []model.ToolCall,
+	llmResponse *compat.Response,
+	toolCalls []compat.ToolCall,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 	perToolCallResultEvents bool,
@@ -1872,13 +1873,13 @@ func firstNonNilErr(errs ...error) error {
 func (p *FunctionCallResponseProcessor) runParallelToolCall(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
 	eventChan chan<- *event.Event,
 	resultChan chan<- toolResult,
 	preserveResultOnCancellation bool,
 	index int,
-	tc model.ToolCall,
+	tc compat.ToolCall,
 ) (rerr error) {
 	toolArgs := tc.Function.Arguments
 	if ctx == nil {
@@ -1909,7 +1910,7 @@ func (p *FunctionCallResponseProcessor) runParallelToolCall(
 			errorChoice := p.createErrorChoice(index, tc.ID, traceError)
 			errorChoice.Message.ToolName = tc.Function.Name
 			errorEvent := newToolCallResponseEvent(
-				invocation, llmResponse, []model.Choice{*errorChoice},
+				invocation, llmResponse, []compat.Choice{*errorChoice},
 			)
 			annotateToolCallArgs(errorEvent, tc, toolArgs)
 			if tc.Function.Name == transfer.TransferToolName {
@@ -1960,7 +1961,7 @@ func (p *FunctionCallResponseProcessor) runParallelToolCall(
 			index, tc.ID, fmt.Sprintf("tool execution error: %v", err),
 		)
 		errorChoice.Message.ToolName = tc.Function.Name
-		errorChoices := []model.Choice{*errorChoice}
+		errorChoices := []compat.Choice{*errorChoice}
 		errorEvent := newToolCallResponseEvent(
 			invocation, llmResponse, errorChoices,
 		)
@@ -2087,10 +2088,10 @@ func (p *FunctionCallResponseProcessor) runParallelToolCall(
 func (p *FunctionCallResponseProcessor) buildToolCallResponseEvent(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
-	choices []model.Choice,
+	llmResponse *compat.Response,
+	choices []compat.Choice,
 	tools map[string]tool.Tool,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	index int,
 	toolArgs []byte,
 	skipSummarization bool,
@@ -2125,9 +2126,9 @@ func (p *FunctionCallResponseProcessor) buildToolCallResponseEvent(
 	)
 }
 
-func annotateToolChoicesWithName(choices []model.Choice, toolName string) {
+func annotateToolChoicesWithName(choices []compat.Choice, toolName string) {
 	for i := range choices {
-		if choices[i].Message.Role == model.RoleTool &&
+		if choices[i].Message.Role == compat.RoleTool &&
 			choices[i].Message.ToolName == "" {
 			choices[i].Message.ToolName = toolName
 		}
@@ -2136,7 +2137,7 @@ func annotateToolChoicesWithName(choices []model.Choice, toolName string) {
 
 func annotateToolCallArgs(
 	ev *event.Event,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolArgs []byte,
 ) {
 	if toolArgs == nil {
@@ -2176,7 +2177,7 @@ func setToolCallArgs(
 func (p *FunctionCallResponseProcessor) decorateToolCallResponseEvent(
 	ev *event.Event,
 	tools map[string]tool.Tool,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	skipSummarization bool,
 	allowToolSkipSummarization bool,
 ) *event.Event {
@@ -2255,8 +2256,8 @@ func marshalStateDeltaInput(result any) (b []byte, err error) {
 // message unchanged is not a rewrite.
 func stateDeltaInputAfterOverride(
 	legacy []byte,
-	defaultMsg model.Message,
-	choices []model.Choice,
+	defaultMsg compat.Message,
+	choices []compat.Choice,
 ) []byte {
 	if legacy == nil || len(choices) == 0 {
 		return legacy
@@ -2274,7 +2275,7 @@ func (p *FunctionCallResponseProcessor) attachStateDelta(
 	tl tool.Tool,
 	args []byte,
 	stateDeltaInput []byte,
-	choice *model.Choice,
+	choice *compat.Choice,
 	ev *event.Event,
 ) {
 	if tl == nil || choice == nil || ev == nil || stateDeltaInput == nil {
@@ -2318,7 +2319,7 @@ func (p *FunctionCallResponseProcessor) buildToolEventStateDelta(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	args []byte,
-	choices []model.Choice,
+	choices []compat.Choice,
 	stateDeltaInput []byte,
 ) *toolEventStateDelta {
 	if len(choices) == 0 ||
@@ -2657,9 +2658,9 @@ func (p *FunctionCallResponseProcessor) sendToolResult(
 func (p *FunctionCallResponseProcessor) buildMergedParallelEvent(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmResponse *model.Response,
+	llmResponse *compat.Response,
 	tools map[string]tool.Tool,
-	toolCalls []model.ToolCall,
+	toolCalls []compat.ToolCall,
 	toolResults []toolResult,
 	toolCallEvents []*event.Event,
 ) *event.Event {
@@ -2673,7 +2674,7 @@ func (p *FunctionCallResponseProcessor) buildMergedParallelEvent(
 
 	var mergedEvent *event.Event
 	if len(toolCallEvents) == 0 {
-		minimal := make([]model.Choice, 0, len(toolCalls))
+		minimal := make([]compat.Choice, 0, len(toolCalls))
 		for i, tc := range toolCalls {
 			minimal = append(minimal, newMinimalToolChoice(tc, i))
 		}
@@ -2716,7 +2717,7 @@ func (p *FunctionCallResponseProcessor) buildMergedParallelEvent(
 func (p *FunctionCallResponseProcessor) executeToolCall(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tools map[string]tool.Tool,
 	index int,
 	eventChan chan<- *event.Event,
@@ -2891,14 +2892,14 @@ func (p *FunctionCallResponseProcessor) executeToolCall(
 
 func (p *FunctionCallResponseProcessor) buildToolResultChoices(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.Tool,
 	result any,
 	modifiedArgs []byte,
 	index int,
-	defaultMsg model.Message,
-) ([]model.Choice, error) {
-	defaultChoices := []model.Choice{
+	defaultMsg compat.Message,
+) ([]compat.Choice, error) {
+	defaultChoices := []compat.Choice{
 		{Index: index, Message: defaultMsg},
 	}
 	if isPermissionResult(result) ||
@@ -2950,9 +2951,9 @@ func isPermissionResultStatus(status string) bool {
 func (p *FunctionCallResponseProcessor) resolveToolCallTarget(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tools map[string]tool.Tool,
-) (model.ToolCall, tool.Tool, bool, error) {
+) (compat.ToolCall, tool.Tool, bool, error) {
 	tl, exists := tools[toolCall.Function.Name]
 	if !exists {
 		// Compatibility: map sub-agent name calls to transfer_to_agent if present.
@@ -3146,13 +3147,13 @@ func toolNameEditDistance(a string, b string) int {
 //   - err: non-nil when the callback itself fails
 func (p *FunctionCallResponseProcessor) applyToolResultMessagesCallback(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.Tool,
 	result any,
 	modifiedArgs []byte,
 	index int,
-	defaultMsg model.Message,
-) ([]model.Choice, bool, error) {
+	defaultMsg compat.Message,
+) ([]compat.Choice, bool, error) {
 	raw, cbErr := p.toolCallbacks.RunToolResultMessages(
 		ctx,
 		&tool.ToolResultMessagesInput{
@@ -3169,26 +3170,26 @@ func (p *FunctionCallResponseProcessor) applyToolResultMessagesCallback(
 		return nil, false, fmt.Errorf("tool callback error: %w", cbErr)
 	}
 
-	var msgs []model.Message
+	var msgs []compat.Message
 	switch v := raw.(type) {
 	case nil:
 		// No override.
-	case model.Message:
-		msgs = []model.Message{v}
-	case []model.Message:
+	case compat.Message:
+		msgs = []compat.Message{v}
+	case []compat.Message:
 		msgs = v
 	default:
-		log.Warnf("ToolResultMessages callback for %s returned unsupported type %T; expected model.Message or []model.Message", toolCall.Function.Name, v)
+		log.Warnf("ToolResultMessages callback for %s returned unsupported type %T; expected compat.Message or []compat.Message", toolCall.Function.Name, v)
 	}
 
 	if len(msgs) == 0 {
 		return nil, false, nil
 	}
 
-	customChoices := make([]model.Choice, 0, len(msgs))
+	customChoices := make([]compat.Choice, 0, len(msgs))
 	for _, msg := range msgs {
 		msg = ensureToolResultMessageName(msg, toolCall)
-		customChoices = append(customChoices, model.Choice{
+		customChoices = append(customChoices, compat.Choice{
 			Index:   index,
 			Message: msg,
 		})
@@ -3199,10 +3200,10 @@ func (p *FunctionCallResponseProcessor) applyToolResultMessagesCallback(
 }
 
 func ensureToolResultMessageName(
-	msg model.Message,
-	toolCall model.ToolCall,
-) model.Message {
-	if msg.Role != model.RoleTool ||
+	msg compat.Message,
+	toolCall compat.ToolCall,
+) compat.Message {
+	if msg.Role != compat.RoleTool ||
 		msg.ToolID != toolCall.ID ||
 		msg.ToolName != "" {
 		return msg
@@ -3213,11 +3214,11 @@ func ensureToolResultMessageName(
 
 // createErrorChoice creates an error choice for tool execution failures.
 func (p *FunctionCallResponseProcessor) createErrorChoice(index int, toolID string,
-	errorMsg string) *model.Choice {
-	return &model.Choice{
+	errorMsg string) *compat.Choice {
+	return &compat.Choice{
 		Index: index,
-		Message: model.Message{
-			Role:    model.RoleTool,
+		Message: compat.Message{
+			Role:    compat.RoleTool,
 			Content: errorMsg,
 			ToolID:  toolID,
 		},
@@ -3274,9 +3275,9 @@ func (p *FunctionCallResponseProcessor) collectParallelToolResults(
 func (p *FunctionCallResponseProcessor) runBeforeToolPluginCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolDeclaration *tool.Declaration,
-) (context.Context, model.ToolCall, any, error) {
+) (context.Context, compat.ToolCall, any, error) {
 	if invocation == nil || invocation.Plugins == nil {
 		return ctx, toolCall, nil, nil
 	}
@@ -3320,9 +3321,9 @@ func (p *FunctionCallResponseProcessor) runBeforeToolPluginCallbacks(
 
 func (p *FunctionCallResponseProcessor) runBeforeToolCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolDeclaration *tool.Declaration,
-) (context.Context, model.ToolCall, any, error) {
+) (context.Context, compat.ToolCall, any, error) {
 	if p.toolCallbacks == nil {
 		return ctx, toolCall, nil, nil
 	}
@@ -3363,7 +3364,7 @@ func (p *FunctionCallResponseProcessor) runBeforeToolCallbacks(
 func (p *FunctionCallResponseProcessor) runAfterToolPluginCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolDeclaration *tool.Declaration,
 	toolResult any,
 	toolErr error,
@@ -3419,7 +3420,7 @@ func (p *FunctionCallResponseProcessor) runAfterToolPluginCallbacks(
 
 func (p *FunctionCallResponseProcessor) runAfterToolCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolDeclaration *tool.Declaration,
 	toolResult any,
 	toolErr error,
@@ -3491,7 +3492,7 @@ func extractMetaFromResult(result any) map[string]any {
 func (p *FunctionCallResponseProcessor) executeToolWithCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.Tool,
 	eventChan chan<- *event.Event,
 ) (context.Context, any, []byte, bool, bool, error) {
@@ -3627,7 +3628,7 @@ func (p *FunctionCallResponseProcessor) executeToolWithCallbacks(
 func (p *FunctionCallResponseProcessor) checkToolPermission(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.Tool,
 	decl *tool.Declaration,
 ) (*tool.PermissionResult, error) {
@@ -3727,7 +3728,7 @@ func streamableTool(t tool.Tool) (tool.StreamableTool, bool) {
 func (f *FunctionCallResponseProcessor) executeTool(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.Tool,
 	eventChan chan<- *event.Event,
 ) (context.Context, any, bool, error) {
@@ -3748,7 +3749,7 @@ func (f *FunctionCallResponseProcessor) executeTool(
 // executeCallableTool executes a callable tool.
 func (p *FunctionCallResponseProcessor) executeCallableTool(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.CallableTool,
 ) (context.Context, any, error) {
 	callCtx := tool.WithoutToolResultAttachmentBudget(ctx)
@@ -3813,7 +3814,7 @@ func buildDefaultToolMessage(
 	result any,
 	formatter resultformat.Formatter,
 	needsStateDeltaInput bool,
-) (model.Message, []byte, error) {
+) (compat.Message, []byte, error) {
 	if formatter == nil {
 		// Preserve legacy tool message serialization for default fallback content.
 		// Use marshalJSONNoHTMLEscape so that <, >, & in tool output (e.g. Go source
@@ -3821,11 +3822,11 @@ func buildDefaultToolMessage(
 		// to \u003c, \u003e, \u0026 which confuses LLMs reading the content.
 		resultBytes, err := marshalJSONNoHTMLEscape(result)
 		if err != nil {
-			return model.Message{}, nil,
+			return compat.Message{}, nil,
 				fmt.Errorf("%s: %w", ErrorMarshalResult, err)
 		}
-		msg := model.Message{
-			Role:    model.RoleTool,
+		msg := compat.Message{
+			Role:    compat.RoleTool,
 			Content: string(resultBytes),
 			ToolID:  toolCallID,
 		}
@@ -3844,17 +3845,17 @@ func buildDefaultToolMessage(
 		var err error
 		stateDeltaInput, err = marshalStateDeltaInput(result)
 		if err != nil {
-			return model.Message{}, nil,
+			return compat.Message{}, nil,
 				fmt.Errorf("%s: %w", ErrorMarshalResult, err)
 		}
 	}
 	content, err := formatToolResultWithRecover(ctx, formatter, result)
 	if err != nil {
-		return model.Message{}, stateDeltaInput,
+		return compat.Message{}, stateDeltaInput,
 			fmt.Errorf("%s: %w", ErrorFormatResult, err)
 	}
-	return model.Message{
-		Role:    model.RoleTool,
+	return compat.Message{
+		Role:    compat.RoleTool,
 		Content: content,
 		ToolID:  toolCallID,
 	}, stateDeltaInput, nil
@@ -3937,7 +3938,7 @@ func innerTextModeForTool(tl tool.StreamableTool) tool.InnerTextMode {
 func (f *FunctionCallResponseProcessor) executeStreamableTool(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	tl tool.StreamableTool,
 	eventChan chan<- *event.Event,
 ) (context.Context, any, bool, error) {
@@ -4084,7 +4085,7 @@ func preserveUndeclaredToolResult(
 func (f *FunctionCallResponseProcessor) consumeStream(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	reader *tool.StreamReader,
 	eventChan chan<- *event.Event,
 	innerTextMode tool.InnerTextMode,
@@ -4142,7 +4143,7 @@ func (f *FunctionCallResponseProcessor) appendInnerEventContent(
 		ch := ev.Response.Choices[0]
 		if ch.Delta.Content != "" {
 			*contents = append(*contents, ch.Delta.Content)
-		} else if ch.Message.Role == model.RoleAssistant &&
+		} else if ch.Message.Role == compat.RoleAssistant &&
 			ch.Message.Content != "" {
 			*contents = append(*contents, ch.Message.Content)
 		}
@@ -4152,18 +4153,18 @@ func (f *FunctionCallResponseProcessor) appendInnerEventContent(
 // buildPartialToolResponseEvent constructs a partial tool.response event.
 func (f *FunctionCallResponseProcessor) buildPartialToolResponseEvent(
 	inv *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	text string,
 ) *event.Event {
-	resp := &model.Response{
+	resp := &compat.Response{
 		ID:      uuid.New().String(),
-		Object:  model.ObjectTypeToolResponse,
+		Object:  compat.ObjectTypeToolResponse,
 		Created: time.Now().Unix(),
 		Model:   inv.Model.Info().Name,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.Message{Role: model.RoleTool, ToolID: toolCall.ID},
-			Delta:   model.Message{Role: model.RoleTool, Content: text, ToolID: toolCall.ID},
+			Message: compat.Message{Role: compat.RoleTool, ToolID: toolCall.ID},
+			Delta:   compat.Message{Role: compat.RoleTool, Content: text, ToolID: toolCall.ID},
 		}},
 		Timestamp: time.Now(),
 		Done:      false,
@@ -4178,7 +4179,7 @@ func (f *FunctionCallResponseProcessor) buildPartialToolResponseEvent(
 
 func (f *FunctionCallResponseProcessor) buildStateDeltaToolResponseEvent(
 	inv *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	stateDelta map[string][]byte,
 ) *event.Event {
 	evt := f.buildPartialToolResponseEvent(inv, toolCall, "")
@@ -4228,7 +4229,7 @@ func isGraphToolExecutionErrorEvent(ev *event.Event) bool {
 	if ev == nil || ev.Response == nil || ev.StateDelta == nil {
 		return false
 	}
-	if ev.Response.Object != model.ObjectTypeToolResponse {
+	if ev.Response.Object != compat.ObjectTypeToolResponse {
 		return false
 	}
 	_, ok := ev.StateDelta[graph.MetadataKeyTool]
@@ -4282,14 +4283,14 @@ func (p *FunctionCallResponseProcessor) compactToolResults(
 
 func newToolCallResponseEvent(
 	invocation *agent.Invocation,
-	functionCallResponse *model.Response,
-	functionResponses []model.Choice) *event.Event {
+	functionCallResponse *compat.Response,
+	functionResponses []compat.Choice) *event.Event {
 	// Create function response event.
 	e := event.NewResponseEvent(
 		invocation.InvocationID,
 		invocation.AgentName,
-		&model.Response{
-			Object:    model.ObjectTypeToolResponse,
+		&compat.Response{
+			Object:    compat.ObjectTypeToolResponse,
 			Created:   time.Now().Unix(),
 			Model:     functionCallResponse.Model,
 			Choices:   functionResponses,
@@ -4302,28 +4303,28 @@ func newToolCallResponseEvent(
 
 func newMinimalToolCallResponseEvent(
 	invocation *agent.Invocation,
-	functionCallResponse *model.Response,
-	toolCall model.ToolCall,
+	functionCallResponse *compat.Response,
+	toolCall compat.ToolCall,
 	index int,
 	toolArgs []byte,
 ) *event.Event {
 	ev := newToolCallResponseEvent(
 		invocation,
 		functionCallResponse,
-		[]model.Choice{newMinimalToolChoice(toolCall, index)},
+		[]compat.Choice{newMinimalToolChoice(toolCall, index)},
 	)
 	annotateToolCallArgs(ev, toolCall, toolArgs)
 	return ev
 }
 
 func newMinimalToolChoice(
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	index int,
-) model.Choice {
-	return model.Choice{
+) compat.Choice {
+	return compat.Choice{
 		Index: index,
-		Message: model.Message{
-			Role:     model.RoleTool,
+		Message: compat.Message{
+			Role:     compat.RoleTool,
 			ToolID:   toolCall.ID,
 			ToolName: toolCall.Function.Name,
 		},
@@ -4365,7 +4366,7 @@ func mergeParallelToolCallResponseEvents(es []*event.Event) *event.Event {
 }
 
 // collectMergedChoices collects the choices from all events.
-func collectMergedChoices(es []*event.Event) []model.Choice {
+func collectMergedChoices(es []*event.Event) []compat.Choice {
 	totalChoices := 0
 	for _, e := range es {
 		if e != nil && e.Response != nil {
@@ -4373,7 +4374,7 @@ func collectMergedChoices(es []*event.Event) []model.Choice {
 		}
 	}
 
-	mergedChoices := make([]model.Choice, 0, totalChoices)
+	mergedChoices := make([]compat.Choice, 0, totalChoices)
 	for _, e := range es {
 		// Add nil checks to prevent panic
 		if e != nil && e.Response != nil {
@@ -4432,14 +4433,14 @@ func findBaseEvent(es []*event.Event) *event.Event {
 }
 
 // buildMergedToolResponse builds the merged tool response.
-func buildMergedToolResponse(baseEvent *event.Event, mergedChoices []model.Choice) *model.Response {
+func buildMergedToolResponse(baseEvent *event.Event, mergedChoices []compat.Choice) *compat.Response {
 	modelName := "unknown"
 	if baseEvent != nil && baseEvent.Response != nil {
 		modelName = baseEvent.Response.Model
 	}
-	return &model.Response{
+	return &compat.Response{
 		ID:        uuid.New().String(),
-		Object:    model.ObjectTypeToolResponse,
+		Object:    compat.ObjectTypeToolResponse,
 		Created:   time.Now().Unix(),
 		Model:     modelName,
 		Choices:   mergedChoices,
@@ -4448,7 +4449,7 @@ func buildMergedToolResponse(baseEvent *event.Event, mergedChoices []model.Choic
 }
 
 // buildMergedEvent builds the merged event.
-func buildMergedEvent(baseEvent *event.Event, resp *model.Response) *event.Event {
+func buildMergedEvent(baseEvent *event.Event, resp *compat.Response) *event.Event {
 	// If we have a base event, carry over invocation, author and branch.
 	if baseEvent != nil {
 		return event.New(baseEvent.InvocationID, baseEvent.Author, event.WithResponse(resp))
@@ -4557,7 +4558,7 @@ func convertToolArguments(
 func (f *FunctionCallResponseProcessor) processStreamChunk(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	chunk tool.StreamChunk,
 	eventChan chan<- *event.Event,
 	contents *[]any,
@@ -4637,7 +4638,7 @@ func normalizeFinalResultChunk(content any) (*normalizedFinalResultChunk, bool) 
 func (f *FunctionCallResponseProcessor) handleFinalResultChunk(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	eventChan chan<- *event.Event,
 	finalResult *streamFinalResult,
 	innerEventState *streamInnerEventState,
@@ -4708,11 +4709,11 @@ func filterForwardedInnerTextEvent(
 	modified := false
 	for i := range filtered.Response.Choices {
 		choice := &filtered.Response.Choices[i]
-		if filtered.Response.Object == model.ObjectTypeChatCompletionChunk &&
+		if filtered.Response.Object == compat.ObjectTypeChatCompletionChunk &&
 			clearForwardedMessageText(&choice.Delta) {
 			modified = true
 		}
-		if choice.Message.Role == model.RoleAssistant &&
+		if choice.Message.Role == compat.RoleAssistant &&
 			clearForwardedMessageText(&choice.Message) {
 			modified = true
 		}
@@ -4736,11 +4737,11 @@ func shouldEmitFilteredInnerEvent(ev *event.Event) bool {
 		return true
 	}
 	return ev.Object != "" &&
-		ev.Object != model.ObjectTypeChatCompletion &&
-		ev.Object != model.ObjectTypeChatCompletionChunk
+		ev.Object != compat.ObjectTypeChatCompletion &&
+		ev.Object != compat.ObjectTypeChatCompletionChunk
 }
 
-func clearForwardedMessageText(msg *model.Message) bool {
+func clearForwardedMessageText(msg *compat.Message) bool {
 	if msg == nil {
 		return false
 	}
@@ -4760,15 +4761,15 @@ func clearForwardedMessageText(msg *model.Message) bool {
 }
 
 func removeForwardedTextContentParts(
-	parts []model.ContentPart,
-) ([]model.ContentPart, bool) {
+	parts []compat.ContentPart,
+) ([]compat.ContentPart, bool) {
 	if len(parts) == 0 {
 		return parts, false
 	}
-	kept := make([]model.ContentPart, 0, len(parts))
+	kept := make([]compat.ContentPart, 0, len(parts))
 	removed := false
 	for _, part := range parts {
-		if part.Type == model.ContentTypeText {
+		if part.Type == compat.ContentTypeText {
 			removed = true
 			continue
 		}
@@ -4780,7 +4781,7 @@ func removeForwardedTextContentParts(
 	return kept, true
 }
 
-func responseHasForwardablePayload(rsp *model.Response) bool {
+func responseHasForwardablePayload(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}
@@ -4811,7 +4812,7 @@ func responseHasForwardablePayload(rsp *model.Response) bool {
 func (f *FunctionCallResponseProcessor) handlePlainStreamChunk(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	eventChan chan<- *event.Event,
 	contents *[]any,
 	innerEventState *streamInnerEventState,

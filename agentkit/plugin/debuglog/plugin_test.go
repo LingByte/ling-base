@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/event"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	rootplugin "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/plugin/debuglog"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -46,13 +46,13 @@ type testModel struct{}
 
 func (m testModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	return nil, nil
 }
 
-func (m testModel) Info() model.Info {
-	return model.Info{Name: "test-model"}
+func (m testModel) Info() compat.Info {
+	return compat.Info{Name: "test-model"}
 }
 
 type testTool struct {
@@ -202,14 +202,14 @@ func TestPlugin_LogsModelRequestJSONContractAndSupplement(t *testing.T) {
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	index := 0
-	req := &model.Request{
-		Messages: []model.Message{{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+	req := &compat.Request{
+		Messages: []compat.Message{{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				Type:  "function",
 				ID:    "call-1",
 				Index: &index,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "search",
 					Arguments: []byte(`{"q":"hi"}`),
 				},
@@ -233,7 +233,7 @@ func TestPlugin_LogsModelRequestJSONContractAndSupplement(t *testing.T) {
 			}},
 		},
 	}
-	_, err := m.ModelCallbacks().RunBeforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := m.ModelCallbacks().RunBeforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	entries := logs.entries(t)
 	require.Len(t, entries, 1)
@@ -265,7 +265,7 @@ func TestPlugin_LogsModelRequestJSONContractAndSupplement(t *testing.T) {
 func TestPlugin_LogsRequestToolDeclarationErrors(t *testing.T) {
 	logs := captureDebugLogs(t)
 	m := newManager(t, debuglog.New())
-	req := model.NewRequest([]model.Message{model.NewUserMessage("hello")})
+	req := compat.NewRequest([]compat.Message{compat.NewUserMessage("hello")})
 	req.Tools = map[string]tool.Tool{
 		"bad_declaration": testTool{declaration: &tool.Declaration{
 			Name:        "bad",
@@ -280,7 +280,7 @@ func TestPlugin_LogsRequestToolDeclarationErrors(t *testing.T) {
 	}
 	_, err := m.ModelCallbacks().RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	entries := logs.entries(t)
@@ -305,21 +305,21 @@ func TestPlugin_LogsRequestToolDeclarationErrors(t *testing.T) {
 func TestPlugin_LogsModelResponseAndSkipsPartialByDefault(t *testing.T) {
 	logs := captureDebugLogs(t)
 	m := newManager(t, debuglog.New())
-	req := model.NewRequest([]model.Message{model.NewUserMessage("hello")})
-	partial := &model.Response{
-		Object:    model.ObjectTypeChatCompletionChunk,
+	req := compat.NewRequest([]compat.Message{compat.NewUserMessage("hello")})
+	partial := &compat.Response{
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Delta: model.Message{
-				Role:    model.RoleAssistant,
+			Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "partial",
 			},
 		}},
 	}
 	_, err := m.ModelCallbacks().RunAfterModel(
 		context.Background(),
-		&model.AfterModelArgs{Request: req, Response: partial},
+		&compat.AfterModelArgs{Request: req, Response: partial},
 	)
 	require.NoError(t, err)
 	require.Empty(t, logs.entries(t))
@@ -329,28 +329,28 @@ func TestPlugin_LogsModelResponseAndSkipsPartialByDefault(t *testing.T) {
 	))
 	_, err = m.ModelCallbacks().RunAfterModel(
 		context.Background(),
-		&model.AfterModelArgs{Request: req, Response: partial},
+		&compat.AfterModelArgs{Request: req, Response: partial},
 	)
 	require.NoError(t, err)
 	entries := logs.entries(t)
 	require.Len(t, entries, 1)
 	response := object(t, entries[0].Payload["response"])
 	require.Equal(t, true, response["is_partial"])
-	require.Equal(t, model.ObjectTypeChatCompletionChunk, response["object"])
+	require.Equal(t, compat.ObjectTypeChatCompletionChunk, response["object"])
 }
 
 func TestPlugin_LogsUnserializableModelResponseType(t *testing.T) {
 	logs := captureDebugLogs(t)
 	m := newManager(t, debuglog.New())
-	req := model.NewRequest([]model.Message{model.NewUserMessage("hello")})
-	resp := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	req := compat.NewRequest([]compat.Message{compat.NewUserMessage("hello")})
+	resp := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ExtraFields: map[string]any{
 						"bad": func() {},
@@ -361,14 +361,14 @@ func TestPlugin_LogsUnserializableModelResponseType(t *testing.T) {
 	}
 	_, err := m.ModelCallbacks().RunAfterModel(
 		context.Background(),
-		&model.AfterModelArgs{Request: req, Response: resp},
+		&compat.AfterModelArgs{Request: req, Response: resp},
 	)
 	require.NoError(t, err)
 	entries := logs.entries(t)
 	require.Len(t, entries, 1)
 	payload := entries[0].Payload
 	require.NotContains(t, payload, "response")
-	require.Equal(t, "*model.Response", payload["response_type"])
+	require.Equal(t, "*compat.Response", payload["response_type"])
 	require.Contains(t, payload["response_encode_error"], "unsupported type")
 }
 
@@ -463,13 +463,13 @@ func TestPlugin_LogsUnserializableToolResultAsEncodeError(t *testing.T) {
 }
 
 func TestPlugin_EventLoggingDefaultAndEnabled(t *testing.T) {
-	ev := event.NewResponseEvent("inv-1", "agent-1", &model.Response{
+	ev := event.NewResponseEvent("inv-1", "agent-1", &compat.Response{
 		ID:     "rsp-1",
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("done"),
+			Message: compat.NewAssistantMessage("done"),
 		}},
 	})
 	ev.ID = "event-1"
@@ -544,13 +544,13 @@ func TestPlugin_LogsAgentMetadataAndFullResponseEvent(t *testing.T) {
 	require.NotNil(t, callbacks)
 	_, err := callbacks.RunBeforeAgent(context.Background(), &agent.BeforeAgentArgs{Invocation: inv})
 	require.NoError(t, err)
-	full := event.NewResponseEvent("inv-1", "agent-1", &model.Response{
+	full := event.NewResponseEvent("inv-1", "agent-1", &compat.Response{
 		ID:     "rsp-1",
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("done"),
+			Message: compat.NewAssistantMessage("done"),
 		}},
 	})
 	full.ID = "event-full"

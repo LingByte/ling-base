@@ -38,7 +38,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/workspaceinput"
 	"github.com/LingByte/ling-base/agentkit/internal/workspacesession"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -849,19 +849,19 @@ func uniqueUserFileName(
 
 func userFileInputBytes(
 	ctx context.Context,
-	mdl model.Model,
-	f model.File,
+	mdl compat.Model,
+	f compat.File,
 ) ([]byte, string, string) {
 	return workspaceinput.ResolveFileBytes(ctx, mdl, f)
 }
 
-func userFileInputsFromMessage(msg model.Message) []model.File {
+func userFileInputsFromMessage(msg compat.Message) []compat.File {
 	if len(msg.ContentParts) == 0 {
 		return nil
 	}
-	var out []model.File
+	var out []compat.File
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeFile || part.File == nil {
+		if part.Type != compat.ContentTypeFile || part.File == nil {
 			continue
 		}
 		out = append(out, *part.File)
@@ -869,7 +869,7 @@ func userFileInputsFromMessage(msg model.Message) []model.File {
 	return out
 }
 
-func userFileInputsFromSession(sess *session.Session) []model.File {
+func userFileInputsFromSession(sess *session.Session) []compat.File {
 	if sess == nil {
 		return nil
 	}
@@ -877,13 +877,13 @@ func userFileInputsFromSession(sess *session.Session) []model.File {
 	events := append([]event.Event(nil), sess.Events...)
 	sess.EventMu.RUnlock()
 
-	var out []model.File
+	var out []compat.File
 	for _, ev := range events {
 		if ev.Response == nil {
 			continue
 		}
 		for _, choice := range ev.Response.Choices {
-			if choice.Message.Role != model.RoleUser {
+			if choice.Message.Role != compat.RoleUser {
 				continue
 			}
 			out = append(out, userFileInputsFromMessage(choice.Message)...)

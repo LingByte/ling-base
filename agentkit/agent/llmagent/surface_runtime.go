@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/skillprofile"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	toolawaitreply "github.com/LingByte/ling-base/agentkit/tool/awaitreply"
@@ -44,7 +44,7 @@ func (a *LLMAgent) rootSurfacePatch(
 
 func (a *LLMAgent) fewShotForInvocation(
 	inv *agent.Invocation,
-) [][]model.Message {
+) [][]compat.Message {
 	patch, ok := a.rootSurfacePatch(inv)
 	if !ok {
 		return nil
@@ -112,7 +112,7 @@ func skillScopeForInvocation(
 
 func (a *LLMAgent) modelSurfaceForInvocation(
 	inv *agent.Invocation,
-) (model.Model, bool) {
+) (compat.Model, bool) {
 	patch, ok := a.rootSurfacePatch(inv)
 	if !ok {
 		return nil, false

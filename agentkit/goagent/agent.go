@@ -11,7 +11,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/universal-tool-calling-protocol/go-utcp"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/plugins/codemode"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/tools"
@@ -80,7 +80,7 @@ RESPONSE:
 
 // Agent orchestrates model calls, memory, tools, and sub-agents.
 type Agent struct {
-	model        gomodel.Agent
+	model        compat.Model
 	memory       *gomemory.SessionMemory
 	systemPrompt string
 	contextLimit int
@@ -113,7 +113,7 @@ type Agent struct {
 
 // Options configure a new Agent.
 type Options struct {
-	Model        gomodel.Agent
+	Model        compat.Model
 	Memory       *gomemory.SessionMemory
 	SystemPrompt string
 	ContextLimit int
@@ -286,7 +286,7 @@ func (a *Agent) Generate(ctx context.Context, sessionID, userInput string) (any,
 
 	// Attachment history is independent of semantic conversation retrieval.
 	// Start it now so both lookups also overlap CodeMode's selection pass.
-	attachmentReady := make(chan []gomodel.File, 1)
+	attachmentReady := make(chan []File, 1)
 	go func() {
 		files, _ := a.RetrieveAttachmentFiles(prefetchCtx, sessionID, a.contextLimit)
 		attachmentReady <- files
@@ -349,32 +349,30 @@ func (a *Agent) Generate(ctx context.Context, sessionID, userInput string) (any,
 
 	files := <-attachmentReady
 
-	var completion any
+	var finalText string
 	var err error
 	if len(files) > 0 {
-		completion, err = a.model.GenerateWithFiles(ctx, prompt, files)
+		finalText, err = a.generateWithFiles(ctx, prompt, files)
 	} else {
-		completion, err = a.model.Generate(ctx, prompt)
+		finalText, err = a.generate(ctx, prompt)
 	}
 	if err != nil {
 		return "", err
 	}
 
-	finalText := fmt.Sprint(completion)
 	if a.Guardrails != nil {
 		validatedText, gErr := a.Guardrails.ValidateAndRepair(ctx, finalText)
 		if gErr != nil {
 			return "", gErr
 		}
 		finalText = validatedText
-		completion = finalText
 	}
 
 	// Preserve user-before-assistant memory order while hiding the user's
 	// embedding latency behind attachment retrieval and model generation.
 	userMemory.Wait()
 	a.storeMemory(sessionID, "assistant", finalText, nil)
-	return completion, nil
+	return finalText, nil
 }
 
 // GenerateWithFiles sends the user message plus in-memory files to the model
@@ -389,7 +387,7 @@ func (a *Agent) GenerateWithFiles(
 	ctx context.Context,
 	sessionID string,
 	userInput string,
-	files []gomodel.File,
+	files []File,
 ) (string, error) {
 	if a.InputGuardrails != nil {
 		transformed, err := a.InputGuardrails.ValidateAndTransform(ctx, userInput)
@@ -408,7 +406,7 @@ func (a *Agent) GenerateWithFiles(
 	// file-backed, so session attachment retrieval can be deferred and later
 	// overlapped with semantic context retrieval. Without new files, existing
 	// attachments must be known before deciding whether a direct tool is safe.
-	var existingFiles []gomodel.File
+	var existingFiles []File
 	if len(files) == 0 {
 		existingFiles, _ = a.RetrieveAttachmentFiles(ctx, sessionID, a.contextLimit)
 	}
@@ -449,9 +447,9 @@ func (a *Agent) GenerateWithFiles(
 		records, _ = a.retrieveContext(prefetchCtx, sessionID, userInput, a.contextLimit)
 	}()
 
-	var existingFilesReady <-chan []gomodel.File
+	var existingFilesReady <-chan []File
 	if len(files) > 0 {
-		ready := make(chan []gomodel.File, 1)
+		ready := make(chan []File, 1)
 		existingFilesReady = ready
 		go func() {
 			retrieved, _ := a.RetrieveAttachmentFiles(prefetchCtx, sessionID, a.contextLimit)
@@ -476,7 +474,7 @@ func (a *Agent) GenerateWithFiles(
 		existingFiles = <-existingFilesReady
 	}
 
-	allFiles := make([]gomodel.File, 0, len(existingFiles)+len(files))
+	allFiles := make([]File, 0, len(existingFiles)+len(files))
 	allFiles = append(allFiles, existingFiles...)
 	allFiles = append(allFiles, files...)
 
@@ -580,20 +578,19 @@ func (a *Agent) GenerateWithFiles(
 	prompt := sb.String()
 
 	var (
-		completion any
-		err        error
+		response string
+		err      error
 	)
 
 	if fileBacked {
-		completion, err = a.model.GenerateWithFiles(ctx, prompt, allFiles)
+		response, err = a.generateWithFiles(ctx, prompt, allFiles)
 	} else {
-		completion, err = a.model.Generate(ctx, prompt)
+		response, err = a.generate(ctx, prompt)
 	}
 	if err != nil {
 		return "", err
 	}
 
-	response := fmt.Sprint(completion)
 	if a.Guardrails != nil {
 		validated, gErr := a.Guardrails.ValidateAndRepair(ctx, response)
 		if gErr != nil {

@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -191,7 +191,7 @@ func TestAppendEvent_AsyncRecover(t *testing.T) {
 		UserID:  "user",
 		State:   make(session.StateMap),
 	}
-	evt := &event.Event{Response: &model.Response{}}
+	evt := &event.Event{Response: &compat.Response{}}
 
 	assert.NotPanics(t, func() {
 		err := service.AppendEvent(context.Background(), sess, evt)

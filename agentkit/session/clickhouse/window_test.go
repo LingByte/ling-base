@@ -19,7 +19,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +48,7 @@ func TestService_GetEventWindow(t *testing.T) {
 		case strings.Contains(query, "event_id = ?"):
 			require.Equal(t, []any{key.AppName, key.UserID, key.SessionID, base, "u2"}, args)
 			return newMockRows([][]any{
-				{"u2", clickhouseWindowEventJSON(t, "u2", model.RoleUser, "three"), base.Add(2 * time.Minute)},
+				{"u2", clickhouseWindowEventJSON(t, "u2", compat.RoleUser, "three"), base.Add(2 * time.Minute)},
 			}), nil
 		case strings.Contains(query, "created_at < ?"):
 			require.Equal(
@@ -60,8 +60,8 @@ func TestService_GetEventWindow(t *testing.T) {
 				args,
 			)
 			return newMockRows([][]any{
-				{"a1", clickhouseWindowEventJSON(t, "a1", model.RoleAssistant, "two"), base.Add(time.Minute)},
-				{"u1", clickhouseWindowEventJSON(t, "u1", model.RoleUser, "one"), base},
+				{"a1", clickhouseWindowEventJSON(t, "a1", compat.RoleAssistant, "two"), base.Add(time.Minute)},
+				{"u1", clickhouseWindowEventJSON(t, "u1", compat.RoleUser, "one"), base},
 			}), nil
 		case strings.Contains(query, "created_at > ?"):
 			require.Equal(
@@ -74,7 +74,7 @@ func TestService_GetEventWindow(t *testing.T) {
 			)
 			return newMockRows([][]any{
 				{"t1", clickhouseWindowToolEventJSON(t, "t1", "calc", "four"), base.Add(3 * time.Minute)},
-				{"u3", clickhouseWindowEventJSON(t, "u3", model.RoleUser, "five"), base.Add(4 * time.Minute)},
+				{"u3", clickhouseWindowEventJSON(t, "u3", compat.RoleUser, "five"), base.Add(4 * time.Minute)},
 			}), nil
 		default:
 			t.Fatalf("unexpected query: %s", query)
@@ -87,7 +87,7 @@ func TestService_GetEventWindow(t *testing.T) {
 		AnchorEventID: "u2",
 		Before:        1,
 		After:         1,
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"u1", "u2", "u3"}, clickhouseWindowIDs(got))
@@ -199,7 +199,7 @@ func TestService_GetEventWindowAnchorFilteredByRole(t *testing.T) {
 		case strings.Contains(query, "event_id = ?"):
 			require.Equal(t, []any{key.AppName, key.UserID, key.SessionID, base, "anchor"}, args)
 			return newMockRows([][]any{
-				{"anchor", clickhouseWindowEventJSON(t, "anchor", model.RoleAssistant, "answer"), base},
+				{"anchor", clickhouseWindowEventJSON(t, "anchor", compat.RoleAssistant, "answer"), base},
 			}), nil
 		default:
 			t.Fatalf("unexpected query: %s", query)
@@ -210,7 +210,7 @@ func TestService_GetEventWindowAnchorFilteredByRole(t *testing.T) {
 	_, err := svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "anchor",
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anchor event not found")
@@ -271,16 +271,16 @@ func TestService_GetEventWindowQueryAndUnmarshalErrors(t *testing.T) {
 func clickhouseWindowEventJSON(
 	t *testing.T,
 	id string,
-	role model.Role,
+	role compat.Role,
 	content string,
 ) string {
 	t.Helper()
 	evt := event.Event{
 		ID:        id,
 		Timestamp: time.Now().UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -302,10 +302,10 @@ func clickhouseWindowToolEventJSON(
 	evt := event.Event{
 		ID:        id,
 		Timestamp: time.Now().UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  content,
 					ToolID:   "call-" + id,
 					ToolName: toolName,

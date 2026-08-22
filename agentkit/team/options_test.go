@@ -14,13 +14,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWithSwarmHandoffInputBuilder_ConfiguresBuilder(t *testing.T) {
-	inputBuilder := func(context.Context, SwarmHandoffInputArgs) (model.Message, error) {
-		return model.NewUserMessage("input"), nil
+	inputBuilder := func(context.Context, SwarmHandoffInputArgs) (compat.Message, error) {
+		return compat.NewUserMessage("input"), nil
 	}
 	opts := defaultOptions("team")
 	WithSwarmHandoffInputBuilder(inputBuilder)(&opts)

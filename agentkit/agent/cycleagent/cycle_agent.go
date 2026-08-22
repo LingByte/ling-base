@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	istructure "github.com/LingByte/ling-base/agentkit/internal/structure"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -98,7 +98,7 @@ func (a *CycleAgent) shouldEscalate(evt *event.Event) bool {
 	}
 
 	// Check for done events that might indicate completion or escalation.
-	return evt.Done && evt.Object == model.ObjectTypeError
+	return evt.Done && evt.Object == compat.ObjectTypeError
 }
 
 // isEscalationCheckEvent determines if an event should be checked for escalation.
@@ -110,7 +110,7 @@ func (a *CycleAgent) isEscalationCheckEvent(evt *event.Event) bool {
 	}
 
 	// Check tool response events (these contain our quality assessment results)
-	if evt.Object == model.ObjectTypeToolResponse {
+	if evt.Object == compat.ObjectTypeToolResponse {
 		return true
 	}
 
@@ -206,7 +206,7 @@ func (a *CycleAgent) runSubAgent(
 		agent.EmitEvent(ctx, invocation, eventChan, event.NewErrorEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			err.Error(),
 		))
 		return subInvocation, true // Indicates escalation

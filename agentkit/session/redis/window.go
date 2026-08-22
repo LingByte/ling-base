@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionwindow "github.com/LingByte/ling-base/agentkit/session/internal/window"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
@@ -78,7 +78,7 @@ func (s *Service) loadHashIdxEventWindow(
 	ctx context.Context,
 	req session.EventWindowRequest,
 	anchorEventID string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (*session.EventWindow, error) {
 	eventDataKey := hashidx.GetEventDataKey(s.opts.keyPrefix, req.Key)
 	eventIndexKey := hashidx.GetEventTimeIndexKey(s.opts.keyPrefix, req.Key)
@@ -139,7 +139,7 @@ func (s *Service) loadHashIdxWindowNeighbors(
 	eventIndexKey string,
 	anchorRank int64,
 	limit int,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 	before bool,
 ) ([]session.EventWindowEntry, error) {
 	if limit <= 0 {
@@ -235,7 +235,7 @@ func (s *Service) loadZSetEventWindow(
 	ctx context.Context,
 	req session.EventWindowRequest,
 	anchorEventID string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (*session.EventWindow, error) {
 	eventKey := redisZSetEventKey(s.opts.keyPrefix, req.Key)
 	anchor, err := s.findZSetWindowAnchor(ctx, eventKey, anchorEventID, roleFilter)
@@ -275,7 +275,7 @@ func (s *Service) findZSetWindowAnchor(
 	ctx context.Context,
 	eventKey string,
 	anchorEventID string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (*redisWindowEntry, error) {
 	for offset := int64(0); offset < eventWindowScanCap; {
 		stop := offset + eventWindowBatchSize - 1
@@ -320,7 +320,7 @@ func (s *Service) loadZSetWindowNeighbors(
 	eventKey string,
 	anchorRank int64,
 	limit int,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 	before bool,
 ) ([]session.EventWindowEntry, error) {
 	if limit <= 0 {

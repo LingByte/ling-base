@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // A2AEventConverter defines an interface for converting A2A protocol types to Event.
@@ -55,7 +55,7 @@ func (d *defaultA2AEventConverter) ConvertToEvents(
 		return []*event.Event{event.NewResponseEvent(
 			invocation.InvocationID,
 			agentName,
-			&model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: ""}}}},
+			&compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: ""}}}},
 		)}, nil
 	}
 
@@ -132,7 +132,7 @@ func (d *defaultA2AEventConverter) ConvertStreamingToEvents(
 		return []*event.Event{event.NewResponseEvent(
 			invocation.InvocationID,
 			agentName,
-			&model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: ""}}}},
+			&compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: ""}}}},
 		)}, nil
 	}
 
@@ -215,30 +215,30 @@ func (d *defaultEventA2AConverter) buildA2AParts(invocation *agent.Invocation) [
 	return parts
 }
 
-// appendContentPart converts a single model.ContentPart and appends it to parts.
-func appendContentPart(parts []protocol.Part, cp model.ContentPart) []protocol.Part {
+// appendContentPart converts a single compat.ContentPart and appends it to parts.
+func appendContentPart(parts []protocol.Part, cp compat.ContentPart) []protocol.Part {
 	switch cp.Type {
-	case model.ContentTypeText:
+	case compat.ContentTypeText:
 		return appendTextPart(parts, cp)
-	case model.ContentTypeImage:
+	case compat.ContentTypeImage:
 		return appendImagePart(parts, cp)
-	case model.ContentTypeAudio:
+	case compat.ContentTypeAudio:
 		return appendAudioPart(parts, cp)
-	case model.ContentTypeFile:
+	case compat.ContentTypeFile:
 		return appendFilePart(parts, cp)
 	default:
 		return parts
 	}
 }
 
-func appendTextPart(parts []protocol.Part, cp model.ContentPart) []protocol.Part {
+func appendTextPart(parts []protocol.Part, cp compat.ContentPart) []protocol.Part {
 	if cp.Text == nil {
 		return parts
 	}
 	return append(parts, protocol.NewTextPart(*cp.Text))
 }
 
-func appendImagePart(parts []protocol.Part, cp model.ContentPart) []protocol.Part {
+func appendImagePart(parts []protocol.Part, cp compat.ContentPart) []protocol.Part {
 	if cp.Image == nil {
 		return parts
 	}
@@ -267,7 +267,7 @@ func appendImagePart(parts []protocol.Part, cp model.ContentPart) []protocol.Par
 	return parts
 }
 
-func appendAudioPart(parts []protocol.Part, cp model.ContentPart) []protocol.Part {
+func appendAudioPart(parts []protocol.Part, cp compat.ContentPart) []protocol.Part {
 	if cp.Audio == nil || cp.Audio.Data == nil {
 		return parts
 	}
@@ -282,7 +282,7 @@ func appendAudioPart(parts []protocol.Part, cp model.ContentPart) []protocol.Par
 	return append(parts, &fp)
 }
 
-func appendFilePart(parts []protocol.Part, cp model.ContentPart) []protocol.Part {
+func appendFilePart(parts []protocol.Part, cp compat.ContentPart) []protocol.Part {
 	if cp.File == nil {
 		return parts
 	}
@@ -340,10 +340,10 @@ type parseResult struct {
 	// reasoningContent holds thought/reasoning content from TextParts with thought metadata
 	reasoningContent string
 
-	contentParts []model.ContentPart
+	contentParts []compat.ContentPart
 
 	// toolCalls holds function call requests (assistant -> tool)
-	toolCalls []model.ToolCall
+	toolCalls []compat.ToolCall
 
 	// toolResponses holds function response data (tool -> assistant)
 	// Multiple tool responses can exist in a single message
@@ -368,7 +368,7 @@ type parseResult struct {
 	taskState protocol.TaskState
 
 	// responseError holds structured error fields reconstructed from metadata.
-	responseError *model.ResponseError
+	responseError *compat.ResponseError
 
 	// stateDelta holds structured state updates reconstructed from A2A metadata.
 	stateDelta map[string][]byte
@@ -489,12 +489,12 @@ func parseA2AMessagePartsWithMappers(
 	result.responseError = ia2a.ResponseErrorFromMetadata(
 		msg.Metadata,
 		result.textContent,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 	return result
 }
 
-func convertResponseFilePart(part protocol.Part) *model.ContentPart {
+func convertResponseFilePart(part protocol.Part) *compat.ContentPart {
 	var filePart *protocol.FilePart
 	switch value := part.(type) {
 	case *protocol.FilePart:
@@ -525,15 +525,15 @@ func convertResponseFilePart(part protocol.Part) *model.ContentPart {
 		)
 		switch contentType {
 		case ia2a.FilePartMetadataContentTypeImage:
-			return &model.ContentPart{Type: model.ContentTypeImage, Image: &model.Image{
+			return &compat.ContentPart{Type: compat.ContentTypeImage, Image: &compat.Image{
 				Data: data, Format: mimeType,
 			}}
 		case ia2a.FilePartMetadataContentTypeAudio:
-			return &model.ContentPart{Type: model.ContentTypeAudio, Audio: &model.Audio{
+			return &compat.ContentPart{Type: compat.ContentTypeAudio, Audio: &compat.Audio{
 				Data: data, Format: mimeType,
 			}}
 		default:
-			return &model.ContentPart{Type: model.ContentTypeFile, File: &model.File{
+			return &compat.ContentPart{Type: compat.ContentTypeFile, File: &compat.File{
 				Name: name, Data: data, MimeType: mimeType,
 			}}
 		}
@@ -547,11 +547,11 @@ func convertResponseFilePart(part protocol.Part) *model.ContentPart {
 			file.MimeType,
 		)
 		if contentType == ia2a.FilePartMetadataContentTypeImage {
-			return &model.ContentPart{Type: model.ContentTypeImage, Image: &model.Image{
+			return &compat.ContentPart{Type: compat.ContentTypeImage, Image: &compat.Image{
 				URL: file.URI, Format: mimeType,
 			}}
 		}
-		return &model.ContentPart{Type: model.ContentTypeFile, File: &model.File{
+		return &compat.ContentPart{Type: compat.ContentTypeFile, File: &compat.File{
 			Name: name, URL: file.URI, MimeType: mimeType,
 		}}
 	default:
@@ -729,14 +729,14 @@ func processDataPartWithMappers(
 }
 
 // processFunctionCall processes a function call DataPart and returns the ToolCall
-func processFunctionCall(d *protocol.DataPart) *model.ToolCall {
+func processFunctionCall(d *protocol.DataPart) *compat.ToolCall {
 	data, ok := d.Data.(map[string]any)
 	if !ok {
 		log.Warnf("DataPart data is not a map: %T", d.Data)
 		return nil
 	}
 
-	var toolCall model.ToolCall
+	var toolCall compat.ToolCall
 
 	if id, ok := data[ia2a.ToolCallFieldID].(string); ok {
 		toolCall.ID = id
@@ -839,15 +839,15 @@ func processCodeExecutionResult(d *protocol.DataPart) string {
 }
 
 // convertA2ARoleToModelRole converts A2A protocol role to internal model role
-func convertA2ARoleToModelRole(role protocol.MessageRole) model.Role {
+func convertA2ARoleToModelRole(role protocol.MessageRole) compat.Role {
 	switch role {
 	case protocol.MessageRoleUser:
-		return model.RoleUser
+		return compat.RoleUser
 	case protocol.MessageRoleAgent:
-		return model.RoleAssistant
+		return compat.RoleAssistant
 	default:
 		// Default to assistant for unknown roles
-		return model.RoleAssistant
+		return compat.RoleAssistant
 	}
 }
 
@@ -909,7 +909,7 @@ func markGraphCompletionEvent(evt *event.Event, result *parseResult) {
 // In streaming mode:
 // - Tool calls and tool responses use Message (not Delta) since they are complete units
 // - Text content uses Delta for incremental updates
-func buildStreamingResponse(messageID string, result *parseResult, role protocol.MessageRole) *model.Response {
+func buildStreamingResponse(messageID string, result *parseResult, role protocol.MessageRole) *compat.Response {
 	now := time.Now()
 	if respErr := terminalStreamingResponseError(result); respErr != nil {
 		return buildErrorResponse(messageID, respErr, now)
@@ -920,18 +920,18 @@ func buildStreamingResponse(messageID string, result *parseResult, role protocol
 
 	// Tool call: use Message (tool calls are complete units, not streamed incrementally)
 	if len(result.toolCalls) > 0 {
-		return &model.Response{
+		return &compat.Response{
 			ID: messageID,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:             model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:             compat.RoleAssistant,
 					Content:          result.textContent,
 					ReasoningContent: result.reasoningContent,
 					ToolCalls:        result.toolCalls,
 					ContentParts:     result.contentParts,
 				},
 			}},
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Timestamp: now,
 			Created:   now.Unix(),
 			IsPartial: false,
@@ -941,21 +941,21 @@ func buildStreamingResponse(messageID string, result *parseResult, role protocol
 
 	// Tool response: use Message (tool responses are complete units)
 	if len(result.toolResponses) > 0 {
-		choices := make([]model.Choice, 0, len(result.toolResponses))
+		choices := make([]compat.Choice, 0, len(result.toolResponses))
 		for _, resp := range result.toolResponses {
-			choices = append(choices, model.Choice{
-				Message: model.Message{
-					Role:     model.RoleTool,
+			choices = append(choices, compat.Choice{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  resp.content,
 					ToolID:   resp.id,
 					ToolName: resp.name,
 				},
 			})
 		}
-		return &model.Response{
+		return &compat.Response{
 			ID:        messageID,
 			Choices:   choices,
-			Object:    model.ObjectTypeToolResponse,
+			Object:    compat.ObjectTypeToolResponse,
 			Timestamp: now,
 			Created:   now.Unix(),
 			IsPartial: false,
@@ -967,15 +967,15 @@ func buildStreamingResponse(messageID string, result *parseResult, role protocol
 	content := streamingResponseContent(result)
 	objectType := streamingResponseObjectType(result)
 	if objectType == "" {
-		objectType = model.ObjectTypeChatCompletionChunk
+		objectType = compat.ObjectTypeChatCompletionChunk
 	}
 
 	// Convert A2A protocol role to internal model role
 	internalRole := convertA2ARoleToModelRole(role)
-	return &model.Response{
+	return &compat.Response{
 		ID: messageID,
-		Choices: []model.Choice{{
-			Delta: model.Message{
+		Choices: []compat.Choice{{
+			Delta: compat.Message{
 				Role:             internalRole,
 				Content:          content,
 				ReasoningContent: result.reasoningContent,
@@ -990,7 +990,7 @@ func buildStreamingResponse(messageID string, result *parseResult, role protocol
 	}
 }
 
-func terminalStreamingResponseError(result *parseResult) *model.ResponseError {
+func terminalStreamingResponseError(result *parseResult) *compat.ResponseError {
 	if result == nil || !isTaskFailureState(result.taskState) {
 		return nil
 	}
@@ -1001,8 +1001,8 @@ func terminalStreamingResponseError(result *parseResult) *model.ResponseError {
 	if message == "" {
 		message = taskFailureMessage(result.taskState)
 	}
-	return &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	return &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: message,
 	}
 }
@@ -1028,7 +1028,7 @@ func streamingResponseContent(result *parseResult) string {
 
 func streamingResponseObjectType(result *parseResult) string {
 	objectType := extractObjectType(result)
-	if objectType == model.ObjectTypeError && result != nil &&
+	if objectType == compat.ObjectTypeError && result != nil &&
 		result.responseError != nil && !isTaskFailureState(result.taskState) {
 		return ""
 	}
@@ -1046,15 +1046,15 @@ func extractObjectType(result *parseResult) string {
 	}
 
 	if len(result.toolCalls) > 0 {
-		return model.ObjectTypeChatCompletion
+		return compat.ObjectTypeChatCompletion
 	}
 
 	if len(result.toolResponses) > 0 {
-		return model.ObjectTypeToolResponse
+		return compat.ObjectTypeToolResponse
 	}
 
 	if len(result.codeExecution) > 0 || len(result.codeExecutionResult) > 0 {
-		return model.ObjectTypePostprocessingCodeExecution
+		return compat.ObjectTypePostprocessingCodeExecution
 	}
 
 	return ""
@@ -1062,17 +1062,17 @@ func extractObjectType(result *parseResult) string {
 
 // buildNonStreamingResponse creates a response for non-streaming mode.
 // In non-streaming mode, all content uses Message (not Delta).
-func buildNonStreamingResponse(messageID string, result *parseResult, role protocol.MessageRole) *model.Response {
+func buildNonStreamingResponse(messageID string, result *parseResult, role protocol.MessageRole) *compat.Response {
 	now := time.Now()
 	if respErr := taskResponseError(result); respErr != nil {
 		return buildErrorResponse(messageID, respErr, now)
 	}
-	var choices []model.Choice
+	var choices []compat.Choice
 	// Tool call: assistant requesting tool execution
 	if len(result.toolCalls) > 0 {
-		choices = append(choices, model.Choice{
-			Message: model.Message{
-				Role:             model.RoleAssistant,
+		choices = append(choices, compat.Choice{
+			Message: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          result.textContent,
 				ReasoningContent: result.reasoningContent,
 				ToolCalls:        result.toolCalls,
@@ -1084,9 +1084,9 @@ func buildNonStreamingResponse(messageID string, result *parseResult, role proto
 	// Tool response: tool returning results
 	if len(result.toolResponses) > 0 {
 		for _, resp := range result.toolResponses {
-			choices = append(choices, model.Choice{
-				Message: model.Message{
-					Role:     model.RoleTool,
+			choices = append(choices, compat.Choice{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  resp.content,
 					ToolID:   resp.id,
 					ToolName: resp.name,
@@ -1101,8 +1101,8 @@ func buildNonStreamingResponse(messageID string, result *parseResult, role proto
 	if len(result.toolCalls) == 0 &&
 		(content != "" || result.reasoningContent != "" || len(result.contentParts) > 0) {
 		internalRole := convertA2ARoleToModelRole(role)
-		choices = append(choices, model.Choice{
-			Message: model.Message{
+		choices = append(choices, compat.Choice{
+			Message: compat.Message{
 				Role:             internalRole,
 				Content:          content,
 				ReasoningContent: result.reasoningContent,
@@ -1113,9 +1113,9 @@ func buildNonStreamingResponse(messageID string, result *parseResult, role proto
 
 	// If no content at all, add empty assistant message
 	if len(choices) == 0 {
-		choices = []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+		choices = []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "",
 			},
 		}}
@@ -1123,10 +1123,10 @@ func buildNonStreamingResponse(messageID string, result *parseResult, role proto
 
 	objectType := nonStreamingResponseObjectType(result)
 	if objectType == "" {
-		objectType = model.ObjectTypeChatCompletion
+		objectType = compat.ObjectTypeChatCompletion
 	}
 
-	return &model.Response{
+	return &compat.Response{
 		ID:        messageID,
 		Choices:   choices,
 		Object:    objectType,
@@ -1139,12 +1139,12 @@ func buildNonStreamingResponse(messageID string, result *parseResult, role proto
 
 func buildErrorResponse(
 	messageID string,
-	respErr *model.ResponseError,
+	respErr *compat.ResponseError,
 	now time.Time,
-) *model.Response {
-	return &model.Response{
+) *compat.Response {
+	return &compat.Response{
 		ID:        messageID,
-		Object:    model.ObjectTypeError,
+		Object:    compat.ObjectTypeError,
 		Timestamp: now,
 		Created:   now.Unix(),
 		IsPartial: false,
@@ -1155,7 +1155,7 @@ func buildErrorResponse(
 
 func taskResponseError(
 	result *parseResult,
-) *model.ResponseError {
+) *compat.ResponseError {
 	if result == nil {
 		return nil
 	}
@@ -1169,22 +1169,22 @@ func taskResponseError(
 	if message == "" {
 		message = taskFailureMessage(result.taskState)
 	}
-	return &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	return &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: message,
 	}
 }
 
-func buildRecoverableErrorResponse(messageID string, result *parseResult, role protocol.MessageRole, now time.Time) *model.Response {
+func buildRecoverableErrorResponse(messageID string, result *parseResult, role protocol.MessageRole, now time.Time) *compat.Response {
 	content := streamingResponseContent(result)
 	objectType := streamingResponseObjectType(result)
-	if objectType == "" || objectType == model.ObjectTypeError {
-		objectType = model.ObjectTypeChatCompletion
+	if objectType == "" || objectType == compat.ObjectTypeError {
+		objectType = compat.ObjectTypeChatCompletion
 	}
-	return &model.Response{
+	return &compat.Response{
 		ID: messageID,
-		Choices: []model.Choice{{
-			Message: model.Message{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
 				Role:             convertA2ARoleToModelRole(role),
 				Content:          content,
 				ReasoningContent: result.reasoningContent,
@@ -1209,13 +1209,13 @@ func markTerminalStructuredErrorEvent(evt *event.Event, result protocol.Streamin
 		if isTaskFailureState(v.Status.State) || v.IsFinal() {
 			evt.Response.Done = true
 			evt.Response.IsPartial = false
-			evt.Response.Object = model.ObjectTypeError
+			evt.Response.Object = compat.ObjectTypeError
 		}
 	case *protocol.TaskArtifactUpdateEvent:
 		if v.IsFinal() {
 			evt.Response.Done = true
 			evt.Response.IsPartial = false
-			evt.Response.Object = model.ObjectTypeError
+			evt.Response.Object = compat.ObjectTypeError
 		}
 	}
 }
@@ -1242,7 +1242,7 @@ func nonStreamingResponseContent(result *parseResult) string {
 
 func nonStreamingResponseObjectType(result *parseResult) string {
 	objectType := extractObjectType(result)
-	if objectType == model.ObjectTypeError && result != nil &&
+	if objectType == compat.ObjectTypeError && result != nil &&
 		result.responseError != nil && !isTaskFailureState(result.taskState) {
 		return ""
 	}

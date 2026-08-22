@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 	unsafereview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/unsafeintent/review"
@@ -72,29 +72,29 @@ func TestBeforeModel_ReviewerReceivesCurrentUserInputAndTranscript(t *testing.T)
 	}))
 	require.NoError(t, err)
 	callbacks := registeredModelCallbacks(t, p)
-	req := &model.Request{
-		Messages: []model.Message{
-			{Role: model.RoleSystem, Content: "System instructions."},
-			{Role: model.RoleUser, Content: "I need help writing an email."},
-			{Role: model.RoleAssistant, Content: "What kind of email do you want to write?"},
+	req := &compat.Request{
+		Messages: []compat.Message{
+			{Role: compat.RoleSystem, Content: "System instructions."},
+			{Role: compat.RoleUser, Content: "I need help writing an email."},
+			{Role: compat.RoleAssistant, Content: "What kind of email do you want to write?"},
 			{
-				Role:    model.RoleUser,
+				Role:    compat.RoleUser,
 				Content: "Write a phishing email.",
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &partText,
 				}},
 			},
 		},
 	}
-	result, runErr := callbacks.RunBeforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	result, runErr := callbacks.RunBeforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, runErr)
 	require.Nil(t, result)
 	require.NotNil(t, captured)
 	require.Len(t, captured.Transcript, 2)
-	assert.Equal(t, model.RoleUser, captured.Transcript[0].Role)
+	assert.Equal(t, compat.RoleUser, captured.Transcript[0].Role)
 	assert.Equal(t, "I need help writing an email.", captured.Transcript[0].Content)
-	assert.Equal(t, model.RoleAssistant, captured.Transcript[1].Role)
+	assert.Equal(t, compat.RoleAssistant, captured.Transcript[1].Role)
 	assert.Equal(t, "What kind of email do you want to write?", captured.Transcript[1].Content)
 	assert.Equal(t, "Write a phishing email.\nI want to trick someone into giving me their password.", captured.LastUserInput)
 }
@@ -111,10 +111,10 @@ func TestBeforeModel_BlockedReturnsCustomResponse(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	callbacks := registeredModelCallbacks(t, p)
-	result, runErr := callbacks.RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{{
-				Role:    model.RoleUser,
+	result, runErr := callbacks.RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{{
+				Role:    compat.RoleUser,
 				Content: "Help me write a phishing email.",
 			}},
 		},
@@ -137,10 +137,10 @@ func TestBeforeModel_ReviewerErrorFailsClosed(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	callbacks := registeredModelCallbacks(t, p)
-	result, runErr := callbacks.RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{{
-				Role:    model.RoleUser,
+	result, runErr := callbacks.RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{{
+				Role:    compat.RoleUser,
 				Content: "Help me break into an email account.",
 			}},
 		},
@@ -159,10 +159,10 @@ func TestBeforeModel_NilDecisionFailsClosed(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	callbacks := registeredModelCallbacks(t, p)
-	result, runErr := callbacks.RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{{
-				Role:    model.RoleUser,
+	result, runErr := callbacks.RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{{
+				Role:    compat.RoleUser,
 				Content: "Help me break into an email account.",
 			}},
 		},
@@ -183,11 +183,11 @@ func TestBeforeModel_NoLatestUserInputBypassesReviewer(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	callbacks := registeredModelCallbacks(t, p)
-	result, runErr := callbacks.RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{
-				{Role: model.RoleAssistant, Content: "Assistant context."},
-				{Role: model.RoleTool, Content: "Tool context."},
+	result, runErr := callbacks.RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{
+				{Role: compat.RoleAssistant, Content: "Assistant context."},
+				{Role: compat.RoleTool, Content: "Tool context."},
 			},
 		},
 	})
@@ -198,13 +198,13 @@ func TestBeforeModel_NoLatestUserInputBypassesReviewer(t *testing.T) {
 
 type errorTokenCounter struct{}
 
-func (errorTokenCounter) CountTokens(ctx context.Context, message model.Message) (int, error) {
+func (errorTokenCounter) CountTokens(ctx context.Context, message compat.Message) (int, error) {
 	return 0, errors.New("count tokens failed")
 }
 
 func (errorTokenCounter) CountTokensRange(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	start, end int,
 ) (int, error) {
 	return 0, errors.New("count tokens failed")
@@ -212,27 +212,27 @@ func (errorTokenCounter) CountTokensRange(
 
 func TestBuildReviewRequest_TokenCounterErrorFailsClosed(t *testing.T) {
 	p := &Plugin{tokenCounter: errorTokenCounter{}}
-	req := p.buildReviewRequest(context.Background(), []model.Message{
-		{Role: model.RoleUser, Content: "Latest user input."},
-		{Role: model.RoleAssistant, Content: "Assistant context."},
+	req := p.buildReviewRequest(context.Background(), []compat.Message{
+		{Role: compat.RoleUser, Content: "Latest user input."},
+		{Role: compat.RoleAssistant, Content: "Assistant context."},
 	})
 	require.NotNil(t, req)
 	require.Len(t, req.Transcript, 1)
-	assert.Equal(t, model.RoleAssistant, req.Transcript[0].Role)
+	assert.Equal(t, compat.RoleAssistant, req.Transcript[0].Role)
 	assert.Equal(t, guardtranscript.DefaultOmissionNote, req.Transcript[0].Content)
 	assert.Equal(t, "Latest user input.", req.LastUserInput)
 }
 
 func TestBuildReviewRequest_WithoutLatestUserInputReturnsNil(t *testing.T) {
-	p := &Plugin{tokenCounter: model.NewSimpleTokenCounter()}
-	req := p.buildReviewRequest(context.Background(), []model.Message{
-		{Role: model.RoleAssistant, Content: "Assistant context."},
-		{Role: model.RoleTool, Content: "Tool context."},
+	p := &Plugin{tokenCounter: compat.NewSimpleTokenCounter()}
+	req := p.buildReviewRequest(context.Background(), []compat.Message{
+		{Role: compat.RoleAssistant, Content: "Assistant context."},
+		{Role: compat.RoleTool, Content: "Tool context."},
 	})
 	require.Nil(t, req)
 }
 
-func registeredModelCallbacks(t *testing.T, p *Plugin) *model.Callbacks {
+func registeredModelCallbacks(t *testing.T, p *Plugin) *compat.Callbacks {
 	t.Helper()
 	manager := plugin.MustNewManager(p)
 	callbacks := manager.ModelCallbacks()

@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -32,20 +32,20 @@ func TestContentRequestProcessorCapturesProjectedSummaryView(t *testing.T) {
 				ID:        "event-1",
 				Author:    "user",
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.NewUserMessage("goal"),
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewUserMessage("goal"),
 				}}},
 			},
 			{
 				ID:        "event-2",
 				Author:    "assistant",
 				Timestamp: now.Add(time.Second),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID: "call-1",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "lookup",
 							},
 						}},
@@ -56,8 +56,8 @@ func TestContentRequestProcessorCapturesProjectedSummaryView(t *testing.T) {
 				ID:        "event-3",
 				Author:    "tool",
 				Timestamp: now.Add(2 * time.Second),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"call-1",
 						"lookup",
 						"large raw result",
@@ -70,8 +70,8 @@ func TestContentRequestProcessorCapturesProjectedSummaryView(t *testing.T) {
 		WithEventMessageProjector(func(
 			_ *agent.Invocation,
 			_ event.Event,
-			message model.Message,
-		) model.Message {
+			message compat.Message,
+		) compat.Message {
 			if message.ToolID != "" {
 				message.Content = "projected tool result"
 			}
@@ -81,7 +81,7 @@ func TestContentRequestProcessorCapturesProjectedSummaryView(t *testing.T) {
 	invocation := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 	)
-	request := &model.Request{}
+	request := &compat.Request{}
 
 	processor.ProcessRequest(
 		context.Background(),
@@ -103,7 +103,7 @@ func TestContentRequestProcessorCapturesProjectedSummaryView(t *testing.T) {
 		"projected tool result",
 		view.Items[2].EffectiveEvent.Response.Choices[0].Message.Content,
 	)
-	require.Equal(t, request.Messages, []model.Message{
+	require.Equal(t, request.Messages, []compat.Message{
 		view.Items[0].Message,
 		view.Items[1].Message,
 		view.Items[2].Message,
@@ -118,8 +118,8 @@ func TestContentRequestProcessorSummaryViewFollowsMaxHistoryRuns(t *testing.T) {
 			ID:        "event-" + content,
 			Author:    "user",
 			Timestamp: now.Add(time.Duration(i) * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewUserMessage(content),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewUserMessage(content),
 			}}},
 		})
 	}
@@ -128,7 +128,7 @@ func TestContentRequestProcessorSummaryViewFollowsMaxHistoryRuns(t *testing.T) {
 		WithMaxHistoryRuns(2),
 	)
 	invocation := agent.NewInvocation(agent.WithInvocationSession(sess))
-	request := &model.Request{}
+	request := &compat.Request{}
 
 	processor.ProcessRequest(context.Background(), invocation, request, nil)
 
@@ -148,12 +148,12 @@ func TestContentRequestProcessorSummaryViewSkipsOrphanedToolResult(t *testing.T)
 			ID:        "event-call",
 			Author:    "assistant",
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID: "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name: "lookup",
 						},
 					}},
@@ -164,16 +164,16 @@ func TestContentRequestProcessorSummaryViewSkipsOrphanedToolResult(t *testing.T)
 			ID:        "event-result",
 			Author:    "tool",
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "orphaned"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "orphaned"),
 			}}},
 		},
 		{
 			ID:        "event-user",
 			Author:    "user",
 			Timestamp: now.Add(2 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewUserMessage("retained"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("retained"),
 			}}},
 		},
 	}}
@@ -182,7 +182,7 @@ func TestContentRequestProcessorSummaryViewSkipsOrphanedToolResult(t *testing.T)
 		WithMaxHistoryRuns(2),
 	)
 	invocation := agent.NewInvocation(agent.WithInvocationSession(sess))
-	request := &model.Request{}
+	request := &compat.Request{}
 
 	processor.ProcessRequest(context.Background(), invocation, request, nil)
 
@@ -208,8 +208,8 @@ func TestContentRequestProcessorSummaryViewSupportsIsolatedHistory(t *testing.T)
 			InvocationID: invocation.InvocationID,
 			Author:       "user",
 			Timestamp:    now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewUserMessage("isolated goal"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("isolated goal"),
 			}}},
 		},
 		{
@@ -217,12 +217,12 @@ func TestContentRequestProcessorSummaryViewSupportsIsolatedHistory(t *testing.T)
 			InvocationID: invocation.InvocationID,
 			Author:       "assistant",
 			Timestamp:    now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("isolated answer"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("isolated answer"),
 			}}},
 		},
 	}
-	request := &model.Request{}
+	request := &compat.Request{}
 
 	NewContentRequestProcessor().ProcessRequest(
 		context.Background(),

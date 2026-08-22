@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var (
@@ -24,9 +24,9 @@ var (
 	sliceAnyType          = reflect.TypeOf([]any(nil))
 	sliceBytesType        = reflect.TypeOf([]byte(nil))
 	sliceMessageOpsType   = reflect.TypeOf([]MessageOp(nil))
-	modelMessagesType     = reflect.TypeOf([]model.Message(nil))
-	modelContentPartsType = reflect.TypeOf([]model.ContentPart(nil))
-	modelToolCallsType    = reflect.TypeOf([]model.ToolCall(nil))
+	modelMessagesType     = reflect.TypeOf([]compat.Message(nil))
+	modelContentPartsType = reflect.TypeOf([]compat.ContentPart(nil))
+	modelToolCallsType    = reflect.TypeOf([]compat.ToolCall(nil))
 )
 
 // DeepCopier defines an interface for types that can perform deep copies of themselves.
@@ -116,7 +116,7 @@ func deepCopyFastPathWithVisited(value any, visited visitedMap) (any, bool) {
 		return cloneFastPathSlice(v), true
 	case []byte:
 		return deepCopyBytesWithVisited(v, visited), true
-	case []model.Message:
+	case []compat.Message:
 		return deepCopyModelMessagesWithVisited(v, visited), true
 	case MessageOp:
 		op, ok := deepCopyMessageOpWithVisited(v, visited)
@@ -389,28 +389,28 @@ func deepCopyMessageOpWithVisited(
 	}
 }
 
-func deepCopyModelMessages(in []model.Message) []model.Message {
+func deepCopyModelMessages(in []compat.Message) []compat.Message {
 	visited := newVisitedMap()
 	return deepCopyModelMessagesWithVisited(in, visited)
 }
 
 func deepCopyModelMessagesWithVisited(
-	in []model.Message,
+	in []compat.Message,
 	visited visitedMap,
-) []model.Message {
+) []compat.Message {
 	if in == nil {
 		return nil
 	}
 	if len(in) == 0 {
-		return []model.Message{}
+		return []compat.Message{}
 	}
 	ptr := reflect.ValueOf(in).Pointer()
 	if ptr != 0 {
 		key := sliceVisitKey(ptr, len(in), modelMessagesType)
 		if cached, ok := visited[key]; ok {
-			return cached.([]model.Message)
+			return cached.([]compat.Message)
 		}
-		out := make([]model.Message, len(in))
+		out := make([]compat.Message, len(in))
 		visited[key] = out
 		for i := range in {
 			out[i] = in[i]
@@ -423,7 +423,7 @@ func deepCopyModelMessagesWithVisited(
 		}
 		return out
 	}
-	out := make([]model.Message, len(in))
+	out := make([]compat.Message, len(in))
 	for i := range in {
 		out[i] = in[i]
 		if parts := in[i].ContentParts; parts != nil {
@@ -436,28 +436,28 @@ func deepCopyModelMessagesWithVisited(
 	return out
 }
 
-func deepCopyModelContentParts(in []model.ContentPart) []model.ContentPart {
+func deepCopyModelContentParts(in []compat.ContentPart) []compat.ContentPart {
 	visited := newVisitedMap()
 	return deepCopyModelContentPartsWithVisited(in, visited)
 }
 
 func deepCopyModelContentPartsWithVisited(
-	in []model.ContentPart,
+	in []compat.ContentPart,
 	visited visitedMap,
-) []model.ContentPart {
+) []compat.ContentPart {
 	if in == nil {
 		return nil
 	}
 	if len(in) == 0 {
-		return []model.ContentPart{}
+		return []compat.ContentPart{}
 	}
 	ptr := reflect.ValueOf(in).Pointer()
 	if ptr != 0 {
 		key := sliceVisitKey(ptr, len(in), modelContentPartsType)
 		if cached, ok := visited[key]; ok {
-			return cached.([]model.ContentPart)
+			return cached.([]compat.ContentPart)
 		}
-		out := make([]model.ContentPart, len(in))
+		out := make([]compat.ContentPart, len(in))
 		visited[key] = out
 		for i := range in {
 			out[i] = in[i]
@@ -479,7 +479,7 @@ func deepCopyModelContentPartsWithVisited(
 		}
 		return out
 	}
-	out := make([]model.ContentPart, len(in))
+	out := make([]compat.ContentPart, len(in))
 	for i := range in {
 		out[i] = in[i]
 		if in[i].Text != nil {
@@ -501,21 +501,21 @@ func deepCopyModelContentPartsWithVisited(
 	return out
 }
 
-func deepCopyModelImage(in *model.Image) *model.Image {
+func deepCopyModelImage(in *compat.Image) *compat.Image {
 	visited := newVisitedMap()
 	return deepCopyModelImageWithVisited(in, visited)
 }
 
 func deepCopyModelImageWithVisited(
-	in *model.Image,
+	in *compat.Image,
 	visited visitedMap,
-) *model.Image {
+) *compat.Image {
 	if in == nil {
 		return nil
 	}
 	key := pointerVisitKey(reflect.ValueOf(in).Pointer(), reflect.TypeOf(in))
 	if cached, ok := visited[key]; ok {
-		return cached.(*model.Image)
+		return cached.(*compat.Image)
 	}
 	out := *in
 	visited[key] = &out
@@ -525,21 +525,21 @@ func deepCopyModelImageWithVisited(
 	return &out
 }
 
-func deepCopyModelAudio(in *model.Audio) *model.Audio {
+func deepCopyModelAudio(in *compat.Audio) *compat.Audio {
 	visited := newVisitedMap()
 	return deepCopyModelAudioWithVisited(in, visited)
 }
 
 func deepCopyModelAudioWithVisited(
-	in *model.Audio,
+	in *compat.Audio,
 	visited visitedMap,
-) *model.Audio {
+) *compat.Audio {
 	if in == nil {
 		return nil
 	}
 	key := pointerVisitKey(reflect.ValueOf(in).Pointer(), reflect.TypeOf(in))
 	if cached, ok := visited[key]; ok {
-		return cached.(*model.Audio)
+		return cached.(*compat.Audio)
 	}
 	out := *in
 	visited[key] = &out
@@ -550,15 +550,15 @@ func deepCopyModelAudioWithVisited(
 }
 
 func deepCopyModelVideoWithVisited(
-	in *model.Video,
+	in *compat.Video,
 	visited visitedMap,
-) *model.Video {
+) *compat.Video {
 	if in == nil {
 		return nil
 	}
 	key := pointerVisitKey(reflect.ValueOf(in).Pointer(), reflect.TypeOf(in))
 	if cached, ok := visited[key]; ok {
-		return cached.(*model.Video)
+		return cached.(*compat.Video)
 	}
 	out := *in
 	visited[key] = &out
@@ -568,21 +568,21 @@ func deepCopyModelVideoWithVisited(
 	return &out
 }
 
-func deepCopyModelFile(in *model.File) *model.File {
+func deepCopyModelFile(in *compat.File) *compat.File {
 	visited := newVisitedMap()
 	return deepCopyModelFileWithVisited(in, visited)
 }
 
 func deepCopyModelFileWithVisited(
-	in *model.File,
+	in *compat.File,
 	visited visitedMap,
-) *model.File {
+) *compat.File {
 	if in == nil {
 		return nil
 	}
 	key := pointerVisitKey(reflect.ValueOf(in).Pointer(), reflect.TypeOf(in))
 	if cached, ok := visited[key]; ok {
-		return cached.(*model.File)
+		return cached.(*compat.File)
 	}
 	out := *in
 	visited[key] = &out
@@ -592,28 +592,28 @@ func deepCopyModelFileWithVisited(
 	return &out
 }
 
-func deepCopyModelToolCalls(in []model.ToolCall) []model.ToolCall {
+func deepCopyModelToolCalls(in []compat.ToolCall) []compat.ToolCall {
 	visited := newVisitedMap()
 	return deepCopyModelToolCallsWithVisited(in, visited)
 }
 
 func deepCopyModelToolCallsWithVisited(
-	in []model.ToolCall,
+	in []compat.ToolCall,
 	visited visitedMap,
-) []model.ToolCall {
+) []compat.ToolCall {
 	if in == nil {
 		return nil
 	}
 	if len(in) == 0 {
-		return []model.ToolCall{}
+		return []compat.ToolCall{}
 	}
 	ptr := reflect.ValueOf(in).Pointer()
 	if ptr != 0 {
 		key := sliceVisitKey(ptr, len(in), modelToolCallsType)
 		if cached, ok := visited[key]; ok {
-			return cached.([]model.ToolCall)
+			return cached.([]compat.ToolCall)
 		}
-		out := make([]model.ToolCall, len(in))
+		out := make([]compat.ToolCall, len(in))
 		visited[key] = out
 		for i := range in {
 			out[i] = in[i]
@@ -629,7 +629,7 @@ func deepCopyModelToolCallsWithVisited(
 		}
 		return out
 	}
-	out := make([]model.ToolCall, len(in))
+	out := make([]compat.ToolCall, len(in))
 	for i := range in {
 		out[i] = in[i]
 		if in[i].Index != nil {

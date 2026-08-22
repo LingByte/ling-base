@@ -3,8 +3,7 @@ go 1.26.2
 use (
 	.
 	./agentkit
-	./agentkit/model/relay
-	./agentkit/model/provider
+	./agentkit/relaymodel
 	./agentkit/flowcraft/core
 	./relay/compat
 	./agentkit/flowcraft/backends/checkpoint

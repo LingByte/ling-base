@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	agent "github.com/LingByte/ling-base/agentkit/goagent"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/universal-tool-calling-protocol/go-utcp"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/plugins/codemode"
 )
@@ -87,12 +87,12 @@ func WithUTCP(client utcp.UtcpClientInterface) Option {
 	}
 }
 
-func WithCodeModeUtcp(client utcp.UtcpClientInterface, model gomodel.Agent) Option {
+func WithCodeModeUtcp(client utcp.UtcpClientInterface, model compat.Model) Option {
 	return func(kit *AgentDevelopmentKit) error {
 		if client == nil {
 			return fmt.Errorf("codemode UTCP client cannot be nil")
 		}
-		kit.CodeMode = codemode.NewCodeModeUTCP(client, model)
+		kit.CodeMode = codemode.NewCodeModeUTCP(client, &agent.CodeModeModelAdapter{Model: model})
 		return nil
 	}
 }

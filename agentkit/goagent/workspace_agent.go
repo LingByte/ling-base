@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 	"github.com/LingByte/ling-base/agentkit/workspace"
 )
 
@@ -59,7 +58,7 @@ func (a *WorkspaceAgent) Generate(ctx context.Context, sessionID, userInput stri
 
 // GenerateWithFiles preserves normal Agent file handling while also adding
 // repository context selected from the workspace index.
-func (a *WorkspaceAgent) GenerateWithFiles(ctx context.Context, sessionID, userInput string, files []gomodel.File) (string, error) {
+func (a *WorkspaceAgent) GenerateWithFiles(ctx context.Context, sessionID, userInput string, files []File) (string, error) {
 	if a == nil || a.Agent == nil || a.Index == nil {
 		return "", fmt.Errorf("workspace agent is not configured")
 	}

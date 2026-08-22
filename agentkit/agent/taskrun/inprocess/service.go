@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/taskrun"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 )
 
@@ -489,7 +489,7 @@ func (s *Service) runChild(
 		ctx,
 		run.OwnerUserID,
 		run.ChildSessionID,
-		model.NewUserMessage(run.Task),
+		compat.NewUserMessage(run.Task),
 		runOpts...,
 	)
 	if err != nil {
@@ -968,7 +968,7 @@ func cloneSpawnRequest(req SpawnRequest) SpawnRequest {
 	}
 	if req.InjectedContextMessages != nil {
 		out.InjectedContextMessages = append(
-			[]model.Message(nil),
+			[]compat.Message(nil),
 			req.InjectedContextMessages...,
 		)
 	}

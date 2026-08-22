@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // --- redactSensitiveText additional patterns ---
@@ -92,8 +92,8 @@ func TestSanitizeReviewInput_Nil(t *testing.T) {
 
 func TestSanitizeReviewInput_RedactsMessages(t *testing.T) {
 	in := &ReviewInput{
-		Messages: []model.Message{{
-			Role:    model.RoleUser,
+		Messages: []compat.Message{{
+			Role:    compat.RoleUser,
 			Content: "set PASSWORD=mysecretpass123456",
 		}},
 	}
@@ -105,7 +105,7 @@ func TestSanitizeReviewInput_RedactsMessages(t *testing.T) {
 func TestSanitizeReviewInput_RedactsTranscript(t *testing.T) {
 	in := &ReviewInput{
 		Transcript: []ReviewMessage{{
-			Role:    model.RoleAssistant,
+			Role:    compat.RoleAssistant,
 			Content: "API_KEY=sk-secretkey1234567890abcdef in code",
 			ToolCalls: []ReviewToolCall{{
 				Name:      "exec",
@@ -152,9 +152,9 @@ func TestSanitizeReviewInput_NilOutcomeStaysNil(t *testing.T) {
 
 func TestSanitizeModelMessages_ContentParts(t *testing.T) {
 	secret := "PASSWORD=mysecretpass1234567890"
-	msgs := []model.Message{{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{{
+	msgs := []compat.Message{{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{{
 			Text: &secret,
 		}},
 	}}
@@ -163,11 +163,11 @@ func TestSanitizeModelMessages_ContentParts(t *testing.T) {
 }
 
 func TestSanitizeModelMessages_ToolCalls(t *testing.T) {
-	msgs := []model.Message{{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+	msgs := []compat.Message{{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "exec",
 				Arguments: []byte(`{"API_KEY":"abcdefghijklmnopqrstuvwxyz"}`),
 			},
@@ -178,8 +178,8 @@ func TestSanitizeModelMessages_ToolCalls(t *testing.T) {
 }
 
 func TestSanitizeModelMessages_ReasoningContent(t *testing.T) {
-	msgs := []model.Message{{
-		Role:             model.RoleAssistant,
+	msgs := []compat.Message{{
+		Role:             compat.RoleAssistant,
 		Content:          "ok",
 		ReasoningContent: "api_key = sk-test-REDACT-reasoning-1234567890",
 	}}
@@ -189,7 +189,7 @@ func TestSanitizeModelMessages_ReasoningContent(t *testing.T) {
 
 func TestSanitizeModelMessages_Empty(t *testing.T) {
 	assert.Nil(t, sanitizeModelMessages(nil))
-	assert.Nil(t, sanitizeModelMessages([]model.Message{}))
+	assert.Nil(t, sanitizeModelMessages([]compat.Message{}))
 }
 
 func TestSanitizeReviewMessages_Empty(t *testing.T) {

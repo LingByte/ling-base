@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,9 +100,9 @@ func TestRepairToolCallArguments_ReturnsOriginalWhenRepairedInvalidJSON(t *testi
 // TestRepairToolCallArgumentsInPlace_RepairsArguments verifies that tool call arguments are repaired in place.
 func TestRepairToolCallArgumentsInPlace_RepairsArguments(t *testing.T) {
 	ctx := context.Background()
-	toolCall := &model.ToolCall{
+	toolCall := &compat.ToolCall{
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "test_tool",
 			Arguments: []byte("{a:2}"),
 		},
@@ -115,17 +115,17 @@ func TestRepairToolCallArgumentsInPlace_RepairsArguments(t *testing.T) {
 // TestRepairToolCallsArgumentsInPlace_RepairsSlice verifies that a slice of tool calls is repaired in place.
 func TestRepairToolCallsArgumentsInPlace_RepairsSlice(t *testing.T) {
 	ctx := context.Background()
-	toolCalls := []model.ToolCall{
+	toolCalls := []compat.ToolCall{
 		{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "tool_1",
 				Arguments: []byte("{a:2}"),
 			},
 		},
 		{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "tool_2",
 				Arguments: []byte("{\"b\":3}"),
 			},
@@ -140,15 +140,15 @@ func TestRepairToolCallsArgumentsInPlace_RepairsSlice(t *testing.T) {
 // TestRepairResponseToolCallArgumentsInPlace_SkipsPartialResponse verifies that partial responses are not modified.
 func TestRepairResponseToolCallArgumentsInPlace_SkipsPartialResponse(t *testing.T) {
 	ctx := context.Background()
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{
 						{
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "tool_1",
 								Arguments: []byte("{a:2}"),
 							},
@@ -166,26 +166,26 @@ func TestRepairResponseToolCallArgumentsInPlace_SkipsPartialResponse(t *testing.
 // TestRepairResponseToolCallArgumentsInPlace_RepairsAllChoices verifies that tool calls are repaired for message and delta.
 func TestRepairResponseToolCallArgumentsInPlace_RepairsAllChoices(t *testing.T) {
 	ctx := context.Background()
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{
 						{
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "tool_1",
 								Arguments: []byte("{a:2}"),
 							},
 						},
 					},
 				},
-				Delta: model.Message{
-					ToolCalls: []model.ToolCall{
+				Delta: compat.Message{
+					ToolCalls: []compat.ToolCall{
 						{
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "tool_2",
 								Arguments: []byte("{c:4}"),
 							},

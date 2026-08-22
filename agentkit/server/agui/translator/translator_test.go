@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	trunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/multimodal"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/source"
@@ -70,19 +70,19 @@ func TestNewReturnsPostRunFinalizingTranslator(t *testing.T) {
 
 type mockModelWithResponses struct {
 	mu        sync.Mutex
-	responses []*model.Response
+	responses []*compat.Response
 	callIndex int
 }
 
 func (m *mockModelWithResponses) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	m.mu.Lock()
 	callIndex := m.callIndex
 	m.callIndex++
-	var resp *model.Response
+	var resp *compat.Response
 	if callIndex < len(m.responses) {
 		resp = m.responses[callIndex]
 	}
@@ -94,8 +94,8 @@ func (m *mockModelWithResponses) GenerateContent(
 	return ch, nil
 }
 
-func (m *mockModelWithResponses) Info() model.Info {
-	return model.Info{Name: "mock-model"}
+func (m *mockModelWithResponses) Info() compat.Info {
+	return compat.Info{Name: "mock-model"}
 }
 
 type mockStreamableTool struct {
@@ -139,10 +139,10 @@ func TestTranslateQueuedUserMessageConsumed(t *testing.T) {
 		return
 	}
 
-	evt := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
+	evt := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
 		ID: "queued-message-1",
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("Please narrow the scope"),
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("Please narrow the scope"),
 		}},
 	})
 	evt.ID = "event-1"
@@ -192,12 +192,12 @@ func TestTranslateQueuedUserMessageConsumedClosesOpenMessage(t *testing.T) {
 	}
 
 	_, err := translator.Translate(context.Background(), &agentevent.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "assistant-open",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "working",
 				},
 			}},
@@ -206,10 +206,10 @@ func TestTranslateQueuedUserMessageConsumedClosesOpenMessage(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, translator.receivingMessage)
 
-	evt := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
+	evt := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
 		ID: "queued-message-2",
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("Use a shorter answer"),
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("Use a shorter answer"),
 		}},
 	})
 	require.NoError(t, agentevent.SetExtension(
@@ -235,19 +235,19 @@ func TestTranslateQueuedUserMessageConsumedClosesConcurrentOpenMessages(t *testi
 	if translator == nil {
 		return
 	}
-	for _, rsp := range []*model.Response{
+	for _, rsp := range []*compat.Response{
 		{
 			ID:     "assistant-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "a"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "a"},
 			}},
 		},
 		{
 			ID:     "assistant-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "b"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "b"},
 			}},
 		},
 	} {
@@ -256,10 +256,10 @@ func TestTranslateQueuedUserMessageConsumedClosesConcurrentOpenMessages(t *testi
 	}
 	require.True(t, translator.textStreams.isOpen("assistant-a"))
 	require.True(t, translator.textStreams.isOpen("assistant-b"))
-	evt := queuedUserMessageEventForTest(t, &model.Response{
+	evt := queuedUserMessageEventForTest(t, &compat.Response{
 		ID: "queued-message-3",
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("Use the shorter version"),
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("Use the shorter version"),
 		}},
 	})
 	events, err := translator.Translate(context.Background(), evt)
@@ -281,9 +281,9 @@ func TestTranslateQueuedUserMessageConsumedWithEventIDFallback(t *testing.T) {
 		return
 	}
 
-	evt := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("Use event ID"),
+	evt := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("Use event ID"),
 		}},
 	})
 	evt.ID = "queued-event-id"
@@ -314,69 +314,69 @@ func TestTranslateQueuedUserMessageConsumedWithContentParts(t *testing.T) {
 	}
 
 	text := "describe this image"
-	message := model.Message{
-		Role:    model.RoleUser,
+	message := compat.Message{
+		Role:    compat.RoleUser,
 		Content: "context",
-		ContentParts: []model.ContentPart{
+		ContentParts: []compat.ContentPart{
 			{
-				Type: model.ContentTypeText,
+				Type: compat.ContentTypeText,
 				Text: &text,
 			},
 			{
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					URL:    " https://example.com/image.png ",
 					Format: "image/png",
 				},
 			},
 			{
-				Type: model.ContentTypeAudio,
-				Audio: &model.Audio{
+				Type: compat.ContentTypeAudio,
+				Audio: &compat.Audio{
 					Data:   []byte("audio"),
 					Format: "wav",
 				},
 			},
 			{
-				Type: model.ContentTypeAudio,
-				Audio: &model.Audio{
+				Type: compat.ContentTypeAudio,
+				Audio: &compat.Audio{
 					URL:    " https://example.com/audio.mp3 ",
 					Format: "audio/mpeg",
 				},
 			},
 			{
-				Type: model.ContentTypeVideo,
-				Video: &model.Video{
+				Type: compat.ContentTypeVideo,
+				Video: &compat.Video{
 					Data:   []byte("video"),
 					Format: "mp4",
 				},
 			},
 			{
-				Type: model.ContentTypeVideo,
-				Video: &model.Video{
+				Type: compat.ContentTypeVideo,
+				Video: &compat.Video{
 					URL:    " https://example.com/video.webm ",
 					Format: "video/webm",
 				},
 			},
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     "report.pdf",
 					Data:     []byte("file"),
 					MimeType: "application/pdf",
 				},
 			},
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:   "uploaded.pdf",
 					FileID: "file-123",
 				},
 			},
 		},
 	}
-	evt := queuedUserMessageEventForTest(t, &model.Response{
+	evt := queuedUserMessageEventForTest(t, &compat.Response{
 		ID: "queued-multimodal",
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Message: message,
 		}},
 	})
@@ -431,84 +431,84 @@ func TestTranslateQueuedUserMessageConsumedWithContentParts(t *testing.T) {
 func TestQueuedUserMessageContentPartsConversionErrors(t *testing.T) {
 	tests := []struct {
 		name    string
-		message model.Message
+		message compat.Message
 		want    string
 	}{
 		{
 			name:    "empty",
-			message: model.Message{Role: model.RoleUser},
+			message: compat.Message{Role: compat.RoleUser},
 			want:    "queued user message content parts are empty",
 		},
 		{
 			name: "nil text",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 			}}},
 			want: "queued user message text content part is nil",
 		},
 		{
 			name: "nil image",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeImage,
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeImage,
 			}}},
 			want: "queued user message image content part is nil",
 		},
 		{
 			name: "empty image",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeImage,
-				Image: &model.Image{},
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeImage,
+				Image: &compat.Image{},
 			}}},
 			want: "queued user message image content part is empty",
 		},
 		{
 			name: "nil audio",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeAudio,
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeAudio,
 			}}},
 			want: "queued user message audio content part is nil",
 		},
 		{
 			name: "empty audio",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeAudio,
-				Audio: &model.Audio{},
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeAudio,
+				Audio: &compat.Audio{},
 			}}},
 			want: "queued user message audio content part is empty",
 		},
 		{
 			name: "nil video",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeVideo,
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeVideo,
 			}}},
 			want: "queued user message video content part is nil",
 		},
 		{
 			name: "empty video",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeVideo,
-				Video: &model.Video{},
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeVideo,
+				Video: &compat.Video{},
 			}}},
 			want: "queued user message video content part is empty",
 		},
 		{
 			name: "nil file",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
 			}}},
 			want: "queued user message file content part is nil",
 		},
 		{
 			name: "empty file",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{},
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{},
 			}}},
 			want: "queued user message file content part is empty",
 		},
 		{
 			name: "unsupported",
-			message: model.Message{Role: model.RoleUser, ContentParts: []model.ContentPart{{
+			message: compat.Message{Role: compat.RoleUser, ContentParts: []compat.ContentPart{{
 				Type: "unknown",
 			}}},
 			want: "queued user message content part type unsupported",
@@ -525,18 +525,18 @@ func TestQueuedUserMessageContentPartsConversionErrors(t *testing.T) {
 }
 
 func TestQueuedUserMessageContentPartsConversionDefaults(t *testing.T) {
-	message := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
+	message := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
 			{
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					Data: []byte("image"),
 				},
 			},
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					URL: " https://example.com/report.pdf ",
 				},
 			},
@@ -560,9 +560,9 @@ func TestTranslateQueuedUserMessageConsumedWithEmptyContentUsesGeneratedID(t *te
 		return
 	}
 
-	evt := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser},
+	evt := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser},
 		}},
 	})
 	require.NoError(t, agentevent.SetExtension(
@@ -609,14 +609,14 @@ func TestTranslateQueuedUserMessageConsumedInvalidEvents(t *testing.T) {
 		},
 		{
 			name:    "missing choice",
-			event:   queuedUserMessageEventForTest(t, &model.Response{}),
+			event:   queuedUserMessageEventForTest(t, &compat.Response{}),
 			wantErr: "queued user message event missing message",
 		},
 		{
 			name: "non user role",
-			event: queuedUserMessageEventForTest(t, &model.Response{
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("not user"),
+			event: queuedUserMessageEventForTest(t, &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("not user"),
 				}},
 			}),
 			wantErr: "queued user message event role must be user",
@@ -643,9 +643,9 @@ func TestTranslateQueuedUserMessageNonConsumedMetadataFallsThrough(t *testing.T)
 		return
 	}
 
-	evt := agentevent.NewResponseEvent("inv-1", "user", &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage("pending message"),
+	evt := agentevent.NewResponseEvent("inv-1", "user", &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("pending message"),
 		}},
 	})
 	require.NoError(t, agentevent.SetExtension(
@@ -661,7 +661,7 @@ func TestTranslateQueuedUserMessageNonConsumedMetadataFallsThrough(t *testing.T)
 
 func queuedUserMessageEventForTest(
 	t *testing.T,
-	response *model.Response,
+	response *compat.Response,
 ) *agentevent.Event {
 	t.Helper()
 
@@ -685,9 +685,9 @@ func TestTranslateUserLikeEventWithoutQueuedMetadataDoesNotEmitSteerConsumed(t *
 	events, err := translator.Translate(context.Background(), agentevent.NewResponseEvent(
 		"inv-1",
 		"user",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("ordinary user event"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("ordinary user event"),
 			}},
 		},
 	))
@@ -700,7 +700,7 @@ func TestTranslateErrorResponse(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{Error: &model.ResponseError{Message: "boom"}}
+	rsp := &compat.Response{Error: &compat.ResponseError{Message: "boom"}}
 
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: rsp})
 	assert.NoError(t, err)
@@ -716,12 +716,12 @@ func TestTranslateErrorObservationClosesOnTerminalError(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	observation := &model.Response{
+	observation := &compat.Response{
 		ID:        "inv-1:codex-error-observation",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "first failure"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "first failure"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: observation})
@@ -734,10 +734,10 @@ func TestTranslateErrorObservationClosesOnTerminalError(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "inv-1:codex-error-observation", content.MessageID)
 	assert.Equal(t, "first failure", content.Delta)
-	terminal := &model.Response{
-		Object: model.ObjectTypeError,
+	terminal := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Error:  &model.ResponseError{Message: "final failure"},
+		Error:  &compat.ResponseError{Message: "final failure"},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: terminal})
 	assert.NoError(t, err)
@@ -755,29 +755,29 @@ func TestTranslateAssistantToolAssistantClosesTextBoundaryWhenConcurrentDisabled
 	if translator == nil {
 		return
 	}
-	firstAssistant := &model.Response{
+	firstAssistant := &compat.Response{
 		ID:        "assistant-1",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "good luck"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "good luck"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: firstAssistant})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "shell",
 			Arguments: []byte(`{"command":"printf done"}`),
 		},
 	}
-	startedTool := &model.Response{
-		Object:    model.ObjectTypeChatCompletion,
+	startedTool := &compat.Response{
+		Object:    compat.ObjectTypeChatCompletion,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{toolCall}},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, ToolCalls: []compat.ToolCall{toolCall}},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "tool-start", Response: startedTool})
@@ -789,19 +789,19 @@ func TestTranslateAssistantToolAssistantClosesTextBoundaryWhenConcurrentDisabled
 	startTool, ok := events[1].(*aguievents.ToolCallStartEvent)
 	assert.True(t, ok)
 	assert.Equal(t, "call-1", startTool.ToolCallID)
-	completedTool := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{toolCall}},
+	completedTool := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, ToolCalls: []compat.ToolCall{toolCall}},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "tool-complete", Response: completedTool})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	toolResult := &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleTool, ToolID: "call-1", Content: "done"},
+	toolResult := &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: "done"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "tool-result", Response: toolResult})
@@ -810,12 +810,12 @@ func TestTranslateAssistantToolAssistantClosesTextBoundaryWhenConcurrentDisabled
 	result, ok := events[0].(*aguievents.ToolCallResultEvent)
 	assert.True(t, ok)
 	assert.Equal(t, "tool-result", result.MessageID)
-	secondAssistant := &model.Response{
+	secondAssistant := &compat.Response{
 		ID:        "assistant-2",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "practice makes perfect"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "practice makes perfect"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: secondAssistant})
@@ -836,14 +836,14 @@ func TestTranslateErrorResponseClosesOpenToolCallDelta(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"draft"`),
 				},
@@ -854,7 +854,7 @@ func TestTranslateErrorResponseClosesOpenToolCallDelta(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	errorRsp := &model.Response{Error: &model.ResponseError{Message: "boom"}}
+	errorRsp := &compat.Response{Error: &compat.ResponseError{Message: "boom"}}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: errorRsp})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
@@ -872,12 +872,12 @@ func TestTranslateEventSourceMetadataDisabledByDefault(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{
-				Role:    model.RoleAssistant,
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "Hello",
 			},
 		}},
@@ -906,16 +906,16 @@ func TestTranslateAttachesEventSourceMetadataWhenEnabled(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "search",
 						Arguments: []byte(`{"q":"agent"}`),
 					},
@@ -973,7 +973,7 @@ func TestFinalizeEventsSkipsExistingRawEvent(t *testing.T) {
 
 func TestFinalizeEventsSuppressesZeroOverride(t *testing.T) {
 	translator := &translator{eventSourceMetadataEnabled: true}
-	src := agentevent.NewResponseEvent("inv-1", "agui.runner", &model.Response{})
+	src := agentevent.NewResponseEvent("inv-1", "agui.runner", &compat.Response{})
 	require.NoError(t, source.SetEventOverride(src, source.Metadata{}))
 
 	events := translator.finalizeEvents(
@@ -1051,11 +1051,11 @@ func TestTextMessageEventStreamingAndCompletion(t *testing.T) {
 		return
 	}
 
-	firstChunk := &model.Response{
+	firstChunk := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 	chunkEvents, err := translator.textMessageEvent(firstChunk)
@@ -1065,11 +1065,11 @@ func TestTextMessageEventStreamingAndCompletion(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "msg-1", start.MessageID)
 
-	completionRsp := &model.Response{
+	completionRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 	completionEvents, err := translator.textMessageEvent(completionRsp)
@@ -1086,22 +1086,22 @@ func TestTextMessageEventStreamInterruptedByNewMessage(t *testing.T) {
 		return
 	}
 
-	firstChunk := &model.Response{
+	firstChunk := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 	initialEvents, err := translator.textMessageEvent(firstChunk)
 	assert.NoError(t, err)
 	assert.Len(t, initialEvents, 2)
 
-	secondChunk := &model.Response{
+	secondChunk := &compat.Response{
 		ID:     "msg-2",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "World"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "World"},
 		}},
 	}
 	interruptedEvents, err := translator.textMessageEvent(secondChunk)
@@ -1131,22 +1131,22 @@ func TestTextMessageEventStreamInterruptedByNewMessage_NonStream(t *testing.T) {
 		return
 	}
 
-	firstChunk := &model.Response{
+	firstChunk := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 	initialEvents, err := translator.textMessageEvent(firstChunk)
 	assert.NoError(t, err)
 	assert.Len(t, initialEvents, 2)
 
-	secondChunk := &model.Response{
+	secondChunk := &compat.Response{
 		ID:     "msg-2",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "World"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "World"},
 		}},
 	}
 	interruptedEvents, err := translator.textMessageEvent(secondChunk)
@@ -1180,48 +1180,48 @@ func TestTextMessageEventInterleavedStreamsEndOnOwnFinishReason(t *testing.T) {
 		return
 	}
 	reason := "stop"
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			ID:     "msg-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "a1"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "a1"},
 			}},
 		},
 		{
 			ID:     "msg-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "b1"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "b1"},
 			}},
 		},
 		{
 			ID:     "msg-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "a2"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "a2"},
 			}},
 		},
 		{
 			ID:     "msg-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "b2"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "b2"},
 			}},
 		},
 		{
 			ID:     "msg-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta:        model.Message{Role: model.RoleAssistant},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta:        compat.Message{Role: compat.RoleAssistant},
 				FinishReason: &reason,
 			}},
 		},
 		{
 			ID:     "msg-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta:        model.Message{Role: model.RoleAssistant},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta:        compat.Message{Role: compat.RoleAssistant},
 				FinishReason: &reason,
 			}},
 		},
@@ -1276,21 +1276,21 @@ func TestTranslateInterleavedTextStreamsDefaultKeepsPreviousMessageOpen(t *testi
 	if translator == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-a",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "a1"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "a1"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: first})
 	require.NoError(t, err)
 	require.Len(t, events, 2)
-	next := &model.Response{
+	next := &compat.Response{
 		ID:     "msg-b",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "b1"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "b1"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: next})
@@ -1311,10 +1311,10 @@ func TestTextMessageEventConcurrentModeSkipsEmptyResponseID(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "orphan"},
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "orphan"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: rsp})
@@ -1330,11 +1330,11 @@ func TestTextMessageEventConcurrentModeNonStreamClosesMessage(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-final",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "done"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "done"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: rsp})
@@ -1361,11 +1361,11 @@ func TestTextMessageEventNonStream(t *testing.T) {
 		return
 	}
 
-	nonStreamRsp := &model.Response{
+	nonStreamRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 
@@ -1392,10 +1392,10 @@ func TestTextMessageEventEmptyChatCompletionContent(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:      "final-empty",
-		Object:  model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant}}},
+		Object:  compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant}}},
 	}
 
 	events, err := translator.textMessageEvent(rsp)
@@ -1410,11 +1410,11 @@ func TestTextMessageEventEmptyChunkDoesNotChangeState(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "chunk-empty",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant},
 		}},
 	}
 
@@ -1430,7 +1430,7 @@ func TestTextMessageEventInvalidObject(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{ID: "bad", Object: "unknown", Choices: []model.Choice{{}}}
+	rsp := &compat.Response{ID: "bad", Object: "unknown", Choices: []compat.Choice{{}}}
 
 	_, err := translator.textMessageEvent(rsp)
 	assert.Error(t, err)
@@ -1442,11 +1442,11 @@ func TestTextMessageEventChunkFinishReasonEndsStream(t *testing.T) {
 		return
 	}
 
-	firstChunk := &model.Response{
+	firstChunk := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "hi"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "hi"},
 		}},
 	}
 	initialEvents, err := translator.textMessageEvent(firstChunk)
@@ -1455,11 +1455,11 @@ func TestTextMessageEventChunkFinishReasonEndsStream(t *testing.T) {
 	assert.True(t, translator.receivingMessage)
 
 	reason := "stop"
-	finishChunk := &model.Response{
+	finishChunk := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta:        model.Message{Role: model.RoleAssistant},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta:        compat.Message{Role: compat.RoleAssistant},
 			FinishReason: &reason,
 		}},
 	}
@@ -1479,11 +1479,11 @@ func TestTextMessageEventChunkWithContentAndFinishReason(t *testing.T) {
 	}
 
 	reason := "stop"
-	chunk := &model.Response{
+	chunk := &compat.Response{
 		ID:     "msg-finish",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta:        model.Message{Role: model.RoleAssistant, Content: "done"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta:        compat.Message{Role: compat.RoleAssistant, Content: "done"},
 			FinishReason: &reason,
 		}},
 	}
@@ -1534,12 +1534,12 @@ func TestGraphModelEventsDeduplicatedByResponseID(t *testing.T) {
 		return
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "resp-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "graph output",
 			},
 		}},
@@ -1587,11 +1587,11 @@ func TestGraphModelEventsConcurrentModeSkipsLaterRawResponse(t *testing.T) {
 	require.NoError(t, aguievents.ValidateSequence(graphEvents))
 	assert.True(t, tr.textStreams.hasStarted("resp-graph"))
 
-	rawEvents, err := tr.Translate(context.Background(), &agentevent.Event{Response: &model.Response{
+	rawEvents, err := tr.Translate(context.Background(), &agentevent.Event{Response: &compat.Response{
 		ID:     "resp-graph",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "raw duplicate"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "raw duplicate"},
 		}},
 	}})
 	require.NoError(t, err)
@@ -1626,17 +1626,17 @@ func TestGraphToolMetadataStartCompleteAndSkipDuplicateToolResponse(t *testing.T
 
 	doneEvt := &agentevent.Event{ID: "evt-done", StateDelta: map[string][]byte{graph.MetadataKeyTool: bDone}}
 	// Provide dummy response to avoid nil-response error when metadata has no events.
-	doneEvt.Response = &model.Response{Choices: []model.Choice{{}}}
+	doneEvt.Response = &compat.Response{Choices: []compat.Choice{{}}}
 	evs2, err := tr.Translate(context.Background(), doneEvt)
 	assert.NoError(t, err)
 	assert.Len(t, evs2, 0) // complete ignored; rely on tool.response
 
 	toolRsp := &agentevent.Event{
 		ID: "tool-rsp",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					ToolID:  "call-1",
 					Content: "ignored duplicate",
 				},
@@ -1659,7 +1659,7 @@ func TestTextMessageEventEmptyResponse(t *testing.T) {
 	events, err := translator.textMessageEvent(nil)
 	assert.Empty(t, events)
 	assert.NoError(t, err)
-	events, err = translator.textMessageEvent(&model.Response{})
+	events, err = translator.textMessageEvent(&compat.Response{})
 	assert.Empty(t, events)
 	assert.NoError(t, err)
 }
@@ -1669,12 +1669,12 @@ func TestToolCallAndResultEvents(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	callRsp := &model.Response{
+	callRsp := &compat.Response{
 		ID: "msg-tool",
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"foo":"bar"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"foo":"bar"}`)},
 			}}},
 		}},
 	}
@@ -1696,9 +1696,9 @@ func TestToolCallAndResultEvents(t *testing.T) {
 	assert.Equal(t, "call-1", endCall.ToolCallID)
 	assert.Equal(t, "msg-tool", translator.lastMessageID)
 
-	resultRsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "call-1", Content: "done"},
+	resultRsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "call-1", Content: "done"},
 		}},
 	}
 	resultEvents, err := translator.toolResultEvent(resultRsp, "event-tool-result")
@@ -1718,15 +1718,15 @@ func TestTranslateStreamsToolCallDeltaAndSkipsFinalDuplicate(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Type:  "function",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "create_document",
 				},
 			}}},
@@ -1741,13 +1741,13 @@ func TestTranslateStreamsToolCallDeltaAndSkipsFinalDuplicate(t *testing.T) {
 	assert.Equal(t, "call-1", start.ToolCallID)
 	assert.Equal(t, "create_document", start.ToolCallName)
 	assert.Equal(t, "msg-tool", *start.ParentMessageID)
-	argChunk := &model.Response{
+	argChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`{"content":"Hello`),
 				},
 			}}},
@@ -1761,13 +1761,13 @@ func TestTranslateStreamsToolCallDeltaAndSkipsFinalDuplicate(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "call-1", args.ToolCallID)
 	assert.Equal(t, `{"content":"Hello`, args.Delta)
-	nextArgChunk := &model.Response{
+	nextArgChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(` world"}`),
 				},
 			}}},
@@ -1782,10 +1782,10 @@ func TestTranslateStreamsToolCallDeltaAndSkipsFinalDuplicate(t *testing.T) {
 	assert.Equal(t, "call-1", args.ToolCallID)
 	assert.Equal(t, ` world"}`, args.Delta)
 	reason := "tool_calls"
-	finishChunk := &model.Response{
+	finishChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -1793,14 +1793,14 @@ func TestTranslateStreamsToolCallDeltaAndSkipsFinalDuplicate(t *testing.T) {
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: finishChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
 				Type:     "function",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"Hello world"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"Hello world"}`)},
 			}}},
 		}},
 	}
@@ -1818,14 +1818,14 @@ func TestTranslateBuffersToolCallDeltaArgsUntilStart(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	argChunk := &model.Response{
+	argChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`{"content":"early`),
 				},
 			}}},
@@ -1835,14 +1835,14 @@ func TestTranslateBuffersToolCallDeltaArgsUntilStart(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: argChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "create_document",
 				},
 			}}},
@@ -1867,13 +1867,13 @@ func TestTranslateCompletesToolCallDeltaArgsFromFinalMessage(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"draft`),
 				},
@@ -1885,10 +1885,10 @@ func TestTranslateCompletesToolCallDeltaArgsFromFinalMessage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
 	reason := "tool_calls"
-	finishChunk := &model.Response{
+	finishChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -1896,14 +1896,14 @@ func TestTranslateCompletesToolCallDeltaArgsFromFinalMessage(t *testing.T) {
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: finishChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
 				Type:     "function",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"draft done"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"draft done"}`)},
 			}}},
 		}},
 	}
@@ -1924,13 +1924,13 @@ func TestTranslateClosesToolCallDeltaWhenFinalArgumentsDoNotExtendStreamedArgs(t
 	if translator == nil {
 		return
 	}
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"draft`),
 				},
@@ -1941,14 +1941,14 @@ func TestTranslateClosesToolCallDeltaWhenFinalArgumentsDoNotExtendStreamedArgs(t
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
 				Type:     "function",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"final"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"final"}`)},
 			}}},
 		}},
 	}
@@ -1965,13 +1965,13 @@ func TestTranslateToolCallDeltaStreamingDisabledByDefault(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"hidden"}`),
 				},
@@ -1983,10 +1983,10 @@ func TestTranslateToolCallDeltaStreamingDisabledByDefault(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, events)
 	reason := "tool_calls"
-	finishChunk := &model.Response{
+	finishChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -2002,14 +2002,14 @@ func TestTranslateSkipsToolCallDeltaWithoutIDUntilFinalMessage(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				Type:  "function",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"draft`),
 				},
@@ -2020,13 +2020,13 @@ func TestTranslateSkipsToolCallDeltaWithoutIDUntilFinalMessage(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	argChunk := &model.Response{
+	argChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(` v2"}`),
 				},
 			}}},
@@ -2037,10 +2037,10 @@ func TestTranslateSkipsToolCallDeltaWithoutIDUntilFinalMessage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, events)
 	reason := "tool_calls"
-	finishChunk := &model.Response{
+	finishChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -2048,14 +2048,14 @@ func TestTranslateSkipsToolCallDeltaWithoutIDUntilFinalMessage(t *testing.T) {
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: finishChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "auto_call_0",
 				Type:     "function",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"draft v2"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"draft v2"}`)},
 			}}},
 		}},
 	}
@@ -2073,9 +2073,9 @@ func TestTranslateSkipsToolCallDeltaWithoutIDUntilFinalMessage(t *testing.T) {
 	end, ok := events[2].(*aguievents.ToolCallEndEvent)
 	assert.True(t, ok)
 	assert.Equal(t, "auto_call_0", end.ToolCallID)
-	resultRsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "auto_call_0", Content: "stored"},
+	resultRsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "auto_call_0", Content: "stored"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "tool-result", Response: resultRsp})
@@ -2093,13 +2093,13 @@ func TestTranslateToolResultClosesOpenToolCallDeltaWithoutFinalMessage(t *testin
 	if translator == nil {
 		return
 	}
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"draft"}`),
 				},
@@ -2110,9 +2110,9 @@ func TestTranslateToolResultClosesOpenToolCallDeltaWithoutFinalMessage(t *testin
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	resultRsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "call-1", Content: "stored"},
+	resultRsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "call-1", Content: "stored"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "tool-result", Response: resultRsp})
@@ -2134,21 +2134,21 @@ func TestTranslateDoesNotGuessAmbiguousLateToolCallDeltaID(t *testing.T) {
 	}
 	firstIndex := 0
 	secondIndex := 1
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{
 				{
 					Index: &firstIndex,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "first_tool",
 						Arguments: []byte(`{"first":`),
 					},
 				},
 				{
 					Index: &secondIndex,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "second_tool",
 						Arguments: []byte(`{"second":`),
 					},
@@ -2160,13 +2160,13 @@ func TestTranslateDoesNotGuessAmbiguousLateToolCallDeltaID(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	ambiguousIDChunk := &model.Response{
+	ambiguousIDChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-late",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`1}`),
 				},
 			}}},
@@ -2176,18 +2176,18 @@ func TestTranslateDoesNotGuessAmbiguousLateToolCallDeltaID(t *testing.T) {
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: ambiguousIDChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{
 				{
 					ID:       "call-1",
-					Function: model.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
+					Function: compat.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
 				},
 				{
 					ID:       "call-2",
-					Function: model.FunctionDefinitionParam{Name: "second_tool", Arguments: []byte(`{"second":2}`)},
+					Function: compat.FunctionDefinitionParam{Name: "second_tool", Arguments: []byte(`{"second":2}`)},
 				},
 			}},
 		}},
@@ -2225,21 +2225,21 @@ func TestTranslateDoesNotGuessAmbiguousToolCallDeltaArgsWithoutIDOrIndex(t *test
 	firstIndex := 0
 	secondIndex := 1
 	// Start two open tool calls.
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{
 				{
 					Index: &firstIndex,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "first_tool",
 						Arguments: []byte(`{"first":`),
 					},
 				},
 				{
 					Index: &secondIndex,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "second_tool",
 						Arguments: []byte(`{"second":`),
 					},
@@ -2252,12 +2252,12 @@ func TestTranslateDoesNotGuessAmbiguousToolCallDeltaArgsWithoutIDOrIndex(t *test
 	assert.NoError(t, err)
 	assert.Empty(t, events)
 	// Drop a single ambiguous argument chunk instead of attaching it to position zero.
-	ambiguousArgChunk := &model.Response{
+	ambiguousArgChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
-				Function: model.FunctionDefinitionParam{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`1}`),
 				},
 			}}},
@@ -2268,18 +2268,18 @@ func TestTranslateDoesNotGuessAmbiguousToolCallDeltaArgsWithoutIDOrIndex(t *test
 	assert.NoError(t, err)
 	assert.Empty(t, events)
 	// Use the final message to complete both calls by deterministic position.
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{
 				{
 					ID:       "call-1",
-					Function: model.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
+					Function: compat.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
 				},
 				{
 					ID:       "call-2",
-					Function: model.FunctionDefinitionParam{Name: "second_tool", Arguments: []byte(`{"second":2}`)},
+					Function: compat.FunctionDefinitionParam{Name: "second_tool", Arguments: []byte(`{"second":2}`)},
 				},
 			}},
 		}},
@@ -2315,14 +2315,14 @@ func TestTranslateDoesNotAttachUnindexedToolCallDeltaToSingleOpenCall(t *testing
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "first_tool",
 					Arguments: []byte(`{"first":`),
 				},
@@ -2333,12 +2333,12 @@ func TestTranslateDoesNotAttachUnindexedToolCallDeltaToSingleOpenCall(t *testing
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	ambiguousArgChunk := &model.Response{
+	ambiguousArgChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
-				Function: model.FunctionDefinitionParam{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`"wrong"}`),
 				},
 			}}},
@@ -2348,13 +2348,13 @@ func TestTranslateDoesNotAttachUnindexedToolCallDeltaToSingleOpenCall(t *testing
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: ambiguousArgChunk})
 	assert.NoError(t, err)
 	assert.Empty(t, events)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
+				Function: compat.FunctionDefinitionParam{Name: "first_tool", Arguments: []byte(`{"first":1}`)},
 			}}},
 		}},
 	}
@@ -2376,14 +2376,14 @@ func TestTranslateAttachesUnindexedToolCallDeltaByID(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "first_tool",
 					Arguments: []byte(`{"first":`),
 				},
@@ -2394,13 +2394,13 @@ func TestTranslateAttachesUnindexedToolCallDeltaByID(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	argChunk := &model.Response{
+	argChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`1}`),
 				},
 			}}},
@@ -2421,13 +2421,13 @@ func TestTranslateRunCompletionClosesOpenToolCallDelta(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "create_document",
 				},
 			}}},
@@ -2437,9 +2437,9 @@ func TestTranslateRunCompletionClosesOpenToolCallDelta(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 1)
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-run-completion",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: runCompletionRsp})
@@ -2457,14 +2457,14 @@ func TestTranslateDoesNotReuseClosedToolCallDeltaState(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"first"}`),
 				},
@@ -2475,13 +2475,13 @@ func TestTranslateDoesNotReuseClosedToolCallDeltaState(t *testing.T) {
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: startChunk})
 	assert.NoError(t, err)
 	assert.Len(t, events, 2)
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"first"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"first"}`)},
 			}}},
 		}},
 	}
@@ -2491,14 +2491,14 @@ func TestTranslateDoesNotReuseClosedToolCallDeltaState(t *testing.T) {
 	end, ok := events[0].(*aguievents.ToolCallEndEvent)
 	assert.True(t, ok)
 	assert.Equal(t, "call-1", end.ToolCallID)
-	nextChunk := &model.Response{
+	nextChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-2",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"second"}`),
 				},
@@ -2524,14 +2524,14 @@ func TestTranslateClearsUnstartedToolCallDeltaStateOnFinalMessage(t *testing.T) 
 		return
 	}
 	toolIndex := 0
-	startChunk := &model.Response{
+	startChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: []byte(`{"content":"first"}`),
 				},
 			}}},
@@ -2543,13 +2543,13 @@ func TestTranslateClearsUnstartedToolCallDeltaStateOnFinalMessage(t *testing.T) 
 	assert.Empty(t, events)
 	assert.Len(t, translator.toolCallDeltas, 1)
 	assert.Contains(t, translator.toolCallDeltasByID, "call-1")
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:       "call-1",
-				Function: model.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"first"}`)},
+				Function: compat.FunctionDefinitionParam{Name: "create_document", Arguments: []byte(`{"content":"first"}`)},
 			}}},
 		}},
 	}
@@ -2568,13 +2568,13 @@ func TestTranslateClearsUnstartedToolCallDeltaStateOnFinalMessage(t *testing.T) 
 	assert.Equal(t, "call-1", end.ToolCallID)
 	assert.Empty(t, translator.toolCallDeltas)
 	assert.Empty(t, translator.toolCallDeltasByID)
-	nextChunk := &model.Response{
+	nextChunk := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID: "call-2",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "create_document",
 					Arguments: []byte(`{"content":"second"}`),
 				},
@@ -2599,9 +2599,9 @@ func TestToolResultEventDoesNotEmitEnd(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	rsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "call-1", Content: "done"},
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "call-1", Content: "done"},
 		}},
 	}
 	events, err := tr.toolResultEvent(rsp, "msg-1")
@@ -2620,14 +2620,14 @@ func TestTranslateToolCallResponseIncludesAllEvents(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-tool",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{{
 					ID:       "tool-call",
-					Function: model.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"q":"foo"}`)},
+					Function: compat.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"q":"foo"}`)},
 				}},
 				Content: "hello",
 			}},
@@ -2668,11 +2668,11 @@ func TestTranslateFullResponse(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "final",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "done"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "done"},
 		}},
 		Done: true,
 	}
@@ -2700,11 +2700,11 @@ func TestTranslateRunCompletionResponse(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	chunkRsp := &model.Response{
+	chunkRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "partial"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 		}},
 		IsPartial: true,
 	}
@@ -2717,9 +2717,9 @@ func TestTranslateRunCompletionResponse(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "msg-1", start.MessageID)
 
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-run-completion",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 
@@ -2740,20 +2740,20 @@ func TestTranslateRunCompletionResponseClosesAllOpenTextStreams(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	for _, rsp := range []*model.Response{
+	for _, rsp := range []*compat.Response{
 		{
 			ID:     "msg-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "a"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "a"},
 			}},
 			IsPartial: true,
 		},
 		{
 			ID:     "msg-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "b"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "b"},
 			}},
 			IsPartial: true,
 		},
@@ -2761,9 +2761,9 @@ func TestTranslateRunCompletionResponseClosesAllOpenTextStreams(t *testing.T) {
 		_, err := translator.Translate(context.Background(), &agentevent.Event{Response: rsp})
 		require.NoError(t, err)
 	}
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-run-completion",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: runCompletionRsp})
@@ -2784,20 +2784,20 @@ func TestTranslateToolResultResponse(t *testing.T) {
 		return
 	}
 
-	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &model.Response{
+	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "partial"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 		}},
 	}})
 	assert.NoError(t, err)
 
 	events, err := translator.Translate(context.Background(), &agentevent.Event{
 		ID: "evt-tool-1",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{ToolID: "tool-1", Content: "done"},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{ToolID: "tool-1", Content: "done"},
 			}},
 		},
 	})
@@ -2815,19 +2815,19 @@ func TestTranslateToolResultResponseClosesOpenTextStreamWhenConcurrentDisabled(t
 	if translator == nil {
 		return
 	}
-	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &model.Response{
+	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "partial"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 		}},
 	}})
 	assert.NoError(t, err)
 	events, err := translator.Translate(context.Background(), &agentevent.Event{
 		ID: "evt-tool-1",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{ToolID: "tool-1", Content: "done"},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{ToolID: "tool-1", Content: "done"},
 			}},
 		},
 	})
@@ -2849,11 +2849,11 @@ func TestTranslateSequentialEvents(t *testing.T) {
 		return
 	}
 
-	chunkRsp := &model.Response{
+	chunkRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "hi"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "hi"},
 		}},
 	}
 	events, err := translator.Translate(context.Background(), &agentevent.Event{Response: chunkRsp})
@@ -2863,14 +2863,14 @@ func TestTranslateSequentialEvents(t *testing.T) {
 	assert.IsType(t, (*aguievents.TextMessageContentEvent)(nil), events[1])
 	assert.IsType(t, (*aguievents.TextMessageEndEvent)(nil), events[2])
 
-	toolCallRsp := &model.Response{
+	toolCallRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{{
 					ID:       "call-1",
-					Function: model.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"q":"foo"}`)},
+					Function: compat.FunctionDefinitionParam{Name: "lookup", Arguments: []byte(`{"q":"foo"}`)},
 				}},
 			},
 		}},
@@ -2882,9 +2882,9 @@ func TestTranslateSequentialEvents(t *testing.T) {
 	assert.IsType(t, (*aguievents.ToolCallArgsEvent)(nil), events[1])
 	assert.IsType(t, (*aguievents.ToolCallEndEvent)(nil), events[2])
 
-	toolResultRsp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "call-1", Content: "success"},
+	toolResultRsp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "call-1", Content: "success"},
 		}},
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{ID: "evt-call-1-result", Response: toolResultRsp})
@@ -2895,11 +2895,11 @@ func TestTranslateSequentialEvents(t *testing.T) {
 	assert.Equal(t, "evt-call-1-result", res.MessageID)
 	assert.Equal(t, "call-1", res.ToolCallID)
 
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-2",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "done"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "done"},
 		}},
 		Done: true,
 	}
@@ -2910,9 +2910,9 @@ func TestTranslateSequentialEvents(t *testing.T) {
 	assert.IsType(t, (*aguievents.TextMessageContentEvent)(nil), events[1])
 	assert.IsType(t, (*aguievents.TextMessageEndEvent)(nil), events[2])
 
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-run-completion",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 	events, err = translator.Translate(context.Background(), &agentevent.Event{Response: runCompletionRsp})
@@ -2926,11 +2926,11 @@ func TestTranslateReasoningStreamEndsOnContent(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -2950,11 +2950,11 @@ func TestTranslateReasoningStreamEndsOnContent(t *testing.T) {
 	assert.Equal(t, reasoningMessageID, firstContent.MessageID)
 	assert.True(t, tr.receivingReasoning)
 	assert.Equal(t, reasoningMessageID, tr.lastReasoningMessageID)
-	second := &model.Response{
+	second := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: " more"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: " more"},
 		}},
 		IsPartial: true,
 	}
@@ -2965,11 +2965,11 @@ func TestTranslateReasoningStreamEndsOnContent(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, reasoningMessageID, content.MessageID)
 	assert.Equal(t, " more", content.Delta)
-	third := &model.Response{
+	third := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "answer"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "answer"},
 		}},
 		IsPartial: true,
 	}
@@ -2986,15 +2986,15 @@ func TestTranslateReasoningStreamEndsOnContent(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, first.ID, textStart.MessageID)
 	require.NotNil(t, textStart.Role)
-	assert.Equal(t, model.RoleAssistant.String(), *textStart.Role)
+	assert.Equal(t, compat.RoleAssistant.String(), *textStart.Role)
 	assert.IsType(t, (*aguievents.TextMessageContentEvent)(nil), events[3])
 	assert.False(t, tr.receivingReasoning)
 	reason := "stop"
-	fourth := &model.Response{
+	fourth := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta:        model.Message{Role: model.RoleAssistant},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta:        compat.Message{Role: compat.RoleAssistant},
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -3010,12 +3010,12 @@ func TestTranslateReasoningNonStreamPrecedesText(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:             model.RoleAssistant,
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:             compat.RoleAssistant,
 				ReasoningContent: "think",
 				Content:          "answer",
 			},
@@ -3057,12 +3057,12 @@ func TestTranslateReasoningSuppressed(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:             model.RoleAssistant,
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:             compat.RoleAssistant,
 				ReasoningContent: "think",
 				Content:          "answer",
 			},
@@ -3084,11 +3084,11 @@ func TestTranslateReasoningStreamingDoesNotDuplicateOnFinalCompletion(t *testing
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "579"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "579"},
 		}},
 		IsPartial: true,
 	}
@@ -3100,11 +3100,11 @@ func TestTranslateReasoningStreamingDoesNotDuplicateOnFinalCompletion(t *testing
 	assert.IsType(t, (*aguievents.ReasoningMessageContentEvent)(nil), events[2])
 
 	reason := "stop"
-	finish := &model.Response{
+	finish := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta:        model.Message{Role: model.RoleAssistant},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta:        compat.Message{Role: compat.RoleAssistant},
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -3115,11 +3115,11 @@ func TestTranslateReasoningStreamingDoesNotDuplicateOnFinalCompletion(t *testing
 	assert.IsType(t, (*aguievents.ReasoningMessageEndEvent)(nil), events[0])
 	assert.IsType(t, (*aguievents.ReasoningEndEvent)(nil), events[1])
 
-	final := &model.Response{
+	final := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, ReasoningContent: "579"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "579"},
 		}},
 		Done: true,
 	}
@@ -3136,11 +3136,11 @@ func TestTranslateReasoningStreamEndsOnToolCallWhenConcurrentDisabled(t *testing
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3149,16 +3149,16 @@ func TestTranslateReasoningStreamEndsOnToolCallWhenConcurrentDisabled(t *testing
 	assert.Len(t, events, 3)
 	assert.True(t, tr.receivingReasoning)
 
-	toolCallRsp := &model.Response{
+	toolCallRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "tool-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "tool",
 						Arguments: []byte(`{}`),
 					},
@@ -3180,11 +3180,11 @@ func TestTranslateReasoningStreamStaysOpenOnToolCallByDefault(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3194,16 +3194,16 @@ func TestTranslateReasoningStreamStaysOpenOnToolCallByDefault(t *testing.T) {
 	assert.True(t, tr.receivingReasoning)
 	reasoningID := reasoningMessageID(first.ID)
 	assert.True(t, tr.reasoningStreams.isOpen(reasoningID))
-	toolCallRsp := &model.Response{
+	toolCallRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "tool-1",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "tool",
 						Arguments: []byte(`{}`),
 					},
@@ -3227,11 +3227,11 @@ func TestTranslateReasoningStreamEndsOnFinishReason(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3240,11 +3240,11 @@ func TestTranslateReasoningStreamEndsOnFinishReason(t *testing.T) {
 	assert.True(t, tr.receivingReasoning)
 
 	reason := "stop"
-	finishRsp := &model.Response{
+	finishRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta:        model.Message{Role: model.RoleAssistant},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta:        compat.Message{Role: compat.RoleAssistant},
 			FinishReason: &reason,
 		}},
 		IsPartial: true,
@@ -3265,11 +3265,11 @@ func TestTranslateReasoningStreamClosesOnIDChange(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3279,11 +3279,11 @@ func TestTranslateReasoningStreamClosesOnIDChange(t *testing.T) {
 	firstReasoningMessageID := tr.lastReasoningMessageID
 	assert.Equal(t, reasoningMessageID(first.ID), firstReasoningMessageID)
 
-	next := &model.Response{
+	next := &compat.Response{
 		ID:     "msg-2",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "new"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "new"},
 		}},
 		IsPartial: true,
 	}
@@ -3315,11 +3315,11 @@ func TestTranslateReasoningStreamIDChangeKeepsPreviousMessageOpen(t *testing.T) 
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3329,11 +3329,11 @@ func TestTranslateReasoningStreamIDChangeKeepsPreviousMessageOpen(t *testing.T) 
 	firstReasoningMessageID := tr.lastReasoningMessageID
 	assert.Equal(t, reasoningMessageID(first.ID), firstReasoningMessageID)
 
-	next := &model.Response{
+	next := &compat.Response{
 		ID:     "msg-2",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "new"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "new"},
 		}},
 		IsPartial: true,
 	}
@@ -3359,10 +3359,10 @@ func TestTranslateReasoningConcurrentModeSkipsEmptyResponseID(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	rsp := &model.Response{
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "orphan"},
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "orphan"},
 		}},
 		IsPartial: true,
 	}
@@ -3382,11 +3382,11 @@ func TestTranslateReasoningConcurrentModeClosesOnContentDelta(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3398,11 +3398,11 @@ func TestTranslateReasoningConcurrentModeClosesOnContentDelta(t *testing.T) {
 	reasoningMessageID := reasoningStart.MessageID
 	require.Equal(t, "reasoning-"+first.ID, reasoningMessageID)
 	require.True(t, tr.reasoningStreams.isOpen(reasoningMessageID))
-	next := &model.Response{
+	next := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "answer"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "answer"},
 		}},
 		IsPartial: true,
 	}
@@ -3430,11 +3430,11 @@ func TestTranslateReasoningConcurrentModeNonStreamClosesMessage(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:     "msg-final",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, ReasoningContent: "done"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "done"},
 		}},
 	}
 	events, err := tr.Translate(context.Background(), &agentevent.Event{Response: rsp})
@@ -3463,20 +3463,20 @@ func TestTranslateRunnerCompletionClosesConcurrentReasoningStreams(t *testing.T)
 		return
 	}
 	var reasoningMessageIDs []string
-	for _, rsp := range []*model.Response{
+	for _, rsp := range []*compat.Response{
 		{
 			ID:     "msg-1",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 			}},
 			IsPartial: true,
 		},
 		{
 			ID:     "msg-2",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "again"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "again"},
 			}},
 			IsPartial: true,
 		},
@@ -3491,9 +3491,9 @@ func TestTranslateRunnerCompletionClosesConcurrentReasoningStreams(t *testing.T)
 	}
 	require.True(t, tr.reasoningStreams.isOpen(reasoningMessageIDs[0]))
 	require.True(t, tr.reasoningStreams.isOpen(reasoningMessageIDs[1]))
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-run-completion",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 	events, err := tr.Translate(context.Background(), &agentevent.Event{Response: runCompletionRsp})
@@ -3513,11 +3513,11 @@ func TestTranslateRunnerCompletionClosesReasoningStream(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	first := &model.Response{
+	first := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, ReasoningContent: "think"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, ReasoningContent: "think"},
 		}},
 		IsPartial: true,
 	}
@@ -3525,9 +3525,9 @@ func TestTranslateRunnerCompletionClosesReasoningStream(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, tr.receivingReasoning)
 
-	runCompletionRsp := &model.Response{
+	runCompletionRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	}
 	events, err := tr.Translate(context.Background(), &agentevent.Event{Response: runCompletionRsp})
@@ -3550,13 +3550,13 @@ func TestParallelToolCallResultEvents(t *testing.T) {
 	if translator == nil {
 		return
 	}
-	toolResultRsp := &model.Response{
-		Choices: []model.Choice{
+	toolResultRsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{ToolID: "call-1", Content: "result1"},
+				Message: compat.Message{ToolID: "call-1", Content: "result1"},
 			},
 			{
-				Message: model.Message{ToolID: "call-2", Content: "result2"},
+				Message: compat.Message{ToolID: "call-2", Content: "result2"},
 			},
 		},
 	}
@@ -3592,21 +3592,21 @@ func TestGraphToolEventsDeduplicatedByToolID(t *testing.T) {
 		return
 	}
 
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "transfer_to_agent",
 			Arguments: []byte(`{"agent_name":"math-graph","message":"计算"}`),
 		},
 	}
 	callEvent := &agentevent.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-123",
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:      model.RoleAssistant,
-					ToolCalls: []model.ToolCall{toolCall},
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:      compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{toolCall},
 				},
 			}},
 		},
@@ -3669,16 +3669,16 @@ func TestTranslateSubagentGraph_Stream(t *testing.T) {
 	assert.NoError(t, err)
 
 	chatEvent := &agentevent.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     chatMessageID,
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "我来帮你计算这个数学表达式。让我调用数学图表代理来处理这个计算。",
-					ToolCalls: []model.ToolCall{{
+					ToolCalls: []compat.ToolCall{{
 						ID: transferToolCallID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "transfer_to_agent",
 							Arguments: []byte(`{"agent_name":"math-graph","message":"计算123+456*456"}`),
 						},
@@ -3690,10 +3690,10 @@ func TestTranslateSubagentGraph_Stream(t *testing.T) {
 	}
 	transferResult := &agentevent.Event{
 		ID: transferResultID,
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					ToolID:  transferToolCallID,
 					Content: `{"success":true,"message":"Transfer initiated to agent 'math-graph'"}`,
 				},
@@ -3712,10 +3712,10 @@ func TestTranslateSubagentGraph_Stream(t *testing.T) {
 	}
 	calcResult := &agentevent.Event{
 		ID: toolResponseID,
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					ToolID:  toolMeta.ToolID,
 					Content: `{"operation":"multiply","a":456,"b":456,"result":207936}`,
 				},
@@ -3723,8 +3723,8 @@ func TestTranslateSubagentGraph_Stream(t *testing.T) {
 		},
 	}
 	runCompletion := &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -3840,16 +3840,16 @@ func TestTranslateSubagentGraph_NonStream(t *testing.T) {
 
 	chatEvent := &agentevent.Event{
 		ID: "d4663c7f-7bd4-46f6-aa10-75e4bd75a0af",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     chatResponseID,
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "我来帮你计算这个数学表达式。让我把这个问题转给专门处理数学计算的工具。",
-					ToolCalls: []model.ToolCall{{
+					ToolCalls: []compat.ToolCall{{
 						ID: transferToolCallID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "transfer_to_agent",
 							Arguments: []byte(`{"agent_name": "math-graph", "message": "计算123+456*456"}`),
 						},
@@ -3862,11 +3862,11 @@ func TestTranslateSubagentGraph_NonStream(t *testing.T) {
 
 	transferResult := &agentevent.Event{
 		ID: transferResultEventID,
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  `{"success":true,"message":"Transfer initiated to agent 'math-graph'","target_agent":"math-graph","transfer_type":"agent_handoff"}`,
 					ToolID:   transferToolCallID,
 					ToolName: "transfer_to_agent",
@@ -3907,11 +3907,11 @@ func TestTranslateSubagentGraph_NonStream(t *testing.T) {
 
 	toolResult := &agentevent.Event{
 		ID: "0ab06378-28d1-4964-8e45-d691c41bfff3",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   calculatorToolCallID,
 					ToolName: "calculator",
 					Content:  `{"operation":"multiply","a":456,"b":456,"result":207936}`,
@@ -3921,8 +3921,8 @@ func TestTranslateSubagentGraph_NonStream(t *testing.T) {
 	}
 
 	runCompletion := &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -4005,7 +4005,7 @@ func TestGraphNodeStartEmitsActivityDelta(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "node-start-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4031,7 +4031,7 @@ func TestGraphNodeStartEmitsActivityDelta(t *testing.T) {
 
 	evt2 := &agentevent.Event{
 		ID:       "node-start-2",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw2,
 		},
@@ -4069,7 +4069,7 @@ func TestGraphNodeStartDoesNotResetInterruptStateWhenEnabled(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "node-start-with-interrupt",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4104,7 +4104,7 @@ func TestGraphNodeStartActivityDisabledByDefault(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "node-start-disabled",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4130,7 +4130,7 @@ func TestGraphNodeInterruptActivityDisabledByDefault(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-disabled",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4156,7 +4156,7 @@ func TestGraphNodeInterruptEmitsActivityDelta(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4195,7 +4195,7 @@ func TestGraphNodeInterruptTopLevelOnlySuppressesNested(t *testing.T) {
 	evt := &agentevent.Event{
 		ID:                 "pregel-interrupt-nested",
 		ParentInvocationID: "parent-invocation",
-		Response:           &model.Response{Choices: []model.Choice{{}}},
+		Response:           &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4224,7 +4224,7 @@ func TestGraphNodeInterruptTopLevelOnlyAllowsTopLevel(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-top-level",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4242,7 +4242,7 @@ func TestGraphNodeInterruptUnmarshalErrorEmitsRunError(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-bad-json",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: []byte("{"),
 		},
@@ -4273,7 +4273,7 @@ func TestGraphNodeInterruptIgnoresEmptyNodeID(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-no-nodeid",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4298,7 +4298,7 @@ func TestGraphNodeInterruptAllowsNilPrompt(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-no-value",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4336,7 +4336,7 @@ func TestGraphNodeInterruptIncludesKeyAndCheckpointFields(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "pregel-interrupt-with-key",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyPregel: raw,
 		},
@@ -4378,7 +4378,7 @@ func TestGraphNodeStartEmitsActivityDeltaForAgentNode(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "agent-node-start-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4411,7 +4411,7 @@ func TestGraphNodeStartIgnoresAgentStartWithoutAttempt(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "agent-start-without-attempt",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4437,7 +4437,7 @@ func TestGraphNodeCompleteEmitsActivityDelta(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "node-complete-evt",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4466,7 +4466,7 @@ func TestGraphNodeCompleteEmitsActivityDeltaForAgentExecutorEmitterWithoutAttemp
 		graph.WithNodeEventNodeType(graph.NodeTypeAgent),
 		graph.WithNodeEventEmitter(graph.NodeEventEmitterExecutor),
 	)
-	evt.Response = &model.Response{Choices: []model.Choice{{}}}
+	evt.Response = &compat.Response{Choices: []compat.Choice{{}}}
 	events, err := tr.Translate(context.Background(), evt)
 	assert.NoError(t, err)
 	assert.Len(t, events, 1)
@@ -4491,7 +4491,7 @@ func TestGraphNodeCompleteIgnoresActivityDeltaForAgentHelperEmitter(t *testing.T
 		graph.WithNodeEventNodeType(graph.NodeTypeAgent),
 		graph.WithNodeEventEmitter(graph.NodeEventEmitterAgentHelper),
 	)
-	evt.Response = &model.Response{Choices: []model.Choice{{}}}
+	evt.Response = &compat.Response{Choices: []compat.Choice{{}}}
 
 	events, err := tr.Translate(context.Background(), evt)
 	assert.NoError(t, err)
@@ -4514,7 +4514,7 @@ func TestGraphNodeCompleteWithoutEmitterPreservesLegacyIgnoreBehaviorForAgentNod
 
 	evt := &agentevent.Event{
 		ID:       "agent-node-complete-legacy",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4541,7 +4541,7 @@ func TestGraphNodeErrorEmitsActivityDelta(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "node-error-evt",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNode: raw,
 		},
@@ -4599,7 +4599,7 @@ func TestGraphNodeCustomEvents_CustomCategory(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "custom-evt-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNodeCustom: raw,
 		},
@@ -4639,7 +4639,7 @@ func TestGraphNodeCustomEvents_ProgressCategory(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "progress-evt-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNodeCustom: raw,
 		},
@@ -4678,7 +4678,7 @@ func TestGraphNodeCustomEvents_TextCategory_NotReceivingMessage(t *testing.T) {
 
 	evt := &agentevent.Event{
 		ID:       "text-evt-1",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNodeCustom: raw,
 		},
@@ -4706,11 +4706,11 @@ func TestGraphNodeCustomEvents_TextCategory_WhileReceivingMessage(t *testing.T) 
 	}
 
 	// First, start receiving a message
-	chunkRsp := &model.Response{
+	chunkRsp := &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}
 	_, err := translator.textMessageEvent(chunkRsp)
@@ -4730,7 +4730,7 @@ func TestGraphNodeCustomEvents_TextCategory_WhileReceivingMessage(t *testing.T) 
 
 	evt := &agentevent.Event{
 		ID:       "text-evt-2",
-		Response: &model.Response{Choices: []model.Choice{{}}},
+		Response: &compat.Response{Choices: []compat.Choice{{}}},
 		StateDelta: map[string][]byte{
 			graph.MetadataKeyNodeCustom: raw,
 		},
@@ -4752,17 +4752,17 @@ func TestGraphNodeCustomEvents_TextCategory_ConcurrentModeSkipsClosedLastMessage
 	if translator == nil {
 		return
 	}
-	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &model.Response{
+	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &compat.Response{
 		ID:     "msg-1",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "Hello"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "Hello"},
 		}},
 	}})
 	require.NoError(t, err)
-	_, err = translator.toolResultEvent(&model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{ToolID: "tool-1", Content: "done"},
+	_, err = translator.toolResultEvent(&compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{ToolID: "tool-1", Content: "done"},
 		}},
 	}, "tool-result-msg")
 	require.NoError(t, err)
@@ -4799,11 +4799,11 @@ func TestGraphNodeCustomEvents_TextCategory_ConcurrentModeSkipsGraphModelBoundar
 	if translator == nil {
 		return
 	}
-	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &model.Response{
+	_, err := translator.Translate(context.Background(), &agentevent.Event{Response: &compat.Response{
 		ID:     "msg-a",
-		Object: model.ObjectTypeChatCompletionChunk,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "a1"},
+		Object: compat.ObjectTypeChatCompletionChunk,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "a1"},
 		}},
 	}})
 	require.NoError(t, err)
@@ -4847,19 +4847,19 @@ func TestGraphNodeCustomEvents_TextCategory_ConcurrentModeSkipsAmbiguousOpenStre
 	if translator == nil {
 		return
 	}
-	for _, rsp := range []*model.Response{
+	for _, rsp := range []*compat.Response{
 		{
 			ID:     "msg-a",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "a1"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "a1"},
 			}},
 		},
 		{
 			ID:     "msg-b",
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "b1"},
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "b1"},
 			}},
 		},
 	} {
@@ -4970,11 +4970,11 @@ func TestStreamToolResultEvent(t *testing.T) {
 		return
 	}
 
-	chunkRsp1 := &model.Response{
+	chunkRsp1 := &compat.Response{
 		ID:     "msg-1",
-		Object: string(model.ObjectTypeToolResponse),
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "Hello", ToolID: "tool-1"},
+		Object: string(compat.ObjectTypeToolResponse),
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "Hello", ToolID: "tool-1"},
 		}},
 	}
 	events, err := tr.Translate(context.Background(), &agentevent.Event{ID: "evt-1", Response: chunkRsp1})
@@ -4986,21 +4986,21 @@ func TestStreamToolResultEvent(t *testing.T) {
 	assert.Equal(t, "tool-1", toolResultEvt.ToolCallID)
 	assert.Equal(t, "Hello", toolResultEvt.Content)
 	assert.Equal(t, "tool", *toolResultEvt.Role)
-	chunkRsp2 := &model.Response{
+	chunkRsp2 := &compat.Response{
 		ID:     "msg-1",
-		Object: string(model.ObjectTypeToolResponse),
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "", ToolID: "tool-1"},
+		Object: string(compat.ObjectTypeToolResponse),
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "", ToolID: "tool-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-2", Response: chunkRsp2})
 	assert.NoError(t, err)
 	assert.Len(t, events, 0)
-	chunkRsp3 := &model.Response{
+	chunkRsp3 := &compat.Response{
 		ID:     "msg-1",
-		Object: string(model.ObjectTypeToolResponse),
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "World", ToolID: "tool-1"},
+		Object: string(compat.ObjectTypeToolResponse),
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "World", ToolID: "tool-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-3", Response: chunkRsp3})
@@ -5019,12 +5019,12 @@ func TestStreamToolResultEventAsActivityWhenEnabled(t *testing.T) {
 	if tr == nil {
 		return
 	}
-	chunkRsp1 := &model.Response{
+	chunkRsp1 := &compat.Response{
 		ID:        "msg-1",
-		Object:    string(model.ObjectTypeToolResponse),
+		Object:    string(compat.ObjectTypeToolResponse),
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "Hello", ToolID: "tool-1"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "Hello", ToolID: "tool-1"},
 		}},
 	}
 	events, err := tr.Translate(context.Background(), &agentevent.Event{ID: "evt-1", Response: chunkRsp1})
@@ -5038,12 +5038,12 @@ func TestStreamToolResultEventAsActivityWhenEnabled(t *testing.T) {
 	assert.Equal(t, "tool-1", content["toolCallId"])
 	assert.Equal(t, "Hello", content["content"])
 	assert.True(t, aguitool.IsStreamingToolResultActivityEvent(snapshot))
-	chunkRsp2 := &model.Response{
+	chunkRsp2 := &compat.Response{
 		ID:        "msg-1",
-		Object:    string(model.ObjectTypeToolResponse),
+		Object:    string(compat.ObjectTypeToolResponse),
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: " World", ToolID: "tool-1"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: " World", ToolID: "tool-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-2", Response: chunkRsp2})
@@ -5057,11 +5057,11 @@ func TestStreamToolResultEventAsActivityWhenEnabled(t *testing.T) {
 	assert.Equal(t, "/content", delta.Patch[0].Path)
 	assert.Equal(t, "Hello World", delta.Patch[0].Value)
 	assert.True(t, aguitool.IsStreamingToolResultActivityEvent(delta))
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-1-final",
-		Object: string(model.ObjectTypeToolResponse),
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleTool, Content: `{"done":true}`, ToolID: "tool-1"},
+		Object: string(compat.ObjectTypeToolResponse),
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleTool, Content: `{"done":true}`, ToolID: "tool-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-final", Response: finalRsp})
@@ -5072,12 +5072,12 @@ func TestStreamToolResultEventAsActivityWhenEnabled(t *testing.T) {
 	assert.Equal(t, "evt-final", result.MessageID)
 	assert.Equal(t, "tool-1", result.ToolCallID)
 	assert.Equal(t, `{"done":true}`, result.Content)
-	chunkRsp3 := &model.Response{
+	chunkRsp3 := &compat.Response{
 		ID:        "msg-2",
-		Object:    string(model.ObjectTypeToolResponse),
+		Object:    string(compat.ObjectTypeToolResponse),
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "Reset", ToolID: "tool-1"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "Reset", ToolID: "tool-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-3", Response: chunkRsp3})
@@ -5096,16 +5096,16 @@ func TestStreamToolResultActivityClosesOpenToolCallDelta(t *testing.T) {
 		return
 	}
 	toolIndex := 0
-	startRsp := &model.Response{
+	startRsp := &compat.Response{
 		ID:        "msg-tool",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 				ID:    "call-1",
 				Type:  "function",
 				Index: &toolIndex,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "create_document",
 				},
 			}}},
@@ -5117,12 +5117,12 @@ func TestStreamToolResultActivityClosesOpenToolCallDelta(t *testing.T) {
 	start, ok := events[0].(*aguievents.ToolCallStartEvent)
 	assert.True(t, ok)
 	assert.Equal(t, "call-1", start.ToolCallID)
-	partialRsp := &model.Response{
+	partialRsp := &compat.Response{
 		ID:        "msg-tool-result",
-		Object:    string(model.ObjectTypeToolResponse),
+		Object:    string(compat.ObjectTypeToolResponse),
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleTool, Content: "partial", ToolID: "call-1"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleTool, Content: "partial", ToolID: "call-1"},
 		}},
 	}
 	events, err = tr.Translate(context.Background(), &agentevent.Event{ID: "evt-partial", Response: partialRsp})
@@ -5169,10 +5169,10 @@ func TestClearToolResultActivityState(t *testing.T) {
 	assert.Equal(t, "hello", tr.streamingToolResultContent["tool-1"])
 	assert.Equal(t, "world", tr.streamingToolResultContent["tool-2"])
 	assert.Equal(t, "keep", tr.streamingToolResultContent["tool-3"])
-	tr.clearToolResultActivityState(&model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{ToolID: "tool-1"}},
-			{Delta: model.Message{ToolID: "tool-2"}},
+	tr.clearToolResultActivityState(&compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{ToolID: "tool-1"}},
+			{Delta: compat.Message{ToolID: "tool-2"}},
 		},
 	})
 	assert.NotContains(t, tr.streamingToolResultContent, "tool-1")
@@ -5188,13 +5188,13 @@ func TestToolResultActivityEvents(t *testing.T) {
 	events, err := tr.toolResultActivityEvents(nil)
 	assert.NoError(t, err)
 	assert.Nil(t, events)
-	events, err = tr.toolResultActivityEvents(&model.Response{})
+	events, err = tr.toolResultActivityEvents(&compat.Response{})
 	assert.NoError(t, err)
 	assert.Nil(t, events)
-	events, err = tr.toolResultActivityEvents(&model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{ToolID: "tool-1", Content: "Hello"}},
-			{Delta: model.Message{ToolID: "tool-1", Content: " World"}},
+	events, err = tr.toolResultActivityEvents(&compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{ToolID: "tool-1", Content: "Hello"}},
+			{Delta: compat.Message{ToolID: "tool-1", Content: " World"}},
 		},
 	})
 	assert.NoError(t, err)
@@ -5219,17 +5219,17 @@ func TestTranslateStreamableToolCallAndResultEvents(t *testing.T) {
 		toolCallID = "call-stream"
 		msgID      = "msg-tool-call"
 	)
-	toolCallRsp := &model.Response{
+	toolCallRsp := &compat.Response{
 		ID:     msgID,
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Model:  "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   toolCallID,
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: []byte(`{"foo":"bar"}`),
 					},
@@ -5238,23 +5238,23 @@ func TestTranslateStreamableToolCallAndResultEvents(t *testing.T) {
 		}},
 	}
 
-	finalRsp := &model.Response{
+	finalRsp := &compat.Response{
 		ID:     "msg-final",
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Model:  "mock-model",
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "done"},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "done"},
 		}},
 		Done: true,
 	}
-	m := &mockModelWithResponses{responses: []*model.Response{toolCallRsp, finalRsp}}
+	m := &mockModelWithResponses{responses: []*compat.Response{toolCallRsp, finalRsp}}
 	streamTool := &mockStreamableTool{name: toolName, chunks: []any{"hello", " world"}}
 
 	agt := llmagent.New("agent", llmagent.WithModel(m), llmagent.WithTools([]tool.Tool{streamTool}))
 	r := trunner.NewRunner("app", agt)
 	defer func() { _ = r.Close() }()
 
-	eventCh, err := r.Run(ctx, "user", "thread", model.Message{Role: model.RoleUser, Content: "hi"})
+	eventCh, err := r.Run(ctx, "user", "thread", compat.Message{Role: compat.RoleUser, Content: "hi"})
 	assert.NoError(t, err)
 
 	var (

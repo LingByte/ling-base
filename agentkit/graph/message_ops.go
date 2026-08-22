@@ -10,21 +10,21 @@
 package graph
 
 import (
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // MessageOp interface defines operations that can be applied to message arrays.
 // This provides atomic combination of multiple operations for state updates.
 type MessageOp interface {
-	Apply([]model.Message) []model.Message
+	Apply([]compat.Message) []compat.Message
 }
 
 // AppendMessages provides append capability for atomic combination.
 // It can also be used for backward compatibility in unified expression.
-type AppendMessages struct{ Items []model.Message }
+type AppendMessages struct{ Items []compat.Message }
 
 // Apply implements the MessageOp interface.
-func (op AppendMessages) Apply(dst []model.Message) []model.Message {
+func (op AppendMessages) Apply(dst []compat.Message) []compat.Message {
 	return append(dst, op.Items...)
 }
 
@@ -33,12 +33,12 @@ func (op AppendMessages) Apply(dst []model.Message) []model.Message {
 type ReplaceLastUser struct{ Content string }
 
 // Apply implements the MessageOp interface.
-func (op ReplaceLastUser) Apply(dst []model.Message) []model.Message {
+func (op ReplaceLastUser) Apply(dst []compat.Message) []compat.Message {
 	for i := len(dst) - 1; i >= 0; i-- {
-		if dst[i].Role == model.RoleUser {
+		if dst[i].Role == compat.RoleUser {
 			// Replace the content while preserving other fields.
-			dst[i] = model.Message{
-				Role:             model.RoleUser,
+			dst[i] = compat.Message{
+				Role:             compat.RoleUser,
 				Content:          op.Content,
 				ContentParts:     dst[i].ContentParts,
 				ToolID:           dst[i].ToolID,
@@ -50,7 +50,7 @@ func (op ReplaceLastUser) Apply(dst []model.Message) []model.Message {
 		}
 	}
 	// No user message at the end of history, append a new one.
-	return append(dst, model.NewUserMessage(op.Content))
+	return append(dst, compat.NewUserMessage(op.Content))
 }
 
 // RemoveAllMessages clears all messages for full rebuild scenarios.
@@ -58,4 +58,4 @@ func (op ReplaceLastUser) Apply(dst []model.Message) []model.Message {
 type RemoveAllMessages struct{}
 
 // Apply implements the MessageOp interface.
-func (RemoveAllMessages) Apply(_ []model.Message) []model.Message { return nil }
+func (RemoveAllMessages) Apply(_ []compat.Message) []compat.Message { return nil }

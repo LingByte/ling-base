@@ -28,7 +28,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evaluation/service"
 	"github.com/LingByte/ling-base/agentkit/evaluation/status"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 )
 
@@ -270,8 +270,8 @@ func TestEvaluationSelector_UsesConfiguredEvalSetManager(t *testing.T) {
 func TestEvaluationSelector_EvalCaseStoresCandidateTraceInConversation(t *testing.T) {
 	actual := &evalset.Invocation{
 		InvocationID:  "candidate",
-		UserContent:   &model.Message{Role: model.RoleUser, Content: "question"},
-		FinalResponse: &model.Message{Role: model.RoleAssistant, Content: "answer"},
+		UserContent:   &compat.Message{Role: compat.RoleUser, Content: "question"},
+		FinalResponse: &compat.Message{Role: compat.RoleAssistant, Content: "answer"},
 	}
 	selector := &evaluationSelector{}
 	evalCase := selector.evalCase("case", selectRequest(), actual)
@@ -284,15 +284,15 @@ func TestEvaluationSelector_EvalCaseStoresCandidateTraceInConversation(t *testin
 }
 
 func TestEvaluationSelector_PairwiseEvalCaseStoresExpectedAndActual(t *testing.T) {
-	contextMessages := []*model.Message{messagePtr(model.NewSystemMessage("context"))}
+	contextMessages := []*compat.Message{messagePtr(compat.NewSystemMessage("context"))}
 	selector := &evaluationSelector{contextMessages: contextMessages}
 	actual := &evalset.Invocation{
 		InvocationID:  "actual",
-		FinalResponse: messagePtr(model.NewAssistantMessage("candidate A")),
+		FinalResponse: messagePtr(compat.NewAssistantMessage("candidate A")),
 	}
 	expected := &evalset.Invocation{
 		InvocationID:  "expected",
-		FinalResponse: messagePtr(model.NewAssistantMessage("candidate B")),
+		FinalResponse: messagePtr(compat.NewAssistantMessage("candidate B")),
 	}
 	evalCase := selector.pairwiseEvalCase("pair", selectRequest(), actual, expected)
 	assert.Equal(t, evalset.EvalModeTrace, evalCase.EvalMode)
@@ -450,7 +450,7 @@ func TestNewRunnerOption_ValidatesConfiguration(t *testing.T) {
 		WithEvalMetrics(&metric.EvalMetric{}),
 		WithAttemptParallelEnabled(true),
 		WithAttemptParallelism(3),
-		WithContextMessages(messagePtr(model.NewSystemMessage("context"))),
+		WithContextMessages(messagePtr(compat.NewSystemMessage("context"))),
 	)
 	require.NoError(t, err)
 }
@@ -506,7 +506,7 @@ func TestInvocationFromAttempt_PrefersAttemptInvocationFinalResponse(t *testing.
 			responseEventWithInvocation("child", "child-final"),
 		},
 	}
-	invocation, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	invocation, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.NoError(t, err)
 	require.NotNil(t, invocation.FinalResponse)
 	assert.Equal(t, "root-final", invocation.FinalResponse.Content)
@@ -521,7 +521,7 @@ func TestInvocationFromAttempt_PopulatesIntermediateResponses(t *testing.T) {
 			responseEventWithInvocation("root", "final"),
 		},
 	}
-	invocation, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	invocation, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.NoError(t, err)
 	require.NotNil(t, invocation.FinalResponse)
 	assert.Equal(t, "final", invocation.FinalResponse.Content)
@@ -541,7 +541,7 @@ func TestInvocationFromAttempt_DoesNotUseToolResultAsIntermediateResponse(t *tes
 			responseEventWithInvocation(invocationID, "final"),
 		},
 	}
-	invocation, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	invocation, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.NoError(t, err)
 	require.NotNil(t, invocation.FinalResponse)
 	assert.Equal(t, "final", invocation.FinalResponse.Content)
@@ -559,7 +559,7 @@ func TestInvocationFromAttempt_DoesNotUseToolResultAsFinalResponse(t *testing.T)
 			toolResultEvent(invocationID, callID, "result"),
 		},
 	}
-	invocation, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	invocation, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.NoError(t, err)
 	assert.Nil(t, invocation.FinalResponse)
 	assert.Empty(t, invocation.IntermediateResponses)
@@ -569,15 +569,15 @@ func TestInvocationFromAttempt_IgnoresNonFinalAttemptResponse(t *testing.T) {
 	attempt := &runner.CandidateAttempt{
 		Index:        0,
 		InvocationID: "root",
-		FinalResponse: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		FinalResponse: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   false,
-			Choices: []model.Choice{
-				{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: "partial"}},
+			Choices: []compat.Choice{
+				{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: "partial"}},
 			},
 		},
 	}
-	invocation, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	invocation, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.NoError(t, err)
 	assert.Nil(t, invocation.FinalResponse)
 }
@@ -588,15 +588,15 @@ func TestInvocationFromAttempt_ReturnsToolResultMismatchError(t *testing.T) {
 		InvocationID: "root",
 		Events: []*event.Event{
 			{
-				Response: &model.Response{
-					Choices: []model.Choice{
-						{Index: 0, Message: model.Message{Role: model.RoleTool, ToolID: "missing", Content: "{}"}},
+				Response: &compat.Response{
+					Choices: []compat.Choice{
+						{Index: 0, Message: compat.Message{Role: compat.RoleTool, ToolID: "missing", Content: "{}"}},
 					},
 				},
 			},
 		},
 	}
-	_, err := invocationFromAttempt(model.NewUserMessage("question"), attempt)
+	_, err := invocationFromAttempt(compat.NewUserMessage("question"), attempt)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tool ID missing")
 }
@@ -613,7 +613,7 @@ func TestEvaluationSelector_BuildHelpersHandleUnusableAttempts(t *testing.T) {
 	_, err = selector.buildCandidates(selectRequest(nil))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no usable candidate attempts")
-	_, err = invocationFromAttempt(model.NewUserMessage("question"), nil)
+	_, err = invocationFromAttempt(compat.NewUserMessage("question"), nil)
 	require.Error(t, err)
 }
 
@@ -816,17 +816,17 @@ func selectRequest(attempts ...*runner.CandidateAttempt) *runner.CandidateSelect
 		AppName:   "app",
 		UserID:    "user",
 		SessionID: "session",
-		Message:   model.NewUserMessage("question"),
+		Message:   compat.NewUserMessage("question"),
 		Attempts:  attempts,
 	}
 }
 
 func candidateAttempt(index int, content string) *runner.CandidateAttempt {
-	response := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	response := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
-			{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: content}},
+		Choices: []compat.Choice{
+			{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: content}},
 		},
 	}
 	return &runner.CandidateAttempt{
@@ -842,11 +842,11 @@ func candidateAttempt(index int, content string) *runner.CandidateAttempt {
 func toolCandidateAttempt(index int, query string, result string) *runner.CandidateAttempt {
 	invocationID := "tool-candidate"
 	callID := "call-" + query
-	response := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	response := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
-			{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: "done"}},
+		Choices: []compat.Choice{
+			{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: "done"}},
 		},
 	}
 	return &runner.CandidateAttempt{
@@ -862,19 +862,19 @@ func toolCandidateAttempt(index int, query string, result string) *runner.Candid
 }
 
 func toolCallEvent(invocationID string, callID string, query string) *event.Event {
-	response := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	response := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   callID,
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "lookup",
 								Arguments: []byte(`{"query":"` + query + `"}`),
 							},
@@ -888,13 +888,13 @@ func toolCallEvent(invocationID string, callID string, query string) *event.Even
 }
 
 func toolResultEvent(invocationID string, callID string, result string) *event.Event {
-	response := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	response := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.NewToolMessage(
+				Message: compat.NewToolMessage(
 					callID,
 					"lookup",
 					`{"value":"`+result+`"}`,
@@ -916,17 +916,17 @@ func errorCandidateAttempt(index int, message string) *runner.CandidateAttempt {
 }
 
 func responseEventWithInvocation(invocationID string, content string) *event.Event {
-	response := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	response := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
-			{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: content}},
+		Choices: []compat.Choice{
+			{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: content}},
 		},
 	}
 	return event.NewResponseEvent(invocationID, "candidate", response)
 }
 
-func messagePtr(message model.Message) *model.Message {
+func messagePtr(message compat.Message) *compat.Message {
 	return &message
 }
 

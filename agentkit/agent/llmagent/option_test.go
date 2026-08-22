@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -121,7 +121,7 @@ func TestWithContextCompactionOptions(t *testing.T) {
 	WithContextCompactionOversizedToolResultMaxTokens(-1)(opts)
 	require.Equal(t, 4096, opts.ContextCompactionOversizedToolResultMaxTokens)
 
-	counter := model.NewSimpleTokenCounter(model.WithApproxRunesPerToken(1))
+	counter := compat.NewSimpleTokenCounter(compat.WithApproxRunesPerToken(1))
 	WithContextCompactionTokenCounter(counter)(opts)
 	require.Same(t, counter, opts.ContextCompactionTokenCounter)
 	WithContextCompactionTokenCounter(nil)(opts)
@@ -418,7 +418,7 @@ func TestNew_DefaultGenerationConfigKeepsLegacyNonStreaming(t *testing.T) {
 }
 
 func TestWithModelSelector(t *testing.T) {
-	selector := func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+	selector := func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 		return inv.Model, nil
 	}
 	a := New("test-agent", WithModelSelector(selector))
@@ -439,14 +439,14 @@ func TestLLMAgent_Run_DefaultGenerationConfigUsesPublicStreamingBehavior(
 	runAndCapture := func(
 		t *testing.T,
 		runOptions ...agent.RunOption,
-	) *model.Request {
+	) *compat.Request {
 		t.Helper()
 
 		mdl := &captureModel{}
 		agt := New("test-agent", WithModel(mdl))
 
 		invOpts := []agent.InvocationOptions{
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 			agent.WithInvocationSession(&session.Session{}),
 		}
 		if len(runOptions) > 0 {
@@ -491,7 +491,7 @@ func TestWithGenerationConfig_ExplicitFalseDisablesStreaming(
 ) {
 	a := New(
 		"test-agent",
-		WithGenerationConfig(model.GenerationConfig{Stream: false}),
+		WithGenerationConfig(compat.GenerationConfig{Stream: false}),
 	)
 	require.False(t, a.genConfig.Stream)
 }

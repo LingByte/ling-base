@@ -12,7 +12,6 @@ import (
 	"unicode/utf8"
 
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 	"github.com/alpkeskin/gotoon"
 )
 
@@ -167,20 +166,20 @@ func sanitizeInput(s string) string {
 	return s
 }
 
-func (a *Agent) storeAttachmentMemories(sessionID string, files []gomodel.File) {
+func (a *Agent) storeAttachmentMemories(sessionID string, files []File) {
 	waitMemoryStoreTasks(a.startAttachmentMemoryStores(sessionID, files))
 }
 
 // startAttachmentMemoryStores prepares every attachment concurrently while
 // preserving file order when the tasks are committed.
-func (a *Agent) startAttachmentMemoryStores(sessionID string, files []gomodel.File) []*memoryStoreTask {
+func (a *Agent) startAttachmentMemoryStores(sessionID string, files []File) []*memoryStoreTask {
 	tasks := make([]*memoryStoreTask, 0, len(files))
 	for i, file := range files {
 		name := strings.TrimSpace(file.Name)
 		if name == "" {
 			name = fmt.Sprintf("file_%d", i+1)
 		}
-		mime := strings.TrimSpace(file.MIME)
+		mime := strings.TrimSpace(file.MimeType)
 		content := buildAttachmentMemoryContent(name, mime, file.Data)
 		extra := map[string]string{
 			"source":   "file_upload",
@@ -214,7 +213,7 @@ func waitMemoryStoreTasks(tasks []*memoryStoreTask) {
 // RetrieveAttachmentFiles returns attachment files stored for the session.
 // It reconstructs the original bytes from base64-encoded metadata, making it
 // suitable for binary assets such as images and videos.
-func (a *Agent) RetrieveAttachmentFiles(ctx context.Context, sessionID string, limit int) ([]gomodel.File, error) {
+func (a *Agent) RetrieveAttachmentFiles(ctx context.Context, sessionID string, limit int) ([]File, error) {
 	if a == nil || a.memory == nil {
 		return nil, nil
 	}
@@ -230,7 +229,7 @@ func (a *Agent) RetrieveAttachmentFiles(ctx context.Context, sessionID string, l
 		return nil, err
 	}
 
-	var attachments []gomodel.File
+	var attachments []File
 	for _, record := range records {
 		file, ok := attachmentFromRecord(record)
 		if !ok {
@@ -242,9 +241,9 @@ func (a *Agent) RetrieveAttachmentFiles(ctx context.Context, sessionID string, l
 	return attachments, nil
 }
 
-func attachmentFromRecord(record memmodel.MemoryRecord) (gomodel.File, bool) {
+func attachmentFromRecord(record memmodel.MemoryRecord) (File, bool) {
 	if strings.TrimSpace(record.Metadata) == "" {
-		return gomodel.File{}, false
+		return File{}, false
 	}
 
 	var payload struct {
@@ -254,10 +253,10 @@ func attachmentFromRecord(record memmodel.MemoryRecord) (gomodel.File, bool) {
 		DataBase64 string `json:"data_base64"`
 	}
 	if err := json.Unmarshal([]byte(record.Metadata), &payload); err != nil {
-		return gomodel.File{}, false
+		return File{}, false
 	}
 	if payload.Role != "attachment" {
-		return gomodel.File{}, false
+		return File{}, false
 	}
 
 	name := payload.Filename
@@ -269,14 +268,14 @@ func attachmentFromRecord(record memmodel.MemoryRecord) (gomodel.File, bool) {
 	if payload.DataBase64 != "" {
 		raw, err := base64.StdEncoding.DecodeString(payload.DataBase64)
 		if err != nil {
-			return gomodel.File{}, false
+			return File{}, false
 		}
 		data = raw
 	} else {
 		data = extractTextAttachment(record.Content)
 	}
 
-	return gomodel.File{Name: name, MIME: payload.MIME, Data: data}, true
+	return File{Name: name, MimeType: payload.MIME, Data: data}, true
 }
 
 func extractTextAttachment(content string) []byte {
@@ -330,7 +329,7 @@ func buildAttachmentMemoryContent(name, mime string, data []byte) string {
 	return fmt.Sprintf("Attachment %s [%d bytes of non-text content]", descriptor, len(data))
 }
 
-func fileBackedWorkspaceRules(files []gomodel.File) string {
+func fileBackedWorkspaceRules(files []File) string {
 	if len(files) == 0 {
 		return ""
 	}
@@ -365,7 +364,7 @@ func fileBackedWorkspaceRules(files []gomodel.File) string {
 
 // buildAttachmentPrompt renders a compact, token-conscious list of files.
 // It never inlines non-text bytes. For text files, it shows a short preview.
-func (a *Agent) buildAttachmentPrompt(title string, files []gomodel.File) string {
+func (a *Agent) buildAttachmentPrompt(title string, files []File) string {
 	if len(files) == 0 {
 		return ""
 	}
@@ -375,7 +374,7 @@ func (a *Agent) buildAttachmentPrompt(title string, files []gomodel.File) string
 		if name == "" {
 			name = fmt.Sprintf("attachment_%d", i+1)
 		}
-		mime := strings.TrimSpace(f.MIME)
+		mime := strings.TrimSpace(f.MimeType)
 		if mime == "" {
 			mime = "application/octet-stream"
 		}
@@ -411,14 +410,14 @@ func (a *Agent) buildAttachmentPrompt(title string, files []gomodel.File) string
 	return sb.String()
 }
 
-func renderAttachmentFallback(files []gomodel.File) string {
+func renderAttachmentFallback(files []File) string {
 	var sb strings.Builder
 	for i, file := range files {
 		name := strings.TrimSpace(file.Name)
 		if name == "" {
 			name = fmt.Sprintf("attachment_%d", i+1)
 		}
-		mime := strings.TrimSpace(file.MIME)
+		mime := strings.TrimSpace(file.MimeType)
 		if mime == "" {
 			mime = "application/octet-stream"
 		}

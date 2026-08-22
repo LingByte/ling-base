@@ -16,10 +16,10 @@ import (
 	"testing"
 
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
-var sanitizeMessagesBenchmarkSink []model.Message
+var sanitizeMessagesBenchmarkSink []compat.Message
 
 func BenchmarkSanitizeMessagesWithTools(b *testing.B) {
 	originalWarnfContext := log.WarnfContext
@@ -30,7 +30,7 @@ func BenchmarkSanitizeMessagesWithTools(b *testing.B) {
 
 	benchmarks := []struct {
 		name     string
-		messages []model.Message
+		messages []compat.Message
 		bytes    int64
 	}{
 		{
@@ -94,36 +94,36 @@ func BenchmarkSanitizeMessagesWithTools(b *testing.B) {
 	}
 }
 
-func sanitizeBenchmarkTextMessages(count int, contentBytes int) []model.Message {
-	messages := make([]model.Message, count)
+func sanitizeBenchmarkTextMessages(count int, contentBytes int) []compat.Message {
+	messages := make([]compat.Message, count)
 	content := strings.Repeat("t", contentBytes)
 	for i := range messages {
-		role := model.RoleUser
+		role := compat.RoleUser
 		if i%2 == 1 {
-			role = model.RoleAssistant
+			role = compat.RoleAssistant
 		}
-		messages[i] = model.Message{Role: role, Content: content}
+		messages[i] = compat.Message{Role: role, Content: content}
 	}
 	return messages
 }
 
-func sanitizeBenchmarkValidToolRounds(rounds int) []model.Message {
-	messages := make([]model.Message, 0, rounds*2)
+func sanitizeBenchmarkValidToolRounds(rounds int) []compat.Message {
+	messages := make([]compat.Message, 0, rounds*2)
 	for i := 0; i < rounds; i++ {
 		callID := fmt.Sprintf("valid-call-%d", i)
 		messages = append(messages,
-			model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID: callID,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "benchmark_tool",
 						Arguments: []byte(`{"value":"benchmark"}`),
 					},
 				}},
 			},
-			model.Message{
-				Role:     model.RoleTool,
+			compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   callID,
 				ToolName: "benchmark_tool",
 				Content:  "benchmark result",
@@ -133,52 +133,52 @@ func sanitizeBenchmarkValidToolRounds(rounds int) []model.Message {
 	return messages
 }
 
-func sanitizeBenchmarkMixedToolRounds(rounds int) []model.Message {
-	messages := make([]model.Message, 0, rounds*4)
+func sanitizeBenchmarkMixedToolRounds(rounds int) []compat.Message {
+	messages := make([]compat.Message, 0, rounds*4)
 	for i := 0; i < rounds; i++ {
 		validID := fmt.Sprintf("valid-call-%d", i)
 		invalidID := fmt.Sprintf("invalid-call-%d", i)
 		orphanID := fmt.Sprintf("orphan-call-%d", i)
 		messages = append(messages,
-			model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+			compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: validID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "benchmark_tool",
 							Arguments: []byte(`{"value":"benchmark"}`),
 						},
 					},
 					{
 						ID: invalidID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Arguments: []byte(`{"value":"benchmark"}`),
 						},
 					},
 					{
 						ID: orphanID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "benchmark_tool",
 							Arguments: []byte(`{"value":"benchmark"}`),
 						},
 					},
 				},
 			},
-			model.Message{
-				Role:     model.RoleTool,
+			compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   validID,
 				ToolName: "benchmark_tool",
 				Content:  "valid result",
 			},
-			model.Message{
-				Role:     model.RoleTool,
+			compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   invalidID,
 				ToolName: "benchmark_tool",
 				Content:  "invalid result",
 			},
-			model.Message{
-				Role:     model.RoleTool,
+			compat.Message{
+				Role:     compat.RoleTool,
 				ToolID:   fmt.Sprintf("unknown-call-%d", i),
 				ToolName: "benchmark_tool",
 				Content:  "orphan result",

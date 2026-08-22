@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool/todo"
 )
@@ -61,10 +61,10 @@ func writeTodos(t *testing.T, sess *session.Session, branch string, items []todo
 
 // finalRsp returns a Response that satisfies IsFinalResponse.
 // Tests use it as the "model just declared we are done" input.
-func finalRsp(text string) *model.Response {
-	return &model.Response{
+func finalRsp(text string) *compat.Response {
+	return &compat.Response{
 		Done:    true,
-		Choices: []model.Choice{{Message: model.NewAssistantMessage(text)}},
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage(text)}},
 	}
 }
 
@@ -150,7 +150,7 @@ func TestAfterModel_NoTodos_PassesThrough(t *testing.T) {
 	e := New()
 
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res, "no enforcement → nil result")
 	assert.True(t, rsp.Done, "Done must be untouched")
@@ -168,7 +168,7 @@ func TestAfterModel_AllCompleted_PassesThrough(t *testing.T) {
 	e := New()
 
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.True(t, rsp.Done)
@@ -190,7 +190,7 @@ func TestAfterModel_OpenItems_BlocksAndQueuesReminder(t *testing.T) {
 	e := New()
 
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.NotNil(t, res, "blocked response must be returned via CustomResponse")
 	require.NotNil(t, res.CustomResponse)
@@ -215,14 +215,14 @@ func TestAfterModel_ErrorResponse_PassesThrough(t *testing.T) {
 	})
 	e := New()
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeAPIError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeAPIError,
 			Message: "provider failed",
 		},
 	}
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.True(t, rsp.Done, "error response must surface unchanged")
@@ -230,7 +230,7 @@ func TestAfterModel_ErrorResponse_PassesThrough(t *testing.T) {
 	assert.Equal(t, 0, retryCount(inv))
 
 	rsp = finalRsp("done")
-	res, err = e.afterModel(ctx, &model.AfterModelArgs{
+	res, err = e.afterModel(ctx, &compat.AfterModelArgs{
 		Response: rsp,
 		Error:    errors.New("stream failed"),
 	})
@@ -252,16 +252,16 @@ func TestAfterModel_ToolCallResponse_PassesThrough(t *testing.T) {
 	})
 	e := New()
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
-				{ID: "1", Function: model.FunctionDefinitionParam{Name: "todo_write"}},
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
+				{ID: "1", Function: compat.FunctionDefinitionParam{Name: "todo_write"}},
 			},
 		}}},
 	}
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.False(t, reminderPending(inv))
@@ -280,7 +280,7 @@ func TestAfterModel_PartialResponse_PassesThrough(t *testing.T) {
 
 	rsp := finalRsp("partial")
 	rsp.IsPartial = true
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 }
@@ -300,7 +300,7 @@ func TestAfterModel_BlockerDeclared_ShortCircuits(t *testing.T) {
 	e := New()
 
 	rsp := finalRsp("Need prod-write to continue.")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.True(t, rsp.Done)
@@ -330,7 +330,7 @@ func TestAfterModel_BlockerDeclared_RemainsLatchedForRestOfInvocation(t *testing
 			})
 		}
 		rsp := finalRsp("waiting on user")
-		res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+		res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 		require.NoError(t, err, "pass %d", i)
 		assert.Nil(t, res, "pass %d: latched declaration must keep passing through", i)
 		assert.True(t, rsp.Done)
@@ -355,14 +355,14 @@ func TestAfterModel_RetryBudgetExhausted_FailsOpen(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		rsp := finalRsp("done")
-		res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+		res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 		require.NoError(t, err)
 		require.NotNil(t, res, "block %d", i)
 		require.NotNil(t, res.CustomResponse, "block %d", i)
 		assert.False(t, res.CustomResponse.Done, "block %d", i)
 	}
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res, "after exhaustion the response must pass through")
 	assert.True(t, rsp.Done)
@@ -387,11 +387,11 @@ func TestBeforeModel_InjectsNudge_WhenPending(t *testing.T) {
 	incRetryCount(inv)
 	e := New()
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleUser, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[1].Role)
 	assert.Contains(t, req.Messages[1].Content, "Running tests")
 	assert.Contains(t, req.Messages[1].Content, todo.DefaultToolName)
 	assert.Contains(t, req.Messages[1].Content, DefaultDeclareBlockerToolName)
@@ -408,8 +408,8 @@ func TestBeforeModel_InjectsConfiguredTodoToolName(t *testing.T) {
 	incRetryCount(inv)
 	e := New(WithTodoTool(todo.New(todo.WithToolName("plan_update"))))
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2)
 	assert.Contains(t, req.Messages[1].Content, "plan_update")
@@ -423,8 +423,8 @@ func TestBeforeModel_NoPending_NoOp(t *testing.T) {
 	ctx, _, _ := newTestInvocation(t, "a")
 	e := New()
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Len(t, req.Messages, 1)
 }
@@ -440,13 +440,13 @@ func TestBeforeModel_OpenItems_PreservesStreamingWithoutNudge(t *testing.T) {
 	})
 	e := New()
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.True(t, req.GenerationConfig.Stream,
 		"enforcement must preserve the caller's streaming choice")
@@ -459,13 +459,13 @@ func TestBeforeModel_NoOpenItems_LeavesStreamingUntouched(t *testing.T) {
 	ctx, _, _ := newTestInvocation(t, "a")
 	e := New()
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.True(t, req.GenerationConfig.Stream,
 		"streaming remains available when there is nothing to enforce")
@@ -483,8 +483,8 @@ func TestBeforeModel_EmptyFormatterOutput_SkipsInjection(t *testing.T) {
 	setReminderPending(inv, true)
 	e := New(WithNudgeFormatter(func(NudgeContext) string { return "" }))
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Len(t, req.Messages, 1, "silent block must not append a message")
 	assert.False(t, reminderPending(inv), "pending flag is still consumed")
@@ -502,7 +502,7 @@ func TestBeforeModel_NilArgs_NoOp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, res, "nil args must produce a true no-op (nil, nil)")
 
-	res, err = e.beforeModel(context.Background(), &model.BeforeModelArgs{Request: nil})
+	res, err = e.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: nil})
 	require.NoError(t, err)
 	assert.Nil(t, res, "nil Request must produce a true no-op (nil, nil)")
 }
@@ -518,8 +518,8 @@ func TestBeforeModel_OutOfScope_NoOp(t *testing.T) {
 	ctx, inv, _ := newTestInvocation(t, "other")
 	setReminderPending(inv, true)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Len(t, req.Messages, 1, "out-of-scope must not inject a nudge")
 	// The pending flag is *deliberately* not consumed by out-of-
@@ -540,8 +540,8 @@ func TestBeforeModel_PendingButTodosEmpty_SkipsInjection(t *testing.T) {
 	setReminderPending(inv, true) // no writeTodos call → list is empty
 	e := New()
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Len(t, req.Messages, 1,
 		"empty todo list must skip injection — no items to nudge about")
@@ -563,7 +563,7 @@ func TestScopedAgents_OnlyTargetEnforced(t *testing.T) {
 		{Content: "x", ActiveForm: "x", Status: todo.StatusInProgress},
 	})
 	rspOther := finalRsp("done")
-	resOther, err := e.afterModel(ctxOther, &model.AfterModelArgs{Response: rspOther})
+	resOther, err := e.afterModel(ctxOther, &compat.AfterModelArgs{Response: rspOther})
 	require.NoError(t, err)
 	assert.Nil(t, resOther)
 	assert.True(t, rspOther.Done)
@@ -573,7 +573,7 @@ func TestScopedAgents_OnlyTargetEnforced(t *testing.T) {
 		{Content: "x", ActiveForm: "x", Status: todo.StatusInProgress},
 	})
 	rspPlan := finalRsp("done")
-	resPlan, err := e.afterModel(ctxPlan, &model.AfterModelArgs{Response: rspPlan})
+	resPlan, err := e.afterModel(ctxPlan, &compat.AfterModelArgs{Response: rspPlan})
 	require.NoError(t, err)
 	require.NotNil(t, resPlan)
 	require.NotNil(t, resPlan.CustomResponse)
@@ -591,7 +591,7 @@ func TestBypassAgents_SkipsEnforcement(t *testing.T) {
 		{Content: "x", ActiveForm: "x", Status: todo.StatusInProgress},
 	})
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.True(t, rsp.Done)
@@ -608,7 +608,7 @@ func TestAfterModel_OnEnforce_PanicSwallowed(t *testing.T) {
 	e := New(WithOnEnforce(func(EnforceEvent) { panic("boom") }))
 
 	rsp := finalRsp("done")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.NotNil(t, res, "enforcement must still happen even if observer panics")
 }
@@ -713,7 +713,7 @@ func TestEndToEnd_DeclareBlockerThenFinalPasses(t *testing.T) {
 	e := New()
 
 	rsp1 := finalRsp("done")
-	res1, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp1})
+	res1, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp1})
 	require.NoError(t, err)
 	require.NotNil(t, res1, "first final response must be blocked")
 	require.NotNil(t, res1.CustomResponse)
@@ -728,7 +728,7 @@ func TestEndToEnd_DeclareBlockerThenFinalPasses(t *testing.T) {
 	assert.True(t, blockerDeclared(inv))
 
 	rsp2 := finalRsp("I cannot continue until you grant prod-write.")
-	res2, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp2})
+	res2, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp2})
 	require.NoError(t, err)
 	assert.Nil(t, res2,
 		"after declare-blocker, the model's final message must pass through")
@@ -748,7 +748,7 @@ func TestEndToEnd_BlockThenContinueThenComplete(t *testing.T) {
 	e := New()
 
 	rsp1 := finalRsp("done")
-	res1, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp1})
+	res1, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp1})
 	require.NoError(t, err)
 	require.NotNil(t, res1)
 	require.NotNil(t, res1.CustomResponse)
@@ -756,8 +756,8 @@ func TestEndToEnd_BlockThenContinueThenComplete(t *testing.T) {
 		"first final response must be blocked")
 	assert.True(t, reminderPending(inv))
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}}
-	_, err = e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}}
+	_, err = e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2, "BeforeModel must inject the nudge")
 
@@ -766,7 +766,7 @@ func TestEndToEnd_BlockThenContinueThenComplete(t *testing.T) {
 	})
 
 	rsp2 := finalRsp("done for real")
-	res2, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp2})
+	res2, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp2})
 	require.NoError(t, err)
 	assert.Nil(t, res2, "with all items completed, response must pass through")
 	assert.True(t, rsp2.Done)
@@ -816,7 +816,7 @@ func TestAfterModel_HonoursCustomTodoToolPrefix(t *testing.T) {
 	sess.SetState(todo.DefaultStateKeyPrefix, cleanRaw)
 
 	rsp := finalRsp("all set, see you")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.NotNil(t, res,
 		"enforcer must see the in_progress item written under the custom prefix and block")
@@ -963,21 +963,21 @@ func TestShouldConsiderResponse_AllBranches(t *testing.T) {
 
 	assert.False(t, e.shouldConsiderResponse(nil),
 		"nil response must short-circuit (defensive)")
-	assert.False(t, e.shouldConsiderResponse(&model.Response{IsPartial: true}),
+	assert.False(t, e.shouldConsiderResponse(&compat.Response{IsPartial: true}),
 		"streaming partials must never trigger enforcement")
-	assert.False(t, e.shouldConsiderResponse(&model.Response{
+	assert.False(t, e.shouldConsiderResponse(&compat.Response{
 		Done:  true,
-		Error: &model.ResponseError{Type: "x", Message: "boom"},
+		Error: &compat.ResponseError{Type: "x", Message: "boom"},
 	}), "error responses must bypass enforcement")
 
 	// Tool-call responses are continuation signals. They must
 	// pass through so the model can complete open todos via tools.
-	toolCallRsp := &model.Response{
+	toolCallRsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{ID: "x", Type: "function"}},
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{ID: "x", Type: "function"}},
 			},
 		}},
 	}
@@ -1008,7 +1008,7 @@ func TestAfterModel_DefaultPrefixUnchangedWhenNoCustomTool(t *testing.T) {
 	}})
 
 	rsp := finalRsp("see you")
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.NotNil(t, res, "default-prefix path must remain functional")
 	require.NotNil(t, res.CustomResponse)

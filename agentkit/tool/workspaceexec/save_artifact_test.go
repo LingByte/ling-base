@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
 	"github.com/LingByte/ling-base/agentkit/internal/workspacefacade"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -37,7 +37,7 @@ func TestSaveArtifactTool_PublishesExistingFile(t *testing.T) {
 	tl := NewSaveArtifactTool(execTool)
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess-publish",
 			AppName: "app",
@@ -84,7 +84,7 @@ func TestSaveArtifactTool_RequiresArtifactService(t *testing.T) {
 	exec := localexec.New()
 	tl := NewSaveArtifactTool(NewExecTool(exec))
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess-publish",
 			AppName: "app",
@@ -184,7 +184,7 @@ func TestSaveArtifactTool_RequiresCompleteSessionIDs(t *testing.T) {
 	tl := NewSaveArtifactTool(NewExecTool(exec))
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-only"}),
 		agent.WithInvocationArtifactService(svc),
 	)
@@ -204,7 +204,7 @@ func TestSaveArtifactTool_RejectsMissingFile(t *testing.T) {
 	tl := NewSaveArtifactTool(execTool)
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess-publish-missing",
 			AppName: "app",
@@ -386,7 +386,7 @@ func TestSaveArtifactTool_SupportsArtifactSave_Negatives(t *testing.T) {
 	svc := inmemory.NewService()
 	mkInv := func(mutate func(b *agent.Invocation)) *agent.Invocation {
 		inv := agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 			agent.WithInvocationSession(&session.Session{
 				ID:      "sess",
 				AppName: "app",
@@ -431,7 +431,7 @@ func TestSaveArtifactTool_SupportsArtifactSave_Negatives(t *testing.T) {
 func saveArtifactContext() context.Context {
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess-publish-stub",
 			AppName: "app",

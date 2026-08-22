@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -105,8 +105,8 @@ type transcriptResult struct {
 	FinalMessage   string
 	FinalMessageID string
 	ThreadID       string
-	Usage          *model.Usage
-	Error          *model.ResponseError
+	Usage          *compat.Usage
+	Error          *compat.ResponseError
 }
 
 // transcriptStream incrementally maps Codex JSONL records to framework events.
@@ -260,30 +260,30 @@ func completedEventsFromItem(invocationID, author string, item *codexItem, toolN
 }
 
 // errorEventFromResponseError creates a framework error event from parsed error details.
-func errorEventFromResponseError(invocationID, author string, responseErr *model.ResponseError, terminal bool) *event.Event {
+func errorEventFromResponseError(invocationID, author string, responseErr *compat.ResponseError, terminal bool) *event.Event {
 	if responseErr == nil {
 		return nil
 	}
-	object := model.ObjectTypeChatCompletionChunk
+	object := compat.ObjectTypeChatCompletionChunk
 	done := false
 	partial := true
-	choice := model.Choice{
+	choice := compat.Choice{
 		Index: 0,
-		Delta: model.Message{
-			Role:    model.RoleAssistant,
+		Delta: compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: responseErr.Message,
 		},
 	}
-	var eventErr *model.ResponseError
+	var eventErr *compat.ResponseError
 	if terminal {
-		object = model.ObjectTypeError
+		object = compat.ObjectTypeError
 		done = true
 		partial = false
 		eventErr = cloneCodexResponseError(responseErr)
-		choice = model.Choice{
+		choice = compat.Choice{
 			Index: 0,
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: responseErr.Message,
 			},
 		}
@@ -292,12 +292,12 @@ func errorEventFromResponseError(invocationID, author string, responseErr *model
 	if !terminal {
 		responseID = scopedCodexResponseID(invocationID, codexErrorObservationID)
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        responseID,
 		Object:    object,
 		Done:      done,
 		IsPartial: partial,
-		Choices:   []model.Choice{choice},
+		Choices:   []compat.Choice{choice},
 		Error:     eventErr,
 	}
 	return event.NewResponseEvent(invocationID, author, rsp)
@@ -322,16 +322,16 @@ func newAssistantMessageEvent(invocationID, author, responseID, text string) *ev
 	if content == "" {
 		return nil
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        strings.TrimSpace(responseID),
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		Done:      false,
 		IsPartial: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: content,
 				},
 			},
@@ -341,7 +341,7 @@ func newAssistantMessageEvent(invocationID, author, responseID, text string) *ev
 }
 
 // responseErrorFromRecord extracts error details from a Codex failure record.
-func responseErrorFromRecord(rec codexEvent) *model.ResponseError {
+func responseErrorFromRecord(rec codexEvent) *compat.ResponseError {
 	msg := strings.TrimSpace(rec.Message)
 	errType := strings.TrimSpace(rec.Type)
 	code := strings.TrimSpace(rec.Code)
@@ -360,8 +360,8 @@ func responseErrorFromRecord(rec codexEvent) *model.ResponseError {
 	if msg == "" {
 		msg = strings.TrimSpace(rec.Type)
 	}
-	rspErr := &model.ResponseError{
-		Type:    model.ErrorTypeRunError,
+	rspErr := &compat.ResponseError{
+		Type:    compat.ErrorTypeRunError,
 		Message: msg,
 	}
 	if errType != "" && errType != codexEventTurnFailed && errType != codexEventError {
@@ -374,7 +374,7 @@ func responseErrorFromRecord(rec codexEvent) *model.ResponseError {
 }
 
 // cloneCodexResponseError returns an owned copy of a Codex response error.
-func cloneCodexResponseError(responseErr *model.ResponseError) *model.ResponseError {
+func cloneCodexResponseError(responseErr *compat.ResponseError) *compat.ResponseError {
 	if responseErr == nil {
 		return nil
 	}
@@ -675,24 +675,24 @@ func decodeRawJSON(raw json.RawMessage) string {
 
 // newToolCallEvent creates a tool-call event for one Codex item.
 func newToolCallEvent(invocationID, author, toolID, toolName string, args []byte, partial bool) *event.Event {
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		Type: "function",
 		ID:   toolID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: args,
 		},
 	}
-	rsp := &model.Response{
-		Object:    model.ObjectTypeChatCompletion,
+	rsp := &compat.Response{
+		Object:    compat.ObjectTypeChatCompletion,
 		Done:      false,
 		IsPartial: partial,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:      model.RoleAssistant,
-					ToolCalls: []model.ToolCall{toolCall},
+				Message: compat.Message{
+					Role:      compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{toolCall},
 				},
 			},
 		},
@@ -702,14 +702,14 @@ func newToolCallEvent(invocationID, author, toolID, toolName string, args []byte
 
 // newToolResultEvent creates a tool-result event for one Codex item.
 func newToolResultEvent(invocationID, author, toolID, toolName, result string) *event.Event {
-	rsp := &model.Response{
-		Object: model.ObjectTypeToolResponse,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
 		Done:   false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   toolID,
 					ToolName: toolName,
 					Content:  result,
@@ -721,21 +721,21 @@ func newToolResultEvent(invocationID, author, toolID, toolName, result string) *
 }
 
 // toModelUsage converts Codex usage into framework usage.
-func (u *codexUsage) toModelUsage() *model.Usage {
+func (u *codexUsage) toModelUsage() *compat.Usage {
 	if u == nil {
 		return nil
 	}
 	if u.InputTokens == 0 && u.CachedInputTokens == 0 && u.OutputTokens == 0 && u.ReasoningOutputTokens == 0 {
 		return nil
 	}
-	return &model.Usage{
+	return &compat.Usage{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
 		TotalTokens:      u.InputTokens + u.OutputTokens,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens: u.CachedInputTokens,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{
+		CompletionTokensDetails: compat.CompletionTokensDetails{
 			ReasoningTokens: u.ReasoningOutputTokens,
 		},
 	}

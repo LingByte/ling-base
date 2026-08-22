@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/assert"
 )
@@ -60,7 +60,7 @@ type testMockRunner struct {
 	err    error
 }
 
-func (m *testMockRunner) Run(ctx context.Context, userID, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *testMockRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/pgvector/pgvector-go"
 )
@@ -205,7 +205,7 @@ func (s *Service) queryEventSearchResults(
 					)
 				}
 				resultText := strings.TrimSpace(contentText)
-				resultRole := model.Role(role)
+				resultRole := compat.Role(role)
 				if resultText == "" || resultRole == "" {
 					if fallbackText, fallbackRole := extractEventText(&evt); resultText == "" {
 						resultText = fallbackText
@@ -563,7 +563,7 @@ func compactStrings(values []string) []string {
 	return out
 }
 
-func compactRoles(roles []model.Role) []string {
+func compactRoles(roles []compat.Role) []string {
 	if len(roles) == 0 {
 		return nil
 	}

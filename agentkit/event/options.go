@@ -13,7 +13,7 @@ package event
 import (
 	"encoding/json"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Option is a function that can be used to configure the Event.
@@ -27,7 +27,7 @@ func WithBranch(branch string) Option {
 }
 
 // WithResponse sets the response for the event.
-func WithResponse(response *model.Response) Option {
+func WithResponse(response *compat.Response) Option {
 	return func(e *Event) {
 		e.Response = response
 	}

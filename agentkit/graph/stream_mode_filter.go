@@ -12,7 +12,7 @@ package graph
 import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type streamModeMask uint8
@@ -117,8 +117,8 @@ func isStreamModeMessageEvent(e *event.Event) bool {
 		return false
 	}
 	switch e.Object {
-	case model.ObjectTypeChatCompletionChunk,
-		model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletionChunk,
+		compat.ObjectTypeChatCompletion:
 		return true
 	default:
 		return false
@@ -133,7 +133,7 @@ func isStreamModeUpdateEvent(e *event.Event) bool {
 	case ObjectTypeGraphExecution,
 		ObjectTypeGraphChannelUpdate,
 		ObjectTypeGraphStateUpdate,
-		model.ObjectTypeStateUpdate:
+		compat.ObjectTypeStateUpdate:
 		return true
 	default:
 		return false

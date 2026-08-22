@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -28,7 +28,7 @@ type PluginManager interface {
 	AgentCallbacks() *Callbacks
 
 	// ModelCallbacks returns global model callbacks.
-	ModelCallbacks() *model.Callbacks
+	ModelCallbacks() *compat.Callbacks
 
 	// ToolCallbacks returns global tool callbacks.
 	ToolCallbacks() *tool.Callbacks

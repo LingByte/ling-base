@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -23,13 +23,13 @@ func (r *runner) applyAwaitUserReplyRoute(
 	ctx context.Context,
 	key session.Key,
 	sess *session.Session,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
 ) (agent.RunOptions, string, string, error) {
 	if r == nil || !r.awaitUserReplyRouting {
 		return ro, "", "", nil
 	}
-	if message.Role != model.RoleUser {
+	if message.Role != compat.RoleUser {
 		return ro, "", "", nil
 	}
 	if ro.Agent != nil || ro.AgentByName != "" {

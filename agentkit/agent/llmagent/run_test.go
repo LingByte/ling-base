@@ -20,7 +20,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/internal/toolcall"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -124,10 +124,10 @@ func hasSpanAttr(attrs []attribute.KeyValue, key string, value string) bool {
 func TestLLMAgent_Run_BeforeCallbackCust(t *testing.T) {
 	cb := agent.NewCallbacks()
 	var afterCalls int
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{Object: "before", Done: true}, nil
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{Object: "before", Done: true}, nil
 	})
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		afterCalls++
 		return nil, nil
 	})
@@ -138,7 +138,7 @@ func TestLLMAgent_Run_BeforeCallbackCust(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("id"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
 	evts, err := a.Run(context.Background(), inv)
@@ -163,7 +163,7 @@ func TestLLMAgent_Run_BeforeCallbackCust(t *testing.T) {
 
 func TestLLMAgent_Run_BeforeCallbackErr(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, context.Canceled
 	})
 
@@ -172,7 +172,7 @@ func TestLLMAgent_Run_BeforeCallbackErr(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("id"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
 	_, err := a.Run(context.Background(), inv)
@@ -190,7 +190,7 @@ func TestLLMAgent_Run_BorrowedExecutionTraceStepIsNotFinished(t *testing.T) {
 	a.flow = &mockFlow{done: true}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("borrowed-trace-step"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
 	traceCtx := agent.NewInvocationContext(context.Background(), inv)
@@ -228,7 +228,7 @@ func TestLLMAgent_Run_SameInvocationTwiceCreatesTwoSteps(t *testing.T) {
 	a.flow = &mockFlow{done: true}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("reused-invocation"),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
 
@@ -252,8 +252,8 @@ func TestLLMAgent_Run_SameInvocationTwiceCreatesTwoSteps(t *testing.T) {
 
 func TestLLMAgent_Run_FlowAndAfterCb(t *testing.T) {
 	after := agent.NewCallbacks()
-	after.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
-		return &model.Response{Object: "after", Done: true}, nil
+	after.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
+		return &compat.Response{Object: "after", Done: true}, nil
 	})
 
 	a := New("agent", WithAgentCallbacks(after))
@@ -359,7 +359,7 @@ func TestLLMAgent_CallbackContextPropagation(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	events, err := agt.Run(ctx, invocation)
@@ -399,7 +399,7 @@ func TestLLMAgent_Run_DisableTracingSkipsSpanCreation(t *testing.T) {
 	a.flow = &mockFlow{done: true}
 	invocation := &agent.Invocation{
 		InvocationID: "id-disable-tracing",
-		Message:      model.NewUserMessage("hi"),
+		Message:      compat.NewUserMessage("hi"),
 		RunOptions: agent.RunOptions{
 			DisableTracing: true,
 		},

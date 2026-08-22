@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -58,7 +58,7 @@ func (f *fakeSummarizer) Summarize(
 
 func (f *fakeSummarizer) SetPrompt(prompt string) {}
 
-func (f *fakeSummarizer) SetModel(m model.Model) {}
+func (f *fakeSummarizer) SetModel(m compat.Model) {}
 
 func (f *fakeSummarizer) Metadata() map[string]any { return nil }
 
@@ -77,16 +77,16 @@ func (d *denySummarizer) Summarize(
 
 func (d *denySummarizer) SetPrompt(prompt string) {}
 
-func (d *denySummarizer) SetModel(m model.Model) {}
+func (d *denySummarizer) SetModel(m compat.Model) {}
 
 func (d *denySummarizer) Metadata() map[string]any { return nil }
 
 func newUserEvent(content string) *event.Event {
 	return &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: content,
 				},
 			}},
@@ -97,10 +97,10 @@ func newUserEvent(content string) *event.Event {
 
 func newAssistantEvent(content string) *event.Event {
 	return &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: content,
 				},
 			}},

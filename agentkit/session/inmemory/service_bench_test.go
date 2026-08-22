@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -66,10 +66,10 @@ func BenchmarkAppendEvent(b *testing.B) {
 				StateDelta: map[string][]byte{
 					"benchmark": bytes.Repeat([]byte{'s'}, tc.stateDeltaBytes),
 				},
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage("benchmark event"),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage("benchmark event"),
 					}},
 				},
 			}
@@ -96,10 +96,10 @@ func appendEventBenchmarkHistory(historySize int) []event.Event {
 	for i := range events {
 		events[i] = event.Event{
 			ID: fmt.Sprintf("history-event-%d", i),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(fmt.Sprintf("history-%d", i)),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(fmt.Sprintf("history-%d", i)),
 				}},
 			},
 		}

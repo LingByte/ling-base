@@ -20,7 +20,7 @@ import (
 	iflow "github.com/LingByte/ling-base/agentkit/internal/flow"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type fixedSummaryViewTokenCounter struct {
@@ -30,14 +30,14 @@ type fixedSummaryViewTokenCounter struct {
 
 func (c fixedSummaryViewTokenCounter) CountTokens(
 	context.Context,
-	model.Message,
+	compat.Message,
 ) (int, error) {
 	return c.tokens, c.err
 }
 
 func (c fixedSummaryViewTokenCounter) CountTokensRange(
 	context.Context,
-	[]model.Message,
+	[]compat.Message,
 	int,
 	int,
 ) (int, error) {
@@ -49,13 +49,13 @@ func TestFinalizeSummaryViewUsesFinalRequest(t *testing.T) {
 	summaryview.AttachProjection(invocation, &summaryview.View{
 		ContentRequestLength: 1,
 		Items: []summaryview.Item{{
-			Message:      model.NewUserMessage("visible"),
+			Message:      compat.NewUserMessage("visible"),
 			RequestIndex: 0,
 		}},
 	})
-	request := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("added after content processing"),
-		model.NewUserMessage("visible"),
+	request := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("added after content processing"),
+		compat.NewUserMessage("visible"),
 	}}
 	counter := fixedSummaryViewTokenCounter{tokens: 42}
 	flow := &Flow{requestProcessors: []iflow.RequestProcessor{
@@ -81,7 +81,7 @@ func TestFinalizeSummaryViewUsesFinalRequest(t *testing.T) {
 func TestFinalizeSummaryViewHandlesUnavailableInputs(t *testing.T) {
 	counter := fixedSummaryViewTokenCounter{tokens: 42}
 	require.NotPanics(t, func() {
-		finalizeSummaryView(context.Background(), nil, &model.Request{}, counter)
+		finalizeSummaryView(context.Background(), nil, &compat.Request{}, counter)
 	})
 
 	nilRequest := agent.NewInvocation()
@@ -93,8 +93,8 @@ func TestFinalizeSummaryViewHandlesUnavailableInputs(t *testing.T) {
 	finalizeSummaryView(
 		context.Background(),
 		missingProjection,
-		&model.Request{Messages: []model.Message{
-			model.NewUserMessage("visible"),
+		&compat.Request{Messages: []compat.Message{
+			compat.NewUserMessage("visible"),
 		}},
 		counter,
 	)
@@ -107,7 +107,7 @@ func TestFinalizeSummaryViewLeavesProjectionOnCountFailure(t *testing.T) {
 	summaryview.AttachProjection(invocation, &summaryview.View{
 		ContentRequestLength: 1,
 		Items: []summaryview.Item{{
-			Message:      model.NewUserMessage("visible"),
+			Message:      compat.NewUserMessage("visible"),
 			RequestIndex: 0,
 		}},
 	})
@@ -115,8 +115,8 @@ func TestFinalizeSummaryViewLeavesProjectionOnCountFailure(t *testing.T) {
 	finalizeSummaryView(
 		context.Background(),
 		invocation,
-		&model.Request{Messages: []model.Message{
-			model.NewUserMessage("visible"),
+		&compat.Request{Messages: []compat.Message{
+			compat.NewUserMessage("visible"),
 		}},
 		fixedSummaryViewTokenCounter{err: errors.New("count failed")},
 	)
@@ -132,7 +132,7 @@ func TestFinalizeSummaryViewUsesDefaultCounter(t *testing.T) {
 	summaryview.AttachProjection(invocation, &summaryview.View{
 		ContentRequestLength: 1,
 		Items: []summaryview.Item{{
-			Message:      model.NewUserMessage("visible"),
+			Message:      compat.NewUserMessage("visible"),
 			RequestIndex: 0,
 		}},
 	})
@@ -140,8 +140,8 @@ func TestFinalizeSummaryViewUsesDefaultCounter(t *testing.T) {
 	finalizeSummaryView(
 		context.Background(),
 		invocation,
-		&model.Request{Messages: []model.Message{
-			model.NewUserMessage("visible"),
+		&compat.Request{Messages: []compat.Message{
+			compat.NewUserMessage("visible"),
 		}},
 		nil,
 	)

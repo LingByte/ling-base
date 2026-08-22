@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestNewOutputResponseProcessor(t *testing.T) {
@@ -66,12 +66,12 @@ func TestOutputResponseProcessor_ProcessResponse(t *testing.T) {
 	invocation := agent.NewInvocation()
 
 	// Create a test response with content
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: false,
 		Done:      true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "Test output content",
 				},
 			},
@@ -83,7 +83,7 @@ func TestOutputResponseProcessor_ProcessResponse(t *testing.T) {
 
 	// Start processing in a goroutine so we can send completion signals
 	go func() {
-		processor.ProcessResponse(ctx, invocation, &model.Request{}, response, eventCh)
+		processor.ProcessResponse(ctx, invocation, &compat.Request{}, response, eventCh)
 		close(eventCh)
 	}()
 
@@ -142,11 +142,11 @@ func TestOutputResponseProcessor_ProcessResponse_NoOutputKey(t *testing.T) {
 	invocation := agent.NewInvocation()
 
 	// Create a test response with content
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "Test output content",
 				},
 			},
@@ -157,7 +157,7 @@ func TestOutputResponseProcessor_ProcessResponse_NoOutputKey(t *testing.T) {
 	eventCh := make(chan *event.Event, 1)
 
 	// Process the response
-	processor.ProcessResponse(ctx, invocation, &model.Request{}, response, eventCh)
+	processor.ProcessResponse(ctx, invocation, &compat.Request{}, response, eventCh)
 
 	// Close the channel and collect events
 	close(eventCh)
@@ -182,11 +182,11 @@ func TestOutputResponseProcessor_ProcessResponse_PartialResponse(t *testing.T) {
 	invocation := agent.NewInvocation()
 
 	// Create a test response that is partial
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "Test output content",
 				},
 			},
@@ -197,7 +197,7 @@ func TestOutputResponseProcessor_ProcessResponse_PartialResponse(t *testing.T) {
 	eventCh := make(chan *event.Event, 1)
 
 	// Process the response
-	processor.ProcessResponse(ctx, invocation, &model.Request{}, response, eventCh)
+	processor.ProcessResponse(ctx, invocation, &compat.Request{}, response, eventCh)
 
 	// Close the channel and collect events
 	close(eventCh)
@@ -287,11 +287,11 @@ func TestOutputResponseProcessor_TypedAndStateDelta(t *testing.T) {
 	inv.StructuredOutputType = reflect.TypeOf(typedStruct{})
 
 	// Prepare response content that contains JSON object.
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "text {\"a\":1} more",
 				},
 			},
@@ -325,11 +325,11 @@ func TestOutputResponseProcessor_TypedInvalidJSON(t *testing.T) {
 
 	// Content contains a balanced object that is not valid JSON
 	// (unquoted key), so unmarshal will fail.
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "prefix {not-valid-json} suffix",
 				},
 			},
@@ -356,11 +356,11 @@ func TestOutputResponseProcessor_HandleOutputKey_AddNoticeError(t *testing.T) {
 	inv := agent.NewInvocation()
 	inv.AgentName = "test-agent"
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "{\"a\":1}",
 				},
 			},
@@ -379,13 +379,13 @@ func TestOutputResponseProcessor_ExtractFinalContent(t *testing.T) {
 	if _, ok := p.extractFinalContent(nil); ok {
 		t.Fatalf("nil rsp should return false")
 	}
-	if _, ok := p.extractFinalContent(&model.Response{IsPartial: true}); ok {
+	if _, ok := p.extractFinalContent(&compat.Response{IsPartial: true}); ok {
 		t.Fatalf("partial rsp should return false")
 	}
-	if _, ok := p.extractFinalContent(&model.Response{}); ok {
+	if _, ok := p.extractFinalContent(&compat.Response{}); ok {
 		t.Fatalf("no choices should return false")
 	}
-	s, ok := p.extractFinalContent(&model.Response{Choices: []model.Choice{{Message: model.Message{Content: "ok"}}}})
+	s, ok := p.extractFinalContent(&compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}}})
 	if !ok || s != "ok" {
 		t.Fatalf("expected ok content")
 	}

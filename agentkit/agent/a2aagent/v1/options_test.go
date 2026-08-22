@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/client"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 	protocolserver "trpc.group/trpc-go/trpc-a2a-go/v2/server"
@@ -59,7 +59,7 @@ func TestA2ADataPartMappingResultAccessorsAndCloning(t *testing.T) {
 	}
 	nilResult.SetTextContent("ignored")
 	nilResult.SetReasoningContent("ignored")
-	nilResult.AppendToolCall(model.ToolCall{})
+	nilResult.AppendToolCall(compat.ToolCall{})
 	nilResult.AppendToolResponse(A2ADataPartToolResponse{})
 	nilResult.SetCodeExecution("ignored")
 	nilResult.SetCodeExecutionResult("ignored")
@@ -70,7 +70,7 @@ func TestA2ADataPartMappingResultAccessorsAndCloning(t *testing.T) {
 	result := &A2ADataPartMappingResult{}
 	result.SetTextContent("text")
 	result.SetReasoningContent("reasoning")
-	result.AppendToolCall(model.ToolCall{ID: "call"})
+	result.AppendToolCall(compat.ToolCall{ID: "call"})
 	result.AppendToolResponse(A2ADataPartToolResponse{
 		ID: "call", Name: "lookup", Content: "result",
 	})
@@ -174,7 +174,7 @@ func TestDataPartMappingResultApplication(t *testing.T) {
 	mapped.SetReasoningContent("mapped reasoning")
 	mapped.SetCodeExecution("mapped code")
 	mapped.SetCodeExecutionResult("mapped result")
-	mapped.AppendToolCall(model.ToolCall{ID: "call"})
+	mapped.AppendToolCall(compat.ToolCall{ID: "call"})
 	mapped.AppendToolResponse(A2ADataPartToolResponse{
 		ID: "call", Name: "lookup", Content: "response",
 	})

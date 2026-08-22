@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	"github.com/LingByte/ling-base/agentkit/knowledge/document"
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	ctool "github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -59,13 +59,13 @@ func marshalArgsWithFilter(t *testing.T, query string, filter *searchfilter.Univ
 	return bts
 }
 
-func historyEvent(message model.Message, partial bool) event.Event {
+func historyEvent(message compat.Message, partial bool) event.Event {
 	evt := event.NewResponseEvent(
 		"inv",
 		string(message.Role),
-		&model.Response{
+		&compat.Response{
 			IsPartial: partial,
-			Choices:   []model.Choice{{Message: message}},
+			Choices:   []compat.Choice{{Message: message}},
 		},
 	)
 	return *evt
@@ -88,11 +88,11 @@ func TestConversationMessageFromEvent(t *testing.T) {
 	toolCallEvent := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:      model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{ID: "call-1"}},
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:      compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{ID: "call-1"}},
 				},
 			}},
 		},
@@ -100,29 +100,29 @@ func TestConversationMessageFromEvent(t *testing.T) {
 	multiChoiceEvent := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleSystem, Content: "system"}},
-				{Message: model.NewAssistantMessage(" answer ")},
+		&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleSystem, Content: "system"}},
+				{Message: compat.NewAssistantMessage(" answer ")},
 			},
 		},
 	)
 	contentPartsText := "from content parts"
-	contentPartsEvent := historyEvent(model.Message{
-		Role:         model.RoleUser,
-		ContentParts: []model.ContentPart{{Type: model.ContentTypeText, Text: &contentPartsText}},
+	contentPartsEvent := historyEvent(compat.Message{
+		Role:         compat.RoleUser,
+		ContentParts: []compat.ContentPart{{Type: compat.ContentTypeText, Text: &contentPartsText}},
 	}, false)
 	multiPartA := "first part"
 	multiPartB := "second part"
-	multiTextPartsEvent := historyEvent(model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeText, Text: &multiPartA},
-			{Type: model.ContentTypeImage, Image: &model.Image{URL: "http://img"}},
-			{Type: model.ContentTypeText, Text: &multiPartB},
+	multiTextPartsEvent := historyEvent(compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeText, Text: &multiPartA},
+			{Type: compat.ContentTypeImage, Image: &compat.Image{URL: "http://img"}},
+			{Type: compat.ContentTypeText, Text: &multiPartB},
 		},
 	}, false)
-	validEvent := historyEvent(model.NewUserMessage(" question "), false)
+	validEvent := historyEvent(compat.NewUserMessage(" question "), false)
 	tests := []struct {
 		name   string
 		evt    *event.Event
@@ -141,7 +141,7 @@ func TestConversationMessageFromEvent(t *testing.T) {
 		},
 		{
 			name:   "partial response",
-			evt:    ptrEvent(historyEvent(model.NewUserMessage("partial"), true)),
+			evt:    ptrEvent(historyEvent(compat.NewUserMessage("partial"), true)),
 			wantOK: false,
 		},
 		{
@@ -151,17 +151,17 @@ func TestConversationMessageFromEvent(t *testing.T) {
 		},
 		{
 			name:   "tool result response",
-			evt:    ptrEvent(historyEvent(model.NewToolMessage("tool-1", "knowledge_search", "result"), false)),
+			evt:    ptrEvent(historyEvent(compat.NewToolMessage("tool-1", "knowledge_search", "result"), false)),
 			wantOK: false,
 		},
 		{
 			name:   "unsupported role",
-			evt:    ptrEvent(historyEvent(model.Message{Role: model.RoleSystem, Content: "system"}, false)),
+			evt:    ptrEvent(historyEvent(compat.Message{Role: compat.RoleSystem, Content: "system"}, false)),
 			wantOK: false,
 		},
 		{
 			name:   "empty content",
-			evt:    ptrEvent(historyEvent(model.NewAssistantMessage(" "), false)),
+			evt:    ptrEvent(historyEvent(compat.NewAssistantMessage(" "), false)),
 			wantOK: false,
 		},
 		{
@@ -283,14 +283,14 @@ func TestKnowledgeSearchTool(t *testing.T) {
 			ID:     "session-1",
 			UserID: "user-1",
 			Events: []event.Event{
-				historyEvent(model.NewUserMessage("oldest dropped"), false),
-				historyEvent(model.NewToolMessage("tool-1", "knowledge_search", "tool result"), false),
-				historyEvent(model.NewAssistantMessage(""), false),
-				historyEvent(model.NewUserMessage("partial skipped"), true),
+				historyEvent(compat.NewUserMessage("oldest dropped"), false),
+				historyEvent(compat.NewToolMessage("tool-1", "knowledge_search", "tool result"), false),
+				historyEvent(compat.NewAssistantMessage(""), false),
+				historyEvent(compat.NewUserMessage("partial skipped"), true),
 			},
 		}
 		for i := 0; i < defaultSearchHistorySize; i++ {
-			sess.Events = append(sess.Events, historyEvent(model.NewUserMessage("valid user"), false))
+			sess.Events = append(sess.Events, historyEvent(compat.NewUserMessage("valid user"), false))
 		}
 		invocation := agent.NewInvocation(agent.WithInvocationSession(sess))
 		ctx := agent.NewInvocationContext(context.Background(), invocation)
@@ -532,8 +532,8 @@ func TestAgenticFilterSearchTool(t *testing.T) {
 			ID:     "session-2",
 			UserID: "user-2",
 			Events: []event.Event{
-				historyEvent(model.NewUserMessage("what is knowledge"), false),
-				historyEvent(model.NewAssistantMessage("knowledge is RAG"), false),
+				historyEvent(compat.NewUserMessage("what is knowledge"), false),
+				historyEvent(compat.NewAssistantMessage("knowledge is RAG"), false),
 			},
 		}
 		invocation := agent.NewInvocation(agent.WithInvocationSession(sess))

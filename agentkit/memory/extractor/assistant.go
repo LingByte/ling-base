@@ -22,7 +22,7 @@ import (
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/assistantmemory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -47,8 +47,8 @@ var assistantEpisodeNumberPattern = regexp.MustCompile(
 )
 
 type assistantEpisodePair struct {
-	user      model.Message
-	assistant model.Message
+	user      compat.Message
+	assistant compat.Message
 	userIndex int
 }
 
@@ -90,7 +90,7 @@ func (e *memoryExtractor) ConfiguredAssistantEpisodeExtraction() assistantmemory
 
 func (e *memoryExtractor) extractWithAssistantEpisodes(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*Operation, error) {
 	if e.enabledTools != nil && len(e.enabledTools) == 0 {
@@ -147,7 +147,7 @@ func (e *memoryExtractor) extractWithAssistantEpisodes(
 
 func (e *memoryExtractor) extractAssistantEpisodeOrdinaryStage(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) (context.Context, assistantEpisodeOrdinaryResult, error) {
 	var result assistantEpisodeOrdinaryResult
@@ -175,7 +175,7 @@ func (e *memoryExtractor) extractAssistantEpisodeOrdinaryStage(
 			existing,
 		)
 		ordinaryMessages[0].Content += assistantEpisodeOrdinaryContextPolicy
-		req := &model.Request{
+		req := &compat.Request{
 			Messages: ordinaryMessages,
 			Tools:    ordinaryTools,
 		}
@@ -183,7 +183,7 @@ func (e *memoryExtractor) extractAssistantEpisodeOrdinaryStage(
 		nextCtx, err = ordinaryExtractor.runExtractionRequest(
 			ctx,
 			req,
-			func(callCtx context.Context, call model.ToolCall) {
+			func(callCtx context.Context, call compat.ToolCall) {
 				if op := ordinaryExtractor.parseToolCall(callCtx, call); op != nil {
 					result.operations = append(result.operations, op)
 					switch op.Type {
@@ -222,7 +222,7 @@ func (e *memoryExtractor) extractAssistantEpisodeOrdinaryStage(
 }
 
 func selectAssistantEpisodeCandidates(
-	messages []model.Message,
+	messages []compat.Message,
 	clearSourceIndex int,
 	deletedSourceIndexes map[int]struct{},
 ) []assistantEpisodePair {
@@ -287,8 +287,8 @@ func (e *memoryExtractor) extractAssistantEpisodes(
 	pairs []assistantEpisodePair,
 ) (context.Context, []*Operation, error) {
 	sources := make([]assistantEpisodeSource, 0, len(pairs))
-	messages := make([]model.Message, 0, len(pairs)*2+2)
-	messages = append(messages, model.NewSystemMessage(e.assistantEpisodePrompt(ctx)))
+	messages := make([]compat.Message, 0, len(pairs)*2+2)
+	messages = append(messages, compat.NewSystemMessage(e.assistantEpisodePrompt(ctx)))
 	for i, pair := range pairs {
 		source := assistantEpisodeSource{
 			id: fmt.Sprintf("pair-%d", i+1),
@@ -302,11 +302,11 @@ func (e *memoryExtractor) extractAssistantEpisodes(
 		sources = append(sources, source)
 		messages = append(
 			messages,
-			model.NewUserMessage(source.id+" user request:\n"+source.userText),
-			model.NewAssistantMessage(source.id+" assistant response:\n"+source.assistantText),
+			compat.NewUserMessage(source.id+" user request:\n"+source.userText),
+			compat.NewAssistantMessage(source.id+" assistant response:\n"+source.assistantText),
 		)
 	}
-	messages = append(messages, model.NewUserMessage(
+	messages = append(messages, compat.NewUserMessage(
 		"Extract every eligible assistant result. Set pair_id to the pair label "+
 			"shown with its source, and call the tool at most once for each pair.",
 	))
@@ -318,12 +318,12 @@ func (e *memoryExtractor) extractAssistantEpisodes(
 	}
 	operations := make([]*Operation, len(sources))
 	seenIDs := make(map[string]struct{}, len(sources))
-	nextCtx, err := e.runExtractionRequest(ctx, &model.Request{
+	nextCtx, err := e.runExtractionRequest(ctx, &compat.Request{
 		Messages: messages,
 		Tools: map[string]tool.Tool{
 			assistantEpisodeToolName: newAssistantEpisodeTool(sources),
 		},
-	}, func(callCtx context.Context, call model.ToolCall) {
+	}, func(callCtx context.Context, call compat.ToolCall) {
 		if call.Function.Name != assistantEpisodeToolName {
 			return
 		}
@@ -414,16 +414,16 @@ func (e *memoryExtractor) parseAssistantEpisode(
 	return op, nil
 }
 
-func selectAssistantEpisodePairs(messages []model.Message) []assistantEpisodePair {
+func selectAssistantEpisodePairs(messages []compat.Message) []assistantEpisodePair {
 	pairs := make([]assistantEpisodePair, 0, len(messages)/2)
-	var pendingUser model.Message
-	var pendingAssistant model.Message
+	var pendingUser compat.Message
+	var pendingAssistant compat.Message
 	userIndex := 0
 	pendingUserIndex := 0
 	hasPendingUser := false
 	hasPendingAssistant := false
 	for _, message := range messages {
-		if message.Role == model.RoleUser {
+		if message.Role == compat.RoleUser {
 			if hasPendingUser && hasPendingAssistant {
 				pairs = append(pairs, assistantEpisodePair{
 					user:      pendingUser,
@@ -431,7 +431,7 @@ func selectAssistantEpisodePairs(messages []model.Message) []assistantEpisodePai
 					userIndex: pendingUserIndex,
 				})
 			}
-			hasPendingUser = eligibleAssistantEpisodeMessage(message, model.RoleUser)
+			hasPendingUser = eligibleAssistantEpisodeMessage(message, compat.RoleUser)
 			if hasPendingUser {
 				userIndex++
 				pendingUser = message
@@ -440,7 +440,7 @@ func selectAssistantEpisodePairs(messages []model.Message) []assistantEpisodePai
 			hasPendingAssistant = false
 			continue
 		}
-		if !eligibleAssistantEpisodeMessage(message, model.RoleAssistant) || !hasPendingUser {
+		if !eligibleAssistantEpisodeMessage(message, compat.RoleAssistant) || !hasPendingUser {
 			continue
 		}
 		pendingAssistant = message
@@ -456,35 +456,35 @@ func selectAssistantEpisodePairs(messages []model.Message) []assistantEpisodePai
 	return pairs
 }
 
-func eligibleAssistantEpisodeMessage(message model.Message, role model.Role) bool {
+func eligibleAssistantEpisodeMessage(message compat.Message, role compat.Role) bool {
 	return message.Role == role && message.ToolID == "" &&
 		len(message.ToolCalls) == 0 && assistantEpisodeMessageText(message) != ""
 }
 
 func assistantEpisodeOrdinaryMessages(
-	messages []model.Message,
-) ([]model.Message, int) {
-	result := make([]model.Message, 0, len(messages))
+	messages []compat.Message,
+) ([]compat.Message, int) {
+	result := make([]compat.Message, 0, len(messages))
 	userCount := 0
 	for _, message := range messages {
 		switch {
-		case eligibleAssistantEpisodeMessage(message, model.RoleUser):
+		case eligibleAssistantEpisodeMessage(message, compat.RoleUser):
 			result = append(result, message)
 			userCount++
-		case eligibleAssistantEpisodeMessage(message, model.RoleAssistant):
+		case eligibleAssistantEpisodeMessage(message, compat.RoleAssistant):
 			result = append(result, message)
 		}
 	}
 	return result, userCount
 }
 
-func assistantEpisodeMessageText(message model.Message) string {
+func assistantEpisodeMessageText(message compat.Message) string {
 	parts := make([]string, 0, len(message.ContentParts)+1)
 	if content := strings.TrimSpace(message.Content); content != "" {
 		parts = append(parts, content)
 	}
 	for _, part := range message.ContentParts {
-		if part.Type == model.ContentTypeText && part.Text != nil {
+		if part.Type == compat.ContentTypeText && part.Text != nil {
 			if text := strings.TrimSpace(*part.Text); text != "" {
 				parts = append(parts, text)
 			}

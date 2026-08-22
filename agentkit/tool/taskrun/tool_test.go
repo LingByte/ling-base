@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	taskrunruntime "github.com/LingByte/ling-base/agentkit/agent/taskrun"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -157,8 +157,8 @@ func TestToolsSpawnListGetCancelWait(t *testing.T) {
 		controller,
 		WithDefaultAgentName("worker"),
 		WithRuntimeState(map[string]any{"trace_id": "trace-1"}),
-		WithInjectedContextMessages([]model.Message{
-			model.NewSystemMessage("extra context"),
+		WithInjectedContextMessages([]compat.Message{
+			compat.NewSystemMessage("extra context"),
 		}),
 	)
 	ctx := newInvocationContext("user-a", "session-a", nil)
@@ -416,10 +416,10 @@ func TestTranscriptToolReadsChildSessionEvents(t *testing.T) {
 		ID:        "evt-0",
 		Author:    "user",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("start"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("start"),
 			}},
 		},
 	}))
@@ -427,13 +427,13 @@ func TestTranscriptToolReadsChildSessionEvents(t *testing.T) {
 		ID:        "evt-1",
 		Author:    "worker",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
-						Function: model.FunctionDefinitionParam{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
+						Function: compat.FunctionDefinitionParam{
 							Name: "lookup",
 						},
 					}},
@@ -445,10 +445,10 @@ func TestTranscriptToolReadsChildSessionEvents(t *testing.T) {
 		ID:        "evt-2",
 		Author:    "worker",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("final answer"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("final answer"),
 			}},
 		},
 	}))
@@ -496,10 +496,10 @@ func TestTranscriptToolUsesRunAppName(t *testing.T) {
 		ID:        "evt-user",
 		Author:    "user",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("start"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("start"),
 			}},
 		},
 	}))
@@ -507,10 +507,10 @@ func TestTranscriptToolUsesRunAppName(t *testing.T) {
 		ID:        "evt-child",
 		Author:    "worker",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("child app event"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("child app event"),
 			}},
 		},
 	}))
@@ -606,10 +606,10 @@ func TestTranscriptToolRequiresParentAppName(t *testing.T) {
 		ID:        "evt-child",
 		Author:    "worker",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("secret"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("secret"),
 			}},
 		},
 	}))
@@ -655,10 +655,10 @@ func TestTranscriptToolTrimsNormalizedEventLimit(t *testing.T) {
 		ID:        "evt-user",
 		Author:    "user",
 		Timestamp: time.Now(),
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("start"),
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("start"),
 			}},
 		},
 	}))
@@ -667,10 +667,10 @@ func TestTranscriptToolTrimsNormalizedEventLimit(t *testing.T) {
 			ID:        fmt.Sprintf("evt-%03d", i),
 			Author:    "worker",
 			Timestamp: time.Now(),
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(
 						fmt.Sprintf("answer-%03d", i),
 					),
 				}},
@@ -743,23 +743,23 @@ func TestTranscriptEventHelpersHandleSparseAndDeltaEvents(t *testing.T) {
 		ID:        "evt-delta",
 		Author:    "worker",
 		Timestamp: eventTime,
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Error:  &model.ResponseError{Message: "model failed"},
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					Role:     model.RoleAssistant,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Error:  &compat.ResponseError{Message: "model failed"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					Role:     compat.RoleAssistant,
 					Content:  "partial answer",
 					ToolID:   "tool-call-1",
 					ToolName: "lookup",
-					ToolCalls: []model.ToolCall{
+					ToolCalls: []compat.ToolCall{
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: " ",
 							},
 						},
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "search",
 							},
 						},
@@ -768,9 +768,9 @@ func TestTranscriptEventHelpersHandleSparseAndDeltaEvents(t *testing.T) {
 			}},
 		},
 	})
-	require.Equal(t, model.ObjectTypeChatCompletion, got.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, got.Object)
 	require.Equal(t, "model failed", got.Error)
-	require.Equal(t, model.RoleAssistant, got.Role)
+	require.Equal(t, compat.RoleAssistant, got.Role)
 	require.Equal(t, "partial answer", got.Content)
 	require.Equal(t, "tool-call-1", got.ToolID)
 	require.Equal(t, "lookup", got.ToolName)

@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/appender"
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	"github.com/LingByte/ling-base/agentkit/internal/state/livesession"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -41,7 +41,7 @@ type config struct {
 type agentModelProfile struct {
 	name        string
 	description string
-	model       model.Model
+	model       compat.Model
 }
 
 const defaultMaxConcurrentAgents = 8
@@ -68,7 +68,7 @@ func WithCodeCallableTools(tools ...tool.CallableTool) Option {
 //
 // Selected profiles apply to LLMAgent templates and to custom Agents that
 // honor invocation surface patches. Other Agents keep their configured model.
-func WithAgentModelProfile(name, description string, m model.Model) Option {
+func WithAgentModelProfile(name, description string, m compat.Model) Option {
 	return func(c *config) {
 		c.modelProfiles = append(c.modelProfiles, agentModelProfile{
 			name:        name,
@@ -441,7 +441,7 @@ func sendWorkflowStreamError(
 	evt := event.NewErrorEvent(
 		"",
 		"",
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 		modelVisibleWorkflowError(err),
 	)
 	if inv, ok := agent.InvocationFromContext(ctx); ok && inv != nil {
@@ -662,7 +662,7 @@ func (g *workflowGateway) callAgent(ctx context.Context, call Call) (json.RawMes
 		return nil, err
 	}
 	defer g.releaseAgentSlot()
-	message := model.NewUserMessage(workflowInputText(req.input))
+	message := compat.NewUserMessage(workflowInputText(req.input))
 	invocationOptions := []agent.InvocationOptions{
 		agent.WithInvocationAgent(candidate.agent),
 		agent.WithInvocationMessage(message),
@@ -809,8 +809,8 @@ func (g *workflowGateway) appendChildUserMessage(ctx context.Context, inv *agent
 	if inv == nil {
 		return fmt.Errorf("dynamicworkflow: initialize child Agent")
 	}
-	userEvent := event.NewResponseEvent(inv.InvocationID, "user", &model.Response{
-		Choices: []model.Choice{{Index: 0, Message: inv.Message}},
+	userEvent := event.NewResponseEvent(inv.InvocationID, "user", &compat.Response{
+		Choices: []compat.Choice{{Index: 0, Message: inv.Message}},
 	})
 	agent.InjectIntoEvent(inv, userEvent)
 	if err := g.appendSessionEvent(ctx, inv, userEvent); err != nil {
@@ -913,16 +913,16 @@ func assistantEventContent(evt *event.Event) (string, bool) {
 		return "", false
 	}
 	choice := evt.Response.Choices[0]
-	if choice.Message.Role == model.RoleAssistant && choice.Message.Content != "" {
+	if choice.Message.Role == compat.RoleAssistant && choice.Message.Content != "" {
 		return choice.Message.Content, true
 	}
-	if choice.Delta.Role == model.RoleAssistant && choice.Delta.Content != "" {
+	if choice.Delta.Role == compat.RoleAssistant && choice.Delta.Content != "" {
 		return choice.Delta.Content, true
 	}
 	return "", false
 }
 
-func errorsFromResponse(responseErr *model.ResponseError) error {
+func errorsFromResponse(responseErr *compat.ResponseError) error {
 	if responseErr == nil {
 		return nil
 	}

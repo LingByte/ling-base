@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 	"github.com/LingByte/ling-base/agentkit/planner/builtin"
 )
@@ -39,7 +39,7 @@ func NewPlanningRequestProcessor(p planner.Planner) *PlanningRequestProcessor {
 func (p *PlanningRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil {
@@ -82,8 +82,8 @@ func (p *PlanningRequestProcessor) ProcessRequest(
 	if planningInstruction != "" {
 		// Check if planning instruction already exists to avoid duplication.
 		if !hasSystemMessage(req.Messages, planningInstruction) {
-			instructionMsg := model.NewSystemMessage(planningInstruction)
-			req.Messages = append([]model.Message{instructionMsg}, req.Messages...)
+			instructionMsg := compat.NewSystemMessage(planningInstruction)
+			req.Messages = append([]compat.Message{instructionMsg}, req.Messages...)
 			log.DebugContext(
 				ctx,
 				"Planning request processor: added planning instruction",
@@ -99,7 +99,7 @@ func (p *PlanningRequestProcessor) ProcessRequest(
 	if err := agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingPlanning),
+		event.WithObject(compat.ObjectTypePreprocessingPlanning),
 	)); err != nil {
 		log.DebugContext(
 			ctx,
@@ -111,13 +111,13 @@ func (p *PlanningRequestProcessor) ProcessRequest(
 // hasSystemMessage checks if a system message with the given content already exists.
 // It compares only the first few characters of the content for performance reasons,
 // as this is usually sufficient to determine content similarity.
-func hasSystemMessage(messages []model.Message, content string) bool {
+func hasSystemMessage(messages []compat.Message, content string) bool {
 	// Maximum length of content prefix to compare for performance optimization.
 	const maxContentPrefixLength = 100
 	// Use content prefix for comparison to avoid performance issues with long content.
 	contentPrefix := content[:min(maxContentPrefixLength, len(content))]
 	for _, msg := range messages {
-		if msg.Role == model.RoleSystem && strings.Contains(msg.Content, contentPrefix) {
+		if msg.Role == compat.RoleSystem && strings.Contains(msg.Content, contentPrefix) {
 			return true
 		}
 	}
@@ -142,8 +142,8 @@ func NewPlanningResponseProcessor(p planner.Planner) *PlanningResponseProcessor 
 func (p *PlanningResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil || rsp == nil || rsp.IsPartial {
@@ -189,7 +189,7 @@ func (p *PlanningResponseProcessor) ProcessResponse(
 	planningEvent := event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePostprocessingPlanning),
+		event.WithObject(compat.ObjectTypePostprocessingPlanning),
 	)
 	// Mark as partial response so it doesn't interfere with full response detection.
 	planningEvent.Response.IsPartial = true

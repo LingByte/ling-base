@@ -18,7 +18,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -113,10 +113,10 @@ func TestAddEvent_TransactionError(t *testing.T) {
 	mock.ExpectRollback()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -169,10 +169,10 @@ func TestAddEvent_StoresEventCreatedAtAsTimestampUTC(
 
 	evt := &event.Event{
 		Timestamp: eventTime,
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -318,10 +318,10 @@ func TestGetEventsList_Success(t *testing.T) {
 	// ApplyEventFiltering does not discard it.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -752,11 +752,11 @@ func TestAddEvent_PartialEvent_NoInsert(t *testing.T) {
 	mock.ExpectCommit()
 
 	evt := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				}},
 			},
@@ -797,10 +797,10 @@ func TestAddEvent_WithTTL(t *testing.T) {
 	mock.ExpectCommit()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},

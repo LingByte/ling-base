@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -237,12 +237,12 @@ func TestToolPipe_BeforeModel_AugmentsSchema(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"test_tool": inner,
 		},
 	}
-	args := &model.BeforeModelArgs{Request: req}
+	args := &compat.BeforeModelArgs{Request: req}
 	_, err := tp.beforeModel(context.Background(), args)
 	require.NoError(t, err)
 
@@ -264,12 +264,12 @@ func TestToolPipe_BeforeModel_SkipsNotAllowed(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"other_tool": other,
 		},
 	}
-	args := &model.BeforeModelArgs{Request: req}
+	args := &compat.BeforeModelArgs{Request: req}
 	_, err := tp.beforeModel(context.Background(), args)
 	require.NoError(t, err)
 
@@ -961,12 +961,12 @@ func TestToolPipe_EndToEnd(t *testing.T) {
 		Name:        "search",
 		InputSchema: &tool.Schema{Type: "object", Properties: map[string]*tool.Schema{"q": {Type: "string"}}},
 	}
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"search": &mockTool{decl: searchDecl},
 		},
 	}
-	bmResult, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	bmResult, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.NotNil(t, req.Tools["search"].Declaration().InputSchema.Properties["result_filter"])
 
@@ -1138,10 +1138,10 @@ func TestToolPipe_SkipsNonObjectSchema(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"array_tool": arrayTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Tool with array schema should NOT be augmented.
@@ -1171,10 +1171,10 @@ func TestToolPipe_SkipsFrameworkTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"agent_tool": agentTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Framework tool should NOT be augmented even if in allowlist.
@@ -1207,10 +1207,10 @@ func TestToolPipe_SkipsLongRunningTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"long_tool": longTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// LongRunning=true tool should be skipped.
@@ -1230,10 +1230,10 @@ func TestToolPipe_DoesNotSkipNormalFunctionTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"my_function": normalTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Normal function tool (LongRunning=false) should be augmented.
@@ -1262,10 +1262,10 @@ func TestToolPipe_SkipsStateDeltaTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"todo_tool": stateTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// StateDelta tool should be skipped.
@@ -1296,10 +1296,10 @@ func TestToolPipe_SkipsStateDeltaForInvocationTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"todo_manage": stateTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// StateDeltaForInvocation tool should be skipped.
@@ -1326,10 +1326,10 @@ func TestToolPipe_SkipsFrameworkToolBehindNamedTool(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"mcp_agent": namedTool},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Should NOT be augmented — original behind NamedTool is a framework tool.
@@ -1359,14 +1359,14 @@ func TestToolPipe_SkipsTransferAndAwaitTools(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"transfer_to_agent": transferTool,
 			"await_user_reply":  awaitTool,
 			"web_fetch":         dataTool,
 		},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Framework tools skipped.
@@ -1428,10 +1428,10 @@ func TestRegression_NativeResultFilterNotStripped(t *testing.T) {
 	}
 
 	// 1. BeforeModel should NOT augment this tool (field collision).
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"my_tool": nativeTool},
 	}
-	bmResult, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	bmResult, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Verify schema was NOT changed (still has "native field" description).
@@ -1476,10 +1476,10 @@ func TestRegression_WithToolScope_EndToEnd(t *testing.T) {
 			InputSchema: &tool.Schema{Type: "object", Properties: map[string]*tool.Schema{"q": {Type: "string"}}},
 		},
 	}
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"mcp_search": mcpTool},
 	}
-	bmResult, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	bmResult, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Verify schema was augmented.
@@ -1748,19 +1748,19 @@ func TestToolPipe_InjectSystemPrompt_NoExisting(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"test_tool": inner},
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// System message should be prepended.
 	require.True(t, len(req.Messages) >= 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "toolpipe")
 }
 
@@ -1776,19 +1776,19 @@ func TestToolPipe_InjectSystemPrompt_AppendExisting(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"test_tool": inner},
-		Messages: []model.Message{
-			model.NewSystemMessage("You are helpful."),
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewSystemMessage("You are helpful."),
+			compat.NewUserMessage("hello"),
 		},
 	}
 
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Should append to existing system message, not create new.
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "You are helpful.")
 	assert.Contains(t, req.Messages[0].Content, "toolpipe")
 }
@@ -1805,18 +1805,18 @@ func TestToolPipe_PromptNotDuplicated(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"test_tool": inner},
-		Messages: []model.Message{
-			model.NewSystemMessage("You are helpful."),
+		Messages: []compat.Message{
+			compat.NewSystemMessage("You are helpful."),
 		},
 	}
 
 	// Call beforeModel twice.
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
-	_, err = tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err = tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Prompt should only appear once (check marker, not the word "toolpipe").
@@ -1959,10 +1959,10 @@ func TestToolPipe_CustomFilterField(t *testing.T) {
 			InputSchema: &tool.Schema{Type: "object"},
 		},
 	}
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"t": inner},
 	}
-	bmResult, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	bmResult, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Schema should have "pipe" field, not "result_filter".
@@ -1996,10 +1996,10 @@ func TestToolPipe_BeforeModel_SkipsNotAllowed_NoInjection(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{"other_tool": other},
 	}
-	_, err := tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: req})
+	_, err := tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	assert.Same(t, other, req.Tools["other_tool"])
@@ -2160,7 +2160,7 @@ func TestToolPipe_BeforeModel_NilArgs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, result)
 
-	result, err = tp.beforeModel(context.Background(), &model.BeforeModelArgs{Request: nil})
+	result, err = tp.beforeModel(context.Background(), &compat.BeforeModelArgs{Request: nil})
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }

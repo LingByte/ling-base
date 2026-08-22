@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestFinalizeBindsModelVisiblePrefix(t *testing.T) {
@@ -30,22 +30,22 @@ func TestFinalizeBindsModelVisiblePrefix(t *testing.T) {
 		ContentRequestLength: 3,
 		Items: []Item{
 			{
-				Message:      model.NewUserMessage("old"),
+				Message:      compat.NewUserMessage("old"),
 				Boundary:     Boundary{EventID: "event-1", Timestamp: timestamp},
 				RequestIndex: 1,
 			},
 			{
-				Message:      model.NewAssistantMessage("answer"),
+				Message:      compat.NewAssistantMessage("answer"),
 				Boundary:     Boundary{EventID: "event-2", Timestamp: timestamp.Add(time.Second)},
 				RequestIndex: 2,
 			},
 		},
 	})
-	request := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("inserted"),
-		model.NewSystemMessage("stable"),
-		model.NewUserMessage("old"),
-		model.NewAssistantMessage("answer"),
+	request := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("inserted"),
+		compat.NewSystemMessage("stable"),
+		compat.NewUserMessage("old"),
+		compat.NewAssistantMessage("answer"),
 	}}
 
 	Finalize(invocation, request, 41_959)
@@ -67,26 +67,26 @@ func TestFinalizeBindsModelVisiblePrefix(t *testing.T) {
 
 func TestRebaseAfterTransformTracksSafeCompletedPrefix(t *testing.T) {
 	now := time.Now()
-	assistant := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	assistant := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{ID: "call_keep"},
 			{ID: "call_orphan"},
 		},
 	}
-	toolResult := model.NewToolMessage("call_keep", "lookup", "ok")
-	before := []model.Message{
-		model.NewSystemMessage("fixed"),
+	toolResult := compat.NewToolMessage("call_keep", "lookup", "ok")
+	before := []compat.Message{
+		compat.NewSystemMessage("fixed"),
 		assistant,
 		toolResult,
 	}
 	filteredAssistant := assistant
 	filteredAssistant.ToolCalls = filteredAssistant.ToolCalls[:1]
-	after := []model.Message{
+	after := []compat.Message{
 		before[0],
 		filteredAssistant,
 		toolResult,
-		model.NewUserMessage("downgraded orphan call"),
+		compat.NewUserMessage("downgraded orphan call"),
 	}
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{
@@ -96,7 +96,7 @@ func TestRebaseAfterTransformTracksSafeCompletedPrefix(t *testing.T) {
 				Message: assistant,
 				EffectiveEvent: event.Event{
 					ID: "event-1",
-					Response: &model.Response{Choices: []model.Choice{{
+					Response: &compat.Response{Choices: []compat.Choice{{
 						Message: assistant,
 					}}},
 				},
@@ -107,7 +107,7 @@ func TestRebaseAfterTransformTracksSafeCompletedPrefix(t *testing.T) {
 				Message: toolResult,
 				EffectiveEvent: event.Event{
 					ID: "event-2",
-					Response: &model.Response{Choices: []model.Choice{{
+					Response: &compat.Response{Choices: []compat.Choice{{
 						Message: toolResult,
 					}}},
 				},
@@ -152,7 +152,7 @@ func TestRebaseAfterTransformTracksSafeCompletedPrefix(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "event-2", boundary.EventID)
 
-	Finalize(invocation, &model.Request{Messages: after}, 100)
+	Finalize(invocation, &compat.Request{Messages: after}, 100)
 	view, ok = Snapshot(invocation)
 	require.True(t, ok)
 	require.True(t, view.Bound)
@@ -160,9 +160,9 @@ func TestRebaseAfterTransformTracksSafeCompletedPrefix(t *testing.T) {
 }
 
 func TestRebaseAfterTransformAcceptsImplicitIdentitySources(t *testing.T) {
-	message := model.NewUserMessage("history")
-	messages := []model.Message{
-		model.NewSystemMessage("fixed"),
+	message := compat.NewUserMessage("history")
+	messages := []compat.Message{
+		compat.NewSystemMessage("fixed"),
 		message,
 	}
 	invocation := agent.NewInvocation()
@@ -189,8 +189,8 @@ func TestRebaseAfterTransformAcceptsImplicitIdentitySources(t *testing.T) {
 }
 
 func TestRebaseAfterTransformRejectsInvalidatedBinding(t *testing.T) {
-	message := model.NewUserMessage("history")
-	messages := []model.Message{message}
+	message := compat.NewUserMessage("history")
+	messages := []compat.Message{message}
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{
 		ContentRequestLength: len(messages),
@@ -215,8 +215,8 @@ func TestRebaseAfterTransformRejectsInvalidatedBinding(t *testing.T) {
 }
 
 func TestRebaseAfterTransformRejectsEmptyExplicitSources(t *testing.T) {
-	message := model.NewUserMessage("history")
-	messages := []model.Message{message}
+	message := compat.NewUserMessage("history")
+	messages := []compat.Message{message}
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{
 		ContentRequestLength: len(messages),
@@ -240,13 +240,13 @@ func TestRebaseAfterTransformRejectsEmptyExplicitSources(t *testing.T) {
 }
 
 func TestRebaseAfterTransformUsesOriginalProjectionLength(t *testing.T) {
-	duplicate := model.NewUserMessage("duplicate")
-	current := model.NewUserMessage("current")
-	before := []model.Message{duplicate, duplicate, current}
-	after := []model.Message{
+	duplicate := compat.NewUserMessage("duplicate")
+	current := compat.NewUserMessage("current")
+	before := []compat.Message{duplicate, duplicate, current}
+	after := []compat.Message{
 		before[0],
-		model.NewUserMessage("split one"),
-		model.NewUserMessage("split two"),
+		compat.NewUserMessage("split one"),
+		compat.NewUserMessage("split two"),
 		current,
 	}
 	invocation := agent.NewInvocation()
@@ -280,7 +280,7 @@ func TestRebaseAfterTransformUsesOriginalProjectionLength(t *testing.T) {
 
 func TestRebaseAfterTransformFailsClosedWithoutCompleteProvenance(t *testing.T) {
 	invocation := agent.NewInvocation()
-	before := []model.Message{model.NewUserMessage("visible")}
+	before := []compat.Message{compat.NewUserMessage("visible")}
 	AttachProjection(invocation, &View{
 		ContentRequestLength: len(before),
 		Items: []Item{{
@@ -292,13 +292,13 @@ func TestRebaseAfterTransformFailsClosedWithoutCompleteProvenance(t *testing.T) 
 	require.False(t, RebaseAfterTransform(
 		invocation,
 		before,
-		[]model.Message{
-			model.NewUserMessage("rewritten one"),
-			model.NewUserMessage("rewritten two"),
+		[]compat.Message{
+			compat.NewUserMessage("rewritten one"),
+			compat.NewUserMessage("rewritten two"),
 		},
 		nil,
 	))
-	Finalize(invocation, &model.Request{Messages: before}, 100)
+	Finalize(invocation, &compat.Request{Messages: before}, 100)
 	view, ok := Snapshot(invocation)
 	require.True(t, ok)
 	require.False(t, view.Bound)
@@ -309,10 +309,10 @@ func TestSnapshotIsIsolated(t *testing.T) {
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{
 		Items: []Item{{
-			Message: model.NewUserMessage("visible"),
+			Message: compat.NewUserMessage("visible"),
 			EffectiveEvent: event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.NewUserMessage("visible"),
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewUserMessage("visible"),
 				}}},
 			},
 		}},
@@ -338,14 +338,14 @@ func TestInvocationViewFinalizationIsIsolated(t *testing.T) {
 	AttachProjection(invocation, &View{
 		ContentRequestLength: 1,
 		Items: []Item{{
-			Message:      model.NewUserMessage("visible"),
+			Message:      compat.NewUserMessage("visible"),
 			RequestIndex: 0,
 		}},
 	})
 
 	view := invocation.View()
-	Finalize(view, &model.Request{Messages: []model.Message{
-		model.NewUserMessage("visible"),
+	Finalize(view, &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage("visible"),
 	}}, 42)
 
 	viewSnapshot, ok := Snapshot(view)
@@ -365,23 +365,23 @@ func TestInvocationViewSnapshotNestedStateIsIsolated(t *testing.T) {
 	errorCode := "code"
 	text := "text"
 	toolCallIndex := 1
-	message := model.Message{
-		Role: model.RoleAssistant,
-		ContentParts: []model.ContentPart{
+	message := compat.Message{
+		Role: compat.RoleAssistant,
+		ContentParts: []compat.ContentPart{
 			{Text: &text},
 			{
-				Image: &model.Image{Data: []byte("image")},
-				ContentRef: &model.ContentRef{
+				Image: &compat.Image{Data: []byte("image")},
+				ContentRef: &compat.ContentRef{
 					ArtifactName: "original",
 				},
 			},
-			{Audio: &model.Audio{Data: []byte("audio")}},
-			{Video: &model.Video{Data: []byte("video")}},
-			{File: &model.File{Data: []byte("file")}},
+			{Audio: &compat.Audio{Data: []byte("audio")}},
+			{Video: &compat.Video{Data: []byte("video")}},
+			{File: &compat.File{Data: []byte("file")}},
 		},
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			Index: &toolCallIndex,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Arguments: []byte("original"),
 			},
 			ExtraFields: map[string]any{
@@ -392,13 +392,13 @@ func TestInvocationViewSnapshotNestedStateIsIsolated(t *testing.T) {
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{Items: []Item{{
 		Message: message,
-		EffectiveEvent: event.Event{Response: &model.Response{
-			Choices: []model.Choice{{
+		EffectiveEvent: event.Event{Response: &compat.Response{
+			Choices: []compat.Choice{{
 				Message:      message,
 				Delta:        message,
 				FinishReason: &finishReason,
 			}},
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Param: &errorParam,
 				Code:  &errorCode,
 			},
@@ -468,7 +468,7 @@ func TestContextAndInvocationLifecycle(t *testing.T) {
 	invocation := agent.NewInvocation()
 	_, ok := Snapshot(invocation)
 	require.False(t, ok)
-	Finalize(invocation, &model.Request{}, 1)
+	Finalize(invocation, &compat.Request{}, 1)
 	Clear(nil)
 	AttachProjection(nil, &View{})
 	AttachProjection(invocation, nil)
@@ -476,7 +476,7 @@ func TestContextAndInvocationLifecycle(t *testing.T) {
 	view := &View{
 		SessionID: "session",
 		Items: []Item{{
-			Message: model.NewUserMessage("visible"),
+			Message: compat.NewUserMessage("visible"),
 		}},
 	}
 	AttachProjection(invocation, view)
@@ -525,16 +525,16 @@ func TestViewSelectsNonContiguousItems(t *testing.T) {
 			},
 		},
 	}
-	parent := []model.Message{
-		model.NewSystemMessage("fixed"),
-		model.NewUserMessage("first"),
-		model.NewAssistantMessage("excluded"),
-		model.NewUserMessage("third"),
+	parent := []compat.Message{
+		compat.NewSystemMessage("fixed"),
+		compat.NewUserMessage("first"),
+		compat.NewAssistantMessage("excluded"),
+		compat.NewUserMessage("third"),
 	}
 
 	messages, ok := view.MessagesForItems(parent, []int{0, 2})
 	require.True(t, ok)
-	require.Equal(t, []model.Message{parent[0], parent[1], parent[3]}, messages)
+	require.Equal(t, []compat.Message{parent[0], parent[1], parent[3]}, messages)
 	boundary, ok := view.BoundaryForItems([]int{0, 1, 2})
 	require.True(t, ok)
 	require.Equal(t, "third", boundary.EventID)
@@ -567,8 +567,8 @@ func TestSnapshotClonesEffectiveEventMetadata(t *testing.T) {
 	invocation := agent.NewInvocation()
 	AttachProjection(invocation, &View{Items: []Item{{
 		EffectiveEvent: event.Event{
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}}},
 			LongRunningToolIDs: map[string]struct{}{"call": {}},
 			StateDelta:         map[string][]byte{"key": []byte("value")},
@@ -604,20 +604,20 @@ func TestFinalizeLeavesUnmatchedProjectionUnbound(t *testing.T) {
 	AttachProjection(invocation, &View{
 		ContentRequestLength: 1,
 		Items: []Item{{
-			Message:      model.NewUserMessage("expected"),
+			Message:      compat.NewUserMessage("expected"),
 			RequestIndex: 0,
 		}},
 	})
 
-	Finalize(invocation, &model.Request{Messages: []model.Message{
-		model.NewAssistantMessage("different"),
+	Finalize(invocation, &compat.Request{Messages: []compat.Message{
+		compat.NewAssistantMessage("different"),
 	}}, 10)
 	view, ok := Snapshot(invocation)
 	require.True(t, ok)
 	require.False(t, view.Bound)
 	require.Equal(t, 10, view.RequestTokens)
 
-	Finalize(nil, &model.Request{}, 1)
+	Finalize(nil, &compat.Request{}, 1)
 	Finalize(invocation, nil, 1)
 }
 
@@ -626,7 +626,7 @@ func TestViewBoundaryAndBindingEdgeCases(t *testing.T) {
 	_, ok := view.PrefixBoundary(2)
 	require.False(t, ok)
 
-	parent := []model.Message{model.NewUserMessage("visible")}
+	parent := []compat.Message{compat.NewUserMessage("visible")}
 	invalidFirst := &View{
 		Bound: true,
 		Items: []Item{{
@@ -653,31 +653,31 @@ func TestViewBoundaryAndBindingEdgeCases(t *testing.T) {
 	require.False(t, bindItems(&View{}, parent))
 	require.False(t, bindItems(view, nil))
 
-	messages := []model.Message{
-		model.NewUserMessage("different"),
-		model.NewUserMessage("visible"),
+	messages := []compat.Message{
+		compat.NewUserMessage("different"),
+		compat.NewUserMessage("visible"),
 	}
 	require.Equal(t, 1, findItem(
 		messages,
-		model.NewUserMessage("visible"),
+		compat.NewUserMessage("visible"),
 		0,
 		0,
 		0,
 	))
 	require.Equal(t, -1, findItem(
 		messages,
-		model.NewAssistantMessage("missing"),
+		compat.NewAssistantMessage("missing"),
 		0,
 		0,
 		0,
 	))
 
 	require.Nil(t, cloneView(nil))
-	setEffectiveMessage(nil, model.NewUserMessage("ignored"))
-	effective := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.NewAssistantMessage("old")}},
+	setEffectiveMessage(nil, compat.NewUserMessage("ignored"))
+	effective := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage("old")}},
 	}}
-	setEffectiveMessage(&effective, model.NewAssistantMessage("new"))
+	setEffectiveMessage(&effective, compat.NewAssistantMessage("new"))
 	require.Equal(
 		t,
 		"new",
@@ -687,24 +687,24 @@ func TestViewBoundaryAndBindingEdgeCases(t *testing.T) {
 
 func TestMessageIdentityMatchesStableFields(t *testing.T) {
 	require.False(t, messageIdentityMatches(
-		model.NewAssistantMessage("same"),
-		model.NewUserMessage("same"),
+		compat.NewAssistantMessage("same"),
+		compat.NewUserMessage("same"),
 	))
 	require.True(t, messageIdentityMatches(
-		model.NewToolMessage("call", "renamed", "new payload"),
-		model.NewToolMessage("call", "lookup", "old payload"),
+		compat.NewToolMessage("call", "renamed", "new payload"),
+		compat.NewToolMessage("call", "lookup", "old payload"),
 	))
 	require.False(t, messageIdentityMatches(
-		model.NewToolMessage("other", "lookup", "payload"),
-		model.NewToolMessage("call", "lookup", "payload"),
+		compat.NewToolMessage("other", "lookup", "payload"),
+		compat.NewToolMessage("call", "lookup", "payload"),
 	))
 
-	wantToolCalls := model.NewAssistantMessage("old")
-	wantToolCalls.ToolCalls = []model.ToolCall{{ID: "call"}}
-	gotToolCalls := model.NewAssistantMessage("new")
-	gotToolCalls.ToolCalls = []model.ToolCall{{
+	wantToolCalls := compat.NewAssistantMessage("old")
+	wantToolCalls.ToolCalls = []compat.ToolCall{{ID: "call"}}
+	gotToolCalls := compat.NewAssistantMessage("new")
+	gotToolCalls.ToolCalls = []compat.ToolCall{{
 		ID: "call",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "lookup",
 			Arguments: []byte(`{"query":"new"}`),
 		},
@@ -713,7 +713,7 @@ func TestMessageIdentityMatchesStableFields(t *testing.T) {
 	gotToolCalls.ToolCalls[0].ID = "other"
 	require.False(t, messageIdentityMatches(gotToolCalls, wantToolCalls))
 
-	wantContent := model.NewUserMessage("same")
+	wantContent := compat.NewUserMessage("same")
 	wantContent.ReasoningContent = "reasoning"
 	gotContent := wantContent
 	gotContent.ReasoningSignature = "provider-specific-signature"
@@ -725,6 +725,6 @@ func TestMessageIdentityMatchesStableFields(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{"first", "second"},
-		toolCallIDs([]model.ToolCall{{ID: "first"}, {ID: "second"}}),
+		toolCallIDs([]compat.ToolCall{{ID: "first"}, {ID: "second"}}),
 	)
 }

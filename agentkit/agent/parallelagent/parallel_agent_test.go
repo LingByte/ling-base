@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/graphagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -305,7 +305,7 @@ func TestParallelAgent_DisableGraphCompletionEvent_PreservesVisibleChildResponse
 		}
 	}
 	require.NotNil(t, visibleEvent)
-	require.Equal(t, model.ObjectTypeChatCompletion, visibleEvent.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visibleEvent.Object)
 	require.Equal(t, "graph-child", visibleEvent.Author)
 	require.Len(t, visibleEvent.Response.Choices, 1)
 	require.Equal(t, "child-final", visibleEvent.Response.Choices[0].Message.Content)
@@ -337,7 +337,7 @@ func TestParallelAgent_DisableGraphCompletionEvent_PreservesStateOnlyChildComple
 	var visibleEvent *event.Event
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -351,7 +351,7 @@ func TestParallelAgent_WithCallbacks(t *testing.T) {
 	callbacks := agent.NewCallbacks()
 
 	// Test before agent callback that skips execution.
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*compat.Response, error) {
 		if invocation.Message.Content == "skip" {
 			return nil, nil
 		}
@@ -369,8 +369,8 @@ func TestParallelAgent_WithCallbacks(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation-skip",
 		AgentName:    "test-parallel",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "skip",
 		},
 	}
@@ -418,7 +418,7 @@ func (f *failAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 
 func TestParallelAgent_BeforeErr(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, errors.New("bad before")
 	})
 
@@ -442,8 +442,8 @@ func TestParallelAgent_BeforeErr(t *testing.T) {
 
 func TestParallelAgent_AfterResp(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
-		return &model.Response{Object: "after", Done: true}, nil
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
+		return &compat.Response{Object: "after", Done: true}, nil
 	})
 
 	pa := newFromLegacy(legacyOptions{
@@ -468,8 +468,8 @@ func TestParallelAgent_AfterResp(t *testing.T) {
 
 func TestParallelAgent_BeforeResp(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{Object: "before", Done: true}, nil
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{Object: "before", Done: true}, nil
 	})
 
 	pa := newFromLegacy(legacyOptions{Name: "parallel", SubAgents: []agent.Agent{&silentAgent{"a"}}, AgentCallbacks: cb})
@@ -613,7 +613,7 @@ func TestParallelAgent_MultiplePanics(t *testing.T) {
 
 func TestParallelAgent_AfterCallbackError(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		return nil, errors.New("after callback failed")
 	})
 

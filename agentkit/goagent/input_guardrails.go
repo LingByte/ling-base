@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // RegexInputBlocklistPolicy validates that the input does not match
@@ -86,7 +86,7 @@ func (p *PromptInjectionDetectorPolicy) Validate(ctx context.Context, input stri
 // LLMEvaluatorInputPolicy uses a secondary language model to evaluate the safety
 // of the proposed input query.
 type LLMEvaluatorInputPolicy struct {
-	model  gomodel.Agent
+	model  compat.Model
 	prompt string
 }
 
@@ -101,7 +101,7 @@ USER QUERY TO EVALUATE:
 
 // NewLLMEvaluatorInputPolicy creates a new input safety policy that uses an LLM to evaluate inputs.
 // If promptTemplate is empty, a default evaluation prompt is used.
-func NewLLMEvaluatorInputPolicy(model gomodel.Agent, promptTemplate string) *LLMEvaluatorInputPolicy {
+func NewLLMEvaluatorInputPolicy(model compat.Model, promptTemplate string) *LLMEvaluatorInputPolicy {
 	if promptTemplate == "" {
 		promptTemplate = defaultInputEvaluatorPrompt
 	}
@@ -119,12 +119,12 @@ func (p *LLMEvaluatorInputPolicy) Validate(ctx context.Context, input string) er
 
 	evalPrompt := fmt.Sprintf(p.prompt, safeInput)
 
-	result, err := p.model.Generate(ctx, evalPrompt)
+	result, err := generateText(ctx, p.model, evalPrompt)
 	if err != nil {
 		return fmt.Errorf("input safety evaluation failed: %w", err)
 	}
 
-	verdict := strings.ToUpper(strings.TrimSpace(fmt.Sprintf("%v", result)))
+	verdict := strings.ToUpper(strings.TrimSpace(result))
 
 	if strings.Contains(verdict, "UNSAFE") {
 		return fmt.Errorf("input safety policy violation: input flagged as unsafe by LLM evaluator")

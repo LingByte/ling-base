@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 )
 
@@ -40,7 +40,7 @@ type Action struct {
 
 // TranscriptEntry is a compact transcript line used as approval evidence.
 type TranscriptEntry struct {
-	Role    model.Role
+	Role    compat.Role
 	Content string
 }
 
@@ -123,7 +123,7 @@ func (r *guardianReviewer) Review(ctx context.Context, req *Request) (*Decision,
 		ctx,
 		userID,
 		sessionID,
-		model.NewUserMessage(userMessage),
+		compat.NewUserMessage(userMessage),
 		agent.WithGlobalInstruction(systemPrompt),
 		agent.WithStructuredOutputJSON(
 			new(decisionPayload),

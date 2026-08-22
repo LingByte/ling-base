@@ -37,7 +37,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -457,7 +457,7 @@ func isStructuredTaskErrorEvent(
 }
 
 func taskErrorState(
-	respErr *model.ResponseError,
+	respErr *compat.ResponseError,
 ) protocol.TaskState {
 	if respErr != nil &&
 		respErr.Type == agent.ErrorTypeStopAgentError {
@@ -634,7 +634,7 @@ func (m *messageProcessor) sendTaskFailure(
 	if msg != nil && msg.ContextID != nil {
 		ctxID = *msg.ContextID
 	}
-	respErr := model.ResponseErrorFromError(err, model.ErrorTypeRunError)
+	respErr := compat.ResponseErrorFromError(err, compat.ErrorTypeRunError)
 	metadata := ia2a.WithResponseErrorMetadata(nil, respErr)
 	metadata[ia2a.MessageMetadataTaskStateKey] = string(protocol.TaskStateFailed)
 	if errMsg != nil {

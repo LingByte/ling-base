@@ -17,7 +17,7 @@ import (
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
 	"github.com/LingByte/ling-base/agentkit/memory/gosession"
 	memorystore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/plugins/codemode"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/providers/base"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/repository"
@@ -30,50 +30,28 @@ type stubModel struct {
 	err      error
 }
 
-func (g *stubModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	return nil, nil
-}
-func (m *stubModel) Generate(ctx context.Context, prompt string) (any, error) {
+func (m *stubModel) Info() compat.Info { return compat.Info{Name: "stub"} }
+
+func (m *stubModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
+	prompt := promptFromRequest(req)
 	trimmed := strings.TrimSpace(m.response)
 	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
-		return m.response, nil
+		return singleTextResponse(m.response), nil
 	}
-	return m.response + " | " + prompt, nil
-}
-
-func (m *stubModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	val, err := m.Generate(ctx, prompt)
-	if err != nil {
-		ch <- gomodel.StreamChunk{Err: err, Done: true}
-	} else {
-		str := fmt.Sprint(val)
-		ch <- gomodel.StreamChunk{Delta: str, FullText: str, Done: true}
-	}
-	close(ch)
-	return ch, nil
+	return singleTextResponse(m.response + " | " + prompt), nil
 }
 
 type fileEchoModel struct {
 	response string
 }
 
-func (m *fileEchoModel) Generate(ctx context.Context, prompt string) (any, error) {
-	return m.response, nil
-}
+func (m *fileEchoModel) Info() compat.Info { return compat.Info{Name: "file-echo"} }
 
-func (m *fileEchoModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	return m.response, nil
-}
-
-func (m *fileEchoModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: m.response, FullText: m.response, Done: true}
-	close(ch)
-	return ch, nil
+func (m *fileEchoModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	return singleTextResponse(m.response), nil
 }
 
 type signalingModel struct {
@@ -94,21 +72,11 @@ func (m *signalingModel) signal() {
 	}
 }
 
-func (m *signalingModel) Generate(context.Context, string) (any, error) {
-	m.signal()
-	return m.response, nil
-}
+func (m *signalingModel) Info() compat.Info { return compat.Info{Name: "signaling"} }
 
-func (m *signalingModel) GenerateWithFiles(context.Context, string, []gomodel.File) (any, error) {
+func (m *signalingModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	m.signal()
-	return m.response, nil
-}
-
-func (m *signalingModel) GenerateStream(context.Context, string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: m.response, FullText: m.response, Done: true}
-	close(ch)
-	return ch, nil
+	return singleTextResponse(m.response), nil
 }
 
 type gatedEmbedder struct {
@@ -151,63 +119,45 @@ type dynamicStubModel struct {
 	lastPrompt string // To track the last prompt received by the model
 }
 
-func (m *dynamicStubModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	m.lastPrompt = prompt
-	return m.Generate(ctx, prompt)
-}
+func (m *dynamicStubModel) Info() compat.Info { return compat.Info{Name: "dynamic-stub"} }
 
-func (m *dynamicStubModel) Generate(ctx context.Context, prompt string) (any, error) {
+func (m *dynamicStubModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	prompt := promptFromRequest(req)
 	m.lastPrompt = prompt
 	if m.err != nil {
 		return nil, m.err
 	}
 	for key, val := range m.responses {
 		if strings.Contains(prompt, key) {
-			return val, nil
+			return singleTextResponse(val), nil
 		}
 	}
-	// Default response if no specific match
-	return "default model response for: " + prompt, nil
-}
-
-func (m *dynamicStubModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	val, err := m.Generate(ctx, prompt)
-	if err != nil {
-		ch <- gomodel.StreamChunk{Err: err, Done: true}
-	} else {
-		str := fmt.Sprint(val)
-		ch <- gomodel.StreamChunk{Delta: str, FullText: str, Done: true}
-	}
-	close(ch)
-	return ch, nil
+	return singleTextResponse("default model response for: " + prompt), nil
 }
 
 type captureFilePlannerModel struct {
 	prompts []string
-	files   [][]gomodel.File
+	files   [][]File
 }
 
-func (m *captureFilePlannerModel) GenerateWithFiles(
+func (m *captureFilePlannerModel) Info() compat.Info { return compat.Info{Name: "capture-file-planner"} }
+
+func (m *captureFilePlannerModel) GenerateContent(
 	ctx context.Context,
-	prompt string,
-	files []gomodel.File,
-) (any, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	prompt := promptFromRequest(req)
 	m.prompts = append(m.prompts, prompt)
-	m.files = append(m.files, append([]gomodel.File(nil), files...))
-	return `{"use_tool": false, "final_answer": "done"}`, nil
-}
-
-func (m *captureFilePlannerModel) Generate(ctx context.Context, prompt string) (any, error) {
-	m.prompts = append(m.prompts, prompt)
-	return `{"use_tool": false, "final_answer": "done"}`, nil
-}
-
-func (m *captureFilePlannerModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: "done", FullText: "done", Done: true}
-	close(ch)
-	return ch, nil
+	var collected []File
+	for _, msg := range req.Messages {
+		for _, part := range msg.ContentParts {
+			if part.File != nil {
+				collected = append(collected, *part.File)
+			}
+		}
+	}
+	m.files = append(m.files, collected)
+	return singleTextResponse(`{"use_tool": false, "final_answer": "done"}`), nil
 }
 
 type stubUTCPClient struct {
@@ -375,9 +325,9 @@ func TestGenerateWithFilesOverlapsAttachmentEmbeddingsWithModel(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	files := []gomodel.File{
-		{Name: "first.txt", MIME: "text/plain", Data: []byte("first")},
-		{Name: "second.txt", MIME: "text/plain", Data: []byte("second")},
+	files := []File{
+		{Name: "first.txt", MimeType: "text/plain", Data: []byte("first")},
+		{Name: "second.txt", MimeType: "text/plain", Data: []byte("second")},
 	}
 	type result struct {
 		value string
@@ -440,7 +390,7 @@ func TestGenerateWithFilesOverlapsContextAndAttachmentRetrieval(t *testing.T) {
 			context.Background(),
 			"session",
 			input,
-			[]gomodel.File{{Name: "notes.txt", MIME: "text/plain", Data: []byte("notes")}},
+			[]File{{Name: "notes.txt", MimeType: "text/plain", Data: []byte("notes")}},
 		)
 		done <- result{value: value, err: generateErr}
 	}()
@@ -632,7 +582,7 @@ func TestGenerateWithFilesStoresTextAttachments(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	files := []gomodel.File{{Name: "notes.txt", MIME: "text/plain", Data: []byte("alpha beta")}}
+	files := []File{{Name: "notes.txt", MimeType: "text/plain", Data: []byte("alpha beta")}}
 	if _, err := agent.GenerateWithFiles(ctx, "session", "summarize the attachment", files); err != nil {
 		t.Fatalf("GenerateWithFiles returned error: %v", err)
 	}
@@ -684,7 +634,7 @@ func TestGenerateWithFilesStoresNonTextAttachments(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	files := []gomodel.File{{Name: "diagram.png", MIME: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}}}
+	files := []File{{Name: "diagram.png", MimeType: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}}}
 	if _, err := agent.GenerateWithFiles(ctx, "session", "summarize the attachment", files); err != nil {
 		t.Fatalf("GenerateWithFiles returned error: %v", err)
 	}
@@ -740,9 +690,9 @@ func TestGenerateWithFilesFileBackedPlannerTreatsExamplePathsAsIllustrative(t *t
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	files := []gomodel.File{{
+	files := []File{{
 		Name: "main.go",
-		MIME: "text/x-go",
+		MimeType: "text/x-go",
 		Data: []byte("package main\n\nfunc Greet() string { return \"Hello, World!\" }\n"),
 	}}
 	userInput := "Inspect the codebase to identify a refactoring opportunity. For example, read an existing file like 'pkg/service/logic.go', then refactor the target."
@@ -786,9 +736,9 @@ func TestRetrieveAttachmentFilesReturnsBinaryData(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	files := []gomodel.File{
-		{Name: "diagram.png", MIME: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}},
-		{Name: "clip.mp4", MIME: "video/mp4", Data: []byte{0x00, 0x01, 0x02}},
+	files := []File{
+		{Name: "diagram.png", MimeType: "image/png", Data: []byte{0x89, 0x50, 0x4E, 0x47}},
+		{Name: "clip.mp4", MimeType: "video/mp4", Data: []byte{0x00, 0x01, 0x02}},
 	}
 
 	if _, err := agent.GenerateWithFiles(ctx, "session", "describe media", files); err != nil {
@@ -809,8 +759,8 @@ func TestRetrieveAttachmentFilesReturnsBinaryData(t *testing.T) {
 		if file.Name != want.Name {
 			t.Fatalf("attachment %d: expected name %q, got %q", i, want.Name, file.Name)
 		}
-		if file.MIME != want.MIME {
-			t.Fatalf("attachment %d: expected MIME %q, got %q", i, want.MIME, file.MIME)
+		if file.MimeType != want.MimeType {
+			t.Fatalf("attachment %d: expected MIME %q, got %q", i, want.MimeType, file.MimeType)
 		}
 		if string(file.Data) != string(want.Data) {
 			t.Fatalf("attachment %d: expected data %v, got %v", i, want.Data, file.Data)
@@ -924,7 +874,7 @@ func TestCodeMode_ExecutesCallToolInsideDSL(t *testing.T) {
 	agent, err := New(Options{
 		Model:            model,
 		Memory:           mem,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -978,7 +928,7 @@ func TestCodeMode_ExecutesCallToolStreamInsideDSL(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1039,7 +989,7 @@ func TestCodeMode_StoresToonMemory(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 
@@ -1081,7 +1031,7 @@ func TestCodeMode_ComplexLogicAndToolChain(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1440,7 +1390,7 @@ func TestToolSpecsMergesAllSources(t *testing.T) {
 		Memory:           mem,
 		Tools:            []Tool{local},
 		UTCPClient:       utcp,
-		CodeMode:         codemode.NewCodeModeUTCP(utcp, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcp, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 
@@ -1481,7 +1431,7 @@ func TestCodeMode_SimpleExpression(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcp,
-		CodeMode:         codemode.NewCodeModeUTCP(utcp, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcp, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 
@@ -1525,7 +1475,7 @@ func TestCodeModeOrchestrator_NoToolsNeeded(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1579,7 +1529,7 @@ func TestCodeModeOrchestrator_ToolsNeededButNoneSelected(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1637,7 +1587,7 @@ func TestCodeModeOrchestrator_SnippetGenerationError(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1708,7 +1658,7 @@ __out = result
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {
@@ -1768,7 +1718,7 @@ func TestCodeMode_ExecutesCallToolInsideDSL2(t *testing.T) {
 		Model:            model,
 		Memory:           mem,
 		UTCPClient:       utcpClient,
-		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, model),
+		CodeMode:         codemode.NewCodeModeUTCP(utcpClient, &CodeModeModelAdapter{Model: model}),
 		AllowUnsafeTools: true,
 	})
 	if err != nil {

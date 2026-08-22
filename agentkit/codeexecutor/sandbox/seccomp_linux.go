@@ -568,7 +568,7 @@ func compileSeccompFilter(policy seccompArchPolicy, rules []seccompRule) ([]bpf.
 	b.jumpIf(bpf.JumpEqual, policy.auditArch, &nativeArch, nil)
 	if policy.compat != nil {
 		compatArch := labelCompatArch
-		b.jumpIf(bpf.JumpEqual, policy.compat.auditArch, &compatArch, nil)
+		b.jumpIf(bpf.JumpEqual, policy.model.auditArch, &compatArch, nil)
 	}
 	b.emit(bpf.RetConstant{Val: seccompRetKillProcess})
 	if err := b.define(labelNativeArch); err != nil {

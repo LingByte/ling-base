@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestStreamModeFilter_Disabled_AllowsEvents(t *testing.T) {
@@ -25,13 +25,13 @@ func TestStreamModeFilter_Disabled_AllowsEvents(t *testing.T) {
 
 	require.False(t, f.Allows(nil))
 	require.True(t, f.Allows(&event.Event{}))
-	require.True(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletion)))
+	require.True(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletion)))
 }
 
 func TestStreamModeFilter_EmptyModes_AllowsOnlyErrors(t *testing.T) {
 	f := NewStreamModeFilter(true, nil)
 
-	require.False(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletion)))
+	require.False(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletion)))
 	require.False(t, f.Allows(eventWithObject(ObjectTypeGraphExecution)))
 	require.True(t, f.Allows(eventWithError()))
 }
@@ -39,8 +39,8 @@ func TestStreamModeFilter_EmptyModes_AllowsOnlyErrors(t *testing.T) {
 func TestStreamModeFilter_Messages(t *testing.T) {
 	f := NewStreamModeFilter(true, []agent.StreamMode{agent.StreamModeMessages})
 
-	require.True(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletionChunk)))
-	require.True(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletion)))
+	require.True(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletionChunk)))
+	require.True(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletion)))
 	require.True(t, f.Allows(eventWithError()))
 	require.False(t, f.Allows(eventWithObject(ObjectTypeGraphExecution)))
 }
@@ -51,9 +51,9 @@ func TestStreamModeFilter_Updates(t *testing.T) {
 	require.True(t, f.Allows(eventWithObject(ObjectTypeGraphExecution)))
 	require.True(t, f.Allows(eventWithObject(ObjectTypeGraphChannelUpdate)))
 	require.True(t, f.Allows(eventWithObject(ObjectTypeGraphStateUpdate)))
-	require.True(t, f.Allows(eventWithObject(model.ObjectTypeStateUpdate)))
+	require.True(t, f.Allows(eventWithObject(compat.ObjectTypeStateUpdate)))
 	require.True(t, f.Allows(eventWithError()))
-	require.False(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletion)))
+	require.False(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletion)))
 }
 
 func TestStreamModeFilter_Checkpoints(t *testing.T) {
@@ -103,18 +103,18 @@ func TestStreamModeFilter_Debug(t *testing.T) {
 	require.True(t, f.Allows(eventWithObject(ObjectTypeGraphNodeStart)))
 	require.True(t, f.Allows(eventWithError()))
 	require.False(t, f.Allows(eventWithObject(ObjectTypeGraphStateUpdate)))
-	require.False(t, f.Allows(eventWithObject(model.ObjectTypeChatCompletion)))
+	require.False(t, f.Allows(eventWithObject(compat.ObjectTypeChatCompletion)))
 }
 
 func eventWithObject(object string) *event.Event {
-	return &event.Event{Response: &model.Response{Object: object}}
+	return &event.Event{Response: &compat.Response{Object: object}}
 }
 
 func eventWithError() *event.Event {
 	return &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeError,
-			Error:  &model.ResponseError{Message: "boom"},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeError,
+			Error:  &compat.ResponseError{Message: "boom"},
 		},
 	}
 }

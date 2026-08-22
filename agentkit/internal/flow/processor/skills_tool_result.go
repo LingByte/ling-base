@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
 
@@ -150,7 +150,7 @@ func NewSkillsToolResultRequestProcessor(
 func (p *SkillsToolResultRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil || inv == nil || inv.Session == nil {
@@ -185,7 +185,7 @@ func (p *SkillsToolResultRequestProcessor) SupportsContextCompactionRebuild(
 func (p *SkillsToolResultRequestProcessor) RebuildRequestForContextCompaction(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if req == nil || inv == nil || inv.Session == nil {
 		return
@@ -200,7 +200,7 @@ func (p *SkillsToolResultRequestProcessor) RebuildRequestForContextCompaction(
 func (p *SkillsToolResultRequestProcessor) applyLoadedSkillContext(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	repo skill.Repository,
 ) []string {
 	loaded := p.getLoadedSkills(inv)
@@ -303,12 +303,12 @@ func (p *SkillsToolResultRequestProcessor) getLoadedSkills(
 	return names
 }
 
-type toolCallIndex map[string]model.ToolCall
+type toolCallIndex map[string]compat.ToolCall
 
-func indexToolCalls(msgs []model.Message) toolCallIndex {
+func indexToolCalls(msgs []compat.Message) toolCallIndex {
 	out := make(toolCallIndex)
 	for _, m := range msgs {
-		if m.Role != model.RoleAssistant || len(m.ToolCalls) == 0 {
+		if m.Role != compat.RoleAssistant || len(m.ToolCalls) == 0 {
 			continue
 		}
 		for _, tc := range m.ToolCalls {
@@ -322,12 +322,12 @@ func indexToolCalls(msgs []model.Message) toolCallIndex {
 }
 
 func lastSkillToolMsgIndex(
-	msgs []model.Message,
+	msgs []compat.Message,
 	calls toolCallIndex,
 ) map[string]int {
 	out := make(map[string]int)
 	for idx, m := range msgs {
-		if m.Role != model.RoleTool {
+		if m.Role != compat.RoleTool {
 			continue
 		}
 		if m.ToolName != skillToolLoad &&
@@ -348,7 +348,7 @@ type skillNameInput struct {
 }
 
 func skillNameFromToolMessage(
-	m model.Message,
+	m compat.Message,
 	calls toolCallIndex,
 ) string {
 	if m.ToolID != "" {
@@ -593,7 +593,7 @@ func (p *SkillsToolResultRequestProcessor) appendSkillPathHints(
 }
 
 func (p *SkillsToolResultRequestProcessor) upsertLoadedContextMessage(
-	req *model.Request,
+	req *compat.Request,
 	content string,
 ) {
 	if req == nil {
@@ -609,12 +609,12 @@ func (p *SkillsToolResultRequestProcessor) upsertLoadedContextMessage(
 		req.Messages[idx].Content = text
 		return
 	}
-	msg := model.NewSystemMessage(text)
+	msg := compat.NewSystemMessage(text)
 	insertAfterLastSystemMessage(req, msg)
 }
 
 func (p *SkillsToolResultRequestProcessor) removeLoadedContextMessage(
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if req == nil || len(req.Messages) == 0 {
 		return
@@ -626,9 +626,9 @@ func (p *SkillsToolResultRequestProcessor) removeLoadedContextMessage(
 	req.Messages = append(req.Messages[:idx], req.Messages[idx+1:]...)
 }
 
-func findLoadedContextMessageIndex(msgs []model.Message) int {
+func findLoadedContextMessageIndex(msgs []compat.Message) int {
 	for i, m := range msgs {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -639,8 +639,8 @@ func findLoadedContextMessageIndex(msgs []model.Message) int {
 }
 
 func insertAfterLastSystemMessage(
-	req *model.Request,
-	msg model.Message,
+	req *compat.Request,
+	msg compat.Message,
 ) {
 	if req == nil {
 		return
@@ -649,12 +649,12 @@ func insertAfterLastSystemMessage(
 	if systemMsgIndex >= 0 {
 		req.Messages = append(
 			req.Messages[:systemMsgIndex+1],
-			append([]model.Message{msg},
+			append([]compat.Message{msg},
 				req.Messages[systemMsgIndex+1:]...)...,
 		)
 		return
 	}
-	req.Messages = append([]model.Message{msg}, req.Messages...)
+	req.Messages = append([]compat.Message{msg}, req.Messages...)
 }
 
 func (p *SkillsToolResultRequestProcessor) maybeOffloadLoadedSkills(
@@ -685,7 +685,7 @@ func (p *SkillsToolResultRequestProcessor) maybeOffloadLoadedSkills(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(delta),
 	))
 }

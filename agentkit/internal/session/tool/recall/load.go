@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
@@ -171,10 +171,10 @@ func loadEventWindowRequest(
 		AnchorEventID: anchorEventID,
 		Before:        before,
 		After:         after,
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 	}
 }

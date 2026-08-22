@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"golang.org/x/sync/errgroup"
@@ -46,7 +46,7 @@ type CandidateSelectRequest struct {
 	AppName   string
 	UserID    string
 	SessionID string
-	Message   model.Message
+	Message   compat.Message
 	Attempts  []*CandidateAttempt
 }
 
@@ -59,7 +59,7 @@ type CandidateAttempt struct {
 	// Events are the candidate attempt events before winner normalization.
 	Events []*event.Event
 	// FinalResponse is the last non-partial model response observed for the attempt.
-	FinalResponse *model.Response
+	FinalResponse *compat.Response
 }
 
 type candidateAttemptResult struct {
@@ -490,8 +490,8 @@ func collectCandidateEvents(
 	recorder *candidateEventRecorder,
 	events <-chan *event.Event,
 	flushChan <-chan *flush.FlushRequest,
-) (*model.Response, error) {
-	var finalResponse *model.Response
+) (*compat.Response, error) {
+	var finalResponse *compat.Response
 	for {
 		select {
 		case evt, ok := <-events:
@@ -536,8 +536,8 @@ func flushCandidateEvents(
 	attemptSession *session.Session,
 	recorder *candidateEventRecorder,
 	events <-chan *event.Event,
-) (*model.Response, error) {
-	var finalResponse *model.Response
+) (*compat.Response, error) {
+	var finalResponse *compat.Response
 	for {
 		select {
 		case evt, ok := <-events:
@@ -578,7 +578,7 @@ func appendCandidateStateUpdate(
 	evt := event.New(
 		base.InvocationID,
 		base.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(cloneStateMap(stateDelta)),
 	)
 	agent.InjectIntoEvent(base, evt)
@@ -650,7 +650,7 @@ func (a *candidateSelectorAgent) emitError(
 	evt := event.NewErrorEvent(
 		base.InvocationID,
 		base.AgentName,
-		model.ErrorTypeRunError,
+		compat.ErrorTypeRunError,
 		msg,
 	)
 	agent.InjectIntoEvent(base, evt)

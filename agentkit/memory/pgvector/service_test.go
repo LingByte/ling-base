@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	imemory "github.com/LingByte/ling-base/agentkit/memory/internal/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	storage "github.com/LingByte/ling-base/agentkit/storage/postgres"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -2693,7 +2693,7 @@ func TestService_EnqueueAutoMemoryJob_WithWorker(t *testing.T) {
 // mockMemoryExtractor implements extractor.MemoryExtractor interface.
 type mockMemoryExtractor struct{}
 
-func (m *mockMemoryExtractor) Extract(ctx context.Context, messages []model.Message, existing []*memory.Entry) ([]*extractor.Operation, error) {
+func (m *mockMemoryExtractor) Extract(ctx context.Context, messages []compat.Message, existing []*memory.Entry) ([]*extractor.Operation, error) {
 	return []*extractor.Operation{
 		{Type: extractor.OperationAdd, Memory: "test memory", Topics: []string{"test"}},
 	}, nil
@@ -2705,7 +2705,7 @@ func (m *mockMemoryExtractor) ShouldExtract(ctx *extractor.ExtractionContext) bo
 
 func (m *mockMemoryExtractor) SetPrompt(prompt string) {}
 
-func (m *mockMemoryExtractor) SetModel(md model.Model) {}
+func (m *mockMemoryExtractor) SetModel(md compat.Model) {}
 
 func (m *mockMemoryExtractor) SetEnabledTools(enabled map[string]struct{}) {}
 

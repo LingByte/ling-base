@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/metric/histogram"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
@@ -118,12 +118,12 @@ type ChatMetricsTracker struct {
 	lastReasoningTime  time.Time
 
 	// TimingInfo is response timing info that will be recorded in session and attached to events
-	timingInfo *model.TimingInfo
+	timingInfo *compat.TimingInfo
 
 	// Configuration
 	invocation       *agent.Invocation
 	sourceInvocation *agent.Invocation
-	llmRequest       *model.Request
+	llmRequest       *compat.Request
 	taskType         *string
 	err              *error // pointer to capture final error
 }
@@ -134,8 +134,8 @@ type ChatMetricsTracker struct {
 func NewChatMetricsTracker(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	timingInfo *model.TimingInfo,
+	llmRequest *compat.Request,
+	timingInfo *compat.TimingInfo,
 	taskType *string,
 	err *error,
 ) *ChatMetricsTracker {
@@ -177,7 +177,7 @@ func metricsInvocationView(invocation *agent.Invocation) *agent.Invocation {
 // TrackResponse updates telemetry state and timing info for each response chunk.
 // This method tracks both token usage metrics and timing information (FirstTokenDuration and ReasoningDuration).
 // Call this for each response received from the LLM.
-func (t *ChatMetricsTracker) TrackResponse(response *model.Response) {
+func (t *ChatMetricsTracker) TrackResponse(response *compat.Response) {
 	if response == nil {
 		return
 	}
@@ -248,14 +248,14 @@ func (t *ChatMetricsTracker) FirstTokenTimeDuration() time.Duration {
 }
 
 // GetTimingInfo returns the current TimingInfo for attaching to responses.
-func (t *ChatMetricsTracker) GetTimingInfo() *model.TimingInfo {
+func (t *ChatMetricsTracker) GetTimingInfo() *compat.TimingInfo {
 	return t.timingInfo
 }
 
 // SetInvocationState refreshes invocation-scoped tracking state for later chunks.
 func (t *ChatMetricsTracker) SetInvocationState(
 	invocation *agent.Invocation,
-	timingInfo *model.TimingInfo,
+	timingInfo *compat.TimingInfo,
 ) {
 	if t == nil {
 		return

@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestNewTimeRequestProcessor(t *testing.T) {
@@ -93,8 +93,8 @@ func TestNewTimeRequestProcessor(t *testing.T) {
 
 func TestTimeRequestProcessor_ProcessRequest_Disabled(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(false))
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 
@@ -116,8 +116,8 @@ func TestTimeRequestProcessor_ProcessRequest_Disabled(t *testing.T) {
 
 func TestTimeRequestProcessor_ProcessRequest_Enabled(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 
@@ -129,7 +129,7 @@ func TestTimeRequestProcessor_ProcessRequest_Enabled(t *testing.T) {
 	}
 
 	msg := req.Messages[0]
-	if msg.Role != model.RoleSystem {
+	if msg.Role != compat.RoleSystem {
 		t.Errorf("Expected system message, got %s", msg.Role)
 	}
 
@@ -140,9 +140,9 @@ func TestTimeRequestProcessor_ProcessRequest_Enabled(t *testing.T) {
 
 func TestTimeRequestProcessor_ProcessRequest_WithExistingSystemMessage(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("Existing system message"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("Existing system message"),
 		},
 	}
 	ch := make(chan *event.Event, 1)
@@ -166,9 +166,9 @@ func TestTimeRequestProcessor_ProcessRequest_WithExistingSystemMessage(t *testin
 
 func TestTimeRequestProcessor_RebuildRequestForContextCompaction(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("Existing system message"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("Existing system message"),
 		},
 	}
 
@@ -194,11 +194,11 @@ func TestTimeRequestProcessor_ProcessRequest_AppendsToLastSystem(
 	t *testing.T,
 ) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("system 1"),
-			model.NewSystemMessage("system 2"),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("system 1"),
+			compat.NewSystemMessage("system 2"),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	ch := make(chan *event.Event, 1)
@@ -227,11 +227,11 @@ func TestTimeRequestProcessor_ProcessRequest_SetsEmptyLastSystem(
 	t *testing.T,
 ) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("system 1"),
-			model.NewSystemMessage(""),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("system 1"),
+			compat.NewSystemMessage(""),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	ch := make(chan *event.Event, 1)
@@ -264,8 +264,8 @@ func TestTimeRequestProcessor_ProcessRequest_WithTimezone(t *testing.T) {
 		WithAddCurrentTime(true),
 		WithTimezone("UTC"),
 	)
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 
@@ -282,8 +282,8 @@ func TestTimeRequestProcessor_ProcessRequest_WithCustomFormat(t *testing.T) {
 		WithAddCurrentTime(true),
 		WithTimeFormat("2006-01-02"),
 	)
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 
@@ -301,9 +301,9 @@ func TestTimeRequestProcessor_ProcessRequest_WithCurrentTimeToolGuidance(t *test
 		WithAddCurrentTime(true),
 		WithCurrentTimeTool("environment_context_current_time", true),
 	)
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("Existing system message"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("Existing system message"),
 		},
 	}
 
@@ -323,8 +323,8 @@ func TestTimeRequestProcessor_ProcessRequest_WithCurrentTimeToolGuidance(t *test
 
 func TestTimeRequestProcessor_ProcessRequest_WithInvocation(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 	invocation := &agent.Invocation{
@@ -353,8 +353,8 @@ func TestTimeRequestProcessor_ProcessRequest_NilRequest(t *testing.T) {
 
 func TestTimeRequestProcessor_ProcessRequest_ContextCancelled(t *testing.T) {
 	processor := NewTimeRequestProcessor(WithAddCurrentTime(true))
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	ch := make(chan *event.Event, 1)
 	ctx, cancel := context.WithCancel(context.Background())

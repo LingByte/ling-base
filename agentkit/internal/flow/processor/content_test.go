@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/fileref"
 	"github.com/LingByte/ling-base/agentkit/internal/state/messageorigin"
 	"github.com/LingByte/ling-base/agentkit/internal/util/message"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -59,10 +59,10 @@ func TestContentRequestProcessor_WithAddContextPrefix(t *testing.T) {
 			// Create a test event.
 			testEvent := &event.Event{
 				Author: "test-agent",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "test content",
 							},
 						},
@@ -88,10 +88,10 @@ func TestContentRequestProcessor_DefaultBehavior(t *testing.T) {
 
 	testEvent := &event.Event{
 		Author: "test-agent",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "test content",
 					},
 				},
@@ -154,13 +154,13 @@ func TestContentRequestProcessor_ToolCalls(t *testing.T) {
 
 			testEvent := &event.Event{
 				Author: "test-agent",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "test_tool",
 											Arguments: []byte(`{"arg":"value"}`),
 										},
@@ -187,19 +187,19 @@ func TestContentRequestProcessor_RearrangeAsyncFuncRespHist_DeduplicatesMergedRe
 
 	toolCallEvent := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:       "call_0",
-								Function: model.FunctionDefinitionParam{Name: "calculator"},
+								Function: compat.FunctionDefinitionParam{Name: "calculator"},
 							},
 							{
 								ID:       "call_1",
-								Function: model.FunctionDefinitionParam{Name: "calculator"},
+								Function: compat.FunctionDefinitionParam{Name: "calculator"},
 							},
 						},
 					},
@@ -210,18 +210,18 @@ func TestContentRequestProcessor_RearrangeAsyncFuncRespHist_DeduplicatesMergedRe
 
 	mergedToolResponse := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call_0",
 						Content: "result 0",
 					},
 				},
 				{
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call_1",
 						Content: "result 1",
 					},
@@ -270,10 +270,10 @@ func TestContentRequestProcessor_ToolResponses(t *testing.T) {
 
 			testEvent := &event.Event{
 				Author: "test-agent",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "test_tool",
 								Content: "tool result",
 							},
@@ -303,8 +303,8 @@ func TestContentRequestProcessor_WithEventMessageProjector_Option(
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
+		msg compat.Message,
+	) compat.Message {
 		msg.Content = "projected"
 		return msg
 	}
@@ -317,7 +317,7 @@ func TestContentRequestProcessor_WithEventMessageProjector_Option(
 	msg := p.EventMessageProjector(
 		nil,
 		event.Event{},
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	assert.Equal(t, "projected", msg.Content)
 }
@@ -325,16 +325,16 @@ func TestContentRequestProcessor_WithEventMessageProjector_Option(
 func TestContentRequestProcessor_InjectSystemContextMessage(t *testing.T) {
 	tests := []struct {
 		name             string
-		existingMessages []model.Message
+		existingMessages []compat.Message
 		summaryContent   string
 		wantMessagesLen  int
 		wantFirstContent string
 	}{
 		{
 			name: "merges into existing non-empty system message",
-			existingMessages: []model.Message{
-				{Role: model.RoleSystem, Content: "You are a helpful assistant."},
-				{Role: model.RoleUser, Content: "Hello"},
+			existingMessages: []compat.Message{
+				{Role: compat.RoleSystem, Content: "You are a helpful assistant."},
+				{Role: compat.RoleUser, Content: "Hello"},
 			},
 			summaryContent:   "Previous conversation summary",
 			wantMessagesLen:  2,
@@ -342,9 +342,9 @@ func TestContentRequestProcessor_InjectSystemContextMessage(t *testing.T) {
 		},
 		{
 			name: "merges into existing empty system message",
-			existingMessages: []model.Message{
-				{Role: model.RoleSystem, Content: ""},
-				{Role: model.RoleUser, Content: "Hello"},
+			existingMessages: []compat.Message{
+				{Role: compat.RoleSystem, Content: ""},
+				{Role: compat.RoleUser, Content: "Hello"},
 			},
 			summaryContent:   "Previous conversation summary",
 			wantMessagesLen:  2,
@@ -352,8 +352,8 @@ func TestContentRequestProcessor_InjectSystemContextMessage(t *testing.T) {
 		},
 		{
 			name: "creates new system message when none exists",
-			existingMessages: []model.Message{
-				{Role: model.RoleUser, Content: "Hello"},
+			existingMessages: []compat.Message{
+				{Role: compat.RoleUser, Content: "Hello"},
 			},
 			summaryContent:   "Previous conversation summary",
 			wantMessagesLen:  2,
@@ -364,8 +364,8 @@ func TestContentRequestProcessor_InjectSystemContextMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewContentRequestProcessor()
-			req := &model.Request{Messages: tt.existingMessages}
-			summaryMsg := model.Message{Role: model.RoleSystem, Content: tt.summaryContent}
+			req := &compat.Request{Messages: tt.existingMessages}
+			summaryMsg := compat.Message{Role: compat.RoleSystem, Content: tt.summaryContent}
 
 			p.injectSystemContextMessage(req, summaryMsg)
 
@@ -377,10 +377,10 @@ func TestContentRequestProcessor_InjectSystemContextMessage(t *testing.T) {
 
 func TestContentRequestProcessor_InjectSystemContextMessage_NonSystemMessage(t *testing.T) {
 	p := NewContentRequestProcessor()
-	req := &model.Request{Messages: []model.Message{
-		{Role: model.RoleUser, Content: "Hello"},
+	req := &compat.Request{Messages: []compat.Message{
+		{Role: compat.RoleUser, Content: "Hello"},
 	}}
-	userMsg := model.Message{Role: model.RoleUser, Content: "Not a system message"}
+	userMsg := compat.Message{Role: compat.RoleUser, Content: "Not a system message"}
 
 	p.injectSystemContextMessage(req, userMsg)
 
@@ -394,7 +394,7 @@ func TestContentRequestProcessor_getSessionSummaryMessageWithTime(t *testing.T) 
 		name            string
 		session         *session.Session
 		includeContents string
-		expectedMsg     *model.Message
+		expectedMsg     *compat.Message
 		expectedTime    time.Time
 	}{
 		{
@@ -437,8 +437,8 @@ func TestContentRequestProcessor_getSessionSummaryMessageWithTime(t *testing.T) 
 				},
 			},
 			includeContents: BranchFilterModePrefix,
-			expectedMsg: &model.Message{
-				Role:    model.RoleSystem,
+			expectedMsg: &compat.Message{
+				Role:    compat.RoleSystem,
 				Content: NewContentRequestProcessor().formatSummary("Test summary content"),
 			},
 			expectedTime: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
@@ -458,8 +458,8 @@ func TestContentRequestProcessor_getSessionSummaryMessageWithTime(t *testing.T) 
 				},
 			},
 			includeContents: BranchFilterModeAll,
-			expectedMsg: &model.Message{
-				Role:    model.RoleSystem,
+			expectedMsg: &compat.Message{
+				Role:    compat.RoleSystem,
 				Content: NewContentRequestProcessor().formatSummary("Full session summary"),
 			},
 			expectedTime: time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
@@ -489,8 +489,8 @@ func TestContentRequestProcessor_getSessionSummaryMessageWithTime(t *testing.T) 
 			// The aggregated summary should contain both matching summaries.
 			// Note: map iteration order is not guaranteed, so we check for non-nil
 			// and verify the conservative prefix cutoff.
-			expectedMsg: &model.Message{
-				Role: model.RoleSystem,
+			expectedMsg: &compat.Message{
+				Role: compat.RoleSystem,
 				// Content will be checked separately due to non-deterministic order.
 			},
 			expectedTime: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
@@ -551,11 +551,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(-1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "old message",
 									},
 								},
@@ -565,11 +565,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "new message",
 									},
 								},
@@ -579,15 +579,15 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "tool.call",
 						Timestamp: baseTime.Add(1*time.Hour + time.Second),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role: model.RoleAssistant,
-										ToolCalls: []model.ToolCall{
+									Message: compat.Message{
+										Role: compat.RoleAssistant,
+										ToolCalls: []compat.ToolCall{
 											{
 												ID: "call_123123",
-												Function: model.FunctionDefinitionParam{
+												Function: compat.FunctionDefinitionParam{
 													Name:      "test_tool",
 													Arguments: []byte(`{"arg":"value"}`),
 												},
@@ -601,19 +601,19 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "tool.err",
 						Timestamp: baseTime.Add(1*time.Hour + 2*time.Second),
-						Response: &model.Response{
-							Object: model.ObjectTypeToolResponse,
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Object: compat.ObjectTypeToolResponse,
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:   model.RoleTool,
+									Message: compat.Message{
+										Role:   compat.RoleTool,
 										ToolID: "call_123123",
 									},
 								},
 							},
-							Error: &model.ResponseError{
+							Error: &compat.ResponseError{
 								Message: "call err",
-								Type:    model.ErrorTypeFlowError,
+								Type:    compat.ErrorTypeFlowError,
 							},
 						},
 					},
@@ -636,11 +636,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(-1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "before summary",
 									},
 								},
@@ -650,11 +650,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "after summary",
 									},
 								},
@@ -680,11 +680,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(-1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "between times",
 									},
 								},
@@ -694,11 +694,11 @@ func TestContentRequestProcessor_getFilterIncrementalMessagesWithTime(t *testing
 					{
 						Author:    "user",
 						Timestamp: baseTime.Add(1 * time.Hour),
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
-										Role:    model.RoleUser,
+									Message: compat.Message{
+										Role:    compat.RoleUser,
 										Content: "after provided time",
 									},
 								},
@@ -739,9 +739,9 @@ func TestContentRequestProcessor_getIncrementMessages_ProjectsEvents(
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
-		if msg.Role != model.RoleUser {
+		msg compat.Message,
+	) compat.Message {
+		if msg.Role != compat.RoleUser {
 			return msg
 		}
 		msg.Content = "Projected: " + msg.Content
@@ -776,9 +776,9 @@ func TestContentRequestProcessor_getIncrementMessages_DropsReasoningOnlyAssistan
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
-		if msg.Role != model.RoleAssistant {
+		msg compat.Message,
+	) compat.Message {
+		if msg.Role != compat.RoleAssistant {
 			return msg
 		}
 		msg.Content = ""
@@ -794,10 +794,10 @@ func TestContentRequestProcessor_getIncrementMessages_DropsReasoningOnlyAssistan
 			*event.NewResponseEvent(
 				"invocation-id",
 				"assistant",
-				&model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+				&compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "visible before projection",
 						},
 					}},
@@ -825,9 +825,9 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ProjectsOnce(
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
-		if msg.Role != model.RoleUser {
+		msg compat.Message,
+	) compat.Message {
+		if msg.Role != compat.RoleUser {
 			return msg
 		}
 		msg.Content = "Projected: " + msg.Content
@@ -837,9 +837,9 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ProjectsOnce(
 	evt := event.NewResponseEvent(
 		invocationID,
 		"user",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("hello"),
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("hello"),
 			}},
 		},
 	)
@@ -852,7 +852,7 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ProjectsOnce(
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationMessage(
-			model.NewUserMessage("hello"),
+			compat.NewUserMessage("hello"),
 		),
 		agent.WithInvocationEventFilterKey("test-filter"),
 	)
@@ -874,9 +874,9 @@ func TestContentRequestProcessor_ProcessRequest_ProjectsInvocationMessage(
 	projector := func(
 		inv *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
-		if inv == nil || msg.Role != model.RoleUser {
+		msg compat.Message,
+	) compat.Message {
+		if inv == nil || msg.Role != compat.RoleUser {
 			return msg
 		}
 		msg.Content = "Projected: " + msg.Content
@@ -888,10 +888,10 @@ func TestContentRequestProcessor_ProcessRequest_ProjectsInvocationMessage(
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(
-			model.NewUserMessage("hello"),
+			compat.NewUserMessage("hello"),
 		),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
@@ -1013,11 +1013,11 @@ func TestContentRequestProcessor_ConcurrentFilterIncrementalMessages(t *testing.
 			{
 				Author:    "user",
 				Timestamp: baseTime.Add(1 * time.Hour),
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleUser,
+							Message: compat.Message{
+								Role:    compat.RoleUser,
 								Content: "test message",
 							},
 						},
@@ -1251,12 +1251,12 @@ func TestContentRequestProcessor_MaxHistoryRuns_SkipsOrphanedToolResults(t *test
 
 	// Helper to create an assistant event with tool calls.
 	createToolCallEvent := func(content string, ts time.Time, toolCallIDs ...string) event.Event {
-		var toolCalls []model.ToolCall
+		var toolCalls []compat.ToolCall
 		for _, id := range toolCallIDs {
-			toolCalls = append(toolCalls, model.ToolCall{
+			toolCalls = append(toolCalls, compat.ToolCall{
 				Type: "function",
 				ID:   id,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "test_func",
 				},
 			})
@@ -1265,11 +1265,11 @@ func TestContentRequestProcessor_MaxHistoryRuns_SkipsOrphanedToolResults(t *test
 			Author:    "test-agent",
 			FilterKey: "test-filter",
 			Timestamp: ts,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:      model.RoleAssistant,
+						Message: compat.Message{
+							Role:      compat.RoleAssistant,
 							Content:   content,
 							ToolCalls: toolCalls,
 						},
@@ -1285,11 +1285,11 @@ func TestContentRequestProcessor_MaxHistoryRuns_SkipsOrphanedToolResults(t *test
 			Author:    "test-agent",
 			FilterKey: "test-filter",
 			Timestamp: ts,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleTool,
+						Message: compat.Message{
+							Role:    compat.RoleTool,
 							ToolID:  toolID,
 							Content: content,
 						},
@@ -1485,8 +1485,8 @@ func TestContentRequestProcessor_ProcessRequest_WithMaxHistoryRuns(t *testing.T)
 				agent.WithInvocationEventFilterKey("test-filter"),
 			)
 
-			req := &model.Request{
-				Messages: []model.Message{},
+			req := &compat.Request{
+				Messages: []compat.Message{},
 			}
 
 			tt.processor.ProcessRequest(context.Background(), inv, req, nil)
@@ -1505,11 +1505,11 @@ func createTestEvent(author, content string, timestamp time.Time) event.Event {
 		Author:    author,
 		Timestamp: timestamp,
 		FilterKey: "test-filter", // Set filter key to match test expectations
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: content,
 					},
 				},
@@ -1595,8 +1595,8 @@ func TestContentRequestProcessor_Integration_MaxHistoryRunsAndAddSessionSummary(
 				agent.WithInvocationEventFilterKey("test-filter"),
 			)
 
-			req := &model.Request{
-				Messages: []model.Message{},
+			req := &compat.Request{
+				Messages: []compat.Message{},
 			}
 
 			processor.ProcessRequest(context.Background(), inv, req, nil)
@@ -1604,7 +1604,7 @@ func TestContentRequestProcessor_Integration_MaxHistoryRunsAndAddSessionSummary(
 			// Count non-system messages (excluding summary if any)
 			var messageCount int
 			for _, msg := range req.Messages {
-				if msg.Role != model.RoleSystem {
+				if msg.Role != compat.RoleSystem {
 					messageCount++
 				}
 			}
@@ -1798,8 +1798,8 @@ func TestNewContentRequestProcessor(t *testing.T) {
 func TestContentRequestProcessor_mergeUserMessages(t *testing.T) {
 	tests := []struct {
 		name     string
-		messages []model.Message
-		want     []model.Message
+		messages []compat.Message
+		want     []compat.Message
 		desc     string
 	}{
 		{
@@ -1810,53 +1810,53 @@ func TestContentRequestProcessor_mergeUserMessages(t *testing.T) {
 		},
 		{
 			name: "single user message",
-			messages: []model.Message{
-				model.NewUserMessage("hello"),
+			messages: []compat.Message{
+				compat.NewUserMessage("hello"),
 			},
-			want: []model.Message{
-				model.NewUserMessage("hello"),
+			want: []compat.Message{
+				compat.NewUserMessage("hello"),
 			},
 			desc: "single message should be unchanged",
 		},
 		{
 			name: "mixed roles unchanged",
-			messages: []model.Message{
-				model.NewUserMessage("hello"),
-				model.NewAssistantMessage("hi"),
-				model.NewUserMessage("there"),
+			messages: []compat.Message{
+				compat.NewUserMessage("hello"),
+				compat.NewAssistantMessage("hi"),
+				compat.NewUserMessage("there"),
 			},
-			want: []model.Message{
-				model.NewUserMessage("hello"),
-				model.NewAssistantMessage("hi"),
-				model.NewUserMessage("there"),
+			want: []compat.Message{
+				compat.NewUserMessage("hello"),
+				compat.NewAssistantMessage("hi"),
+				compat.NewUserMessage("there"),
 			},
 			desc: "non-context user and assistant messages stay as-is",
 		},
 		{
 			name: "merge consecutive context users",
-			messages: []model.Message{
-				model.NewUserMessage(contextPrefix + " A"),
-				model.NewUserMessage(contextPrefix + " B"),
-				model.NewAssistantMessage("keep"),
+			messages: []compat.Message{
+				compat.NewUserMessage(contextPrefix + " A"),
+				compat.NewUserMessage(contextPrefix + " B"),
+				compat.NewAssistantMessage("keep"),
 			},
-			want: []model.Message{
-				model.NewUserMessage(
+			want: []compat.Message{
+				compat.NewUserMessage(
 					contextPrefix + " A" + mergedUserSeparator +
 						contextPrefix + " B",
 				),
-				model.NewAssistantMessage("keep"),
+				compat.NewAssistantMessage("keep"),
 			},
 			desc: "context user messages are merged into one",
 		},
 		{
 			name: "merge context users with content parts",
-			messages: []model.Message{
+			messages: []compat.Message{
 				{
-					Role:    model.RoleUser,
+					Role:    compat.RoleUser,
 					Content: contextPrefix + " A",
-					ContentParts: []model.ContentPart{
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: func() *string {
 								text := "part A"
 								return &text
@@ -1865,11 +1865,11 @@ func TestContentRequestProcessor_mergeUserMessages(t *testing.T) {
 					},
 				},
 				{
-					Role:    model.RoleUser,
+					Role:    compat.RoleUser,
 					Content: contextPrefix + " B",
-					ContentParts: []model.ContentPart{
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: func() *string {
 								text := "part B"
 								return &text
@@ -1878,22 +1878,22 @@ func TestContentRequestProcessor_mergeUserMessages(t *testing.T) {
 					},
 				},
 			},
-			want: []model.Message{
+			want: []compat.Message{
 				{
-					Role: model.RoleUser,
+					Role: compat.RoleUser,
 					Content: contextPrefix + " A" +
 						mergedUserSeparator +
 						contextPrefix + " B",
-					ContentParts: []model.ContentPart{
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: func() *string {
 								text := "part A"
 								return &text
 							}(),
 						},
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: func() *string {
 								text := "part B"
 								return &text
@@ -1921,9 +1921,9 @@ func TestContentRequestProcessor_mergeUserMessages_NoPrefix(t *testing.T) {
 	p := &ContentRequestProcessor{
 		AddContextPrefix: false,
 	}
-	messages := []model.Message{
-		model.NewUserMessage(contextPrefix + " one"),
-		model.NewUserMessage(contextPrefix + " two"),
+	messages := []compat.Message{
+		compat.NewUserMessage(contextPrefix + " one"),
+		compat.NewUserMessage(contextPrefix + " two"),
 	}
 
 	got := p.mergeUserMessages(messages)
@@ -1962,16 +1962,16 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 				functionResponseEvents: []event.Event{
 					{
 						Author: "agent1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool1",
 										Content: "result1",
 									},
 								},
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool2",
 										Content: "result2",
 									},
@@ -1983,16 +1983,16 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 			},
 			want: event.Event{
 				Author: "agent1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool1",
 								Content: "result1",
 							},
 						},
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool2",
 								Content: "result2",
 							},
@@ -2007,10 +2007,10 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 				functionResponseEvents: []event.Event{
 					{
 						Author: "agent1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool1",
 										Content: "result1",
 									},
@@ -2020,10 +2020,10 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 					},
 					{
 						Author: "agent2",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool2",
 										Content: "result2",
 									},
@@ -2035,16 +2035,16 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 			},
 			want: event.Event{
 				Author: "agent1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool1",
 								Content: "result1",
 							},
 						},
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool2",
 								Content: "result2",
 							},
@@ -2059,20 +2059,20 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 				functionResponseEvents: []event.Event{
 					{
 						Author: "agent1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID: "tool1",
 									},
 								},
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										Content: "result2",
 									},
 								},
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool3",
 										Content: "result3",
 									},
@@ -2084,10 +2084,10 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 			},
 			want: event.Event{
 				Author: "agent1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool3",
 								Content: "result3",
 							},
@@ -2102,15 +2102,15 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 				functionResponseEvents: []event.Event{
 					{
 						Author: "agent1",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID: "tool1",
 									},
 								},
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool2",
 										Content: "result2",
 									},
@@ -2120,16 +2120,16 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 					},
 					{
 						Author: "agent2",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool3",
 										Content: "result3",
 									},
 								},
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										Content: "result4",
 									},
 								},
@@ -2140,16 +2140,16 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 			},
 			want: event.Event{
 				Author: "agent1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool2",
 								Content: "result2",
 							},
 						},
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool3",
 								Content: "result3",
 							},
@@ -2164,14 +2164,14 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 				functionResponseEvents: []event.Event{
 					{
 						Author:   "agent1",
-						Response: &model.Response{},
+						Response: &compat.Response{},
 					},
 					{
 						Author: "agent2",
-						Response: &model.Response{
-							Choices: []model.Choice{
+						Response: &compat.Response{
+							Choices: []compat.Choice{
 								{
-									Message: model.Message{
+									Message: compat.Message{
 										ToolID:  "tool1",
 										Content: "result1",
 									},
@@ -2183,10 +2183,10 @@ func TestContentRequestProcessor_mergeFunctionResponseEvents(t *testing.T) {
 			},
 			want: event.Event{
 				Author: "agent1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:  "tool1",
 								Content: "result1",
 							},
@@ -2448,12 +2448,12 @@ func createEvent(requestID, invocationID, filterKey, content string, timestamp t
 		FilterKey:    filterKey,
 		Timestamp:    timestamp,
 		Version:      event.CurrentVersion,
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: false,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: content,
 					},
 				},
@@ -2461,12 +2461,12 @@ func createEvent(requestID, invocationID, filterKey, content string, timestamp t
 		},
 	}
 	if isPartial {
-		evt.Response = &model.Response{
+		evt.Response = &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: content,
 					},
 				},
@@ -2483,11 +2483,11 @@ func TestContentRequestProcessor_IncludeContentsNoneSkipsHistory(t *testing.T) {
 		Events: []event.Event{
 			{
 				Author: "user",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleUser,
+							Message: compat.Message{
+								Role:    compat.RoleUser,
 								Content: "old message",
 							},
 						},
@@ -2499,7 +2499,7 @@ func TestContentRequestProcessor_IncludeContentsNoneSkipsHistory(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 	)
 	inv.RunOptions = agent.RunOptions{
 		RuntimeState: map[string]any{
@@ -2507,14 +2507,14 @@ func TestContentRequestProcessor_IncludeContentsNoneSkipsHistory(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	if len(req.Messages) != 1 {
 		t.Fatalf("expected only invocation message, got %d messages", len(req.Messages))
 	}
 	msg := req.Messages[0]
-	if msg.Role != model.RoleUser || msg.Content != "current" {
+	if msg.Role != compat.RoleUser || msg.Content != "current" {
 		t.Fatalf("unexpected message: %+v", msg)
 	}
 }
@@ -2532,15 +2532,15 @@ func TestContentRequestProcessor_IncludeContentsNoneTruncatesOversizedToolResult
 				Author:       "assistant",
 				RequestID:    "req-1",
 				InvocationID: "inv-1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{
 									{
 										ID: "call-1",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "fetch",
 											Arguments: []byte(`{}`),
 										},
@@ -2555,11 +2555,11 @@ func TestContentRequestProcessor_IncludeContentsNoneTruncatesOversizedToolResult
 				Author:       "tool",
 				RequestID:    "req-1",
 				InvocationID: "inv-1",
-				Response: &model.Response{
-					Object: model.ObjectTypeToolResponse,
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Object: compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{
 						{
-							Message: model.NewToolMessage(
+							Message: compat.NewToolMessage(
 								"call-1",
 								"fetch",
 								"HEAD-"+strings.Repeat("middle-", 400)+"-TAIL",
@@ -2574,7 +2574,7 @@ func TestContentRequestProcessor_IncludeContentsNoneTruncatesOversizedToolResult
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationID("inv-1"),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			RequestID: "req-1",
 			RuntimeState: map[string]any{
@@ -2583,11 +2583,11 @@ func TestContentRequestProcessor_IncludeContentsNoneTruncatesOversizedToolResult
 		}),
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	require.Len(t, req.Messages, 3)
-	require.Equal(t, model.RoleTool, req.Messages[2].Role)
+	require.Equal(t, compat.RoleTool, req.Messages[2].Role)
 	require.Contains(t, req.Messages[2].Content, "[... ")
 	require.True(t, strings.HasPrefix(req.Messages[2].Content, "HEAD-"))
 	require.True(t, strings.HasSuffix(req.Messages[2].Content, "-TAIL"))
@@ -2610,15 +2610,15 @@ func TestContentRequestProcessor_IncludeContentsNoneRequiresEnabledForOversizedT
 				Author:       "assistant",
 				RequestID:    "req-1",
 				InvocationID: "inv-1",
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{
 									{
 										ID: "call-1",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "fetch",
 											Arguments: []byte(`{}`),
 										},
@@ -2633,11 +2633,11 @@ func TestContentRequestProcessor_IncludeContentsNoneRequiresEnabledForOversizedT
 				Author:       "tool",
 				RequestID:    "req-1",
 				InvocationID: "inv-1",
-				Response: &model.Response{
-					Object: model.ObjectTypeToolResponse,
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Object: compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{
 						{
-							Message: model.NewToolMessage("call-1", "fetch", original),
+							Message: compat.NewToolMessage("call-1", "fetch", original),
 						},
 					},
 				},
@@ -2648,7 +2648,7 @@ func TestContentRequestProcessor_IncludeContentsNoneRequiresEnabledForOversizedT
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationID("inv-1"),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			RequestID: "req-1",
 			RuntimeState: map[string]any{
@@ -2657,11 +2657,11 @@ func TestContentRequestProcessor_IncludeContentsNoneRequiresEnabledForOversizedT
 		}),
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	require.Len(t, req.Messages, 3)
-	require.Equal(t, model.RoleTool, req.Messages[2].Role)
+	require.Equal(t, compat.RoleTool, req.Messages[2].Role)
 	require.Equal(t, original, req.Messages[2].Content)
 	require.NotContains(t, req.Messages[2].Content, "[... ")
 }
@@ -2819,14 +2819,14 @@ func TestContentRequestProcessor_getIncrementMessages_ForceCleanPreservesScopedC
 			FilterKey:    "test-filter",
 			Timestamp:    baseTime,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID: toolCallID(invocationID),
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "shell",
 								Arguments: []byte(`{}`),
 							},
@@ -2844,11 +2844,11 @@ func TestContentRequestProcessor_getIncrementMessages_ForceCleanPreservesScopedC
 			FilterKey:    "test-filter",
 			Timestamp:    baseTime.Add(time.Second),
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:   true,
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						toolCallID(invocationID),
 						"shell",
 						shellPayload,
@@ -2910,7 +2910,7 @@ func TestContentRequestProcessor_getIncrementMessages_ForceCleanPreservesScopedC
 			require.Len(t, messages, 2)
 			require.Len(t, messages[0].ToolCalls, 1)
 			require.Equal(t, "shell", messages[0].ToolCalls[0].Function.Name)
-			require.Equal(t, model.RoleTool, messages[1].Role)
+			require.Equal(t, compat.RoleTool, messages[1].Role)
 			require.Equal(t, messages[0].ToolCalls[0].ID, messages[1].ToolID)
 			require.Equal(t, "shell", messages[1].ToolName)
 			require.Equal(t, shellPayload, messages[1].Content)
@@ -2931,14 +2931,14 @@ func TestContentRequestProcessor_getIncrementMessages_DoesNotInferMissingToolNam
 			FilterKey:    filterKey,
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID: reusedToolID,
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      toolName,
 								Arguments: []byte(`{}`),
 							},
@@ -2955,11 +2955,11 @@ func TestContentRequestProcessor_getIncrementMessages_DoesNotInferMissingToolNam
 		FilterKey:    "wanted",
 		Timestamp:    baseTime.Add(2 * time.Second),
 		Version:      event.CurrentVersion,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done:   true,
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					reusedToolID,
 					"",
 					strings.Repeat("shell-output-", 200),
@@ -2996,7 +2996,7 @@ func TestContentRequestProcessor_getIncrementMessages_DoesNotInferMissingToolNam
 	require.Len(t, messages, 2)
 	require.Len(t, messages[0].ToolCalls, 1)
 	require.Equal(t, "shell", messages[0].ToolCalls[0].Function.Name)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, reusedToolID, messages[1].ToolID)
 	require.Empty(t, messages[1].ToolName)
 	require.NotEqual(t, policyToolResultPlaceholder, messages[1].Content)
@@ -3030,11 +3030,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "123",
 					InvocationID: "123",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
+					Response: &compat.Response{
 						IsPartial: true,
-						Choices: []model.Choice{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
+								Delta: compat.Message{
 									Content: "test-content",
 								},
 							},
@@ -3054,10 +3054,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "123",
 					InvocationID: "123",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "",
 								},
 							},
@@ -3077,10 +3077,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "123",
 					InvocationID: "123",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3101,10 +3101,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "123",
 					InvocationID: "123",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3125,10 +3125,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "123",
 					InvocationID: "other-inv",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3150,10 +3150,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "req1",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3176,10 +3176,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3203,11 +3203,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									Role:    model.RoleUser,
+								Message: compat.Message{
+									Role:    compat.RoleUser,
 									Content: "content",
 								},
 							},
@@ -3220,8 +3220,8 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				inv := &agent.Invocation{
 					InvocationID: "inv1",
 					RunOptions:   agent.RunOptions{RequestID: "req1"},
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "content",
 					},
 				}
@@ -3238,10 +3238,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3265,10 +3265,10 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
+								Message: compat.Message{
 									Content: "content",
 								},
 							},
@@ -3292,9 +3292,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content", Role: model.RoleUser}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content", Role: compat.RoleUser}},
 						},
 					},
 					Timestamp:    baseTime,
@@ -3303,7 +3303,7 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				inv := &agent.Invocation{
 					InvocationID: "inv2",
-					Message:      model.Message{Content: "test content"},
+					Message:      compat.Message{Content: "test content"},
 					RunOptions:   agent.RunOptions{RequestID: "req2"},
 				}
 				return p, evt, inv, "", true, baseTime
@@ -3318,9 +3318,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "content1", Role: model.RoleUser}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "content1", Role: compat.RoleUser}},
 						},
 					},
 					Timestamp:    baseTime,
@@ -3329,7 +3329,7 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				inv := &agent.Invocation{
 					InvocationID: "inv2",
-					Message:      model.Message{Content: "content2"},
+					Message:      compat.Message{Content: "content2"},
 					RunOptions:   agent.RunOptions{RequestID: "req1"},
 				}
 				return p, evt, inv, "", true, baseTime
@@ -3344,9 +3344,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content", Role: model.RoleUser}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content", Role: compat.RoleUser}},
 						},
 					},
 					Timestamp:    baseTime,
@@ -3355,7 +3355,7 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				inv := &agent.Invocation{
 					InvocationID: "inv2",
-					Message:      model.Message{Content: "test content"},
+					Message:      compat.Message{Content: "test content"},
 					RunOptions:   agent.RunOptions{RequestID: "req1"},
 				}
 				return p, evt, inv, "", true, baseTime
@@ -3371,9 +3371,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3392,9 +3392,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3414,9 +3414,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					Version:   event.CurrentVersion,
 					FilterKey: "filter1",
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3435,9 +3435,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					Version:   event.CurrentVersion,
 					FilterKey: "filter/a",
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3456,9 +3456,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					Version:   event.CurrentVersion,
 					FilterKey: "filter",
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3477,9 +3477,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					Version:   event.CurrentVersion,
 					FilterKey: "filter/a",
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3498,9 +3498,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					Version:   event.CurrentVersion,
 					FilterKey: "filter/b",
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3519,9 +3519,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				}
 				evt := event.Event{
 					Version: event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{Content: "test content"}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{Content: "test content"}},
 						},
 					},
 					Timestamp: baseTime,
@@ -3543,11 +3543,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "req1",
 					InvocationID: "inv1",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "user request",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3558,9 +3558,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "req1",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "user request",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3576,11 +3576,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "req1",
 					InvocationID: "inv1",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "modified by plugin",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3591,9 +3591,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "req1",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "original content",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3607,11 +3607,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "req-old",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "old request",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3621,9 +3621,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "req-current",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "current request",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3637,11 +3637,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "req1",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "modified by plugin",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3651,9 +3651,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "req1",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "original content",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3667,11 +3667,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "req1",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "tool call response",
-								Role:    model.RoleAssistant,
+								Role:    compat.RoleAssistant,
 							}},
 						},
 					},
@@ -3681,9 +3681,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "req1",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "user request",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3698,11 +3698,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "req1",
 					InvocationID: "inv1",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "assistant tool call",
-								Role:    model.RoleAssistant,
+								Role:    compat.RoleAssistant,
 							}},
 						},
 					},
@@ -3714,9 +3714,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 						RequestID: "req1",
 					}),
 				)
-				inv.Message = model.Message{
+				inv.Message = compat.Message{
 					Content: "user request",
-					Role:    model.RoleUser,
+					Role:    compat.RoleUser,
 				}
 				return p, evt, inv, "", false, sinceTime
 			},
@@ -3730,11 +3730,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "req1",
 					InvocationID: "inv1",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: `{"result":"ok"}`,
-								Role:    model.RoleTool,
+								Role:    compat.RoleTool,
 								ToolID:  "call-1",
 							}},
 						},
@@ -3747,9 +3747,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 						RequestID: "req1",
 					}),
 				)
-				inv.Message = model.Message{
+				inv.Message = compat.Message{
 					Content: "user request",
-					Role:    model.RoleUser,
+					Role:    compat.RoleUser,
 				}
 				return p, evt, inv, "", false, sinceTime
 			},
@@ -3763,11 +3763,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RequestID:    "req1",
 					InvocationID: "inv-other",
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "other invocation reply",
-								Role:    model.RoleAssistant,
+								Role:    compat.RoleAssistant,
 							}},
 						},
 					},
@@ -3779,9 +3779,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 						RequestID: "req1",
 					}),
 				)
-				inv.Message = model.Message{
+				inv.Message = compat.Message{
 					Content: "user request",
-					Role:    model.RoleUser,
+					Role:    compat.RoleUser,
 				}
 				return p, evt, inv, "", false, sinceTime
 			},
@@ -3794,11 +3794,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "user request",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3808,9 +3808,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "user request",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3825,11 +3825,11 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 				evt := event.Event{
 					RequestID: "",
 					Version:   event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
-							{Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
+							{Message: compat.Message{
 								Content: "old request",
-								Role:    model.RoleUser,
+								Role:    compat.RoleUser,
 							}},
 						},
 					},
@@ -3839,9 +3839,9 @@ func TestContentRequestProcessor_shouldIncludeEvent(t *testing.T) {
 					RunOptions: agent.RunOptions{
 						RequestID: "",
 					},
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "different request",
-						Role:    model.RoleUser,
+						Role:    compat.RoleUser,
 					},
 				}
 				return p, evt, inv, "", false, sinceTime
@@ -3908,9 +3908,9 @@ func TestContentRequestProcessor_CurrentTurnOriginRequiresSameInvocation(
 				RequestID:    inv.RunOptions.RequestID,
 				InvocationID: tt.invocationID,
 				Timestamp:    cutoffTime.Add(-time.Hour),
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("context"),
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("context"),
 					}},
 				},
 			}
@@ -3932,40 +3932,40 @@ func TestContentRequestProcessor_CurrentTurnOriginRequiresSameInvocation(
 
 func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	userMsg := model.NewUserMessage("run the task")
-	toolCall1 := model.Message{
-		Role:             model.RoleAssistant,
+	userMsg := compat.NewUserMessage("run the task")
+	toolCall1 := compat.Message{
+		Role:             compat.RoleAssistant,
 		Content:          "Starting with step 1.",
 		ReasoningContent: "Need to execute step 1 before continuing.",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call_1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "step_worker",
 				Arguments: []byte(`{"step":1}`),
 			},
 		}},
 	}
-	toolResult1 := model.Message{
-		Role:     model.RoleTool,
+	toolResult1 := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_1",
 		ToolName: "step_worker",
 		Content:  strings.Repeat("step-1-large-result;", 20),
 	}
-	toolCall2 := model.Message{
-		Role:    model.RoleAssistant,
+	toolCall2 := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "Proceeding to step 2.",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call_2",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "step_worker",
 				Arguments: []byte(`{"step":2}`),
 			},
 		}},
 	}
-	toolResult2 := model.Message{
-		Role:     model.RoleTool,
+	toolResult2 := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_2",
 		ToolName: "step_worker",
 		Content:  "step-2-result",
@@ -3981,9 +3981,9 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 				InvocationID: "inv1",
 				Timestamp:    baseTime,
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Choices: []model.Choice{{Index: 0, Message: userMsg}},
+					Choices: []compat.Choice{{Index: 0, Message: userMsg}},
 				},
 			},
 			{
@@ -3993,9 +3993,9 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Choices: []model.Choice{{Index: 0, Message: toolCall1}},
+					Choices: []compat.Choice{{Index: 0, Message: toolCall1}},
 				},
 			},
 			{
@@ -4005,10 +4005,10 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(2 * time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Object:  model.ObjectTypeToolResponse,
-					Choices: []model.Choice{{Index: 0, Message: toolResult1}},
+					Object:  compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{{Index: 0, Message: toolResult1}},
 				},
 			},
 			{
@@ -4018,9 +4018,9 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(3 * time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Choices: []model.Choice{{Index: 0, Message: toolCall2}},
+					Choices: []compat.Choice{{Index: 0, Message: toolCall2}},
 				},
 			},
 			{
@@ -4030,10 +4030,10 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(4 * time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Object:  model.ObjectTypeToolResponse,
-					Choices: []model.Choice{{Index: 0, Message: toolResult2}},
+					Object:  compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{{Index: 0, Message: toolResult2}},
 				},
 			},
 		},
@@ -4062,14 +4062,14 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 	)
 
 	if assert.Len(t, messages, 5) {
-		assert.True(t, model.MessagesEqual(userMsg, messages[0]))
+		assert.True(t, compat.MessagesEqual(userMsg, messages[0]))
 		assert.Equal(t, toolCall1.Content, messages[1].Content)
 		assert.Equal(t, toolCall1.ReasoningContent, messages[1].ReasoningContent)
 		assert.Equal(t, "call_1", messages[1].ToolCalls[0].ID)
 		assert.JSONEq(t, `{"step":1}`, string(
 			messages[1].ToolCalls[0].Function.Arguments,
 		))
-		assert.Equal(t, model.RoleTool, messages[2].Role)
+		assert.Equal(t, compat.RoleTool, messages[2].Role)
 		assert.Equal(t, toolResult1.ToolID, messages[2].ToolID)
 		assert.Equal(t, toolResult1.ToolName, messages[2].ToolName)
 		expectedCompactedResult := recoverableToolResultPlaceholder(
@@ -4083,7 +4083,7 @@ func TestContentRequestProcessor_getIncrementMessages_BoundedResumeTail(t *testi
 		assert.NotContains(t, messages[2].Content, toolResult1.Content)
 		assert.Equal(t, toolCall2.Content, messages[3].Content)
 		assert.Equal(t, toolCall2.ToolCalls, messages[3].ToolCalls)
-		assert.True(t, model.MessagesEqual(toolResult2, messages[4]))
+		assert.True(t, compat.MessagesEqual(toolResult2, messages[4]))
 	}
 }
 
@@ -4091,19 +4091,19 @@ func TestContentRequestProcessor_getIncrementMessages_CurrentTurnSkipsResumeTail
 	t *testing.T,
 ) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	toolCall := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+	toolCall := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call_1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "step_worker",
 				Arguments: []byte(`{"step":1}`),
 			},
 		}},
 	}
-	toolResult := model.Message{
-		Role:     model.RoleTool,
+	toolResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_1",
 		ToolName: "step_worker",
 		Content:  strings.Repeat("current-turn-result;", 20),
@@ -4116,9 +4116,9 @@ func TestContentRequestProcessor_getIncrementMessages_CurrentTurnSkipsResumeTail
 			InvocationID: "inv1",
 			Timestamp:    baseTime,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
-				Choices: []model.Choice{{Message: toolCall}},
+				Choices: []compat.Choice{{Message: toolCall}},
 			},
 		},
 		{
@@ -4128,10 +4128,10 @@ func TestContentRequestProcessor_getIncrementMessages_CurrentTurnSkipsResumeTail
 			InvocationID: "inv1",
 			Timestamp:    baseTime.Add(time.Second),
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
-				Object:  model.ObjectTypeToolResponse,
-				Choices: []model.Choice{{Message: toolResult}},
+				Object:  compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{{Message: toolResult}},
 			},
 		},
 	}
@@ -4172,20 +4172,20 @@ func TestContentRequestProcessor_getIncrementMessages_CurrentTurnSkipsResumeTail
 func TestCompactResumeToolRoundPreservesCompactionSemantics(t *testing.T) {
 	arguments := []byte(`{"value":"payload"}`)
 	newTail := func(results ...string) map[int]event.Event {
-		calls := make([]model.ToolCall, 0, len(results))
-		choices := make([]model.Choice, 0, len(results))
+		calls := make([]compat.ToolCall, 0, len(results))
+		choices := make([]compat.Choice, 0, len(results))
 		for i, result := range results {
 			callID := fmt.Sprintf("call-%d", i)
-			calls = append(calls, model.ToolCall{
+			calls = append(calls, compat.ToolCall{
 				ID: callID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "worker",
 					Arguments: append([]byte(nil), arguments...),
 				},
 			})
-			choices = append(choices, model.Choice{
+			choices = append(choices, compat.Choice{
 				Index: i,
-				Message: model.NewToolMessage(
+				Message: compat.NewToolMessage(
 					callID,
 					"worker",
 					result,
@@ -4194,15 +4194,15 @@ func TestCompactResumeToolRoundPreservesCompactionSemantics(t *testing.T) {
 		}
 		return map[int]event.Event{
 			0: {
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role:      model.RoleAssistant,
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:      compat.RoleAssistant,
 						ToolCalls: calls,
 					},
 				}}},
 			},
 			1: {
-				Response: &model.Response{Choices: choices},
+				Response: &compat.Response{Choices: choices},
 			},
 		}
 	}
@@ -4304,11 +4304,11 @@ func TestCompactResumeToolRoundPreservesCompactionSemantics(t *testing.T) {
 func TestContentRequestProcessor_LatestCompleteToolRoundBeforeCutoff(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 	toolCallEvent := func(id string, callIDs ...string) event.Event {
-		calls := make([]model.ToolCall, 0, len(callIDs))
+		calls := make([]compat.ToolCall, 0, len(callIDs))
 		for _, callID := range callIDs {
-			calls = append(calls, model.ToolCall{
+			calls = append(calls, compat.ToolCall{
 				ID: callID,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "worker",
 					Arguments: []byte(`{"value":"payload"}`),
 				},
@@ -4320,14 +4320,14 @@ func TestContentRequestProcessor_LatestCompleteToolRoundBeforeCutoff(t *testing.
 			InvocationID: "inv1",
 			Timestamp:    baseTime,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:    "response-" + id,
 				Model: "provider-model",
 				Done:  true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 7,
-					Message: model.Message{
-						Role:      model.RoleAssistant,
+					Message: compat.Message{
+						Role:      compat.RoleAssistant,
 						ToolCalls: calls,
 					},
 				}},
@@ -4335,11 +4335,11 @@ func TestContentRequestProcessor_LatestCompleteToolRoundBeforeCutoff(t *testing.
 		}
 	}
 	toolResultEvent := func(id string, callIDs ...string) event.Event {
-		choices := make([]model.Choice, 0, len(callIDs))
+		choices := make([]compat.Choice, 0, len(callIDs))
 		for i, callID := range callIDs {
-			choices = append(choices, model.Choice{
+			choices = append(choices, compat.Choice{
 				Index:   i,
-				Message: model.NewToolMessage(callID, "worker", "result"),
+				Message: compat.NewToolMessage(callID, "worker", "result"),
 			})
 		}
 		return event.Event{
@@ -4348,9 +4348,9 @@ func TestContentRequestProcessor_LatestCompleteToolRoundBeforeCutoff(t *testing.
 			InvocationID: "inv1",
 			Timestamp:    baseTime,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
-				Object:  model.ObjectTypeToolResponse,
+				Object:  compat.ObjectTypeToolResponse,
 				Choices: choices,
 			},
 		}
@@ -4406,9 +4406,9 @@ func TestContentRequestProcessor_getIncrementMessages_ExactBoundaryKeepsSameTime
 				ID:        "covered",
 				Timestamp: baseTime,
 				Version:   event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{{Message: model.Message{
-						Role:    model.RoleUser,
+				Response: &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "covered",
 					}}},
 				},
@@ -4417,9 +4417,9 @@ func TestContentRequestProcessor_getIncrementMessages_ExactBoundaryKeepsSameTime
 				ID:        "same-time-tail",
 				Timestamp: baseTime,
 				Version:   event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{{Message: model.Message{
-						Role:    model.RoleAssistant,
+				Response: &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "same timestamp tail",
 					}}},
 				},
@@ -4449,7 +4449,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 		requestID string,
 		invocationID string,
 		timestamp time.Time,
-		msg model.Message,
+		msg compat.Message,
 	) event.Event {
 		return event.Event{
 			ID:           id,
@@ -4458,9 +4458,9 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 			InvocationID: invocationID,
 			Timestamp:    timestamp,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Message: msg,
 				}},
 			},
@@ -4477,7 +4477,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 		cutoff    summaryHistoryCutoff
 		configure func(*agent.Invocation)
 		projector EventMessageProjector
-		wantRole  []model.Role
+		wantRole  []compat.Role
 		wantText  []string
 	}{
 		{
@@ -4488,27 +4488,27 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("old question"),
+					compat.NewUserMessage("old question"),
 				),
 				messageEvent(
 					"latest-user",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(time.Second),
-					model.NewUserMessage("latest question"),
+					compat.NewUserMessage("latest question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(3*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(2 * time.Second),
 			),
-			wantRole: []model.Role{model.RoleUser, model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleUser, compat.RoleAssistant},
 			wantText: []string{"latest question", "answer"},
 		},
 		{
@@ -4519,21 +4519,21 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("question"),
+					compat.NewUserMessage("question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoff{
 				at:          baseTime,
 				lastEventID: "user",
 			},
-			wantRole: []model.Role{model.RoleUser, model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleUser, compat.RoleAssistant},
 			wantText: []string{"question", "answer"},
 		},
 		{
@@ -4544,30 +4544,30 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("question"),
+					compat.NewUserMessage("question"),
 				),
 				messageEvent(
 					"system",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewSystemMessage("system context"),
+					compat.NewSystemMessage("system context"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(3*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{
-				model.RoleSystem,
-				model.RoleUser,
-				model.RoleAssistant,
+			wantRole: []compat.Role{
+				compat.RoleSystem,
+				compat.RoleUser,
+				compat.RoleAssistant,
 			},
 			wantText: []string{"system context", "question", "answer"},
 		},
@@ -4579,20 +4579,20 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.Message{Content: "question"},
+					compat.Message{Content: "question"},
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{"", model.RoleAssistant},
+			wantRole: []compat.Role{"", compat.RoleAssistant},
 			wantText: []string{"question", "answer"},
 		},
 		{
@@ -4603,27 +4603,27 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("covered question"),
+					compat.NewUserMessage("covered question"),
 				),
 				messageEvent(
 					"retained-user",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewUserMessage("retained question"),
+					compat.NewUserMessage("retained question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(3*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{model.RoleUser, model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleUser, compat.RoleAssistant},
 			wantText: []string{"retained question", "answer"},
 		},
 		{
@@ -4634,20 +4634,20 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("unrelated question"),
+					compat.NewUserMessage("unrelated question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-2",
 					"invocation-2",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleAssistant},
 			wantText: []string{"answer"},
 		},
 		{
@@ -4658,20 +4658,20 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("legacy question"),
+					compat.NewUserMessage("legacy question"),
 				),
 				messageEvent(
 					"legacy-assistant",
 					"",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{model.RoleUser, model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleUser, compat.RoleAssistant},
 			wantText: []string{"legacy question", "answer"},
 		},
 		{
@@ -4682,20 +4682,20 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("unrelated question"),
+					compat.NewUserMessage("unrelated question"),
 				),
 				messageEvent(
 					"legacy-assistant",
 					"",
 					"invocation-2",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleAssistant},
 			wantText: []string{"answer"},
 		},
 		{
@@ -4706,20 +4706,20 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"",
 					baseTime,
-					model.NewUserMessage("question"),
+					compat.NewUserMessage("question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
 				baseTime.Add(time.Second),
 			),
-			wantRole: []model.Role{model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleAssistant},
 			wantText: []string{"answer"},
 		},
 		{
@@ -4730,14 +4730,14 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("question"),
+					compat.NewUserMessage("question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
@@ -4746,9 +4746,9 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 			projector: func(
 				_ *agent.Invocation,
 				_ event.Event,
-				msg model.Message,
-			) model.Message {
-				if msg.Role == model.RoleAssistant {
+				msg compat.Message,
+			) compat.Message {
+				if msg.Role == compat.RoleAssistant {
 					msg.Content = ""
 				}
 				return msg
@@ -4762,14 +4762,14 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 					"request-1",
 					"invocation-1",
 					baseTime,
-					model.NewUserMessage("seed question"),
+					compat.NewUserMessage("seed question"),
 				),
 				messageEvent(
 					"assistant",
 					"request-1",
 					"invocation-1",
 					baseTime.Add(2*time.Second),
-					model.NewAssistantMessage("answer"),
+					compat.NewAssistantMessage("answer"),
 				),
 			},
 			cutoff: summaryHistoryCutoffFromTime(
@@ -4778,7 +4778,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 			configure: func(inv *agent.Invocation) {
 				messageorigin.MarkSeedHistory(inv, "seed-user")
 			},
-			wantRole: []model.Role{model.RoleAssistant},
+			wantRole: []compat.Role{compat.RoleAssistant},
 			wantText: []string{"answer"},
 		},
 		{
@@ -4790,7 +4790,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 						"request-1",
 						"invocation-1",
 						baseTime,
-						model.NewUserMessage("question"),
+						compat.NewUserMessage("question"),
 					),
 					"user",
 				),
@@ -4800,7 +4800,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 						"request-1",
 						"invocation-1",
 						baseTime.Add(2*time.Second),
-						model.NewAssistantMessage("answer"),
+						compat.NewAssistantMessage("answer"),
 					),
 					"other-agent",
 				),
@@ -4811,7 +4811,7 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 			configure: func(inv *agent.Invocation) {
 				inv.AgentName = "current-agent"
 			},
-			wantRole: []model.Role{model.RoleUser},
+			wantRole: []compat.Role{compat.RoleUser},
 			wantText: []string{"For context: [other-agent] said: answer"},
 		},
 	}
@@ -4846,12 +4846,12 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserAcrossSummaryC
 
 func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinuation(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	toolCall := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+	toolCall := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "lookup",
 				Arguments: []byte(`{"query":"status"}`),
 			},
@@ -4865,10 +4865,10 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinu
 			InvocationID: "invocation-1",
 			Timestamp:    baseTime,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage("check status"),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage("check status"),
 				}},
 			},
 		},
@@ -4879,9 +4879,9 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinu
 			InvocationID: "invocation-1",
 			Timestamp:    baseTime.Add(time.Second),
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Message: toolCall,
 				}},
 			},
@@ -4893,11 +4893,11 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinu
 			InvocationID: "invocation-1",
 			Timestamp:    baseTime.Add(3 * time.Second),
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:   true,
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"call-1",
 						"lookup",
 						"ready",
@@ -4918,12 +4918,12 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinu
 	)
 
 	require.Len(t, messages, 3)
-	assert.Equal(t, model.RoleUser, messages[0].Role)
+	assert.Equal(t, compat.RoleUser, messages[0].Role)
 	assert.Equal(t, "check status", messages[0].Content)
-	assert.Equal(t, model.RoleAssistant, messages[1].Role)
+	assert.Equal(t, compat.RoleAssistant, messages[1].Role)
 	require.Len(t, messages[1].ToolCalls, 1)
 	assert.Equal(t, "call-1", messages[1].ToolCalls[0].ID)
-	assert.Equal(t, model.RoleTool, messages[2].Role)
+	assert.Equal(t, compat.RoleTool, messages[2].Role)
 	assert.Equal(t, "ready", messages[2].Content)
 
 	omitted := NewContentRequestProcessor(
@@ -4939,15 +4939,15 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresUserForToolContinu
 
 func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToolCall(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	toolCall := model.Message{
-		Role:             model.RoleAssistant,
+	toolCall := compat.Message{
+		Role:             compat.RoleAssistant,
 		Content:          "covered assistant text",
 		ReasoningContent: "covered reasoning",
-		ToolCalls: []model.ToolCall{
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"covered"}`),
 				},
@@ -4955,21 +4955,21 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToo
 			{
 				Type: "function",
 				ID:   "call_2",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"needed"}`),
 				},
 			},
 		},
 	}
-	coveredToolResult := model.Message{
-		Role:     model.RoleTool,
+	coveredToolResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_1",
 		ToolName: "lookup",
 		Content:  "covered",
 	}
-	neededToolResult := model.Message{
-		Role:     model.RoleTool,
+	neededToolResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_2",
 		ToolName: "lookup",
 		Content:  "ok",
@@ -4983,9 +4983,9 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToo
 				InvocationID: "inv1",
 				Timestamp:    baseTime,
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Choices: []model.Choice{{Index: 0, Message: toolCall}},
+					Choices: []compat.Choice{{Index: 0, Message: toolCall}},
 				},
 			},
 			{
@@ -4994,10 +4994,10 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToo
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(500 * time.Millisecond),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:    true,
-					Object:  model.ObjectTypeToolResponse,
-					Choices: []model.Choice{{Index: 0, Message: coveredToolResult}},
+					Object:  compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{{Index: 0, Message: coveredToolResult}},
 				},
 			},
 			{
@@ -5006,10 +5006,10 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToo
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(2 * time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done:   true,
-					Object: model.ObjectTypeToolResponse,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{
 						{Index: 0, Message: coveredToolResult},
 						{Index: 1, Message: neededToolResult},
 					},
@@ -5028,51 +5028,51 @@ func TestContentRequestProcessor_getIncrementMessages_RestoresNeededPreCutoffToo
 	messages := p.getIncrementMessages(inv, cutoff)
 
 	require.Len(t, messages, 2)
-	assert.Equal(t, model.RoleAssistant, messages[0].Role)
+	assert.Equal(t, compat.RoleAssistant, messages[0].Role)
 	assert.Empty(t, messages[0].Content)
 	assert.Empty(t, messages[0].ReasoningContent)
 	require.Len(t, messages[0].ToolCalls, 1)
 	assert.Equal(t, "call_2", messages[0].ToolCalls[0].ID)
-	assert.Equal(t, model.RoleTool, messages[1].Role)
+	assert.Equal(t, compat.RoleTool, messages[1].Role)
 	assert.Equal(t, "call_2", messages[1].ToolID)
 	assert.Equal(t, "ok", messages[1].Content)
 }
 
 func TestContentRequestProcessor_getIncrementMessages_DoesNotRestoreReusedToolCallID(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	makeToolCall := func(content string) model.Message {
-		return model.Message{
-			Role:    model.RoleAssistant,
+	makeToolCall := func(content string) compat.Message {
+		return compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: content,
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
 				ID:   "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"status"}`),
 				},
 			}},
 		}
 	}
-	makeToolResult := func(content string) model.Message {
-		return model.Message{
-			Role:     model.RoleTool,
+	makeToolResult := func(content string) compat.Message {
+		return compat.Message{
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "lookup",
 			Content:  content,
 		}
 	}
-	makeEvent := func(ts time.Time, msg model.Message, object string) event.Event {
+	makeEvent := func(ts time.Time, msg compat.Message, object string) event.Event {
 		return event.Event{
 			Author:       "test-agent",
 			RequestID:    "req1",
 			InvocationID: "inv1",
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
 				Object:  object,
-				Choices: []model.Choice{{Index: 0, Message: msg}},
+				Choices: []compat.Choice{{Index: 0, Message: msg}},
 			},
 		}
 	}
@@ -5083,13 +5083,13 @@ func TestContentRequestProcessor_getIncrementMessages_DoesNotRestoreReusedToolCa
 			makeEvent(
 				baseTime.Add(500*time.Millisecond),
 				makeToolResult("old result"),
-				model.ObjectTypeToolResponse,
+				compat.ObjectTypeToolResponse,
 			),
 			makeEvent(baseTime.Add(2*time.Second), makeToolCall("new call"), ""),
 			makeEvent(
 				baseTime.Add(3*time.Second),
 				makeToolResult("new result"),
-				model.ObjectTypeToolResponse,
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5105,21 +5105,21 @@ func TestContentRequestProcessor_getIncrementMessages_DoesNotRestoreReusedToolCa
 
 	require.Len(t, messages, 2)
 	assert.Equal(t, "new call", messages[0].Content)
-	assert.Equal(t, model.RoleAssistant, messages[0].Role)
-	assert.Equal(t, model.RoleTool, messages[1].Role)
+	assert.Equal(t, compat.RoleAssistant, messages[0].Role)
+	assert.Equal(t, compat.RoleTool, messages[1].Role)
 	assert.Equal(t, "new result", messages[1].Content)
 }
 
 func TestContentRequestProcessor_getIncrementMessages_MixedToolContinuationPreservesRoundResults(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	userMsg := model.NewUserMessage("Please calculate 17 + 25 and ask external_note for topic mixed-tools-demo.")
-	toolCallMsg := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	userMsg := compat.NewUserMessage("Please calculate 17 + 25 and ask external_note for topic mixed-tools-demo.")
+	toolCallMsg := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   "call_calc",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "calculator",
 					Arguments: []byte(`{"a":17,"b":25,"operation":"add"}`),
 				},
@@ -5127,26 +5127,26 @@ func TestContentRequestProcessor_getIncrementMessages_MixedToolContinuationPrese
 			{
 				Type: "function",
 				ID:   "call_external",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "external_note",
 					Arguments: []byte(`{"topic":"mixed-tools-demo"}`),
 				},
 			},
 		},
 	}
-	calculatorResult := model.Message{
-		Role:     model.RoleTool,
+	calculatorResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_calc",
 		ToolName: "calculator",
 		Content:  `{"result":42}`,
 	}
-	externalResult := model.Message{
-		Role:     model.RoleTool,
+	externalResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_external",
 		ToolName: "external_note",
 		Content:  "verified-by-caller",
 	}
-	createEvent := func(requestID, invocationID, author string, ts time.Time, msg model.Message, object string) event.Event {
+	createEvent := func(requestID, invocationID, author string, ts time.Time, msg compat.Message, object string) event.Event {
 		return event.Event{
 			Author:       author,
 			RequestID:    requestID,
@@ -5154,10 +5154,10 @@ func TestContentRequestProcessor_getIncrementMessages_MixedToolContinuationPrese
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
 			FilterKey:    "test-filter",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
 				Object:  object,
-				Choices: []model.Choice{{Index: 0, Message: msg}},
+				Choices: []compat.Choice{{Index: 0, Message: msg}},
 			},
 		}
 	}
@@ -5166,8 +5166,8 @@ func TestContentRequestProcessor_getIncrementMessages_MixedToolContinuationPrese
 		Events: []event.Event{
 			createEvent("req1", "inv1", "user", baseTime, userMsg, ""),
 			createEvent("req1", "inv1", "test-agent", baseTime.Add(time.Second), toolCallMsg, ""),
-			createEvent("req1", "inv1", "test-agent", baseTime.Add(2*time.Second), calculatorResult, model.ObjectTypeToolResponse),
-			createEvent("req2", "inv2", "test-agent", baseTime.Add(3*time.Second), externalResult, model.ObjectTypeToolResponse),
+			createEvent("req1", "inv1", "test-agent", baseTime.Add(2*time.Second), calculatorResult, compat.ObjectTypeToolResponse),
+			createEvent("req2", "inv2", "test-agent", baseTime.Add(3*time.Second), externalResult, compat.ObjectTypeToolResponse),
 		},
 	}
 	inv := agent.NewInvocation(
@@ -5181,14 +5181,14 @@ func TestContentRequestProcessor_getIncrementMessages_MixedToolContinuationPrese
 	p := NewContentRequestProcessor()
 	messages := p.getIncrementMessages(inv, time.Time{})
 	require.Len(t, messages, 4)
-	require.True(t, model.MessagesEqual(userMsg, messages[0]))
-	require.Equal(t, model.RoleAssistant, messages[1].Role)
+	require.True(t, compat.MessagesEqual(userMsg, messages[0]))
+	require.Equal(t, compat.RoleAssistant, messages[1].Role)
 	require.Len(t, messages[1].ToolCalls, 2)
 	assert.ElementsMatch(t, []string{"call_calc", "call_external"}, []string{messages[1].ToolCalls[0].ID, messages[1].ToolCalls[1].ID})
-	require.Equal(t, model.RoleTool, messages[2].Role)
+	require.Equal(t, compat.RoleTool, messages[2].Role)
 	require.Equal(t, "call_calc", messages[2].ToolID)
 	require.Equal(t, `{"result":42}`, messages[2].Content)
-	require.Equal(t, model.RoleTool, messages[3].Role)
+	require.Equal(t, compat.RoleTool, messages[3].Role)
 	require.Equal(t, "call_external", messages[3].ToolID)
 	require.Equal(t, "verified-by-caller", messages[3].Content)
 }
@@ -5201,8 +5201,8 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepAllByDefault(t *testing.T
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewToolMessage("call_1", "lookup", "result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5216,9 +5216,9 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepAllByDefault(t *testing.T
 	messages := NewContentRequestProcessor().getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 1)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_1", messages[1].ToolID)
 }
 
@@ -5230,13 +5230,13 @@ func TestContentRequestProcessor_ToolTranscriptModeOmitPreviousCompleted(t *test
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewToolMessage("call_1", "lookup", "result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "result"),
+				compat.ObjectTypeToolResponse,
 			),
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewAssistantMessage("final answer"),
+				compat.NewAssistantMessage("final answer"),
 				"",
 			),
 		},
@@ -5253,7 +5253,7 @@ func TestContentRequestProcessor_ToolTranscriptModeOmitPreviousCompleted(t *test
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Equal(t, "final answer", messages[0].Content)
 	require.Empty(t, messages[0].ToolCalls)
 }
@@ -5266,13 +5266,13 @@ func TestContentRequestProcessor_ToolTranscriptModeOmitsPreviousRequestInSameInv
 			toolTranscriptTestEvent(
 				"req1",
 				"inv2",
-				model.NewToolMessage("call_1", "lookup", "result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "result"),
+				compat.ObjectTypeToolResponse,
 			),
 			toolTranscriptTestEvent(
 				"req1",
 				"inv2",
-				model.NewAssistantMessage("final answer"),
+				compat.NewAssistantMessage("final answer"),
 				"",
 			),
 		},
@@ -5289,7 +5289,7 @@ func TestContentRequestProcessor_ToolTranscriptModeOmitsPreviousRequestInSameInv
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Equal(t, "final answer", messages[0].Content)
 	require.Empty(t, messages[0].ToolCalls)
 }
@@ -5302,8 +5302,8 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsCurrentRequest(t *testin
 			toolTranscriptTestEvent(
 				"req2",
 				"inv2",
-				model.NewToolMessage("call_1", "lookup", "result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5319,9 +5319,9 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsCurrentRequest(t *testin
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 1)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_1", messages[1].ToolID)
 }
 
@@ -5344,19 +5344,19 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsIncompletePreviousCall(t
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 1)
 	require.Equal(t, "call_1", messages[0].ToolCalls[0].ID)
 }
 
 func TestContentRequestProcessor_ToolTranscriptModeKeepsPartiallyCompletedPreviousCall(t *testing.T) {
-	toolCallMsg := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	toolCallMsg := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"first"}`),
 				},
@@ -5364,7 +5364,7 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsPartiallyCompletedPrevio
 			{
 				Type: "function",
 				ID:   "call_2",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"second"}`),
 				},
@@ -5378,8 +5378,8 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsPartiallyCompletedPrevio
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewToolMessage("call_1", "lookup", "first result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "first result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5395,9 +5395,9 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsPartiallyCompletedPrevio
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 2)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_1", messages[1].ToolID)
 }
 
@@ -5409,8 +5409,8 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsPreviousCallWithCurrentR
 			toolTranscriptTestEvent(
 				"req2",
 				"inv2",
-				model.NewToolMessage("call_1", "lookup", "current result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "current result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5426,21 +5426,21 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsPreviousCallWithCurrentR
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 2)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 1)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_1", messages[1].ToolID)
 	require.Equal(t, "current result", messages[1].Content)
 }
 
 func TestContentRequestProcessor_ToolTranscriptModeKeepsMultiToolCallWithCurrentResult(t *testing.T) {
-	toolCallMsg := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	toolCallMsg := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"old"}`),
 				},
@@ -5448,7 +5448,7 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsMultiToolCallWithCurrent
 			{
 				Type: "function",
 				ID:   "call_2",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"current"}`),
 				},
@@ -5462,14 +5462,14 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsMultiToolCallWithCurrent
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewToolMessage("call_1", "lookup", "old result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "old result"),
+				compat.ObjectTypeToolResponse,
 			),
 			toolTranscriptTestEvent(
 				"req2",
 				"inv2",
-				model.NewToolMessage("call_2", "lookup", "current result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_2", "lookup", "current result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5485,12 +5485,12 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsMultiToolCallWithCurrent
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 3)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 2)
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_1", messages[1].ToolID)
 	require.Equal(t, "old result", messages[1].Content)
-	require.Equal(t, model.RoleTool, messages[2].Role)
+	require.Equal(t, compat.RoleTool, messages[2].Role)
 	require.Equal(t, "call_2", messages[2].ToolID)
 	require.Equal(t, "current result", messages[2].Content)
 }
@@ -5503,8 +5503,8 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsAssistantText(t *testing
 			toolTranscriptTestEvent(
 				"req1",
 				"inv1",
-				model.NewToolMessage("call_1", "lookup", "result"),
-				model.ObjectTypeToolResponse,
+				compat.NewToolMessage("call_1", "lookup", "result"),
+				compat.ObjectTypeToolResponse,
 			),
 		},
 	}
@@ -5520,7 +5520,7 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsAssistantText(t *testing
 	).getIncrementMessages(inv, time.Time{})
 
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Equal(t, "I will check.", messages[0].Content)
 	require.Empty(t, messages[0].ToolCalls)
 }
@@ -5529,12 +5529,12 @@ func TestContentRequestProcessor_ToolTranscriptModeKeepsUnmatchedResultChoices(t
 	resultEvent := toolTranscriptTestEvent(
 		"req1",
 		"inv1",
-		model.Message{},
-		model.ObjectTypeToolResponse,
+		compat.Message{},
+		compat.ObjectTypeToolResponse,
 	)
-	resultEvent.Response.Choices = []model.Choice{
-		{Message: model.NewToolMessage("call_1", "lookup", "old result")},
-		{Message: model.NewToolMessage("call_extra", "lookup", "kept result")},
+	resultEvent.Response.Choices = []compat.Choice{
+		{Message: compat.NewToolMessage("call_1", "lookup", "old result")},
+		{Message: compat.NewToolMessage("call_extra", "lookup", "kept result")},
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv2"),
@@ -5589,8 +5589,8 @@ func TestContentRequestProcessor_ToolTranscriptModeHelperBranches(t *testing.T) 
 		[]event.Event{toolTranscriptTestEvent(
 			"req1",
 			"inv1",
-			model.NewToolMessage("call_1", "lookup", "result"),
-			model.ObjectTypeToolResponse,
+			compat.NewToolMessage("call_1", "lookup", "result"),
+			compat.ObjectTypeToolResponse,
 		)},
 		[]matchedToolResponseEvent{
 			{eventIndex: -1, choiceIndices: []int{0}},
@@ -5604,15 +5604,15 @@ func TestContentRequestProcessor_ToolTranscriptModeHelperBranches(t *testing.T) 
 	require.False(t, keep)
 }
 
-func toolTranscriptTestCall(id string, content string) model.Message {
-	return model.Message{
-		Role:    model.RoleAssistant,
+func toolTranscriptTestCall(id string, content string) compat.Message {
+	return compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: content,
-		ToolCalls: []model.ToolCall{
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   id,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"q":"status"}`),
 				},
@@ -5624,7 +5624,7 @@ func toolTranscriptTestCall(id string, content string) model.Message {
 func toolTranscriptTestEvent(
 	requestID string,
 	invocationID string,
-	msg model.Message,
+	msg compat.Message,
 	object string,
 ) event.Event {
 	return event.Event{
@@ -5632,10 +5632,10 @@ func toolTranscriptTestEvent(
 		RequestID:    requestID,
 		InvocationID: invocationID,
 		Version:      event.CurrentVersion,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done:    true,
 			Object:  object,
-			Choices: []model.Choice{{Index: 0, Message: msg}},
+			Choices: []compat.Choice{{Index: 0, Message: msg}},
 		},
 	}
 }
@@ -5647,22 +5647,22 @@ func TestInsertInvocationMessage(t *testing.T) {
 			RunOptions: agent.RunOptions{
 				RequestID: requestID,
 			},
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: content,
 			},
 		}
 	}
 
-	createEvent := func(requestID, invocationID string, message *model.Message) event.Event {
+	createEvent := func(requestID, invocationID string, message *compat.Message) event.Event {
 		evt := event.Event{
 			InvocationID: invocationID,
 			RequestID:    requestID,
-			Response:     &model.Response{},
+			Response:     &compat.Response{},
 		}
 		if message != nil {
-			evt.Response = &model.Response{
-				Choices: []model.Choice{
+			evt.Response = &compat.Response{
+				Choices: []compat.Choice{
 					{Message: *message},
 				},
 			}
@@ -5688,8 +5688,8 @@ func TestInsertInvocationMessage(t *testing.T) {
 			name:       "empty events slice with non-empty content should insert new event",
 			events:     []event.Event{},
 			invocation: createInvocation("inv1", "req1", "Hello"),
-			wantEvents: []event.Event{createEvent("req1", "inv1", &model.Message{
-				Role:    model.RoleUser,
+			wantEvents: []event.Event{createEvent("req1", "inv1", &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello",
 			})},
 			wantLength: 1,
@@ -5713,8 +5713,8 @@ func TestInsertInvocationMessage(t *testing.T) {
 			invocation: createInvocation("inv2", "req1", "Inserted message"),
 			wantEvents: []event.Event{
 				createEvent("req1", "inv1", nil),
-				createEvent("req1", "inv2", &model.Message{
-					Role:    model.RoleUser,
+				createEvent("req1", "inv2", &compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Inserted message",
 				}),
 				createEvent("req1", "inv2", nil),
@@ -5733,8 +5733,8 @@ func TestInsertInvocationMessage(t *testing.T) {
 			wantEvents: []event.Event{
 				createEvent("req1", "inv1", nil),
 				createEvent("req2", "inv3", nil),
-				createEvent("req1", "inv2", &model.Message{
-					Role:    model.RoleUser,
+				createEvent("req1", "inv2", &compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Message for inv2",
 				}),
 				createEvent("req1", "inv2", nil),
@@ -5747,8 +5747,8 @@ func TestInsertInvocationMessage(t *testing.T) {
 			invocation: createInvocation("inv1", "req1", "Test message"),
 			wantLength: 1,
 			wantEvents: []event.Event{
-				createEvent("req1", "inv1", &model.Message{
-					Role:    model.RoleUser,
+				createEvent("req1", "inv1", &compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Test message",
 				}),
 			},
@@ -5800,15 +5800,15 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 			InvocationID: invocationID,
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{
 								{
 									ID: toolCallID,
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      "test_tool",
 										Arguments: []byte(`{"arg":"value"}`),
 									},
@@ -5828,12 +5828,12 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 			InvocationID: invocationID,
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleTool,
+						Message: compat.Message{
+							Role:    compat.RoleTool,
 							ToolID:  toolID,
 							Content: content,
 						},
@@ -5850,19 +5850,19 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 			InvocationID: invocationID,
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:   model.RoleTool,
+						Message: compat.Message{
+							Role:   compat.RoleTool,
 							ToolID: toolID,
 						},
 					},
 				},
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Message: errmsg,
-					Type:    model.ErrorTypeFlowError,
+					Type:    compat.ErrorTypeFlowError,
 				},
 			},
 		}
@@ -5875,11 +5875,11 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 			InvocationID: invocationID,
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: content,
 						},
 					},
@@ -5934,12 +5934,12 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 					InvocationID: "inv1",
 					Timestamp:    baseTime.Add(time.Second),
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
+					Response: &compat.Response{
 						IsPartial: true,
-						Choices: []model.Choice{
+						Choices: []compat.Choice{
 							{
-								Delta: model.Message{
-									Role:    model.RoleAssistant,
+								Delta: compat.Message{
+									Role:    compat.RoleAssistant,
 									Content: "partial",
 								},
 							},
@@ -5988,11 +5988,11 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 					InvocationID: "inv1",
 					Timestamp:    baseTime,
 					Version:      event.CurrentVersion,
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									Role:    model.RoleUser,
+								Message: compat.Message{
+									Role:    compat.RoleUser,
 									Content: "user query",
 								},
 							},
@@ -6059,8 +6059,8 @@ func TestContentRequestProcessor_getCurrentInvocationMessages(t *testing.T) {
 				InvocationID: tt.invocationID,
 				AgentName:    tt.agentName,
 				Session:      sess,
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: tt.invMessage,
 				},
 			}
@@ -6097,9 +6097,9 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 				InvocationID: "parent_inv",
 				Timestamp:    baseTime,
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{
-						{Message: model.Message{Role: model.RoleAssistant, Content: "parent message"}},
+				Response: &compat.Response{
+					Choices: []compat.Choice{
+						{Message: compat.Message{Role: compat.RoleAssistant, Content: "parent message"}},
 					},
 				},
 			},
@@ -6109,15 +6109,15 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 				InvocationID: "subagent_inv",
 				Timestamp:    baseTime.Add(time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{
 									{
 										ID: "tool_call_1",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "search",
 											Arguments: []byte(`{"query":"test"}`),
 										},
@@ -6134,12 +6134,12 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 				InvocationID: "subagent_inv",
 				Timestamp:    baseTime.Add(2 * time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
-					Object: model.ObjectTypeToolResponse,
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Object: compat.ObjectTypeToolResponse,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:    model.RoleTool,
+							Message: compat.Message{
+								Role:    compat.RoleTool,
 								ToolID:  "tool_call_1",
 								Content: "search result",
 							},
@@ -6155,8 +6155,8 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 		InvocationID: "subagent_inv",
 		AgentName:    "subagent",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "do something",
 		},
 	}
@@ -6174,7 +6174,7 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 		if len(msg.ToolCalls) > 0 {
 			hasToolCall = true
 		}
-		if msg.Role == model.RoleTool && msg.ToolID != "" {
+		if msg.Role == compat.RoleTool && msg.ToolID != "" {
 			hasToolResult = true
 		}
 	}
@@ -6185,27 +6185,27 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_IsolatedSubagent(t
 
 func TestContentRequestProcessor_getCurrentInvocationMessages_MixedToolContinuationPreservesRoundResults(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	createEvent := func(requestID string, ts time.Time, msg model.Message, object string) event.Event {
+	createEvent := func(requestID string, ts time.Time, msg compat.Message, object string) event.Event {
 		return event.Event{
 			Author:       "subagent",
 			RequestID:    requestID,
 			InvocationID: "subagent_inv",
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
 				Object:  object,
-				Choices: []model.Choice{{Index: 0, Message: msg}},
+				Choices: []compat.Choice{{Index: 0, Message: msg}},
 			},
 		}
 	}
-	toolCallMsg := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	toolCallMsg := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   "call_calc",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "calculator",
 					Arguments: []byte(`{"a":17,"b":25,"operation":"add"}`),
 				},
@@ -6213,21 +6213,21 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_MixedToolContinuat
 			{
 				Type: "function",
 				ID:   "call_external",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "external_note",
 					Arguments: []byte(`{"topic":"mixed-tools-demo"}`),
 				},
 			},
 		},
 	}
-	calculatorResult := model.Message{
-		Role:     model.RoleTool,
+	calculatorResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_calc",
 		ToolName: "calculator",
 		Content:  `{"result":42}`,
 	}
-	externalResult := model.Message{
-		Role:     model.RoleTool,
+	externalResult := compat.Message{
+		Role:     compat.RoleTool,
 		ToolID:   "call_external",
 		ToolName: "external_note",
 		Content:  "verified-by-caller",
@@ -6236,9 +6236,9 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_MixedToolContinuat
 		EventMu: sync.RWMutex{},
 		Events: []event.Event{
 			createEvent("req1", baseTime, toolCallMsg, ""),
-			createEvent("req1", baseTime.Add(time.Second), calculatorResult, model.ObjectTypeToolResponse),
-			createEvent("req2", baseTime.Add(2*time.Second), model.Message{Role: model.RoleAssistant, Content: "waiting for external tool"}, ""),
-			createEvent("req2", baseTime.Add(3*time.Second), externalResult, model.ObjectTypeToolResponse),
+			createEvent("req1", baseTime.Add(time.Second), calculatorResult, compat.ObjectTypeToolResponse),
+			createEvent("req2", baseTime.Add(2*time.Second), compat.Message{Role: compat.RoleAssistant, Content: "waiting for external tool"}, ""),
+			createEvent("req2", baseTime.Add(3*time.Second), externalResult, compat.ObjectTypeToolResponse),
 		},
 	}
 	inv := &agent.Invocation{
@@ -6250,13 +6250,13 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_MixedToolContinuat
 	p := NewContentRequestProcessor()
 	messages := p.getCurrentInvocationMessages(inv)
 	require.Len(t, messages, 3)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Len(t, messages[0].ToolCalls, 2)
 	assert.ElementsMatch(t, []string{"call_calc", "call_external"}, []string{messages[0].ToolCalls[0].ID, messages[0].ToolCalls[1].ID})
-	require.Equal(t, model.RoleTool, messages[1].Role)
+	require.Equal(t, compat.RoleTool, messages[1].Role)
 	require.Equal(t, "call_calc", messages[1].ToolID)
 	require.Equal(t, `{"result":42}`, messages[1].Content)
-	require.Equal(t, model.RoleTool, messages[2].Role)
+	require.Equal(t, compat.RoleTool, messages[2].Role)
 	require.Equal(t, "call_external", messages[2].ToolID)
 	require.Equal(t, "verified-by-caller", messages[2].Content)
 }
@@ -6273,11 +6273,11 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ReasoningContentDi
 				InvocationID: "inv1",
 				Timestamp:    baseTime,
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:             model.RoleAssistant,
+							Message: compat.Message{
+								Role:             compat.RoleAssistant,
 								Content:          "step1",
 								ReasoningContent: "think1",
 							},
@@ -6291,11 +6291,11 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ReasoningContentDi
 				InvocationID: "inv1",
 				Timestamp:    baseTime.Add(time.Second),
 				Version:      event.CurrentVersion,
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:             model.RoleAssistant,
+							Message: compat.Message{
+								Role:             compat.RoleAssistant,
 								Content:          "step2",
 								ReasoningContent: "think2",
 							},
@@ -6324,17 +6324,17 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ReasoningContentDi
 
 func TestContentRequestProcessor_getCurrentInvocationMessages_ReasoningContentKeepsToolCallTurns(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	createEvent := func(requestID string, ts time.Time, msg model.Message, object string) event.Event {
+	createEvent := func(requestID string, ts time.Time, msg compat.Message, object string) event.Event {
 		return event.Event{
 			Author:       "agent1",
 			RequestID:    requestID,
 			InvocationID: "inv1",
 			Timestamp:    ts,
 			Version:      event.CurrentVersion,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done:    true,
 				Object:  object,
-				Choices: []model.Choice{{Index: 0, Message: msg}},
+				Choices: []compat.Choice{{Index: 0, Message: msg}},
 			},
 		}
 	}
@@ -6342,32 +6342,32 @@ func TestContentRequestProcessor_getCurrentInvocationMessages_ReasoningContentKe
 	sess := &session.Session{
 		EventMu: sync.RWMutex{},
 		Events: []event.Event{
-			createEvent("req1", baseTime, model.Message{
-				Role:             model.RoleAssistant,
+			createEvent("req1", baseTime, compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "I need to call a tool",
 				ReasoningContent: "think before tool",
-				ToolCalls: []model.ToolCall{
+				ToolCalls: []compat.ToolCall{
 					{
 						ID: "call_weather",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "get_weather",
 							Arguments: []byte(`{"city":"Hangzhou"}`),
 						},
 					},
 				},
 			}, ""),
-			createEvent("req1", baseTime.Add(time.Second), model.Message{
-				Role:    model.RoleTool,
+			createEvent("req1", baseTime.Add(time.Second), compat.Message{
+				Role:    compat.RoleTool,
 				ToolID:  "call_weather",
 				Content: `{"condition":"cloudy"}`,
-			}, model.ObjectTypeToolResponse),
-			createEvent("req1", baseTime.Add(2*time.Second), model.Message{
-				Role:             model.RoleAssistant,
+			}, compat.ObjectTypeToolResponse),
+			createEvent("req1", baseTime.Add(2*time.Second), compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "It is cloudy.",
 				ReasoningContent: "think after tool",
 			}, ""),
-			createEvent("req2", baseTime.Add(3*time.Second), model.Message{
-				Role:             model.RoleAssistant,
+			createEvent("req2", baseTime.Add(3*time.Second), compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "new turn",
 				ReasoningContent: "current think",
 			}, ""),
@@ -6395,7 +6395,7 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 	tests := []struct {
 		name                string
 		mode                string
-		msg                 model.Message
+		msg                 compat.Message
 		messageRequestID    string
 		currentRequestID    string
 		requestHasToolCalls bool
@@ -6404,8 +6404,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "keep_all mode preserves reasoning content",
 			mode: ReasoningContentModeKeepAll,
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "thinking process",
 			},
@@ -6416,8 +6416,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "default mode (empty) uses discard_previous_turns behavior",
 			mode: "",
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "thinking process",
 			},
@@ -6428,8 +6428,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "default mode (empty) keeps previous request reasoning when request has tool calls",
 			mode: "",
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "thinking process",
 			},
@@ -6441,8 +6441,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "default mode (empty) keeps current request reasoning",
 			mode: "",
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "thinking process",
 			},
@@ -6453,8 +6453,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "discard_all mode removes all reasoning content",
 			mode: ReasoningContentModeDiscardAll,
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "thinking process",
 			},
@@ -6465,8 +6465,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "discard_previous_turns keeps current request reasoning",
 			mode: ReasoningContentModeDiscardPreviousTurns,
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "current thinking",
 			},
@@ -6477,8 +6477,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "discard_previous_turns removes previous request reasoning",
 			mode: ReasoningContentModeDiscardPreviousTurns,
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "old thinking",
 			},
@@ -6489,8 +6489,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "user message is not processed",
 			mode: ReasoningContentModeDiscardAll,
-			msg: model.Message{
-				Role:             model.RoleUser,
+			msg: compat.Message{
+				Role:             compat.RoleUser,
 				Content:          "user message",
 				ReasoningContent: "should not be touched",
 			},
@@ -6501,8 +6501,8 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 		{
 			name: "empty reasoning content is unchanged",
 			mode: ReasoningContentModeDiscardAll,
-			msg: model.Message{
-				Role:             model.RoleAssistant,
+			msg: compat.Message{
+				Role:             compat.RoleAssistant,
 				Content:          "final answer",
 				ReasoningContent: "",
 			},
@@ -6531,31 +6531,31 @@ func TestContentRequestProcessor_ProcessReasoningContent(t *testing.T) {
 }
 
 func TestContentRequestProcessor_IsEmptyAssistantMessage(t *testing.T) {
-	assert.True(t, message.IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
+	assert.True(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
 	}))
-	assert.True(t, message.IsEmptyAssistantMessage(model.Message{
-		Role:             model.RoleAssistant,
+	assert.True(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role:             compat.RoleAssistant,
 		ReasoningContent: "thinking without visible payload",
 	}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{
-		Role:    model.RoleAssistant,
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "visible content",
 	}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{ID: "call_1"},
 		},
 	}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeText},
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeText},
 		},
 	}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleUser,
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleUser,
 	}))
 }
 
@@ -6643,11 +6643,11 @@ func TestContentRequestProcessor_GetIncrementMessagesWithReasoningContent(t *tes
 			FilterKey: "test-filter",
 			Timestamp: timestamp,
 			Version:   event.CurrentVersion,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:             model.RoleAssistant,
+						Message: compat.Message{
+							Role:             compat.RoleAssistant,
 							Content:          content,
 							ReasoningContent: reasoning,
 						},
@@ -6790,20 +6790,20 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs(t *testing.T) {
 		fileBName    = "b.pdf"
 	)
 
-	userMsg := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
+	userMsg := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     fileAName,
 					Data:     []byte("a"),
 					MimeType: pdfMimeType,
 				},
 			},
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     fileBName,
 					Data:     []byte("b"),
 					MimeType: pdfMimeType,
@@ -6811,8 +6811,8 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs(t *testing.T) {
 			},
 		},
 	}
-	ev := event.NewResponseEvent(invocationID, "user", &model.Response{
-		Choices: []model.Choice{{Message: userMsg}},
+	ev := event.NewResponseEvent(invocationID, "user", &compat.Response{
+		Choices: []compat.Choice{{Message: userMsg}},
 	})
 	inv := &agent.Invocation{
 		InvocationID: invocationID,
@@ -6821,7 +6821,7 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs(t *testing.T) {
 			Events: []event.Event{*ev},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 1)
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
@@ -6829,13 +6829,13 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs(t *testing.T) {
 		return
 	}
 	msg := req.Messages[0]
-	assert.Equal(t, model.RoleUser, msg.Role)
+	assert.Equal(t, compat.RoleUser, msg.Role)
 
 	if !assert.GreaterOrEqual(t, len(msg.ContentParts), 3) {
 		return
 	}
 	first := msg.ContentParts[0]
-	assert.Equal(t, model.ContentTypeText, first.Type)
+	assert.Equal(t, compat.ContentTypeText, first.Type)
 	if assert.NotNil(t, first.Text) {
 		assert.Contains(t, *first.Text, attachedFilesAnnotationPrefix)
 		assert.Contains(t, *first.Text, fileAName)
@@ -6844,7 +6844,7 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs(t *testing.T) {
 
 	fileParts := 0
 	for _, part := range msg.ContentParts {
-		if part.Type == model.ContentTypeFile && part.File != nil {
+		if part.Type == compat.ContentTypeFile && part.File != nil {
 			fileParts++
 		}
 	}
@@ -6860,25 +6860,25 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_ArtifactRef(t *testing.
 		fileBRef     = "artifact://uploads/b.pdf@0"
 	)
 
-	userMsg := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
+	userMsg := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					FileID: fileARef,
 				},
 			},
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					FileID: fileBRef,
 				},
 			},
 		},
 	}
-	ev := event.NewResponseEvent(invocationID, "user", &model.Response{
-		Choices: []model.Choice{{Message: userMsg}},
+	ev := event.NewResponseEvent(invocationID, "user", &compat.Response{
+		Choices: []compat.Choice{{Message: userMsg}},
 	})
 	inv := &agent.Invocation{
 		InvocationID: invocationID,
@@ -6887,7 +6887,7 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_ArtifactRef(t *testing.
 			Events: []event.Event{*ev},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 1)
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
@@ -6895,13 +6895,13 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_ArtifactRef(t *testing.
 		return
 	}
 	msg := req.Messages[0]
-	assert.Equal(t, model.RoleUser, msg.Role)
+	assert.Equal(t, compat.RoleUser, msg.Role)
 
 	if !assert.GreaterOrEqual(t, len(msg.ContentParts), 3) {
 		return
 	}
 	first := msg.ContentParts[0]
-	assert.Equal(t, model.ContentTypeText, first.Type)
+	assert.Equal(t, compat.ContentTypeText, first.Type)
 	if assert.NotNil(t, first.Text) {
 		assert.Contains(t, *first.Text, attachedFilesAnnotationPrefix)
 		assert.Contains(t, *first.Text, "a.pdf")
@@ -6911,7 +6911,7 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_ArtifactRef(t *testing.
 
 	fileParts := 0
 	for _, part := range msg.ContentParts {
-		if part.Type == model.ContentTypeFile && part.File != nil {
+		if part.Type == compat.ContentTypeFile && part.File != nil {
 			fileParts++
 		}
 	}
@@ -6923,12 +6923,12 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_HostRef(t *testing.T) {
 
 	const invocationID = "inv"
 
-	userMsg := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
+	userMsg := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
 			{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     "report.pdf",
 					FileID:   "host:///tmp/openclaw/report.pdf",
 					MimeType: "application/pdf",
@@ -6936,8 +6936,8 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_HostRef(t *testing.T) {
 			},
 		},
 	}
-	ev := event.NewResponseEvent(invocationID, "user", &model.Response{
-		Choices: []model.Choice{{Message: userMsg}},
+	ev := event.NewResponseEvent(invocationID, "user", &compat.Response{
+		Choices: []compat.Choice{{Message: userMsg}},
 	})
 	inv := &agent.Invocation{
 		InvocationID: invocationID,
@@ -6946,7 +6946,7 @@ func TestContentRequestProcessor_AnnotatesUserFileInputs_HostRef(t *testing.T) {
 			Events: []event.Event{*ev},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 1)
 	p.ProcessRequest(context.Background(), inv, req, ch)
 

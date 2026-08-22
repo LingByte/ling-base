@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -198,11 +198,11 @@ func TestGetSession(t *testing.T) {
 			evt := event.New("test-invocation", e.author)
 			evt.Timestamp = baseTime.Add(e.offset)
 			// Add Response field to make events valid for filtering
-			evt.Response = &model.Response{
-				Choices: []model.Choice{
+			evt.Response = &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleUser, // All test events are from user for simplicity
+						Message: compat.Message{
+							Role:    compat.RoleUser, // All test events are from user for simplicity
 							Content: fmt.Sprintf("Test message from %s", e.author),
 						},
 					},
@@ -357,11 +357,11 @@ func TestListSessions(t *testing.T) {
 				for i := 0; i < 3; i++ {
 					evt := event.New("test-invocation", fmt.Sprintf("author_%s_%d", data.sessID, i))
 					// Add Response field to make events valid for filtering
-					evt.Response = &model.Response{
-						Choices: []model.Choice{
+					evt.Response = &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									Role:    model.RoleUser, // All test events are from user for simplicity
+								Message: compat.Message{
+									Role:    compat.RoleUser, // All test events are from user for simplicity
 									Content: fmt.Sprintf("Test message from author_%s_%d", data.sessID, i),
 								},
 							},
@@ -521,10 +521,10 @@ func TestListSessions_WithListSessionOnlyMeta(t *testing.T) {
 	app.mu.Unlock()
 
 	evt := event.New("test-invocation", "author")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleUser,
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 		}},
@@ -1046,12 +1046,12 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 			name: "events_already_start_with_user",
 			setupEvents: func() []event.Event {
 				evt1 := event.New("test1", "user")
-				evt1.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "User message 1"}}},
+				evt1.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "User message 1"}}},
 				}
 				evt2 := event.New("test2", "assistant")
-				evt2.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message"}}},
+				evt2.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message"}}},
 				}
 				return []event.Event{*evt1, *evt2}
 			},
@@ -1062,20 +1062,20 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 			name: "events_start_with_assistant_then_user",
 			setupEvents: func() []event.Event {
 				evt1 := event.New("test1", "assistant")
-				evt1.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message 1"}}},
+				evt1.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message 1"}}},
 				}
 				evt2 := event.New("test2", "assistant")
-				evt2.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message 2"}}},
+				evt2.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message 2"}}},
 				}
 				evt3 := event.New("test3", "user")
-				evt3.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "User message"}}},
+				evt3.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "User message"}}},
 				}
 				evt4 := event.New("test4", "assistant")
-				evt4.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message 3"}}},
+				evt4.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message 3"}}},
 				}
 				return []event.Event{*evt1, *evt2, *evt3, *evt4}
 			},
@@ -1086,12 +1086,12 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 			name: "all_events_from_assistant",
 			setupEvents: func() []event.Event {
 				evt1 := event.New("test1", "assistant")
-				evt1.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message 1"}}},
+				evt1.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message 1"}}},
 				}
 				evt2 := event.New("test2", "assistant")
-				evt2.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Assistant message 2"}}},
+				evt2.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Assistant message 2"}}},
 				}
 				return []event.Event{*evt1, *evt2}
 			},
@@ -1104,8 +1104,8 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 				evt1 := event.New("test1", "unknown")
 				// No response set
 				evt2 := event.New("test2", "user")
-				evt2.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "User message"}}},
+				evt2.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "User message"}}},
 				}
 				return []event.Event{*evt1, *evt2}
 			},
@@ -1116,12 +1116,12 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 			name: "events_with_empty_choices",
 			setupEvents: func() []event.Event {
 				evt1 := event.New("test1", "unknown")
-				evt1.Response = &model.Response{
-					Choices: []model.Choice{}, // Empty choices
+				evt1.Response = &compat.Response{
+					Choices: []compat.Choice{}, // Empty choices
 				}
 				evt2 := event.New("test2", "user")
-				evt2.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "User message"}}},
+				evt2.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "User message"}}},
 				}
 				return []event.Event{*evt1, *evt2}
 			},
@@ -1146,7 +1146,7 @@ func TestEnsureEventStartWithUser(t *testing.T) {
 			if tt.expectFirst && len(sess.Events) > 0 {
 				assert.NotNil(t, sess.Events[0].Response, "First event should have response")
 				assert.Greater(t, len(sess.Events[0].Response.Choices), 0, "First event should have choices")
-				assert.Equal(t, model.RoleUser, sess.Events[0].Response.Choices[0].Message.Role, "First event should be from user")
+				assert.Equal(t, compat.RoleUser, sess.Events[0].Response.Choices[0].Message.Role, "First event should be from user")
 			}
 		})
 	}
@@ -1172,12 +1172,12 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 		{
 			ID:        "event1",
 			Timestamp: baseTime.Add(-5 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Assistant message 1",
 						},
 					},
@@ -1187,12 +1187,12 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 		{
 			ID:        "event2",
 			Timestamp: baseTime.Add(-4 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Assistant message 2",
 						},
 					},
@@ -1202,12 +1202,12 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 		{
 			ID:        "event3",
 			Timestamp: baseTime.Add(-3 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleUser,
+						Message: compat.Message{
+							Role:    compat.RoleUser,
 							Content: "User message 1",
 						},
 					},
@@ -1217,12 +1217,12 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 		{
 			ID:        "event4",
 			Timestamp: baseTime.Add(-2 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Assistant message 3",
 						},
 					},
@@ -1245,7 +1245,7 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 	// Should have 2 events (from event3 onwards)
 	assert.Equal(t, 2, len(retrievedSess.Events), "Should filter out assistant events before first user event")
 	assert.Equal(t, "event3", retrievedSess.Events[0].ID, "First event should be the user event")
-	assert.Equal(t, model.RoleUser, retrievedSess.Events[0].Response.Choices[0].Message.Role)
+	assert.Equal(t, compat.RoleUser, retrievedSess.Events[0].Response.Choices[0].Message.Role)
 	assert.Equal(t, "event4", retrievedSess.Events[1].ID, "Second event should be the subsequent assistant event")
 
 	// Test ListSessions - should apply same filtering
@@ -1259,7 +1259,7 @@ func TestGetSession_EventFiltering_Integration(t *testing.T) {
 	// Should have same filtering as GetSession
 	assert.Equal(t, 2, len(sessionList[0].Events), "ListSessions should also filter events")
 	assert.Equal(t, "event3", sessionList[0].Events[0].ID, "First event should be the user event")
-	assert.Equal(t, model.RoleUser, sessionList[0].Events[0].Response.Choices[0].Message.Role)
+	assert.Equal(t, compat.RoleUser, sessionList[0].Events[0].Response.Choices[0].Message.Role)
 }
 
 func TestGetSession_AllAssistantEvents_Integration(t *testing.T) {
@@ -1282,12 +1282,12 @@ func TestGetSession_AllAssistantEvents_Integration(t *testing.T) {
 		{
 			ID:        "event1",
 			Timestamp: baseTime.Add(-3 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Assistant message 1",
 						},
 					},
@@ -1297,12 +1297,12 @@ func TestGetSession_AllAssistantEvents_Integration(t *testing.T) {
 		{
 			ID:        "event2",
 			Timestamp: baseTime.Add(-2 * time.Hour),
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Assistant message 2",
 						},
 					},
@@ -1795,16 +1795,16 @@ func TestAppendEventHook(t *testing.T) {
 
 		// First add a user message
 		userEvt := event.New("inv0", "user")
-		userEvt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Hello"}}},
+		userEvt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Hello"}}},
 		}
 		err = service.AppendEvent(context.Background(), sess, userEvt)
 		require.NoError(t, err)
 
 		// Then add assistant message
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hi there"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hi there"}}},
 		}
 
 		err = service.AppendEvent(context.Background(), sess, evt)
@@ -1832,8 +1832,8 @@ func TestAppendEventHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = service.AppendEvent(context.Background(), sess, evt)
@@ -1867,8 +1867,8 @@ func TestAppendEventHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = service.AppendEvent(context.Background(), sess, evt)
@@ -1928,16 +1928,16 @@ func TestGetSessionHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt1 := event.New("inv1", "user")
-		evt1.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Q1"}}},
+		evt1.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Q1"}}},
 		}
 		evt1.Tag = "skip"
 		err = service.AppendEvent(context.Background(), sess, evt1)
 		require.NoError(t, err)
 
 		evt2 := event.New("inv2", "assistant")
-		evt2.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "A1"}}},
+		evt2.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "A1"}}},
 		}
 		err = service.AppendEvent(context.Background(), sess, evt2)
 		require.NoError(t, err)

@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -433,7 +433,7 @@ func TestDeclaredSkillLoadIncludesAllDocs(t *testing.T) {
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{}),
-		agent.WithInvocationMessage(model.NewUserMessage("review")),
+		agent.WithInvocationMessage(compat.NewUserMessage("review")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			SkillLoads: []skill.LoadRequest{{
 				Name:           "review",
@@ -486,7 +486,7 @@ func TestDeclaredSkillLoadPreservesExistingDocs(t *testing.T) {
 				skill.DocsKey("tester", "review"): []byte(`["old.md"]`),
 			},
 		}),
-		agent.WithInvocationMessage(model.NewUserMessage("review")),
+		agent.WithInvocationMessage(compat.NewUserMessage("review")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			SkillLoads: []skill.LoadRequest{{Name: "review"}},
 		}),
@@ -506,13 +506,13 @@ func TestDeclaredSkillLoadPreservesExistingDocs(t *testing.T) {
 	require.JSONEq(t, `["old.md"]`, string(docs))
 }
 
-func skillLoadTestSystemContent(req *model.Request) string {
+func skillLoadTestSystemContent(req *compat.Request) string {
 	if req == nil {
 		return ""
 	}
 	var system string
 	for _, message := range req.Messages {
-		if message.Role == model.RoleSystem {
+		if message.Role == compat.RoleSystem {
 			system += message.Content
 		}
 	}
@@ -541,7 +541,7 @@ func TestDeclaredSkillLoadActivatesToolsForFirstModelRequest(t *testing.T) {
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{}),
-		agent.WithInvocationMessage(model.NewUserMessage("review")),
+		agent.WithInvocationMessage(compat.NewUserMessage("review")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			SkillLoads: []skill.LoadRequest{{Name: "review"}},
 		}),
@@ -644,7 +644,7 @@ func TestDeclaredSkillLoadsReusePreparedRepository(t *testing.T) {
 			agt := New("tester", options...)
 			inv := agent.NewInvocation(
 				agent.WithInvocationSession(&session.Session{AppName: "app"}),
-				agent.WithInvocationMessage(model.NewUserMessage("review")),
+				agent.WithInvocationMessage(compat.NewUserMessage("review")),
 				agent.WithInvocationRunOptions(agent.RunOptions{
 					SkillLoads: []skill.LoadRequest{{
 						Name: "review",
@@ -768,7 +768,7 @@ func TestSkillLoadsUseContextReturnedByBeforeAgent(t *testing.T) {
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{}),
-		agent.WithInvocationMessage(model.NewUserMessage("review")),
+		agent.WithInvocationMessage(compat.NewUserMessage("review")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			SkillLoads: []skill.LoadRequest{{Name: "review"}},
 		}),
@@ -782,7 +782,7 @@ func TestSkillLoadsUseContextReturnedByBeforeAgent(t *testing.T) {
 	require.NotNil(t, modelStub.got)
 	var system string
 	for _, message := range modelStub.got.Messages {
-		if message.Role == model.RoleSystem {
+		if message.Role == compat.RoleSystem {
 			system += message.Content
 		}
 	}

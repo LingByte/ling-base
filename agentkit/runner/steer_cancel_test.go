@@ -15,7 +15,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 	"github.com/stretchr/testify/require"
@@ -27,7 +27,7 @@ func TestCancelQueuedUserMessages_LeavesEnqueueOnlyRunnerCompatible(t *testing.T
 	err := EnqueueUserMessage(
 		r,
 		"req-enqueue-only",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	require.False(t, CancelQueuedUserMessages(r, "req-enqueue-only"))
@@ -56,18 +56,18 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 
 	modelStub := &sequentialModel{
 		name: "sequential-steer-cancel-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:   "resp-tool-call",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID:   "tool-call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      toolName,
 								Arguments: []byte(`{"topic":"alpha"}`),
 							},
@@ -78,9 +78,9 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 			{
 				ID:   "resp-final",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage(finalAnswer),
+					Message: compat.NewAssistantMessage(finalAnswer),
 				}},
 			},
 		},
@@ -99,7 +99,7 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 			firstErr = EnqueueUserMessage(
 				runnerInstance,
 				requestID,
-				model.NewUserMessage(discardedSteer),
+				compat.NewUserMessage(discardedSteer),
 			)
 			cancelMissing = CancelQueuedUserMessages(
 				runnerInstance,
@@ -109,7 +109,7 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 			secondErr = EnqueueUserMessage(
 				runnerInstance,
 				requestID,
-				model.NewUserMessage(keptSteer),
+				compat.NewUserMessage(keptSteer),
 			)
 			return lookupOutput{Result: "tool result for " + input.Topic}, nil
 		},
@@ -128,7 +128,7 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage(initialMessage),
+		compat.NewUserMessage(initialMessage),
 		agent.WithRequestID(requestID),
 	)
 	require.NoError(t, err)
@@ -148,15 +148,15 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 
 	discardedIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleUser &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleUser &&
 				message.Content == discardedSteer
 		},
 	)
 	keptIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleUser &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleUser &&
 				message.Content == keptSteer
 		},
 	)
@@ -165,14 +165,14 @@ func TestRunner_CancelQueuedUserMessages_DiscardsPendingAndKeepsQueueOpen(t *tes
 }
 
 type enqueueOnlyRunner struct {
-	messages []model.Message
+	messages []compat.Message
 }
 
 func (r *enqueueOnlyRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	events := make(chan *event.Event)
@@ -186,7 +186,7 @@ func (r *enqueueOnlyRunner) Close() error {
 
 func (r *enqueueOnlyRunner) EnqueueUserMessage(
 	_ string,
-	message model.Message,
+	message compat.Message,
 ) error {
 	r.messages = append(r.messages, message)
 	return nil

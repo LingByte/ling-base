@@ -12,7 +12,7 @@ package evolution
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // service is the default Service implementation backed by an async worker.
@@ -22,7 +22,7 @@ type service struct {
 
 // NewService creates an evolution Service that uses reviewModel to evaluate
 // session deltas and persists extracted skills as managed SKILL.md files.
-func NewService(reviewModel model.Model, opts ...Option) Service {
+func NewService(reviewModel compat.Model, opts ...Option) Service {
 	var o serviceOpts
 	for _, fn := range opts {
 		fn(&o)

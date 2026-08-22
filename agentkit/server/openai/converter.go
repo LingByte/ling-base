@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/google/uuid"
 )
 
@@ -42,7 +42,7 @@ const (
 	// - "length": model hit max_tokens limit or context length limit
 	// - "content_filter": content was omitted due to content filter
 	// - "tool_calls": model called a tool/function
-	// These values can also be obtained from model.Choice.FinishReason in events.
+	// These values can also be obtained from compat.Choice.FinishReason in events.
 	finishReasonStop      = "stop"
 	finishReasonToolCalls = "tool_calls"
 
@@ -192,14 +192,14 @@ func newConverter(modelName string) *converter {
 }
 
 // convertRequest converts an OpenAI request to trpc-agent-go messages.
-func (c *converter) convertRequest(_ context.Context, req *openAIRequest) ([]model.Message, error) {
+func (c *converter) convertRequest(_ context.Context, req *openAIRequest) ([]compat.Message, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")
 	}
 	if len(req.Messages) == 0 {
 		return nil, fmt.Errorf("messages cannot be empty")
 	}
-	messages := make([]model.Message, 0, len(req.Messages))
+	messages := make([]compat.Message, 0, len(req.Messages))
 	for _, msg := range req.Messages {
 		converted, err := c.convertMessage(msg)
 		if err != nil {
@@ -210,13 +210,13 @@ func (c *converter) convertRequest(_ context.Context, req *openAIRequest) ([]mod
 	return messages, nil
 }
 
-// convertMessage converts a single OpenAI message to model.Message.
-func (c *converter) convertMessage(msg openAIMessage) (*model.Message, error) {
+// convertMessage converts a single OpenAI message to compat.Message.
+func (c *converter) convertMessage(msg openAIMessage) (*compat.Message, error) {
 	role, err := c.convertRole(msg.Role)
 	if err != nil {
 		return nil, err
 	}
-	result := &model.Message{
+	result := &compat.Message{
 		Role: role,
 	}
 	// Handle content.
@@ -255,13 +255,13 @@ func (c *converter) convertMessage(msg openAIMessage) (*model.Message, error) {
 	}
 	// Handle tool calls.
 	if len(msg.ToolCalls) > 0 {
-		result.ToolCalls = make([]model.ToolCall, 0, len(msg.ToolCalls))
+		result.ToolCalls = make([]compat.ToolCall, 0, len(msg.ToolCalls))
 		for _, tc := range msg.ToolCalls {
 			argsBytes := []byte(tc.Function.Arguments)
-			result.ToolCalls = append(result.ToolCalls, model.ToolCall{
+			result.ToolCalls = append(result.ToolCalls, compat.ToolCall{
 				ID:   tc.ID,
 				Type: tc.Type,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      tc.Function.Name,
 					Arguments: argsBytes,
 				},
@@ -279,17 +279,17 @@ func (c *converter) convertMessage(msg openAIMessage) (*model.Message, error) {
 	return result, nil
 }
 
-// convertRole converts OpenAI role to model.Role.
-func (c *converter) convertRole(role string) (model.Role, error) {
+// convertRole converts OpenAI role to compat.Role.
+func (c *converter) convertRole(role string) (compat.Role, error) {
 	switch role {
 	case roleSystem:
-		return model.RoleSystem, nil
+		return compat.RoleSystem, nil
 	case roleUser:
-		return model.RoleUser, nil
+		return compat.RoleUser, nil
 	case roleAssistant:
-		return model.RoleAssistant, nil
+		return compat.RoleAssistant, nil
 	case roleTool:
-		return model.RoleTool, nil
+		return compat.RoleTool, nil
 	default:
 		return "", fmt.Errorf("invalid role: %s", role)
 	}
@@ -374,8 +374,8 @@ func (c *converter) convertToChunk(evt *event.Event) (*openAIChunk, error) {
 	return chunk, nil
 }
 
-// convertModelMessageToOpenAI converts model.Message to openAIMessage.
-func (c *converter) convertModelMessageToOpenAI(msg model.Message) (*openAIMessage, error) {
+// convertModelMessageToOpenAI converts compat.Message to openAIMessage.
+func (c *converter) convertModelMessageToOpenAI(msg compat.Message) (*openAIMessage, error) {
 	result := &openAIMessage{
 		Role: string(msg.Role),
 	}
@@ -421,8 +421,8 @@ func (c *converter) aggregateStreamingEvents(events []*event.Event) (*openAIResp
 	}
 	content, toolCalls = applyFinalMessageChoice(content, toolCalls, finalEvent)
 	// Build the aggregated message.
-	msg := model.Message{
-		Role:      model.RoleAssistant,
+	msg := compat.Message{
+		Role:      compat.RoleAssistant,
 		Content:   content,
 		ToolCalls: toolCalls,
 	}
@@ -466,11 +466,11 @@ func (c *converter) aggregateStreamingEvents(events []*event.Event) (*openAIResp
 	return response, nil
 }
 
-func scanStreamingEvents(events []*event.Event) (*event.Event, *event.Event, string, []model.ToolCall) {
+func scanStreamingEvents(events []*event.Event) (*event.Event, *event.Event, string, []compat.ToolCall) {
 	var finalEvent *event.Event
 	var usageEvent *event.Event
 	var allContent strings.Builder
-	var toolCalls []model.ToolCall
+	var toolCalls []compat.ToolCall
 	for _, evt := range events {
 		if evt == nil {
 			continue
@@ -488,7 +488,7 @@ func scanStreamingEvents(events []*event.Event) (*event.Event, *event.Event, str
 	return finalEvent, usageEvent, allContent.String(), toolCalls
 }
 
-func appendStreamingChoice(allContent *strings.Builder, toolCalls *[]model.ToolCall, choice model.Choice) {
+func appendStreamingChoice(allContent *strings.Builder, toolCalls *[]compat.ToolCall, choice compat.Choice) {
 	if choice.Delta.Content != "" {
 		allContent.WriteString(choice.Delta.Content)
 	}
@@ -508,13 +508,13 @@ func isAssistantCompletionEvent(evt *event.Event) bool {
 		return false
 	}
 	rsp := evt.Response
-	if rsp.Object != model.ObjectTypeChatCompletion || len(rsp.Choices) == 0 {
+	if rsp.Object != compat.ObjectTypeChatCompletion || len(rsp.Choices) == 0 {
 		return false
 	}
 	return !rsp.IsToolCallResponse() && !rsp.IsToolResultResponse()
 }
 
-func applyFinalMessageChoice(content string, toolCalls []model.ToolCall, evt *event.Event) (string, []model.ToolCall) {
+func applyFinalMessageChoice(content string, toolCalls []compat.ToolCall, evt *event.Event) (string, []compat.ToolCall) {
 	choice, ok := firstResponseChoice(evt)
 	if !ok {
 		return content, toolCalls
@@ -525,13 +525,13 @@ func applyFinalMessageChoice(content string, toolCalls []model.ToolCall, evt *ev
 	if choice.Message.Content != "" {
 		content = choice.Message.Content
 	}
-	toolCalls = append([]model.ToolCall(nil), choice.Message.ToolCalls...)
+	toolCalls = append([]compat.ToolCall(nil), choice.Message.ToolCalls...)
 	return content, toolCalls
 }
 
-func firstResponseChoice(evt *event.Event) (model.Choice, bool) {
+func firstResponseChoice(evt *event.Event) (compat.Choice, bool) {
 	if evt == nil || evt.Response == nil || len(evt.Response.Choices) == 0 {
-		return model.Choice{}, false
+		return compat.Choice{}, false
 	}
 	return evt.Response.Choices[0], true
 }

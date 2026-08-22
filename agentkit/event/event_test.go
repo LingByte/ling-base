@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,13 +41,13 @@ func TestNewErrorEvent(t *testing.T) {
 	const (
 		invocationID = "invocation-err"
 		author       = "tester"
-		errType      = model.ErrorTypeAPIError
+		errType      = compat.ErrorTypeAPIError
 		errMsg       = "something went wrong"
 	)
 
 	evt := NewErrorEvent(invocationID, author, errType, errMsg)
 	require.NotNil(t, evt.Error)
-	require.Equal(t, model.ObjectTypeError, evt.Object)
+	require.Equal(t, compat.ObjectTypeError, evt.Object)
 	require.Equal(t, errType, evt.Error.Type)
 	require.Equal(t, errMsg, evt.Error.Message)
 	require.True(t, evt.Done)
@@ -59,7 +59,7 @@ func TestNewResponseEvent(t *testing.T) {
 		author       = "tester"
 	)
 
-	resp := &model.Response{
+	resp := &compat.Response{
 		Object: "chat.completion",
 		Done:   true,
 	}
@@ -74,11 +74,11 @@ func TestNewResponseEvent(t *testing.T) {
 }
 
 func TestEvent_WithOptions_And_Clone(t *testing.T) {
-	resp := &model.Response{
+	resp := &compat.Response{
 		Object:  "chat.completion",
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "hi"}}},
-		Usage:   &model.Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3},
-		Error:   &model.ResponseError{Message: "", Type: ""},
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "hi"}}},
+		Usage:   &compat.Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3},
+		Error:   &compat.ResponseError{Message: "", Type: ""},
 	}
 
 	sd := map[string][]byte{"k": []byte("v")}
@@ -277,7 +277,7 @@ func TestEvent_ParentMetadata_JSONRoundTrip(t *testing.T) {
 }
 
 func TestEvent_MarshalOmitsExecutionTrace(t *testing.T) {
-	evt := New("inv-1", "author", WithResponse(&model.Response{Done: true}))
+	evt := New("inv-1", "author", WithResponse(&compat.Response{Done: true}))
 	evt.ExecutionTrace = &trace.Trace{
 		RootAgentName:    "assistant",
 		RootInvocationID: "inv-1",
@@ -481,14 +481,14 @@ func TestIsRunnerCompletion(t *testing.T) {
 	require.False(t, (&Event{}).IsRunnerCompletion())
 
 	// not done or wrong object
-	evt := &Event{Response: &model.Response{Done: false, Object: model.ObjectTypeRunnerCompletion}}
+	evt := &Event{Response: &compat.Response{Done: false, Object: compat.ObjectTypeRunnerCompletion}}
 	require.False(t, evt.IsRunnerCompletion())
 	evt.Response.Done = true
-	evt.Response.Object = model.ObjectTypeChatCompletion
+	evt.Response.Object = compat.ObjectTypeChatCompletion
 	require.False(t, evt.IsRunnerCompletion())
 
 	// correct terminal event
-	evt.Response.Object = model.ObjectTypeRunnerCompletion
+	evt.Response.Object = compat.ObjectTypeRunnerCompletion
 	require.True(t, evt.IsRunnerCompletion())
 }
 
@@ -496,11 +496,11 @@ func TestIsError(t *testing.T) {
 	var nilEvt *Event
 	require.False(t, nilEvt.IsError())
 	require.False(t, (&Event{}).IsError())
-	require.False(t, (&Event{Response: &model.Response{Done: true, Object: model.ObjectTypeChatCompletion}}).IsError())
-	require.True(t, (&Event{Response: &model.Response{Done: true, Object: model.ObjectTypeError}}).IsError())
-	require.True(t, (&Event{Response: &model.Response{
+	require.False(t, (&Event{Response: &compat.Response{Done: true, Object: compat.ObjectTypeChatCompletion}}).IsError())
+	require.True(t, (&Event{Response: &compat.Response{Done: true, Object: compat.ObjectTypeError}}).IsError())
+	require.True(t, (&Event{Response: &compat.Response{
 		Done:  true,
-		Error: &model.ResponseError{Type: model.ErrorTypeAPIError, Message: "boom"},
+		Error: &compat.ResponseError{Type: compat.ErrorTypeAPIError, Message: "boom"},
 	}}).IsError())
 }
 
@@ -508,16 +508,16 @@ func TestIsTerminalError(t *testing.T) {
 	var nilEvt *Event
 	require.False(t, nilEvt.IsTerminalError())
 	require.False(t, (&Event{}).IsTerminalError())
-	require.False(t, (&Event{Response: &model.Response{
-		Error: &model.ResponseError{Message: "boom"},
+	require.False(t, (&Event{Response: &compat.Response{
+		Error: &compat.ResponseError{Message: "boom"},
 	}}).IsTerminalError())
-	require.True(t, (&Event{Response: &model.Response{
-		Object: model.ObjectTypeError,
-		Error:  &model.ResponseError{Message: "boom"},
+	require.True(t, (&Event{Response: &compat.Response{
+		Object: compat.ObjectTypeError,
+		Error:  &compat.ResponseError{Message: "boom"},
 	}}).IsTerminalError())
-	require.True(t, (&Event{Response: &model.Response{
+	require.True(t, (&Event{Response: &compat.Response{
 		Done:  true,
-		Error: &model.ResponseError{Message: "boom"},
+		Error: &compat.ResponseError{Message: "boom"},
 	}}).IsTerminalError())
 }
 
@@ -602,7 +602,7 @@ func TestWithTag_SetAndAppend(t *testing.T) {
 func TestClone_And_Filter_VersionCompatibility(t *testing.T) {
 	// Prepare an old-version event to exercise compatibility paths
 	e := &Event{
-		Response: &model.Response{},
+		Response: &compat.Response{},
 		Branch:   "root/leaf",
 		Version:  InitVersion,
 	}
@@ -672,7 +672,7 @@ func TestFilterNilReceiverAndVersion(t *testing.T) {
 
 	// Version compatibility: when Version != CurrentVersion, Filter uses Branch
 	legacy := &Event{
-		Response: &model.Response{},
+		Response: &compat.Response{},
 		// Intentionally set a FilterKey that does not match Branch; Filter should use Branch.
 		FilterKey: "wrong/key",
 		Branch:    "root/child",
@@ -701,11 +701,11 @@ func TestWithTag(t *testing.T) {
 // identifiers like response.id.
 func TestEventMarshalJSON_IncludesNestedResponse(t *testing.T) {
 	e := &Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:        "resp-1",
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Done:      true,
-			Choices:   []model.Choice{{Index: 0, Message: model.NewAssistantMessage("hi")}},
+			Choices:   []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("hi")}},
 			Timestamp: time.Now(),
 		},
 		ID:           "evt-1",
@@ -729,13 +729,13 @@ func TestEventMarshalJSON_IncludesNestedResponse(t *testing.T) {
 	// Top-level object should remain available for legacy (flattened) readers.
 	var topObject string
 	require.NoError(t, json.Unmarshal(raw["object"], &topObject))
-	require.Equal(t, string(model.ObjectTypeChatCompletion), topObject)
+	require.Equal(t, string(compat.ObjectTypeChatCompletion), topObject)
 
 	// Nested response must exist and preserve response.id.
 	nested, ok := raw["response"]
 	require.True(t, ok, "missing nested response field")
 
-	var rsp model.Response
+	var rsp compat.Response
 	require.NoError(t, json.Unmarshal(nested, &rsp))
 	require.Equal(t, "resp-1", rsp.ID)
 	require.Equal(t, "", rsp.Object)
@@ -760,7 +760,7 @@ func TestEventUnmarshalJSON_PrefersNestedResponse(t *testing.T) {
 	require.Equal(t, "evt-2", e.ID)
 	require.NotNil(t, e.Response)
 	require.Equal(t, "resp-2", e.Response.ID)
-	require.Equal(t, model.ObjectTypeChatCompletion, e.Response.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, e.Response.Object)
 	require.True(t, e.Response.Done)
 }
 
@@ -781,11 +781,11 @@ func TestEventUnmarshalJSON_LegacyFlatOnly(t *testing.T) {
 	require.Equal(t, "evt-3", e.ID)
 	require.NotNil(t, e.Response)
 	require.Equal(t, "", e.Response.ID) // No response.id in legacy flat payload.
-	require.Equal(t, model.ObjectTypeChatCompletion, e.Response.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, e.Response.Object)
 	require.True(t, e.Response.Done)
 	require.Len(t, e.Response.Choices, 1)
 	require.Equal(t, 0, e.Response.Choices[0].Index)
-	require.Equal(t, model.RoleAssistant, e.Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, e.Response.Choices[0].Message.Role)
 	require.Equal(t, "ok", e.Response.Choices[0].Message.Content)
 }
 
@@ -850,7 +850,7 @@ func TestEventMarshalJSON_TimestampOverflow(t *testing.T) {
 	})
 	t.Run("response with timestamp overflow", func(t *testing.T) {
 		e := &Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				Timestamp: time.Unix(1<<60-1, 0),
 			},
 		}
@@ -875,7 +875,7 @@ func TestEventUnMarshalJSON_TimestampOverflow(t *testing.T) {
 
 func TestEventMarshalJSON(t *testing.T) {
 	t.Run("without struct", func(t *testing.T) {
-		e := Event{ID: "id1", Response: &model.Response{ID: "id2"}}
+		e := Event{ID: "id1", Response: &compat.Response{ID: "id2"}}
 		data, err := json.Marshal(e)
 		require.NoError(t, err)
 		var dst Event
@@ -884,7 +884,7 @@ func TestEventMarshalJSON(t *testing.T) {
 		require.Equal(t, "id2", dst.Response.ID)
 	})
 	t.Run("with pointer", func(t *testing.T) {
-		e := &Event{ID: "id1", Response: &model.Response{ID: "id2"}}
+		e := &Event{ID: "id1", Response: &compat.Response{ID: "id2"}}
 		data, err := json.Marshal(e)
 		require.NoError(t, err)
 		var dst Event
@@ -897,11 +897,11 @@ func TestEventMarshalJSON(t *testing.T) {
 func TestEventJSON_RoundTrip(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		src := &Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:      "resp-rt",
-				Object:  model.ObjectTypeChatCompletion,
+				Object:  compat.ObjectTypeChatCompletion,
 				Done:    true,
-				Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("hi")}},
+				Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("hi")}},
 			},
 			ID:           "evt-rt",
 			InvocationID: "inv-rt",
@@ -918,10 +918,10 @@ func TestEventJSON_RoundTrip(t *testing.T) {
 		require.NotNil(t, dst.Response)
 		require.Equal(t, "evt-rt", dst.ID)
 		require.Equal(t, "resp-rt", dst.Response.ID)
-		require.Equal(t, model.ObjectTypeChatCompletion, dst.Response.Object)
+		require.Equal(t, compat.ObjectTypeChatCompletion, dst.Response.Object)
 	})
 	t.Run("top-level value", func(t *testing.T) {
-		e := Event{ID: "id1", Response: &model.Response{ID: "id2"}}
+		e := Event{ID: "id1", Response: &compat.Response{ID: "id2"}}
 		data, err := json.Marshal(e)
 		require.NoError(t, err)
 		var dst Event
@@ -930,7 +930,7 @@ func TestEventJSON_RoundTrip(t *testing.T) {
 		require.Equal(t, "id2", dst.Response.ID)
 	})
 	t.Run("top-level pointer", func(t *testing.T) {
-		e := &Event{ID: "id1", Response: &model.Response{ID: "id2"}}
+		e := &Event{ID: "id1", Response: &compat.Response{ID: "id2"}}
 		data, err := json.Marshal(e)
 		require.NoError(t, err)
 		var dst Event
@@ -939,7 +939,7 @@ func TestEventJSON_RoundTrip(t *testing.T) {
 		require.Equal(t, "id2", dst.Response.ID)
 	})
 	t.Run("slice element value", func(t *testing.T) {
-		in := []Event{{ID: "id1", Response: &model.Response{ID: "id2"}}}
+		in := []Event{{ID: "id1", Response: &compat.Response{ID: "id2"}}}
 		data, err := json.Marshal(in)
 		require.NoError(t, err)
 		var out []Event
@@ -949,7 +949,7 @@ func TestEventJSON_RoundTrip(t *testing.T) {
 	})
 	t.Run("map value non-addressable", func(t *testing.T) {
 		m := map[string]Event{
-			"k": {ID: "id1", Response: &model.Response{ID: "id2"}},
+			"k": {ID: "id1", Response: &compat.Response{ID: "id2"}},
 		}
 		data, err := json.Marshal(m)
 		require.NoError(t, err)
@@ -974,7 +974,7 @@ func TestEventJSON_RoundTrip(t *testing.T) {
 	})
 	t.Run("timestamp round-trip", func(t *testing.T) {
 		ts := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-		e := Event{ID: "id1", Response: &model.Response{ID: "id2", Timestamp: ts}}
+		e := Event{ID: "id1", Response: &compat.Response{ID: "id2", Timestamp: ts}}
 		data, err := json.Marshal(e)
 		require.NoError(t, err)
 		var dst Event

@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/workspaceinput"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	rootskill "github.com/LingByte/ling-base/agentkit/skill"
 )
 
@@ -295,7 +295,7 @@ func (r *conversationFilesRequirement) Apply(
 // are part of the workspace. In particular:
 //
 //   - Session events are only considered when the message Role is
-//     model.RoleUser. Tool/assistant messages may carry file parts
+//     compat.RoleUser. Tool/assistant messages may carry file parts
 //     too, but they are not user-supplied inputs.
 //   - The current invocation message contributes its file parts
 //     unconditionally because the helper treats it as the active
@@ -321,11 +321,11 @@ func allConversationFiles(inv *agent.Invocation) []string {
 				continue
 			}
 			for _, choice := range ev.Response.Choices {
-				if choice.Message.Role != model.RoleUser {
+				if choice.Message.Role != compat.RoleUser {
 					continue
 				}
 				for _, part := range choice.Message.ContentParts {
-					if part.Type != model.ContentTypeFile ||
+					if part.Type != compat.ContentTypeFile ||
 						part.File == nil {
 						continue
 					}
@@ -338,7 +338,7 @@ func allConversationFiles(inv *agent.Invocation) []string {
 		}
 	}
 	for _, part := range inv.Message.ContentParts {
-		if part.Type != model.ContentTypeFile || part.File == nil {
+		if part.Type != compat.ContentTypeFile || part.File == nil {
 			continue
 		}
 		if k := fileDigest(part.File.FileID, part.File.Data); k != "" {

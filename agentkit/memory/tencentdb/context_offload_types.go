@@ -9,7 +9,7 @@
 
 package tencentdb
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 type offloadResponseEnvelope[T any] struct {
 	Code      int    `json:"code"`
@@ -29,7 +29,7 @@ type offloadToolPair struct {
 }
 
 type offloadRecentMessage struct {
-	Role    model.Role `json:"role"`
+	Role    compat.Role `json:"role"`
 	Content string     `json:"content"`
 }
 
@@ -57,19 +57,19 @@ type offloadCompactData struct {
 
 // offloadMessage follows the OpenAI-compatible message shape accepted by the
 // offload v2 compaction endpoint. TencentDB uses tool_call_id for tool result
-// messages, while model.Message calls the same field ToolID.
+// messages, while compat.Message calls the same field ToolID.
 type offloadMessage struct {
-	Role               model.Role          `json:"role"`
+	Role               compat.Role          `json:"role"`
 	Content            string              `json:"content,omitempty"`
-	ContentParts       []model.ContentPart `json:"content_parts,omitempty"`
+	ContentParts       []compat.ContentPart `json:"content_parts,omitempty"`
 	ToolCallID         string              `json:"tool_call_id,omitempty"`
 	ToolName           string              `json:"tool_name,omitempty"`
-	ToolCalls          []model.ToolCall    `json:"tool_calls,omitempty"`
+	ToolCalls          []compat.ToolCall    `json:"tool_calls,omitempty"`
 	ReasoningContent   string              `json:"reasoning_content,omitempty"`
 	ReasoningSignature string              `json:"reasoning_signature,omitempty"`
 }
 
-func newOffloadMessage(message model.Message) offloadMessage {
+func newOffloadMessage(message compat.Message) offloadMessage {
 	return offloadMessage{
 		Role:               message.Role,
 		Content:            message.Content,
@@ -82,8 +82,8 @@ func newOffloadMessage(message model.Message) offloadMessage {
 	}
 }
 
-func (m offloadMessage) modelMessage() model.Message {
-	return model.Message{
+func (m offloadMessage) modelMessage() compat.Message {
+	return compat.Message{
 		Role:               m.Role,
 		Content:            m.Content,
 		ContentParts:       m.ContentParts,

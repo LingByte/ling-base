@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // SwarmConfig defines optional safety limits for swarm-style handoffs.
@@ -43,8 +43,8 @@ type SwarmConfig struct {
 type SwarmHandoffInputArgs struct {
 	FromAgentName   string
 	ToAgentName     string
-	RootInput       model.Message
-	ParentInput     model.Message
+	RootInput       compat.Message
+	ParentInput     compat.Message
 	TransferMessage string
 }
 
@@ -53,7 +53,7 @@ type SwarmHandoffInputArgs struct {
 type SwarmHandoffInputBuilder func(
 	ctx context.Context,
 	args SwarmHandoffInputArgs,
-) (model.Message, error)
+) (compat.Message, error)
 
 type swarmSessionIDArgs struct {
 	ParentSessionID string

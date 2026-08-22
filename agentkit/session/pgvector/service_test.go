@@ -23,7 +23,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/postgres"
 	"github.com/stretchr/testify/assert"
@@ -322,7 +322,7 @@ func (m *mockSummarizer) SummarizeWithFilter(
 }
 
 func (m *mockSummarizer) SetPrompt(_ string)       {}
-func (m *mockSummarizer) SetModel(_ model.Model)   {}
+func (m *mockSummarizer) SetModel(_ compat.Model)   {}
 func (m *mockSummarizer) Metadata() map[string]any { return nil }
 
 func TestNewService_RequiresEmbedder(t *testing.T) {
@@ -443,10 +443,10 @@ func TestNewService_AsyncSummaryWorkerHonorsDispatchPolicy(
 			ID:           "evt-1",
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},
@@ -496,11 +496,11 @@ func TestExtractEventText_NilResponse(t *testing.T) {
 
 func TestExtractEventText_PartialEvent(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial content",
 				}},
 			},
@@ -513,8 +513,8 @@ func TestExtractEventText_PartialEvent(t *testing.T) {
 
 func TestExtractEventText_EmptyChoices(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{},
+		Response: &compat.Response{
+			Choices: []compat.Choice{},
 		},
 	}
 	text, role := extractEventText(evt)
@@ -524,10 +524,10 @@ func TestExtractEventText_EmptyChoices(t *testing.T) {
 
 func TestExtractEventText_ToolMessage(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "tool-123",
 					ToolName: "web_fetch",
 					Content:  "tool output",
@@ -537,15 +537,15 @@ func TestExtractEventText_ToolMessage(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "web_fetch: tool output", text)
-	assert.Equal(t, model.RoleTool, role)
+	assert.Equal(t, compat.RoleTool, role)
 }
 
 func TestExtractEventText_ToolIDMessage(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "response with tool",
 					ToolID:  "tool-123",
 				}},
@@ -554,17 +554,17 @@ func TestExtractEventText_ToolIDMessage(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "response with tool", text)
-	assert.Equal(t, model.RoleTool, role)
+	assert.Equal(t, compat.RoleTool, role)
 }
 
 func TestExtractEventText_ToolCallsMessage(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "before tool call",
-					ToolCalls: []model.ToolCall{
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-1"},
 					},
 				}},
@@ -578,10 +578,10 @@ func TestExtractEventText_ToolCallsMessage(t *testing.T) {
 
 func TestExtractEventText_AssistantContent(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Hello, how can I help?",
 				}},
 			},
@@ -589,15 +589,15 @@ func TestExtractEventText_AssistantContent(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "Hello, how can I help?", text)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 }
 
 func TestExtractEventText_UserContent(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "What is Go?",
 				}},
 			},
@@ -605,18 +605,18 @@ func TestExtractEventText_UserContent(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "What is Go?", text)
-	assert.Equal(t, model.RoleUser, role)
+	assert.Equal(t, compat.RoleUser, role)
 }
 
 func TestExtractEventText_ContentParts(t *testing.T) {
 	part1 := "Hello "
 	part2 := "World"
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{Text: &part1},
 						{Text: &part2},
 					},
@@ -626,15 +626,15 @@ func TestExtractEventText_ContentParts(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "Hello  World", text)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 }
 
 func TestExtractEventText_EmptyContent(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "",
 				}},
 			},
@@ -647,9 +647,9 @@ func TestExtractEventText_EmptyContent(t *testing.T) {
 
 func TestExtractEventText_DefaultsToAssistant(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
 					Content: "no role set",
 				}},
 			},
@@ -657,7 +657,7 @@ func TestExtractEventText_DefaultsToAssistant(t *testing.T) {
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "no role set", text)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 }
 
 // --- Tests for extractEventText edge cases ---
@@ -667,11 +667,11 @@ func TestExtractEventText_ContentPartsWithNilText(
 ) {
 	text1 := "non-nil"
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{Text: &text1},
 						{Text: nil}, // nil text part.
 					},
@@ -681,7 +681,7 @@ func TestExtractEventText_ContentPartsWithNilText(
 	}
 	text, role := extractEventText(evt)
 	assert.Equal(t, "non-nil", text)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 }
 
 func TestExtractEventText_IsValidContentFalse(
@@ -704,11 +704,11 @@ func TestExtractEventText_ContentPartsWhitespaceOnly(
 ) {
 	space := "   "
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{Text: &space},
 					},
 				}},
@@ -775,10 +775,10 @@ func TestAsyncIndexEvent_EmptyText(t *testing.T) {
 
 	// Event with no indexable content.
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:   model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:   compat.RoleTool,
 					ToolID: "t1",
 				}},
 			},
@@ -810,10 +810,10 @@ func TestAsyncIndexEvent_NilEmbedder(t *testing.T) {
 	}
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello",
 				}},
 			},
@@ -834,10 +834,10 @@ func TestAsyncIndexEvent_EmbedderError(t *testing.T) {
 	defer db.Close()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello",
 				}},
 			},
@@ -859,10 +859,10 @@ func TestAsyncIndexEvent_EmptyEmbedding(t *testing.T) {
 	defer db.Close()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello",
 				}},
 			},
@@ -882,7 +882,7 @@ func TestBuildIndexText_UsesBuilder(t *testing.T) {
 		sess *session.Session,
 		_ *event.Event,
 		baseText string,
-		role model.Role,
+		role compat.Role,
 	) string {
 		return fmt.Sprintf(
 			"[SessionDate: %s] %s: %s",
@@ -899,10 +899,10 @@ func TestBuildIndexText_UsesBuilder(t *testing.T) {
 		CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
 	}
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello world",
 				}},
 			},
@@ -910,7 +910,7 @@ func TestBuildIndexText_UsesBuilder(t *testing.T) {
 	}
 
 	text, role := s.buildIndexText(sess, evt)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 	assert.Equal(
 		t,
 		"[SessionDate: 2025-01-02] assistant: hello world",
@@ -927,10 +927,10 @@ func TestAsyncIndexEvent_Success(t *testing.T) {
 
 	evt := &event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello world",
 				}},
 			},
@@ -940,7 +940,7 @@ func TestAsyncIndexEvent_Success(t *testing.T) {
 	mock.ExpectExec("UPDATE session_events SET").
 		WithArgs(
 			"hello world",
-			string(model.RoleAssistant),
+			string(compat.RoleAssistant),
 			anyVectorArg{},
 			"app", "user", "sess-1",
 			string(eventBytes),
@@ -967,7 +967,7 @@ func TestIndexEventAfterPersist_SyncIndexing(t *testing.T) {
 		sess *session.Session,
 		_ *event.Event,
 		baseText string,
-		role model.Role,
+		role compat.Role,
 	) string {
 		return fmt.Sprintf(
 			"[SessionDate: %s] %s: %s",
@@ -979,10 +979,10 @@ func TestIndexEventAfterPersist_SyncIndexing(t *testing.T) {
 
 	evt := &event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "hello world",
 				}},
 			},
@@ -992,7 +992,7 @@ func TestIndexEventAfterPersist_SyncIndexing(t *testing.T) {
 	mock.ExpectExec("UPDATE session_events SET").
 		WithArgs(
 			"[SessionDate: 2025-01-02] assistant: hello world",
-			string(model.RoleAssistant),
+			string(compat.RoleAssistant),
 			anyVectorArg{},
 			"app", "user", "sess-1",
 			string(eventBytes),
@@ -1024,10 +1024,10 @@ func TestAsyncIndexEvent_UpdateError(t *testing.T) {
 
 	evt := &event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -1037,7 +1037,7 @@ func TestAsyncIndexEvent_UpdateError(t *testing.T) {
 	mock.ExpectExec("UPDATE session_events SET").
 		WithArgs(
 			"hello",
-			string(model.RoleUser),
+			string(compat.RoleUser),
 			anyVectorArg{},
 			"app", "user", "sess-1",
 			string(eventBytes),
@@ -2093,10 +2093,10 @@ func TestAppendEvent_SyncMode_Success(t *testing.T) {
 	sess := session.NewSession("app", "user", "sess")
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -2141,10 +2141,10 @@ func TestAppendEvent_SyncMode_AddEventError(
 	sess := session.NewSession("app", "user", "sess")
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -2760,10 +2760,10 @@ func TestGetSession_WithEventsAndSummaries(
 	// so ApplyEventFiltering does not discard it.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -2844,10 +2844,10 @@ func TestGetSession_WithEventsAndTracks(
 	// Events with valid user message.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -2936,10 +2936,10 @@ func TestGetSession_TrackEventsError(t *testing.T) {
 	// Events.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -3011,10 +3011,10 @@ func TestGetSession_SummariesError(t *testing.T) {
 	// Events with user message.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -3335,10 +3335,10 @@ func TestListSessions_WithTracks(t *testing.T) {
 	// getEventsList - with user message.
 	evt := event.Event{
 		InvocationID: "inv-1",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -3547,10 +3547,10 @@ func TestAppendEventInternal_AsyncPersist(
 	sess.Hash = 0
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -3621,10 +3621,10 @@ func TestAppendEventInternal_SyncWithAsyncIndex(
 
 	evt := &event.Event{
 		InvocationID: "inv-sync",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "response text",
 				}},
 			},
@@ -3653,7 +3653,7 @@ func TestAppendEventInternal_SyncWithAsyncIndex(
 	mock.ExpectExec("UPDATE session_events SET").
 		WithArgs(
 			"response text",
-			string(model.RoleAssistant),
+			string(compat.RoleAssistant),
 			anyVectorArg{},
 			"app", "user", "sess",
 			string(eventBytes),
@@ -4120,10 +4120,10 @@ func TestAddEvent_ExpiredSession(t *testing.T) {
 	mock.ExpectCommit()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -4193,10 +4193,10 @@ func TestStartAsyncPersistWorker_Integration(
 	mock.ExpectCommit()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},
@@ -4669,10 +4669,10 @@ func TestAddEvent_NilState_Initializes(t *testing.T) {
 	mock.ExpectCommit()
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{
-					Role:    model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			},

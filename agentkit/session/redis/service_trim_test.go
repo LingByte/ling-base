@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +45,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e3", RequestID: "req2", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -69,7 +69,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e4", RequestID: "req4", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -94,7 +94,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e5", RequestID: "req2", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -130,7 +130,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e3", RequestID: "", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -152,7 +152,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e2", RequestID: "req2", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -174,7 +174,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e2", RequestID: "req2", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -195,7 +195,7 @@ func TestService_TrimConversations(t *testing.T) {
 					{ID: "e1", RequestID: "req1", Timestamp: time.Now()},
 				}
 				for i := range events {
-					events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+					events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 					require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 				}
 				return events
@@ -310,7 +310,7 @@ func TestService_TrimConversations_ChronologicalOrder(t *testing.T) {
 		{ID: "e3", RequestID: "req1", Timestamp: baseTime.Add(-1 * time.Second)},
 	}
 	for i := range events {
-		events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+		events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 		require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 	}
 
@@ -345,7 +345,7 @@ func TestService_TrimConversations_RemainingEvents(t *testing.T) {
 		{ID: "e3", RequestID: "req3", Timestamp: time.Now().Add(-1 * time.Hour)},
 	}
 	for i := range events {
-		events[i].Response = &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
+		events[i].Response = &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}}}}
 		require.NoError(t, service.AppendEvent(ctx, sess, &events[i]))
 	}
 

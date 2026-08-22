@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 	"github.com/alpkeskin/gotoon"
 	"github.com/universal-tool-calling-protocol/go-utcp/src/tools"
 )
@@ -223,7 +222,7 @@ func isCodeModeCompilationError(err error) bool {
 		strings.Contains(s, "undefined:")
 }
 
-func (a *Agent) toolOrchestrator(ctx context.Context, sessionID, userInput string, records []memmodel.MemoryRecord, files ...gomodel.File) (bool, string, error) {
+func (a *Agent) toolOrchestrator(ctx context.Context, sessionID, userInput string, records []memmodel.MemoryRecord, files ...File) (bool, string, error) {
 	if !a.likelyNeedsToolCall(strings.ToLower(strings.TrimSpace(userInput))) {
 		return false, "", nil
 	}
@@ -234,9 +233,10 @@ func (a *Agent) toolOrchestrator(ctx context.Context, sessionID, userInput strin
 	if len(toolList) == 0 {
 		return false, "", nil
 	}
-	if native, ok := a.model.(gomodel.ToolCallingAgent); ok && len(files) == 0 {
-		handled, output, err := a.toolOrchestratorNative(ctx, sessionID, userInput, records, toolList, native)
-		if !errors.Is(err, gomodel.ErrToolCallingUnsupported) {
+	// Try native tool calling first (when no file attachments).
+	if len(files) == 0 {
+		handled, output, err := a.toolOrchestratorNative(ctx, sessionID, userInput, records, toolList)
+		if !errors.Is(err, ErrToolCallingUnsupported) {
 			return handled, output, err
 		}
 	}
@@ -313,24 +313,24 @@ JSON shape:
 {"use_tool":true|false,"tool_name":"provider.tool or empty","arguments":{},"final_answer":"summary when done","reason":"short reason"}
 `, a.systemInstructions(), userInput, memoryDesc, fileDesc, workspaceRules, toolDesc, canonicalToolNames, strings.Join(observations, "\n\n"), requiresMutation, mutationDone, inspectionDone, mutationTools)
 
-		var raw any
+		var raw string
 		var err error
 		if len(files) > 0 {
-			raw, err = a.model.GenerateWithFiles(ctx, choicePrompt, files)
+			raw, err = a.generateWithFiles(ctx, choicePrompt, files)
 		} else {
-			raw, err = a.model.Generate(ctx, choicePrompt)
+			raw, err = a.generate(ctx, choicePrompt)
 		}
 		if err != nil {
 			return false, "", err
 		}
-		jsonStr := extractJSON(fmt.Sprint(raw))
+		jsonStr := extractJSON(raw)
 		if jsonStr == "" {
-			observations = append(observations, fmt.Sprintf("[planner] invalid_json: return ONLY the required JSON object. Previous response: %s", truncate(fmt.Sprint(raw), 2000)))
+			observations = append(observations, fmt.Sprintf("[planner] invalid_json: return ONLY the required JSON object. Previous response: %s", truncate(raw, 2000)))
 			continue
 		}
 		var tc ToolChoice
 		if err := json.Unmarshal([]byte(jsonStr), &tc); err != nil {
-			observations = append(observations, fmt.Sprintf("[planner] invalid_json: %v. Previous response: %s", err, truncate(fmt.Sprint(raw), 2000)))
+			observations = append(observations, fmt.Sprintf("[planner] invalid_json: %v. Previous response: %s", err, truncate(raw, 2000)))
 			continue
 		}
 
@@ -423,7 +423,7 @@ JSON shape:
 	return true, final, nil
 }
 
-func (a *Agent) toolOrchestratorNative(ctx context.Context, sessionID, userInput string, records []memmodel.MemoryRecord, toolList []tools.Tool, native gomodel.ToolCallingAgent) (bool, string, error) {
+func (a *Agent) toolOrchestratorNative(ctx context.Context, sessionID, userInput string, records []memmodel.MemoryRecord, toolList []tools.Tool) (bool, string, error) {
 	definitions := nativeToolDefinitions(toolList)
 	if len(definitions) == 0 {
 		return false, "", nil
@@ -457,11 +457,17 @@ Continue until the user request is complete.
 
 For refactor/edit/write/create/change/fix requests, inspect the target first, then execute a real mutation tool before completion. After mutation, verify when practical. If the target has already been inspected and mutation has not happened, do not issue another read-only call. Use only exact native tool names. If a previous CodeMode-related execution failed compilation, make the next tool/code decision fresh rather than repeating it.
 `, a.systemInstructions(), userInput, memoryDesc, strings.Join(observations, "\n\n"))
-		response, err := native.GenerateWithTools(ctx, prompt, definitions)
+		response, err := a.generateWithTools(ctx, prompt, definitions)
 		if err != nil {
 			return false, "", err
 		}
 		if len(response.ToolCalls) == 0 {
+			// On the first step, if the model returned text but no tool
+			// calls, it likely doesn't support native tool calling. Fall
+			// back to the prompt-based orchestrator.
+			if step == 1 && len(observations) == 0 {
+				return false, "", ErrToolCallingUnsupported
+			}
 			if requiresMutation && !mutationDone {
 				observations = append(observations, fmt.Sprintf("[step %d] planner_error=mutation_required; discovery/read-only execution is insufficient for this request", step))
 				continue
@@ -540,8 +546,8 @@ For refactor/edit/write/create/change/fix requests, inspect the target first, th
 	return true, final, nil
 }
 
-func nativeToolDefinitions(specs []tools.Tool) []gomodel.ToolDefinition {
-	definitions := make([]gomodel.ToolDefinition, 0, len(specs))
+func nativeToolDefinitions(specs []tools.Tool) []ToolDefinition {
+	definitions := make([]ToolDefinition, 0, len(specs))
 	seen := make(map[string]struct{}, len(specs))
 	for _, spec := range specs {
 		name := strings.TrimSpace(spec.Name)
@@ -560,7 +566,7 @@ func nativeToolDefinitions(specs []tools.Tool) []gomodel.ToolDefinition {
 		if schemaType, _ := schema["type"].(string); strings.TrimSpace(schemaType) == "" {
 			schema["type"] = "object"
 		}
-		definitions = append(definitions, gomodel.ToolDefinition{Name: name, Description: spec.Description, InputSchema: schema})
+		definitions = append(definitions, ToolDefinition{Name: name, Description: spec.Description, InputSchema: schema})
 	}
 	return definitions
 }

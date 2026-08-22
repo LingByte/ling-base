@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ func (f *fakeOptionsSummarizer) Summarize(ctx context.Context, sess *session.Ses
 	return "test summary", nil
 }
 func (f *fakeOptionsSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeOptionsSummarizer) SetModel(m model.Model)   {}
+func (f *fakeOptionsSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeOptionsSummarizer) Metadata() map[string]any { return map[string]any{"test": "data"} }
 
 func TestWithSummarizer(t *testing.T) {

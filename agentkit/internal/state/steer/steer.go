@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // StateKeyQueuedUserMessages is the invocation state key used by Attach.
@@ -44,7 +44,7 @@ type QueuedUserMessageMetadata struct {
 // Queue stores queued user messages in FIFO order.
 type Queue struct {
 	mu       sync.Mutex
-	messages []model.Message
+	messages []compat.Message
 	closed   bool
 }
 
@@ -54,7 +54,7 @@ func NewQueue() *Queue {
 }
 
 // Enqueue appends one message unless the queue has been closed.
-func (q *Queue) Enqueue(message model.Message) bool {
+func (q *Queue) Enqueue(message compat.Message) bool {
 	if q == nil {
 		return false
 	}
@@ -69,7 +69,7 @@ func (q *Queue) Enqueue(message model.Message) bool {
 }
 
 // Drain returns all queued messages in FIFO order.
-func (q *Queue) Drain() []model.Message {
+func (q *Queue) Drain() []compat.Message {
 	if q == nil {
 		return nil
 	}
@@ -79,13 +79,13 @@ func (q *Queue) Drain() []model.Message {
 	if len(q.messages) == 0 {
 		return nil
 	}
-	drained := append([]model.Message(nil), q.messages...)
+	drained := append([]compat.Message(nil), q.messages...)
 	q.messages = nil
 	return drained
 }
 
 // Discard removes all queued messages without closing the queue.
-func (q *Queue) Discard() []model.Message {
+func (q *Queue) Discard() []compat.Message {
 	if q == nil {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (q *Queue) Discard() []model.Message {
 	if len(q.messages) == 0 {
 		return nil
 	}
-	discarded := append([]model.Message(nil), q.messages...)
+	discarded := append([]compat.Message(nil), q.messages...)
 	q.messages = nil
 	return discarded
 }
@@ -154,7 +154,7 @@ func IsAttached(inv *agent.Invocation) bool {
 }
 
 // Drain removes and returns queued messages from the invocation.
-func Drain(inv *agent.Invocation) []model.Message {
+func Drain(inv *agent.Invocation) []compat.Message {
 	queue, ok := agent.GetStateValue[*Queue](
 		inv,
 		StateKeyQueuedUserMessages,

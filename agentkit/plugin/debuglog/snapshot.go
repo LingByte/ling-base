@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -44,7 +44,7 @@ func addJSONSnapshot(payload map[string]any, key, errorKey string, v any) {
 	payload[key] = value
 }
 
-func addRequestSnapshot(payload map[string]any, req *model.Request) {
+func addRequestSnapshot(payload map[string]any, req *compat.Request) {
 	addJSONSnapshot(payload, "request", "request_encode_error", req)
 	if req == nil {
 		return
@@ -55,9 +55,11 @@ func addRequestSnapshot(payload map[string]any, req *model.Request) {
 	}
 }
 
-func requestSupplement(req *model.Request) map[string]any {
+func requestSupplement(req *compat.Request) map[string]any {
 	supplement := map[string]any{}
-	addRequestToolsSupplement(supplement, req.Tools)
+	if toolsMap, ok := req.Tools.(map[string]tool.Tool); ok {
+		addRequestToolsSupplement(supplement, toolsMap)
+	}
 	addJSONMapSnapshot(supplement, "extra_fields", "extra_field_errors", req.ExtraFields)
 	if len(req.Headers) > 0 {
 		supplement["headers"] = stringMapToAny(req.Headers)

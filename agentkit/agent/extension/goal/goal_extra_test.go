@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -222,21 +222,21 @@ func TestFormattingAndInvocationHelpers(t *testing.T) {
 	assert.Contains(t, msg, "(unknown objective)")
 	assert.Contains(t, msg, DefaultUpdateGoalToolName)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("existing system"),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("existing system"),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	insertGuidance(req, "  extra guidance  ")
 	require.Len(t, req.Messages, 3)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
-	assert.Equal(t, model.RoleSystem, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[1].Role)
 	assert.Equal(t, "extra guidance", req.Messages[1].Content)
-	assert.Equal(t, model.RoleUser, req.Messages[2].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[2].Role)
 
 	insertGuidance(nil, "ignored")
-	req = &model.Request{Messages: []model.Message{model.NewUserMessage("hello")}}
+	req = &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hello")}}
 	insertGuidance(req, "   ")
 	require.Len(t, req.Messages, 1)
 
@@ -346,43 +346,43 @@ func TestExtensionEdgeCases(t *testing.T) {
 	beforeRes, err := e.beforeModel(ctx, nil)
 	require.NoError(t, err)
 	assert.Nil(t, beforeRes)
-	beforeRes, err = e.beforeModel(ctx, &model.BeforeModelArgs{})
+	beforeRes, err = e.beforeModel(ctx, &compat.BeforeModelArgs{})
 	require.NoError(t, err)
 	assert.Nil(t, beforeRes)
 
 	setReminderPending(inv, true)
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("continue")}}
-	beforeRes, err = e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("continue")}}
+	beforeRes, err = e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Nil(t, beforeRes)
 	require.Len(t, req.Messages, 1)
 	assert.False(t, reminderPending(inv))
 
 	sess.SetState("custom:key", []byte("{"))
-	beforeRes, err = e.beforeModel(ctx, &model.BeforeModelArgs{Request: &model.Request{Messages: []model.Message{model.NewUserMessage("continue")}}})
+	beforeRes, err = e.beforeModel(ctx, &compat.BeforeModelArgs{Request: &compat.Request{Messages: []compat.Message{compat.NewUserMessage("continue")}}})
 	require.NoError(t, err)
 	assert.Nil(t, beforeRes)
 
-	afterRes, err := e.afterModel(ctx, &model.AfterModelArgs{Response: finalRsp("done")})
+	afterRes, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: finalRsp("done")})
 	require.NoError(t, err)
 	assert.Nil(t, afterRes)
 
 	afterRes, err = e.afterModel(ctx, nil)
 	require.NoError(t, err)
 	assert.Nil(t, afterRes)
-	afterRes, err = e.afterModel(ctx, &model.AfterModelArgs{})
+	afterRes, err = e.afterModel(ctx, &compat.AfterModelArgs{})
 	require.NoError(t, err)
 	assert.Nil(t, afterRes)
-	afterRes, err = e.afterModel(ctx, &model.AfterModelArgs{Error: assert.AnError, Response: finalRsp("done")})
+	afterRes, err = e.afterModel(ctx, &compat.AfterModelArgs{Error: assert.AnError, Response: finalRsp("done")})
 	require.NoError(t, err)
 	assert.Nil(t, afterRes)
-	afterRes, err = e.afterModel(ctx, &model.AfterModelArgs{Response: &model.Response{Error: &model.ResponseError{Message: "upstream"}}})
+	afterRes, err = e.afterModel(ctx, &compat.AfterModelArgs{Response: &compat.Response{Error: &compat.ResponseError{Message: "upstream"}}})
 	require.NoError(t, err)
 	assert.Nil(t, afterRes)
 
 	assert.False(t, e.shouldConsiderResponse(nil))
 	assert.False(t, e.shouldConsiderResponse(partialRsp("partial")))
-	assert.False(t, e.shouldConsiderResponse(&model.Response{Error: &model.ResponseError{Message: "upstream"}}))
+	assert.False(t, e.shouldConsiderResponse(&compat.Response{Error: &compat.ResponseError{Message: "upstream"}}))
 	assert.False(t, e.shouldConsiderResponse(toolCallRsp(DefaultUpdateGoalToolName, `{"status":"complete"}`)))
 	assert.True(t, e.shouldConsiderResponse(finalRsp("done")))
 

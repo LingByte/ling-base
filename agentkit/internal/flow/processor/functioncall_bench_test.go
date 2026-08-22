@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryfork"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -128,16 +128,16 @@ func BenchmarkParallelInvocationViewBatchWithSession(b *testing.B) {
 
 func parallelInvocationBenchmarkInput(historySize int) *agent.Invocation {
 	invocation := agent.NewInvocation(agent.WithInvocationSession(&session.Session{}))
-	messages := make([]model.Message, historySize)
+	messages := make([]compat.Message, historySize)
 	items := make([]summaryview.Item, historySize)
 	for i := 0; i < historySize; i++ {
 		arguments := bytes.Repeat([]byte{'a' + byte(i%26)}, 256)
-		message := model.Message{
-			Role:    model.RoleAssistant,
+		message := compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: "parallel tool call history",
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				ID: fmt.Sprintf("call-%d", i),
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "write_file",
 					Arguments: arguments,
 				},
@@ -147,7 +147,7 @@ func parallelInvocationBenchmarkInput(historySize int) *agent.Invocation {
 		items[i] = summaryview.Item{
 			Message: message,
 			EffectiveEvent: event.Event{
-				Response: &model.Response{Choices: []model.Choice{{Message: message}}},
+				Response: &compat.Response{Choices: []compat.Choice{{Message: message}}},
 				StateDelta: map[string][]byte{
 					"history": bytes.Repeat([]byte{'v'}, 256),
 				},
@@ -155,7 +155,7 @@ func parallelInvocationBenchmarkInput(historySize int) *agent.Invocation {
 		}
 	}
 	summaryview.AttachProjection(invocation, &summaryview.View{Items: items})
-	summaryfork.Attach(invocation, &model.Request{Messages: messages})
+	summaryfork.Attach(invocation, &compat.Request{Messages: messages})
 	return invocation
 }
 

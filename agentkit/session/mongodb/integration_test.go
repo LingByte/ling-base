@@ -26,7 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -41,7 +41,7 @@ func (s *integrationSummarizer) Summarize(_ context.Context, _ *session.Session)
 	return s.text, nil
 }
 func (s *integrationSummarizer) SetPrompt(_ string)       {}
-func (s *integrationSummarizer) SetModel(_ model.Model)   {}
+func (s *integrationSummarizer) SetModel(_ compat.Model)   {}
 func (s *integrationSummarizer) Metadata() map[string]any { return nil }
 
 func newIntegrationService(t *testing.T, opts ...ServiceOpt) (context.Context, *Service, *mongo.Database) {
@@ -76,13 +76,13 @@ func newIntegrationService(t *testing.T, opts ...ServiceOpt) (context.Context, *
 	return context.Background(), svc, database
 }
 
-func integrationEvent(id string, role model.Role, content string, ts time.Time) *event.Event {
+func integrationEvent(id string, role compat.Role, content string, ts time.Time) *event.Event {
 	evt := event.New("integration-invocation", string(role))
 	evt.ID = id
 	evt.Timestamp = ts
-	evt.Response = &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{Role: role, Content: content},
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: role, Content: content},
 		}},
 	}
 	evt.IsPartial = false
@@ -101,9 +101,9 @@ func TestIntegrationLifecycleTrackWindowSummary(t *testing.T) {
 	require.NotNil(t, sess)
 
 	baseTime := time.Now()
-	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("u1", model.RoleUser, "hello", baseTime)))
-	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("a1", model.RoleAssistant, "hi", baseTime.Add(time.Second))))
-	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("u2", model.RoleUser, "again", baseTime.Add(2*time.Second))))
+	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("u1", compat.RoleUser, "hello", baseTime)))
+	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("a1", compat.RoleAssistant, "hi", baseTime.Add(time.Second))))
+	require.NoError(t, svc.AppendEvent(ctx, sess, integrationEvent("u2", compat.RoleUser, "again", baseTime.Add(2*time.Second))))
 
 	trackEvent := &session.TrackEvent{
 		Track:     session.Track("tool"),
@@ -155,7 +155,7 @@ func TestIntegrationWindowIgnoresEventsBeforeRecreatedSession(t *testing.T) {
 	key := session.Key{AppName: "it-app", UserID: "it-user", SessionID: "recreated"}
 
 	oldTime := time.Now().Add(-time.Hour)
-	oldEventBytes, err := json.Marshal(integrationEvent("old", model.RoleUser, "old", oldTime))
+	oldEventBytes, err := json.Marshal(integrationEvent("old", compat.RoleUser, "old", oldTime))
 	require.NoError(t, err)
 	_, err = svc.client.InsertOne(ctx, svc.database, svc.collSessionEvents, sessionEventDoc{
 		AppName:   key.AppName,
@@ -170,7 +170,7 @@ func TestIntegrationWindowIgnoresEventsBeforeRecreatedSession(t *testing.T) {
 
 	second, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	require.NoError(t, svc.AppendEvent(ctx, second, integrationEvent("new", model.RoleUser, "new", time.Now())))
+	require.NoError(t, svc.AppendEvent(ctx, second, integrationEvent("new", compat.RoleUser, "new", time.Now())))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
@@ -193,7 +193,7 @@ func TestIntegrationCreateSessionReplacesExpiredSameKey(t *testing.T) {
 	key := session.Key{AppName: "it-app", UserID: "it-user", SessionID: "expired-recreate"}
 	oldTime := time.Now().Add(-2 * time.Hour)
 	oldExpiresAt := time.Now().Add(-time.Hour)
-	oldEventBytes, err := json.Marshal(integrationEvent("old", model.RoleUser, "old", oldTime))
+	oldEventBytes, err := json.Marshal(integrationEvent("old", compat.RoleUser, "old", oldTime))
 	require.NoError(t, err)
 
 	_, err = svc.client.InsertOne(ctx, svc.database, svc.collSessionStates, sessionStateDoc{
@@ -249,7 +249,7 @@ func TestIntegrationIndexesAndGroupedCleanup(t *testing.T) {
 		"idx_user_states_unique_active", "idx_user_states_expires")
 
 	oldTime := time.Now().Add(-2 * time.Hour)
-	eventBytes, err := json.Marshal(integrationEvent("old-event", model.RoleUser, "old", oldTime))
+	eventBytes, err := json.Marshal(integrationEvent("old-event", compat.RoleUser, "old", oldTime))
 	require.NoError(t, err)
 	trackBytes, err := json.Marshal(&session.TrackEvent{
 		Track:     session.Track("tool"),

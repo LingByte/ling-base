@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/updatepolicy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestExtractorUpdatePolicy_DefaultsToMergeSimilar(t *testing.T) {
@@ -105,7 +105,7 @@ func TestExtractorUpdatePolicy_ToolSurface(t *testing.T) {
 			ext := NewExtractor(m, WithUpdatePolicy(test.policy))
 			_, err := ext.Extract(
 				context.Background(),
-				[]model.Message{model.NewUserMessage("Remember this.")},
+				[]compat.Message{compat.NewUserMessage("Remember this.")},
 				nil,
 			)
 			assert.NoError(t, err)
@@ -126,7 +126,7 @@ func TestExtractorPolicies_InvalidToolCallsRemainNonFatal(t *testing.T) {
 		UpdatePolicyPreserveHistory,
 		UpdatePolicyAppendOnly,
 	}
-	calls := []model.ToolCall{
+	calls := []compat.ToolCall{
 		makeToolCall(memory.AddToolName, []byte(`{`)),
 		makeToolCall(memory.AddToolName, []byte(`{"topics":["missing memory"]}`)),
 	}

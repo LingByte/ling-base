@@ -11,7 +11,7 @@ package evolution
 
 import (
 	"github.com/LingByte/ling-base/agentkit/internal/redact"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const reviewerRedactedValue = redact.Value
@@ -28,17 +28,17 @@ func sanitizeReviewInput(in *ReviewInput) *ReviewInput {
 	return &out
 }
 
-func sanitizeModelMessages(in []model.Message) []model.Message {
+func sanitizeModelMessages(in []compat.Message) []compat.Message {
 	if len(in) == 0 {
 		return nil
 	}
-	out := make([]model.Message, 0, len(in))
+	out := make([]compat.Message, 0, len(in))
 	for _, msg := range in {
 		cp := msg
 		cp.Content = redactSensitiveText(msg.Content)
 		cp.ReasoningContent = redactSensitiveText(msg.ReasoningContent)
 		if len(msg.ContentParts) > 0 {
-			cp.ContentParts = make([]model.ContentPart, len(msg.ContentParts))
+			cp.ContentParts = make([]compat.ContentPart, len(msg.ContentParts))
 			for i, part := range msg.ContentParts {
 				partCopy := part
 				if part.Text != nil {
@@ -49,7 +49,7 @@ func sanitizeModelMessages(in []model.Message) []model.Message {
 			}
 		}
 		if len(msg.ToolCalls) > 0 {
-			cp.ToolCalls = make([]model.ToolCall, len(msg.ToolCalls))
+			cp.ToolCalls = make([]compat.ToolCall, len(msg.ToolCalls))
 			for i, call := range msg.ToolCalls {
 				callCopy := call
 				if len(call.Function.Arguments) > 0 {

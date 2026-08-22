@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -32,7 +32,7 @@ func BenchmarkRunnerAgentLoop(b *testing.B) {
 				newRunnerAgentLoopBenchmarkAgent(eventCount),
 				WithSessionService(&runnerAgentLoopBenchmarkSessionService{}),
 			)
-			message := model.NewUserMessage("benchmark request")
+			message := compat.NewUserMessage("benchmark request")
 
 			b.ReportAllocs()
 			b.ReportMetric(float64(eventCount), "events/op")
@@ -68,10 +68,10 @@ func newRunnerAgentLoopBenchmarkAgent(eventCount int) *runnerAgentLoopBenchmarkA
 		events[i] = &event.Event{
 			ID:     fmt.Sprintf("benchmark-event-%d", i),
 			Author: "benchmark-agent",
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("benchmark response"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("benchmark response"),
 				}},
 			},
 		}

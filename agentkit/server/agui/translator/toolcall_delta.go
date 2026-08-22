@@ -13,7 +13,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
 )
 
@@ -42,7 +42,7 @@ type toolCallDeltaState struct {
 	ended             bool
 }
 
-func (t *translator) messageToolCallEvents(parentMessageID string, choice model.Choice) []aguievents.Event {
+func (t *translator) messageToolCallEvents(parentMessageID string, choice compat.Choice) []aguievents.Event {
 	events := make([]aguievents.Event, 0, len(choice.Message.ToolCalls))
 	for position, toolCall := range choice.Message.ToolCalls {
 		if t.toolCallDeltaStreamingEnabled {
@@ -72,7 +72,7 @@ func (t *translator) messageToolCallEvents(parentMessageID string, choice model.
 	return events
 }
 
-func (t *translator) deltaToolCallEvents(parentMessageID string, choice model.Choice) []aguievents.Event {
+func (t *translator) deltaToolCallEvents(parentMessageID string, choice compat.Choice) []aguievents.Event {
 	events := make([]aguievents.Event, 0, len(choice.Delta.ToolCalls))
 	for position, toolCall := range choice.Delta.ToolCalls {
 		events = append(events, t.handleToolCallDelta(parentMessageID, choice.Index, position,
@@ -86,7 +86,7 @@ func (t *translator) handleToolCallDelta(
 	choiceIndex int,
 	position int,
 	deltaToolCallCount int,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) []aguievents.Event {
 	state := t.lookupOrCreateDeltaToolCall(parentMessageID, choiceIndex, position, deltaToolCallCount, toolCall)
 	if state == nil {
@@ -115,7 +115,7 @@ func (t *translator) lookupOrCreateDeltaToolCall(
 	choiceIndex int,
 	position int,
 	deltaToolCallCount int,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) *toolCallDeltaState {
 	if toolCall.Index == nil && toolCall.ID != "" {
 		// An explicit tool-call ID is safer than falling back to array position.
@@ -145,7 +145,7 @@ func (t *translator) lookupOrCreateDeltaToolCall(
 	return state
 }
 
-func (t *translator) updateToolCallDeltaState(state *toolCallDeltaState, toolCall model.ToolCall) {
+func (t *translator) updateToolCallDeltaState(state *toolCallDeltaState, toolCall compat.ToolCall) {
 	if !state.started && toolCall.ID != "" {
 		if state.id != "" && state.id != toolCall.ID {
 			delete(t.toolCallDeltasByID, state.id)
@@ -202,7 +202,7 @@ func (t *translator) deltaToolCallForFinalMessage(
 	parentMessageID string,
 	choiceIndex int,
 	position int,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) *toolCallDeltaState {
 	key := toolCallDeltaKeyFor(parentMessageID, choiceIndex, position, toolCall)
 	return t.toolCallDeltas[key]
@@ -210,7 +210,7 @@ func (t *translator) deltaToolCallForFinalMessage(
 
 func (t *translator) finishDeltaToolCallWithFinalMessage(
 	state *toolCallDeltaState,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 ) []aguievents.Event {
 	var events []aguievents.Event
 	finalArguments := formatToolCallArguments(toolCall.Function.Arguments)
@@ -264,14 +264,14 @@ func (t *translator) discardDeltaToolCall(state *toolCallDeltaState) {
 	delete(t.toolCallDeltas, state.key)
 }
 
-func toolCallDeltaIndex(toolCall model.ToolCall, fallback int) int {
+func toolCallDeltaIndex(toolCall compat.ToolCall, fallback int) int {
 	if toolCall.Index != nil {
 		return *toolCall.Index
 	}
 	return fallback
 }
 
-func toolCallDeltaKeyFor(parentMessageID string, choiceIndex, position int, toolCall model.ToolCall) toolCallDeltaKey {
+func toolCallDeltaKeyFor(parentMessageID string, choiceIndex, position int, toolCall compat.ToolCall) toolCallDeltaKey {
 	return toolCallDeltaKey{
 		parentMessageID: parentMessageID,
 		choiceIndex:     choiceIndex,

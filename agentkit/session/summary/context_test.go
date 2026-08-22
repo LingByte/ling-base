@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,8 +25,8 @@ type contextKey string
 func contextTestMessageEvent() event.Event {
 	return event.Event{
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Content: "message"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Content: "message"},
 		}}},
 	}
 }

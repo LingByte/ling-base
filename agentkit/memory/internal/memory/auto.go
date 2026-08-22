@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/assistantmemory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/updatepolicy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -132,7 +132,7 @@ type MemoryJob struct {
 	UserKey  memory.UserKey
 	Session  *session.Session
 	LatestTs time.Time
-	Messages []model.Message
+	Messages []compat.Message
 }
 
 // AutoMemoryConfig contains configuration for auto memory extraction.
@@ -487,7 +487,7 @@ func (w *AutoMemoryWorker) shouldSkipSession(sess *session.Session) bool {
 func (w *AutoMemoryWorker) createAutoMemory(
 	ctx context.Context,
 	userKey memory.UserKey,
-	messages []model.Message,
+	messages []compat.Message,
 ) error {
 	ops, err := w.prepareAutoMemoryOperations(ctx, userKey, messages)
 	if err != nil {
@@ -500,7 +500,7 @@ func (w *AutoMemoryWorker) createAutoMemory(
 func (w *AutoMemoryWorker) prepareAutoMemoryOperations(
 	ctx context.Context,
 	userKey memory.UserKey,
-	messages []model.Message,
+	messages []compat.Message,
 ) ([]*extractor.Operation, error) {
 	if w.config.Extractor == nil {
 		return nil, nil
@@ -563,7 +563,7 @@ func (w *AutoMemoryWorker) executeAutoMemoryOperations(
 func (w *AutoMemoryWorker) searchRelevantMemories(
 	ctx context.Context,
 	userKey memory.UserKey,
-	messages []model.Message,
+	messages []compat.Message,
 ) ([]*memory.Entry, error) {
 	query := buildSearchQuery(messages)
 	if w.updatePolicy != extractor.UpdatePolicyMergeSimilar {
@@ -593,10 +593,10 @@ func (w *AutoMemoryWorker) searchRelevantMemories(
 
 // buildSearchQuery extracts user-side text from conversation messages
 // and concatenates it into a single search query.
-func buildSearchQuery(messages []model.Message) string {
+func buildSearchQuery(messages []compat.Message) string {
 	parts := make([]string, 0, len(messages))
 	for _, msg := range messages {
-		if msg.Role != model.RoleUser {
+		if msg.Role != compat.RoleUser {
 			continue
 		}
 		text := messageSearchText(msg)
@@ -610,13 +610,13 @@ func buildSearchQuery(messages []model.Message) string {
 
 // messageSearchText extracts searchable text from a user message.
 // It preserves both the legacy Content field and text ContentParts.
-func messageSearchText(msg model.Message) string {
+func messageSearchText(msg compat.Message) string {
 	parts := make([]string, 0, 1+len(msg.ContentParts))
 	if text := strings.TrimSpace(msg.Content); text != "" {
 		parts = append(parts, text)
 	}
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		text := strings.TrimSpace(*part.Text)
@@ -803,9 +803,9 @@ func scanDeltaSince(
 	sess *session.Session,
 	since time.Time,
 	primaryResponseOnly bool,
-) (time.Time, []model.Message) {
+) (time.Time, []compat.Message) {
 	var latestTs time.Time
-	var messages []model.Message
+	var messages []compat.Message
 	sess.EventMu.RLock()
 	defer sess.EventMu.RUnlock()
 
@@ -839,7 +839,7 @@ func scanDeltaSince(
 		for _, choice := range choices {
 			msg := choice.Message
 			// Skip tool messages and messages with tool calls.
-			if msg.Role == model.RoleTool || msg.ToolID != "" {
+			if msg.Role == compat.RoleTool || msg.ToolID != "" {
 				continue
 			}
 			// Skip messages with no content (neither text nor content parts).

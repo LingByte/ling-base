@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -26,12 +26,12 @@ func TestEventWindowFromOrderedEvents(t *testing.T) {
 		SessionID: "sess",
 	}
 	events := []event.Event{
-		testEvent("u1", model.RoleUser, "one"),
+		testEvent("u1", compat.RoleUser, "one"),
 		testToolCallEvent("tool-call-only"),
-		testEvent("a1", model.RoleAssistant, "two"),
+		testEvent("a1", compat.RoleAssistant, "two"),
 		testPartialEvent("partial"),
 		testToolEvent("t1", "calc", "three"),
-		testEvent("u2", model.RoleUser, "four"),
+		testEvent("u2", compat.RoleUser, "four"),
 	}
 
 	got, err := EventWindowFromOrderedEvents(
@@ -42,10 +42,10 @@ func TestEventWindowFromOrderedEvents(t *testing.T) {
 			AnchorEventID: "t1",
 			Before:        2,
 			After:         1,
-			Roles: []model.Role{
-				model.RoleUser,
-				model.RoleAssistant,
-				model.RoleTool,
+			Roles: []compat.Role{
+				compat.RoleUser,
+				compat.RoleAssistant,
+				compat.RoleTool,
 			},
 		},
 	)
@@ -61,10 +61,10 @@ func TestEventWindowFromOrderedEventsRoleFilter(t *testing.T) {
 		SessionID: "sess",
 	}
 	events := []event.Event{
-		testEvent("u1", model.RoleUser, "one"),
-		testEvent("a1", model.RoleAssistant, "two"),
+		testEvent("u1", compat.RoleUser, "one"),
+		testEvent("a1", compat.RoleAssistant, "two"),
 		testToolEvent("t1", "calc", "three"),
-		testEvent("u2", model.RoleUser, "four"),
+		testEvent("u2", compat.RoleUser, "four"),
 	}
 
 	got, err := EventWindowFromOrderedEvents(
@@ -74,7 +74,7 @@ func TestEventWindowFromOrderedEventsRoleFilter(t *testing.T) {
 			Key:           key,
 			AnchorEventID: "u2",
 			Before:        2,
-			Roles:         []model.Role{model.RoleUser},
+			Roles:         []compat.Role{compat.RoleUser},
 		},
 	)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestEventWindowFromOrderedEventsRoleFilter(t *testing.T) {
 		session.EventWindowRequest{
 			Key:           key,
 			AnchorEventID: "t1",
-			Roles:         []model.Role{model.RoleUser},
+			Roles:         []compat.Role{compat.RoleUser},
 		},
 	)
 	require.Error(t, err)
@@ -135,7 +135,7 @@ func TestEventWindowFromOrderedEntriesUsesRequestKeyAndTrimmedAnchor(t *testing.
 	inputKey := session.Key{AppName: "ignored", UserID: "ignored", SessionID: "ignored"}
 	reqKey := session.Key{AppName: "app", UserID: "user", SessionID: "sess"}
 	entries := []session.EventWindowEntry{{
-		Event:     testEvent("anchor", model.RoleUser, "hello"),
+		Event:     testEvent("anchor", compat.RoleUser, "hello"),
 		CreatedAt: time.Unix(1, 0).UTC(),
 	}}
 
@@ -150,9 +150,9 @@ func TestEventWindowFromOrderedEntriesUsesRequestKeyAndTrimmedAnchor(t *testing.
 
 func TestMakeRoleFilterAndExtractEventText(t *testing.T) {
 	require.Nil(t, MakeRoleFilter(nil))
-	require.Nil(t, MakeRoleFilter([]model.Role{" ", ""}))
-	require.Equal(t, map[model.Role]struct{}{model.RoleUser: {}},
-		MakeRoleFilter([]model.Role{" user ", model.RoleUser}))
+	require.Nil(t, MakeRoleFilter([]compat.Role{" ", ""}))
+	require.Equal(t, map[compat.Role]struct{}{compat.RoleUser: {}},
+		MakeRoleFilter([]compat.Role{" user ", compat.RoleUser}))
 
 	_, _, ok := ExtractEventText(nil)
 	require.False(t, ok)
@@ -163,47 +163,47 @@ func TestMakeRoleFilterAndExtractEventText(t *testing.T) {
 	text, role, ok := ExtractEventText(&evt)
 	require.True(t, ok)
 	require.Equal(t, "hi", text)
-	require.Equal(t, model.RoleAssistant, role)
+	require.Equal(t, compat.RoleAssistant, role)
 
 	part1 := " first "
 	part2 := "second"
-	evt = testEvent("parts", model.RoleUser, " ")
-	evt.Response.Choices[0].Message.ContentParts = []model.ContentPart{
-		{Type: model.ContentTypeText},
-		{Type: model.ContentTypeText, Text: &part1},
-		{Type: model.ContentTypeText, Text: &part2},
+	evt = testEvent("parts", compat.RoleUser, " ")
+	evt.Response.Choices[0].Message.ContentParts = []compat.ContentPart{
+		{Type: compat.ContentTypeText},
+		{Type: compat.ContentTypeText, Text: &part1},
+		{Type: compat.ContentTypeText, Text: &part2},
 	}
 	text, role, ok = ExtractEventText(&evt)
 	require.True(t, ok)
 	require.Equal(t, "first\nsecond", text)
-	require.Equal(t, model.RoleUser, role)
+	require.Equal(t, compat.RoleUser, role)
 
 	evt = testEvent("tool", "", "result")
 	evt.Response.Choices[0].Message.ToolID = "call-tool"
 	text, role, ok = ExtractEventText(&evt)
 	require.True(t, ok)
 	require.Equal(t, "result", text)
-	require.Equal(t, model.RoleTool, role)
+	require.Equal(t, compat.RoleTool, role)
 
-	evt = testEvent("bad-role", model.Role("system"), "hidden")
+	evt = testEvent("bad-role", compat.Role("system"), "hidden")
 	_, _, ok = ExtractEventText(&evt)
 	require.False(t, ok)
 
-	evt = testEvent("empty-parts", model.RoleUser, " ")
-	evt.Response.Choices[0].Message.ContentParts = []model.ContentPart{
-		{Type: model.ContentTypeText},
+	evt = testEvent("empty-parts", compat.RoleUser, " ")
+	evt.Response.Choices[0].Message.ContentParts = []compat.ContentPart{
+		{Type: compat.ContentTypeText},
 	}
 	_, _, ok = ExtractEventText(&evt)
 	require.False(t, ok)
 }
 
-func testEvent(id string, role model.Role, content string) event.Event {
+func testEvent(id string, role compat.Role, content string) event.Event {
 	return event.Event{
 		ID:        id,
 		Timestamp: time.Unix(int64(len(id)), 0).UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -213,22 +213,22 @@ func testEvent(id string, role model.Role, content string) event.Event {
 }
 
 func testToolEvent(id, name, content string) event.Event {
-	evt := testEvent(id, model.RoleTool, content)
+	evt := testEvent(id, compat.RoleTool, content)
 	evt.Response.Choices[0].Message.ToolID = "call-" + id
 	evt.Response.Choices[0].Message.ToolName = name
 	return evt
 }
 
 func testToolCallEvent(id string) event.Event {
-	evt := testEvent(id, model.RoleAssistant, "")
-	evt.Response.Choices[0].Message.ToolCalls = []model.ToolCall{{
+	evt := testEvent(id, compat.RoleAssistant, "")
+	evt.Response.Choices[0].Message.ToolCalls = []compat.ToolCall{{
 		ID: "call-" + id,
 	}}
 	return evt
 }
 
 func testPartialEvent(id string) event.Event {
-	evt := testEvent(id, model.RoleAssistant, "partial")
+	evt := testEvent(id, compat.RoleAssistant, "partial")
 	evt.Response.IsPartial = true
 	return evt
 }

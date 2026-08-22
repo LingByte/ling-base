@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/livesession"
 	"github.com/LingByte/ling-base/agentkit/internal/teamtrace"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -462,7 +462,7 @@ func (at *Tool) Call(ctx context.Context, jsonArgs []byte) (any, error) {
 		return at.callDynamic(ctx, jsonArgs)
 	}
 
-	message := model.NewUserMessage(string(jsonArgs))
+	message := compat.NewUserMessage(string(jsonArgs))
 
 	// Prefer to reuse parent invocation + session so the child can see parent
 	// history according to the configured history scope.
@@ -482,7 +482,7 @@ func (at *Tool) Call(ctx context.Context, jsonArgs []byte) (any, error) {
 func (at *Tool) callWithParentInvocation(
 	ctx context.Context,
 	parentInv *agent.Invocation,
-	message model.Message,
+	message compat.Message,
 	runtime *parentInvocationGraphRuntime,
 ) (string, error) {
 	var runtimeState graph.State
@@ -515,7 +515,7 @@ func (at *Tool) callWithParentInvocation(
 	if runtimeState != nil {
 		if _, ok := runtimeState[graph.CfgKeyCheckpointID]; ok {
 			// A checkpoint resume is driven by the command in runtime state.
-			message = model.Message{}
+			message = compat.Message{}
 		}
 	}
 	subInv := parentInv.Clone(at.childInvocationOptions(ctx, parentInv, message, childKey, runtimeState)...)
@@ -581,7 +581,7 @@ func (at *Tool) surfaceRootNodeIDForParentInvocation(
 func (at *Tool) childInvocationOptions(
 	ctx context.Context,
 	parentInv *agent.Invocation,
-	message model.Message,
+	message compat.Message,
 	childKey string,
 	runtimeState map[string]any,
 ) []agent.InvocationOptions {
@@ -892,7 +892,7 @@ func (at *Tool) ensureUserMessageForCall(
 	if inv == nil || inv.Session == nil {
 		return
 	}
-	if inv.Message.Role != model.RoleUser || inv.Message.Content == "" {
+	if inv.Message.Role != compat.RoleUser || inv.Message.Content == "" {
 		return
 	}
 
@@ -906,9 +906,9 @@ func (at *Tool) ensureUserMessageForCall(
 	}
 	inv.Session.EventMu.RUnlock()
 
-	evt := event.NewResponseEvent(inv.InvocationID, "user", &model.Response{
+	evt := event.NewResponseEvent(inv.InvocationID, "user", &compat.Response{
 		Done:    false,
-		Choices: []model.Choice{{Index: 0, Message: inv.Message}},
+		Choices: []compat.Choice{{Index: 0, Message: inv.Message}},
 	})
 	agent.InjectIntoEvent(inv, evt)
 	at.appendEvent(ctx, inv, evt)
@@ -1032,7 +1032,7 @@ func assistantMessageContent(evt *event.Event) (string, bool) {
 		return "", false
 	}
 	message := evt.Response.Choices[0].Message
-	if message.Role != model.RoleAssistant || message.Content == "" {
+	if message.Role != compat.RoleAssistant || message.Content == "" {
 		return "", false
 	}
 	return message.Content, true
@@ -1094,7 +1094,7 @@ func cloneStateDelta(delta map[string][]byte) map[string][]byte {
 // invocation context is available.
 func (at *Tool) callWithIsolatedRunner(
 	ctx context.Context,
-	message model.Message,
+	message compat.Message,
 ) (string, error) {
 	r := runner.NewRunner(
 		at.name,
@@ -1245,7 +1245,7 @@ func collectLegacyResponse(evCh <-chan *event.Event) (string, error) {
 			continue
 		}
 		choice := ev.Response.Choices[0]
-		if choice.Message.Role != model.RoleAssistant || choice.Message.Content == "" {
+		if choice.Message.Role != compat.RoleAssistant || choice.Message.Content == "" {
 			continue
 		}
 		content := choice.Message.Content
@@ -1331,7 +1331,7 @@ func (at *Tool) runStreamableCall(
 		return
 	}
 	parentInv, ok := agent.InvocationFromContext(ctx)
-	message := model.NewUserMessage(string(jsonArgs))
+	message := compat.NewUserMessage(string(jsonArgs))
 	if ok && parentInv != nil && parentInv.Session != nil {
 		at.streamFromParentInvocation(ctx, parentInv, message, writer)
 		return
@@ -1342,7 +1342,7 @@ func (at *Tool) runStreamableCall(
 func (at *Tool) streamFromParentInvocation(
 	ctx context.Context,
 	parentInv *agent.Invocation,
-	message model.Message,
+	message compat.Message,
 	writer *tool.StreamWriter,
 ) {
 	if err := flush.Invoke(ctx, parentInv); err != nil {
@@ -1759,7 +1759,7 @@ func prefixStreamResult(prefix string, result any) any {
 
 func (at *Tool) streamFromFallbackRunner(
 	ctx context.Context,
-	message model.Message,
+	message compat.Message,
 	writer *tool.StreamWriter,
 ) {
 	r := runner.NewRunner(
@@ -1809,7 +1809,7 @@ func streamableCallErrorEvent(ctx context.Context, err error) *event.Event {
 	if err == nil {
 		return nil
 	}
-	evt := event.NewErrorEvent("", "", model.ErrorTypeFlowError, err.Error())
+	evt := event.NewErrorEvent("", "", compat.ErrorTypeFlowError, err.Error())
 	if inv, ok := agent.InvocationFromContext(ctx); ok && inv != nil {
 		agent.InjectIntoEvent(inv, evt)
 	}

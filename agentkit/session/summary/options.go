@@ -13,7 +13,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/modelcontext"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Option is a function that configures a SessionSummarizer.
@@ -236,7 +236,7 @@ func WithPostSummaryHook(h PostSummaryHook) Option {
 // WithModelCallbacks sets model callbacks for summarization.
 //
 // Note: Only structured callback signatures are supported.
-func WithModelCallbacks(callbacks *model.Callbacks) Option {
+func WithModelCallbacks(callbacks *compat.Callbacks) Option {
 	return func(s *sessionSummarizer) {
 		s.modelCallbacks = callbacks
 	}
@@ -259,7 +259,7 @@ func WithSummaryHookAbortOnError(abort bool) Option {
 //
 // Example:
 //
-//	WithToolCallFormatter(func(tc model.ToolCall) string {
+//	WithToolCallFormatter(func(tc compat.ToolCall) string {
 //	    // Only include tool name, exclude arguments.
 //	    return fmt.Sprintf("[Called tool: %s]", tc.Function.Name)
 //	})
@@ -278,7 +278,7 @@ func WithToolCallFormatter(f ToolCallFormatter) Option {
 //
 // Example:
 //
-//	WithToolResultFormatter(func(msg model.Message) string {
+//	WithToolResultFormatter(func(msg compat.Message) string {
 //	    // Truncate long results.
 //	    content := msg.Content
 //	    if len(content) > 200 {

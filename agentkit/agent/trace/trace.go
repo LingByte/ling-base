@@ -12,7 +12,7 @@ package trace
 import (
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // TraceStatus describes the overall status of a single runner.Run execution trace.
@@ -35,12 +35,12 @@ type Trace struct {
 	StartedAt        time.Time
 	EndedAt          time.Time
 	Status           TraceStatus
-	// Input stores the JSON-encoded, role-normalized model.Message received by
+	// Input stores the JSON-encoded, role-normalized compat.Message received by
 	// runner.Run.
 	Input *Snapshot
-	// Output stores the JSON-encoded final model.Message produced by this run.
+	// Output stores the JSON-encoded final compat.Message produced by this run.
 	Output *Snapshot
-	Usage  *model.Usage
+	Usage  *compat.Usage
 	Steps  []Step
 }
 
@@ -61,7 +61,7 @@ type Step struct {
 	AppliedSurfaceIDs  []string
 	Input              *Snapshot
 	Output             *Snapshot
-	Usage              *model.Usage
+	Usage              *compat.Usage
 	// Tools stores tool executions completed within this step in call order.
 	Tools []Tool
 	// Skills stores skills successfully loaded within this step in load order.

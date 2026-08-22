@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // StartStepInput contains the metadata needed to start a new step.
@@ -253,7 +253,7 @@ func (c *Capture) mergeStepAppliedSurfaceIDs(stepID string, surfaceIDs []string)
 }
 
 // SetStepUsage updates token usage for one recorded step.
-func (c *Capture) SetStepUsage(stepID string, usage *model.Usage) {
+func (c *Capture) SetStepUsage(stepID string, usage *compat.Usage) {
 	usage = traceStepUsage(usage)
 	if c == nil || stepID == "" || usage == nil {
 		return
@@ -296,7 +296,7 @@ func (c *Capture) addStepSkill(stepID string, skill trace.Skill) {
 }
 
 // addStepUsage accumulates token usage for one recorded step.
-func (c *Capture) addStepUsage(stepID string, usage *model.Usage) {
+func (c *Capture) addStepUsage(stepID string, usage *compat.Usage) {
 	usage = traceStepUsage(usage)
 	if c == nil || stepID == "" || usage == nil {
 		return
@@ -310,13 +310,13 @@ func (c *Capture) addStepUsage(stepID string, usage *model.Usage) {
 	c.steps[idx].Usage = addUsage(c.steps[idx].Usage, usage)
 }
 
-func traceStepUsage(usage *model.Usage) *model.Usage {
+func traceStepUsage(usage *compat.Usage) *compat.Usage {
 	if usage == nil {
 		return nil
 	}
 	out := *usage
 	out.TimingInfo = nil
-	if out == (model.Usage{}) {
+	if out == (compat.Usage{}) {
 		return nil
 	}
 	return &out
@@ -500,7 +500,7 @@ func cloneSnapshot(snapshot *trace.Snapshot) *trace.Snapshot {
 	return &trace.Snapshot{Text: snapshot.Text}
 }
 
-func cloneUsage(usage *model.Usage) *model.Usage {
+func cloneUsage(usage *compat.Usage) *compat.Usage {
 	if usage == nil {
 		return nil
 	}
@@ -508,12 +508,12 @@ func cloneUsage(usage *model.Usage) *model.Usage {
 	return &cloned
 }
 
-func addUsage(total *model.Usage, next *model.Usage) *model.Usage {
+func addUsage(total *compat.Usage, next *compat.Usage) *compat.Usage {
 	if next == nil {
 		return total
 	}
 	if total == nil {
-		total = &model.Usage{}
+		total = &compat.Usage{}
 	}
 	total.PromptTokens += next.PromptTokens
 	total.CompletionTokens += next.CompletionTokens

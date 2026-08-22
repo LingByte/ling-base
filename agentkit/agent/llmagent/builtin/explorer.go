@@ -39,7 +39,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/awaitreply"
@@ -90,7 +90,7 @@ type explorerConfig struct {
 	toolFilter   tool.FilterFunc
 	skills       skill.Repository
 	skillsSet    bool
-	mdl          model.Model
+	mdl          compat.Model
 	codeExecutor codeexecutor.CodeExecutor
 	llmOptions   []llmagent.Option
 }
@@ -141,7 +141,7 @@ func WithSkills(repo skill.Repository) ExplorerOption {
 
 // WithModel sets an explicit model. When unset, the explorer inherits the
 // direct parent invocation's resolved model.
-func WithModel(m model.Model) ExplorerOption {
+func WithModel(m compat.Model) ExplorerOption {
 	return func(c *explorerConfig) { c.mdl = m }
 }
 
@@ -310,7 +310,7 @@ func (e *explorer) buildInner(
 	return llmagent.New(e.cfg.name, opts...), nil
 }
 
-func (e *explorer) resolveModel(parentInv *agent.Invocation) model.Model {
+func (e *explorer) resolveModel(parentInv *agent.Invocation) compat.Model {
 	if e.cfg.mdl != nil {
 		return e.cfg.mdl
 	}

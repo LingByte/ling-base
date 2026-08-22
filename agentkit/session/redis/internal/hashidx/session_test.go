@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
@@ -49,10 +49,10 @@ func makeTestEvent(id string, ts time.Time) *event.Event {
 	return &event.Event{
 		ID:        id,
 		Timestamp: ts,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleUser, Content: "msg-" + id}},
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleUser, Content: "msg-" + id}},
 			},
 		},
 	}
@@ -212,9 +212,9 @@ func TestClient_AppendEvent(t *testing.T) {
 		partialEvt := &event.Event{
 			ID:        "pe1",
 			Timestamp: time.Now(),
-			Response: &model.Response{
+			Response: &compat.Response{
 				IsPartial: true,
-				Choices:   []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hi"}}},
+				Choices:   []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hi"}}},
 			},
 			StateDelta: session.StateMap{
 				"delta_key": []byte("delta_val"),
@@ -452,11 +452,11 @@ func TestClient_TrimConversations(t *testing.T) {
 	baseTime := time.Now()
 	events := []*event.Event{
 		{ID: "e1", RequestID: "req1", Timestamp: baseTime.Add(-3 * time.Hour),
-			Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "q1"}}}}},
+			Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "q1"}}}}},
 		{ID: "e2", RequestID: "req1", Timestamp: baseTime.Add(-2 * time.Hour),
-			Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "a1"}}}}},
+			Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "a1"}}}}},
 		{ID: "e3", RequestID: "req2", Timestamp: baseTime.Add(-1 * time.Hour),
-			Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "q2"}}}}},
+			Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "q2"}}}}},
 	}
 	for _, evt := range events {
 		require.NoError(t, c.AppendEvent(ctx, key, evt))
@@ -485,11 +485,11 @@ func TestClient_TrimConversations_ZeroDefaultsToOne(t *testing.T) {
 
 	require.NoError(t, c.AppendEvent(ctx, key, &event.Event{
 		ID: "e1", RequestID: "r1", Timestamp: time.Now().Add(-time.Hour),
-		Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "x"}}}},
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "x"}}}},
 	}))
 	require.NoError(t, c.AppendEvent(ctx, key, &event.Event{
 		ID: "e2", RequestID: "r2", Timestamp: time.Now(),
-		Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "y"}}}},
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "y"}}}},
 	}))
 
 	deleted, err := c.TrimConversations(ctx, key, 0)
@@ -662,22 +662,22 @@ func Test_shouldStoreEventInList(t *testing.T) {
 
 	t.Run("partial event", func(t *testing.T) {
 		assert.False(t, shouldStoreEventInList(&event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				IsPartial: true,
-				Choices:   []model.Choice{{Message: model.Message{Content: "hi"}}},
+				Choices:   []compat.Choice{{Message: compat.Message{Content: "hi"}}},
 			},
 		}))
 	})
 
 	t.Run("valid event", func(t *testing.T) {
 		assert.True(t, shouldStoreEventInList(&event.Event{
-			Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "hi"}}}},
+			Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "hi"}}}},
 		}))
 	})
 
 	t.Run("empty content", func(t *testing.T) {
 		assert.False(t, shouldStoreEventInList(&event.Event{
-			Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: ""}}}},
+			Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: ""}}}},
 		}))
 	})
 }

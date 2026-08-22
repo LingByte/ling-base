@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -114,7 +114,7 @@ func (s *Service) loadWindowAnchor(
 	key session.Key,
 	anchorEventID string,
 	roles []string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (*persistedWindowEntry, error) {
 	query := fmt.Sprintf(
 		`SELECT se.id, se.event, se.created_at
@@ -192,7 +192,7 @@ func (s *Service) loadWindowNeighbors(
 	anchorRowID int64,
 	limit int,
 	roles []string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 	before bool,
 ) ([]session.EventWindowEntry, error) {
 	if limit <= 0 {
@@ -273,7 +273,7 @@ func (s *Service) loadWindowNeighbors(
 func decodeWindowEntry(
 	eventBytes []byte,
 	createdAt time.Time,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (session.EventWindowEntry, bool, error) {
 	var evt event.Event
 	if err := json.Unmarshal(eventBytes, &evt); err != nil {
@@ -298,14 +298,14 @@ func reverseWindowEntries(entries []session.EventWindowEntry) {
 }
 
 func makeRoleFilter(
-	roles []model.Role,
-) map[model.Role]struct{} {
+	roles []compat.Role,
+) map[compat.Role]struct{} {
 	if len(roles) == 0 {
 		return nil
 	}
-	filter := make(map[model.Role]struct{}, len(roles))
+	filter := make(map[compat.Role]struct{}, len(roles))
 	for _, role := range roles {
-		role = model.Role(strings.TrimSpace(string(role)))
+		role = compat.Role(strings.TrimSpace(string(role)))
 		if role == "" {
 			continue
 		}
@@ -319,7 +319,7 @@ func makeRoleFilter(
 
 func eventAllowedInWindow(
 	evt *event.Event,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) bool {
 	if len(roleFilter) == 0 {
 		return true
@@ -334,7 +334,7 @@ func eventAllowedInWindow(
 
 func extractWindowEventText(
 	evt *event.Event,
-) (string, model.Role, bool) {
+) (string, compat.Role, bool) {
 	if evt == nil || evt.Response == nil || evt.Response.IsPartial ||
 		len(evt.Response.Choices) == 0 {
 		return "", "", false
@@ -347,12 +347,12 @@ func extractWindowEventText(
 
 	role := msg.Role
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	if msg.ToolID != "" || role == model.RoleTool {
-		role = model.RoleTool
+	if msg.ToolID != "" || role == compat.RoleTool {
+		role = compat.RoleTool
 	}
-	if role != model.RoleUser && role != model.RoleAssistant && role != model.RoleTool {
+	if role != compat.RoleUser && role != compat.RoleAssistant && role != compat.RoleTool {
 		return "", "", false
 	}
 
@@ -374,7 +374,7 @@ func extractWindowEventText(
 	if text == "" {
 		return "", "", false
 	}
-	if role == model.RoleTool {
+	if role == compat.RoleTool {
 		toolName := strings.TrimSpace(msg.ToolName)
 		if toolName != "" {
 			text = toolName + ": " + text

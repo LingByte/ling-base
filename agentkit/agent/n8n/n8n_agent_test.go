@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestNew(t *testing.T) {
@@ -278,7 +278,7 @@ func TestN8nAgent_SendFinalStreamingEvent(t *testing.T) {
 	if evt.Response.Choices[0].Message.Content != "aggregated content" {
 		t.Errorf("expected content 'aggregated content', got: %s", evt.Response.Choices[0].Message.Content)
 	}
-	if evt.Response.Choices[0].Message.Role != model.RoleAssistant {
+	if evt.Response.Choices[0].Message.Role != compat.RoleAssistant {
 		t.Errorf("expected role assistant, got: %s", evt.Response.Choices[0].Message.Role)
 	}
 }
@@ -334,7 +334,7 @@ func TestN8nAgentOptions(t *testing.T) {
 
 	t.Run("WithStreamingRespHandler", func(t *testing.T) {
 		a := &N8nAgent{}
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			return "test", nil
 		}
 		WithStreamingRespHandler(handler)(a)
@@ -419,8 +419,8 @@ func TestN8nAgent_Run_NonStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv-1",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello n8n",
 			},
 			RunOptions: agent.RunOptions{
@@ -464,8 +464,8 @@ func TestN8nAgent_Run_NonStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv-err",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "This should fail",
 			},
 			RunOptions: agent.RunOptions{
@@ -496,8 +496,8 @@ func TestN8nAgent_Run_NonStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv-state",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test with state",
 			},
 			RunOptions: agent.RunOptions{
@@ -536,8 +536,8 @@ func TestN8nAgent_Run_Streaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-stream-1",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream me",
 			},
 			RunOptions: agent.RunOptions{
@@ -578,7 +578,7 @@ func TestN8nAgent_Run_Streaming(t *testing.T) {
 	})
 
 	t.Run("streaming with custom handler", func(t *testing.T) {
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			if len(resp.Choices) > 0 {
 				return "[" + resp.Choices[0].Delta.Content + "]", nil
 			}
@@ -592,8 +592,8 @@ func TestN8nAgent_Run_Streaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-stream-custom",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream with handler",
 			},
 			RunOptions: agent.RunOptions{
@@ -645,8 +645,8 @@ func TestN8nAgent_Run_Auth(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-auth-basic",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Auth test",
 			},
 			RunOptions: agent.RunOptions{
@@ -686,8 +686,8 @@ func TestN8nAgent_Run_Auth(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-auth-header",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Auth header test",
 			},
 			RunOptions: agent.RunOptions{
@@ -743,7 +743,7 @@ func TestN8nAgent_BuildHTTPRequest(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{Content: "test"},
+			Message: compat.Message{Content: "test"},
 			RunOptions: agent.RunOptions{
 				RuntimeState: make(map[string]any),
 			},
@@ -765,7 +765,7 @@ func TestN8nAgent_BuildHTTPRequest(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{Content: "test"},
+			Message: compat.Message{Content: "test"},
 			RunOptions: agent.RunOptions{
 				RuntimeState: make(map[string]any),
 			},
@@ -865,7 +865,7 @@ func TestN8nAgent_Run_Streaming_ContextCancellation(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "test-cancel",
-		Message:      model.Message{Content: "test"},
+		Message:      compat.Message{Content: "test"},
 		RunOptions:   agent.RunOptions{RuntimeState: make(map[string]any)},
 	}
 
@@ -901,7 +901,7 @@ func TestN8nAgent_Run_Streaming_ErrorResponse(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "test-stream-error",
-		Message:      model.Message{Content: "test"},
+		Message:      compat.Message{Content: "test"},
 		RunOptions:   agent.RunOptions{RuntimeState: make(map[string]any)},
 	}
 

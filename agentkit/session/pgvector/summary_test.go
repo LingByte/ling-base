@@ -18,7 +18,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,7 +51,7 @@ func (a *activeSummarizer) SummarizeWithFilter(
 }
 
 func (a *activeSummarizer) SetPrompt(_ string)     {}
-func (a *activeSummarizer) SetModel(_ model.Model) {}
+func (a *activeSummarizer) SetModel(_ compat.Model) {}
 func (a *activeSummarizer) Metadata() map[string]any {
 	return nil
 }
@@ -111,10 +111,10 @@ func TestCreateSessionSummary_FilterAllowlistSkipsDisallowedKey(t *testing.T) {
 			FilterKey:    "blocked",
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},
@@ -361,10 +361,10 @@ func TestCreateSessionSummary_Success(t *testing.T) {
 		{
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},
@@ -397,10 +397,10 @@ func TestCreateSessionSummary_UpsertError(
 		{
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},
@@ -433,10 +433,10 @@ func TestCreateSessionSummary_SummarizerError(
 		{
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},
@@ -464,10 +464,10 @@ func TestCreateSessionSummary_WithTTL(t *testing.T) {
 		{
 			InvocationID: "inv-1",
 			Timestamp:    time.Now().Add(-time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Message: model.Message{
-						Role:    model.RoleUser,
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					}},
 				},

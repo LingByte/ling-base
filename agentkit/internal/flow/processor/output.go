@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // OutputResponseProcessor processes final responses and handles output_key and output_schema functionality.
@@ -42,8 +42,8 @@ func NewOutputResponseProcessor(
 func (p *OutputResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil || rsp == nil || !rsp.IsFinalResponse() ||
@@ -69,7 +69,7 @@ func (p *OutputResponseProcessor) ProcessResponse(
 }
 
 // extractFinalContent returns the final text content if response is complete.
-func (p *OutputResponseProcessor) extractFinalContent(rsp *model.Response) (string, bool) {
+func (p *OutputResponseProcessor) extractFinalContent(rsp *compat.Response) (string, bool) {
 	if rsp == nil || rsp.IsPartial {
 		return "", false
 	}
@@ -105,7 +105,7 @@ func (p *OutputResponseProcessor) emitStructuredOutput(
 		typedEvt := event.New(
 			invocation.InvocationID,
 			invocation.AgentName,
-			event.WithObject(model.ObjectTypeStateUpdate),
+			event.WithObject(compat.ObjectTypeStateUpdate),
 			event.WithStructuredOutputPayload(instance),
 		)
 		log.DebugContext(ctx, "Emitted typed structured output payload event.")
@@ -129,7 +129,7 @@ func (p *OutputResponseProcessor) emitStructuredOutput(
 	untypedEvt := event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStructuredOutputPayload(parsed),
 	)
 	log.DebugContext(ctx, "Emitted untyped structured output payload event.")
@@ -167,7 +167,7 @@ func (p *OutputResponseProcessor) handleOutputKey(ctx context.Context, invocatio
 	}
 	// Create and emit an event with state delta for the runner to process.
 	stateEvent := event.New(invocation.InvocationID, invocation.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(stateDelta),
 	)
 	stateEvent.RequiresCompletion = true

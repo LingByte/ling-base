@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/livesession"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -940,10 +940,10 @@ type dynRecordingModel struct {
 
 func (m *dynRecordingModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
-	names := make([]string, 0, len(request.Tools))
-	for n := range request.Tools {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
+	names := make([]string, 0, len(request.Tools.(map[string]tool.Tool)))
+	for n := range request.Tools.(map[string]tool.Tool) {
 		names = append(names, n)
 	}
 	sort.Strings(names)
@@ -951,18 +951,18 @@ func (m *dynRecordingModel) GenerateContent(
 	m.seen = append(m.seen, names)
 	m.mu.Unlock()
 
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(m.response),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(m.response),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *dynRecordingModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *dynRecordingModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 func (m *dynRecordingModel) snapshot() [][]string {
 	m.mu.Lock()
@@ -976,14 +976,14 @@ type dynBlockingModel struct{}
 
 func (m *dynBlockingModel) GenerateContent(
 	ctx context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	<-ctx.Done()
 	return nil, ctx.Err()
 }
 
-func (m *dynBlockingModel) Info() model.Info {
-	return model.Info{Name: "blocking"}
+func (m *dynBlockingModel) Info() compat.Info {
+	return compat.Info{Name: "blocking"}
 }
 
 func newDynTestTool(name string) tool.Tool {
@@ -1820,7 +1820,7 @@ func fullyPopulatedChildRunOptions() agent.RunOptions {
 		ToolFilter:        func(context.Context, tool.Tool) bool { return true },
 		Model:             &dynRecordingModel{name: "m"},
 		ModelName:         "mname",
-		ModelSelector: func(context.Context, *agent.Invocation) (model.Model, error) {
+		ModelSelector: func(context.Context, *agent.Invocation) (compat.Model, error) {
 			return nil, nil
 		},
 		ModelContextWindow: 4096,
@@ -1979,7 +1979,7 @@ func TestNewDynamicTool_Integration_TemplateIgnoresParentModelSelector(t *testin
 	)
 	parent.RunOptions.ModelSelector = func(
 		context.Context, *agent.Invocation,
-	) (model.Model, error) {
+	) (compat.Model, error) {
 		return overrideModel, nil
 	}
 	ctx := agent.NewInvocationContext(context.Background(), parent)

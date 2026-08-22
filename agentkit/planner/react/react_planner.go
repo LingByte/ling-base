@@ -31,7 +31,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 )
 
@@ -89,7 +89,7 @@ func New() *Planner {
 func (p *Planner) BuildPlanningInstruction(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
+	llmRequest *compat.Request,
 ) string {
 	return p.buildPlannerInstruction()
 }
@@ -105,15 +105,15 @@ func (p *Planner) BuildPlanningInstruction(
 func (p *Planner) ProcessPlanningResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	response *model.Response,
-) *model.Response {
+	response *compat.Response,
+) *compat.Response {
 	if response == nil || len(response.Choices) == 0 {
 		return nil
 	}
 
 	// Process each choice in the response.
 	processedResponse := *response
-	processedResponse.Choices = make([]model.Choice, len(response.Choices))
+	processedResponse.Choices = make([]compat.Choice, len(response.Choices))
 
 	for i, choice := range response.Choices {
 		processedChoice := choice
@@ -121,7 +121,7 @@ func (p *Planner) ProcessPlanningResponse(
 		// Process tool calls first.
 		if len(choice.Message.ToolCalls) > 0 {
 			// Filter out tool calls with empty names.
-			var filteredToolCalls []model.ToolCall
+			var filteredToolCalls []compat.ToolCall
 			for _, toolCall := range choice.Message.ToolCalls {
 				if toolCall.Function.Name != "" {
 					filteredToolCalls = append(filteredToolCalls, toolCall)

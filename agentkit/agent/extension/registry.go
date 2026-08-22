@@ -14,14 +14,14 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
 // Registry is the per-extension view handed to Extension.Register.
 // It looks like a small fan-out API but is actually a thin facade
 // over the Contributions-wide callback containers — every Register* call
-// appends into the same *agent.Callbacks / *model.Callbacks /
+// appends into the same *agent.Callbacks / *compat.Callbacks /
 // *tool.Callbacks that Collect built once. Tools, on the other
 // hand, are accumulated per-Registry first and merged into the
 // Contributions by Collect after Register returns; this preserves the
@@ -40,7 +40,7 @@ import (
 type Registry struct {
 	name           string
 	agentCallbacks *agent.Callbacks
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 	toolCallbacks  *tool.Callbacks
 	tools          []tool.Tool
 }
@@ -53,7 +53,7 @@ type Registry struct {
 func newRegistry(
 	name string,
 	ac *agent.Callbacks,
-	mc *model.Callbacks,
+	mc *compat.Callbacks,
 	tc *tool.Callbacks,
 ) *Registry {
 	return &Registry{
@@ -138,14 +138,14 @@ func (r *Registry) AfterAgent(cb agent.AfterAgentCallbackStructured) {
 
 // BeforeModel registers a before-model callback. Error wrapping
 // behaviour matches BeforeAgent.
-func (r *Registry) BeforeModel(cb model.BeforeModelCallbackStructured) {
+func (r *Registry) BeforeModel(cb compat.BeforeModelCallbackStructured) {
 	if r == nil || r.modelCallbacks == nil || cb == nil {
 		return
 	}
 	name := r.name
 	r.modelCallbacks.RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error,
+		func(ctx context.Context, args *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error,
 		) {
 			res, err := cb(ctx, args)
 			if err != nil {
@@ -158,14 +158,14 @@ func (r *Registry) BeforeModel(cb model.BeforeModelCallbackStructured) {
 
 // AfterModel registers an after-model callback. Error wrapping
 // behaviour matches BeforeAgent.
-func (r *Registry) AfterModel(cb model.AfterModelCallbackStructured) {
+func (r *Registry) AfterModel(cb compat.AfterModelCallbackStructured) {
 	if r == nil || r.modelCallbacks == nil || cb == nil {
 		return
 	}
 	name := r.name
 	r.modelCallbacks.RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (
-			*model.AfterModelResult, error,
+		func(ctx context.Context, args *compat.AfterModelArgs) (
+			*compat.AfterModelResult, error,
 		) {
 			res, err := cb(ctx, args)
 			if err != nil {

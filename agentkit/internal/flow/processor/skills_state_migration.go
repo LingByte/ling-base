@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
 
@@ -98,7 +98,7 @@ func maybeMigrateLegacySkillState(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypeStateUpdate),
+		event.WithObject(compat.ObjectTypeStateUpdate),
 		event.WithStateDelta(delta),
 	))
 }
@@ -160,7 +160,7 @@ func addOwnersFromEvent(
 	if ev.Response == nil {
 		return owners
 	}
-	if ev.Object != model.ObjectTypeToolResponse {
+	if ev.Object != compat.ObjectTypeToolResponse {
 		return owners
 	}
 	if len(ev.Choices) == 0 {
@@ -173,7 +173,7 @@ func addOwnersFromEvent(
 
 	for j := len(ev.Choices) - 1; j >= 0; j-- {
 		msg := ev.Choices[j].Message
-		if msg.Role != model.RoleTool {
+		if msg.Role != compat.RoleTool {
 			continue
 		}
 		if msg.ToolName != skillToolLoad &&

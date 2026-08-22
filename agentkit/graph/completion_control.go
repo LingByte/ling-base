@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // WithGraphCompletionCapture keeps terminal graph completion events available
@@ -63,7 +63,7 @@ func isVisibleGraphCompletionEvent(evt *event.Event) bool {
 	if evt == nil ||
 		evt.Response == nil ||
 		!evt.Response.Done ||
-		evt.Response.Object != model.ObjectTypeChatCompletion {
+		evt.Response.Object != compat.ObjectTypeChatCompletion {
 		return false
 	}
 	metadata, ok := evt.StateDelta[MetadataKeyCompletion]
@@ -94,10 +94,10 @@ func VisibleGraphCompletionEventForAuthor(
 		visible.StateDelta[MetadataKeyCompletion] = []byte("{}")
 	}
 	if visible.Response == nil {
-		visible.Response = &model.Response{}
+		visible.Response = &compat.Response{}
 	}
-	visible.Object = model.ObjectTypeChatCompletion
-	visible.Response.Object = model.ObjectTypeChatCompletion
+	visible.Object = compat.ObjectTypeChatCompletion
+	visible.Response.Object = compat.ObjectTypeChatCompletion
 	if author != "" {
 		visible.Author = author
 	}
@@ -116,7 +116,7 @@ func RecordAssistantResponseID(
 	}
 	for _, choice := range evt.Response.Choices {
 		msg := choice.Message
-		if msg.Role != model.RoleAssistant || msg.Content == "" {
+		if msg.Role != compat.RoleAssistant || msg.Content == "" {
 			continue
 		}
 		if emitted == nil {
@@ -253,17 +253,17 @@ func visibleGraphCompletionNeedsFullResponseSnapshot(
 	return len(visible.Response.Choices) == 0
 }
 
-func assistantChoiceSignature(choices []model.Choice) string {
+func assistantChoiceSignature(choices []compat.Choice) string {
 	if len(choices) == 0 {
 		return ""
 	}
 	type signatureChoice struct {
-		Role    model.Role `json:"role"`
+		Role    compat.Role `json:"role"`
 		Content string     `json:"content"`
 	}
 	var signatureChoices []signatureChoice
 	for _, choice := range choices {
-		if choice.Message.Role != model.RoleAssistant ||
+		if choice.Message.Role != compat.RoleAssistant ||
 			choice.Message.Content == "" {
 			continue
 		}

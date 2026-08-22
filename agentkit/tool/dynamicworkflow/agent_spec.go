@@ -19,7 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/transfer"
@@ -530,7 +530,7 @@ func (g *workflowGateway) workflowChildPatch(
 	return patch, nil
 }
 
-func (g *workflowGateway) resolveAgentModelProfile(alias string) (model.Model, error) {
+func (g *workflowGateway) resolveAgentModelProfile(alias string) (compat.Model, error) {
 	if alias == "" {
 		return nil, nil
 	}

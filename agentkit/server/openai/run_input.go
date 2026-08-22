@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -29,9 +29,9 @@ const (
 // prior conversation history, the current-turn input message, and any trailing
 // tool results submitted in the same request.
 type runInputMessages struct {
-	inputMessage model.Message
-	history      []model.Message
-	toolMessages []model.Message
+	inputMessage compat.Message
+	history      []compat.Message
+	toolMessages []compat.Message
 }
 
 // runInputFromMessages splits converted framework messages into history and the
@@ -39,15 +39,15 @@ type runInputMessages struct {
 // those tool results are treated as the current turn input, matching AG-UI's
 // external tool resume semantics. All other roles keep the legacy behavior of
 // passing the last message through unchanged.
-func runInputFromMessages(messages []model.Message) (*runInputMessages, error) {
+func runInputFromMessages(messages []compat.Message) (*runInputMessages, error) {
 	if len(messages) == 0 {
 		return nil, errors.New("messages cannot be empty")
 	}
 	lastMessage := messages[len(messages)-1]
-	if lastMessage.Role == model.RoleTool {
+	if lastMessage.Role == compat.RoleTool {
 		return toolResultRunInputFromMessages(messages)
 	}
-	history := []model.Message(nil)
+	history := []compat.Message(nil)
 	if len(messages) > 1 {
 		history = messages[:len(messages)-1]
 	}
@@ -57,12 +57,12 @@ func runInputFromMessages(messages []model.Message) (*runInputMessages, error) {
 	}, nil
 }
 
-func toolResultRunInputFromMessages(messages []model.Message) (*runInputMessages, error) {
+func toolResultRunInputFromMessages(messages []compat.Message) (*runInputMessages, error) {
 	start := len(messages) - 1
-	for start >= 0 && messages[start].Role == model.RoleTool {
+	for start >= 0 && messages[start].Role == compat.RoleTool {
 		start--
 	}
-	toolMessages := make([]model.Message, 0, len(messages)-start-1)
+	toolMessages := make([]compat.Message, 0, len(messages)-start-1)
 	for _, msg := range messages[start+1:] {
 		if msg.ToolID == "" {
 			return nil, errors.New(errToolMessageMissingID)
@@ -72,7 +72,7 @@ func toolResultRunInputFromMessages(messages []model.Message) (*runInputMessages
 		}
 		toolMessages = append(toolMessages, msg)
 	}
-	history := []model.Message(nil)
+	history := []compat.Message(nil)
 	if start >= 0 {
 		history = append(history, messages[:start+1]...)
 	}
@@ -83,8 +83,8 @@ func toolResultRunInputFromMessages(messages []model.Message) (*runInputMessages
 	}, nil
 }
 
-func withToolResultMessageRewriter(toolMessages []model.Message) agent.RunOption {
-	currentTurnMessages := append([]model.Message(nil), toolMessages...)
+func withToolResultMessageRewriter(toolMessages []compat.Message) agent.RunOption {
+	currentTurnMessages := append([]compat.Message(nil), toolMessages...)
 	return func(opts *agent.RunOptions) {
 		if len(toolMessages) <= 1 {
 			return
@@ -94,15 +94,15 @@ func withToolResultMessageRewriter(toolMessages []model.Message) agent.RunOption
 			opts.UserMessageRewriter = func(
 				context.Context,
 				*agent.UserMessageRewriteArgs,
-			) ([]model.Message, error) {
-				return append([]model.Message(nil), currentTurnMessages...), nil
+			) ([]compat.Message, error) {
+				return append([]compat.Message(nil), currentTurnMessages...), nil
 			}
 			return
 		}
 		opts.UserMessageRewriter = func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			rewritten, err := userMessageRewriter(ctx, args)
 			if err != nil {
 				return nil, err
@@ -113,19 +113,19 @@ func withToolResultMessageRewriter(toolMessages []model.Message) agent.RunOption
 }
 
 func mergeToolResultRewriteMessages(
-	rewritten []model.Message,
-	toolResults []model.Message,
-) []model.Message {
+	rewritten []compat.Message,
+	toolResults []compat.Message,
+) []compat.Message {
 	toolResultIDs := make(map[string]struct{}, len(toolResults))
-	rewrittenToolResults := make(map[string]model.Message, len(toolResults))
+	rewrittenToolResults := make(map[string]compat.Message, len(toolResults))
 	for _, msg := range toolResults {
 		if msg.ToolID != "" {
 			toolResultIDs[msg.ToolID] = struct{}{}
 		}
 	}
-	merged := make([]model.Message, 0, len(rewritten)+len(toolResults))
+	merged := make([]compat.Message, 0, len(rewritten)+len(toolResults))
 	for _, msg := range rewritten {
-		if msg.Role == model.RoleTool && msg.ToolID != "" {
+		if msg.Role == compat.RoleTool && msg.ToolID != "" {
 			if _, ok := toolResultIDs[msg.ToolID]; ok {
 				rewrittenToolResults[msg.ToolID] = msg
 				continue
@@ -135,7 +135,7 @@ func mergeToolResultRewriteMessages(
 	}
 	for _, msg := range toolResults {
 		if rewrittenMsg, ok := rewrittenToolResults[msg.ToolID]; ok {
-			rewrittenMsg.Role = model.RoleTool
+			rewrittenMsg.Role = compat.RoleTool
 			rewrittenMsg.ToolID = msg.ToolID
 			if msg.ToolName != "" {
 				rewrittenMsg.ToolName = msg.ToolName

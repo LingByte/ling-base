@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -1325,7 +1325,7 @@ func (m *mockTool) Declaration() *tool.Declaration {
 // mockExtractorForMemoryTest for testing (different from auto_test.go's mockExtractor)
 type mockExtractorForMemoryTest struct{}
 
-func (m *mockExtractorForMemoryTest) Extract(ctx context.Context, messages []model.Message, existing []*memory.Entry) ([]*extractor.Operation, error) {
+func (m *mockExtractorForMemoryTest) Extract(ctx context.Context, messages []compat.Message, existing []*memory.Entry) ([]*extractor.Operation, error) {
 	return nil, nil
 }
 
@@ -1335,7 +1335,7 @@ func (m *mockExtractorForMemoryTest) ShouldExtract(ctx *extractor.ExtractionCont
 
 func (m *mockExtractorForMemoryTest) SetPrompt(prompt string) {}
 
-func (m *mockExtractorForMemoryTest) SetModel(model model.Model) {}
+func (m *mockExtractorForMemoryTest) SetModel(model compat.Model) {}
 
 func (m *mockExtractorForMemoryTest) Metadata() map[string]any {
 	return nil

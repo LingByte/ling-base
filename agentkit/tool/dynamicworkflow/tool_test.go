@@ -30,7 +30,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/flush"
 	"github.com/LingByte/ling-base/agentkit/internal/state/livesession"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -129,8 +129,8 @@ func TestWorkflowAgentDoesNotInheritRootRunScopedOverrides(t *testing.T) {
 			return tool.AllowPermission(), nil
 		},
 	)
-	parent.RunOptions.StructuredOutput = &model.StructuredOutput{
-		Type: model.StructuredOutputJSONSchema,
+	parent.RunOptions.StructuredOutput = &compat.StructuredOutput{
+		Type: compat.StructuredOutputJSONSchema,
 	}
 	parent.StructuredOutput = parent.RunOptions.StructuredOutput
 	appender.Attach(parent, func(context.Context, *event.Event) error { return nil })
@@ -249,10 +249,10 @@ func TestWorkflowParallelAgentsUseDistinctChildrenAndStreamEvents(t *testing.T) 
 		case <-started:
 		}
 		ch := make(chan *event.Event, 1)
-		ch <- event.NewResponseEvent(inv.InvocationID, "reviewer", &model.Response{
+		ch <- event.NewResponseEvent(inv.InvocationID, "reviewer", &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{Index: 0, Message: model.Message{
-				Role: model.RoleAssistant, Content: input.ID,
+			Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+				Role: compat.RoleAssistant, Content: input.ID,
 			}}},
 		})
 		close(ch)
@@ -431,10 +431,10 @@ func TestWorkflowParallelSerializesSharedInstanceID(t *testing.T) {
 		active--
 		activeMu.Unlock()
 		ch := make(chan *event.Event, 1)
-		ch <- event.NewResponseEvent(inv.InvocationID, "reviewer", &model.Response{
+		ch <- event.NewResponseEvent(inv.InvocationID, "reviewer", &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{Index: 0, Message: model.Message{
-				Role: model.RoleAssistant, Content: "done",
+			Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+				Role: compat.RoleAssistant, Content: "done",
 			}}},
 		})
 		close(ch)
@@ -504,8 +504,8 @@ func TestWorkflowCoordinatesExplicitAgentAndTool(t *testing.T) {
 	require.JSONEq(t, `{"review":{"text":"{\"decision\":\"approved\"}","structured":{"decision":"approved"},"session_id":"session-1","history_key":"<history-key>","invocation_id":"<invocation-id>"}}`, normalizeWorkflowResult(t, result.Value))
 
 	require.Len(t, persisted, 2, "child user input and child final response are persisted")
-	require.Equal(t, model.RoleUser, persisted[0].Response.Choices[0].Message.Role)
-	require.Equal(t, model.RoleAssistant, persisted[1].Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleUser, persisted[0].Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, persisted[1].Response.Choices[0].Message.Role)
 	require.Equal(t, `{"document":{"title":"Release plan"}}`, reviewer.lastMessage())
 	require.Contains(t, persisted[1].FilterKey, "/dynamic_workflow/")
 	require.Contains(t, persisted[1].FilterKey, "/reviewer")
@@ -1382,7 +1382,7 @@ func TestWorkflowStreamedCompletionIsReleasedByRunner(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 		agent.WithLatencyDiagnostics(true),
 	)
 	require.NoError(t, err)
@@ -1512,7 +1512,7 @@ func TestWorkflowSharedInstanceWaitsForStreamedHistory(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 	)
 	require.NoError(t, err)
 	for range events {
@@ -2171,8 +2171,8 @@ func TestWorkflowGatewayAgentErrorBranches(t *testing.T) {
 		name: "erroring",
 		runFn: func(_ context.Context, inv *agent.Invocation) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent(inv.InvocationID, "erroring", &model.Response{
-				Error: &model.ResponseError{Message: "model failed"},
+			ch <- event.NewResponseEvent(inv.InvocationID, "erroring", &compat.Response{
+				Error: &compat.ResponseError{Message: "model failed"},
 			})
 			close(ch)
 			return ch, nil
@@ -2249,10 +2249,10 @@ func TestWorkflowCollectChildResultErrorBranches(t *testing.T) {
 	require.ErrorContains(t, err, "encode structured output")
 
 	ch = make(chan *event.Event, 1)
-	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &model.Response{
+	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{
-			Role: model.RoleAssistant, Content: "done",
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+			Role: compat.RoleAssistant, Content: "done",
 		}}},
 	})
 	ch <- evt
@@ -2268,10 +2268,10 @@ func TestWorkflowCollectChildResultNotifiesCompletionInDirectMode(t *testing.T) 
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{ID: "session-1", AppName: "app", UserID: "user"}),
 	)
-	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &model.Response{
+	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{
-			Role: model.RoleAssistant, Content: "done",
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+			Role: compat.RoleAssistant, Content: "done",
 		}}},
 	})
 	evt.RequiresCompletion = true
@@ -2291,10 +2291,10 @@ func TestWorkflowCollectChildResultDefersCompletionInStreamMode(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{ID: "session-1", AppName: "app", UserID: "user"}),
 	)
-	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &model.Response{
+	evt := event.NewResponseEvent(inv.InvocationID, "reviewer", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{
-			Role: model.RoleAssistant, Content: "done",
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+			Role: compat.RoleAssistant, Content: "done",
 		}}},
 	})
 	evt.RequiresCompletion = true
@@ -2544,10 +2544,10 @@ func (a *testAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 		return runFn(ctx, inv)
 	}
 	ch := make(chan *event.Event, 2)
-	ch <- event.NewResponseEvent(inv.InvocationID, a.name, &model.Response{
+	ch <- event.NewResponseEvent(inv.InvocationID, a.name, &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{
-			Role: model.RoleAssistant, Content: a.response,
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+			Role: compat.RoleAssistant, Content: a.response,
 		}}},
 	})
 	if a.structuredOutput != nil {
@@ -2640,19 +2640,19 @@ func (a *runOptionsToolSurfaceAgent) InvocationToolSurface(
 }
 
 func testAgentPartialEvent(invocationID, author, content string) *event.Event {
-	return event.NewResponseEvent(invocationID, author, &model.Response{
+	return event.NewResponseEvent(invocationID, author, &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{{Index: 0, Delta: model.Message{
-			Role: model.RoleAssistant, Content: content,
+		Choices: []compat.Choice{{Index: 0, Delta: compat.Message{
+			Role: compat.RoleAssistant, Content: content,
 		}}},
 	})
 }
 
 func testAgentFinalEvent(invocationID, author, content string) *event.Event {
-	return event.NewResponseEvent(invocationID, author, &model.Response{
+	return event.NewResponseEvent(invocationID, author, &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{
-			Role: model.RoleAssistant, Content: content,
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+			Role: compat.RoleAssistant, Content: content,
 		}}},
 	})
 }
@@ -2661,38 +2661,38 @@ type structuredOutputCaptureModel struct {
 	content string
 
 	mu               sync.Mutex
-	structuredOutput *model.StructuredOutput
+	structuredOutput *compat.StructuredOutput
 }
 
 func (m *structuredOutputCaptureModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.structuredOutput = cloneStructuredOutput(request)
 	m.mu.Unlock()
 
-	responses := make(chan *model.Response, 1)
-	responses <- &model.Response{
+	responses := make(chan *compat.Response, 1)
+	responses <- &compat.Response{
 		ID:   "structured-output-capture",
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 	}
 	close(responses)
 	return responses, nil
 }
 
-func (m *structuredOutputCaptureModel) Info() model.Info {
-	return model.Info{Name: "structured-output-capture"}
+func (m *structuredOutputCaptureModel) Info() compat.Info {
+	return compat.Info{Name: "structured-output-capture"}
 }
 
-func (m *structuredOutputCaptureModel) latestStructuredOutput() *model.StructuredOutput {
+func (m *structuredOutputCaptureModel) latestStructuredOutput() *compat.StructuredOutput {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return cloneStructuredOutput(&model.Request{StructuredOutput: m.structuredOutput})
+	return cloneStructuredOutput(&compat.Request{StructuredOutput: m.structuredOutput})
 }
 
 type toolCallingThenFinalModel struct {
@@ -2705,32 +2705,32 @@ type toolCallingThenFinalModel struct {
 
 func (m *toolCallingThenFinalModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.calls++
 	callNumber := m.calls
 	m.mu.Unlock()
 
-	responses := make(chan *model.Response, 1)
+	responses := make(chan *compat.Response, 1)
 	if callNumber == 1 {
 		arguments := m.arguments
 		if len(arguments) == 0 {
 			arguments = []byte(`{"id":"42"}`)
 		}
 		finishReason := "tool_calls"
-		responses <- &model.Response{
+		responses <- &compat.Response{
 			ID:   "tool-calling-model",
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:        0,
 				FinishReason: &finishReason,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      m.toolName,
 							Arguments: arguments,
 						},
@@ -2739,12 +2739,12 @@ func (m *toolCallingThenFinalModel) GenerateContent(
 			}},
 		}
 	} else {
-		responses <- &model.Response{
+		responses <- &compat.Response{
 			ID:   "tool-calling-model",
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("done"),
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		}
 	}
@@ -2752,8 +2752,8 @@ func (m *toolCallingThenFinalModel) GenerateContent(
 	return responses, nil
 }
 
-func (m *toolCallingThenFinalModel) Info() model.Info {
-	return model.Info{Name: "tool-calling-model"}
+func (m *toolCallingThenFinalModel) Info() compat.Info {
+	return compat.Info{Name: "tool-calling-model"}
 }
 
 func (m *toolCallingThenFinalModel) callCount() int {
@@ -2762,7 +2762,7 @@ func (m *toolCallingThenFinalModel) callCount() int {
 	return m.calls
 }
 
-func cloneStructuredOutput(request *model.Request) *model.StructuredOutput {
+func cloneStructuredOutput(request *compat.Request) *compat.StructuredOutput {
 	if request == nil || request.StructuredOutput == nil {
 		return nil
 	}

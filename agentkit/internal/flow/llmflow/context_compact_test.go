@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/flow/calllimit"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/session/summary"
@@ -69,7 +69,7 @@ type contextCapturingSummaryService struct {
 	session.Service
 	mu            sync.Mutex
 	calls         int
-	parentRequest *model.Request
+	parentRequest *compat.Request
 }
 
 func (s *contextCapturingSummaryService) CreateSessionSummary(
@@ -102,7 +102,7 @@ func (s *contextCapturingSummaryService) Calls() int {
 	return s.calls
 }
 
-func (s *contextCapturingSummaryService) ParentRequest() *model.Request {
+func (s *contextCapturingSummaryService) ParentRequest() *compat.Request {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.parentRequest
@@ -222,13 +222,13 @@ func TestSummarySnapshotAdvancedUsesBoundaryEventID(t *testing.T) {
 type countingRequestProcessor struct {
 	mu       sync.Mutex
 	calls    int
-	messages []model.Message
+	messages []compat.Message
 }
 
 func (p *countingRequestProcessor) ProcessRequest(
 	_ context.Context,
 	_ *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	_ chan<- *event.Event,
 ) {
 	p.mu.Lock()
@@ -253,14 +253,14 @@ type unsafeTailRequestProcessor struct {
 func (p *unsafeTailRequestProcessor) ProcessRequest(
 	_ context.Context,
 	_ *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	_ chan<- *event.Event,
 ) {
 	p.calls++
 	if req == nil {
 		return
 	}
-	req.Messages = append(req.Messages, model.NewSystemMessage("unsafe tail"))
+	req.Messages = append(req.Messages, compat.NewSystemMessage("unsafe tail"))
 }
 
 type compactingModel struct {
@@ -268,8 +268,8 @@ type compactingModel struct {
 	window int
 }
 
-func (m *compactingModel) Info() model.Info {
-	return model.Info{
+func (m *compactingModel) Info() compat.Info {
+	return compat.Info{
 		Name:          m.name,
 		ContextWindow: m.window,
 	}
@@ -277,9 +277,9 @@ func (m *compactingModel) Info() model.Info {
 
 func (m *compactingModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
@@ -293,7 +293,7 @@ type toolsCheckingTailRequestProcessor struct {
 func (p *toolsCheckingTailRequestProcessor) ProcessRequest(
 	_ context.Context,
 	_ *agent.Invocation,
-	_ *model.Request,
+	_ *compat.Request,
 	_ chan<- *event.Event,
 ) {
 }
@@ -307,7 +307,7 @@ func (p *toolsCheckingTailRequestProcessor) SupportsContextCompactionRebuild(
 func (p *toolsCheckingTailRequestProcessor) RebuildRequestForContextCompaction(
 	_ context.Context,
 	_ *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if req == nil {
 		return
@@ -325,13 +325,14 @@ type sessionLoadDeletingRequestProcessor struct{}
 func (p *sessionLoadDeletingRequestProcessor) ProcessRequest(
 	_ context.Context,
 	_ *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	_ chan<- *event.Event,
 ) {
 	if req == nil || req.Tools == nil {
 		return
 	}
-	delete(req.Tools, "session_load")
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
+	delete(toolsMap, "session_load")
 }
 
 func toolResultRecoverySession(toolPayload string) *session.Session {
@@ -341,14 +342,14 @@ func toolResultRecoverySession(toolPayload string) *session.Session {
 				ID:           "tool-call-event",
 				RequestID:    "req-old",
 				InvocationID: "inv-old",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							Type: "function",
 							ID:   "call_1",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "worker",
 								Arguments: []byte(`{}`),
 							},
@@ -360,10 +361,10 @@ func toolResultRecoverySession(toolPayload string) *session.Session {
 				ID:           "tool-result-event",
 				RequestID:    "req-old",
 				InvocationID: "inv-old",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewToolMessage(
+					Choices: []compat.Choice{{
+						Message: compat.NewToolMessage(
 							"call_1",
 							"worker",
 							toolPayload,
@@ -375,9 +376,9 @@ func toolResultRecoverySession(toolPayload string) *session.Session {
 	}
 }
 
-func toolResultContent(messages []model.Message, toolID string) string {
+func toolResultContent(messages []compat.Message, toolID string) string {
 	for _, msg := range messages {
-		if msg.Role == model.RoleTool && msg.ToolID == toolID {
+		if msg.Role == compat.RoleTool && msg.ToolID == toolID {
 			return msg.Content
 		}
 	}
@@ -422,7 +423,7 @@ func (r *testSkillRepo) Path(name string) (string, error) {
 
 func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 	modelName := "compact-retry-model"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -436,10 +437,10 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 			{
 				RequestID: "req-old",
 				Timestamp: time.Now().Add(-time.Hour),
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage(longContent),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage(longContent),
 					}},
 				},
 			},
@@ -449,7 +450,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			RequestID:                    "req-current",
 			LatencyDiagnosticsEnabled:    true,
@@ -472,7 +473,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 2)
 	require.Contains(t, req.Messages[0].Content, longContent)
@@ -489,7 +490,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 	require.Equal(t, 1, service.Calls())
 	require.NotSame(t, req, rebuilt)
 	require.Len(t, rebuilt.Messages, 2)
-	require.Equal(t, model.RoleSystem, rebuilt.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, rebuilt.Messages[0].Role)
 	require.Contains(t, rebuilt.Messages[0].Content, "compressed history")
 	require.Equal(t, "current", rebuilt.Messages[1].Content)
 	require.Len(t, eventChan, 2)
@@ -501,7 +502,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, model.ObjectTypePreprocessingStatus, startEvent.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingStatus, startEvent.Object)
 	require.Equal(t, "context_compaction", startDiagnostic.Stage)
 	require.Equal(t, "started", startDiagnostic.Status)
 
@@ -520,10 +521,10 @@ func TestMaybeCompactContextBeforeLLM_RebuildsRequestWithSummary(t *testing.T) {
 func TestMaybeCompactContextBeforeLLM_SummarizesSanitizedOrphanToolCall(
 	t *testing.T,
 ) {
-	summaryModel := &mockModel{responses: []*model.Response{{
+	summaryModel := &mockModel{responses: []*compat.Response{{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("compressed orphan history"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("compressed orphan history"),
 		}},
 	}}}
 	service := inmemory.NewSessionService(inmemory.WithSummarizer(
@@ -547,24 +548,24 @@ func TestMaybeCompactContextBeforeLLM_SummarizesSanitizedOrphanToolCall(
 	oldUser := event.New("inv-old", "user")
 	oldUser.RequestID = "req-old"
 	oldUser.Timestamp = time.Now().Add(-time.Hour)
-	oldUser.Response = &model.Response{
+	oldUser.Response = &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewUserMessage(strings.Repeat("history ", 2000)),
+		Choices: []compat.Choice{{
+			Message: compat.NewUserMessage(strings.Repeat("history ", 2000)),
 		}},
 	}
 	require.NoError(t, service.AppendEvent(ctx, sess, oldUser))
 	orphanCall := event.New("inv-old", "assistant")
 	orphanCall.RequestID = "req-old"
 	orphanCall.Timestamp = oldUser.Timestamp.Add(time.Second)
-	orphanCall.Response = &model.Response{
+	orphanCall.Response = &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID:   "call_orphan",
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "shell",
 					Arguments: []byte(`{"command":"pwd"}`),
 				},
@@ -576,7 +577,7 @@ func TestMaybeCompactContextBeforeLLM_SummarizesSanitizedOrphanToolCall(
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			RequestID: "req-current",
 		}),
@@ -598,7 +599,7 @@ func TestMaybeCompactContextBeforeLLM_SummarizesSanitizedOrphanToolCall(
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(ctx, inv, req, nil)
 	view, ok := summaryview.Snapshot(inv)
 	require.True(t, ok)
@@ -636,7 +637,7 @@ func TestMaybeCompactContextBeforeLLM_SummarizesSanitizedOrphanToolCall(
 
 func TestMaybeCompactContextBeforeLLM_PassesParentRequestForCacheSafeFork(t *testing.T) {
 	modelName := "compact-retry-cache-safe-fork"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -650,10 +651,10 @@ func TestMaybeCompactContextBeforeLLM_PassesParentRequestForCacheSafeFork(t *tes
 			{
 				RequestID: "req-old",
 				Timestamp: time.Now().Add(-time.Hour),
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage(longContent),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage(longContent),
 					}},
 				},
 			},
@@ -663,7 +664,7 @@ func TestMaybeCompactContextBeforeLLM_PassesParentRequestForCacheSafeFork(t *tes
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -682,7 +683,7 @@ func TestMaybeCompactContextBeforeLLM_PassesParentRequestForCacheSafeFork(t *tes
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	rebuilt := f.maybeCompactContextBeforeLLM(
 		context.Background(),
@@ -710,20 +711,20 @@ func TestRunOneStep_CallLimitFinalizationParticipatesInContextBudget(
 	sess := &session.Session{Events: []event.Event{{
 		RequestID: "req-old",
 		Timestamp: time.Now().Add(-time.Hour),
-		Response: &model.Response{Done: true, Choices: []model.Choice{{
-			Message: model.NewUserMessage(oldContent),
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{
+			Message: compat.NewUserMessage(oldContent),
 		}}},
 	}}}
-	modelStub := &mockModel{responses: []*model.Response{{
+	modelStub := &mockModel{responses: []*compat.Response{{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("final answer"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("final answer"),
 		}},
 	}}}
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("q")),
+		agent.WithInvocationMessage(compat.NewUserMessage("q")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithRequestID("req-current"),
 			agent.WithModelContextWindow(4000),
@@ -733,8 +734,8 @@ func TestRunOneStep_CallLimitFinalizationParticipatesInContextBudget(
 	inv.MaxLLMCalls = 1
 	instruction := strings.Repeat("f", 10)
 	calllimit.Configure(inv, &instruction, nil)
-	counter := model.NewSimpleTokenCounter(
-		model.WithApproxRunesPerToken(1),
+	counter := compat.NewSimpleTokenCounter(
+		compat.WithApproxRunesPerToken(1),
 	)
 	f := New(
 		[]flow.RequestProcessor{
@@ -773,8 +774,8 @@ func TestRunOneStep_CallLimitFinalizationParticipatesInContextBudget(
 	require.NoError(t, err)
 	require.Less(t, baseTokens, 2000)
 	budgetMessages := append(
-		append([]model.Message(nil), parent.Messages...),
-		model.NewUserMessage(instruction),
+		append([]compat.Message(nil), parent.Messages...),
+		compat.NewUserMessage(instruction),
 	)
 	budgetTokens, err := counter.CountTokensRange(
 		context.Background(),
@@ -795,7 +796,7 @@ func TestRunOneStep_CallLimitFinalizationParticipatesInContextBudget(
 
 func TestMaybeCompactContextBeforeLLM_SkipsWithoutSummaryAwareProcessor(t *testing.T) {
 	modelName := "compact-retry-no-summary"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -812,8 +813,8 @@ func TestMaybeCompactContextBeforeLLM_SkipsWithoutSummaryAwareProcessor(t *testi
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{
-					model.NewUserMessage(strings.Repeat("payload ", 2000)),
+				messages: []compat.Message{
+					compat.NewUserMessage(strings.Repeat("payload ", 2000)),
 				},
 			},
 		},
@@ -824,7 +825,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWithoutSummaryAwareProcessor(t *testi
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	rebuilt := f.maybeCompactContextBeforeLLM(
 		context.Background(),
@@ -840,7 +841,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWithoutSummaryAwareProcessor(t *testi
 
 func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryInjectionDisabled(t *testing.T) {
 	modelName := "compact-retry-summary-disabled"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -854,10 +855,10 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryInjectionDisabled(t *testi
 			{
 				RequestID: "req-old",
 				Timestamp: time.Now().Add(-time.Hour),
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage(longContent),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage(longContent),
 					}},
 				},
 			},
@@ -867,7 +868,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryInjectionDisabled(t *testi
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -888,7 +889,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryInjectionDisabled(t *testi
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 
 	rebuilt := f.maybeCompactContextBeforeLLM(
@@ -905,7 +906,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryInjectionDisabled(t *testi
 
 func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryRefreshFails(t *testing.T) {
 	modelName := "compact-retry-summary-error"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -922,10 +923,10 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryRefreshFails(t *testing.T)
 			{
 				RequestID: "req-old",
 				Timestamp: time.Now().Add(-time.Hour),
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage(longContent),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage(longContent),
 					}},
 				},
 			},
@@ -935,7 +936,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryRefreshFails(t *testing.T)
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -954,7 +955,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryRefreshFails(t *testing.T)
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 
 	rebuilt := f.maybeCompactContextBeforeLLM(
@@ -971,7 +972,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenSummaryRefreshFails(t *testing.T)
 
 func TestMaybeCompactContextBeforeLLM_RebuildsWithoutReplayingEarlierProcessors(t *testing.T) {
 	modelName := "compact-retry-safe-rebuild"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -980,17 +981,17 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithoutReplayingEarlierProcessors(
 
 	service := &summaryInjectingService{Service: baseSvc}
 	prefixProcessor := &countingRequestProcessor{
-		messages: []model.Message{model.NewSystemMessage("prefix guidance")},
+		messages: []compat.Message{compat.NewSystemMessage("prefix guidance")},
 	}
 	longContent := strings.Repeat("history ", 2000)
 	sess := &session.Session{
 		Events: []event.Event{{
 			RequestID: "req-old",
 			Timestamp: time.Now().Add(-time.Hour),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(longContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(longContent),
 				}},
 			},
 		}},
@@ -999,7 +1000,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithoutReplayingEarlierProcessors(
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -1022,7 +1023,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithoutReplayingEarlierProcessors(
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.Equal(t, 1, prefixProcessor.Calls())
 
@@ -1045,7 +1046,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithoutReplayingEarlierProcessors(
 
 func TestMaybeCompactContextBeforeLLM_SkipsWhenUnsafeTailProcessorPresent(t *testing.T) {
 	modelName := "compact-retry-unsafe-tail"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -1058,10 +1059,10 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenUnsafeTailProcessorPresent(t *tes
 		Events: []event.Event{{
 			RequestID: "req-old",
 			Timestamp: time.Now().Add(-time.Hour),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(longContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(longContent),
 				}},
 			},
 		}},
@@ -1070,7 +1071,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenUnsafeTailProcessorPresent(t *tes
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -1090,7 +1091,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenUnsafeTailProcessorPresent(t *tes
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.Nil(t, rebuildPlan)
 
@@ -1108,7 +1109,7 @@ func TestMaybeCompactContextBeforeLLM_SkipsWhenUnsafeTailProcessorPresent(t *tes
 
 func TestMaybeCompactContextBeforeLLM_RebuildsAfterPartialSummaryFailure(t *testing.T) {
 	modelName := "compact-retry-partial-summary-error"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -1124,10 +1125,10 @@ func TestMaybeCompactContextBeforeLLM_RebuildsAfterPartialSummaryFailure(t *test
 		Events: []event.Event{{
 			RequestID: "req-old",
 			Timestamp: time.Now().Add(-time.Hour),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(longContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(longContent),
 				}},
 			},
 		}},
@@ -1136,7 +1137,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsAfterPartialSummaryFailure(t *test
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -1155,7 +1156,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsAfterPartialSummaryFailure(t *test
 		},
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 
 	rebuilt := f.maybeCompactContextBeforeLLM(
@@ -1176,7 +1177,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildPreservesPreContentRequestState(
 	t *testing.T,
 ) {
 	modelName := "compact-retry-preserve-request-state"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -1190,10 +1191,10 @@ func TestMaybeCompactContextBeforeLLM_RebuildPreservesPreContentRequestState(
 		Events: []event.Event{{
 			RequestID: "req-old",
 			Timestamp: time.Now().Add(-time.Hour),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(longContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(longContent),
 				}},
 			},
 		}},
@@ -1202,7 +1203,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildPreservesPreContentRequestState(
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -1222,13 +1223,13 @@ func TestMaybeCompactContextBeforeLLM_RebuildPreservesPreContentRequestState(
 		},
 	)
 
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stop: []string{"DONE"},
 		},
-		StructuredOutput: &model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		StructuredOutput: &compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Name:   "result",
 				Schema: map[string]any{"type": "object"},
 			},
@@ -1263,7 +1264,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithSkillsToolResultTailWhenSafe(
 	t *testing.T,
 ) {
 	modelName := "compact-retry-skills-tail-safe"
-	model.RegisterModelContextWindow(modelName, 10000)
+	compat.RegisterModelContextWindow(modelName, 10000)
 
 	baseSvc := inmemory.NewSessionService()
 	t.Cleanup(func() {
@@ -1287,10 +1288,10 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithSkillsToolResultTailWhenSafe(
 		Events: []event.Event{{
 			RequestID: "req-old",
 			Timestamp: time.Now().Add(-time.Hour),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewUserMessage(longContent),
+				Choices: []compat.Choice{{
+					Message: compat.NewUserMessage(longContent),
 				}},
 			},
 		}},
@@ -1299,7 +1300,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithSkillsToolResultTailWhenSafe(
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationSessionService(service),
-		agent.WithInvocationMessage(model.NewUserMessage("current")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current")),
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req-current"}),
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 		agent.WithInvocationEventFilterKey("branch/test"),
@@ -1323,21 +1324,21 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithSkillsToolResultTailWhenSafe(
 		},
 	)
 
-	req := &model.Request{
-		Messages: []model.Message{
+	req := &compat.Request{
+		Messages: []compat.Message{
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "tc1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "skill_load",
 						Arguments: []byte(`{"skill":"calc"}`),
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: "skill_load",
 				ToolID:   "tc1",
 				Content:  "loaded: calc",
@@ -1360,7 +1361,7 @@ func TestMaybeCompactContextBeforeLLM_RebuildsWithSkillsToolResultTailWhenSafe(
 	require.Len(t, rebuildPlan.tailProcessors, 1)
 	var rebuiltToolContent string
 	for _, msg := range rebuilt.Messages {
-		if msg.Role == model.RoleTool && msg.ToolName == "skill_load" {
+		if msg.Role == compat.RoleTool && msg.ToolName == "skill_load" {
 			rebuiltToolContent = msg.Content
 			break
 		}
@@ -1403,7 +1404,7 @@ func TestPreprocess_SkipsSkillsToolResultTailWhenLoadModeOnceIsActive(
 		Options{EnableContextCompaction: true},
 	)
 
-	rebuildPlan := f.preprocess(context.Background(), inv, &model.Request{}, nil)
+	rebuildPlan := f.preprocess(context.Background(), inv, &compat.Request{}, nil)
 	require.Nil(t, rebuildPlan)
 }
 
@@ -1421,7 +1422,7 @@ func TestMaybeCompactContextBeforeLLM_InitialGuards(t *testing.T) {
 		},
 	)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hello")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hello")}}
 	inv := agent.NewInvocation(
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationSessionService(inmemory.NewSessionService()),
@@ -1504,7 +1505,7 @@ func TestRebuildRequestForContextCompaction_PopulatesFilteredTools(t *testing.T)
 		nil,
 	))
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.NotNil(t, rebuildPlan)
 	require.Contains(t, rebuildPlan.beforeContent.Tools, "search")
@@ -1552,7 +1553,7 @@ func TestRebuildRequestForContextCompaction_ContentSeesSessionLoadTool(
 		nil,
 		Options{EnableContextCompaction: true},
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.NotNil(t, rebuildPlan)
 	require.Contains(t, rebuildPlan.beforeContent.Tools, "session_load")
@@ -1604,7 +1605,7 @@ func TestRebuildRequestForContextCompaction_PreservesPreContentToolMutation(
 		nil,
 		Options{EnableContextCompaction: true},
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 	rebuildPlan := f.preprocess(context.Background(), inv, req, nil)
 	require.NotNil(t, rebuildPlan)
 	require.NotContains(t, req.Tools, "session_load")
@@ -1663,7 +1664,7 @@ func TestSupportsSyncSummaryRetry(t *testing.T) {
 			name: "non content processor",
 			processors: []flow.RequestProcessor{
 				&seedMessagesRequestProcessor{
-					messages: []model.Message{model.NewUserMessage("hello")},
+					messages: []compat.Message{compat.NewUserMessage("hello")},
 				},
 			},
 			want: false,
@@ -1701,7 +1702,7 @@ func TestContextCompactionThreshold(t *testing.T) {
 
 	t.Run("caps to small model window", func(t *testing.T) {
 		const modelName = "compact-threshold-small-window"
-		model.RegisterModelContextWindow(modelName, 1024)
+		compat.RegisterModelContextWindow(modelName, 1024)
 
 		inv := agent.NewInvocation(
 			agent.WithInvocationModel(&compactingModel{name: modelName}),
@@ -1748,23 +1749,23 @@ func TestContextCompactionThreshold(t *testing.T) {
 
 func TestShouldSyncCompactContext(t *testing.T) {
 	const modelName = "compact-threshold-sync"
-	model.RegisterModelContextWindow(modelName, 1024)
+	compat.RegisterModelContextWindow(modelName, 1024)
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationModel(&compactingModel{name: modelName}),
 	)
 
-	require.False(t, shouldSyncCompactContext(context.Background(), nil, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hello")},
+	require.False(t, shouldSyncCompactContext(context.Background(), nil, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}, 0.5, nil))
 	require.False(t, shouldSyncCompactContext(context.Background(), inv, nil, 0.5, nil))
-	require.False(t, shouldSyncCompactContext(context.Background(), inv, &model.Request{}, 0.5, nil))
+	require.False(t, shouldSyncCompactContext(context.Background(), inv, &compat.Request{}, 0.5, nil))
 
-	require.False(t, shouldSyncCompactContext(context.Background(), inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage(strings.Repeat("a", 100))},
+	require.False(t, shouldSyncCompactContext(context.Background(), inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage(strings.Repeat("a", 100))},
 	}, 0.5, nil))
-	require.True(t, shouldSyncCompactContext(context.Background(), inv, &model.Request{
-		Messages: []model.Message{model.NewUserMessage(strings.Repeat("a", 5000))},
+	require.True(t, shouldSyncCompactContext(context.Background(), inv, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage(strings.Repeat("a", 5000))},
 	}, 0.5, nil))
 
 	customCounterInv := agent.NewInvocation(
@@ -1773,8 +1774,8 @@ func TestShouldSyncCompactContext(t *testing.T) {
 			window: 10000,
 		}),
 	)
-	customCounterReq := &model.Request{
-		Messages: []model.Message{model.NewUserMessage(strings.Repeat("a", 12000))},
+	customCounterReq := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage(strings.Repeat("a", 12000))},
 	}
 	require.False(t, shouldSyncCompactContext(
 		context.Background(),
@@ -1788,7 +1789,7 @@ func TestShouldSyncCompactContext(t *testing.T) {
 		customCounterInv,
 		customCounterReq,
 		0.5,
-		model.NewSimpleTokenCounter(model.WithApproxRunesPerToken(1)),
+		compat.NewSimpleTokenCounter(compat.WithApproxRunesPerToken(1)),
 	))
 }
 
@@ -1797,42 +1798,42 @@ func TestCloneRequestForContextCompaction_DeepCopiesMutableFields(t *testing.T) 
 
 	text := "hello"
 	index := 3
-	req := &model.Request{
-		Messages: []model.Message{{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+	req := &compat.Request{
+		Messages: []compat.Message{{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &text,
 			}, {
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					URL:    "https://example.com/a.png",
 					Data:   []byte{1, 2, 3},
 					Detail: "high",
 				},
 			}, {
-				Type: model.ContentTypeAudio,
-				Audio: &model.Audio{
+				Type: compat.ContentTypeAudio,
+				Audio: &compat.Audio{
 					Data:   []byte{4, 5, 6},
 					Format: "wav",
 				},
 			}, {
-				Type: model.ContentTypeVideo,
-				Video: &model.Video{
+				Type: compat.ContentTypeVideo,
+				Video: &compat.Video{
 					Data:   []byte{7, 8, 9},
 					Format: "mp4",
 				},
 			}, {
-				Type: model.ContentTypeFile,
-				File: &model.File{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name: "test.txt",
 					Data: []byte("abc"),
 				},
 			}},
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
 				ID:   "call-1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "search",
 					Arguments: []byte(`{"q":"go"}`),
 				},
@@ -1842,12 +1843,12 @@ func TestCloneRequestForContextCompaction_DeepCopiesMutableFields(t *testing.T) 
 				},
 			}},
 		}},
-		GenerationConfig: model.GenerationConfig{
+		GenerationConfig: compat.GenerationConfig{
 			Stop: []string{"DONE"},
 		},
-		StructuredOutput: &model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		StructuredOutput: &compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Name:   "schema",
 				Schema: map[string]any{"type": "object"},
 			},
@@ -1869,7 +1870,7 @@ func TestCloneRequestForContextCompaction_DeepCopiesMutableFields(t *testing.T) 
 	req.Messages[0].ToolCalls[0].Index = nil
 	req.Stop[0] = "STOP"
 	req.StructuredOutput.JSONSchema.Schema["type"] = "array"
-	req.Tools["search"] = nil
+	req.Tools.(map[string]tool.Tool)["search"] = nil
 
 	require.NotNil(t, cloned.Messages[0].ContentParts[0].Text)
 	require.Equal(t, "hello", *cloned.Messages[0].ContentParts[0].Text)

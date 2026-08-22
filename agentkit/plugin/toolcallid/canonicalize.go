@@ -12,12 +12,12 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const canonicalToolCallIDPrefix = "trpc-agent-go-toolcall"
 
-func canonicalizeResponse(inv *agent.Invocation, rsp *model.Response) (*model.Response, error) {
+func canonicalizeResponse(inv *agent.Invocation, rsp *compat.Response) (*compat.Response, error) {
 	if rsp == nil || rsp.IsPartial {
 		return nil, nil
 	}
@@ -72,15 +72,15 @@ func canonicalizeResponse(inv *agent.Invocation, rsp *model.Response) (*model.Re
 }
 
 func canonicalizeToolCalls(
-	toolCalls []model.ToolCall,
+	toolCalls []compat.ToolCall,
 	invocationID string,
 	responseID string,
 	choiceIndex int,
-) ([]model.ToolCall, error) {
+) ([]compat.ToolCall, error) {
 	if len(toolCalls) == 0 {
 		return nil, nil
 	}
-	canonicalized := append([]model.ToolCall(nil), toolCalls...)
+	canonicalized := append([]compat.ToolCall(nil), toolCalls...)
 	for slotIndex := range canonicalized {
 		rawToolCallID := toolCalls[slotIndex].ID
 		canonicalized[slotIndex].ID = canonicalToolCallID(

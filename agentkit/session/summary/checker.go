@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/modelcontext"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
 )
@@ -39,7 +39,7 @@ type checkEvaluator func(context.Context, *session.Session) Check
 
 var (
 	defaultTokenCounterMu sync.RWMutex
-	defaultTokenCounter   model.TokenCounter = model.NewSimpleTokenCounter()
+	defaultTokenCounter   compat.TokenCounter = compat.NewSimpleTokenCounter()
 )
 
 const tokenThresholdConversationTextStateKey = session.StateTempPrefix +
@@ -47,22 +47,22 @@ const tokenThresholdConversationTextStateKey = session.StateTempPrefix +
 const tokenThresholdReasoningContentStateKey = session.StateTempPrefix +
 	"summary:token_threshold_reasoning_content"
 
-func getTokenCounter() model.TokenCounter {
+func getTokenCounter() compat.TokenCounter {
 	defaultTokenCounterMu.RLock()
 	counter := defaultTokenCounter
 	defaultTokenCounterMu.RUnlock()
 
 	if counter == nil {
-		return model.NewSimpleTokenCounter()
+		return compat.NewSimpleTokenCounter()
 	}
 	return counter
 }
 
 // SetTokenCounter sets the default TokenCounter used by summary checkers.
 // This affects all future CheckTokenThreshold evaluations in this process.
-func SetTokenCounter(counter model.TokenCounter) {
+func SetTokenCounter(counter compat.TokenCounter) {
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 
 	defaultTokenCounterMu.Lock()
@@ -259,7 +259,7 @@ func evaluateTimeThreshold(interval time.Duration) checkEvaluator {
 
 func countTokenThresholdMessage(
 	ctx context.Context,
-	message model.Message,
+	message compat.Message,
 ) (int, bool) {
 	if strings.TrimSpace(message.Content) == "" &&
 		strings.TrimSpace(message.ReasoningContent) == "" {
@@ -335,7 +335,7 @@ func evaluateTokenThreshold(tokenCount int) checkEvaluator {
 			return check
 		}
 
-		var message model.Message
+		var message compat.Message
 		if message, ok := getInjectedTokenThresholdMessage(sess); ok {
 			tokens, counted := countTokenThresholdMessage(ctx, message)
 			check.Value = tokens
@@ -358,16 +358,16 @@ func evaluateTokenThreshold(tokenCount int) checkEvaluator {
 	}
 }
 
-func getInjectedTokenThresholdMessage(sess *session.Session) (model.Message, bool) {
+func getInjectedTokenThresholdMessage(sess *session.Session) (compat.Message, bool) {
 	if sess == nil {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	content, hasContent := sess.GetState(tokenThresholdConversationTextStateKey)
 	reasoning, hasReasoning := sess.GetState(tokenThresholdReasoningContentStateKey)
 	if !hasContent && !hasReasoning {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
-	return model.Message{
+	return compat.Message{
 		Content:          string(content),
 		ReasoningContent: string(reasoning),
 	}, true

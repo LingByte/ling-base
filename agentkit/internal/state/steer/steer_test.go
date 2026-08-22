@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestQueuedUserMessageWireValues(t *testing.T) {
@@ -38,8 +38,8 @@ func TestQueuedUserMessageWireValues(t *testing.T) {
 func TestQueue_FIFOAndClose(t *testing.T) {
 	queue := NewQueue()
 
-	require.True(t, queue.Enqueue(model.NewUserMessage("one")))
-	require.True(t, queue.Enqueue(model.NewUserMessage("two")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("one")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("two")))
 
 	drained := queue.Drain()
 	require.Len(t, drained, 2)
@@ -48,7 +48,7 @@ func TestQueue_FIFOAndClose(t *testing.T) {
 	require.Nil(t, queue.Drain())
 
 	queue.Close()
-	require.False(t, queue.Enqueue(model.NewUserMessage("three")))
+	require.False(t, queue.Enqueue(compat.NewUserMessage("three")))
 	require.Nil(t, queue.Drain())
 }
 
@@ -61,7 +61,7 @@ func TestAttachDrainAndClear(t *testing.T) {
 	Attach(invocation, queue)
 	require.True(t, IsAttached(invocation))
 
-	require.True(t, queue.Enqueue(model.NewUserMessage("hello")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("hello")))
 
 	drained := Drain(invocation)
 	require.Len(t, drained, 1)
@@ -69,7 +69,7 @@ func TestAttachDrainAndClear(t *testing.T) {
 
 	Clear(invocation)
 	require.False(t, IsAttached(invocation))
-	require.False(t, queue.Enqueue(model.NewUserMessage("later")))
+	require.False(t, queue.Enqueue(compat.NewUserMessage("later")))
 	require.Nil(t, Drain(invocation))
 }
 
@@ -78,12 +78,12 @@ func TestClose_RejectsFutureEnqueueAndPreservesQueuedMessages(t *testing.T) {
 	queue := NewQueue()
 
 	Attach(invocation, queue)
-	require.True(t, queue.Enqueue(model.NewUserMessage("hello")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("hello")))
 
 	Close(invocation)
 
 	require.True(t, IsAttached(invocation))
-	require.False(t, queue.Enqueue(model.NewUserMessage("later")))
+	require.False(t, queue.Enqueue(compat.NewUserMessage("later")))
 
 	drained := Drain(invocation)
 	require.Len(t, drained, 1)
@@ -94,8 +94,8 @@ func TestQueue_DiscardClearsQueuedMessagesWithoutClosing(t *testing.T) {
 	queue := NewQueue()
 
 	require.Nil(t, queue.Discard())
-	require.True(t, queue.Enqueue(model.NewUserMessage("one")))
-	require.True(t, queue.Enqueue(model.NewUserMessage("two")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("one")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("two")))
 
 	discarded := queue.Discard()
 	require.Len(t, discarded, 2)
@@ -103,7 +103,7 @@ func TestQueue_DiscardClearsQueuedMessagesWithoutClosing(t *testing.T) {
 	require.Equal(t, "two", discarded[1].Content)
 	require.Nil(t, queue.Drain())
 
-	require.True(t, queue.Enqueue(model.NewUserMessage("three")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("three")))
 	drained := queue.Drain()
 	require.Len(t, drained, 1)
 	require.Equal(t, "three", drained[0].Content)
@@ -126,7 +126,7 @@ func TestAttach_NotInheritedByPlainClone(t *testing.T) {
 		"a plain clone (delegated sub-agent) must NOT inherit the steer queue")
 
 	// A steer enqueued on the root is invisible to the clone — it cannot drain it.
-	require.True(t, queue.Enqueue(model.NewUserMessage("steer")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("steer")))
 	require.Nil(t, Drain(clone), "sub-agent clone must not drain the lead's steer")
 }
 
@@ -142,27 +142,27 @@ func TestAttachBorrowed_DrainsButCloseIsNoOp(t *testing.T) {
 	require.True(t, IsAttached(inv))
 
 	// Borrowing still drains.
-	require.True(t, queue.Enqueue(model.NewUserMessage("steer")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("steer")))
 	drained := Drain(inv)
 	require.Len(t, drained, 1)
 	require.Equal(t, "steer", drained[0].Content)
 
 	// Close on a borrowed attachment is a no-op: the queue stays open.
 	Close(inv)
-	require.True(t, queue.Enqueue(model.NewUserMessage("after close")),
+	require.True(t, queue.Enqueue(compat.NewUserMessage("after close")),
 		"Close on a borrowed attachment must not close the queue")
 
 	// Clear on a borrowed attachment detaches without closing.
 	Clear(inv)
 	require.False(t, IsAttached(inv))
-	require.True(t, queue.Enqueue(model.NewUserMessage("after clear")),
+	require.True(t, queue.Enqueue(compat.NewUserMessage("after clear")),
 		"Clear on a borrowed attachment must not close the queue")
 
 	// An owning attachment, by contrast, closes on Close.
 	owner := agent.NewInvocation()
 	Attach(owner, queue)
 	Close(owner)
-	require.False(t, queue.Enqueue(model.NewUserMessage("rejected")),
+	require.False(t, queue.Enqueue(compat.NewUserMessage("rejected")),
 		"Close on an owning attachment must close the queue")
 }
 
@@ -178,7 +178,7 @@ func TestAttach_AfterBorrowedReestablishesOwnership(t *testing.T) {
 	Attach(inv, queue) // re-attach as owner
 
 	Close(inv)
-	require.False(t, queue.Enqueue(model.NewUserMessage("rejected")),
+	require.False(t, queue.Enqueue(compat.NewUserMessage("rejected")),
 		"Attach must clear a stale borrowed marker so Close closes the queue")
 }
 
@@ -186,7 +186,7 @@ func TestInvocationViewDoesNotRaceWithClose(t *testing.T) {
 	inv := agent.NewInvocation()
 	queue := NewQueue()
 	for i := 0; i < 16; i++ {
-		require.True(t, queue.Enqueue(model.NewUserMessage("hello")))
+		require.True(t, queue.Enqueue(compat.NewUserMessage("hello")))
 	}
 	Attach(inv, queue)
 
@@ -221,7 +221,7 @@ func TestNilSafety(t *testing.T) {
 
 	Attach(invocation, NewQueue())
 	require.False(t, IsAttached(invocation))
-	require.False(t, queue.Enqueue(model.NewUserMessage("x")))
+	require.False(t, queue.Enqueue(compat.NewUserMessage("x")))
 	require.Nil(t, queue.Drain())
 	require.Nil(t, queue.Discard())
 	queue.Close()

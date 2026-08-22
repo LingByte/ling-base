@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/internal/util/message"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -50,7 +50,7 @@ var (
 // tool result message, and orphan tool result messages that are not associated with a
 // kept tool call message, to avoid invalid tool message sequences in strict chat APIs.
 // The context is used to attach request-scoped metadata to downgrade warnings.
-func SanitizeMessagesWithTools(ctx context.Context, messages []model.Message, tools map[string]tool.Tool) []model.Message {
+func SanitizeMessagesWithTools(ctx context.Context, messages []compat.Message, tools map[string]tool.Tool) []compat.Message {
 	return SanitizeMessagesWithToolsResult(ctx, messages, tools).Messages
 }
 
@@ -59,7 +59,7 @@ func SanitizeMessagesWithTools(ctx context.Context, messages []model.Message, to
 // corresponding index in the input message slice. A nil slice represents an
 // identity mapping: output message i came from input message i.
 type SanitizeResult struct {
-	Messages      []model.Message
+	Messages      []compat.Message
 	SourceIndexes []int
 }
 
@@ -67,25 +67,25 @@ type SanitizeResult struct {
 // index from which every output message was derived.
 func SanitizeMessagesWithToolsResult(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	tools map[string]tool.Tool,
 ) SanitizeResult {
 	if len(messages) == 0 {
 		return SanitizeResult{Messages: messages}
 	}
 	if !containsToolMessages(messages) {
-		out := make([]model.Message, len(messages))
+		out := make([]compat.Message, len(messages))
 		copy(out, messages)
 		return SanitizeResult{Messages: out}
 	}
 	builder := sanitizeResultBuilder{
-		messages: make([]model.Message, 0, len(messages)),
+		messages: make([]compat.Message, 0, len(messages)),
 	}
 	for i := 0; i < len(messages); {
 		msg := messages[i]
-		if msg.Role == model.RoleAssistant && len(msg.ToolCalls) > 0 {
+		if msg.Role == compat.RoleAssistant && len(msg.ToolCalls) > 0 {
 			next := i + 1
-			for next < len(messages) && messages[next].Role == model.RoleTool {
+			for next < len(messages) && messages[next].Role == compat.RoleTool {
 				next++
 			}
 			builder.appendAll(sanitizeToolRound(
@@ -98,7 +98,7 @@ func SanitizeMessagesWithToolsResult(
 			i = next
 			continue
 		}
-		if msg.Role == model.RoleTool {
+		if msg.Role == compat.RoleTool {
 			builder.append(indexedMessage{
 				message:     downgradeOrphanToolResult(ctx, msg),
 				sourceIndex: i,
@@ -115,10 +115,10 @@ func SanitizeMessagesWithToolsResult(
 	}
 }
 
-func containsToolMessages(messages []model.Message) bool {
+func containsToolMessages(messages []compat.Message) bool {
 	for i := range messages {
-		if messages[i].Role == model.RoleTool ||
-			(messages[i].Role == model.RoleAssistant &&
+		if messages[i].Role == compat.RoleTool ||
+			(messages[i].Role == compat.RoleAssistant &&
 				len(messages[i].ToolCalls) > 0) {
 			return true
 		}
@@ -127,12 +127,12 @@ func containsToolMessages(messages []model.Message) bool {
 }
 
 type indexedMessage struct {
-	message     model.Message
+	message     compat.Message
 	sourceIndex int
 }
 
 type sanitizeResultBuilder struct {
-	messages      []model.Message
+	messages      []compat.Message
 	sourceIndexes []int
 }
 
@@ -160,14 +160,14 @@ func (b *sanitizeResultBuilder) appendAll(messages []indexedMessage) {
 }
 
 type toolCallValidation struct {
-	validToolCalls   []model.ToolCall
+	validToolCalls   []compat.ToolCall
 	invalidToolCalls []invalidToolCall
 	validIDs         map[string]struct{}
 	invalidIDs       map[string]struct{}
 }
 
 type invalidToolCall struct {
-	call   model.ToolCall
+	call   compat.ToolCall
 	reason string
 }
 
@@ -178,15 +178,15 @@ type toolResultSplit struct {
 }
 
 type toolCallSplit struct {
-	kept   []model.ToolCall
-	orphan []model.ToolCall
+	kept   []compat.ToolCall
+	orphan []compat.ToolCall
 }
 
 // sanitizeToolRound sanitizes a single assistant tool-call round with its following tool results.
 func sanitizeToolRound(
 	ctx context.Context,
 	assistant indexedMessage,
-	toolResults []model.Message,
+	toolResults []compat.Message,
 	firstToolResultSourceIndex int,
 	tools map[string]tool.Tool,
 ) []indexedMessage {
@@ -246,9 +246,9 @@ func sanitizeToolRound(
 	return out
 }
 
-func splitToolCalls(toolCalls []model.ToolCall, toolResults []indexedMessage) toolCallSplit {
+func splitToolCalls(toolCalls []compat.ToolCall, toolResults []indexedMessage) toolCallSplit {
 	out := toolCallSplit{
-		kept: make([]model.ToolCall, 0, len(toolCalls)),
+		kept: make([]compat.ToolCall, 0, len(toolCalls)),
 	}
 	respondedIDs := make(map[string]struct{}, len(toolResults))
 	for _, tr := range toolResults {
@@ -270,9 +270,9 @@ func splitToolCalls(toolCalls []model.ToolCall, toolResults []indexedMessage) to
 }
 
 // validateToolCalls validates tool call arguments and groups tool calls by validity.
-func validateToolCalls(toolCalls []model.ToolCall, tools map[string]tool.Tool) toolCallValidation {
+func validateToolCalls(toolCalls []compat.ToolCall, tools map[string]tool.Tool) toolCallValidation {
 	out := toolCallValidation{
-		validToolCalls: make([]model.ToolCall, 0, len(toolCalls)),
+		validToolCalls: make([]compat.ToolCall, 0, len(toolCalls)),
 		validIDs:       make(map[string]struct{}),
 		invalidIDs:     make(map[string]struct{}),
 	}
@@ -290,7 +290,7 @@ func validateToolCalls(toolCalls []model.ToolCall, tools map[string]tool.Tool) t
 }
 
 // validateToolCall validates and normalizes a single tool call.
-func validateToolCall(tc model.ToolCall, tools map[string]tool.Tool) (model.ToolCall, bool, string) {
+func validateToolCall(tc compat.ToolCall, tools map[string]tool.Tool) (compat.ToolCall, bool, string) {
 	if strings.TrimSpace(tc.Function.Name) == "" {
 		return tc, false, errFunctionNameEmpty.Error()
 	}
@@ -521,7 +521,7 @@ func validateNumberValueAgainstSchema(value any, path string) (bool, string) {
 
 // splitToolResults groups tool result messages by tool_call_id based on tool call validity.
 func splitToolResults(
-	toolResults []model.Message,
+	toolResults []compat.Message,
 	firstSourceIndex int,
 	validIDs map[string]struct{},
 	invalidIDs map[string]struct{},
@@ -562,7 +562,7 @@ func splitToolResults(
 }
 
 // downgradeInvalidToolCall converts an invalid tool call into a user message that preserves its payload.
-func downgradeInvalidToolCall(ctx context.Context, call model.ToolCall, reason string) model.Message {
+func downgradeInvalidToolCall(ctx context.Context, call compat.ToolCall, reason string) compat.Message {
 	log.WarnfContext(ctx,
 		"toolcall: downgraded invalid tool call to user message: name=%q id=%q reason=%q",
 		call.Function.Name,
@@ -577,14 +577,14 @@ func downgradeInvalidToolCall(ctx context.Context, call model.ToolCall, reason s
 		call.ID,
 		string(call.Function.Arguments),
 	)
-	return model.Message{
-		Role:    model.RoleUser,
+	return compat.Message{
+		Role:    compat.RoleUser,
 		Content: content,
 	}
 }
 
 // downgradeOrphanToolCall converts a tool call without a matching tool result into a user message.
-func downgradeOrphanToolCall(ctx context.Context, call model.ToolCall) model.Message {
+func downgradeOrphanToolCall(ctx context.Context, call compat.ToolCall) compat.Message {
 	log.WarnfContext(ctx,
 		"toolcall: downgraded orphan tool call to user message: name=%q id=%q",
 		call.Function.Name,
@@ -597,14 +597,14 @@ func downgradeOrphanToolCall(ctx context.Context, call model.ToolCall) model.Mes
 		call.ID,
 		string(call.Function.Arguments),
 	)
-	return model.Message{
-		Role:    model.RoleUser,
+	return compat.Message{
+		Role:    compat.RoleUser,
 		Content: content,
 	}
 }
 
 // downgradeInvalidToolResult converts a tool result associated with an invalid tool call into a user message.
-func downgradeInvalidToolResult(ctx context.Context, msg model.Message) model.Message {
+func downgradeInvalidToolResult(ctx context.Context, msg compat.Message) compat.Message {
 	log.WarnfContext(ctx,
 		"toolcall: downgraded invalid tool result to user message: tool_name=%q tool_call_id=%q",
 		msg.ToolName,
@@ -617,14 +617,14 @@ func downgradeInvalidToolResult(ctx context.Context, msg model.Message) model.Me
 		msg.ToolName,
 		msg.Content,
 	)
-	return model.Message{
-		Role:    model.RoleUser,
+	return compat.Message{
+		Role:    compat.RoleUser,
 		Content: content,
 	}
 }
 
 // downgradeOrphanToolResult converts an orphaned tool result into a user message.
-func downgradeOrphanToolResult(ctx context.Context, msg model.Message) model.Message {
+func downgradeOrphanToolResult(ctx context.Context, msg compat.Message) compat.Message {
 	log.WarnfContext(ctx,
 		"toolcall: downgraded orphan tool result to user message: tool_name=%q tool_call_id=%q",
 		msg.ToolName,
@@ -637,8 +637,8 @@ func downgradeOrphanToolResult(ctx context.Context, msg model.Message) model.Mes
 		msg.ToolName,
 		msg.Content,
 	)
-	return model.Message{
-		Role:    model.RoleUser,
+	return compat.Message{
+		Role:    compat.RoleUser,
 		Content: content,
 	}
 }

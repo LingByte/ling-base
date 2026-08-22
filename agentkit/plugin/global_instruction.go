@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -64,8 +64,8 @@ func (p *GlobalInstruction) Register(r *Registry) {
 
 func (p *GlobalInstruction) beforeModel(
 	_ context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if p == nil || args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -73,7 +73,7 @@ func (p *GlobalInstruction) beforeModel(
 	return nil, nil
 }
 
-func applyGlobalInstruction(req *model.Request, instr string) {
+func applyGlobalInstruction(req *compat.Request, instr string) {
 	if req == nil {
 		return
 	}
@@ -83,11 +83,11 @@ func applyGlobalInstruction(req *model.Request, instr string) {
 	}
 
 	if len(req.Messages) == 0 {
-		req.Messages = []model.Message{model.NewSystemMessage(instr)}
+		req.Messages = []compat.Message{compat.NewSystemMessage(instr)}
 		return
 	}
 
-	if req.Messages[0].Role == model.RoleSystem {
+	if req.Messages[0].Role == compat.RoleSystem {
 		if req.Messages[0].Content == "" {
 			req.Messages[0].Content = instr
 			return
@@ -97,7 +97,7 @@ func applyGlobalInstruction(req *model.Request, instr string) {
 	}
 
 	req.Messages = append(
-		[]model.Message{model.NewSystemMessage(instr)},
+		[]compat.Message{compat.NewSystemMessage(instr)},
 		req.Messages...,
 	)
 }

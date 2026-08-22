@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/cloudernative/dify-sdk-go"
 )
@@ -215,7 +215,7 @@ func TestDifyAgent_BuildDifyRequest(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test message",
 			},
 			RunOptions: agent.RunOptions{
@@ -252,7 +252,7 @@ func TestDifyAgent_BuildDifyRequest(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test",
 			},
 		}
@@ -372,7 +372,7 @@ func TestDifyAgentOptions(t *testing.T) {
 
 	t.Run("WithStreamingRespHandler", func(t *testing.T) {
 		difyAgent := &DifyAgent{}
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			return "test", nil
 		}
 		WithStreamingRespHandler(handler)(difyAgent)
@@ -590,7 +590,7 @@ func TestDifyAgent_ProcessStreamEvent(t *testing.T) {
 	})
 
 	t.Run("with custom handler success", func(t *testing.T) {
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			return "custom content", nil
 		}
 		difyAgent := &DifyAgent{
@@ -622,7 +622,7 @@ func TestDifyAgent_ProcessStreamEvent(t *testing.T) {
 	})
 
 	t.Run("with custom handler error", func(t *testing.T) {
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			return "", fmt.Errorf("handler error")
 		}
 		difyAgent := &DifyAgent{
@@ -677,7 +677,7 @@ func TestDifyAgent_SendFinalStreamingEvent(t *testing.T) {
 	if evt.Response.ID != "msg-123" {
 		t.Errorf("expected Response.ID 'msg-123', got: %s", evt.Response.ID)
 	}
-	if evt.Response.Object != model.ObjectTypeChatCompletion {
+	if evt.Response.Object != compat.ObjectTypeChatCompletion {
 		t.Errorf("expected Object type ChatCompletion, got: %s", evt.Response.Object)
 	}
 	if len(evt.Response.Choices) == 0 {
@@ -708,7 +708,7 @@ func TestDifyAgent_SendFinalStreamingEvent_EmptyMessageID(t *testing.T) {
 	if evt.Response.ID != "" {
 		t.Errorf("expected empty Response.ID, got: %s", evt.Response.ID)
 	}
-	if evt.Response.Object != model.ObjectTypeChatCompletion {
+	if evt.Response.Object != compat.ObjectTypeChatCompletion {
 		t.Errorf("expected Object type ChatCompletion, got: %s", evt.Response.Object)
 	}
 }
@@ -736,7 +736,7 @@ func TestDifyAgent_SendFinalStreamingEvent_WithMessageID(t *testing.T) {
 	if evt.Response.ID != "conversation-id-abc" {
 		t.Errorf("expected Response.ID 'conversation-id-abc', got: %s", evt.Response.ID)
 	}
-	if evt.Response.Object != model.ObjectTypeChatCompletion {
+	if evt.Response.Object != compat.ObjectTypeChatCompletion {
 		t.Errorf("expected Object type ChatCompletion, got: %s", evt.Response.Object)
 	}
 	if !evt.Response.Done {
@@ -829,8 +829,8 @@ func TestDifyAgent_ConvertAndEmitNonStreamingEvent(t *testing.T) {
 	if evt == nil {
 		t.Fatal("expected event")
 	}
-	if evt.Object != model.ObjectTypeChatCompletion {
-		t.Errorf("expected object type %s, got: %s", model.ObjectTypeChatCompletion, evt.Object)
+	if evt.Object != compat.ObjectTypeChatCompletion {
+		t.Errorf("expected object type %s, got: %s", compat.ObjectTypeChatCompletion, evt.Object)
 	}
 }
 
@@ -843,7 +843,7 @@ func TestDifyAgent_BuildStreamingRequest(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message:      model.Message{Content: "test"},
+			Message:      compat.Message{Content: "test"},
 		}
 
 		_, err := difyAgent.buildStreamingRequest(context.Background(), invocation)
@@ -862,7 +862,7 @@ func TestDifyAgent_ExecuteNonStreamingRequest(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message:      model.Message{Content: "test"},
+			Message:      compat.Message{Content: "test"},
 		}
 
 		_, err := difyAgent.executeNonStreamingRequest(context.Background(), invocation)
@@ -885,8 +885,8 @@ func TestDifyAgent_Run_IntegrationWithMockServer(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-invocation-1",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello Dify",
 			},
 			RunOptions: agent.RunOptions{
@@ -918,8 +918,8 @@ func TestDifyAgent_Run_IntegrationWithMockServer(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-invocation-2",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello Workflow",
 			},
 			RunOptions: agent.RunOptions{
@@ -952,8 +952,8 @@ func TestDifyAgent_Run_IntegrationWithMockServer(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-streaming-1",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream this",
 			},
 			RunOptions: agent.RunOptions{
@@ -988,8 +988,8 @@ func TestDifyAgent_Run_IntegrationWithMockServer(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-workflow-streaming",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream workflow",
 			},
 			RunOptions: agent.RunOptions{
@@ -1023,8 +1023,8 @@ func TestDifyAgent_BuildDifyRequest_Integration(t *testing.T) {
 		difyAgent.transferStateKey = []string{"custom_key", "another_key"}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test",
 			},
 			RunOptions: agent.RunOptions{
@@ -1054,8 +1054,8 @@ func TestDifyAgent_BuildDifyRequest_Integration(t *testing.T) {
 
 	t.Run("streaming vs non-streaming", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test",
 			},
 			RunOptions: agent.RunOptions{
@@ -1121,8 +1121,8 @@ func TestDifyAgent_HelperFunctions(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "error-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test",
 			},
 		}
@@ -1158,8 +1158,8 @@ func TestDifyAgent_WorkflowMode(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-test-1",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test workflow request",
 			},
 			RunOptions: agent.RunOptions{
@@ -1190,8 +1190,8 @@ func TestDifyAgent_WorkflowMode(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-test-2",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test with state",
 			},
 			RunOptions: agent.RunOptions{
@@ -1231,8 +1231,8 @@ func TestDifyAgent_WorkflowMode(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-test-3",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test custom converter",
 			},
 			RunOptions: agent.RunOptions{
@@ -1264,8 +1264,8 @@ func TestDifyAgent_WorkflowMode(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-error-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "This should fail",
 			},
 			RunOptions: agent.RunOptions{
@@ -1298,8 +1298,8 @@ func TestDifyAgent_WorkflowMode(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-nil-converter",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
 			},
 			RunOptions: agent.RunOptions{
@@ -1337,8 +1337,8 @@ func TestDifyAgent_WorkflowStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-stream-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream workflow output",
 			},
 			RunOptions: agent.RunOptions{
@@ -1372,8 +1372,8 @@ func TestDifyAgent_WorkflowStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "chatflow-stream-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Stream chatflow output",
 			},
 			RunOptions: agent.RunOptions{
@@ -1407,8 +1407,8 @@ func TestDifyAgent_WorkflowStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "chatflow-autogen-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test auto-generate name",
 			},
 			RunOptions: agent.RunOptions{
@@ -1443,8 +1443,8 @@ func TestDifyAgent_WorkflowStreaming(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "workflow-cancel-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "This will be cancelled",
 			},
 			RunOptions: agent.RunOptions{
@@ -1516,23 +1516,23 @@ func TestDifyConverter_EdgeCases(t *testing.T) {
 		fileName := "document.pdf"
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Main content",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &textContent,
 					},
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL: imageURL,
 						},
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name: fileName,
 						},
 					},
@@ -1569,8 +1569,8 @@ func TestDifyConverter_EdgeCases(t *testing.T) {
 		converter := &defaultWorkflowRequestConverter{}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
 			},
 			Session: nil,
@@ -1590,8 +1590,8 @@ func TestDifyConverter_EdgeCases(t *testing.T) {
 		converter := &defaultWorkflowRequestConverter{}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
 			},
 			Session: &session.Session{
@@ -1644,8 +1644,8 @@ func TestDifyAgent_WorkflowOutputFields(t *testing.T) {
 
 			invocation := &agent.Invocation{
 				InvocationID: "output-test",
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Test output field",
 				},
 				RunOptions: agent.RunOptions{
@@ -1694,8 +1694,8 @@ func TestDifyAgent_WorkflowStreaming_ResponseID(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "should-not-appear-as-response-id",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Test workflow streaming ID",
 		},
 		RunOptions: agent.RunOptions{
@@ -1799,8 +1799,8 @@ func TestDifyAgent_WorkflowStreaming_FallbackID(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "fallback-invocation-id",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Test fallback ID",
 		},
 		RunOptions: agent.RunOptions{
@@ -1972,8 +1972,8 @@ func TestDifyAgent_WorkflowStreaming_ChunkIDConsistency(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "chunk-consistency-test",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Test chunk ID consistency",
 		},
 		RunOptions: agent.RunOptions{
@@ -2059,8 +2059,8 @@ func TestDifyAgent_ChatflowStreaming_StreamEventErr(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "stream-err-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "This will trigger a stream error",
 			},
 			RunOptions: agent.RunOptions{
@@ -2111,8 +2111,8 @@ func TestDifyAgent_ChatflowStreaming_StreamEventErr(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "chatflow-cancel-test",
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "This will be cancelled",
 			},
 			RunOptions: agent.RunOptions{
@@ -2212,8 +2212,8 @@ func TestDifyAgent_ChatflowStreaming_EOFIsNotError(t *testing.T) {
 
 	invocation := &agent.Invocation{
 		InvocationID: "eof-test",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "hello",
 		},
 		RunOptions: agent.RunOptions{

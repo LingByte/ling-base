@@ -15,10 +15,10 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
-var summaryForkBenchmarkSink *model.Request
+var summaryForkBenchmarkSink *compat.Request
 
 func BenchmarkAttach(b *testing.B) {
 	for _, historySize := range []int{16, 256, 1024} {
@@ -52,20 +52,20 @@ func BenchmarkRequest(b *testing.B) {
 	}
 }
 
-func summaryForkBenchmarkRequest(historySize int) *model.Request {
-	messages := make([]model.Message, historySize)
+func summaryForkBenchmarkRequest(historySize int) *compat.Request {
+	messages := make([]compat.Message, historySize)
 	for i := range messages {
-		messages[i] = model.Message{
-			Role:    model.RoleAssistant,
+		messages[i] = compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: fmt.Sprintf("cache-safe history item %d", i),
-			ToolCalls: []model.ToolCall{{
+			ToolCalls: []compat.ToolCall{{
 				ID: fmt.Sprintf("call-%d", i),
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "benchmark_tool",
 					Arguments: bytes.Repeat([]byte{'a' + byte(i%26)}, 64),
 				},
 			}},
 		}
 	}
-	return &model.Request{Messages: messages}
+	return &compat.Request{Messages: messages}
 }

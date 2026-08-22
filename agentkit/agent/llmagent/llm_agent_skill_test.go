@@ -28,7 +28,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -77,12 +77,12 @@ func findTool(ts []tool.Tool, name string) tool.Tool {
 	return nil
 }
 
-func findSystemMessageContaining(req *model.Request, needle string) string {
+func findSystemMessageContaining(req *compat.Request, needle string) string {
 	if req == nil {
 		return ""
 	}
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, needle) {
@@ -334,7 +334,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_NoSessionIsNotShared(
 	a := New("tester", WithCodeExecutor(localexec.New()))
 
 	inv1 := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("write")),
+		agent.WithInvocationMessage(compat.NewUserMessage("write")),
 	)
 	out := callInvocationWorkspaceExec(
 		t, a, inv1,
@@ -343,7 +343,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_NoSessionIsNotShared(
 	require.Equal(t, float64(0), out["exit_code"])
 
 	inv2 := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("read")),
+		agent.WithInvocationMessage(compat.NewUserMessage("read")),
 	)
 	out = callInvocationWorkspaceExec(t, a, inv2, "cat out/leak.txt")
 	require.NotEqual(t, float64(0), out["exit_code"])
@@ -356,7 +356,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_ReusesSameSessionExecutor(
 	a := New("tester", WithCodeExecutor(localexec.New()))
 
 	inv1 := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("write")),
+		agent.WithInvocationMessage(compat.NewUserMessage("write")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-reuse"}),
 	)
 	out := callInvocationWorkspaceExec(
@@ -366,7 +366,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_ReusesSameSessionExecutor(
 	require.Equal(t, float64(0), out["exit_code"])
 
 	inv2 := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("read")),
+		agent.WithInvocationMessage(compat.NewUserMessage("read")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-reuse"}),
 	)
 	out = callInvocationWorkspaceExec(t, a, inv2, "cat out/shared.txt")
@@ -382,7 +382,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_IsolatedByExecutor(
 	a := New("tester", WithCodeExecutor(defaultExec))
 
 	invDefault := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("default write")),
+		agent.WithInvocationMessage(compat.NewUserMessage("default write")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-exec"}),
 	)
 	out := callInvocationWorkspaceExec(
@@ -392,7 +392,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_IsolatedByExecutor(
 	require.Equal(t, float64(0), out["exit_code"])
 
 	invOverride := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("override read")),
+		agent.WithInvocationMessage(compat.NewUserMessage("override read")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-exec"}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithCodeExecutor(overrideExec),
@@ -409,7 +409,7 @@ func TestLLMAgent_InvocationWorkspaceRegistry_IsolatedByExecutor(
 	require.Equal(t, float64(0), out["exit_code"])
 
 	invOverrideAgain := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("override read again")),
+		agent.WithInvocationMessage(compat.NewUserMessage("override read again")),
 		agent.WithInvocationSession(&session.Session{ID: "sess-exec"}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithCodeExecutor(overrideExec),
@@ -1074,16 +1074,16 @@ func TestLLMAgent_WithSkillsToolingGuidance_Disabled(t *testing.T) {
 	repo, err := skill.NewFSRepository(root)
 	require.NoError(t, err)
 
-	makeReq := func(opts *Options) *model.Request {
+	makeReq := func(opts *Options) *compat.Request {
 		t.Helper()
 		procs := buildRequestProcessors("tester", opts)
 		inv := &agent.Invocation{
 			InvocationID: "inv1",
 			AgentName:    "tester",
-			Message:      model.NewUserMessage("u"),
+			Message:      compat.NewUserMessage("u"),
 			Session:      &session.Session{},
 		}
-		req := &model.Request{}
+		req := &compat.Request{}
 		for _, p := range procs {
 			p.ProcessRequest(context.Background(), inv, req, nil)
 		}
@@ -1097,7 +1097,7 @@ func TestLLMAgent_WithSkillsToolingGuidance_Disabled(t *testing.T) {
 		req := makeReq(opts)
 		var sys string
 		for _, msg := range req.Messages {
-			if msg.Role != model.RoleSystem {
+			if msg.Role != compat.RoleSystem {
 				continue
 			}
 			if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1118,7 +1118,7 @@ func TestLLMAgent_WithSkillsToolingGuidance_Disabled(t *testing.T) {
 		req := makeReq(opts)
 		var sys string
 		for _, msg := range req.Messages {
-			if msg.Role != model.RoleSystem {
+			if msg.Role != compat.RoleSystem {
 				continue
 			}
 			if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1147,17 +1147,17 @@ func TestLLMAgent_WithSkillToolProfile_KnowledgeOnly_WiresPrompt(
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1191,17 +1191,17 @@ func TestLLMAgent_WithSkillToolProfile_KnowledgeOnly_GuidanceDisabled(
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1230,17 +1230,17 @@ func TestLLMAgent_WithSkillsDirectoryHints_WiresPrompt(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1269,17 +1269,17 @@ func TestLLMAgent_WithSkillsFilePathHints_WiresPrompt(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1307,17 +1307,17 @@ func TestLLMAgent_WithSkillsCapabilityGuidance_WiresPrompt(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1350,17 +1350,17 @@ func TestLLMAgent_WithSkillsProtocolGuidance_WiresPrompt(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1398,17 +1398,17 @@ func TestLLMAgent_WithAllowedSkillTools_LoadOnly_WiresPrompt(
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
 
 	var sys string
 	for _, msg := range req.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(msg.Content, skillsOverviewHeader) {
@@ -1522,17 +1522,17 @@ func TestLLMAgent_SkillRun_DeniedCommands_Enforced(t *testing.T) {
 }
 
 // captureModel records the last request passed to GenerateContent.
-type captureModel struct{ got *model.Request }
+type captureModel struct{ got *compat.Request }
 
 func (m *captureModel) GenerateContent(
-	ctx context.Context, req *model.Request,
-) (<-chan *model.Response, error) {
+	ctx context.Context, req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.got = req
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "ok",
 			},
 		}},
@@ -1543,8 +1543,8 @@ func (m *captureModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *captureModel) Info() model.Info {
-	return model.Info{Name: "capture"}
+func (m *captureModel) Info() compat.Info {
+	return compat.Info{Name: "capture"}
 }
 
 func TestLLMAgent_WithSkills_InsertsOverview(t *testing.T) {
@@ -1554,7 +1554,7 @@ func TestLLMAgent_WithSkills_InsertsOverview(t *testing.T) {
 	m := &captureModel{}
 	agt := New("tester", WithModel(m), WithSkills(repo))
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 	)
 	ch, err := agt.Run(context.Background(), inv)
@@ -1571,7 +1571,7 @@ func TestLLMAgent_WithSkills_InsertsOverview(t *testing.T) {
 	require.NotNil(t, m.got)
 	var sys string
 	for _, msg := range m.got.Messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			sys = msg.Content
 			break
 		}
@@ -1589,7 +1589,7 @@ func TestLLMAgent_RunAvailableSkillsRenderer_WiresPrompt(t *testing.T) {
 	agt := New("tester", WithModel(m), WithSkills(repo))
 	gotSummaries := make(chan []skill.Summary, 1)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithAvailableSkillsRenderer(
@@ -1629,7 +1629,7 @@ func TestLLMAgent_RunWorkspaceExecGuidance_WiresPrompt(t *testing.T) {
 	m := &captureModel{}
 	agt := New("tester", WithModel(m), WithSkills(repo))
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithWorkspaceExecGuidance(
@@ -1672,14 +1672,14 @@ func TestLLMAgent_WithSkillFilter_FiltersPromptAndDeclaration(t *testing.T) {
 	WithSkills(repo)(opts)
 	WithSkillFilter(filter)(opts)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationRunOptions(agent.RunOptions{
 			RuntimeState: map[string]any{"user_id": "user-a"},
 		}),
 	)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	for _, p := range buildRequestProcessors("tester", opts) {
 		p.ProcessRequest(ctx, inv, req, nil)
@@ -1803,7 +1803,7 @@ func TestLLMAgent_WithMaxLoadedSkills_WiresProcessor(t *testing.T) {
 		[]byte(`["a","b","c","d"]`),
 	)
 
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	srp.ProcessRequest(context.Background(), inv, req, nil)
 
 	v, ok := sess.GetState(skill.LoadedKey("tester", "a"))
@@ -2130,10 +2130,10 @@ func TestLLMAgent_GuidanceOmitsExecForNonInteractiveExecutor(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
@@ -2169,10 +2169,10 @@ func TestLLMAgent_GuidanceIncludesExecForInteractiveExecutor(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
@@ -2202,13 +2202,13 @@ func TestLLMAgent_GuidanceRunCodeExecutorOverrideDisablesInteractiveTools(
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 		RunOptions: agent.NewRunOptions(
 			agent.WithCodeExecutor(&stubExec{}),
 		),
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
@@ -2233,10 +2233,10 @@ func TestLLMAgent_WorkspaceExecGuidanceWithoutSkillsRepo(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
@@ -2274,10 +2274,10 @@ func TestLLMAgent_WorkspaceExecGuidanceDisabledByOption(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session:      &session.Session{},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}
@@ -2296,7 +2296,7 @@ func TestLLMAgent_WorkspaceExecGuidanceIncludesSaveArtifactWhenAvailable(
 	inv := &agent.Invocation{
 		InvocationID: "inv1",
 		AgentName:    "tester",
-		Message:      model.NewUserMessage("u"),
+		Message:      compat.NewUserMessage("u"),
 		Session: &session.Session{
 			ID:      "sess",
 			AppName: "app",
@@ -2304,7 +2304,7 @@ func TestLLMAgent_WorkspaceExecGuidanceIncludesSaveArtifactWhenAvailable(
 		},
 		ArtifactService: inmemory.NewService(),
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	for _, p := range procs {
 		p.ProcessRequest(context.Background(), inv, req, nil)
 	}

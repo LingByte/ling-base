@@ -14,7 +14,7 @@ import (
 	"sort"
 	"unicode/utf8"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Default transcript shaping limits and markers used by guardrail reviewers.
@@ -39,7 +39,7 @@ const (
 
 // Entry is a normalized transcript entry passed to reviewers.
 type Entry struct {
-	Role    model.Role
+	Role    compat.Role
 	Content string
 }
 
@@ -95,7 +95,7 @@ func Build(ctx context.Context, raw []Record, countTokens CountTokensFunc, optio
 	entries, omitted := selectEntries(records, opts)
 	if omitted {
 		entries = append([]Entry{{
-			Role:    model.RoleAssistant,
+			Role:    compat.RoleAssistant,
 			Content: opts.OmissionNote,
 		}}, entries...)
 	}
@@ -194,7 +194,7 @@ func selectEntries(records []preparedRecord, opts Options) ([]Entry, bool) {
 		if record.truncated {
 			omitted = true
 		}
-		if record.entry.Role == model.RoleUser {
+		if record.entry.Role == compat.RoleUser {
 			userRecords = append(userRecords, record)
 			userTokenCount += record.tokens
 			continue

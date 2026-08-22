@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"trpc.group/trpc-go/trpc-a2a-go/protocol"
@@ -36,7 +36,7 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 	tests := []struct {
 		name     string
 		message  protocol.Message
-		expected *model.Message
+		expected *compat.Message
 		wantErr  bool
 	}{
 		{
@@ -46,10 +46,10 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					&protocol.TextPart{Text: "Hello world"},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "Hello world",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -61,10 +61,10 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					&protocol.TextPart{Text: "world"},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "Hello world",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -81,13 +81,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "test.txt",
 							Data:     []byte("file content"),
 							MimeType: "text/plain",
@@ -110,13 +110,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "test.txt",
 							FileID:   "file://test.txt",
 							MimeType: "text/plain",
@@ -142,13 +142,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							Format: "image/png",
 							Data:   []byte("raw image bytes"),
 						},
@@ -170,13 +170,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							Format: "image/jpeg",
 							Data:   []byte("jpeg bytes"),
 						},
@@ -198,13 +198,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							Format: "png",
 							Data:   []byte("img"),
 						},
@@ -229,13 +229,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeAudio,
-						Audio: &model.Audio{
+						Type: compat.ContentTypeAudio,
+						Audio: &compat.Audio{
 							Format: "mp3",
 							Data:   []byte("audio bytes"),
 						},
@@ -257,13 +257,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeAudio,
-						Audio: &model.Audio{
+						Type: compat.ContentTypeAudio,
+						Audio: &compat.Audio{
 							Format: "mp3",
 							Data:   []byte("audio shorthand bytes"),
 						},
@@ -288,13 +288,13 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							Format: "image/png",
 							URL:    "https://example.com/photo.png",
 						},
@@ -312,12 +312,12 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("map[key:value]"),
 					},
 				},
@@ -332,12 +332,12 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 					&protocol.DataPart{Data: "data"},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Text: ",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("data"),
 					},
 				},
@@ -349,10 +349,10 @@ func TestDefaultA2AMessageToAgentMessage_ConvertToAgentMessage(t *testing.T) {
 			message: protocol.Message{
 				Parts: []protocol.Part{},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -385,10 +385,10 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with content",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "Hello from agent",
 							},
 						},
@@ -407,9 +407,9 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 			name: "event with error response",
 			event: &event.Event{
 				ID: "error-event-123",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Error: &model.ResponseError{
+					Error: &compat.ResponseError{
 						Message: "Something went wrong",
 					},
 				},
@@ -420,10 +420,10 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with empty content",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "",
 							},
 						},
@@ -436,17 +436,17 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with tool calls",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-tc1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "Calling tool",
-								ToolCalls: []model.ToolCall{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "test_tool",
 											Arguments: []byte(`{"arg":"value"}`),
 										},
@@ -475,12 +475,12 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with tool role",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-tr1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:     model.RoleTool,
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-1",
 								ToolName: "test_tool",
 								Content:  "Tool response content",
@@ -507,11 +507,11 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with tool ID",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-tid1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:   "tool123",
 								ToolName: "tool_func",
 								Content:  "Tool response",
@@ -537,8 +537,8 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 		{
 			name: "event with no choices",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 				},
 			},
 			expected: nil,
@@ -549,11 +549,11 @@ func TestDefaultEventToA2AMessage_ConvertToA2AMessage(t *testing.T) {
 			event: &event.Event{
 				ID:     "evt-graph-1",
 				Author: "graph.node:planner",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-graph-1",
 					Object: "graph.node.start",
-					Choices: []model.Choice{{
-						Message: model.Message{},
+					Choices: []compat.Choice{{
+						Message: compat.Message{},
 					}},
 				},
 				StateDelta: map[string][]byte{
@@ -598,11 +598,11 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 		{
 			name: "streaming event with delta content",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-123",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
@@ -629,12 +629,12 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 		{
 			name: "non-partial streaming event with message content",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:        "resp-final",
 					IsPartial: false,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "Final",
 							},
 						},
@@ -661,9 +661,9 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 			name: "streaming event with error response",
 			event: &event.Event{
 				ID: "error-event-456",
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Error: &model.ResponseError{
+					Error: &compat.ResponseError{
 						Message: "Streaming error",
 					},
 				},
@@ -674,10 +674,10 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 		{
 			name: "streaming event with empty delta",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "",
 							},
 						},
@@ -690,23 +690,23 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 		{
 			name: "streaming event with tool calls",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-stc1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "test_tool",
 											Arguments: []byte(`{"key":"value"}`),
 										},
 									},
 								},
 							},
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "delta content",
 							},
 						},
@@ -739,8 +739,8 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 		{
 			name: "streaming event with no choices",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 				},
 			},
 			expected: nil,
@@ -759,11 +759,11 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage(t *testing.T) {
 			event: &event.Event{
 				ID:     "evt-graph-1",
 				Author: "graph.node:planner",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-graph-1",
 					Object: "graph.node.start",
-					Choices: []model.Choice{{
-						Delta: model.Message{},
+					Choices: []compat.Choice{{
+						Delta: compat.Message{},
 					}},
 				},
 				StateDelta: map[string][]byte{
@@ -830,31 +830,31 @@ func TestDefaultEventToA2AMessage_ConvertStreamingNodeError(
 func TestDefaultEventToA2AMessage_GraphEventFilter(t *testing.T) {
 	internalEvt := &event.Event{
 		ID: "evt-internal",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-internal",
 			Object: "graph.node.start",
-			Choices: []model.Choice{{
-				Message: model.Message{},
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		},
 	}
 	pregelEvt := &event.Event{
 		ID: "evt-pregel",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-pregel",
 			Object: "graph.pregel.step",
-			Choices: []model.Choice{{
-				Message: model.Message{},
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		},
 	}
 	terminalEvt := &event.Event{
 		ID: "evt-terminal",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-terminal",
 			Object: "graph.execution",
-			Choices: []model.Choice{{
-				Message: model.Message{},
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		},
 	}
@@ -946,7 +946,7 @@ func TestDefaultEventToA2AMessage_GraphEventFilter(t *testing.T) {
 			graph.WithPregelEventCheckpointID("ck-1"),
 			graph.WithPregelEventCheckpointNS("ns-1"),
 		)
-		intrEvt.Response.Choices = []model.Choice{{Message: model.Message{}}}
+		intrEvt.Response.Choices = []compat.Choice{{Message: compat.Message{}}}
 
 		unaryResult, err := converter.ConvertToA2AMessage(
 			context.Background(),
@@ -1018,11 +1018,11 @@ func TestDefaultEventToA2AMessage_StateDeltaMetadata(t *testing.T) {
 	evt := &event.Event{
 		ID:     "evt-graph-meta",
 		Author: "graph.node:planner",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-graph-meta",
 			Object: "graph.node.start",
-			Choices: []model.Choice{{
-				Message: model.Message{},
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		},
 		StateDelta: originalStateDelta,
@@ -1076,11 +1076,11 @@ func TestDefaultEventToA2AMessage_MetadataOnlyWithoutStateDelta(t *testing.T) {
 		ID:     "evt-meta-only",
 		Author: "graph.node:planner",
 		Tag:    "planner;trace",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-meta-only",
 			Object: "graph.node.start",
-			Choices: []model.Choice{{
-				Message: model.Message{},
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		},
 	}
@@ -1177,11 +1177,11 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage_MessageType(
 		{
 			name: "streaming delta content as message",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-123",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
@@ -1205,16 +1205,16 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage_MessageType(
 		{
 			name: "streaming tool calls as message",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-stc1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name: "test_tool",
 											Arguments: []byte(
 												`{"key":"value"}`,
@@ -1223,7 +1223,7 @@ func TestDefaultEventToA2AMessage_ConvertStreamingToA2AMessage_MessageType(
 									},
 								},
 							},
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "delta content",
 							},
 						},
@@ -1314,7 +1314,7 @@ func TestDefaultEventToA2AMessage_convertPartsToA2AStreamingResult_Nil(
 	}
 
 	if got := converter.convertPartsToA2AStreamingResult(
-		&event.Event{Response: &model.Response{}},
+		&event.Event{Response: &compat.Response{}},
 		opts,
 		nil,
 	); got != nil {
@@ -1332,8 +1332,8 @@ func TestDefaultEventToA2AMessage_convertPartsToA2AStreamingResult_MessageID(
 	}
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 		},
 	}
 	parts := []protocol.Part{protocol.NewTextPart("hi")}
@@ -1367,11 +1367,11 @@ func TestIsToolCallEvent(t *testing.T) {
 		{
 			name: "event with tool calls",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										Type: "function",
 									},
@@ -1386,11 +1386,11 @@ func TestIsToolCallEvent(t *testing.T) {
 		{
 			name: "event with tool role",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role: model.RoleTool,
+							Message: compat.Message{
+								Role: compat.RoleTool,
 							},
 						},
 					},
@@ -1401,10 +1401,10 @@ func TestIsToolCallEvent(t *testing.T) {
 		{
 			name: "event with tool ID",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID: "tool123",
 							},
 						},
@@ -1416,10 +1416,10 @@ func TestIsToolCallEvent(t *testing.T) {
 		{
 			name: "regular event",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "Hello",
 							},
 						},
@@ -1441,8 +1441,8 @@ func TestIsToolCallEvent(t *testing.T) {
 		{
 			name: "empty choices",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 				},
 			},
 			expected: false,
@@ -1464,7 +1464,7 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-func compareMessages(a, b *model.Message) bool {
+func compareMessages(a, b *compat.Message) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -1639,16 +1639,16 @@ func TestConvertToolCallToA2AMessage(t *testing.T) {
 		{
 			name: "tool call request",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-123",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "get_weather",
 											Arguments: []byte(`{"location":"Beijing"}`),
 										},
@@ -1665,12 +1665,12 @@ func TestConvertToolCallToA2AMessage(t *testing.T) {
 		{
 			name: "tool response",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-124",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:     model.RoleTool,
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-1",
 								ToolName: "get_weather",
 								Content:  `{"temperature": 25}`,
@@ -1685,12 +1685,12 @@ func TestConvertToolCallToA2AMessage(t *testing.T) {
 		{
 			name: "tool response with empty content",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-125",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:     model.RoleTool,
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-2",
 								ToolName: "test_tool",
 								Content:  "",
@@ -1705,20 +1705,20 @@ func TestConvertToolCallToA2AMessage(t *testing.T) {
 		{
 			name: "multiple tool responses",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-126",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								Role:     model.RoleTool,
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-1",
 								ToolName: "tool1",
 								Content:  "response1",
 							},
 						},
 						{
-							Message: model.Message{
-								Role:     model.RoleTool,
+							Message: compat.Message{
+								Role:     compat.RoleTool,
 								ToolID:   "call-2",
 								ToolName: "tool2",
 								Content:  "response2",
@@ -1733,8 +1733,8 @@ func TestConvertToolCallToA2AMessage(t *testing.T) {
 		{
 			name: "empty choices",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 				},
 			},
 			wantPart: false,
@@ -1789,16 +1789,16 @@ func TestConvertToolCallToA2AStreamingMessage(t *testing.T) {
 		{
 			name: "streaming tool call",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-stream-1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-stream-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "stream_tool",
 											Arguments: []byte(`{"param":"value"}`),
 										},
@@ -1815,8 +1815,8 @@ func TestConvertToolCallToA2AStreamingMessage(t *testing.T) {
 		{
 			name: "streaming tool call conversion error",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{},
+				Response: &compat.Response{
+					Choices: []compat.Choice{},
 				},
 			},
 			wantNil: true,
@@ -1962,12 +1962,12 @@ func TestDefaultEventToA2AMessage_CodeExecution(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce-1",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "print('hello world')",
 							},
 						},
@@ -2020,12 +2020,12 @@ func TestDefaultEventToA2AMessage_CodeExecution(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce-2",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "print('hello')",
 							},
 						},
@@ -2073,12 +2073,12 @@ func TestDefaultEventToA2AMessage_CodeExecution(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-cer-1",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "hello world",
 							},
 						},
@@ -2123,12 +2123,12 @@ func TestDefaultEventToA2AMessage_CodeExecution(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-cer-2",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "execution output",
 							},
 						},
@@ -2172,12 +2172,12 @@ func TestDefaultEventToA2AMessage_CodeExecution(t *testing.T) {
 			name:             "code execution with empty content",
 			adkCompatibility: false,
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce-empty",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "",
 							},
 						},
@@ -2221,8 +2221,8 @@ func TestIsCodeExecutionEvent(t *testing.T) {
 		{
 			name: "code execution event",
 			event: &event.Event{
-				Response: &model.Response{
-					Object: model.ObjectTypePostprocessingCodeExecution,
+				Response: &compat.Response{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
 				},
 			},
 			expected: true,
@@ -2231,8 +2231,8 @@ func TestIsCodeExecutionEvent(t *testing.T) {
 			name: "code execution result event (same object type, different tag)",
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
-					Object: model.ObjectTypePostprocessingCodeExecution,
+				Response: &compat.Response{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
 				},
 			},
 			expected: true,
@@ -2240,8 +2240,8 @@ func TestIsCodeExecutionEvent(t *testing.T) {
 		{
 			name: "regular chat completion",
 			event: &event.Event{
-				Response: &model.Response{
-					Object: model.ObjectTypeChatCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeChatCompletion,
 				},
 			},
 			expected: false,
@@ -2284,12 +2284,12 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-stream-ce",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "print('streaming')",
 							},
 						},
@@ -2313,8 +2313,8 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 				if taskEvent.Metadata["tag"] != event.CodeExecutionTag {
 					t.Errorf("expected tag '%s', got %v", event.CodeExecutionTag, taskEvent.Metadata["tag"])
 				}
-				if taskEvent.Metadata["object_type"] != model.ObjectTypePostprocessingCodeExecution {
-					t.Errorf("expected object_type '%s', got %v", model.ObjectTypePostprocessingCodeExecution, taskEvent.Metadata["object_type"])
+				if taskEvent.Metadata["object_type"] != compat.ObjectTypePostprocessingCodeExecution {
+					t.Errorf("expected object_type '%s', got %v", compat.ObjectTypePostprocessingCodeExecution, taskEvent.Metadata["object_type"])
 				}
 			},
 		},
@@ -2324,12 +2324,12 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 			streamingEventType: StreamingEventTypeMessage,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-stream-ce-msg",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "print('streaming')",
 							},
 						},
@@ -2368,10 +2368,10 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 					)
 				}
 				if msg.Metadata["object_type"] !=
-					model.ObjectTypePostprocessingCodeExecution {
+					compat.ObjectTypePostprocessingCodeExecution {
 					t.Errorf(
 						"expected object_type %q, got %v",
-						model.ObjectTypePostprocessingCodeExecution,
+						compat.ObjectTypePostprocessingCodeExecution,
 						msg.Metadata["object_type"],
 					)
 				}
@@ -2382,12 +2382,12 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-stream-cer",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "streaming result",
 							},
 						},
@@ -2413,12 +2413,12 @@ func TestConvertCodeExecutionToA2AStreamingMessage(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-stream-empty",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "",
 							},
 						},
@@ -2468,12 +2468,12 @@ func TestMessageMetadataTag(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: "custom_tag",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-tag-1",
-					Object: model.ObjectTypeChatCompletion,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypeChatCompletion,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "Hello",
 							},
 						},
@@ -2493,8 +2493,8 @@ func TestMessageMetadataTag(t *testing.T) {
 				if msg.Metadata["tag"] != "custom_tag" {
 					t.Errorf("expected tag 'custom_tag', got %v", msg.Metadata["tag"])
 				}
-				if msg.Metadata["object_type"] != model.ObjectTypeChatCompletion {
-					t.Errorf("expected object_type '%s', got %v", model.ObjectTypeChatCompletion, msg.Metadata["object_type"])
+				if msg.Metadata["object_type"] != compat.ObjectTypeChatCompletion {
+					t.Errorf("expected object_type '%s', got %v", compat.ObjectTypeChatCompletion, msg.Metadata["object_type"])
 				}
 			},
 		},
@@ -2503,16 +2503,16 @@ func TestMessageMetadataTag(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: "tool_tag",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-tool-tag",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-1",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "test",
 											Arguments: []byte("{}"),
 										},
@@ -2543,12 +2543,12 @@ func TestMessageMetadataTag(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce-meta",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "code content",
 							},
 						},
@@ -2575,12 +2575,12 @@ func TestMessageMetadataTag(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-cer-meta",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "result content",
 							},
 						},
@@ -2607,11 +2607,11 @@ func TestMessageMetadataTag(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: "",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-no-tag",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "no tag",
 							},
 						},
@@ -2669,12 +2669,12 @@ func TestConvertCodeExecutionToA2AMessage_TagDistinction(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "print('hello')",
 							},
 						},
@@ -2688,12 +2688,12 @@ func TestConvertCodeExecutionToA2AMessage_TagDistinction(t *testing.T) {
 			adkCompatibility: true,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-cer",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "hello",
 							},
 						},
@@ -2707,12 +2707,12 @@ func TestConvertCodeExecutionToA2AMessage_TagDistinction(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-ce-std",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "code content",
 							},
 						},
@@ -2726,12 +2726,12 @@ func TestConvertCodeExecutionToA2AMessage_TagDistinction(t *testing.T) {
 			adkCompatibility: false,
 			event: &event.Event{
 				Tag: event.CodeExecutionResultTag,
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-cer-std",
-					Object: model.ObjectTypePostprocessingCodeExecution,
-					Choices: []model.Choice{
+					Object: compat.ObjectTypePostprocessingCodeExecution,
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								Content: "result content",
 							},
 						},
@@ -2811,16 +2811,16 @@ func TestDefaultEventToA2AMessage_ADKCompatibility(t *testing.T) {
 			name:             "ADK compatibility enabled - tool call",
 			adkCompatibility: true,
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-adk-1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-adk",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "adk_tool",
 											Arguments: []byte(`{}`),
 										},
@@ -2868,16 +2868,16 @@ func TestDefaultEventToA2AMessage_ADKCompatibility(t *testing.T) {
 			name:             "ADK compatibility disabled - tool call",
 			adkCompatibility: false,
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-std-1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{
 										ID:   "call-std",
 										Type: "function",
-										Function: model.FunctionDefinitionParam{
+										Function: compat.FunctionDefinitionParam{
 											Name:      "std_tool",
 											Arguments: []byte(`{}`),
 										},
@@ -2930,11 +2930,11 @@ func TestDefaultEventToA2AMessage_ADKCompatibility(t *testing.T) {
 			event: &event.Event{
 				ID:     "evt-graph-adk",
 				Author: "graph.node:planner",
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:     "resp-graph-adk",
 					Object: "graph.node.start",
-					Choices: []model.Choice{{
-						Message: model.Message{},
+					Choices: []compat.Choice{{
+						Message: compat.Message{},
 					}},
 				},
 				StateDelta: map[string][]byte{
@@ -2988,7 +2988,7 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 	tests := []struct {
 		name     string
 		message  protocol.Message
-		expected *model.Message
+		expected *compat.Message
 		wantErr  bool
 	}{
 		{
@@ -2998,10 +2998,10 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					protocol.TextPart{Text: "Value type text"},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "Value type text",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -3012,10 +3012,10 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					&protocol.TextPart{Text: "Pointer type text"},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "Pointer type text",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -3028,10 +3028,10 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					protocol.TextPart{Text: "pointer"},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "Value and pointer",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -3048,13 +3048,13 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "value_file.txt",
 							Data:     []byte("value type file content"),
 							MimeType: "text/plain",
@@ -3077,13 +3077,13 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "pointer_file.txt",
 							Data:     []byte("pointer type file content"),
 							MimeType: "text/plain",
@@ -3100,12 +3100,12 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					protocol.DataPart{Data: "value type data"},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("value type data"),
 					},
 				},
@@ -3119,12 +3119,12 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					&protocol.DataPart{Data: "pointer type data"},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("pointer type data"),
 					},
 				},
@@ -3147,17 +3147,17 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					},
 				},
 			},
-			expected: &model.Message{
-				Role:    model.RoleUser,
+			expected: &compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Text as value, text as pointer, ",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("data as value"),
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "document.pdf",
 							FileID:   "https://example.com/file.pdf",
 							MimeType: "application/pdf",
@@ -3174,10 +3174,10 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					protocol.TextPart{Text: ""},
 				},
 			},
-			expected: &model.Message{
-				Role:         model.RoleUser,
+			expected: &compat.Message{
+				Role:         compat.RoleUser,
 				Content:      "",
-				ContentParts: []model.ContentPart{},
+				ContentParts: []compat.ContentPart{},
 			},
 			wantErr: false,
 		},
@@ -3228,7 +3228,7 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 				}
 
 				switch expectedPart.Type {
-				case model.ContentTypeText:
+				case compat.ContentTypeText:
 					if actualPart.Text == nil || expectedPart.Text == nil {
 						if actualPart.Text != expectedPart.Text {
 							t.Errorf("ContentParts[%d].Text = %v, expected %v", i, actualPart.Text, expectedPart.Text)
@@ -3236,7 +3236,7 @@ func TestA2AMessageToAgentMessage_PointerAndValueTypes(t *testing.T) {
 					} else if *actualPart.Text != *expectedPart.Text {
 						t.Errorf("ContentParts[%d].Text = %q, expected %q", i, *actualPart.Text, *expectedPart.Text)
 					}
-				case model.ContentTypeFile:
+				case compat.ContentTypeFile:
 					if actualPart.File == nil || expectedPart.File == nil {
 						if actualPart.File != expectedPart.File {
 							t.Errorf("ContentParts[%d].File = %v, expected %v", i, actualPart.File, expectedPart.File)
@@ -3272,10 +3272,10 @@ func TestDefaultEventToA2AMessage_ReasoningContent(t *testing.T) {
 		{
 			name: "event with reasoning content only",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ReasoningContent: "Let me think about this...",
 							},
 						},
@@ -3289,10 +3289,10 @@ func TestDefaultEventToA2AMessage_ReasoningContent(t *testing.T) {
 		{
 			name: "event with both reasoning and content",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ReasoningContent: "Let me think...",
 								Content:          "Here is the answer",
 							},
@@ -3307,10 +3307,10 @@ func TestDefaultEventToA2AMessage_ReasoningContent(t *testing.T) {
 		{
 			name: "event with reasoning content - ADK mode",
 			event: &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{
+				Response: &compat.Response{
+					Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ReasoningContent: "Thinking in ADK mode...",
 								Content:          "Answer",
 							},
@@ -3465,11 +3465,11 @@ func TestDefaultEventToA2AMessage_StreamingReasoningContent(t *testing.T) {
 		{
 			name: "streaming event with reasoning delta",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-1",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								ReasoningContent: "Thinking...",
 							},
 						},
@@ -3483,11 +3483,11 @@ func TestDefaultEventToA2AMessage_StreamingReasoningContent(t *testing.T) {
 		{
 			name: "streaming event with both reasoning and content delta",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-2",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								ReasoningContent: "Thinking...",
 								Content:          "Answer",
 							},
@@ -3502,11 +3502,11 @@ func TestDefaultEventToA2AMessage_StreamingReasoningContent(t *testing.T) {
 		{
 			name: "streaming event with reasoning delta - ADK mode",
 			event: &event.Event{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-3",
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								ReasoningContent: "ADK thinking...",
 							},
 						},
@@ -3574,10 +3574,10 @@ func TestDefaultEventToA2AMessage_StreamingReasoningContent(t *testing.T) {
 func TestDefaultEventToA2AMessage_DoesNotAutoConvertStructuredOutput(t *testing.T) {
 	evt := &event.Event{
 		Tag: "network.rpc.trace",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:      "resp-custom-1",
 			Object:  graph.ObjectTypeGraphNodeCustom,
-			Choices: []model.Choice{},
+			Choices: []compat.Choice{},
 		},
 		StructuredOutput: map[string]any{"trace": true},
 	}
@@ -3600,10 +3600,10 @@ func TestDefaultEventToA2AMessage_DoesNotAutoConvertStructuredOutput(t *testing.
 func TestDefaultEventToA2AMessage_EventPartMapperUnary(t *testing.T) {
 	evt := &event.Event{
 		Tag: "network.rpc.trace",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:      "resp-custom-2",
 			Object:  graph.ObjectTypeGraphNodeCustom,
-			Choices: []model.Choice{},
+			Choices: []compat.Choice{},
 		},
 	}
 	require.NoError(t, event.SetExtension(evt, testCustomDataPartExtensionKey, map[string]any{
@@ -3654,10 +3654,10 @@ func TestDefaultEventToA2AMessage_EventPartMapperUnary(t *testing.T) {
 func TestDefaultEventToA2AMessage_EventPartMapperStreaming(t *testing.T) {
 	evt := &event.Event{
 		Tag: "network.rpc.trace",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:      "resp-custom-3",
 			Object:  graph.ObjectTypeGraphNodeCustom,
-			Choices: []model.Choice{},
+			Choices: []compat.Choice{},
 		},
 	}
 	require.NoError(t, event.SetExtension(evt, testCustomDataPartExtensionKey, map[string]any{"trace": "ok"}))
@@ -3717,13 +3717,13 @@ func TestDefaultEventToA2AMessage_EventPartMapperRunsAfterBuiltins(t *testing.T)
 	}
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(`{"query":"test"}`),
 						},
@@ -3772,9 +3772,9 @@ func TestDefaultEventToA2AMessage_EventPartMapperAppendsAfterText(t *testing.T) 
 	}
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					ReasoningContent: "thinking",
 					Content:          "answer",
 				},
@@ -3809,10 +3809,10 @@ func TestDefaultEventToA2AMessage_EventPartMapperAppendsAfterStreamingText(t *te
 	}
 
 	evt := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID: "resp-streaming-custom",
-			Choices: []model.Choice{{
-				Delta: model.Message{
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
 					ReasoningContent: "thinking",
 					Content:          "answer",
 				},
@@ -3869,7 +3869,7 @@ func TestDefaultEventToA2AMessage_EventPartMapperUnaryErrorOnEmptyChoices(t *tes
 	}
 
 	result, err := converter.ConvertToA2AMessage(context.Background(), &event.Event{
-		Response: &model.Response{Choices: []model.Choice{}},
+		Response: &compat.Response{Choices: []compat.Choice{}},
 	}, EventToA2AUnaryOptions{})
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -3885,9 +3885,9 @@ func TestDefaultEventToA2AMessage_EventPartMapperUnaryErrorOnContentEvent(t *tes
 	}
 
 	result, err := converter.ConvertToA2AMessage(context.Background(), &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{Content: "answer"},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Content: "answer"},
 			}},
 		},
 	}, EventToA2AUnaryOptions{})
@@ -3905,7 +3905,7 @@ func TestDefaultEventToA2AMessage_EventPartMapperStreamingErrorOnEmptyChoices(t 
 	}
 
 	result, err := converter.ConvertStreamingToA2AMessage(context.Background(), &event.Event{
-		Response: &model.Response{Choices: []model.Choice{}},
+		Response: &compat.Response{Choices: []compat.Choice{}},
 	}, EventToA2AStreamingOptions{TaskID: "task-1", CtxID: "ctx-1"})
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -3921,9 +3921,9 @@ func TestDefaultEventToA2AMessage_EventPartMapperStreamingErrorOnDeltaEvent(t *t
 	}
 
 	result, err := converter.ConvertStreamingToA2AMessage(context.Background(), &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "delta"},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "delta"},
 			}},
 		},
 	}, EventToA2AStreamingOptions{TaskID: "task-1", CtxID: "ctx-1"})

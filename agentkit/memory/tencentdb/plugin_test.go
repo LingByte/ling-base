@@ -20,15 +20,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginpkg "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
 func TestInjectRecallContext(t *testing.T) {
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("base"),
-		model.NewUserMessage("hello"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("base"),
+		compat.NewUserMessage("hello"),
 	}}
 	injectRecallContext(req, &recallResponse{
 		AppendSystemContext: "system recall",
@@ -36,9 +36,9 @@ func TestInjectRecallContext(t *testing.T) {
 	})
 
 	require.Len(t, req.Messages, 3)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Equal(t, "base\n\nsystem recall", req.Messages[0].Content)
-	assert.Equal(t, model.RoleUser, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[1].Role)
 	assert.Equal(t, "user recall", req.Messages[1].Content)
 	assert.Equal(t, "hello", req.Messages[2].Content)
 }
@@ -67,13 +67,13 @@ func TestRecallPluginInjectsContext(t *testing.T) {
 	require.NotNil(t, callbacks)
 	require.Len(t, callbacks.BeforeModel, 1)
 
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("base"),
-		model.NewUserMessage("what did I say?"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("base"),
+		compat.NewUserMessage("what did I say?"),
 	}}
 	sess := &session.Session{ID: "s1", AppName: "app", UserID: "user"}
 	ctx := agent.NewInvocationContext(context.Background(), &agent.Invocation{Session: sess}).Context
-	_, err = callbacks.BeforeModel[0](ctx, &model.BeforeModelArgs{Request: req})
+	_, err = callbacks.BeforeModel[0](ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	assert.Equal(t, recallRequest{Query: "what did I say?", SessionKey: defaultSessionKey(sess), UserID: "user"}, got)
@@ -84,43 +84,43 @@ func TestRecallPluginInjectsContext(t *testing.T) {
 
 func TestRecallAndPluginEdges(t *testing.T) {
 	assert.Empty(t, latestUserText(nil))
-	assert.Empty(t, latestUserText(&model.Request{Messages: []model.Message{model.NewSystemMessage("sys")}}))
+	assert.Empty(t, latestUserText(&compat.Request{Messages: []compat.Message{compat.NewSystemMessage("sys")}}))
 
-	empty := &model.Request{}
+	empty := &compat.Request{}
 	injectRecallContext(empty, &recallResponse{Context: "legacy context"})
 	require.Len(t, empty.Messages, 1)
-	assert.Equal(t, model.RoleSystem, empty.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, empty.Messages[0].Role)
 
-	noSystem := &model.Request{Messages: []model.Message{model.NewAssistantMessage("hi")}}
+	noSystem := &compat.Request{Messages: []compat.Message{compat.NewAssistantMessage("hi")}}
 	injectRecallContext(noSystem, &recallResponse{AppendSystemContext: "sys", PrependContext: "ctx"})
 	require.Len(t, noSystem.Messages, 3)
-	assert.Equal(t, model.RoleSystem, noSystem.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, noSystem.Messages[0].Role)
 	assert.Equal(t, "sys", noSystem.Messages[0].Content)
 	assert.Equal(t, "ctx", noSystem.Messages[2].Content)
-	insertBeforeLatestUser(nil, model.NewUserMessage("ignored"))
+	insertBeforeLatestUser(nil, compat.NewUserMessage("ignored"))
 
 	svc := &Service{opts: defaultOptions(), client: &gatewayClient{}}
 	p := &recallPlugin{service: svc}
 	_, err := p.beforeModel(context.Background(), nil)
 	require.NoError(t, err)
-	_, err = p.beforeModel(context.Background(), &model.BeforeModelArgs{})
+	_, err = p.beforeModel(context.Background(), &compat.BeforeModelArgs{})
 	require.NoError(t, err)
-	_, err = p.beforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{Messages: []model.Message{model.NewUserMessage("q")}},
+	_, err = p.beforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{Messages: []compat.Message{compat.NewUserMessage("q")}},
 	})
 	require.NoError(t, err)
 	ctx := agent.NewInvocationContext(context.Background(), &agent.Invocation{
 		Session: &session.Session{ID: "s", AppName: "app", UserID: "user"},
 	}).Context
-	_, err = p.beforeModel(ctx, &model.BeforeModelArgs{
-		Request: &model.Request{Messages: []model.Message{model.NewSystemMessage("sys")}},
+	_, err = p.beforeModel(ctx, &compat.BeforeModelArgs{
+		Request: &compat.Request{Messages: []compat.Message{compat.NewSystemMessage("sys")}},
 	})
 	require.NoError(t, err)
 	badScope := agent.NewInvocationContext(context.Background(), &agent.Invocation{
 		Session: &session.Session{ID: "s", AppName: "app"},
 	}).Context
-	_, err = p.beforeModel(badScope, &model.BeforeModelArgs{
-		Request: &model.Request{Messages: []model.Message{model.NewUserMessage("q")}},
+	_, err = p.beforeModel(badScope, &compat.BeforeModelArgs{
+		Request: &compat.Request{Messages: []compat.Message{compat.NewUserMessage("q")}},
 	})
 	require.NoError(t, err)
 }

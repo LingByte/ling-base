@@ -13,7 +13,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -155,7 +155,7 @@ func (f *dynamicFakeSummarizer) Summarize(
 
 func (f *dynamicFakeSummarizer) SetPrompt(string) {}
 
-func (f *dynamicFakeSummarizer) SetModel(model.Model) {}
+func (f *dynamicFakeSummarizer) SetModel(compat.Model) {}
 
 func (f *dynamicFakeSummarizer) Metadata() map[string]any {
 	return map[string]any{}
@@ -189,7 +189,7 @@ func (f *dynamicContextAwareSummarizer) Summarize(
 
 func (f *dynamicContextAwareSummarizer) SetPrompt(string) {}
 
-func (f *dynamicContextAwareSummarizer) SetModel(model.Model) {}
+func (f *dynamicContextAwareSummarizer) SetModel(compat.Model) {}
 
 func (f *dynamicContextAwareSummarizer) Metadata() map[string]any {
 	return map[string]any{}

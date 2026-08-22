@@ -14,7 +14,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/toolresultround"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,19 +24,19 @@ func Test_mergeFunctionResponseEvents_FiltersAndPreservesToolIDs(t *testing.T) {
 
 	evt1 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "tool_a",
 						Content: "A ok",
 					},
 				},
 				{
 					// Should be filtered out (no ToolID)
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						Content: "missing id",
 					},
 				},
@@ -45,18 +45,18 @@ func Test_mergeFunctionResponseEvents_FiltersAndPreservesToolIDs(t *testing.T) {
 	}
 	evt2 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
 					// Should be filtered out (empty content)
-					Message: model.Message{
-						Role:   model.RoleTool,
+					Message: compat.Message{
+						Role:   compat.RoleTool,
 						ToolID: "tool_b",
 					},
 				},
 				{
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "tool_b",
 						Content: "B ok",
 					},
@@ -66,11 +66,11 @@ func Test_mergeFunctionResponseEvents_FiltersAndPreservesToolIDs(t *testing.T) {
 	}
 	evt3 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleTool,
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "tool_c",
 						Content: "C ok",
 					},
@@ -97,14 +97,14 @@ func Test_rearrangeLatestFuncResp_MergesBetweenCallAndLatest(t *testing.T) {
 
 	toolCall := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "a", Function: model.FunctionDefinitionParam{Name: "calc"}},
-							{ID: "b", Function: model.FunctionDefinitionParam{Name: "calc"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "a", Function: compat.FunctionDefinitionParam{Name: "calc"}},
+							{ID: "b", Function: compat.FunctionDefinitionParam{Name: "calc"}},
 						},
 					},
 				},
@@ -113,34 +113,34 @@ func Test_rearrangeLatestFuncResp_MergesBetweenCallAndLatest(t *testing.T) {
 	}
 	unrelated1 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleAssistant, Content: "thinking..."}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleAssistant, Content: "thinking..."}},
 			},
 		},
 	}
 	respA := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "a", Content: "A=1"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "a", Content: "A=1"}},
 			},
 		},
 	}
 	unrelated2 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleAssistant, Content: "more..."}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleAssistant, Content: "more..."}},
 			},
 		},
 	}
 	// Latest event is a tool result for "b"
 	respB := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "b", Content: "B=2"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "b", Content: "B=2"}},
 			},
 		},
 	}
@@ -162,17 +162,17 @@ func Test_rearrangeLatestFuncResp_NoMatchingCall_ReturnsOriginal(t *testing.T) {
 	// Latest is a tool result, but there is no preceding matching tool call for that ID
 	respX := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "x", Content: "X=9"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "x", Content: "X=9"}},
 			},
 		},
 	}
 	plain := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleAssistant, Content: "msg"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleAssistant, Content: "msg"}},
 			},
 		},
 	}
@@ -187,14 +187,14 @@ func Test_rearrangeLatestFuncResp_LatestNotToolResult_ReturnsOriginal(t *testing
 
 	plain1 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "m1"}}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "m1"}}},
 		},
 	}
 	plain2 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "m2"}}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "m2"}}},
 		},
 	}
 	out := p.rearrangeLatestFuncResp([]event.Event{plain1, plain2})
@@ -208,14 +208,14 @@ func Test_rearrangeAsyncFuncRespHist_MergesSeparateResponseEvents(t *testing.T) 
 
 	call := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "t1", Function: model.FunctionDefinitionParam{Name: "calc"}},
-							{ID: "t2", Function: model.FunctionDefinitionParam{Name: "calc"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "t1", Function: compat.FunctionDefinitionParam{Name: "calc"}},
+							{ID: "t2", Function: compat.FunctionDefinitionParam{Name: "calc"}},
 						},
 					},
 				},
@@ -224,18 +224,18 @@ func Test_rearrangeAsyncFuncRespHist_MergesSeparateResponseEvents(t *testing.T) 
 	}
 	resp1 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "t2", Content: "r2"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "t2", Content: "r2"}},
 			},
 		},
 	}
 	toolresultround.Mark(&resp1, true)
 	resp2 := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "t1", Content: "r1"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "t1", Content: "r1"}},
 			},
 		},
 	}
@@ -253,32 +253,32 @@ func Test_rearrangeAsyncFuncRespHist_PreservesContentPartsResults(t *testing.T) 
 	p := NewContentRequestProcessor()
 	part1 := "result 1"
 	part2 := "result 2"
-	call := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+	call := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{ID: "call-1"},
 				{ID: "call-2"},
 			},
 		}}},
 	}}
-	result2 := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.Message{
-			Role:   model.RoleTool,
+	result2 := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role:   compat.RoleTool,
 			ToolID: "call-2",
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &part2,
 			}},
 		}}},
 	}}
 	toolresultround.Mark(&result2, true)
-	result1 := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Delta: model.Message{
-			Role:   model.RoleTool,
+	result1 := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Delta: compat.Message{
+			Role:   compat.RoleTool,
 			ToolID: "call-1",
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &part1,
 			}},
 		}}},
@@ -294,16 +294,16 @@ func Test_rearrangeAsyncFuncRespHist_PreservesContentPartsResults(t *testing.T) 
 	require.Len(t, out[1].Response.Choices, 2)
 	assert.Equal(
 		t,
-		[]model.ContentPart{{
-			Type: model.ContentTypeText,
+		[]compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &part1,
 		}},
 		out[1].Response.Choices[0].Delta.ContentParts,
 	)
 	assert.Equal(
 		t,
-		[]model.ContentPart{{
-			Type: model.ContentTypeText,
+		[]compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &part2,
 		}},
 		out[1].Response.Choices[1].Message.ContentParts,
@@ -314,24 +314,24 @@ func Test_rearrangeAsyncFuncRespHist_UnmarkedResultsKeepArrivalOrder(
 	t *testing.T,
 ) {
 	p := NewContentRequestProcessor()
-	call := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+	call := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{ID: "call-a"},
 				{ID: "call-b"},
 			},
 		}}},
 	}}
-	resultB := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.NewToolMessage(
+	resultB := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewToolMessage(
 			"call-b",
 			"tool-b",
 			"result b",
 		)}},
 	}}
-	resultA := event.Event{Response: &model.Response{
-		Choices: []model.Choice{{Message: model.NewToolMessage(
+	resultA := event.Event{Response: &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewToolMessage(
 			"call-a",
 			"tool-a",
 			"result a",
@@ -357,21 +357,21 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRound(t *testing.T) {
 		Author:       "assistant",
 		InvocationID: "interrupted-invocation",
 		RequestID:    "interrupted-request",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "I will check both sources.",
-					ToolCalls: []model.ToolCall{
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call-a",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "lookup",
 							},
 						},
 						{
 							ID: "call-b",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "lookup",
 							},
 						},
@@ -384,10 +384,10 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRound(t *testing.T) {
 		Author:       "assistant",
 		InvocationID: "interrupted-invocation",
 		RequestID:    "interrupted-request",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					"call-a",
 					"lookup",
 					"partial result",
@@ -398,9 +398,9 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRound(t *testing.T) {
 	toolresultround.Mark(&partialResult, true)
 	nextUser := event.Event{
 		Author: "user",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("continue"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("continue"),
 			}},
 		},
 	}
@@ -419,7 +419,7 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRound(t *testing.T) {
 	assert.Empty(t, out[0].GetToolCallIDs())
 	assert.Equal(
 		t,
-		model.RoleUser,
+		compat.RoleUser,
 		out[1].Response.Choices[0].Message.Role,
 	)
 	for _, evt := range out {
@@ -435,12 +435,12 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRoundWithoutResults(
 		Author:       "assistant",
 		InvocationID: "interrupted-invocation",
 		RequestID:    "interrupted-request",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "I will check both sources.",
-					ToolCalls: []model.ToolCall{
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-a"},
 						{ID: "call-b"},
 					},
@@ -451,16 +451,16 @@ func Test_rearrangeAsyncFuncRespHist_OmitsIncompleteToolRoundWithoutResults(
 	terminalError := event.NewErrorEvent(
 		call.InvocationID,
 		call.Author,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 		"tool round interrupted",
 	)
 	terminalError.RequestID = call.RequestID
 	toolresultround.Mark(terminalError, true)
 	nextUser := event.Event{
 		Author: "user",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("continue"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("continue"),
 			}},
 		},
 	}
@@ -489,14 +489,14 @@ func Test_rearrangeAsyncFuncRespHist_ReusedToolCallIDsStayInTheirRounds(t *testi
 
 	firstCall := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "file_read:47", Function: model.FunctionDefinitionParam{Name: "file_read"}},
-							{ID: "shell:49", Function: model.FunctionDefinitionParam{Name: "shell"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "file_read:47", Function: compat.FunctionDefinitionParam{Name: "file_read"}},
+							{ID: "shell:49", Function: compat.FunctionDefinitionParam{Name: "shell"}},
 						},
 					},
 				},
@@ -505,29 +505,29 @@ func Test_rearrangeAsyncFuncRespHist_ReusedToolCallIDsStayInTheirRounds(t *testi
 	}
 	firstFileResult := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "file_read:47", Content: "file result"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "file_read:47", Content: "file result"}},
 			},
 		},
 	}
 	firstShellResult := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "shell:49", Content: "first shell result"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "shell:49", Content: "first shell result"}},
 			},
 		},
 	}
 	secondCall := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "shell:49", Function: model.FunctionDefinitionParam{Name: "shell"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "shell:49", Function: compat.FunctionDefinitionParam{Name: "shell"}},
 						},
 					},
 				},
@@ -536,9 +536,9 @@ func Test_rearrangeAsyncFuncRespHist_ReusedToolCallIDsStayInTheirRounds(t *testi
 	}
 	secondShellResult := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "shell:49", Content: "second shell result"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "shell:49", Content: "second shell result"}},
 			},
 		},
 	}
@@ -574,13 +574,13 @@ func Test_rearrangeAsyncFuncRespHist_FiltersMixedResponseEventAcrossRounds(t *te
 
 	firstCall := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "call_first", Function: model.FunctionDefinitionParam{Name: "first_tool"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "call_first", Function: compat.FunctionDefinitionParam{Name: "first_tool"}},
 						},
 					},
 				},
@@ -589,13 +589,13 @@ func Test_rearrangeAsyncFuncRespHist_FiltersMixedResponseEventAcrossRounds(t *te
 	}
 	secondCall := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
-							{ID: "call_second", Function: model.FunctionDefinitionParam{Name: "second_tool"}},
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
+							{ID: "call_second", Function: compat.FunctionDefinitionParam{Name: "second_tool"}},
 						},
 					},
 				},
@@ -604,10 +604,10 @@ func Test_rearrangeAsyncFuncRespHist_FiltersMixedResponseEventAcrossRounds(t *te
 	}
 	mixedResult := event.Event{
 		Author: "assistant",
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleTool, ToolID: "call_first", Content: "first result"}},
-				{Message: model.Message{Role: model.RoleTool, ToolID: "call_second", Content: "second result"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "call_first", Content: "first result"}},
+				{Message: compat.Message{Role: compat.RoleTool, ToolID: "call_second", Content: "second result"}},
 			},
 		},
 	}

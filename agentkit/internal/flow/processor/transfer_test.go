@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/calllimit"
 	itransfer "github.com/LingByte/ling-base/agentkit/internal/transfer"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ type mockAgent struct {
 	gotEndInvocation  bool
 	gotTraceNodeID    string
 	gotSurfaceRoot    string
-	gotMessage        model.Message
+	gotMessage        compat.Message
 	gotParentMetadata *agent.ParentInvocationMetadata
 	invoked           bool
 }
@@ -111,11 +111,11 @@ func TestTransferResponseProc_Successful(t *testing.T) {
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child", Message: "hi"},
 	}
 
-	rsp := &model.Response{ID: "r1", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r1", Created: time.Now().Unix(), Model: "m"}
 
 	out := make(chan *event.Event, 10)
 	proc := NewTransferResponseProcessor(true)
-	proc.ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	proc.ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 
 	// Expect transfer event + child event
@@ -124,7 +124,7 @@ func TestTransferResponseProc_Successful(t *testing.T) {
 		evts = append(evts, e)
 	}
 	require.Len(t, evts, 3)
-	require.Equal(t, model.ObjectTypeTransfer, evts[0].Object)
+	require.Equal(t, compat.ObjectTypeTransfer, evts[0].Object)
 	require.Equal(t, "child", evts[1].Author)
 }
 
@@ -135,20 +135,20 @@ func TestTransferResponseProc_EmptyMessageDoesNotEchoInheritedInput(t *testing.T
 		Agent:        parent,
 		AgentName:    "parent",
 		InvocationID: "inv-empty-message",
-		Message:      model.NewUserMessage("original user input"),
+		Message:      compat.NewUserMessage("original user input"),
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-empty-message", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-empty-message", Created: time.Now().Unix(), Model: "m"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	var evts []*event.Event
 	for e := range out {
 		evts = append(evts, e)
 	}
 	require.Len(t, evts, 1)
-	require.Equal(t, model.ObjectTypeTransfer, evts[0].Object)
-	require.Equal(t, model.RoleUser, target.gotMessage.Role)
+	require.Equal(t, compat.ObjectTypeTransfer, evts[0].Object)
+	require.Equal(t, compat.RoleUser, target.gotMessage.Role)
 	require.Equal(t, "original user input", target.gotMessage.Content)
 }
 
@@ -161,11 +161,11 @@ func TestTransferResponseProc_CustomizerReceivesRawEmptyTransferMessage(t *testi
 		Agent:        parent,
 		AgentName:    "parent",
 		InvocationID: "inv-empty-customize",
-		Message:      model.NewUserMessage("original user input"),
+		Message:      compat.NewUserMessage("original user input"),
 		RunOptions: agent.RunOptions{
 			RuntimeState: map[string]any{
 				agent.RuntimeStateKeyTransferController: customizeTransferController{
-					message:            model.NewUserMessage("custom child input"),
+					message:            compat.NewUserMessage("custom child input"),
 					transferMessage:    &gotTransferMessage,
 					hasTransferMessage: &gotTransferMessageOK,
 				},
@@ -173,9 +173,9 @@ func TestTransferResponseProc_CustomizerReceivesRawEmptyTransferMessage(t *testi
 		},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-empty-customize", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-empty-customize", Created: time.Now().Unix(), Model: "m"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	for range out {
 	}
@@ -187,13 +187,13 @@ func TestTransferResponseProc_CustomizerReceivesRawEmptyTransferMessage(t *testi
 func TestTransferResponseProc_Target404(t *testing.T) {
 	parent := &parentAgent{child: nil}
 	inv := &agent.Invocation{Agent: parent, AgentName: "parent", InvocationID: "inv", TransferInfo: &agent.TransferInfo{TargetAgentName: "missing"}}
-	rsp := &model.Response{ID: "r"}
+	rsp := &compat.Response{ID: "r"}
 	out := make(chan *event.Event, 1)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	evt := <-out
 	require.NotNil(t, evt.Error)
-	require.Equal(t, model.ErrorTypeFlowError, evt.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, evt.Error.Type)
 	require.Nil(t, inv.TransferInfo)
 }
 
@@ -216,8 +216,8 @@ func TestTransferResponseProc_FinalizationDoesNotRetryFailedTransfer(t *testing.
 	proc.ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
-		&model.Response{ID: "r-transfer"},
+		&compat.Request{},
+		&compat.Response{ID: "r-transfer"},
 		firstOut,
 	)
 	close(firstOut)
@@ -233,8 +233,8 @@ func TestTransferResponseProc_FinalizationDoesNotRetryFailedTransfer(t *testing.
 	proc.ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
-		&model.Response{ID: "r-final"},
+		&compat.Request{},
+		&compat.Response{ID: "r-final"},
 		finalOut,
 	)
 	close(finalOut)
@@ -271,13 +271,13 @@ func TestTransferResponseProc_ControllerRejects(t *testing.T) {
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
 
-	rsp := &model.Response{ID: "r-ctrl"}
+	rsp := &compat.Response{ID: "r-ctrl"}
 
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -307,9 +307,9 @@ func TestTransferResponseProc_UsesSwarmRootTraceNodeIDForSiblingTransfer(t *test
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "beta", Message: "hi"},
 	}
 	agent.WithInvocationTraceNodeID("swarm/alpha")(inv)
-	rsp := &model.Response{ID: "r-swarm"}
+	rsp := &compat.Response{ID: "r-swarm"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	for range out {
 	}
@@ -332,9 +332,9 @@ func TestTransferResponseProc_UsesMountedSwarmTraceRootForSiblingTransfer(t *tes
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "beta", Message: "hi"},
 	}
 	agent.WithInvocationTraceNodeID("workflow/swarm/alpha")(inv)
-	rsp := &model.Response{ID: "r-nested-swarm"}
+	rsp := &compat.Response{ID: "r-nested-swarm"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	for range out {
 	}
@@ -358,9 +358,9 @@ func TestTransferResponseProc_ReplacesMountedSurfaceRootForSiblingTransfer(t *te
 	}
 	agent.WithInvocationTraceNodeID("workflow/swarm/alpha")(inv)
 	agent.SetInvocationSurfaceRootNodeID(inv, "workflow/team/alpha")
-	rsp := &model.Response{ID: "r-surface-swarm"}
+	rsp := &compat.Response{ID: "r-surface-swarm"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	for range out {
 	}
@@ -383,9 +383,9 @@ func TestTransferResponseProc_FallsBackToMountedSwarmTraceRootWhenSessionLacksSt
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "beta", Message: "hi"},
 	}
 	agent.WithInvocationTraceNodeID("workflow/swarm/alpha")(inv)
-	rsp := &model.Response{ID: "r-old-nested-swarm"}
+	rsp := &compat.Response{ID: "r-old-nested-swarm"}
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 	for range out {
 	}
@@ -442,7 +442,7 @@ func (t timeoutTransferController) OnTransfer(
 }
 
 type customizeTransferController struct {
-	message            model.Message
+	message            compat.Message
 	err                error
 	transferMessage    *string
 	hasTransferMessage *bool
@@ -539,13 +539,13 @@ func TestTransferResponseProc_ControllerNodeTimeout(t *testing.T) {
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
 
-	rsp := &model.Response{ID: "r-timeout"}
+	rsp := &compat.Response{ID: "r-timeout"}
 
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -566,18 +566,18 @@ func TestTransferResponseProc_CustomizesTargetInvocation(t *testing.T) {
 		RunOptions: agent.RunOptions{
 			RuntimeState: map[string]any{
 				agent.RuntimeStateKeyTransferController: customizeTransferController{
-					message: model.NewUserMessage("custom child input"),
+					message: compat.NewUserMessage("custom child input"),
 				},
 			},
 		},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child", Message: "parent transfer"},
 	}
-	rsp := &model.Response{ID: "r-customize"}
+	rsp := &compat.Response{ID: "r-customize"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -589,7 +589,7 @@ func TestTransferResponseProc_CustomizesTargetInvocation(t *testing.T) {
 			echoedInput = evt.Response.Choices[0].Message.Content
 		}
 	}
-	require.Equal(t, model.RoleUser, target.gotMessage.Role)
+	require.Equal(t, compat.RoleUser, target.gotMessage.Role)
 	require.Equal(t, "custom child input", target.gotMessage.Content)
 	require.Equal(t, "custom child input", echoedInput)
 }
@@ -610,12 +610,12 @@ func TestTransferResponseProc_CustomizerRejects(t *testing.T) {
 		},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child", Message: "parent transfer"},
 	}
-	rsp := &model.Response{ID: "r-customize-reject"}
+	rsp := &compat.Response{ID: "r-customize-reject"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -659,12 +659,12 @@ func TestTransferResponseProc_PreservesRunStructuredOutput(t *testing.T) {
 		agent.WithInvocationRunOptions(runOpts),
 		agent.WithInvocationTransferInfo(&agent.TransferInfo{TargetAgentName: "child"}),
 	)
-	rsp := &model.Response{ID: "r-run-structured-output"}
+	rsp := &compat.Response{ID: "r-run-structured-output"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -683,21 +683,21 @@ func TestTransferResponseProc_DoesNotPropagateInvocationStructuredOutputWithoutR
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(parent),
 		agent.WithInvocationID("inv-static-structured-output"),
-		agent.WithInvocationStructuredOutput(&model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		agent.WithInvocationStructuredOutput(&compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Name:   "static_output",
 				Schema: map[string]any{"type": "object"},
 			},
 		}),
 		agent.WithInvocationTransferInfo(&agent.TransferInfo{TargetAgentName: "child"}),
 	)
-	rsp := &model.Response{ID: "r-static-structured-output"}
+	rsp := &compat.Response{ID: "r-static-structured-output"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -719,10 +719,10 @@ func TestTransferResponseProc_SetsTransferTags(t *testing.T) {
 		InvocationID: "inv-tag",
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child", Message: "hi"},
 	}
-	rsp := &model.Response{ID: "r-tag", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-tag", Created: time.Now().Unix(), Model: "m"}
 
 	out := make(chan *event.Event, 10)
-	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &model.Request{}, rsp, out)
+	NewTransferResponseProcessor(true).ProcessResponse(context.Background(), inv, &compat.Request{}, rsp, out)
 	close(out)
 
 	transferTagCount := 0
@@ -750,7 +750,7 @@ func (d *doneResponseAgent) Run(_ context.Context, inv *agent.Invocation) (<-cha
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			d.name,
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 	}()
 	return ch, nil
@@ -771,7 +771,7 @@ func (d *errorResponseAgent) Run(_ context.Context, inv *agent.Invocation) (<-ch
 		ch <- event.NewErrorEvent(
 			inv.InvocationID,
 			d.name,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			"target failed",
 		)
 	}()
@@ -795,9 +795,9 @@ func (d *nonTerminalErrorThenDoneAgent) Run(_ context.Context, inv *agent.Invoca
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			d.name,
-			&model.Response{
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+			&compat.Response{
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "recoverable target signal",
 				},
 			},
@@ -805,7 +805,7 @@ func (d *nonTerminalErrorThenDoneAgent) Run(_ context.Context, inv *agent.Invoca
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			d.name,
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 	}()
 	return ch, nil
@@ -828,12 +828,12 @@ func (d *forwardedDoneResponseAgent) Run(_ context.Context, inv *agent.Invocatio
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			d.name,
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 		descendant := event.NewResponseEvent(
 			"descendant-invocation",
 			"descendant",
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 		descendant.ParentInvocationID = inv.InvocationID
 		ch <- descendant
@@ -858,7 +858,7 @@ func (d *descendantOnlyDoneResponseAgent) Run(_ context.Context, inv *agent.Invo
 		descendant := event.NewResponseEvent(
 			"descendant-invocation",
 			"descendant",
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 		descendant.ParentInvocationID = inv.InvocationID
 		ch <- descendant
@@ -883,13 +883,13 @@ func (d *nestedDelegationResponseAgent) Run(_ context.Context, inv *agent.Invoca
 		ch <- event.New(
 			inv.InvocationID,
 			d.name,
-			event.WithObject(model.ObjectTypeTransfer),
+			event.WithObject(compat.ObjectTypeTransfer),
 			event.WithTag(event.TransferTag),
 		)
 		descendant := event.NewResponseEvent(
 			"descendant-invocation",
 			"descendant",
-			&model.Response{Done: true},
+			&compat.Response{Done: true},
 		)
 		descendant.ParentInvocationID = inv.InvocationID
 		ch <- descendant
@@ -933,12 +933,12 @@ func TestTransferResponseProc_CompletionHandlerFromController(t *testing.T) {
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r1"}
+	rsp := &compat.Response{ID: "r1"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -964,12 +964,12 @@ func TestTransferResponseProc_CompletionHandlerIgnoresForwardedDescendantDone(t 
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-forwarded"}
+	rsp := &compat.Response{ID: "r-forwarded"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -995,12 +995,12 @@ func TestTransferResponseProc_CompletionHandlerFallsBackWhenTargetForwardsOnlyDe
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-descendant-only"}
+	rsp := &compat.Response{ID: "r-descendant-only"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1026,12 +1026,12 @@ func TestTransferResponseProc_CompletionHandlerDoesNotFallbackAfterNestedDelegat
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-nested-delegation"}
+	rsp := &compat.Response{ID: "r-nested-delegation"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1054,12 +1054,12 @@ func TestTransferResponseProc_CompletionHandlerDoesNotFallbackAfterTargetError(t
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-target-error"}
+	rsp := &compat.Response{ID: "r-target-error"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1082,12 +1082,12 @@ func TestTransferResponseProc_TerminalErrorHandlerMutatesTargetErrorBeforeForwar
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-terminal-error"}
+	rsp := &compat.Response{ID: "r-terminal-error"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1116,12 +1116,12 @@ func TestTransferResponseProc_CompletionHandlerAllowsDoneAfterNonTerminalTargetE
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-target-recovered"}
+	rsp := &compat.Response{ID: "r-target-recovered"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1202,12 +1202,12 @@ func TestTransferResponseProc_ControllerCompletionMethodIsObserved(t *testing.T)
 		}},
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-controller"}
+	rsp := &compat.Response{ID: "r-controller"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 		out,
 	)
@@ -1234,10 +1234,10 @@ func TestTransferResponseProc_PropagatesParentMetadataFromToolCallID(t *testing.
 			ToolCallID:      "call-xyz-789",
 		},
 	}
-	rsp := &model.Response{ID: "r-pm", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-pm", Created: time.Now().Unix(), Model: "m"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
-		context.Background(), inv, &model.Request{}, rsp, out,
+		context.Background(), inv, &compat.Request{}, rsp, out,
 	)
 	close(out)
 	for range out {
@@ -1264,10 +1264,10 @@ func TestTransferResponseProc_NoParentMetadataWithoutToolCallID(t *testing.T) {
 		InvocationID: "inv-no-pm",
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-no-pm", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-no-pm", Created: time.Now().Unix(), Model: "m"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
-		context.Background(), inv, &model.Request{}, rsp, out,
+		context.Background(), inv, &compat.Request{}, rsp, out,
 	)
 	close(out)
 	for range out {
@@ -1309,10 +1309,10 @@ func TestTransferResponseProc_DoesNotInheritParentMetadataFromSource(t *testing.
 		// No ToolCallID — simulating the degraded path.
 		TransferInfo: &agent.TransferInfo{TargetAgentName: "child"},
 	}
-	rsp := &model.Response{ID: "r-inherit", Created: time.Now().Unix(), Model: "m"}
+	rsp := &compat.Response{ID: "r-inherit", Created: time.Now().Unix(), Model: "m"}
 	out := make(chan *event.Event, 10)
 	NewTransferResponseProcessor(true).ProcessResponse(
-		context.Background(), inv, &model.Request{}, rsp, out,
+		context.Background(), inv, &compat.Request{}, rsp, out,
 	)
 	close(out)
 	for range out {

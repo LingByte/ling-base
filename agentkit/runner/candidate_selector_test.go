@@ -28,7 +28,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	"github.com/LingByte/ling-base/agentkit/internal/session/privatestate"
 	"github.com/LingByte/ling-base/agentkit/internal/state/appender"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -48,7 +48,7 @@ func TestRunnerCandidateSelector_CommitsOnlyWinner(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, 3, selector.attemptCount)
@@ -82,7 +82,7 @@ func TestRunnerCandidateSelector_CommitsOnlyWinnerPrivateState(t *testing.T) {
 	)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	var events []*event.Event
 	for evt := range ch {
@@ -118,7 +118,7 @@ func TestRunnerCandidateSelector_PrivateStatePersistFailureHidesWinner(t *testin
 		require.NoError(t, base.Close())
 	})
 
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	var (
 		events   []*event.Event
@@ -181,7 +181,7 @@ func TestCandidateSelectorAgent_NewAttemptInvocationMemoryReader(t *testing.T) {
 		memSvc := &mockMemoryServiceForAutoMemory{}
 		base := agent.NewInvocation(
 			agent.WithInvocationAgent(&candidateScriptAgent{name: "base"}),
-			agent.WithInvocationMessage(model.NewUserMessage("question")),
+			agent.WithInvocationMessage(compat.NewUserMessage("question")),
 			agent.WithInvocationMemoryService(memSvc),
 		)
 
@@ -201,7 +201,7 @@ func TestCandidateSelectorAgent_NewAttemptInvocationMemoryReader(t *testing.T) {
 		reader := &mockMemoryReaderIngestor{}
 		base := agent.NewInvocation(
 			agent.WithInvocationAgent(&candidateScriptAgent{name: "base"}),
-			agent.WithInvocationMessage(model.NewUserMessage("question")),
+			agent.WithInvocationMessage(compat.NewUserMessage("question")),
 		)
 		base.MemoryReader = reader
 
@@ -220,7 +220,7 @@ func TestCandidateSelectorAgent_NewAttemptInvocationMemoryReader(t *testing.T) {
 		explicitReader := &mockMemoryReaderIngestor{}
 		base := agent.NewInvocation(
 			agent.WithInvocationAgent(&candidateScriptAgent{name: "base"}),
-			agent.WithInvocationMessage(model.NewUserMessage("question")),
+			agent.WithInvocationMessage(compat.NewUserMessage("question")),
 			agent.WithInvocationMemoryService(memSvc),
 		)
 		base.MemoryReader = explicitReader
@@ -249,7 +249,7 @@ func TestRunnerCandidateSelector_AttemptSessionReadsOwnOverlay(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"overlay-0"}, responseContents(events))
@@ -272,7 +272,7 @@ func TestRunnerCandidateSelector_AppenderDoesNotPolluteSession(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 0}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	collectRunnerEvents(ch)
 	sess, err := sessionService.GetSession(ctx, session.Key{
@@ -295,7 +295,7 @@ func TestRunnerCandidateSelector_StateDeltaOverridesEarlierDirectState(t *testin
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 0}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	collectRunnerEvents(ch)
 	sess, err := sessionService.GetSession(ctx, session.Key{
@@ -320,7 +320,7 @@ func TestRunnerCandidateSelector_UsesDefaultAttempts(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, 2, selector.attemptCount)
@@ -338,7 +338,7 @@ func TestRunnerCandidateSelector_ExplicitZeroAttemptsBypasses(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(0)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, 0, selector.attemptCount)
@@ -357,7 +357,7 @@ func TestRunnerCandidateSelector_AllowsStreamingRuns(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"), agent.WithStream(true))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"), agent.WithStream(true))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"answer-1"}, responseContents(events))
@@ -376,7 +376,7 @@ func TestRunnerCandidateSelector_ReplaysOnlyWinnerStreamingEvents(t *testing.T) 
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"), agent.WithStream(true))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"), agent.WithStream(true))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"partial-1", "final-1"}, responseContents(events))
@@ -406,7 +406,7 @@ func TestRunnerCandidateSelector_RunsAttemptsInParallel(t *testing.T) {
 			WithCandidateAttemptParallelism(2),
 		),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	waitForCandidateStart(t, ag.started)
 	waitForCandidateStart(t, ag.started)
@@ -436,7 +436,7 @@ func TestRunnerCandidateSelector_AllowsAgentsWithTools(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"answer-1"}, responseContents(events))
@@ -457,7 +457,7 @@ func TestRunnerCandidateSelector_AllowsInvocationToolSurface(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"answer-1"}, responseContents(events))
@@ -480,7 +480,7 @@ func TestRunnerCandidateSelector_AllowsRunOptionsWithTools(t *testing.T) {
 		ctx,
 		"user",
 		"session",
-		model.NewUserMessage("question"),
+		compat.NewUserMessage("question"),
 		agent.WithAdditionalTools([]tool.Tool{staticTool{name: "runtime"}}),
 	)
 	require.NoError(t, err)
@@ -514,7 +514,7 @@ func TestRunnerCandidateSelector_ExecutesToolsAndCommitsOnlyWinner(t *testing.T)
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 1}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Contains(t, responseContents(events), "final-1")
@@ -559,7 +559,7 @@ func TestRunnerCandidateSelector_ExecutesToolSetTools(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 1}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Contains(t, responseContents(events), "final-1")
@@ -586,7 +586,7 @@ func TestRunnerCandidateSelector_ExecutesSkillLoadAndCommitsOnlyWinner(t *testin
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 1}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Contains(t, responseContents(events), "final-1")
@@ -613,11 +613,11 @@ func TestRunnerCandidateSelector_MultiTurnReadsCommittedWinnerOnly(t *testing.T)
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(2)),
 	)
-	first, err := r.Run(ctx, "user", "session", model.NewUserMessage("first"))
+	first, err := r.Run(ctx, "user", "session", compat.NewUserMessage("first"))
 	require.NoError(t, err)
 	assert.Equal(t, []string{"turn-1-prior=none"}, responseContents(collectRunnerEvents(first)))
 	selector.winner = 0
-	second, err := r.Run(ctx, "user", "session", model.NewUserMessage("second"))
+	second, err := r.Run(ctx, "user", "session", compat.NewUserMessage("second"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(second)
 	assert.Equal(t, []string{"turn-2-prior=turn-1-prior=none"}, responseContents(events))
@@ -647,12 +647,12 @@ func TestRunnerCandidateSelector_RunsAgentModelAndToolCallbacks(t *testing.T) {
 		callbacks.IncAfterAgent()
 		return nil, nil
 	})
-	modelCallbacks := model.NewCallbacks()
-	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	modelCallbacks := compat.NewCallbacks()
+	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		callbacks.IncBeforeModel()
 		return nil, nil
 	})
-	modelCallbacks.RegisterAfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	modelCallbacks.RegisterAfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 		callbacks.IncAfterModel()
 		return nil, nil
 	})
@@ -689,7 +689,7 @@ func TestRunnerCandidateSelector_RunsAgentModelAndToolCallbacks(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 1}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Contains(t, responseContents(events), "final-1")
@@ -737,7 +737,7 @@ func TestRunnerCandidateSelector_AppliesPluginHooksToCandidateTools(t *testing.T
 		WithPlugins(hooks),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 1}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	collectRunnerEvents(ch)
 	assert.Equal(t, 4, hooks.ModelCalls())
@@ -761,7 +761,7 @@ func TestRunnerCandidateSelector_BypassesGraphCheckpointResume(t *testing.T) {
 		ctx,
 		"user",
 		"session",
-		model.NewUserMessage("resume"),
+		compat.NewUserMessage("resume"),
 		agent.WithRuntimeState(map[string]any{graph.CfgKeyCheckpointID: "checkpoint"}),
 	)
 	require.NoError(t, err)
@@ -782,7 +782,7 @@ func TestRunnerCandidateSelector_BypassesExecutionTraceRuns(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"), agent.WithExecutionTraceEnabled(true))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"), agent.WithExecutionTraceEnabled(true))
 	require.NoError(t, err)
 	collectRunnerEvents(ch)
 	assert.Equal(t, 0, selector.attemptCount)
@@ -801,7 +801,7 @@ func TestRunnerCandidateSelector_AllowsPluginRuns(t *testing.T) {
 		WithPlugins(noopPlugin{name: "noop"}),
 		WithCandidateSelector(selector, WithCandidateAttempts(3)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	events := collectRunnerEvents(ch)
 	assert.Equal(t, []string{"answer-1"}, responseContents(events))
@@ -1188,12 +1188,12 @@ func (a *candidateStateOrderingAgent) Run(
 	out <- event.NewResponseEvent(
 		invocation.InvocationID,
 		a.name,
-		&model.Response{
+		&compat.Response{
 			ID:     "state",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{
-				{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: "state"}},
+			Choices: []compat.Choice{
+				{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: "state"}},
 			},
 		},
 		event.WithStateDelta(session.StateMap{
@@ -1297,12 +1297,12 @@ func responseEvent(
 	return event.NewResponseEvent(
 		invocation.InvocationID,
 		author,
-		&model.Response{
+		&compat.Response{
 			ID:     content,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{
-				{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: content}},
+			Choices: []compat.Choice{
+				{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: content}},
 			},
 		},
 	)
@@ -1317,13 +1317,13 @@ func streamingResponseEvent(
 	return event.NewResponseEvent(
 		invocation.InvocationID,
 		author,
-		&model.Response{
+		&compat.Response{
 			ID:        content,
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			Done:      !partial,
 			IsPartial: partial,
-			Choices: []model.Choice{
-				{Index: 0, Message: model.Message{Role: model.RoleAssistant, Content: content}},
+			Choices: []compat.Choice{
+				{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, Content: content}},
 			},
 		},
 	)
@@ -1416,28 +1416,28 @@ func newCandidateToolCallModel(toolName string, args func(int) []byte) *candidat
 
 func (m *candidateToolCallModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	attempt := m.attemptIndex(ctx)
 	argsFn := m.args
 	if argsFn == nil {
 		argsFn = candidateAttemptArgs
 	}
 	callArgs := append([]byte(nil), argsFn(attempt)...)
-	var response *model.Response
+	var response *compat.Response
 	if requestHasLastToolResult(request) {
 		response = candidateFinalResponse(attempt)
 	} else {
 		response = candidateToolCallResponse(attempt, m.toolName, callArgs)
 	}
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- response
 	close(ch)
 	return ch, nil
 }
 
-func (m *candidateToolCallModel) Info() model.Info {
-	return model.Info{Name: "candidate-tool-call-model"}
+func (m *candidateToolCallModel) Info() compat.Info {
+	return compat.Info{Name: "candidate-tool-call-model"}
 }
 
 func (m *candidateToolCallModel) attemptIndex(ctx context.Context) int {
@@ -1464,19 +1464,19 @@ func candidateAttemptArgs(attempt int) []byte {
 	return []byte(fmt.Sprintf(`{"attempt":%d}`, attempt))
 }
 
-func candidateToolCallResponse(attempt int, toolName string, args []byte) *model.Response {
-	return &model.Response{
+func candidateToolCallResponse(attempt int, toolName string, args []byte) *compat.Response {
+	return &compat.Response{
 		ID:     fmt.Sprintf("tool-call-%d", attempt),
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   fmt.Sprintf("call-%d", attempt),
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      toolName,
 						Arguments: args,
 					},
@@ -1486,24 +1486,24 @@ func candidateToolCallResponse(attempt int, toolName string, args []byte) *model
 	}
 }
 
-func candidateFinalResponse(attempt int) *model.Response {
-	return &model.Response{
+func candidateFinalResponse(attempt int) *compat.Response {
+	return &compat.Response{
 		ID:     fmt.Sprintf("final-%d", attempt),
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(fmt.Sprintf("final-%d", attempt)),
+			Message: compat.NewAssistantMessage(fmt.Sprintf("final-%d", attempt)),
 		}},
 	}
 }
 
-func requestHasLastToolResult(request *model.Request) bool {
+func requestHasLastToolResult(request *compat.Request) bool {
 	if request == nil || len(request.Messages) == 0 {
 		return false
 	}
 	last := request.Messages[len(request.Messages)-1]
-	return last.Role == model.RoleTool
+	return last.Role == compat.RoleTool
 }
 
 type candidateToolCounter struct {
@@ -1628,7 +1628,7 @@ func (p *candidateHookPlugin) Name() string {
 }
 
 func (p *candidateHookPlugin) Register(r *plugin.Registry) {
-	r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		p.modelCalls++
@@ -1695,7 +1695,7 @@ func TestRunnerCandidateSelector_RequiresCompletionDoesNotBlock(t *testing.T) {
 		WithSessionService(sessionService),
 		WithCandidateSelector(&fixedCandidateSelector{winner: 0}, WithCandidateAttempts(2)),
 	)
-	ch, err := r.Run(ctx, "user", "session", model.NewUserMessage("question"))
+	ch, err := r.Run(ctx, "user", "session", compat.NewUserMessage("question"))
 	require.NoError(t, err)
 	select {
 	case <-drainDone(ch):

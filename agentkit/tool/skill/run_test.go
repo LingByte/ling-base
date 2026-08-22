@@ -35,7 +35,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/fileref"
 	"github.com/LingByte/ling-base/agentkit/internal/toolcache"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -3406,7 +3406,7 @@ func TestRunTool_StagesUserFileInputs_FileData(t *testing.T) {
 	require.NoError(t, err)
 	rt := NewRunTool(repo, localexec.New())
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHello+"\n"),
@@ -3415,9 +3415,9 @@ func TestRunTool_StagesUserFileInputs_FileData(t *testing.T) {
 	sess := &session.Session{
 		Events: []event.Event{
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{Index: 0, Message: user},
 					},
 				},
@@ -3457,14 +3457,14 @@ func TestRunTool_StagesUserFileInputs_FileID(t *testing.T) {
 	const (
 		fileID = "file_x"
 	)
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileIDWithName(fileID, uploadNotesTxt)
 	sess := &session.Session{
 		Events: []event.Event{
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{Index: 0, Message: user},
 					},
 				},
@@ -3508,7 +3508,7 @@ func TestRunTool_StagesUserFileInputs_FromInvocationMessage(t *testing.T) {
 	require.NoError(t, err)
 	rt := NewRunTool(repo, localexec.New())
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHello+"\n"),
@@ -3543,7 +3543,7 @@ func TestRunTool_StagesUserFileInputs_DedupesNames(t *testing.T) {
 	require.NoError(t, err)
 	rt := NewRunTool(repo, localexec.New())
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(uploadNotesTxt, []byte(contentHello+"\n"), "text/plain")
 	user.AddFileData(uploadNotesTxt, []byte(contentHi+"\n"), "text/plain")
 	inv := agent.NewInvocation(agent.WithInvocationMessage(user))
@@ -3583,7 +3583,7 @@ func TestRunTool_StagesUserFileInputs_UsesMetadataCache(t *testing.T) {
 	exec := localexec.New()
 	rt := NewRunTool(repo, exec)
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHello+"\n"),
@@ -3655,7 +3655,7 @@ func TestRunTool_StagesUserFileInputs_DedupesAllMetadataInputs(t *testing.T) {
 	out1 := res1.(runOutput)
 	require.Contains(t, out1.OutputFiles[0].Content, contentMsg)
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHello+"\n"),
@@ -3694,10 +3694,10 @@ func TestRunTool_StagesUserFileInputs_MissingRef_Warn(t *testing.T) {
 	require.NoError(t, err)
 	rt := NewRunTool(repo, localexec.New())
 
-	user := model.NewUserMessage("upload")
-	user.ContentParts = append(user.ContentParts, model.ContentPart{
-		Type: model.ContentTypeFile,
-		File: &model.File{Name: uploadNotesTxt},
+	user := compat.NewUserMessage("upload")
+	user.ContentParts = append(user.ContentParts, compat.ContentPart{
+		Type: compat.ContentTypeFile,
+		File: &compat.File{Name: uploadNotesTxt},
 	})
 	inv := agent.NewInvocation(agent.WithInvocationMessage(user))
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -3723,7 +3723,7 @@ func TestRunTool_StagesUserFileInputs_NoDownloader_Warn(t *testing.T) {
 	rt := NewRunTool(repo, localexec.New())
 
 	const fileID = "file_x"
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileIDWithName(fileID, uploadNotesTxt)
 	inv := agent.NewInvocation(agent.WithInvocationMessage(user))
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -3756,7 +3756,7 @@ func TestRunTool_StagesUserFileInputs_HostRef_OK(t *testing.T) {
 		0o600,
 	))
 
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileIDWithName(
 		userFileInputHostPrefix+hostPath,
 		uploadNotesTxt,
@@ -3826,7 +3826,7 @@ func TestRunTool_StagesUserFileInputs_ArtifactRef_OK(t *testing.T) {
 		artifactName,
 		ver,
 	)
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileIDWithName(ref, uploadNotesTxt)
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(user),
@@ -3902,7 +3902,7 @@ func TestRunTool_StagesUserFileInputs_ArtifactRef_InfersName(t *testing.T) {
 		artifactName,
 		ver,
 	)
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileID(ref)
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(user),
@@ -3971,7 +3971,7 @@ func TestRunTool_StagesUserFileInputs_ArtifactRef_NameContainsAt(
 		artifactName,
 		ver,
 	)
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileID(ref)
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(user),
@@ -4019,7 +4019,7 @@ func TestRunTool_RequireSkillLoaded_NotLoaded_Error(t *testing.T) {
 		State: session.StateMap{},
 	}
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(sess),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -4073,7 +4073,7 @@ func TestRunTool_RequireSkillLoaded_Loaded_OK(t *testing.T) {
 		[]byte("1"),
 	)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(sess),
 	)
 	inv.AgentName = "tester"
@@ -4111,7 +4111,7 @@ func TestRunTool_StagesUserFileInputs_DownloadError_Warn(t *testing.T) {
 	rt := NewRunTool(repo, localexec.New())
 
 	const fileID = "file_x"
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileIDWithName(fileID, uploadNotesTxt)
 	inv := agent.NewInvocation(
 		agent.WithInvocationMessage(user),
@@ -4162,15 +4162,15 @@ type stubDownloadModel struct {
 
 func (m *stubDownloadModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *stubDownloadModel) Info() model.Info {
-	return model.Info{Name: "stub"}
+func (m *stubDownloadModel) Info() compat.Info {
+	return compat.Info{Name: "stub"}
 }
 
 func (m *stubDownloadModel) DownloadFile(
@@ -4202,7 +4202,7 @@ func TestRunTool_stageUserFileInputs_NoInvocation(t *testing.T) {
 func TestRunTool_stageUserFileInputs_NoFiles(t *testing.T) {
 	rt := &RunTool{}
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	staged, warnings, err := rt.stageUserFileInputs(
@@ -4217,7 +4217,7 @@ func TestRunTool_stageUserFileInputs_NoFiles(t *testing.T) {
 
 func TestRunTool_stageUserFileInputs_MetadataError_Warn(t *testing.T) {
 	rt := &RunTool{}
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHi),
@@ -4238,7 +4238,7 @@ func TestRunTool_stageUserFileInputs_MetadataError_Warn(t *testing.T) {
 
 func TestRunTool_stageUserFileInputs_StalePropagates(t *testing.T) {
 	rt := &RunTool{}
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHi),
@@ -4291,7 +4291,7 @@ func TestRunTool_PreparationStaleInvalidatesLegacyHandleAndRetries(
 			}, nil
 		})),
 	)
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(
 		uploadNotesTxt,
 		[]byte(contentHi),
@@ -4472,18 +4472,18 @@ func TestUniqueUserFileName(t *testing.T) {
 }
 
 func TestUserFileInputsFromMessage(t *testing.T) {
-	msg := model.NewUserMessage("hi")
+	msg := compat.NewUserMessage("hi")
 	require.Empty(t, userFileInputsFromMessage(msg))
 
 	txt := "hello"
-	msg.ContentParts = []model.ContentPart{
-		{Type: model.ContentTypeText, Text: &txt},
+	msg.ContentParts = []compat.ContentPart{
+		{Type: compat.ContentTypeText, Text: &txt},
 	}
 	require.Empty(t, userFileInputsFromMessage(msg))
 
-	msg.ContentParts = append(msg.ContentParts, model.ContentPart{
-		Type: model.ContentTypeFile,
-		File: &model.File{Name: uploadNotesTxt, Data: []byte(contentHi)},
+	msg.ContentParts = append(msg.ContentParts, compat.ContentPart{
+		Type: compat.ContentTypeFile,
+		File: &compat.File{Name: uploadNotesTxt, Data: []byte(contentHi)},
 	})
 	got := userFileInputsFromMessage(msg)
 	require.Len(t, got, 1)
@@ -4492,31 +4492,31 @@ func TestUserFileInputsFromMessage(t *testing.T) {
 
 func TestUserFileInputsFromSession(t *testing.T) {
 	txt := "hello"
-	user := model.NewUserMessage("upload")
+	user := compat.NewUserMessage("upload")
 	user.AddFileData(uploadNotesTxt, []byte(contentHi), "text/plain")
 	sess := &session.Session{
 		Events: []event.Event{
 			{Response: nil},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
-						{Index: 0, Message: model.NewAssistantMessage("a")},
+					Choices: []compat.Choice{
+						{Index: 0, Message: compat.NewAssistantMessage("a")},
 					},
 				},
 				Author: "assistant",
 			},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
 							Index: 0,
-							Message: model.Message{
-								Role: model.RoleUser,
-								ContentParts: []model.ContentPart{
+							Message: compat.Message{
+								Role: compat.RoleUser,
+								ContentParts: []compat.ContentPart{
 									{
-										Type: model.ContentTypeText,
+										Type: compat.ContentTypeText,
 										Text: &txt,
 									},
 								},
@@ -4527,9 +4527,9 @@ func TestUserFileInputsFromSession(t *testing.T) {
 				Author: "user",
 			},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{Index: 0, Message: user},
 					},
 				},
@@ -4544,7 +4544,7 @@ func TestUserFileInputsFromSession(t *testing.T) {
 
 func TestUserFileInputBytes(t *testing.T) {
 	t.Run("data", func(t *testing.T) {
-		f := model.File{Data: []byte(contentHi), MimeType: "text/plain"}
+		f := compat.File{Data: []byte(contentHi), MimeType: "text/plain"}
 		got, mime, warn := userFileInputBytes(context.Background(),
 			nil, f)
 		require.Equal(t, []byte(contentHi), got)
@@ -4556,13 +4556,13 @@ func TestUserFileInputBytes(t *testing.T) {
 		_, _, warn := userFileInputBytes(
 			context.Background(),
 			nil,
-			model.File{Name: uploadNotesTxt},
+			compat.File{Name: uploadNotesTxt},
 		)
 		require.Equal(t, userFileInputWarnMissingRef, warn)
 	})
 
 	t.Run("no-downloader", func(t *testing.T) {
-		f := model.File{FileID: "file_x"}
+		f := compat.File{FileID: "file_x"}
 		_, _, warn := userFileInputBytes(
 			context.Background(),
 			nil,
@@ -4572,7 +4572,7 @@ func TestUserFileInputBytes(t *testing.T) {
 	})
 
 	t.Run("artifact-no-service", func(t *testing.T) {
-		f := model.File{
+		f := compat.File{
 			FileID: fileref.ArtifactPrefix + "uploads/x.txt@0",
 		}
 		_, _, warn := userFileInputBytes(
@@ -4590,7 +4590,7 @@ func TestUserFileInputBytes(t *testing.T) {
 			[]byte(contentHi),
 			0o600,
 		))
-		f := model.File{
+		f := compat.File{
 			FileID:   userFileInputHostPrefix + hostPath,
 			MimeType: "text/plain",
 		}
@@ -4611,7 +4611,7 @@ func TestUserFileInputBytes(t *testing.T) {
 			[]byte(contentHi),
 			0o600,
 		))
-		f := model.File{
+		f := compat.File{
 			FileID:   hostPath,
 			MimeType: "text/plain",
 		}
@@ -4627,7 +4627,7 @@ func TestUserFileInputBytes(t *testing.T) {
 
 	t.Run("host-ref-read-error", func(t *testing.T) {
 		hostPath := filepath.Join(t.TempDir(), uploadNotesTxt)
-		f := model.File{
+		f := compat.File{
 			FileID: userFileInputHostPrefix + hostPath,
 		}
 		_, _, warn := userFileInputBytes(
@@ -4651,7 +4651,7 @@ func TestUserFileInputBytes(t *testing.T) {
 			agent.WithInvocationArtifactService(svc),
 		)
 		ctx := agent.NewInvocationContext(context.Background(), inv)
-		f := model.File{
+		f := compat.File{
 			FileID: fileref.ArtifactPrefix + "@0",
 		}
 		_, _, warn := userFileInputBytes(
@@ -4698,7 +4698,7 @@ func TestUserFileInputBytes(t *testing.T) {
 			agent.WithInvocationArtifactService(svc),
 		)
 		ctx := agent.NewInvocationContext(context.Background(), inv)
-		f := model.File{FileID: ref}
+		f := compat.File{FileID: ref}
 		got, mime, warn := userFileInputBytes(ctx, nil, f)
 		require.Equal(t, []byte(contentHi), got)
 		require.Equal(t, "text/plain", mime)
@@ -4706,7 +4706,7 @@ func TestUserFileInputBytes(t *testing.T) {
 	})
 
 	t.Run("download-error", func(t *testing.T) {
-		f := model.File{FileID: "file_x"}
+		f := compat.File{FileID: "file_x"}
 		_, _, warn := userFileInputBytes(
 			context.Background(),
 			&stubDownloadModel{},
@@ -4716,7 +4716,7 @@ func TestUserFileInputBytes(t *testing.T) {
 	})
 
 	t.Run("download-ok", func(t *testing.T) {
-		f := model.File{FileID: "file_x"}
+		f := compat.File{FileID: "file_x"}
 		got, mime, warn := userFileInputBytes(
 			context.Background(),
 			&stubDownloadModel{

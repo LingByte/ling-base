@@ -15,7 +15,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -83,8 +83,8 @@ const (
 type EventMessageProjector func(
 	inv *agent.Invocation,
 	evt event.Event,
-	msg model.Message,
-) model.Message
+	msg compat.Message,
+) compat.Message
 
 // Option is a function that configures a GraphAgent.
 type Option func(*Options)
@@ -142,7 +142,7 @@ type Options struct {
 	ContextCompactionOversizedToolResultMaxTokens int
 	// ContextCompactionTokenCounter estimates tool-result size for context
 	// compaction. When nil, SimpleTokenCounter is used.
-	ContextCompactionTokenCounter model.TokenCounter
+	ContextCompactionTokenCounter compat.TokenCounter
 	// summaryFormatter allows custom formatting of session summary content.
 	// When nil (default), uses default formatSummaryContent function.
 	summaryFormatter func(summary string) string
@@ -326,7 +326,7 @@ func WithContextCompactionOversizedToolResultMaxTokens(tokens int) Option {
 
 // WithContextCompactionTokenCounter sets the token counter used by context
 // compaction to decide whether tool results exceed configured budgets.
-func WithContextCompactionTokenCounter(counter model.TokenCounter) Option {
+func WithContextCompactionTokenCounter(counter compat.TokenCounter) Option {
 	return func(opts *Options) {
 		if counter != nil {
 			opts.ContextCompactionTokenCounter = counter

@@ -15,13 +15,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	aguitypes "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/types"
 )
 
 func queuedUserMessageFromContentParts(
 	messageID string,
-	message model.Message,
+	message compat.Message,
 ) (aguitypes.Message, error) {
 	contents, err := inputContentsFromMessage(message)
 	if err != nil {
@@ -34,7 +34,7 @@ func queuedUserMessageFromContentParts(
 	}, nil
 }
 
-func inputContentsFromMessage(message model.Message) ([]aguitypes.InputContent, error) {
+func inputContentsFromMessage(message compat.Message) ([]aguitypes.InputContent, error) {
 	contents := make([]aguitypes.InputContent, 0, len(message.ContentParts)+1)
 	if message.Content != "" {
 		contents = append(contents, aguitypes.InputContent{
@@ -55,9 +55,9 @@ func inputContentsFromMessage(message model.Message) ([]aguitypes.InputContent, 
 	return contents, nil
 }
 
-func inputContentFromPart(part model.ContentPart) (aguitypes.InputContent, error) {
+func inputContentFromPart(part compat.ContentPart) (aguitypes.InputContent, error) {
 	switch part.Type {
-	case model.ContentTypeText:
+	case compat.ContentTypeText:
 		if part.Text == nil {
 			return aguitypes.InputContent{}, errors.New("queued user message text content part is nil")
 		}
@@ -65,13 +65,13 @@ func inputContentFromPart(part model.ContentPart) (aguitypes.InputContent, error
 			Type: aguitypes.InputContentTypeText,
 			Text: *part.Text,
 		}, nil
-	case model.ContentTypeImage:
+	case compat.ContentTypeImage:
 		return inputContentFromImage(part.Image)
-	case model.ContentTypeAudio:
+	case compat.ContentTypeAudio:
 		return inputContentFromAudio(part.Audio)
-	case model.ContentTypeVideo:
+	case compat.ContentTypeVideo:
 		return inputContentFromVideo(part.Video)
-	case model.ContentTypeFile:
+	case compat.ContentTypeFile:
 		return inputContentFromFile(part.File)
 	default:
 		return aguitypes.InputContent{}, fmt.Errorf(
@@ -81,7 +81,7 @@ func inputContentFromPart(part model.ContentPart) (aguitypes.InputContent, error
 	}
 }
 
-func inputContentFromImage(image *model.Image) (aguitypes.InputContent, error) {
+func inputContentFromImage(image *compat.Image) (aguitypes.InputContent, error) {
 	if image == nil {
 		return aguitypes.InputContent{}, errors.New("queued user message image content part is nil")
 	}
@@ -99,7 +99,7 @@ func inputContentFromImage(image *model.Image) (aguitypes.InputContent, error) {
 	return content, nil
 }
 
-func inputContentFromAudio(audio *model.Audio) (aguitypes.InputContent, error) {
+func inputContentFromAudio(audio *compat.Audio) (aguitypes.InputContent, error) {
 	if audio == nil {
 		return aguitypes.InputContent{}, errors.New("queued user message audio content part is nil")
 	}
@@ -117,7 +117,7 @@ func inputContentFromAudio(audio *model.Audio) (aguitypes.InputContent, error) {
 	return content, nil
 }
 
-func inputContentFromVideo(video *model.Video) (aguitypes.InputContent, error) {
+func inputContentFromVideo(video *compat.Video) (aguitypes.InputContent, error) {
 	if video == nil {
 		return aguitypes.InputContent{}, errors.New("queued user message video content part is nil")
 	}
@@ -135,7 +135,7 @@ func inputContentFromVideo(video *model.Video) (aguitypes.InputContent, error) {
 	return content, nil
 }
 
-func inputContentFromFile(file *model.File) (aguitypes.InputContent, error) {
+func inputContentFromFile(file *compat.File) (aguitypes.InputContent, error) {
 	if file == nil {
 		return aguitypes.InputContent{}, errors.New("queued user message file content part is nil")
 	}

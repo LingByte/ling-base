@@ -22,7 +22,7 @@ import (
 	istructure "github.com/LingByte/ling-base/agentkit/internal/structure"
 	itransfer "github.com/LingByte/ling-base/agentkit/internal/transfer"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -51,8 +51,8 @@ func NewTransferResponseProcessor(endInvocation bool) *TransferResponseProcessor
 func (p *TransferResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil || rsp == nil || rsp.IsPartial {
@@ -103,7 +103,7 @@ func (p *TransferResponseProcessor) ProcessResponse(
 		agent.EmitEvent(ctx, invocation, ch, event.NewErrorEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			"Transfer failed: target agent '"+targetAgentName+"' not found",
 		))
 		return
@@ -123,7 +123,7 @@ func (p *TransferResponseProcessor) ProcessResponse(
 			agent.EmitEvent(ctx, invocation, ch, event.NewErrorEvent(
 				invocation.InvocationID,
 				invocation.AgentName,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				fmt.Sprintf(
 					"Transfer rejected: %v",
 					err,
@@ -149,7 +149,7 @@ func (p *TransferResponseProcessor) ProcessResponse(
 		agent.EmitEvent(ctx, invocation, ch, event.NewErrorEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			fmt.Sprintf("Transfer customization rejected: %v", err),
 		))
 		return
@@ -158,20 +158,20 @@ func (p *TransferResponseProcessor) ProcessResponse(
 	transferEvent := event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypeTransfer),
+		event.WithObject(compat.ObjectTypeTransfer),
 		event.WithTag(event.TransferTag),
 	)
-	transferEvent.Response = &model.Response{
+	transferEvent.Response = &compat.Response{
 		ID:        "transfer-" + rsp.ID,
-		Object:    model.ObjectTypeTransfer,
+		Object:    compat.ObjectTypeTransfer,
 		Created:   rsp.Created,
 		Model:     rsp.Model,
 		Timestamp: rsp.Timestamp,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Transferring control to agent: " + targetAgent.Info().Name,
 				},
 			},
@@ -191,7 +191,7 @@ func (p *TransferResponseProcessor) ProcessResponse(
 		agent.EmitEvent(ctx, targetInvocation, ch, event.NewResponseEvent(
 			targetInvocation.InvocationID,
 			targetAgent.Info().Name,
-			&model.Response{Choices: []model.Choice{{Message: targetInvocation.Message}}},
+			&compat.Response{Choices: []compat.Choice{{Message: targetInvocation.Message}}},
 			event.WithTag(event.TransferTag),
 		))
 	}
@@ -228,7 +228,7 @@ func (p *TransferResponseProcessor) ProcessResponse(
 		agent.EmitEvent(ctx, invocation, ch, event.NewErrorEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			"Transfer failed: "+err.Error(),
 		))
 		return
@@ -357,7 +357,7 @@ func prepareTransferTargetInvocation(
 	targetAgent agent.Agent,
 	transferInfo *agent.TransferInfo,
 	customizer itransfer.InvocationCustomizer,
-) (*agent.Invocation, model.Message, error) {
+) (*agent.Invocation, compat.Message, error) {
 	// Do NOT propagate EndInvocation from the coordinator.
 	// end_invocation is intended to end the current invocation.
 	cloneOpts := []agent.InvocationOptions{
@@ -400,8 +400,8 @@ func prepareTransferTargetInvocation(
 	cloneOpts = append(cloneOpts, agent.WithInvocationParentMetadata(targetParentMetadata))
 	targetInvocation := invocation.Clone(cloneOpts...)
 	if transferInfo.Message != "" {
-		targetInvocation.Message = model.Message{
-			Role:    model.RoleUser,
+		targetInvocation.Message = compat.Message{
+			Role:    compat.RoleUser,
 			Content: transferInfo.Message,
 		}
 	}
@@ -411,17 +411,17 @@ func prepareTransferTargetInvocation(
 	}
 	customizeCtx := itransfer.ContextWithTransferMessage(ctx, transferInfo.Message)
 	if err := customizer.CustomizeTransferInvocation(customizeCtx, invocation, targetInvocation); err != nil {
-		return nil, model.Message{}, err
+		return nil, compat.Message{}, err
 	}
 	return targetInvocation, beforeCustomize, nil
 }
 
 func shouldEmitTransferMessageEcho(
 	hasTransferMessage bool,
-	beforeCustomize model.Message,
-	afterCustomize model.Message,
+	beforeCustomize compat.Message,
+	afterCustomize compat.Message,
 ) bool {
-	if !model.HasPayload(afterCustomize) {
+	if !compat.HasPayload(afterCustomize) {
 		return false
 	}
 	return hasTransferMessage || !reflect.DeepEqual(beforeCustomize, afterCustomize)
@@ -462,7 +462,7 @@ func isTransferDelegationEvent(evt *event.Event) bool {
 	if evt == nil {
 		return false
 	}
-	return evt.Object == model.ObjectTypeTransfer || evt.ContainsTag(event.TransferTag)
+	return evt.Object == compat.ObjectTypeTransfer || evt.ContainsTag(event.TransferTag)
 }
 
 func isTransferTerminalErrorEvent(evt *event.Event, invocationID string) bool {
@@ -476,7 +476,7 @@ func syntheticTransferCompletionEvent(invocation *agent.Invocation) *event.Event
 		invocationID = invocation.InvocationID
 		author = invocation.AgentName
 	}
-	evt := event.NewResponseEvent(invocationID, author, &model.Response{Done: true})
+	evt := event.NewResponseEvent(invocationID, author, &compat.Response{Done: true})
 	itransfer.MarkSyntheticCompletionEvent(evt)
 	return evt
 }

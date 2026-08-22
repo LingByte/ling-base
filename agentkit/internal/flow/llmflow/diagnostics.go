@@ -21,7 +21,8 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/modelrequest"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/LingByte/ling-base/agentkit/tool"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -85,18 +86,19 @@ func finishLatencySpan(span oteltrace.Span, started bool, err error) {
 	span.End()
 }
 
-func latencyRequestAttrs(req *model.Request) []attribute.KeyValue {
+func latencyRequestAttrs(req *compat.Request) []attribute.KeyValue {
 	if req == nil {
 		return nil
 	}
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
 	return []attribute.KeyValue{
 		attribute.Int("llmflow.request.messages", len(req.Messages)),
-		attribute.Int("llmflow.request.tools", len(req.Tools)),
+		attribute.Int("llmflow.request.tools", len(toolsMap)),
 		attribute.Bool("llmflow.request.stream", req.GenerationConfig.Stream),
 	}
 }
 
-func latencyResponseAttrs(resp *model.Response) []attribute.KeyValue {
+func latencyResponseAttrs(resp *compat.Response) []attribute.KeyValue {
 	if resp == nil {
 		return nil
 	}
@@ -117,7 +119,7 @@ func latencyResponseAttrs(resp *model.Response) []attribute.KeyValue {
 	return attrs
 }
 
-func latencyTraceResponseDetails(resp *model.Response) bool {
+func latencyTraceResponseDetails(resp *compat.Response) bool {
 	if resp == nil {
 		return true
 	}
@@ -182,7 +184,7 @@ func emitLatencyDiagnosticEvent(
 	evt := event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingStatus),
+		event.WithObject(compat.ObjectTypePreprocessingStatus),
 		event.WithExtension(
 			event.LatencyDiagnosticExtensionKey,
 			diagnostic,
@@ -207,7 +209,7 @@ const (
 
 func contextCompactionAttrs(
 	decision contextCompactionDecision,
-	req *model.Request,
+	req *compat.Request,
 ) []attribute.KeyValue {
 	attrs := latencyRequestAttrs(req)
 	attrs = append(
@@ -263,4 +265,16 @@ func tokenTailoringAttrs(
 			last.AfterMessages,
 		),
 	)
+}
+
+// toolsLen returns the number of tools in a request's Tools field,
+// which is stored as an any (map[string]tool.Tool).
+func toolsLen(tools any) int {
+	if tools == nil {
+		return 0
+	}
+	if m, ok := tools.(map[string]tool.Tool); ok {
+		return len(m)
+	}
+	return 0
 }

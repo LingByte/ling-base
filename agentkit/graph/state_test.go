@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestGetStateValue(t *testing.T) {
@@ -91,18 +91,18 @@ func TestGetStateValue(t *testing.T) {
 
 	t.Run("slice type", func(t *testing.T) {
 		state := State{
-			"messages": []model.Message{
-				{Role: model.RoleUser, Content: "hello"},
-				{Role: model.RoleAssistant, Content: "hi"},
+			"messages": []compat.Message{
+				{Role: compat.RoleUser, Content: "hello"},
+				{Role: compat.RoleAssistant, Content: "hi"},
 			},
 		}
 
-		messages, ok := GetStateValue[[]model.Message](state, "messages")
+		messages, ok := GetStateValue[[]compat.Message](state, "messages")
 		assert.True(t, ok)
 		require.Len(t, messages, 2)
-		assert.Equal(t, model.RoleUser, messages[0].Role)
+		assert.Equal(t, compat.RoleUser, messages[0].Role)
 		assert.Equal(t, "hello", messages[0].Content)
-		assert.Equal(t, model.RoleAssistant, messages[1].Role)
+		assert.Equal(t, compat.RoleAssistant, messages[1].Role)
 		assert.Equal(t, "hi", messages[1].Content)
 	})
 
@@ -163,8 +163,8 @@ func TestGetStateValue(t *testing.T) {
 			StateKeyLastResponse:     "last response",
 			StateKeyLastToolResponse: "last tool response",
 			StateKeyCurrentNodeID:    "node-123",
-			StateKeyMessages: []model.Message{
-				{Role: model.RoleUser, Content: "test"},
+			StateKeyMessages: []compat.Message{
+				{Role: compat.RoleUser, Content: "test"},
 			},
 			StateKeyNodeResponses: map[string]any{"key": "value"},
 		}
@@ -193,10 +193,10 @@ func TestGetStateValue(t *testing.T) {
 		assert.Equal(t, "node-123", nodeID)
 
 		// Test StateKeyMessages.
-		messages, ok := GetStateValue[[]model.Message](state, StateKeyMessages)
+		messages, ok := GetStateValue[[]compat.Message](state, StateKeyMessages)
 		assert.True(t, ok)
 		require.Len(t, messages, 1)
-		assert.Equal(t, model.RoleUser, messages[0].Role)
+		assert.Equal(t, compat.RoleUser, messages[0].Role)
 
 		// Test StateKeyNodeResponses.
 		nodeResponses, ok := GetStateValue[map[string]any](
@@ -210,12 +210,12 @@ func TestGetStateValue(t *testing.T) {
 
 func TestOneShotMessagesByNodeHelpers(t *testing.T) {
 	nodeID := "llm1"
-	msgs := []model.Message{
-		model.NewUserMessage("hi"),
+	msgs := []compat.Message{
+		compat.NewUserMessage("hi"),
 	}
 
 	update := SetOneShotMessagesForNode(nodeID, msgs)
-	raw, ok := update[StateKeyOneShotMessagesByNode].(map[string][]model.Message)
+	raw, ok := update[StateKeyOneShotMessagesByNode].(map[string][]compat.Message)
 	require.True(t, ok)
 	require.Len(t, raw, 1)
 	require.Equal(t, "hi", raw[nodeID][0].Content)
@@ -225,7 +225,7 @@ func TestOneShotMessagesByNodeHelpers(t *testing.T) {
 
 	clear := ClearOneShotMessagesForNode(nodeID)
 	clearAny := clear[StateKeyOneShotMessagesByNode]
-	clearRaw, ok := clearAny.(map[string][]model.Message)
+	clearRaw, ok := clearAny.(map[string][]compat.Message)
 	require.True(t, ok)
 	_, exists := clearRaw[nodeID]
 	require.True(t, exists)
@@ -240,12 +240,12 @@ func TestOneShotMessagesByNodeHelpers(t *testing.T) {
 	got[0].Content = "mutated"
 	require.Equal(t, "hi", raw[nodeID][0].Content)
 
-	byNode := map[string][]model.Message{
-		"llm1": {model.NewUserMessage("a")},
-		"llm2": {model.NewUserMessage("b")},
+	byNode := map[string][]compat.Message{
+		"llm1": {compat.NewUserMessage("a")},
+		"llm2": {compat.NewUserMessage("b")},
 	}
 	update = SetOneShotMessagesByNode(byNode)
-	raw, ok = update[StateKeyOneShotMessagesByNode].(map[string][]model.Message)
+	raw, ok = update[StateKeyOneShotMessagesByNode].(map[string][]compat.Message)
 	require.True(t, ok)
 	require.Len(t, raw, 2)
 	require.Equal(t, "a", raw["llm1"][0].Content)
@@ -263,13 +263,13 @@ func TestStateSchemaApplyUpdate_OneShotMessagesByNode(t *testing.T) {
 	schema := NewStateSchema()
 
 	a := State{
-		StateKeyOneShotMessagesByNode: map[string][]model.Message{
-			"llm1": {model.NewUserMessage("a")},
+		StateKeyOneShotMessagesByNode: map[string][]compat.Message{
+			"llm1": {compat.NewUserMessage("a")},
 		},
 	}
 	b := State{
-		StateKeyOneShotMessagesByNode: map[string][]model.Message{
-			"llm2": {model.NewUserMessage("b")},
+		StateKeyOneShotMessagesByNode: map[string][]compat.Message{
+			"llm2": {compat.NewUserMessage("b")},
 		},
 	}
 
@@ -277,20 +277,20 @@ func TestStateSchemaApplyUpdate_OneShotMessagesByNode(t *testing.T) {
 	state = schema.ApplyUpdate(state, b)
 
 	mergedAny := state[StateKeyOneShotMessagesByNode]
-	merged, ok := mergedAny.(map[string][]model.Message)
+	merged, ok := mergedAny.(map[string][]compat.Message)
 	require.True(t, ok)
 	require.Len(t, merged, 2)
 	require.Equal(t, "a", merged["llm1"][0].Content)
 	require.Equal(t, "b", merged["llm2"][0].Content)
 
 	del := State{
-		StateKeyOneShotMessagesByNode: map[string][]model.Message{
+		StateKeyOneShotMessagesByNode: map[string][]compat.Message{
 			"llm1": nil,
 		},
 	}
 	state = schema.ApplyUpdate(state, del)
 	mergedAny = state[StateKeyOneShotMessagesByNode]
-	merged, ok = mergedAny.(map[string][]model.Message)
+	merged, ok = mergedAny.(map[string][]compat.Message)
 	require.True(t, ok)
 	_, exists := merged["llm1"]
 	require.False(t, exists)
@@ -298,7 +298,7 @@ func TestStateSchemaApplyUpdate_OneShotMessagesByNode(t *testing.T) {
 
 	state = schema.ApplyUpdate(state, State{StateKeyOneShotMessagesByNode: nil})
 	clearedAny := state[StateKeyOneShotMessagesByNode]
-	cleared, ok := clearedAny.(map[string][]model.Message)
+	cleared, ok := clearedAny.(map[string][]compat.Message)
 	require.True(t, ok)
 	require.Nil(t, cleared)
 
@@ -310,7 +310,7 @@ func TestStateSchemaApplyUpdate_OneShotMessagesByNode(t *testing.T) {
 		StateKeyOneShotMessagesByNode: decoded,
 	})
 	mergedAny = state[StateKeyOneShotMessagesByNode]
-	merged, ok = mergedAny.(map[string][]model.Message)
+	merged, ok = mergedAny.(map[string][]compat.Message)
 	require.True(t, ok)
 	require.Equal(t, "b", merged["llm2"][0].Content)
 }
@@ -319,29 +319,29 @@ func TestOneShotMessagesByNodeCoveragePaths(t *testing.T) {
 	t.Run("SetOneShotMessagesForNode handles empty", func(t *testing.T) {
 		update := SetOneShotMessagesForNode("llm1", nil)
 		rawAny := update[StateKeyOneShotMessagesByNode]
-		raw, ok := rawAny.(map[string][]model.Message)
+		raw, ok := rawAny.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Contains(t, raw, "llm1")
 
-		empty := SetOneShotMessagesForNode("", []model.Message{
-			model.NewUserMessage("hi"),
+		empty := SetOneShotMessagesForNode("", []compat.Message{
+			compat.NewUserMessage("hi"),
 		})
 		require.Nil(t, empty)
 	})
 
 	t.Run("SetOneShotMessagesByNode handles empty", func(t *testing.T) {
 		require.Nil(t, SetOneShotMessagesByNode(nil))
-		require.Nil(t, SetOneShotMessagesByNode(map[string][]model.Message{}))
-		onlyEmptyID := SetOneShotMessagesByNode(map[string][]model.Message{
-			"": {model.NewUserMessage("hi")},
+		require.Nil(t, SetOneShotMessagesByNode(map[string][]compat.Message{}))
+		onlyEmptyID := SetOneShotMessagesByNode(map[string][]compat.Message{
+			"": {compat.NewUserMessage("hi")},
 		})
 		require.Nil(t, onlyEmptyID)
 
-		clearOne := SetOneShotMessagesByNode(map[string][]model.Message{
+		clearOne := SetOneShotMessagesByNode(map[string][]compat.Message{
 			"llm1": nil,
 		})
 		rawAny := clearOne[StateKeyOneShotMessagesByNode]
-		raw, ok := rawAny.(map[string][]model.Message)
+		raw, ok := rawAny.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Contains(t, raw, "llm1")
 		require.Len(t, raw["llm1"], 0)
@@ -352,8 +352,8 @@ func TestOneShotMessagesByNodeCoveragePaths(t *testing.T) {
 	})
 
 	t.Run("GetOneShotMessagesForNode reads map[string]any", func(t *testing.T) {
-		msgs := map[string][]model.Message{
-			"llm1": {model.NewUserMessage("hi")},
+		msgs := map[string][]compat.Message{
+			"llm1": {compat.NewUserMessage("hi")},
 		}
 		raw, err := json.Marshal(msgs)
 		require.NoError(t, err)
@@ -368,11 +368,11 @@ func TestOneShotMessagesByNodeCoveragePaths(t *testing.T) {
 
 	t.Run("GetOneShotMessagesForNode uses default decode", func(t *testing.T) {
 		type byNode struct {
-			LLM1 []model.Message `json:"llm1"`
+			LLM1 []compat.Message `json:"llm1"`
 		}
 		state := State{
 			StateKeyOneShotMessagesByNode: byNode{
-				LLM1: []model.Message{model.NewUserMessage("hi")},
+				LLM1: []compat.Message{compat.NewUserMessage("hi")},
 			},
 		}
 		got, ok := GetOneShotMessagesForNode(state, "llm1")
@@ -390,12 +390,12 @@ func TestOneShotMessagesByNodeCoveragePaths(t *testing.T) {
 
 	t.Run("Reducer handles default update types", func(t *testing.T) {
 		type byNode struct {
-			LLM1 []model.Message `json:"llm1"`
+			LLM1 []compat.Message `json:"llm1"`
 		}
 		out := OneShotMessagesByNodeReducer(nil, byNode{
-			LLM1: []model.Message{model.NewUserMessage("hi")},
+			LLM1: []compat.Message{compat.NewUserMessage("hi")},
 		})
-		merged, ok := out.(map[string][]model.Message)
+		merged, ok := out.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Equal(t, "hi", merged["llm1"][0].Content)
 
@@ -407,56 +407,56 @@ func TestOneShotMessagesByNodeCoveragePaths(t *testing.T) {
 	})
 
 	t.Run("Reducer deletes on decode error", func(t *testing.T) {
-		state := map[string][]model.Message{
-			"llm1": {model.NewUserMessage("keep")},
+		state := map[string][]compat.Message{
+			"llm1": {compat.NewUserMessage("keep")},
 		}
 		update := map[string]any{
 			"llm1": make(chan int),
 		}
 		out := OneShotMessagesByNodeReducer(state, update)
-		merged, ok := out.(map[string][]model.Message)
+		merged, ok := out.(map[string][]compat.Message)
 		require.True(t, ok)
 		_, exists := merged["llm1"]
 		require.False(t, exists)
 	})
 
 	t.Run("Existing decode supports any/default", func(t *testing.T) {
-		msgs := map[string][]model.Message{
-			"llm1": {model.NewUserMessage("hi")},
+		msgs := map[string][]compat.Message{
+			"llm1": {compat.NewUserMessage("hi")},
 		}
 		raw, err := json.Marshal(msgs)
 		require.NoError(t, err)
 		var decoded map[string]any
 		require.NoError(t, json.Unmarshal(raw, &decoded))
 
-		out := OneShotMessagesByNodeReducer(decoded, map[string][]model.Message{
-			"llm2": {model.NewUserMessage("yo")},
+		out := OneShotMessagesByNodeReducer(decoded, map[string][]compat.Message{
+			"llm2": {compat.NewUserMessage("yo")},
 		})
-		merged, ok := out.(map[string][]model.Message)
+		merged, ok := out.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Equal(t, "hi", merged["llm1"][0].Content)
 		require.Equal(t, "yo", merged["llm2"][0].Content)
 
 		type byNode struct {
-			LLM1 []model.Message `json:"llm1"`
+			LLM1 []compat.Message `json:"llm1"`
 		}
 		out = OneShotMessagesByNodeReducer(byNode{
-			LLM1: []model.Message{model.NewUserMessage("hi")},
-		}, map[string][]model.Message{
-			"llm2": {model.NewUserMessage("yo")},
+			LLM1: []compat.Message{compat.NewUserMessage("hi")},
+		}, map[string][]compat.Message{
+			"llm2": {compat.NewUserMessage("yo")},
 		})
-		merged, ok = out.(map[string][]model.Message)
+		merged, ok = out.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Equal(t, "hi", merged["llm1"][0].Content)
 		require.Equal(t, "yo", merged["llm2"][0].Content)
 
 		out = OneShotMessagesByNodeReducer(
 			make(chan int),
-			map[string][]model.Message{
-				"llm1": {model.NewUserMessage("hi")},
+			map[string][]compat.Message{
+				"llm1": {compat.NewUserMessage("hi")},
 			},
 		)
-		merged, ok = out.(map[string][]model.Message)
+		merged, ok = out.(map[string][]compat.Message)
 		require.True(t, ok)
 		require.Equal(t, "hi", merged["llm1"][0].Content)
 	})

@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 )
 
@@ -36,7 +36,7 @@ func TestPlanner_BuildPlanInstr(t *testing.T) {
 		AgentName:    "test-agent",
 		InvocationID: "test-001",
 	}
-	request := &model.Request{}
+	request := &compat.Request{}
 
 	instruction := p.BuildPlanningInstruction(ctx, invocation, request)
 
@@ -91,8 +91,8 @@ func TestPlanner_ProcessPlanResp_Empty(t *testing.T) {
 	p := New()
 	ctx := context.Background()
 	invocation := &agent.Invocation{}
-	response := &model.Response{
-		Choices: []model.Choice{},
+	response := &compat.Response{
+		Choices: []compat.Choice{},
 	}
 
 	result := p.ProcessPlanningResponse(ctx, invocation, response)
@@ -106,24 +106,24 @@ func TestPlanner_ToolCalls(t *testing.T) {
 	ctx := context.Background()
 	invocation := &agent.Invocation{}
 
-	response := &model.Response{
-		Choices: []model.Choice{
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "valid_tool",
 							},
 						},
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "", // Empty name should be filtered
 							},
 						},
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "another_tool",
 							},
 						},
@@ -164,11 +164,11 @@ func TestPlanner_FinalAns(t *testing.T) {
 	originalContent := PlanningTag + " Step 1: Do something\n" +
 		ReasoningTag + " This is reasoning\n" +
 		FinalAnswerTag + " This is the final answer."
-	response := &model.Response{
-		Choices: []model.Choice{
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: originalContent,
 				},
 			},
@@ -193,11 +193,11 @@ func TestPlanner_ProcessPlanResp_Delta(t *testing.T) {
 	invocation := &agent.Invocation{}
 
 	originalDelta := ReasoningTag + " This is reasoning content."
-	response := &model.Response{
-		Choices: []model.Choice{
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: originalDelta,
 				},
 			},
@@ -379,12 +379,12 @@ func TestPlanner_IntentDescriptionDetection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response := &model.Response{
+			response := &compat.Response{
 				Done: tt.done,
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: tt.content,
 						},
 					},
@@ -410,16 +410,16 @@ func TestPlanner_IntentDescriptionWithToolCalls(t *testing.T) {
 
 	// When there are valid tool calls, Done should remain unchanged
 	// even if content looks like intent description
-	response := &model.Response{
+	response := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "I will search for the answer now.",
-					ToolCalls: []model.ToolCall{
+					ToolCalls: []compat.ToolCall{
 						{
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "web_search",
 							},
 						},

@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	taskrunruntime "github.com/LingByte/ling-base/agentkit/agent/taskrun"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -59,7 +59,7 @@ type Option func(*options)
 type options struct {
 	defaultAgentName        string
 	runtimeState            map[string]any
-	injectedContextMessages []model.Message
+	injectedContextMessages []compat.Message
 	sessionService          session.Service
 	allowNested             bool
 	propagateParentAppName  bool
@@ -82,10 +82,10 @@ func WithRuntimeState(state map[string]any) Option {
 
 // WithInjectedContextMessages appends non-persisted context messages to each
 // spawned run.
-func WithInjectedContextMessages(messages []model.Message) Option {
+func WithInjectedContextMessages(messages []compat.Message) Option {
 	return func(opts *options) {
 		opts.injectedContextMessages = append(
-			[]model.Message(nil),
+			[]compat.Message(nil),
 			messages...,
 		)
 	}
@@ -246,7 +246,7 @@ type transcriptEvent struct {
 	ID        string     `json:"id,omitempty"`
 	Author    string     `json:"author,omitempty"`
 	Object    string     `json:"object,omitempty"`
-	Role      model.Role `json:"role,omitempty"`
+	Role      compat.Role `json:"role,omitempty"`
 	Content   string     `json:"content,omitempty"`
 	ToolID    string     `json:"tool_id,omitempty"`
 	ToolName  string     `json:"tool_name,omitempty"`
@@ -876,7 +876,7 @@ func transcriptEventFromEvent(evt *event.Event) transcriptEvent {
 	return out
 }
 
-func mergeTranscriptMessage(out *transcriptEvent, msg model.Message) {
+func mergeTranscriptMessage(out *transcriptEvent, msg compat.Message) {
 	if out == nil {
 		return
 	}

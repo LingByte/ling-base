@@ -9,7 +9,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	memorystore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestLoadSkillsDiscoversSupportedLayouts(t *testing.T) {
@@ -79,7 +79,7 @@ func TestAgentAddsSkillsToAllPromptPaths(t *testing.T) {
 	if _, err := a.Generate(context.Background(), "skills", "Say hello"); err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
-	if _, err := a.GenerateWithFiles(context.Background(), "skills", "Read this", []gomodel.File{{Name: "notes.txt", MIME: "text/plain", Data: []byte("hello")}}); err != nil {
+	if _, err := a.GenerateWithFiles(context.Background(), "skills", "Read this", []File{{Name: "notes.txt", MimeType: "text/plain", Data: []byte("hello")}}); err != nil {
 		t.Fatalf("GenerateWithFiles() error = %v", err)
 	}
 	stream, err := a.GenerateStream(context.Background(), "skills", "Stream hello")
@@ -168,20 +168,10 @@ type skillPromptModel struct {
 	prompts []string
 }
 
-func (m *skillPromptModel) Generate(_ context.Context, prompt string) (any, error) {
-	m.prompts = append(m.prompts, prompt)
-	return "ok", nil
-}
+func (m *skillPromptModel) Info() compat.Info { return compat.Info{Name: "skill-prompt"} }
 
-func (m *skillPromptModel) GenerateWithFiles(_ context.Context, prompt string, _ []gomodel.File) (any, error) {
+func (m *skillPromptModel) GenerateContent(_ context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	prompt := promptFromRequest(req)
 	m.prompts = append(m.prompts, prompt)
-	return "ok", nil
-}
-
-func (m *skillPromptModel) GenerateStream(_ context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	m.prompts = append(m.prompts, prompt)
-	stream := make(chan gomodel.StreamChunk, 1)
-	stream <- gomodel.StreamChunk{Delta: "ok", FullText: "ok", Done: true}
-	close(stream)
-	return stream, nil
+	return singleTextResponse("ok"), nil
 }

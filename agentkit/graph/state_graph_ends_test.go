@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
@@ -218,7 +218,7 @@ type toolCallbacksPluginManager struct {
 
 func (m *toolCallbacksPluginManager) AgentCallbacks() *agent.Callbacks { return nil }
 
-func (m *toolCallbacksPluginManager) ModelCallbacks() *model.Callbacks { return nil }
+func (m *toolCallbacksPluginManager) ModelCallbacks() *compat.Callbacks { return nil }
 
 func (m *toolCallbacksPluginManager) ToolCallbacks() *tool.Callbacks { return m.callbacks }
 
@@ -239,17 +239,17 @@ type pluginCaptureModel struct {
 
 func (m *pluginCaptureModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.called = true
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Done: true}
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Done: true}
 	close(ch)
 	return ch, nil
 }
 
-func (m *pluginCaptureModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *pluginCaptureModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type captureTool struct {
@@ -293,8 +293,8 @@ func TestRunModel_PluginBeforeModelShortCircuits(t *testing.T) {
 		ctxVal     = "ctx"
 	)
 	localCalled := false
-	local := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	local := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 			localCalled = true
 			return nil, nil
 		},
@@ -306,12 +306,12 @@ func TestRunModel_PluginBeforeModelShortCircuits(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				plugCalled = true
-				return &model.BeforeModelResult{
+				return &compat.BeforeModelResult{
 					Context: context.WithValue(ctx, testCtxKey{}, ctxVal),
-					CustomResponse: &model.Response{
+					CustomResponse: &compat.Response{
 						Done: true,
 					},
 				}, nil
@@ -324,14 +324,14 @@ func TestRunModel_PluginBeforeModelShortCircuits(t *testing.T) {
 	runCtx := agent.NewInvocationContext(context.Background(), inv)
 
 	llm := &pluginCaptureModel{name: modelName}
-	ctx, ch, err := runModel(runCtx, local, llm, &model.Request{})
+	ctx, ch, err := runModel(runCtx, local, llm, &compat.Request{})
 	require.NoError(t, err)
 
 	got, ok := ctx.Value(testCtxKey{}).(string)
 	require.True(t, ok)
 	require.Equal(t, ctxVal, got)
 
-	var resp *model.Response
+	var resp *compat.Response
 	for r := range ch {
 		resp = r
 	}
@@ -350,8 +350,8 @@ func TestRunModel_PluginBeforeModelError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				return nil, errors.New("boom")
 			})
 		},
@@ -361,7 +361,7 @@ func TestRunModel_PluginBeforeModelError(t *testing.T) {
 	runCtx := agent.NewInvocationContext(context.Background(), inv)
 
 	llm := &pluginCaptureModel{name: "m"}
-	_, ch, err := runModel(runCtx, nil, llm, &model.Request{})
+	_, ch, err := runModel(runCtx, nil, llm, &compat.Request{})
 	require.Error(t, err)
 	require.Nil(t, ch)
 }
@@ -369,23 +369,23 @@ func TestRunModel_PluginBeforeModelError(t *testing.T) {
 func TestProcessModelResponse_PluginAfterModelOverrides(t *testing.T) {
 	const pluginName = "p"
 	localCalled := false
-	local := model.NewCallbacks().RegisterAfterModel(
+	local := compat.NewCallbacks().RegisterAfterModel(
 		func(
 			ctx context.Context,
-			req *model.Request,
-			rsp *model.Response,
+			req *compat.Request,
+			rsp *compat.Response,
 			modelErr error,
-		) (*model.Response, error) {
+		) (*compat.Response, error) {
 			localCalled = true
 			return nil, nil
 		},
 	)
 
-	custom := &model.Response{
+	custom := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.NewAssistantMessage(
+			Message: compat.NewAssistantMessage(
 				"plugin",
 			),
 		}},
@@ -395,9 +395,9 @@ func TestProcessModelResponse_PluginAfterModelOverrides(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					CustomResponse: custom,
 				}, nil
 			})
@@ -408,13 +408,13 @@ func TestProcessModelResponse_PluginAfterModelOverrides(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	cfg := modelResponseConfig{
-		Response:       &model.Response{Done: true},
+		Response:       &compat.Response{Done: true},
 		ModelCallbacks: local,
 		EventChan:      nil,
 		InvocationID:   "inv",
 		SessionID:      "sess",
 		LLMModel:       &pluginCaptureModel{name: "m"},
-		Request:        &model.Request{},
+		Request:        &compat.Request{},
 		Span:           oteltrace.SpanFromContext(context.Background()),
 	}
 	_, evt, err := processModelResponse(ctx, cfg)
@@ -431,8 +431,8 @@ func TestProcessModelResponse_PluginAfterModelError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
 				return nil, errors.New("boom")
 			})
 		},
@@ -442,11 +442,11 @@ func TestProcessModelResponse_PluginAfterModelError(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	cfg := modelResponseConfig{
-		Response:     &model.Response{Done: true},
+		Response:     &compat.Response{Done: true},
 		InvocationID: "inv",
 		SessionID:    "sess",
 		LLMModel:     &pluginCaptureModel{name: "m"},
-		Request:      &model.Request{},
+		Request:      &compat.Request{},
 		Span:         oteltrace.SpanFromContext(context.Background()),
 	}
 	_, evt, err := processModelResponse(ctx, cfg)
@@ -492,9 +492,9 @@ func TestRunTool_PluginBeforeToolShortCircuits(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: "x"}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{}`),
 		},
@@ -551,9 +551,9 @@ func TestRunTool_PluginAfterToolOverridesError(t *testing.T) {
 		name: toolName,
 		err:  errors.New("tool boom"),
 	}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{}`),
 		},
@@ -591,9 +591,9 @@ func TestRunTool_PluginBeforeTool_CustomResultWithError(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: "x"}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -632,9 +632,9 @@ func TestRunTool_PluginBeforeTool_ErrorWithModifiedArguments(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: "x"}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -670,9 +670,9 @@ func TestRunTool_BeforeTool_CustomResultWithError(t *testing.T) {
 	})
 
 	tl := &captureTool{name: toolName, result: "x"}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -705,9 +705,9 @@ func TestRunTool_AfterTool_InterruptWithoutCustomResultPreservesResult(t *testin
 	})
 
 	tl := &captureTool{name: toolName, result: toolResult}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -739,9 +739,9 @@ func TestRunTool_AfterTool_ErrorWithoutCustomResultReturnsNilResult(t *testing.T
 	})
 
 	tl := &captureTool{name: toolName, result: map[string]any{"x": 1}}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -778,9 +778,9 @@ func TestRunTool_PluginAfterTool_CustomResultWithError(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: map[string]any{"x": 1}}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -814,9 +814,9 @@ func TestRunTool_PluginAfterTool_InterruptWithoutCustomResultPreservesResult(t *
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: toolResult}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -844,9 +844,9 @@ func TestRunTool_PluginToolCallbacksNilFallsBack(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: toolResult}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -880,9 +880,9 @@ func TestRunTool_PluginAfterTool_ErrorWithoutResultReturnsNilResult(t *testing.T
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: map[string]any{"x": 1}}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -906,9 +906,9 @@ func TestRunTool_PluginAfterTool_NoResultNoCustomResultReturnsNil(t *testing.T) 
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 
 	tl := &captureTool{name: toolName, result: nil}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -929,9 +929,9 @@ func TestRunTool_AfterTool_NoResultNoCustomResultReturnsNil(t *testing.T) {
 	)
 
 	tl := &captureTool{name: toolName, result: nil}
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{"x":1}`),
 		},
@@ -950,9 +950,9 @@ func TestRunTool_NotCallableReturnsError(t *testing.T) {
 		callID   = "call-1"
 		toolName = "t"
 	)
-	tc := model.ToolCall{
+	tc := compat.ToolCall{
 		ID: callID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: []byte(`{}`),
 		},

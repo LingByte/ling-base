@@ -15,7 +15,7 @@ import (
 	"slices"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // StateKeyThreadID is the session state key used to persist the Codex thread id.
@@ -32,7 +32,7 @@ type MessageBuilderArgs struct {
 	// SessionID is the framework session identifier from the invocation session.
 	SessionID string
 	// Message is the current invocation message.
-	Message model.Message
+	Message compat.Message
 	// Events is a shallow snapshot of session events and must not be mutated.
 	Events []event.Event
 }

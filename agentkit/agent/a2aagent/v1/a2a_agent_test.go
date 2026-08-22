@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	a2aserver "github.com/LingByte/ling-base/agentkit/server/a2a/v1"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
@@ -34,7 +34,7 @@ func (r *testRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	out := make(chan *event.Event, len(r.events))
@@ -106,7 +106,7 @@ func TestRunNonStreamingRequestsNoTaskHistory(t *testing.T) {
 	}
 	events, err := remote.Run(context.Background(), &agent.Invocation{
 		InvocationID: "invocation",
-		Message:      model.NewUserMessage("hello"),
+		Message:      compat.NewUserMessage("hello"),
 	})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
@@ -125,26 +125,26 @@ func TestRunNonStreamingRequestsNoTaskHistory(t *testing.T) {
 func TestServerAndAgentRoundTrip(t *testing.T) {
 	runner := &testRunner{events: []*event.Event{
 		{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:        "response",
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{Content: "hello"},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{Content: "hello"},
 				}},
 			},
 		},
 		{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:        "response",
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{Content: " world"},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{Content: " world"},
 				}},
 			},
 		},
 		{
-			Response: &model.Response{
-				Object: model.ObjectTypeRunnerCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 			StateDelta: map[string][]byte{"state-key": []byte(`"value"`)},
@@ -189,7 +189,7 @@ func TestServerAndAgentRoundTrip(t *testing.T) {
 			}
 			eventChannel, err := remote.Run(context.Background(), &agent.Invocation{
 				InvocationID: "invocation",
-				Message:      model.NewUserMessage("hello"),
+				Message:      compat.NewUserMessage("hello"),
 				Session: &session.Session{
 					ID:     test.contextID,
 					UserID: "user",
@@ -384,7 +384,7 @@ func TestProcessStreamingEventsAggregatesFileParts(t *testing.T) {
 		t.Fatalf("terminal error = %v, want nil", result.terminalError)
 	}
 	if len(result.aggregatedContentParts) != 1 ||
-		result.aggregatedContentParts[0].Type != model.ContentTypeImage {
+		result.aggregatedContentParts[0].Type != compat.ContentTypeImage {
 		t.Fatalf("aggregated content parts = %#v, want one image", result.aggregatedContentParts)
 	}
 }
@@ -468,28 +468,28 @@ func TestProcessStreamingEventsPreservesCustomReplacementMessage(t *testing.T) {
 			if !ok {
 				return nil, nil
 			}
-			choice := model.Choice{Delta: model.Message{
-				Role:    model.RoleAssistant,
+			choice := compat.Choice{Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "stale",
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &stalePartText,
 				}},
 			}}
 			if update.Append != nil && !*update.Append {
-				choice = model.Choice{Message: model.Message{
-					Role:    model.RoleAssistant,
+				choice = compat.Choice{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "custom-message",
-					ContentParts: []model.ContentPart{{
-						Type: model.ContentTypeText,
+					ContentParts: []compat.ContentPart{{
+						Type: compat.ContentTypeText,
 						Text: &replacementPartText,
 					}},
 				}}
 			}
 			return []*event.Event{{
-				Response: &model.Response{
+				Response: &compat.Response{
 					IsPartial: true,
-					Choices:   []model.Choice{choice},
+					Choices:   []compat.Choice{choice},
 				},
 			}}, nil
 		}},
@@ -553,10 +553,10 @@ func TestProcessStreamingEventsPreservesCustomReplacementMessage(t *testing.T) {
 	}
 	replacementEvent := <-eventChan
 	replacementChoice := replacementEvent.Response.Choices[0]
-	if replacementChoice.Message.Role != model.RoleAssistant ||
+	if replacementChoice.Message.Role != compat.RoleAssistant ||
 		replacementChoice.Message.Content != "custom-message" ||
 		len(replacementChoice.Message.ContentParts) != 1 ||
-		!reflect.DeepEqual(replacementChoice.Delta, model.Message{}) {
+		!reflect.DeepEqual(replacementChoice.Delta, compat.Message{}) {
 		t.Fatalf(
 			"replacement event = %#v, want preserved custom Message",
 			replacementEvent,
@@ -575,7 +575,7 @@ func TestProcessStreamingEventsPreservesCustomReplacementMessage(t *testing.T) {
 	finalEvent := <-finalEvents
 	finalChoice := finalEvent.Response.Choices[0]
 	if !finalEvent.Response.Done || finalEvent.Response.IsPartial ||
-		finalChoice.Message.Role != model.RoleAssistant ||
+		finalChoice.Message.Role != compat.RoleAssistant ||
 		finalChoice.Message.Content != "custom-message" ||
 		len(finalChoice.Message.ContentParts) != 1 ||
 		finalChoice.Message.ContentParts[0].Text == nil ||
@@ -590,33 +590,33 @@ func TestProcessStreamingEventsPreservesCustomReplacementMessage(t *testing.T) {
 func TestMarkArtifactReplacementSnapshotMovesExtendedDeltaPayload(t *testing.T) {
 	tests := []struct {
 		name  string
-		delta model.Message
+		delta compat.Message
 	}{
 		{
 			name: "tool call",
-			delta: model.Message{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{ID: "call"}},
+			delta: compat.Message{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{ID: "call"}},
 			},
 		},
 		{
 			name: "tool id",
-			delta: model.Message{
-				Role:   model.RoleTool,
+			delta: compat.Message{
+				Role:   compat.RoleTool,
 				ToolID: "call",
 			},
 		},
 		{
 			name: "tool name",
-			delta: model.Message{
-				Role:     model.RoleTool,
+			delta: compat.Message{
+				Role:     compat.RoleTool,
 				ToolName: "lookup",
 			},
 		},
 		{
 			name: "reasoning signature",
-			delta: model.Message{
-				Role:               model.RoleAssistant,
+			delta: compat.Message{
+				Role:               compat.RoleAssistant,
 				ReasoningSignature: "signature",
 			},
 		},
@@ -624,16 +624,16 @@ func TestMarkArtifactReplacementSnapshotMovesExtendedDeltaPayload(t *testing.T) 
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			evt := &event.Event{Response: &model.Response{
+			evt := &event.Event{Response: &compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Delta: test.delta,
 				}},
 			}}
 			markArtifactReplacementSnapshot(evt, true)
 			choice := evt.Response.Choices[0]
 			if !reflect.DeepEqual(choice.Message, test.delta) ||
-				!reflect.DeepEqual(choice.Delta, model.Message{}) {
+				!reflect.DeepEqual(choice.Delta, compat.Message{}) {
 				t.Fatalf(
 					"replacement choice = %#v, want Message %#v and empty Delta",
 					choice,

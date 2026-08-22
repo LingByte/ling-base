@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 	a2aserver "trpc.group/trpc-go/trpc-a2a-go/v2/server"
@@ -38,8 +38,8 @@ type optionMessageConverter struct{}
 func (*optionMessageConverter) ConvertToAgentMessage(
 	context.Context,
 	protocol.Message,
-) (*model.Message, error) {
-	message := model.NewUserMessage("converted")
+) (*compat.Message, error) {
+	message := compat.NewUserMessage("converted")
 	return &message, nil
 }
 

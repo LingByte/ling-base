@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +28,7 @@ type fakeRunner struct {
 		ctx context.Context,
 		userID string,
 		sessionID string,
-		message model.Message,
+		message compat.Message,
 		runOpts ...agent.RunOption,
 	) (<-chan *event.Event, error)
 }
@@ -37,7 +37,7 @@ func (f *fakeRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	runOpts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	return f.runFn(ctx, userID, sessionID, message, runOpts...)
@@ -76,8 +76,8 @@ func TestReview_UsesSuppliersAndStructuredOutput(t *testing.T) {
 			Arguments:       jsonRaw(`{"command":"ls"}`),
 		},
 		Transcript: []TranscriptEntry{
-			{Role: model.RoleUser, Content: "List the workspace files."},
-			{Role: model.RoleAssistant, Content: "tool shell call: {\"command\":\"ls\"}"},
+			{Role: compat.RoleUser, Content: "List the workspace files."},
+			{Role: compat.RoleAssistant, Content: "tool shell call: {\"command\":\"ls\"}"},
 		},
 	}
 	fake := &fakeRunner{
@@ -85,12 +85,12 @@ func TestReview_UsesSuppliersAndStructuredOutput(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			require.Equal(t, "review-user", userID)
 			require.Equal(t, "review-session", sessionID)
-			require.Equal(t, model.RoleUser, message.Role)
+			require.Equal(t, compat.RoleUser, message.Role)
 			require.Contains(t, message.Content, ">>> TRANSCRIPT START")
 			require.Contains(t, message.Content, "List the workspace files.")
 			require.Contains(t, message.Content, "Planned action JSON")
@@ -111,7 +111,7 @@ func TestReview_UsesSuppliersAndStructuredOutput(t *testing.T) {
 			}
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response:         &model.Response{},
+				Response:         &compat.Response{},
 				StructuredOutput: &decisionPayload{RiskScore: 42, RiskLevel: "low", Reason: "Scoped and user-authorized."},
 			}
 			close(ch)
@@ -146,14 +146,14 @@ func TestReview_DefaultSuppliersUsePrefixedParentSessionIdentity(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			require.Equal(t, reviewerUserIDPrefix+"parent-user", userID)
 			require.Equal(t, reviewerSessionIDPrefix+"parent-session", sessionID)
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response:         &model.Response{},
+				Response:         &compat.Response{},
 				StructuredOutput: &decisionPayload{RiskScore: 95, Reason: "Too risky."},
 			}
 			close(ch)
@@ -180,7 +180,7 @@ func TestReview_DefaultSuppliersGenerateIDsWithoutInvocationSession(t *testing.T
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			require.NotEmpty(t, userID)
@@ -189,7 +189,7 @@ func TestReview_DefaultSuppliersGenerateIDsWithoutInvocationSession(t *testing.T
 			require.NotEqual(t, reviewerSessionIDPrefix+"parent-session", sessionID)
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response:         &model.Response{},
+				Response:         &compat.Response{},
 				StructuredOutput: &decisionPayload{RiskScore: 95, Reason: "Too risky."},
 			}
 			close(ch)
@@ -213,12 +213,12 @@ func TestReview_RuntimeRiskThresholdDeniesHighScores(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response:         &model.Response{},
+				Response:         &compat.Response{},
 				StructuredOutput: &decisionPayload{RiskScore: 90, RiskLevel: "high", Reason: "Too risky."},
 			}
 			close(ch)
@@ -244,12 +244,12 @@ func TestReview_OutOfRangeRiskScoreFails(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response:         &model.Response{},
+				Response:         &compat.Response{},
 				StructuredOutput: &decisionPayload{RiskScore: 101, RiskLevel: "high", Reason: "Invalid score."},
 			}
 			close(ch)
@@ -333,7 +333,7 @@ func TestReview_RunnerRunErrorFails(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			return nil, errors.New("runner unavailable")
@@ -354,7 +354,7 @@ func TestReview_NilEventChannelFails(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			return nil, nil
@@ -375,7 +375,7 @@ func TestReview_MissingStructuredOutputFailsClosed(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event)
@@ -399,14 +399,14 @@ func TestReview_MissingStructuredOutputFails(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			runOpts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("I cannot help with that request."),
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("I cannot help with that request."),
 					}},
 				},
 			}
@@ -498,9 +498,9 @@ func TestRenderUserMessage_UsesStableTemplateLayout(t *testing.T) {
 			Arguments:       jsonRaw(`{"command":"pwd"}`),
 		},
 		Transcript: []TranscriptEntry{
-			{Role: model.RoleUser, Content: "Show the current directory."},
-			{Role: model.RoleAssistant, Content: "tool shell call: {\"command\":\"pwd\"}"},
-			{Role: model.RoleTool, Content: "tool shell result: /workspace"},
+			{Role: compat.RoleUser, Content: "Show the current directory."},
+			{Role: compat.RoleAssistant, Content: "tool shell call: {\"command\":\"pwd\"}"},
+			{Role: compat.RoleTool, Content: "tool shell result: /workspace"},
 		},
 	})
 	require.NoError(t, err)

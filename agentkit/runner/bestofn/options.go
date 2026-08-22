@@ -17,7 +17,7 @@ import (
 	evaluatorregistry "github.com/LingByte/ling-base/agentkit/evaluation/evaluator/registry"
 	"github.com/LingByte/ling-base/agentkit/evaluation/metric"
 	metricregistry "github.com/LingByte/ling-base/agentkit/evaluation/metric/registry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 )
 
@@ -41,7 +41,7 @@ type options struct {
 	attempts                int
 	metrics                 []*metric.EvalMetric
 	selectionMode           SelectionMode
-	contextMessages         []*model.Message
+	contextMessages         []*compat.Message
 	evalSetManager          evalset.Manager
 	judgeRunner             runner.Runner
 	judgeRunnerNumSamples   *int
@@ -107,7 +107,7 @@ func WithSelectionMode(mode SelectionMode) Option {
 }
 
 // WithContextMessages sets context messages attached to each candidate eval case.
-func WithContextMessages(messages ...*model.Message) Option {
+func WithContextMessages(messages ...*compat.Message) Option {
 	return func(o *options) {
 		o.contextMessages = append(o.contextMessages, messages...)
 	}

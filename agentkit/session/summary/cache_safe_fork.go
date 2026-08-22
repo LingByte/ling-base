@@ -12,7 +12,7 @@ import (
 	"context"
 
 	"github.com/LingByte/ling-base/agentkit/internal/jsonmap"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -22,7 +22,7 @@ type cacheSafeForkRequestContextKey struct{}
 // ContextWithCacheSafeForkRequest attaches the parent model request used for a
 // cache-safe summary fork. Framework code supplies this context when it already
 // has the request that would be sent to the parent conversation.
-func ContextWithCacheSafeForkRequest(ctx context.Context, req *model.Request) context.Context {
+func ContextWithCacheSafeForkRequest(ctx context.Context, req *compat.Request) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -34,11 +34,11 @@ func ContextWithCacheSafeForkRequest(ctx context.Context, req *model.Request) co
 
 // CacheSafeForkRequestFromContext returns the parent model request attached by
 // ContextWithCacheSafeForkRequest, if any.
-func CacheSafeForkRequestFromContext(ctx context.Context) (*model.Request, bool) {
+func CacheSafeForkRequestFromContext(ctx context.Context) (*compat.Request, bool) {
 	if ctx == nil {
 		return nil, false
 	}
-	req, ok := ctx.Value(cacheSafeForkRequestContextKey{}).(*model.Request)
+	req, ok := ctx.Value(cacheSafeForkRequestContextKey{}).(*compat.Request)
 	return req, ok && req != nil
 }
 
@@ -62,7 +62,7 @@ func cacheSafeForkingEnabled(
 	return enabled
 }
 
-func cloneRequestForCacheSafeFork(req *model.Request) *model.Request {
+func cloneRequestForCacheSafeFork(req *compat.Request) *compat.Request {
 	if req == nil {
 		return nil
 	}
@@ -73,40 +73,42 @@ func cloneRequestForCacheSafeFork(req *model.Request) *model.Request {
 	cloned.StructuredOutput = cloneStructuredOutputForCacheSafeFork(req.StructuredOutput)
 	cloned.ExtraFields = jsonmap.Clone(req.ExtraFields)
 	cloned.Headers = cloneHeadersForCacheSafeFork(req.Headers)
-	cloned.Tools = cloneToolsForCacheSafeFork(req.Tools)
+	if reqTools, ok := req.Tools.(map[string]tool.Tool); ok {
+		cloned.Tools = cloneToolsForCacheSafeFork(reqTools)
+	}
 	return &cloned
 }
 
-func cloneMessagesForCacheSafeFork(messages []model.Message) []model.Message {
+func cloneMessagesForCacheSafeFork(messages []compat.Message) []compat.Message {
 	if messages == nil {
 		return nil
 	}
-	cloned := make([]model.Message, len(messages))
+	cloned := make([]compat.Message, len(messages))
 	for i := range messages {
 		cloned[i] = cloneMessageForCacheSafeFork(messages[i])
 	}
 	return cloned
 }
 
-func cloneMessageForCacheSafeFork(msg model.Message) model.Message {
+func cloneMessageForCacheSafeFork(msg compat.Message) compat.Message {
 	cloned := msg
 	cloned.ContentParts = cloneContentPartsForCacheSafeFork(msg.ContentParts)
 	cloned.ToolCalls = cloneToolCallsForCacheSafeFork(msg.ToolCalls)
 	return cloned
 }
 
-func cloneContentPartsForCacheSafeFork(parts []model.ContentPart) []model.ContentPart {
+func cloneContentPartsForCacheSafeFork(parts []compat.ContentPart) []compat.ContentPart {
 	if parts == nil {
 		return nil
 	}
-	cloned := make([]model.ContentPart, len(parts))
+	cloned := make([]compat.ContentPart, len(parts))
 	for i := range parts {
 		cloned[i] = cloneContentPartForCacheSafeFork(parts[i])
 	}
 	return cloned
 }
 
-func cloneContentPartForCacheSafeFork(part model.ContentPart) model.ContentPart {
+func cloneContentPartForCacheSafeFork(part compat.ContentPart) compat.ContentPart {
 	cloned := part
 	if part.Text != nil {
 		text := *part.Text
@@ -143,11 +145,11 @@ func cloneContentPartForCacheSafeFork(part model.ContentPart) model.ContentPart 
 	return cloned
 }
 
-func cloneToolCallsForCacheSafeFork(toolCalls []model.ToolCall) []model.ToolCall {
+func cloneToolCallsForCacheSafeFork(toolCalls []compat.ToolCall) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i := range toolCalls {
 		cloned[i] = toolCalls[i]
 		if toolCalls[i].Function.Arguments != nil {
@@ -162,7 +164,7 @@ func cloneToolCallsForCacheSafeFork(toolCalls []model.ToolCall) []model.ToolCall
 	return cloned
 }
 
-func cloneGenerationConfigForCacheSafeFork(cfg model.GenerationConfig) model.GenerationConfig {
+func cloneGenerationConfigForCacheSafeFork(cfg compat.GenerationConfig) compat.GenerationConfig {
 	cloned := cfg
 	if cfg.Stop != nil {
 		cloned.Stop = append([]string(nil), cfg.Stop...)
@@ -170,7 +172,7 @@ func cloneGenerationConfigForCacheSafeFork(cfg model.GenerationConfig) model.Gen
 	return cloned
 }
 
-func cloneStructuredOutputForCacheSafeFork(out *model.StructuredOutput) *model.StructuredOutput {
+func cloneStructuredOutputForCacheSafeFork(out *compat.StructuredOutput) *compat.StructuredOutput {
 	if out == nil {
 		return nil
 	}

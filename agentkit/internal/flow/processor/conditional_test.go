@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type conditionalRequestProcessorStub struct {
@@ -25,7 +25,7 @@ type conditionalRequestProcessorStub struct {
 func (p *conditionalRequestProcessorStub) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	p.called = true
@@ -38,8 +38,8 @@ type conditionalResponseProcessorStub struct {
 func (p *conditionalResponseProcessorStub) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	p.called = true
@@ -58,7 +58,7 @@ func TestConditionalRequestProcessor_ProcessRequest(t *testing.T) {
 	processor.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{InvocationID: "blocked"},
-		&model.Request{},
+		&compat.Request{},
 		make(chan *event.Event, 1),
 	)
 	if delegate.called {
@@ -68,7 +68,7 @@ func TestConditionalRequestProcessor_ProcessRequest(t *testing.T) {
 	processor.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{InvocationID: "allowed"},
-		&model.Request{},
+		&compat.Request{},
 		make(chan *event.Event, 1),
 	)
 	if !delegate.called {
@@ -89,8 +89,8 @@ func TestConditionalResponseProcessor_ProcessResponse(t *testing.T) {
 	processor.ProcessResponse(
 		context.Background(),
 		&agent.Invocation{InvocationID: "blocked"},
-		&model.Request{},
-		&model.Response{},
+		&compat.Request{},
+		&compat.Response{},
 		make(chan *event.Event, 1),
 	)
 	if delegate.called {
@@ -100,8 +100,8 @@ func TestConditionalResponseProcessor_ProcessResponse(t *testing.T) {
 	processor.ProcessResponse(
 		context.Background(),
 		&agent.Invocation{InvocationID: "allowed"},
-		&model.Request{},
-		&model.Response{},
+		&compat.Request{},
+		&compat.Response{},
 		make(chan *event.Event, 1),
 	)
 	if !delegate.called {

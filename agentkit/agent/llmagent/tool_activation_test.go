@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/toolsnapshot"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -203,7 +203,7 @@ func TestToolActivationSkillLoadUpdatesNextModelRequestTools(t *testing.T) {
 	)
 	require.NoError(t, err)
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			activationToolCallResponse(t, "call-1", "research"),
 			activationFinalResponse("done"),
 		},
@@ -223,7 +223,7 @@ func TestToolActivationSkillLoadUpdatesNextModelRequestTools(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      session.NewSession("app", "user", "session"),
-		Message:      model.NewUserMessage("load research"),
+		Message:      compat.NewUserMessage("load research"),
 	}
 	events, err := agt.Run(context.Background(), inv)
 	require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestToolActivationSessionLifetimeVisibleInNextInvocation(t *testing.T) {
 	)
 	require.NoError(t, err)
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			activationToolCallResponse(t, "call-1", "research"),
 			activationFinalResponse("first done"),
 			activationFinalResponse("second done"),
@@ -268,7 +268,7 @@ func TestToolActivationSessionLifetimeVisibleInNextInvocation(t *testing.T) {
 	inv1 := &agent.Invocation{
 		InvocationID: "inv-1",
 		Session:      sess,
-		Message:      model.NewUserMessage("load research"),
+		Message:      compat.NewUserMessage("load research"),
 	}
 	events, err := agt.Run(context.Background(), inv1)
 	require.NoError(t, err)
@@ -276,7 +276,7 @@ func TestToolActivationSessionLifetimeVisibleInNextInvocation(t *testing.T) {
 	inv2 := &agent.Invocation{
 		InvocationID: "inv-2",
 		Session:      sess,
-		Message:      model.NewUserMessage("use research"),
+		Message:      compat.NewUserMessage("use research"),
 	}
 	events, err = agt.Run(context.Background(), inv2)
 	require.NoError(t, err)
@@ -293,7 +293,7 @@ func TestToolActivationInvocationLifetimeNotVisibleInNextInvocation(t *testing.T
 	)
 	require.NoError(t, err)
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			activationToolCallResponse(t, "call-1", "research"),
 			activationFinalResponse("first done"),
 			activationFinalResponse("second done"),
@@ -319,7 +319,7 @@ func TestToolActivationInvocationLifetimeNotVisibleInNextInvocation(t *testing.T
 	inv1 := &agent.Invocation{
 		InvocationID: "inv-1",
 		Session:      sess,
-		Message:      model.NewUserMessage("load research"),
+		Message:      compat.NewUserMessage("load research"),
 	}
 	events, err := agt.Run(context.Background(), inv1)
 	require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestToolActivationInvocationLifetimeNotVisibleInNextInvocation(t *testing.T
 	inv2 := &agent.Invocation{
 		InvocationID: "inv-2",
 		Session:      sess,
-		Message:      model.NewUserMessage("use research"),
+		Message:      compat.NewUserMessage("use research"),
 	}
 	events, err = agt.Run(context.Background(), inv2)
 	require.NoError(t, err)
@@ -340,7 +340,7 @@ func TestToolActivationInvocationLifetimeNotVisibleInNextInvocation(t *testing.T
 
 func TestToolActivationOnlyTrimsRunOptionTools(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{activationFinalResponse("done")},
+		responses: []*compat.Response{activationFinalResponse("done")},
 	}
 	agt := New(
 		"agent",
@@ -366,7 +366,7 @@ func TestToolActivationOnlyTrimsRunOptionTools(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      session.NewSession("app", "user", "session"),
-		Message:      model.NewUserMessage("use safe tools"),
+		Message:      compat.NewUserMessage("use safe tools"),
 		RunOptions: agent.RunOptions{
 			AdditionalTools: []tool.Tool{activationTool{name: "extra"}},
 			ExternalTools:   []tool.Tool{activationTool{name: "external"}},
@@ -387,7 +387,7 @@ func TestToolActivationOnlyTrimsRunOptionTools(t *testing.T) {
 
 func TestToolActivationOnlyExcludesIncludeActivatedTools(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{activationFinalResponse("done")},
+		responses: []*compat.Response{activationFinalResponse("done")},
 	}
 	agt := New(
 		"agent",
@@ -424,7 +424,7 @@ func TestToolActivationOnlyExcludesIncludeActivatedTools(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      session.NewSession("app", "user", "session"),
-		Message:      model.NewUserMessage("use safe tools"),
+		Message:      compat.NewUserMessage("use safe tools"),
 	}
 	require.True(t, addInvocationToolActivationRecords(
 		inv,
@@ -484,7 +484,7 @@ func TestToolActivationIncludeReplacesExternalToolWithSameName(t *testing.T) {
 
 func TestToolActivationRunFilterAppliesToActivatedTools(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{activationFinalResponse("done")},
+		responses: []*compat.Response{activationFinalResponse("done")},
 	}
 	agt := New(
 		"agent",
@@ -506,7 +506,7 @@ func TestToolActivationRunFilterAppliesToActivatedTools(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      session.NewSession("app", "user", "session"),
-		Message:      model.NewUserMessage("use safe tools"),
+		Message:      compat.NewUserMessage("use safe tools"),
 		RunOptions: agent.RunOptions{
 			ToolFilter: func(_ context.Context, tl tool.Tool) bool {
 				return tl.Declaration().Name != "safe_browse"
@@ -525,7 +525,7 @@ func TestToolActivationRunFilterAppliesToActivatedTools(t *testing.T) {
 
 func TestToolActivationWithoutRulesIgnoresSessionRecords(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{activationFinalResponse("done")},
+		responses: []*compat.Response{activationFinalResponse("done")},
 	}
 	agt := New(
 		"agent",
@@ -551,7 +551,7 @@ func TestToolActivationWithoutRulesIgnoresSessionRecords(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      sess,
-		Message:      model.NewUserMessage("no activation rules"),
+		Message:      compat.NewUserMessage("no activation rules"),
 	}
 	events, err := agt.Run(context.Background(), inv)
 	require.NoError(t, err)
@@ -564,7 +564,7 @@ func TestToolActivationWithoutRulesIgnoresSessionRecords(t *testing.T) {
 
 func TestToolActivationSessionRecordsRequireCurrentRules(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{activationFinalResponse("done")},
+		responses: []*compat.Response{activationFinalResponse("done")},
 	}
 	agt := New(
 		"agent",
@@ -609,7 +609,7 @@ func TestToolActivationSessionRecordsRequireCurrentRules(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      sess,
-		Message:      model.NewUserMessage("use research"),
+		Message:      compat.NewUserMessage("use research"),
 	}
 	events, err := agt.Run(context.Background(), inv)
 	require.NoError(t, err)
@@ -623,11 +623,11 @@ func TestToolActivationSessionRecordsRequireCurrentRules(t *testing.T) {
 
 func TestToolActivationOutputSchemaIgnoresSessionRecords(t *testing.T) {
 	mockModel := &activationSequenceModel{
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: `{"ok":true}`,
 				},
 			}},
@@ -658,7 +658,7 @@ func TestToolActivationOutputSchemaIgnoresSessionRecords(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv",
 		Session:      sess,
-		Message:      model.NewUserMessage("return json"),
+		Message:      compat.NewUserMessage("return json"),
 	}
 	events, err := agt.Run(context.Background(), inv)
 	require.NoError(t, err)
@@ -882,19 +882,19 @@ func TestToolActivationExpansionSkipsDuplicatesAndFilteredTools(t *testing.T) {
 
 type activationSequenceModel struct {
 	mu        sync.Mutex
-	responses []*model.Response
-	requests  []*model.Request
+	responses []*compat.Response
+	requests  []*compat.Request
 }
 
 func (m *activationSequenceModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.requests = append(m.requests, request)
 	idx := len(m.requests) - 1
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	if idx < len(m.responses) {
 		ch <- m.responses[idx]
 	}
@@ -902,22 +902,22 @@ func (m *activationSequenceModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *activationSequenceModel) Info() model.Info {
-	return model.Info{Name: "activation-sequence-model"}
+func (m *activationSequenceModel) Info() compat.Info {
+	return compat.Info{Name: "activation-sequence-model"}
 }
 
-func (m *activationSequenceModel) Requests() []*model.Request {
+func (m *activationSequenceModel) Requests() []*compat.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return append([]*model.Request(nil), m.requests...)
+	return append([]*compat.Request(nil), m.requests...)
 }
 
-func activationFinalResponse(content string) *model.Response {
-	return &model.Response{
+func activationFinalResponse(content string) *compat.Response {
+	return &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: content,
 			},
 		}},
@@ -939,19 +939,19 @@ func activationToolCallResponse(
 	t *testing.T,
 	callID string,
 	skillName string,
-) *model.Response {
+) *compat.Response {
 	t.Helper()
 	args, err := json.Marshal(map[string]string{"skill": skillName})
 	require.NoError(t, err)
-	return &model.Response{
+	return &compat.Response{
 		Model: "activation-sequence-model",
 		Done:  true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID: callID,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "skill_load",
 						Arguments: args,
 					},

@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 )
@@ -32,8 +32,8 @@ import (
 type fakeExt struct {
 	name    string
 	tools   []tool.Tool
-	beforeM []model.BeforeModelCallbackStructured
-	afterM  []model.AfterModelCallbackStructured
+	beforeM []compat.BeforeModelCallbackStructured
+	afterM  []compat.AfterModelCallbackStructured
 	beforeA []agent.BeforeAgentCallbackStructured
 	beforeT []tool.BeforeToolCallbackStructured
 }
@@ -166,10 +166,10 @@ func TestWithExtensions_Tools_DedupAgainstLaterFrameworkTools(t *testing.T) {
 // authority over extension code.
 func TestWithExtensions_ModelCallbacks_OrderIsUserThenExtension(t *testing.T) {
 	var trail []string
-	usercb := model.NewCallbacks()
-	usercb.RegisterBeforeModel(model.BeforeModelCallbackStructured(
-		func(_ context.Context, _ *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error,
+	usercb := compat.NewCallbacks()
+	usercb.RegisterBeforeModel(compat.BeforeModelCallbackStructured(
+		func(_ context.Context, _ *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error,
 		) {
 			trail = append(trail, "user")
 			return nil, nil
@@ -177,9 +177,9 @@ func TestWithExtensions_ModelCallbacks_OrderIsUserThenExtension(t *testing.T) {
 	))
 	e := &fakeExt{
 		name: "e",
-		beforeM: []model.BeforeModelCallbackStructured{
-			func(_ context.Context, _ *model.BeforeModelArgs) (
-				*model.BeforeModelResult, error,
+		beforeM: []compat.BeforeModelCallbackStructured{
+			func(_ context.Context, _ *compat.BeforeModelArgs) (
+				*compat.BeforeModelResult, error,
 			) {
 				trail = append(trail, "extension")
 				return nil, nil
@@ -191,7 +191,7 @@ func TestWithExtensions_ModelCallbacks_OrderIsUserThenExtension(t *testing.T) {
 	require.NotNil(t, a.option.ModelCallbacks)
 	_, err := a.option.ModelCallbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"user", "extension"}, trail,
@@ -288,9 +288,9 @@ func TestWithExtensions_ToolCallbacks_OrderAndConverterPreserved(t *testing.T) {
 // and for the callback chain (relevant for chained guardrails).
 func TestWithExtensions_MultipleExtensions_OrderPreserved(t *testing.T) {
 	var trail []string
-	mk := func(label string) model.BeforeModelCallbackStructured {
-		return func(_ context.Context, _ *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error,
+	mk := func(label string) compat.BeforeModelCallbackStructured {
+		return func(_ context.Context, _ *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error,
 		) {
 			trail = append(trail, label)
 			return nil, nil
@@ -299,12 +299,12 @@ func TestWithExtensions_MultipleExtensions_OrderPreserved(t *testing.T) {
 	e1 := &fakeExt{
 		name:    "e1",
 		tools:   []tool.Tool{echoTool("t1")},
-		beforeM: []model.BeforeModelCallbackStructured{mk("e1")},
+		beforeM: []compat.BeforeModelCallbackStructured{mk("e1")},
 	}
 	e2 := &fakeExt{
 		name:    "e2",
 		tools:   []tool.Tool{echoTool("t2")},
-		beforeM: []model.BeforeModelCallbackStructured{mk("e2")},
+		beforeM: []compat.BeforeModelCallbackStructured{mk("e2")},
 	}
 
 	a := New("a", WithExtensions(e1, e2))
@@ -314,7 +314,7 @@ func TestWithExtensions_MultipleExtensions_OrderPreserved(t *testing.T) {
 	require.NotNil(t, a.option.ModelCallbacks)
 	_, err := a.option.ModelCallbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e1", "e2"}, trail)
@@ -371,7 +371,7 @@ func TestWithExtensions_HookOnlyExtension_NoToolsContributed(t *testing.T) {
 // deliberately NOT folded into userToolNames (they are framework-
 // managed, like Knowledge / workspace_exec / Skill auto-injection),
 // so without an explicit append in InvocationToolSurface they fell
-// off a cliff before reaching model.Request.Tools. The model then
+// off a cliff before reaching compat.Request.Tools. The model then
 // received an incomplete tools list while LLMAgent.Tools()
 // insisted everything was wired.
 //
@@ -390,7 +390,7 @@ func TestWithExtensions_Tools_AppearInInvocationToolSurface(t *testing.T) {
 	tools, userToolNames := a.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		),
 	)
 
@@ -399,7 +399,7 @@ func TestWithExtensions_Tools_AppearInInvocationToolSurface(t *testing.T) {
 		[]string{"user_only", "ext_alpha", "ext_beta"},
 		names,
 		"extension-contributed tools must surface alongside user tools "+
-			"on the invocation path that feeds model.Request.Tools",
+			"on the invocation path that feeds compat.Request.Tools",
 	)
 	assert.True(t, userToolNames["user_only"],
 		"user-registered tool must remain marked as user")
@@ -425,7 +425,7 @@ func TestWithExtensions_Tools_InvocationSurfaceDedupAgainstUser(t *testing.T) {
 	tools, _ := a.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		),
 	)
 	require.Len(t, tools, 1,
@@ -446,7 +446,7 @@ func TestWithExtensions_Tools_InvocationSurfaceDedupAgainstLaterFrameworkTool(t 
 	tools, userToolNames := a.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		),
 	)
 
@@ -472,7 +472,7 @@ func TestWithExtensions_Tools_InvocationSurfaceDedupAgainstTransferTool(t *testi
 	tools, userToolNames := a.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		),
 	)
 
@@ -531,7 +531,7 @@ func TestMergeAgentCallbacks_PreservesUserOptionsAndDoesNotMutateOriginal(t *tes
 	) {
 		trail = append(trail, "user")
 		return &agent.BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "user"},
+			CustomResponse: &compat.Response{ID: "user"},
 		}, nil
 	})
 
@@ -541,7 +541,7 @@ func TestMergeAgentCallbacks_PreservesUserOptionsAndDoesNotMutateOriginal(t *tes
 	) {
 		trail = append(trail, "extension")
 		return &agent.BeforeAgentResult{
-			CustomResponse: &model.Response{ID: "extension"},
+			CustomResponse: &compat.Response{ID: "extension"},
 		}, nil
 	})
 
@@ -567,38 +567,38 @@ func TestMergeModelCallbacks_BothNil_ReturnsNil(t *testing.T) {
 }
 
 func TestMergeModelCallbacks_OnlyOneSide_ReturnsTheNonNilSideAsIs(t *testing.T) {
-	a := model.NewCallbacks()
-	a.RegisterBeforeModel(func(_ context.Context, _ *model.BeforeModelArgs) (
-		*model.BeforeModelResult, error,
+	a := compat.NewCallbacks()
+	a.RegisterBeforeModel(func(_ context.Context, _ *compat.BeforeModelArgs) (
+		*compat.BeforeModelResult, error,
 	) {
 		return nil, nil
 	})
 
 	require.Same(t, a, mergeModelCallbacks(a, nil))
 	require.Same(t, a, mergeModelCallbacks(nil, a))
-	require.Same(t, a, mergeModelCallbacks(a, model.NewCallbacks()),
+	require.Same(t, a, mergeModelCallbacks(a, compat.NewCallbacks()),
 		"empty bundle on b-side must be treated as absent")
 }
 
 func TestMergeModelCallbacks_PreservesUserOptionsAndDoesNotMutateOriginal(t *testing.T) {
 	var trail []string
-	user := model.NewCallbacks(model.WithContinueOnResponse(true))
-	user.RegisterBeforeModel(func(_ context.Context, _ *model.BeforeModelArgs) (
-		*model.BeforeModelResult, error,
+	user := compat.NewCallbacks(compat.WithContinueOnResponse(true))
+	user.RegisterBeforeModel(func(_ context.Context, _ *compat.BeforeModelArgs) (
+		*compat.BeforeModelResult, error,
 	) {
 		trail = append(trail, "user")
-		return &model.BeforeModelResult{
-			CustomResponse: &model.Response{ID: "user"},
+		return &compat.BeforeModelResult{
+			CustomResponse: &compat.Response{ID: "user"},
 		}, nil
 	})
 
-	ext := model.NewCallbacks()
-	ext.RegisterBeforeModel(func(_ context.Context, _ *model.BeforeModelArgs) (
-		*model.BeforeModelResult, error,
+	ext := compat.NewCallbacks()
+	ext.RegisterBeforeModel(func(_ context.Context, _ *compat.BeforeModelArgs) (
+		*compat.BeforeModelResult, error,
 	) {
 		trail = append(trail, "extension")
-		return &model.BeforeModelResult{
-			CustomResponse: &model.Response{ID: "extension"},
+		return &compat.BeforeModelResult{
+			CustomResponse: &compat.Response{ID: "extension"},
 		}, nil
 	})
 
@@ -607,7 +607,7 @@ func TestMergeModelCallbacks_PreservesUserOptionsAndDoesNotMutateOriginal(t *tes
 		"merge must clone before appending extension callbacks")
 	result, err := merged.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "extension", result.CustomResponse.ID)
@@ -617,7 +617,7 @@ func TestMergeModelCallbacks_PreservesUserOptionsAndDoesNotMutateOriginal(t *tes
 	trail = nil
 	result, err = user.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "user", result.CustomResponse.ID)

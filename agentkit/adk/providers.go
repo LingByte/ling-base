@@ -5,11 +5,11 @@ import (
 
 	agent "github.com/LingByte/ling-base/agentkit/goagent"
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // ModelProvider constructs a language model used by the coordinator agent.
-type ModelProvider func(ctx context.Context) (gomodel.Agent, error)
+type ModelProvider func(ctx context.Context) (compat.Model, error)
 
 // SharedSessionFactory builds collaborative session views on top of the base
 // session memory. It mirrors memory.NewSharedSession but lets providers expose

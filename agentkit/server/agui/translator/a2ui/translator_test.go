@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/translator"
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
@@ -109,12 +109,12 @@ func TestNewFactory(t *testing.T) {
 
 func streamingJSONTextEvent(messageID, content string) *agentevent.Event {
 	return &agentevent.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     messageID,
-			Object: model.ObjectTypeChatCompletionChunk,
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+			Object: compat.ObjectTypeChatCompletionChunk,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: content,
 				},
 			}},

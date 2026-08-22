@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/appender"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -102,7 +102,7 @@ func TestAgentModelProfileOverridesTemplateWithModelsForOneCall(t *testing.T) {
 	reviewer := llmagent.New(
 		"reviewer",
 		llmagent.WithModel(templateDefault),
-		llmagent.WithModels(map[string]model.Model{
+		llmagent.WithModels(map[string]compat.Model{
 			"default":   templateDefault,
 			"alternate": templateAlternate,
 		}),
@@ -454,28 +454,28 @@ type recordingModel struct {
 
 func (m *recordingModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.calls.Add(1)
 	content := m.content
 	if content == "" {
 		content = m.name
 	}
-	responses := make(chan *model.Response, 1)
-	responses <- &model.Response{
+	responses := make(chan *compat.Response, 1)
+	responses <- &compat.Response{
 		ID:   "recording-" + m.name,
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(content),
+			Message: compat.NewAssistantMessage(content),
 		}},
 	}
 	close(responses)
 	return responses, nil
 }
 
-func (m *recordingModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *recordingModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *recordingModel) callCount() int32 {

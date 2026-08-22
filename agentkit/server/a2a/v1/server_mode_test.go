@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 	a2aserver "trpc.group/trpc-go/trpc-a2a-go/v2/server"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/taskmanager"
@@ -34,7 +34,7 @@ func (r *modeTestRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	out := make(chan *event.Event, len(r.events))
@@ -110,35 +110,35 @@ func TestMessageProcessorManagerModes(t *testing.T) {
 	newRunner := func() *modeTestRunner {
 		return &modeTestRunner{events: []*event.Event{
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:        "response-id",
 					IsPartial: true,
-					Choices: []model.Choice{{
-						Delta: model.Message{Content: "hello"},
+					Choices: []compat.Choice{{
+						Delta: compat.Message{Content: "hello"},
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:        "response-id",
 					IsPartial: true,
-					Choices: []model.Choice{{
-						Delta: model.Message{Content: " world"},
+					Choices: []compat.Choice{{
+						Delta: compat.Message{Content: " world"},
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:   "response-id",
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("hello world"),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("hello world"),
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
-					Object: model.ObjectTypeRunnerCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeRunnerCompletion,
 					Done:   true,
 				},
 				StateDelta: map[string][]byte{"state-key": []byte(`"value"`)},
@@ -236,17 +236,17 @@ func TestMessageProcessorManagerModes(t *testing.T) {
 		processor, err := buildProcessor("agent", &options{
 			runner: &modeTestRunner{events: []*event.Event{
 				{
-					Response: &model.Response{
+					Response: &compat.Response{
 						ID:   "response-id",
 						Done: true,
-						Choices: []model.Choice{{
-							Message: model.NewAssistantMessage("final answer"),
+						Choices: []compat.Choice{{
+							Message: compat.NewAssistantMessage("final answer"),
 						}},
 					},
 				},
 				{
-					Response: &model.Response{
-						Object: model.ObjectTypeRunnerCompletion,
+					Response: &compat.Response{
+						Object: compat.ObjectTypeRunnerCompletion,
 						Done:   true,
 					},
 				},
@@ -275,11 +275,11 @@ func TestMessageProcessorManagerModes(t *testing.T) {
 	})
 
 	t.Run("stateless deduplicates no-ID multimodal snapshot", func(t *testing.T) {
-		snapshot := model.Message{
+		snapshot := compat.Message{
 			Content: "answer",
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     "result.txt",
 					URL:      "https://example.com/result.txt",
 					MimeType: "text/plain",
@@ -289,24 +289,24 @@ func TestMessageProcessorManagerModes(t *testing.T) {
 		processor, err := buildProcessor("agent", &options{
 			runner: &modeTestRunner{events: []*event.Event{
 				{
-					Response: &model.Response{
+					Response: &compat.Response{
 						IsPartial: true,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Delta: snapshot,
 						}},
 					},
 				},
 				{
-					Response: &model.Response{
+					Response: &compat.Response{
 						Done: true,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Message: snapshot,
 						}},
 					},
 				},
 				{
-					Response: &model.Response{
-						Object: model.ObjectTypeRunnerCompletion,
+					Response: &compat.Response{
+						Object: compat.ObjectTypeRunnerCompletion,
 						Done:   true,
 					},
 				},
@@ -343,17 +343,17 @@ func TestConverterTaskEndStateIsRetained(t *testing.T) {
 	processor, err := buildProcessor("agent", &options{
 		runner: &modeTestRunner{events: []*event.Event{
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:        "response",
 					IsPartial: true,
-					Choices: []model.Choice{{
-						Delta: model.Message{Content: "ignored"},
+					Choices: []compat.Choice{{
+						Delta: compat.Message{Content: "ignored"},
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
-					Object: model.ObjectTypeRunnerCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeRunnerCompletion,
 					Done:   true,
 				},
 			},
@@ -397,17 +397,17 @@ func TestConverterTaskEndStateIsRetained(t *testing.T) {
 func TestResponseRewriterRunsBeforeTaskAggregation(t *testing.T) {
 	runner := &modeTestRunner{events: []*event.Event{
 		{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:        "response",
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{Content: "secret"},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{Content: "secret"},
 				}},
 			},
 		},
 		{
-			Response: &model.Response{
-				Object: model.ObjectTypeRunnerCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 		},
@@ -455,17 +455,17 @@ func TestResponseRewriterRunsBeforeTaskAggregation(t *testing.T) {
 func TestResponseRewriterCanEmptyArtifactParts(t *testing.T) {
 	runner := &modeTestRunner{events: []*event.Event{
 		{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:        "response",
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{Content: "secret"},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{Content: "secret"},
 				}},
 			},
 		},
 		{
-			Response: &model.Response{
-				Object: model.ObjectTypeRunnerCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 		},
@@ -619,11 +619,11 @@ func TestRunnerClosureBeforeCompletionFailsTask(t *testing.T) {
 func TestTerminalAgentErrorFailsTaskByDefault(t *testing.T) {
 	processor, err := buildProcessor("agent", &options{
 		runner: &modeTestRunner{events: []*event.Event{{
-			Response: &model.Response{
-				Object: model.ObjectTypeError,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeError,
 				Done:   true,
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "agent failed",
 				},
 			},

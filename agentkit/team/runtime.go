@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/sessionroute"
 	itransfer "github.com/LingByte/ling-base/agentkit/internal/transfer"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -425,17 +425,17 @@ func sourceAgentName(source *agent.Invocation) string {
 	return source.AgentName
 }
 
-func sourceMessage(source *agent.Invocation) model.Message {
+func sourceMessage(source *agent.Invocation) compat.Message {
 	if source == nil {
-		return model.Message{}
+		return compat.Message{}
 	}
 	return source.Message
 }
 
-func rootMessage(source *agent.Invocation) model.Message {
+func rootMessage(source *agent.Invocation) compat.Message {
 	msg := sourceMessage(source)
 	for current := source; current != nil; current = current.GetParentInvocation() {
-		if model.HasPayload(current.Message) {
+		if compat.HasPayload(current.Message) {
 			msg = current.Message
 		}
 	}
@@ -529,9 +529,9 @@ func currentTurnUserEvents(invocation *agent.Invocation) []*event.Event {
 	return events
 }
 
-func normalizeHandoffInputMessage(msg model.Message) model.Message {
-	if msg.Role == "" && model.HasPayload(msg) {
-		msg.Role = model.RoleUser
+func normalizeHandoffInputMessage(msg compat.Message) compat.Message {
+	if msg.Role == "" && compat.HasPayload(msg) {
+		msg.Role = compat.RoleUser
 	}
 	return msg
 }

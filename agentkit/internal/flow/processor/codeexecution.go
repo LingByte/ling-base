@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/calllimit"
 	"github.com/LingByte/ling-base/agentkit/internal/workspacesession"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var nonExecutableCodeLanguages = map[string]struct{}{
@@ -52,7 +52,7 @@ func NewCodeExecutionResponseProcessor() *CodeExecutionResponseProcessor {
 // ProcessResponse processes the model response, extracts code blocks, executes them,
 // and emits events for the code execution result.
 func (p *CodeExecutionResponseProcessor) ProcessResponse(
-	ctx context.Context, invocation *agent.Invocation, req *model.Request, rsp *model.Response, ch chan<- *event.Event) {
+	ctx context.Context, invocation *agent.Invocation, req *compat.Request, rsp *compat.Response, ch chan<- *event.Event) {
 	if invocation == nil || rsp == nil || rsp.IsPartial {
 		return
 	}
@@ -82,14 +82,14 @@ func (p *CodeExecutionResponseProcessor) ProcessResponse(
 	agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithResponse(&model.Response{
-			Choices: []model.Choice{
+		event.WithResponse(&compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{Role: model.RoleAssistant, Content: truncatedContent},
+					Message: compat.Message{Role: compat.RoleAssistant, Content: truncatedContent},
 				},
 			},
 		}),
-		event.WithObject(model.ObjectTypePostprocessingCodeExecution),
+		event.WithObject(compat.ObjectTypePostprocessingCodeExecution),
 		event.WithTag(event.CodeExecutionTag),
 	))
 
@@ -101,14 +101,14 @@ func (p *CodeExecutionResponseProcessor) ProcessResponse(
 		agent.EmitEvent(ctx, invocation, ch, event.New(
 			invocation.InvocationID,
 			invocation.AgentName,
-			event.WithResponse(&model.Response{
-				Choices: []model.Choice{
+			event.WithResponse(&compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{Role: model.RoleAssistant, Content: "Code execution failed: " + err.Error()},
+						Message: compat.Message{Role: compat.RoleAssistant, Content: "Code execution failed: " + err.Error()},
 					},
 				},
 			}),
-			event.WithObject(model.ObjectTypePostprocessingCodeExecution),
+			event.WithObject(compat.ObjectTypePostprocessingCodeExecution),
 			event.WithTag(event.CodeExecutionResultTag), // Add tag for error result
 		))
 		return
@@ -116,14 +116,14 @@ func (p *CodeExecutionResponseProcessor) ProcessResponse(
 	agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithResponse(&model.Response{
-			Choices: []model.Choice{
+		event.WithResponse(&compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{Role: model.RoleAssistant, Content: codeExecutionResult.String()},
+					Message: compat.Message{Role: compat.RoleAssistant, Content: codeExecutionResult.String()},
 				},
 			},
 		}),
-		event.WithObject(model.ObjectTypePostprocessingCodeExecution),
+		event.WithObject(compat.ObjectTypePostprocessingCodeExecution),
 		event.WithTag(event.CodeExecutionResultTag),
 	))
 	//  [Step 3] Skip processing the original model response to continue code generation loop.

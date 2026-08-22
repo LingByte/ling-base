@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -133,7 +133,7 @@ func TestA2AAgent_CandidateCookieRotationIsPrivateAndCommitsWinner(t *testing.T)
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("question"),
+		compat.NewUserMessage("question"),
 	)
 	require.NoError(t, err)
 	var emitted []*event.Event

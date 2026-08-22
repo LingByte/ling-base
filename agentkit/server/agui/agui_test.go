@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	aguirunner "github.com/LingByte/ling-base/agentkit/server/agui/runner"
@@ -81,7 +81,7 @@ func TestEndToEndServerSendsSSEEvents(t *testing.T) {
 	assert.Equal(t, 1, agent.runCalls)
 	assert.NotNil(t, agent.lastInvocation)
 	assert.Equal(t, "hi there", agent.lastInvocation.Message.Content)
-	assert.Equal(t, model.RoleUser, agent.lastInvocation.Message.Role)
+	assert.Equal(t, compat.RoleUser, agent.lastInvocation.Message.Role)
 }
 
 func TestCustomRunnerDisconnectReleasesInnerSessionKey(t *testing.T) {
@@ -119,9 +119,9 @@ func testCustomRunnerDisconnectReleasesInnerSessionKey(t *testing.T, cancelOnCon
 		events <- event.NewResponseEvent(
 			invocation.InvocationID,
 			invocation.AgentName,
-			&model.Response{
+			&compat.Response{
 				ID:     "completion",
-				Object: model.ObjectTypeRunnerCompletion,
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 		)
@@ -213,25 +213,25 @@ func TestWithToolCallDeltaStreamingEnabledPropagatesToRunner(t *testing.T) {
 		go func() {
 			defer close(ch)
 			toolIndex := 0
-			ch <- event.NewResponseEvent(invocation.InvocationID, invocation.AgentName, &model.Response{
+			ch <- event.NewResponseEvent(invocation.InvocationID, invocation.AgentName, &compat.Response{
 				ID:        "msg-tool",
-				Object:    model.ObjectTypeChatCompletionChunk,
+				Object:    compat.ObjectTypeChatCompletionChunk,
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{ToolCalls: []model.ToolCall{{
+				Choices: []compat.Choice{{
+					Delta: compat.Message{ToolCalls: []compat.ToolCall{{
 						ID:    "call-1",
 						Type:  "function",
 						Index: &toolIndex,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "create_document",
 							Arguments: []byte(`{"content":"draft"}`),
 						},
 					}}},
 				}},
 			})
-			ch <- event.NewResponseEvent(invocation.InvocationID, invocation.AgentName, &model.Response{
+			ch <- event.NewResponseEvent(invocation.InvocationID, invocation.AgentName, &compat.Response{
 				ID:     "msg-run-completion",
-				Object: model.ObjectTypeRunnerCompletion,
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			})
 		}()
@@ -657,20 +657,20 @@ func (a *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 	ch := make(chan *event.Event, 2)
 	go func() {
 		defer close(ch)
-		chunk := &model.Response{
+		chunk := &compat.Response{
 			ID:        "msg-1",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "hello"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 			}},
 		}
-		final := &model.Response{
+		final := &compat.Response{
 			ID:     "msg-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant},
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant},
 			}},
 		}
 		ch <- event.NewResponseEvent(invocation.InvocationID, invocation.AgentName, chunk)

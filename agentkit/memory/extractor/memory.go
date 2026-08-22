@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/assistantmemory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/updatepolicy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/prompt"
 )
 
@@ -43,7 +43,7 @@ const (
 
 // memoryExtractor implements the MemoryExtractor interface.
 type memoryExtractor struct {
-	model    model.Model
+	model    compat.Model
 	prompt   string
 	checkers []Checker
 
@@ -53,7 +53,7 @@ type memoryExtractor struct {
 	enabledTools map[string]struct{}
 
 	// modelCallbacks configures before/after model callbacks for extraction.
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 }
 
 // Option is a function that configures a MemoryExtractor.
@@ -83,7 +83,7 @@ func WithChecker(c Checker) Option {
 
 // WithModelCallbacks sets model callbacks for memory extraction.
 // Only structured callbacks are supported.
-func WithModelCallbacks(callbacks *model.Callbacks) Option {
+func WithModelCallbacks(callbacks *compat.Callbacks) Option {
 	return func(e *memoryExtractor) {
 		e.modelCallbacks = callbacks
 	}
@@ -101,7 +101,7 @@ func WithCheckersAny(checks ...Checker) Option {
 }
 
 // NewExtractor creates a new memory extractor.
-func NewExtractor(m model.Model, opts ...Option) MemoryExtractor {
+func NewExtractor(m compat.Model, opts ...Option) MemoryExtractor {
 	e := &memoryExtractor{
 		model:  m,
 		prompt: defaultPrompt,
@@ -115,7 +115,7 @@ func NewExtractor(m model.Model, opts ...Option) MemoryExtractor {
 // Extract analyzes the conversation and returns memory operations.
 func (e *memoryExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*Operation, error) {
 	if e.model == nil {
@@ -144,17 +144,17 @@ func (e *memoryExtractor) Extract(
 
 func (e *memoryExtractor) extractOperations(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*Operation, error) {
-	req := &model.Request{
+	req := &compat.Request{
 		Messages: e.buildMessages(ctx, messages, existing),
 		Tools:    e.extractionTools(),
 	}
 	var ops []*Operation
 	_, err := e.runExtractionRequest(ctx, req, func(
 		callCtx context.Context,
-		call model.ToolCall,
+		call compat.ToolCall,
 	) {
 		if op := e.parseToolCall(callCtx, call); op != nil {
 			ops = append(ops, op)
@@ -168,8 +168,8 @@ func (e *memoryExtractor) extractOperations(
 
 func (e *memoryExtractor) runExtractionRequest(
 	ctx context.Context,
-	req *model.Request,
-	handleCall func(context.Context, model.ToolCall),
+	req *compat.Request,
+	handleCall func(context.Context, compat.ToolCall),
 ) (context.Context, error) {
 	ctx, rspChan, err := e.runBeforeModelCallbacks(ctx, req)
 	if err != nil {
@@ -223,7 +223,7 @@ func (e *memoryExtractor) SetPrompt(prompt string) {
 }
 
 // SetModel updates the extractor's model dynamically.
-func (e *memoryExtractor) SetModel(m model.Model) {
+func (e *memoryExtractor) SetModel(m compat.Model) {
 	if m != nil {
 		e.model = m
 	}
@@ -278,15 +278,15 @@ const extractionUserSuffix = "Extract and manage memories " +
 // buildMessages builds messages for auto memory extraction.
 func (e *memoryExtractor) buildMessages(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
-) []model.Message {
-	result := make([]model.Message, 0, len(messages)+2)
+) []compat.Message {
+	result := make([]compat.Message, 0, len(messages)+2)
 
 	refDate := referenceDate(ctx)
 
 	// Add system prompt with existing memories.
-	result = append(result, model.NewSystemMessage(
+	result = append(result, compat.NewSystemMessage(
 		e.buildSystemPrompt(refDate, existing),
 	))
 
@@ -300,11 +300,11 @@ func (e *memoryExtractor) buildMessages(
 	// carries tool_calls, because inserting a plain user
 	// message between a tool-call request and its results
 	// would violate the tool-result ordering constraint.
-	if last := result[len(result)-1]; last.Role != model.RoleUser &&
-		last.Role != model.RoleTool &&
+	if last := result[len(result)-1]; last.Role != compat.RoleUser &&
+		last.Role != compat.RoleTool &&
 		len(last.ToolCalls) == 0 {
 		result = append(result,
-			model.NewUserMessage(extractionUserSuffix))
+			compat.NewUserMessage(extractionUserSuffix))
 	}
 
 	return result
@@ -411,7 +411,7 @@ func (e *memoryExtractor) availableActionsBlock() string {
 }
 
 // parseToolCall parses a tool call and returns a memory operation.
-func (e *memoryExtractor) parseToolCall(ctx context.Context, call model.ToolCall) *Operation {
+func (e *memoryExtractor) parseToolCall(ctx context.Context, call compat.ToolCall) *Operation {
 	var args map[string]any
 	if err := json.Unmarshal(call.Function.Arguments, &args); err != nil {
 		log.WarnfContext(ctx, "extractor: failed to parse tool args: %v", err)
@@ -426,15 +426,15 @@ func (e *memoryExtractor) parseToolCall(ctx context.Context, call model.ToolCall
 
 func (e *memoryExtractor) runBeforeModelCallbacks(
 	ctx context.Context,
-	request *model.Request,
-) (context.Context, <-chan *model.Response, error) {
+	request *compat.Request,
+) (context.Context, <-chan *compat.Response, error) {
 	if e.modelCallbacks == nil {
 		return ctx, nil, nil
 	}
 
 	result, err := e.modelCallbacks.RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: request},
+		&compat.BeforeModelArgs{Request: request},
 	)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("before model callback failed: %w", err)
@@ -446,13 +446,13 @@ func (e *memoryExtractor) runBeforeModelCallbacks(
 		return ctx, nil, nil
 	}
 
-	customChan := make(chan *model.Response, 1)
+	customChan := make(chan *compat.Response, 1)
 	customChan <- result.CustomResponse
 	close(customChan)
 	return ctx, customChan, nil
 }
 
-func modelErrFromResponse(resp *model.Response) error {
+func modelErrFromResponse(resp *compat.Response) error {
 	if resp == nil || resp.Error == nil {
 		return nil
 	}
@@ -461,16 +461,16 @@ func modelErrFromResponse(resp *model.Response) error {
 
 func (e *memoryExtractor) runAfterModelCallbacks(
 	ctx context.Context,
-	request *model.Request,
-	response *model.Response,
-) (context.Context, *model.Response, error) {
+	request *compat.Request,
+	response *compat.Response,
+) (context.Context, *compat.Response, error) {
 	if e.modelCallbacks == nil {
 		return ctx, response, nil
 	}
 
 	result, err := e.modelCallbacks.RunAfterModel(
 		ctx,
-		&model.AfterModelArgs{
+		&compat.AfterModelArgs{
 			Request:  request,
 			Response: response,
 			Error:    modelErrFromResponse(response),

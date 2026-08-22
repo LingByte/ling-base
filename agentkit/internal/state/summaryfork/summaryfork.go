@@ -14,7 +14,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/internal/jsonmap"
 	"github.com/LingByte/ling-base/agentkit/internal/state/statecopy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -24,11 +24,11 @@ const stateKey = "trpc_agent.summary.cache_safe_fork_request"
 // generic state cloner. Mutations must replace the holder instead of changing
 // the stored request in place.
 type invocationState struct {
-	request *model.Request
+	request *compat.Request
 }
 
 // Attach stores a snapshot of the parent model request on the invocation.
-func Attach(inv *agent.Invocation, req *model.Request) {
+func Attach(inv *agent.Invocation, req *compat.Request) {
 	if inv == nil || req == nil {
 		return
 	}
@@ -36,7 +36,7 @@ func Attach(inv *agent.Invocation, req *model.Request) {
 }
 
 // Request returns a snapshot of the parent model request, if one exists.
-func Request(inv *agent.Invocation) (*model.Request, bool) {
+func Request(inv *agent.Invocation) (*compat.Request, bool) {
 	state, ok := agent.GetStateValue[*invocationState](inv, stateKey)
 	if !ok || state == nil || state.request == nil {
 		return nil, false
@@ -55,7 +55,7 @@ func Invalidate(inv *agent.Invocation) {
 
 // AppendResponse appends persisted response messages to the stored request
 // snapshot. It is a no-op when no snapshot is present.
-func AppendResponse(inv *agent.Invocation, rsp *model.Response) {
+func AppendResponse(inv *agent.Invocation, rsp *compat.Response) {
 	state, ok := agent.GetStateValue[*invocationState](inv, stateKey)
 	if !ok || state == nil || state.request == nil || rsp == nil {
 		return
@@ -70,13 +70,13 @@ func AppendResponse(inv *agent.Invocation, rsp *model.Response) {
 	inv.SetState(stateKey, &invocationState{request: next})
 }
 
-func responseMessages(rsp *model.Response) []model.Message {
+func responseMessages(rsp *compat.Response) []compat.Message {
 	choice, ok := primaryChoice(rsp)
 	if !ok {
 		return nil
 	}
 
-	var messages []model.Message
+	var messages []compat.Message
 	if messageHasPayloadForFork(choice.Message) {
 		messages = append(messages, choice.Message)
 		return messages
@@ -87,9 +87,9 @@ func responseMessages(rsp *model.Response) []model.Message {
 	return messages
 }
 
-func primaryChoice(rsp *model.Response) (model.Choice, bool) {
+func primaryChoice(rsp *compat.Response) (compat.Choice, bool) {
 	if rsp == nil || len(rsp.Choices) == 0 {
-		return model.Choice{}, false
+		return compat.Choice{}, false
 	}
 	for _, choice := range rsp.Choices {
 		if choice.Index == 0 {
@@ -99,14 +99,14 @@ func primaryChoice(rsp *model.Response) (model.Choice, bool) {
 	return rsp.Choices[0], true
 }
 
-func messageHasPayloadForFork(msg model.Message) bool {
-	return model.HasPayload(msg) ||
+func messageHasPayloadForFork(msg compat.Message) bool {
+	return compat.HasPayload(msg) ||
 		len(msg.ToolCalls) > 0 ||
 		msg.ToolID != "" ||
 		msg.ToolName != ""
 }
 
-func cloneRequest(req *model.Request) *model.Request {
+func cloneRequest(req *compat.Request) *compat.Request {
 	if req == nil {
 		return nil
 	}
@@ -117,11 +117,13 @@ func cloneRequest(req *model.Request) *model.Request {
 	cloned.StructuredOutput = cloneStructuredOutput(req.StructuredOutput)
 	cloned.ExtraFields = jsonmap.Clone(req.ExtraFields)
 	cloned.Headers = cloneHeaders(req.Headers)
-	cloned.Tools = cloneTools(req.Tools)
+	if reqTools, ok := req.Tools.(map[string]tool.Tool); ok {
+		cloned.Tools = cloneTools(reqTools)
+	}
 	return &cloned
 }
 
-func cloneGenerationConfig(cfg model.GenerationConfig) model.GenerationConfig {
+func cloneGenerationConfig(cfg compat.GenerationConfig) compat.GenerationConfig {
 	cloned := cfg
 	cloned.Stop = append([]string(nil), cfg.Stop...)
 	cloned.MaxTokens = clonePtr(cfg.MaxTokens)
@@ -146,7 +148,7 @@ func clonePtr[T any](v *T) *T {
 	return &c
 }
 
-func cloneStructuredOutput(out *model.StructuredOutput) *model.StructuredOutput {
+func cloneStructuredOutput(out *compat.StructuredOutput) *compat.StructuredOutput {
 	if out == nil {
 		return nil
 	}

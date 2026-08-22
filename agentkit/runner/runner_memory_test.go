@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -161,7 +161,7 @@ func TestRunner_WithMemoryService_AutoMemoryIntegration(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	eventCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	eventCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	for range eventCh {
@@ -210,7 +210,7 @@ func TestRunner_NewRunInvocationSetsMemoryReader(t *testing.T) {
 
 		inv := r.newRunInvocation(
 			session.NewSession("app", "user", "session"),
-			model.NewUserMessage("hello"),
+			compat.NewUserMessage("hello"),
 			&mockAgent{name: "test-agent"},
 			agent.RunOptions{},
 			"app",
@@ -231,7 +231,7 @@ func TestRunner_NewRunInvocationSetsMemoryReader(t *testing.T) {
 
 		inv := r.newRunInvocation(
 			session.NewSession("app", "user", "session"),
-			model.NewUserMessage("hello"),
+			compat.NewUserMessage("hello"),
 			&mockAgent{name: "test-agent"},
 			agent.RunOptions{},
 			"app",
@@ -255,7 +255,7 @@ func TestRunner_WithSessionIngestor_Integration(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	eventCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	eventCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	for range eventCh {

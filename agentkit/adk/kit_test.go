@@ -14,7 +14,6 @@ import (
 	goembed "github.com/LingByte/ling-base/agentkit/memory/goembed"
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	"github.com/LingByte/ling-base/agentkit/memory/gosession"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 )
 
 const (
@@ -68,13 +67,13 @@ func TestKitBuildAgent(t *testing.T) {
 
 	ctx := context.Background()
 
-	researcherModel := gomodel.NewDummyLLM("Researcher reply:")
+	researcherModel := agent.NewDummyModel("Researcher reply:")
 
 	memoryOpts := DefaultMemoryOptions()
 	kitInstance, err := adk.New(ctx,
 		adk.WithDefaultContextLimit(6),
 		adk.WithModules(
-			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(agent.NewDummyModel("Coordinator:"))),
 			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
 			kitmodules.NewSubAgentModule("researcher", kitmodules.StaticSubAgentProvider([]agent.SubAgent{subagents.NewResearcher(researcherModel)}, nil)),
 		),
@@ -113,13 +112,13 @@ func TestKitWithSubAgentsOption(t *testing.T) {
 
 	ctx := context.Background()
 
-	researcherModel := gomodel.NewDummyLLM("Researcher reply:")
+	researcherModel := agent.NewDummyModel("Researcher reply:")
 	memoryOpts := DefaultMemoryOptions()
 
 	kitInstance, err := adk.New(ctx,
 		adk.WithDefaultContextLimit(6),
 		adk.WithModules(
-			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(agent.NewDummyModel("Coordinator:"))),
 			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
 		),
 		adk.WithSubAgents(subagents.NewResearcher(researcherModel)),
@@ -150,7 +149,7 @@ func TestKitSharedSession(t *testing.T) {
 	memoryOpts := DefaultMemoryOptions()
 	kitInstance, err := adk.New(ctx,
 		adk.WithModules(
-			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(gomodel.NewDummyLLM("Coordinator:"))),
+			kitmodules.NewModelModule("coordinator", kitmodules.StaticModelProvider(agent.NewDummyModel("Coordinator:"))),
 			kitmodules.InMemoryMemoryModule(4, goembed.DummyEmbedder{}, &memoryOpts),
 		),
 	)

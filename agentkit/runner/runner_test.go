@@ -43,8 +43,8 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/steer"
 	runnerlog "github.com/LingByte/ling-base/common/logger"
 	memoryinmemory "github.com/LingByte/ling-base/agentkit/memory/inmemory"
-	"github.com/LingByte/ling-base/agentkit/model"
-	"github.com/LingByte/ling-base/agentkit/model/openai"
+	compat "github.com/LingByte/ling-base/relay/compat"
+	"github.com/LingByte/ling-base/agentkit/relaymodel"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -76,7 +76,7 @@ func TestRunnerRejectsSkillLoadsForUnsupportedAgent(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 
@@ -93,7 +93,7 @@ func TestRunnerRejectsRepositoryProviderWithoutSkillLoadSupport(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 
@@ -134,15 +134,15 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 
 	// Create a mock response event.
 	responseEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "test-response",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Hello! I received your message: " + invocation.Message.Content,
 					},
 				},
@@ -166,7 +166,7 @@ func (m *mockAgent) Tools() []tool.Tool {
 
 type capturingRoleAgent struct {
 	name         string
-	capturedRole model.Role
+	capturedRole compat.Role
 }
 
 func (m *capturingRoleAgent) Info() agent.Info {
@@ -197,7 +197,7 @@ func (m *capturingRoleAgent) Tools() []tool.Tool {
 
 type capturingInvocationMessagesAgent struct {
 	name              string
-	invocationMessage model.Message
+	invocationMessage compat.Message
 }
 
 func (m *capturingInvocationMessagesAgent) Info() agent.Info {
@@ -229,7 +229,7 @@ func (m *capturingInvocationMessagesAgent) Tools() []tool.Tool {
 type staticModel struct {
 	name    string
 	content string
-	usage   *model.Usage
+	usage   *compat.Usage
 }
 
 type unsupportedSteerRunner struct{}
@@ -238,7 +238,7 @@ func (unsupportedSteerRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event)
@@ -259,16 +259,16 @@ const staticModelResponseIDPrefix = "static-model-response-"
 
 func (m *staticModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:        staticModelResponseIDPrefix + m.name,
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 		Usage: m.usage,
 	}
@@ -276,27 +276,27 @@ func (m *staticModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *staticModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *staticModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 func (m *emptyIDModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:        "",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *emptyIDModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *emptyIDModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 type runnerStructuredOutputTypedPayload struct {
 	Answer string `json:"answer"`
@@ -321,14 +321,14 @@ type realStructuredOutputMapPayload struct {
 }
 
 type capturedModelRequest struct {
-	messages         []model.Message
-	structuredOutput *model.StructuredOutput
+	messages         []compat.Message
+	structuredOutput *compat.StructuredOutput
 	toolNames        []string
 }
 
 type sequentialModel struct {
 	name      string
-	responses []*model.Response
+	responses []*compat.Response
 
 	mu       sync.Mutex
 	requests []*capturedModelRequest
@@ -337,8 +337,8 @@ type sequentialModel struct {
 
 func (m *sequentialModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -359,14 +359,14 @@ func (m *sequentialModel) GenerateContent(
 	resp := m.responses[m.nextIdx]
 	m.nextIdx++
 
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- resp
 	close(ch)
 	return ch, nil
 }
 
-func (m *sequentialModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *sequentialModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *sequentialModel) Requests() []*capturedModelRequest {
@@ -385,28 +385,28 @@ type capturingStructuredOutputModel struct {
 
 func (m *capturingStructuredOutputModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.requests = append(m.requests, cloneCapturedModelRequest(req))
 	m.mu.Unlock()
 
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:        staticModelResponseIDPrefix + m.name,
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(m.content),
+			Message: compat.NewAssistantMessage(m.content),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *capturingStructuredOutputModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *capturingStructuredOutputModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *capturingStructuredOutputModel) LatestRequest() *capturedModelRequest {
@@ -418,14 +418,14 @@ func (m *capturingStructuredOutputModel) LatestRequest() *capturedModelRequest {
 	return m.requests[len(m.requests)-1]
 }
 
-func cloneCapturedModelRequest(req *model.Request) *capturedModelRequest {
+func cloneCapturedModelRequest(req *compat.Request) *capturedModelRequest {
 	if req == nil {
 		return nil
 	}
 	cloned := &capturedModelRequest{
-		messages: append([]model.Message(nil), req.Messages...),
+		messages: append([]compat.Message(nil), req.Messages...),
 	}
-	for name := range req.Tools {
+	for name := range req.Tools.(map[string]tool.Tool) {
 		cloned.toolNames = append(cloned.toolNames, name)
 	}
 	sort.Strings(cloned.toolNames)
@@ -444,11 +444,11 @@ func TestRunnerRunWithSkillLoadsMaterializesFirstRequest(t *testing.T) {
 	repo := createRunnerDeclaredSkillRepository(t)
 	modelStub := &sequentialModel{
 		name: "declared-skill",
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			ID:   "declared-skill-response",
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("done"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		}},
 	}
@@ -476,7 +476,7 @@ func TestRunnerRunWithSkillLoadsMaterializesFirstRequest(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("review this"),
+		compat.NewUserMessage("review this"),
 		agent.WithSkillLoads(skill.LoadRequest{
 			Name: "review",
 			Docs: []string{"guide.md"},
@@ -521,13 +521,13 @@ func TestRunnerWrappersPreserveSkillLoads(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			responses := make([]*model.Response, test.requests)
+			responses := make([]*compat.Response, test.requests)
 			for i := range responses {
-				responses[i] = &model.Response{
+				responses[i] = &compat.Response{
 					ID:   fmt.Sprintf("%s-%d", test.name, i),
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage(test.response),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage(test.response),
 					}},
 				}
 			}
@@ -546,7 +546,7 @@ func TestRunnerWrappersPreserveSkillLoads(t *testing.T) {
 				context.Background(),
 				"user",
 				"session",
-				model.NewUserMessage("review"),
+				compat.NewUserMessage("review"),
 				agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 			)
 			require.NoError(t, err)
@@ -569,19 +569,19 @@ func TestRunnerWrappersPreserveSkillLoads(t *testing.T) {
 func TestRunnerRalphLoopPreservesSkillLoadsAcrossIterations(t *testing.T) {
 	modelStub := &sequentialModel{
 		name: "ralph-multi-iteration",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:   "ralph-working",
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("still working"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("still working"),
 				}},
 			},
 			{
 				ID:   "ralph-done",
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(
 						"<promise>DONE</promise>",
 					),
 				}},
@@ -606,7 +606,7 @@ func TestRunnerRalphLoopPreservesSkillLoadsAcrossIterations(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("review"),
+		compat.NewUserMessage("review"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 	require.NoError(t, err)
@@ -626,22 +626,22 @@ func TestRunnerRalphLoopPreservesSkillLoadsAcrossIterations(t *testing.T) {
 
 func TestRunnerNestedCandidateAndRalphPreserveSkillLoads(t *testing.T) {
 	const attempts = 2
-	responses := make([]*model.Response, 0, attempts*2)
+	responses := make([]*compat.Response, 0, attempts*2)
 	for i := 0; i < attempts; i++ {
 		responses = append(
 			responses,
-			&model.Response{
+			&compat.Response{
 				ID:   fmt.Sprintf("candidate-%d-working", i),
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("still working"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("still working"),
 				}},
 			},
-			&model.Response{
+			&compat.Response{
 				ID:   fmt.Sprintf("candidate-%d-done", i),
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(
 						"<promise>DONE</promise>",
 					),
 				}},
@@ -674,7 +674,7 @@ func TestRunnerNestedCandidateAndRalphPreserveSkillLoads(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("review"),
+		compat.NewUserMessage("review"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 	require.NoError(t, err)
@@ -711,7 +711,7 @@ func TestRunnerWrappersRejectInvalidSkillBeforeModelRequest(t *testing.T) {
 				&fixedCandidateSelector{winner: 0},
 				WithCandidateAttempts(2),
 			),
-			errorType: model.ErrorTypeRunError,
+			errorType: compat.ErrorTypeRunError,
 		},
 	}
 	for _, test := range tests {
@@ -728,11 +728,11 @@ func TestRunnerWrappersRejectInvalidSkillBeforeModelRequest(t *testing.T) {
 				context.Background(),
 				"user",
 				"session",
-				model.NewUserMessage("review"),
+				compat.NewUserMessage("review"),
 				agent.WithSkillLoads(skill.LoadRequest{Name: "missing"}),
 			)
 			require.NoError(t, err)
-			var skillLoadError *model.ResponseError
+			var skillLoadError *compat.ResponseError
 			for evt := range events {
 				if evt != nil && evt.Response != nil &&
 					evt.Response.Error != nil &&
@@ -777,7 +777,7 @@ func TestRunnerRejectsSkillLoadsForLazyRootBeforeFactoryRun(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("review"),
+		compat.NewUserMessage("review"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 
@@ -789,11 +789,11 @@ func TestRunnerRejectsSkillLoadsForLazyRootBeforeFactoryRun(t *testing.T) {
 func TestRunnerAgentFactorySupportsSkillLoads(t *testing.T) {
 	modelStub := &sequentialModel{
 		name: "factory-root",
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			ID:   "factory-root-response",
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("done"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		}},
 	}
@@ -816,7 +816,7 @@ func TestRunnerAgentFactorySupportsSkillLoads(t *testing.T) {
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("review"),
+		compat.NewUserMessage("review"),
 		agent.WithSkillLoads(skill.LoadRequest{Name: "review"}),
 	)
 	require.NoError(t, err)
@@ -832,9 +832,9 @@ func TestRunnerAgentFactorySupportsSkillLoads(t *testing.T) {
 	)
 }
 
-func firstSystemMessageContent(messages []model.Message) string {
+func firstSystemMessageContent(messages []compat.Message) string {
 	for _, msg := range messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			return msg.Content
 		}
 	}
@@ -842,8 +842,8 @@ func firstSystemMessageContent(messages []model.Message) string {
 }
 
 func findMessageIndex(
-	messages []model.Message,
-	match func(model.Message) bool,
+	messages []compat.Message,
+	match func(compat.Message) bool,
 ) int {
 	for i, message := range messages {
 		if match(message) {
@@ -867,38 +867,38 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err := EnqueueUserMessage(
 		unsupportedSteerRunner{},
 		"req-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.ErrorIs(t, err, ErrQueuedUserMessageUnsupported)
 
 	ag := &mockAgent{name: "runner-agent"}
 	r := NewRunner("runner-steer-errors", ag)
 
-	err = EnqueueUserMessage(r, "", model.NewUserMessage("hello"))
+	err = EnqueueUserMessage(r, "", compat.NewUserMessage("hello"))
 	require.EqualError(t, err, "runner: empty request id")
 
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.NewAssistantMessage("no"),
+		compat.NewAssistantMessage("no"),
 	)
 	require.ErrorIs(t, err, ErrInvalidQueuedUserMessage)
 
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{Role: model.RoleUser},
+		compat.Message{Role: compat.RoleUser},
 	)
 	require.ErrorIs(t, err, ErrInvalidQueuedUserMessage)
 
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeImage,
-				Image: &model.Image{URL: " "},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeImage,
+				Image: &compat.Image{URL: " "},
 			}},
 		},
 	)
@@ -907,11 +907,11 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeVideo,
-				Video: &model.Video{URL: " "},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeVideo,
+				Video: &compat.Video{URL: " "},
 			}},
 		},
 	)
@@ -921,10 +921,10 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &textPart,
 			}},
 		},
@@ -934,11 +934,11 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeVideo,
-				Video: &model.Video{URL: "https://example.com/video.mp4"},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeVideo,
+				Video: &compat.Video{URL: "https://example.com/video.mp4"},
 			}},
 		},
 	)
@@ -947,11 +947,11 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeVideo,
-				Video: &model.Video{Data: []byte("video")},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeVideo,
+				Video: &compat.Video{Data: []byte("video")},
 			}},
 		},
 	)
@@ -960,11 +960,11 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeAudio,
-				Audio: &model.Audio{URL: "https://example.com/audio.mp3"},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeAudio,
+				Audio: &compat.Audio{URL: "https://example.com/audio.mp3"},
 			}},
 		},
 	)
@@ -973,7 +973,7 @@ func TestEnqueueUserMessage_Errors(t *testing.T) {
 	err = EnqueueUserMessage(
 		r,
 		"req-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.ErrorIs(t, err, ErrRunNotFound)
 }
@@ -1003,18 +1003,18 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 
 	modelStub := &sequentialModel{
 		name: "sequential-steer-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:   "resp-tool-call",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID:   "tool-call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      toolName,
 								Arguments: []byte(`{"topic":"alpha"}`),
 							},
@@ -1024,9 +1024,9 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 			},
 			{
 				ID: "resp-final",
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage(finalAnswer),
+					Message: compat.NewAssistantMessage(finalAnswer),
 				}},
 				Done: true,
 			},
@@ -1050,12 +1050,12 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 				EnqueueUserMessage(
 					runnerInstance,
 					requestID,
-					model.NewUserMessage(steerQuestionOne),
+					compat.NewUserMessage(steerQuestionOne),
 				),
 				EnqueueUserMessage(
 					runnerInstance,
 					requestID,
-					model.Message{Content: steerQuestionTwo},
+					compat.Message{Content: steerQuestionTwo},
 				),
 			)
 			enqueueMu.Unlock()
@@ -1079,7 +1079,7 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage(initialQuestion),
+		compat.NewUserMessage(initialQuestion),
 		agent.WithRequestID(requestID),
 	)
 	require.NoError(t, err)
@@ -1117,23 +1117,23 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 
 	initialIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleUser &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleUser &&
 				message.Content == initialQuestion
 		},
 	)
 	toolCallIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleAssistant &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleAssistant &&
 				len(message.ToolCalls) == 1 &&
 				message.ToolCalls[0].Function.Name == toolName
 		},
 	)
 	toolResultIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleTool &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleTool &&
 				message.ToolID == "tool-call-1" &&
 				message.ToolName == toolName &&
 				message.Content != ""
@@ -1141,15 +1141,15 @@ func TestRunner_EnqueueUserMessage_ConsumesAtSafeBoundary(
 	)
 	steerOneIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleUser &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleUser &&
 				message.Content == steerQuestionOne
 		},
 	)
 	steerTwoIdx := findMessageIndex(
 		secondRequest.messages,
-		func(message model.Message) bool {
-			return message.Role == model.RoleUser &&
+		func(message compat.Message) bool {
+			return message.Role == compat.RoleUser &&
 				message.Content == steerQuestionTwo
 		},
 	)
@@ -1189,7 +1189,7 @@ func TestRunner_EnqueueUserMessage_ClosingRunReturnsNotFound(
 
 	err = rr.EnqueueUserMessage(
 		"req-closing",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.ErrorIs(t, err, ErrRunNotFound)
 }
@@ -1209,7 +1209,7 @@ func runRunnerWithTypedStructuredOutput(
 		context.Background(),
 		"user-wrapper",
 		"session-wrapper",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithStructuredOutputJSON(
 			new(runnerStructuredOutputTypedPayload),
 			true,
@@ -1244,7 +1244,7 @@ func TestRunner_Run_WithRunStructuredOutputJSON_InjectsSchemaAndEmitsTypedPayloa
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithStructuredOutputJSON(
 			new(runnerStructuredOutputTypedPayload),
 			true,
@@ -1262,7 +1262,7 @@ func TestRunner_Run_WithRunStructuredOutputJSON_InjectsSchemaAndEmitsTypedPayloa
 	captured := modelImpl.LatestRequest()
 	require.NotNil(t, captured, "expected one model request to be captured")
 	require.NotNil(t, captured.structuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, captured.structuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, captured.structuredOutput.Type)
 	require.NotNil(t, captured.structuredOutput.JSONSchema)
 	require.Equal(t, "runnerStructuredOutputTypedPayload", captured.structuredOutput.JSONSchema.Name)
 	require.True(t, captured.structuredOutput.JSONSchema.Strict)
@@ -1308,7 +1308,7 @@ func TestRunner_Run_WithRunStructuredOutputJSONSchema_InjectsSchemaAndEmitsUntyp
 		context.Background(),
 		"user-2",
 		"session-2",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithStructuredOutputJSONSchema(
 			"runtime_output",
 			schema,
@@ -1327,7 +1327,7 @@ func TestRunner_Run_WithRunStructuredOutputJSONSchema_InjectsSchemaAndEmitsUntyp
 	captured := modelImpl.LatestRequest()
 	require.NotNil(t, captured, "expected one model request to be captured")
 	require.NotNil(t, captured.structuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, captured.structuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, captured.structuredOutput.Type)
 	require.NotNil(t, captured.structuredOutput.JSONSchema)
 	require.Equal(t, "runtime_output", captured.structuredOutput.JSONSchema.Name)
 	require.True(t, captured.structuredOutput.JSONSchema.Strict)
@@ -1414,15 +1414,15 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsPointerSliceAndArrayFiel
 	baseURL := os.Getenv("OPENAI_BASE_URL")
 	temperature := 0.0
 	maxTokens := 200
-	modelOptions := []openai.Option{openai.WithAPIKey(apiKey)}
+	modelOptions := []relaymodel.Option{relaymodel.WithAPIKey(apiKey)}
 	if baseURL != "" {
-		modelOptions = append(modelOptions, openai.WithBaseURL(baseURL))
+		modelOptions = append(modelOptions, relaymodel.WithBaseURL(baseURL))
 	}
-	modelInstance := openai.New("gpt-4o-mini", modelOptions...)
+	modelInstance := relaymodel.New("gpt-4o-mini", modelOptions...)
 	ag := llmagent.New(
 		"real-complex-structured-output-agent",
 		llmagent.WithModel(modelInstance),
-		llmagent.WithGenerationConfig(model.GenerationConfig{
+		llmagent.WithGenerationConfig(compat.GenerationConfig{
 			MaxTokens:   &maxTokens,
 			Temperature: &temperature,
 			Stream:      false,
@@ -1442,7 +1442,7 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsPointerSliceAndArrayFiel
 		ctx,
 		"user-real-complex",
 		"session-real-complex",
-		model.NewUserMessage(
+		compat.NewUserMessage(
 			"Return a JSON object that exactly matches the schema and uses exactly these values: "+
 				`answer="ok", detail.city="shenzhen", detail.codes=[1,2], tags=["alpha","beta"], scores=[7,9].`,
 		),
@@ -1480,15 +1480,15 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsPointerSliceAndArrayFiel
 	baseURL := os.Getenv("OPENAI_BASE_URL")
 	temperature := 0.0
 	maxTokens := 200
-	modelOptions := []openai.Option{openai.WithAPIKey(apiKey)}
+	modelOptions := []relaymodel.Option{relaymodel.WithAPIKey(apiKey)}
 	if baseURL != "" {
-		modelOptions = append(modelOptions, openai.WithBaseURL(baseURL))
+		modelOptions = append(modelOptions, relaymodel.WithBaseURL(baseURL))
 	}
-	modelInstance := openai.New("gpt-4o-mini", modelOptions...)
+	modelInstance := relaymodel.New("gpt-4o-mini", modelOptions...)
 	ag := llmagent.New(
 		"real-complex-structured-output-nonstrict-agent",
 		llmagent.WithModel(modelInstance),
-		llmagent.WithGenerationConfig(model.GenerationConfig{
+		llmagent.WithGenerationConfig(compat.GenerationConfig{
 			MaxTokens:   &maxTokens,
 			Temperature: &temperature,
 			Stream:      false,
@@ -1508,7 +1508,7 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsPointerSliceAndArrayFiel
 		ctx,
 		"user-real-complex-nonstrict",
 		"session-real-complex-nonstrict",
-		model.NewUserMessage(
+		compat.NewUserMessage(
 			"Return a JSON object that exactly matches the schema and uses exactly these values: "+
 				`answer="ok", detail.city="shenzhen", detail.codes=[1,2], tags=["alpha","beta"], scores=[7,9].`,
 		),
@@ -1546,15 +1546,15 @@ func TestRunner_Run_WithRunStructuredOutputJSONSchema_LegacyNonStrictPointerSlic
 	baseURL := os.Getenv("OPENAI_BASE_URL")
 	temperature := 0.0
 	maxTokens := 200
-	modelOptions := []openai.Option{openai.WithAPIKey(apiKey)}
+	modelOptions := []relaymodel.Option{relaymodel.WithAPIKey(apiKey)}
 	if baseURL != "" {
-		modelOptions = append(modelOptions, openai.WithBaseURL(baseURL))
+		modelOptions = append(modelOptions, relaymodel.WithBaseURL(baseURL))
 	}
-	modelInstance := openai.New("gpt-4o-mini", modelOptions...)
+	modelInstance := relaymodel.New("gpt-4o-mini", modelOptions...)
 	ag := llmagent.New(
 		"real-legacy-complex-structured-output-nonstrict-agent",
 		llmagent.WithModel(modelInstance),
-		llmagent.WithGenerationConfig(model.GenerationConfig{
+		llmagent.WithGenerationConfig(compat.GenerationConfig{
 			MaxTokens:   &maxTokens,
 			Temperature: &temperature,
 			Stream:      false,
@@ -1602,7 +1602,7 @@ func TestRunner_Run_WithRunStructuredOutputJSONSchema_LegacyNonStrictPointerSlic
 		ctx,
 		"user-real-legacy-complex-nonstrict",
 		"session-real-legacy-complex-nonstrict",
-		model.NewUserMessage(
+		compat.NewUserMessage(
 			"Return a JSON object that exactly matches the schema and uses exactly these values: "+
 				`answer="ok", detail.city="shenzhen", detail.codes=[1,2], tags=["alpha","beta"], scores=[7,9].`,
 		),
@@ -1641,15 +1641,15 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsStringMap_RealOpenAI(
 	baseURL := os.Getenv("OPENAI_BASE_URL")
 	temperature := 0.0
 	maxTokens := 200
-	modelOptions := []openai.Option{openai.WithAPIKey(apiKey)}
+	modelOptions := []relaymodel.Option{relaymodel.WithAPIKey(apiKey)}
 	if baseURL != "" {
-		modelOptions = append(modelOptions, openai.WithBaseURL(baseURL))
+		modelOptions = append(modelOptions, relaymodel.WithBaseURL(baseURL))
 	}
-	modelInstance := openai.New("gpt-4o-mini", modelOptions...)
+	modelInstance := relaymodel.New("gpt-4o-mini", modelOptions...)
 	ag := llmagent.New(
 		"real-map-structured-output-agent",
 		llmagent.WithModel(modelInstance),
-		llmagent.WithGenerationConfig(model.GenerationConfig{
+		llmagent.WithGenerationConfig(compat.GenerationConfig{
 			MaxTokens:   &maxTokens,
 			Temperature: &temperature,
 			Stream:      false,
@@ -1669,7 +1669,7 @@ func TestRunner_Run_WithRunStructuredOutputJSON_SupportsStringMap_RealOpenAI(
 		ctx,
 		"user-real-map",
 		"session-real-map",
-		model.NewUserMessage(
+		compat.NewUserMessage(
 			"Return a JSON object that exactly matches the schema and uses exactly these values: "+
 				`answer="ok", labels={"env":"test","region":"sz"}.`,
 		),
@@ -1706,7 +1706,7 @@ func TestRunner_SessionIntegration(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	sessionID := "test-session"
-	message := model.NewUserMessage("Hello, world!")
+	message := compat.NewUserMessage("Hello, world!")
 
 	// Run the agent.
 	eventCh, err := runner.Run(ctx, userID, sessionID, message)
@@ -1763,14 +1763,14 @@ func TestRunnerRun_WarnsOnMessageWithEmptyRole(t *testing.T) {
 
 	ag := &capturingRoleAgent{name: "test-agent"}
 	r := NewRunner("test-app", ag)
-	eventCh, err := r.Run(context.Background(), "user", "session", model.Message{Content: "hello"})
+	eventCh, err := r.Run(context.Background(), "user", "session", compat.Message{Content: "hello"})
 	require.NoError(t, err)
 
 	for range eventCh {
 	}
 
 	assert.Equal(t, 1, warnCalls)
-	assert.Equal(t, model.RoleUser, ag.capturedRole)
+	assert.Equal(t, compat.RoleUser, ag.capturedRole)
 }
 
 func TestRunner_Run_WithEventFilterKey(t *testing.T) {
@@ -1785,7 +1785,7 @@ func TestRunner_Run_WithEventFilterKey(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	sessionID := "test-session"
-	message := model.NewUserMessage("Hello, world!")
+	message := compat.NewUserMessage("Hello, world!")
 	const filterKey = "test-app/role/admin"
 
 	eventCh, err := runner.Run(
@@ -1830,7 +1830,7 @@ func TestRunner_SessionIntegration_MultimodalUserMessage(t *testing.T) {
 	userID := "test-user"
 	sessionID := "test-session-multimodal"
 
-	message := model.Message{Role: model.RoleUser}
+	message := compat.Message{Role: compat.RoleUser}
 	message.AddImageURL("https://example.com/image.png", "auto")
 
 	// Run the agent.
@@ -1861,10 +1861,10 @@ func TestRunner_SessionIntegration_MultimodalUserMessage(t *testing.T) {
 	assert.Equal(t, authorUser, userEvent.Author)
 	require.True(t, userEvent.IsUserMessage())
 	require.Len(t, userEvent.Response.Choices, 1)
-	assert.Equal(t, model.RoleUser, userEvent.Response.Choices[0].Message.Role)
+	assert.Equal(t, compat.RoleUser, userEvent.Response.Choices[0].Message.Role)
 	assert.Empty(t, userEvent.Response.Choices[0].Message.Content)
 	require.Len(t, userEvent.Response.Choices[0].Message.ContentParts, 1)
-	assert.Equal(t, model.ContentTypeImage, userEvent.Response.Choices[0].Message.ContentParts[0].Type)
+	assert.Equal(t, compat.ContentTypeImage, userEvent.Response.Choices[0].Message.ContentParts[0].Type)
 	require.NotNil(t, userEvent.Response.Choices[0].Message.ContentParts[0].Image)
 	assert.Equal(t, "https://example.com/image.png", userEvent.Response.Choices[0].Message.ContentParts[0].Image.URL)
 
@@ -1927,7 +1927,7 @@ func TestRunner_WithPlugins_AppliesHooks(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 	)
 	require.NoError(t, err)
 
@@ -1984,7 +1984,7 @@ func TestRunner_WithPlugins_AfterRunReceivesFinalizedCompletionClone(t *testing.
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -2020,7 +2020,7 @@ func (p *closeableTestPlugin) Close(ctx context.Context) error {
 
 type chainTestPluginManager struct {
 	agentCallbacks *agent.Callbacks
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 	toolCallbacks  *tool.Callbacks
 	eventHook      func(context.Context, *agent.Invocation, *event.Event) (*event.Event, error)
 	afterRunHook   func(context.Context, *plugin.AfterRunArgs) error
@@ -2031,7 +2031,7 @@ func (m *chainTestPluginManager) AgentCallbacks() *agent.Callbacks {
 	return m.agentCallbacks
 }
 
-func (m *chainTestPluginManager) ModelCallbacks() *model.Callbacks {
+func (m *chainTestPluginManager) ModelCallbacks() *compat.Callbacks {
 	return m.modelCallbacks
 }
 
@@ -2102,7 +2102,7 @@ func TestRunner_RunWithPlugins_AppliesAfterRunnerPluginsAndDoesNotClosePlugin(t 
 			context.Background(),
 			"u",
 			sessionID,
-			model.NewUserMessage("hi"),
+			compat.NewUserMessage("hi"),
 			plugin.WithPlugins(runPlugin),
 		)
 		require.NoError(t, err)
@@ -2131,9 +2131,9 @@ func TestPluginManagerChain_RunsCallbacksInManagerOrder(t *testing.T) {
 	require.NoError(t, err)
 	_, err = chain.AgentCallbacks().RunAfterAgent(context.Background(), &agent.AfterAgentArgs{})
 	require.NoError(t, err)
-	_, err = chain.ModelCallbacks().RunBeforeModel(context.Background(), &model.BeforeModelArgs{})
+	_, err = chain.ModelCallbacks().RunBeforeModel(context.Background(), &compat.BeforeModelArgs{})
 	require.NoError(t, err)
-	_, err = chain.ModelCallbacks().RunAfterModel(context.Background(), &model.AfterModelArgs{})
+	_, err = chain.ModelCallbacks().RunAfterModel(context.Background(), &compat.AfterModelArgs{})
 	require.NoError(t, err)
 	_, err = chain.ToolCallbacks().RunBeforeTool(context.Background(), &tool.BeforeToolArgs{})
 	require.NoError(t, err)
@@ -2176,7 +2176,7 @@ func TestPluginManagerChain_ReturnsNilWhenManagersHaveNoCallbacks(t *testing.T) 
 func TestPluginManagerChain_ToolResultMessagesSurvivesMerge(t *testing.T) {
 	toolCallbacks := tool.NewCallbacks()
 	toolCallbacks.RegisterToolResultMessages(func(ctx context.Context, in *tool.ToolResultMessagesInput) (any, error) {
-		return model.NewToolMessage(in.ToolCallID, in.ToolName, "summary"), nil
+		return compat.NewToolMessage(in.ToolCallID, in.ToolName, "summary"), nil
 	})
 	chain := pluginManagerChain{
 		&chainTestPluginManager{},
@@ -2189,7 +2189,7 @@ func TestPluginManagerChain_ToolResultMessagesSurvivesMerge(t *testing.T) {
 		ToolCallID: "call-1",
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.NewToolMessage("call-1", "lookup", "summary"), got)
+	require.Equal(t, compat.NewToolMessage("call-1", "lookup", "summary"), got)
 }
 
 func TestPluginManagerChain_OnEventKeepsEventWhenManagerReturnsNil(t *testing.T) {
@@ -2246,12 +2246,12 @@ func newChainTestPluginManager(name string, order *[]string) *chainTestPluginMan
 		*order = append(*order, name+":after-agent")
 		return nil, nil
 	})
-	modelCallbacks := model.NewCallbacks()
-	modelCallbacks.RegisterBeforeModel(func(context.Context, *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	modelCallbacks := compat.NewCallbacks()
+	modelCallbacks.RegisterBeforeModel(func(context.Context, *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		*order = append(*order, name+":before-model")
 		return nil, nil
 	})
-	modelCallbacks.RegisterAfterModel(func(context.Context, *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	modelCallbacks.RegisterAfterModel(func(context.Context, *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 		*order = append(*order, name+":after-model")
 		return nil, nil
 	})
@@ -2289,7 +2289,7 @@ func TestPluginManagerChain_AfterToolMessagesRunsManagersInOrder(t *testing.T) {
 				order = append(order, "runner:"+args.ToolResultMessages[0].Content)
 				msg := args.ToolResultMessages[0]
 				msg.Content = "runner summary"
-				return &plugin.AfterToolMessagesResult{ToolResultMessages: []model.Message{msg}}, nil
+				return &plugin.AfterToolMessagesResult{ToolResultMessages: []compat.Message{msg}}, nil
 			})
 		},
 	}
@@ -2300,7 +2300,7 @@ func TestPluginManagerChain_AfterToolMessagesRunsManagersInOrder(t *testing.T) {
 				order = append(order, "run:"+args.ToolResultMessages[0].Content)
 				msg := args.ToolResultMessages[0]
 				msg.Content = "run summary"
-				return &plugin.AfterToolMessagesResult{ToolResultMessages: []model.Message{msg}}, nil
+				return &plugin.AfterToolMessagesResult{ToolResultMessages: []compat.Message{msg}}, nil
 			})
 		},
 	}
@@ -2310,19 +2310,19 @@ func TestPluginManagerChain_AfterToolMessagesRunsManagersInOrder(t *testing.T) {
 	)
 	hooks, ok := chain.(afterToolMessagesManager)
 	require.True(t, ok)
-	toolMessage := model.NewToolMessage("call-1", "lookup", "raw")
+	toolMessage := compat.NewToolMessage("call-1", "lookup", "raw")
 	args := &plugin.AfterToolMessagesArgs{
-		ToolResultEvent: event.NewResponseEvent("inv", "agent", &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{
+		ToolResultEvent: event.NewResponseEvent("inv", "agent", &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{
 				{Message: toolMessage},
 			},
 		}),
-		Messages: []model.Message{
-			model.NewUserMessage("hi"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hi"),
 			toolMessage,
 		},
-		ToolResultMessages: []model.Message{toolMessage},
+		ToolResultMessages: []compat.Message{toolMessage},
 	}
 	result, err := hooks.AfterToolMessages(context.Background(), args)
 	require.NoError(t, err)
@@ -2350,8 +2350,8 @@ func TestPluginManagerChain_AfterToolMessagesStopsOnError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterToolMessages(func(context.Context, *plugin.AfterToolMessagesArgs) (*plugin.AfterToolMessagesResult, error) {
 				return &plugin.AfterToolMessagesResult{
-					ToolResultMessages: []model.Message{
-						model.NewToolMessage("call-1", "lookup", "summary"),
+					ToolResultMessages: []compat.Message{
+						compat.NewToolMessage("call-1", "lookup", "summary"),
 					},
 				}, expected
 			})
@@ -2418,7 +2418,7 @@ func TestRunner_applyEventPlugins_ReplacesEventAndCopiesFields(t *testing.T) {
 
 	inv := &agent.Invocation{Plugins: plugin.MustNewManager(p)}
 	orig := &event.Event{
-		Response:           &model.Response{Done: true},
+		Response:           &compat.Response{Done: true},
 		RequestID:          reqID,
 		InvocationID:       invID,
 		ParentInvocationID: parentID,
@@ -2455,7 +2455,7 @@ func TestRunner_applyEventPlugins_ErrorKeepsOriginal(t *testing.T) {
 	run := NewRunner("test-app", ag, WithPlugins(p)).(*runner)
 
 	inv := &agent.Invocation{Plugins: plugin.MustNewManager(p)}
-	orig := &event.Event{Response: &model.Response{Done: true}}
+	orig := &event.Event{Response: &compat.Response{Done: true}}
 	out := run.applyEventPlugins(context.Background(), inv, orig)
 	require.Same(t, orig, out)
 }
@@ -2508,7 +2508,7 @@ func TestRunner_SessionCreateIfMissing(t *testing.T) {
 	ctx := context.Background()
 	userID := "new-user"
 	sessionID := "new-session"
-	message := model.NewUserMessage("First message")
+	message := compat.NewUserMessage("First message")
 
 	// Run the agent (should create new session).
 	eventCh, err := runner.Run(ctx, userID, sessionID, message)
@@ -2548,7 +2548,7 @@ func TestRunner_EmptyMessageHandling(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	sessionID := "test-session"
-	emptyMessage := model.NewUserMessage("") // Empty message
+	emptyMessage := compat.NewUserMessage("") // Empty message
 
 	// Run the agent with empty message.
 	eventCh, err := runner.Run(ctx, userID, sessionID, emptyMessage)
@@ -2583,13 +2583,13 @@ func TestRunner_SkipAppendingSeedUserMessage(t *testing.T) {
 	ctx := context.Background()
 	userID := "seed-user"
 	sessionID := "seed-session"
-	seedHistory := []model.Message{
-		model.NewSystemMessage("sys"),
-		model.NewAssistantMessage("prev reply"),
-		model.NewUserMessage("hello"),
+	seedHistory := []compat.Message{
+		compat.NewSystemMessage("sys"),
+		compat.NewAssistantMessage("prev reply"),
+		compat.NewUserMessage("hello"),
 	}
 
-	message := model.NewUserMessage("hello")
+	message := compat.NewUserMessage("hello")
 
 	eventCh, err := runner.Run(ctx, userID, sessionID, message, agent.WithMessages(seedHistory))
 	require.NoError(t, err)
@@ -2622,14 +2622,14 @@ func TestRunner_AppendsDifferentUserAfterSeed(t *testing.T) {
 	ctx := context.Background()
 	userID := "seed-user2"
 	sessionID := "seed-session2"
-	seedHistory := []model.Message{
-		model.NewSystemMessage("sys"),
-		model.NewAssistantMessage("prev reply"),
-		model.NewUserMessage("hello"),
+	seedHistory := []compat.Message{
+		compat.NewSystemMessage("sys"),
+		compat.NewAssistantMessage("prev reply"),
+		compat.NewUserMessage("hello"),
 	}
 
 	// Different latest user, should be appended in addition to seeded user.
-	message := model.NewUserMessage("hello too")
+	message := compat.NewUserMessage("hello too")
 
 	eventCh, err := runner.Run(ctx, userID, sessionID, message, agent.WithMessages(seedHistory))
 	require.NoError(t, err)
@@ -2673,16 +2673,16 @@ func TestRunner_AppendsSameUserWhenSeedEndsWithAssistant(t *testing.T) {
 	ctx := context.Background()
 	userID := "seed-user3"
 	sessionID := "seed-session3"
-	seedHistory := []model.Message{
-		model.NewUserMessage("hello"),
-		model.NewAssistantMessage("prev reply"),
+	seedHistory := []compat.Message{
+		compat.NewUserMessage("hello"),
+		compat.NewAssistantMessage("prev reply"),
 	}
 
 	eventCh, err := runner.Run(
 		ctx,
 		userID,
 		sessionID,
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithMessages(seedHistory),
 	)
 	require.NoError(t, err)
@@ -2708,7 +2708,7 @@ func TestRunner_AppendsSameUserWhenSessionAlreadyExists(t *testing.T) {
 	ctx := context.Background()
 	userID := "existing-user"
 	sessionID := "existing-session"
-	message := model.NewUserMessage("hello")
+	message := compat.NewUserMessage("hello")
 
 	eventCh, err := runner.Run(ctx, userID, sessionID, message)
 	require.NoError(t, err)
@@ -2721,7 +2721,7 @@ func TestRunner_AppendsSameUserWhenSessionAlreadyExists(t *testing.T) {
 		userID,
 		sessionID,
 		message,
-		agent.WithMessages([]model.Message{model.NewUserMessage("hello")}),
+		agent.WithMessages([]compat.Message{compat.NewUserMessage("hello")}),
 	)
 	require.NoError(t, err)
 	for range eventCh {
@@ -2746,34 +2746,34 @@ func TestRunner_AppendsSameUserWhenSessionAlreadyExists(t *testing.T) {
 
 func TestShouldAppendUserMessage_Cases(t *testing.T) {
 	require.True(t, shouldAppendUserMessage(
-		model.NewAssistantMessage("a"),
-		[]model.Message{model.NewUserMessage("u")},
+		compat.NewAssistantMessage("a"),
+		[]compat.Message{compat.NewUserMessage("u")},
 	))
 	require.True(t, shouldAppendUserMessage(
-		model.NewUserMessage("u"),
-		[]model.Message{model.NewSystemMessage("s"), model.NewAssistantMessage("a")},
+		compat.NewUserMessage("u"),
+		[]compat.Message{compat.NewSystemMessage("s"), compat.NewAssistantMessage("a")},
 	))
 	require.False(t, shouldAppendUserMessage(
-		model.NewUserMessage("u"),
-		[]model.Message{model.NewUserMessage("u")},
+		compat.NewUserMessage("u"),
+		[]compat.Message{compat.NewUserMessage("u")},
 	))
 	require.True(t, shouldAppendUserMessage(
-		model.NewUserMessage("u"),
-		[]model.Message{
-			model.NewUserMessage("u"),
-			model.NewAssistantMessage("a"),
+		compat.NewUserMessage("u"),
+		[]compat.Message{
+			compat.NewUserMessage("u"),
+			compat.NewAssistantMessage("a"),
 		},
 	))
 	require.True(t, shouldAppendUserMessage(
-		model.NewUserMessage("u"),
-		[]model.Message{
-			model.NewUserMessage("u"),
+		compat.NewUserMessage("u"),
+		[]compat.Message{
+			compat.NewUserMessage("u"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "lookup",
 						Arguments: []byte(`{"q":"u"}`),
 					},
@@ -2791,15 +2791,15 @@ func TestRunner_Run_EmptyIncomingMessagePreservesSeedHistory(t *testing.T) {
 	ctx := context.Background()
 	userID := "seed-user-empty"
 	sessionID := "seed-session-empty"
-	seedHistory := []model.Message{
-		model.NewUserMessage("seed"),
+	seedHistory := []compat.Message{
+		compat.NewUserMessage("seed"),
 	}
 
 	eventCh, err := runner.Run(
 		ctx,
 		userID,
 		sessionID,
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithMessages(seedHistory),
 	)
 	require.NoError(t, err)
@@ -2830,7 +2830,7 @@ func TestRunner_InvocationInjection(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	sessionID := "test-session"
-	message := model.NewUserMessage("Test invocation injection")
+	message := compat.NewUserMessage("Test invocation injection")
 
 	// Run the agent.
 	eventCh, err := runner.Run(ctx, userID, sessionID, message)
@@ -2866,7 +2866,7 @@ func TestRunner_Run_WithAgentNameRegistry(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := model.NewUserMessage("hello")
+	msg := compat.NewUserMessage("hello")
 	ch, err := r.Run(ctx, "user", "session", msg, agent.WithAgentByName("alt"))
 	require.NoError(t, err)
 
@@ -2904,7 +2904,7 @@ func TestRunner_Run_WithAgentFactoryByName(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := model.NewUserMessage("hi")
+	msg := compat.NewUserMessage("hi")
 
 	runOnce := func(expectedName string) {
 		ch, err := r.Run(
@@ -2948,7 +2948,7 @@ func TestRunner_Run_WithDefaultAgentFactory(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := model.NewUserMessage("hello")
+	msg := compat.NewUserMessage("hello")
 	ch, err := r.Run(ctx, "user", "session", msg)
 	require.NoError(t, err)
 
@@ -3061,7 +3061,7 @@ func TestRunner_Run_WithAgentInstanceOverride(t *testing.T) {
 	r := NewRunner("test-app", defaultAgent, WithSessionService(sessionService))
 
 	ctx := context.Background()
-	msg := model.NewUserMessage("hi")
+	msg := compat.NewUserMessage("hi")
 	ch, err := r.Run(ctx, "user", "session", msg, agent.WithAgent(override))
 	require.NoError(t, err)
 
@@ -3075,7 +3075,7 @@ func TestRunner_Run_WithAgentInstanceOverride(t *testing.T) {
 
 func TestRunner_Run_WithAgentNameNotFound(t *testing.T) {
 	r := NewRunner("test-app", &mockAgent{name: "default"}, WithSessionService(sessioninmemory.NewSessionService()))
-	ch, err := r.Run(context.Background(), "user", "session", model.NewUserMessage("hi"), agent.WithAgentByName("missing"))
+	ch, err := r.Run(context.Background(), "user", "session", compat.NewUserMessage("hi"), agent.WithAgentByName("missing"))
 	require.Error(t, err)
 	require.Nil(t, ch)
 }
@@ -3108,11 +3108,11 @@ func (m *invocationVerificationAgent) Run(ctx context.Context, invocation *agent
 	if !ok || ctxInvocation == nil {
 		// Create error event if invocation is not in context.
 		errorEvent := &event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:    "invocation-verification-error",
 				Model: "test-model",
 				Done:  true,
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Type:    "invocation_verification_error",
 					Message: "Invocation not found in context",
 				},
@@ -3129,15 +3129,15 @@ func (m *invocationVerificationAgent) Run(ctx context.Context, invocation *agent
 
 	// Create success response event.
 	responseEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "invocation-verification-success",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Invocation found in context with ID: " + ctxInvocation.InvocationID,
 					},
 				},
@@ -3235,7 +3235,7 @@ func TestRunner_GraphCompletionPropagation(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	sessionID := "test-session"
-	message := model.NewUserMessage("Execute graph")
+	message := compat.NewUserMessage("Execute graph")
 
 	// Run the agent.
 	eventCh, err := runner.Run(ctx, userID, sessionID, message)
@@ -3253,7 +3253,7 @@ func TestRunner_GraphCompletionPropagation(t *testing.T) {
 	// Find the runner completion event (should be the last one).
 	var runnerEvent *event.Event
 	for i := len(events) - 1; i >= 0; i-- {
-		if events[i].Object == model.ObjectTypeRunnerCompletion {
+		if events[i].Object == compat.ObjectTypeRunnerCompletion {
 			runnerEvent = events[i]
 			break
 		}
@@ -3306,13 +3306,13 @@ func TestRunner_GraphCompletionSessionStateFiltersSnapshotKeys(t *testing.T) {
 				context.Background(),
 				"test-user",
 				tc.sessionID,
-				model.NewUserMessage("Execute graph"),
+				compat.NewUserMessage("Execute graph"),
 			)
 			require.NoError(t, err)
 
 			var runnerEvent *event.Event
 			for ev := range eventCh {
-				if ev != nil && ev.Object == model.ObjectTypeRunnerCompletion {
+				if ev != nil && ev.Object == compat.ObjectTypeRunnerCompletion {
 					runnerEvent = ev
 				}
 			}
@@ -3369,7 +3369,7 @@ func TestRunner_DisableGraphCompletionEvent_KeepsRunnerCompletion(t *testing.T) 
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
 	require.NoError(t, err)
@@ -3427,7 +3427,7 @@ func TestRunner_DisableGraphCompletionEvent_KeepsRunnerCompletionWithGraphAgentC
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
 	require.NoError(t, err)
@@ -3459,12 +3459,12 @@ func TestRunner_DisableGraphCompletionEvent_DropsCapturedGraphCompletionAfterCus
 	callbacks := agent.NewCallbacks()
 	callbacks.RegisterAfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 		return &agent.AfterAgentResult{
-			CustomResponse: &model.Response{
+			CustomResponse: &compat.Response{
 				Object: "after.custom",
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "after callback",
 					},
 				}},
@@ -3481,7 +3481,7 @@ func TestRunner_DisableGraphCompletionEvent_DropsCapturedGraphCompletionAfterCus
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
 	require.NoError(t, err)
@@ -3527,7 +3527,7 @@ func TestRunner_DisableGraphCompletionEvent_DropsCapturedGraphCompletionAfterCal
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
 	require.NoError(t, err)
@@ -3536,7 +3536,7 @@ func TestRunner_DisableGraphCompletionEvent_DropsCapturedGraphCompletionAfterCal
 	var sawCallbackError bool
 	for evt := range ch {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
-		if evt.Object == model.ObjectTypeError &&
+		if evt.Object == compat.ObjectTypeError &&
 			evt.Error != nil &&
 			evt.Error.Message == "after callback failed" {
 			sawCallbackError = true
@@ -3589,7 +3589,7 @@ func TestRunner_DisableGraphCompletionEvent_KeepsRunnerCompletionWithWrappedGrap
 				context.Background(),
 				"u",
 				tt.name,
-				model.NewUserMessage("hi"),
+				compat.NewUserMessage("hi"),
 				agent.WithDisableGraphCompletionEvent(true),
 			)
 			require.NoError(t, err)
@@ -3675,11 +3675,11 @@ func TestWrappedAgents_DisableGraphCompletionEvent_AfterCallbackSeesVisibleCompl
 				if args.FullResponseEvent != nil &&
 					graph.IsVisibleGraphCompletionEvent(args.FullResponseEvent) {
 					return &agent.AfterAgentResult{
-						CustomResponse: &model.Response{
+						CustomResponse: &compat.Response{
 							Object: "after.custom",
 							Done:   true,
-							Choices: []model.Choice{{
-								Message: model.NewAssistantMessage("after callback"),
+							Choices: []compat.Choice{{
+								Message: compat.NewAssistantMessage("after callback"),
 							}},
 						},
 					}, nil
@@ -3689,7 +3689,7 @@ func TestWrappedAgents_DisableGraphCompletionEvent_AfterCallbackSeesVisibleCompl
 			child := newWrappedGraphChildAgent(t)
 			ag := tt.build(child, callbacks)
 			inv := agent.NewInvocation(
-				agent.WithInvocationMessage(model.NewUserMessage("hi")),
+				agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 				agent.WithInvocationRunOptions(agent.NewRunOptions(
 					agent.WithDisableGraphCompletionEvent(true),
 				)),
@@ -3762,7 +3762,7 @@ func TestWrappedAgents_DisableGraphCompletionEvent_GraphEmitFinalModelResponses_
 			child := newWrappedGraphLLMChildAgent(t)
 			ag := tt.build(child, callbacks)
 			inv := agent.NewInvocation(
-				agent.WithInvocationMessage(model.NewUserMessage("hi")),
+				agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 				agent.WithInvocationRunOptions(agent.NewRunOptions(
 					agent.WithDisableGraphCompletionEvent(true),
 					agent.WithGraphEmitFinalModelResponses(true),
@@ -3793,7 +3793,7 @@ func TestRunner_DisableGraphCompletionEvent_StreamModeUpdates_KeepsFinalTextInRu
 		context.Background(),
 		"u",
 		"updates-mode",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 		agent.WithStreamMode(agent.StreamModeUpdates),
 	)
@@ -3801,7 +3801,7 @@ func TestRunner_DisableGraphCompletionEvent_StreamModeUpdates_KeepsFinalTextInRu
 
 	var completion *event.Event
 	for evt := range ch {
-		require.NotEqual(t, model.ObjectTypeChatCompletion, evt.Object)
+		require.NotEqual(t, compat.ObjectTypeChatCompletion, evt.Object)
 		if evt.IsRunnerCompletion() {
 			completion = evt
 		}
@@ -3834,14 +3834,14 @@ func TestRunner_DisableGraphCompletionEvent_StreamModeUpdates_WrappedGraphLLM_Ke
 		context.Background(),
 		"u",
 		"updates-mode-wrapped-llm",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 		agent.WithStreamMode(agent.StreamModeUpdates),
 	)
 	require.NoError(t, err)
 	var completion *event.Event
 	for evt := range ch {
-		require.NotEqual(t, model.ObjectTypeChatCompletion, evt.Object)
+		require.NotEqual(t, compat.ObjectTypeChatCompletion, evt.Object)
 		if evt.IsRunnerCompletion() {
 			completion = evt
 		}
@@ -3871,7 +3871,7 @@ func TestRunner_DisableGraphCompletionEvent_StreamModeUpdates_WithFinalModelResp
 		context.Background(),
 		"u",
 		"updates-mode-final-model",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphCompletionEvent(true),
 		agent.WithGraphEmitFinalModelResponses(true),
 		agent.WithStreamMode(agent.StreamModeUpdates),
@@ -3880,7 +3880,7 @@ func TestRunner_DisableGraphCompletionEvent_StreamModeUpdates_WithFinalModelResp
 
 	var completion *event.Event
 	for evt := range ch {
-		require.NotEqual(t, model.ObjectTypeChatCompletion, evt.Object)
+		require.NotEqual(t, compat.ObjectTypeChatCompletion, evt.Object)
 		if evt.IsRunnerCompletion() {
 			completion = evt
 		}
@@ -4035,14 +4035,14 @@ func TestRunner_GraphCompletion_DedupFinalChoices(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithGraphEmitFinalModelResponses(true),
 	)
 	require.NoError(t, err)
 
 	var completion *event.Event
 	for e := range ch {
-		if e.Object == model.ObjectTypeRunnerCompletion {
+		if e.Object == compat.ObjectTypeRunnerCompletion {
 			completion = e
 		}
 	}
@@ -4064,14 +4064,14 @@ func TestRunner_GraphCompletion_DifferentResponseIDDoesNotDedupBySignature(t *te
 		context.Background(),
 		"user",
 		"session-mismatch-id",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithGraphEmitFinalModelResponses(true),
 	)
 	require.NoError(t, err)
 
 	var completion *event.Event
 	for e := range ch {
-		if e.Object == model.ObjectTypeRunnerCompletion {
+		if e.Object == compat.ObjectTypeRunnerCompletion {
 			completion = e
 		}
 	}
@@ -4092,7 +4092,7 @@ func TestRunner_DisableGraphCompletionEvent_KeepsTopLevelFinalChoicesAfterChildV
 		context.Background(),
 		"user",
 		sessionID,
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
 	require.NoError(t, err)
@@ -4106,7 +4106,7 @@ func TestRunner_DisableGraphCompletionEvent_KeepsTopLevelFinalChoicesAfterChildV
 			e.Response.Choices[0].Message.Content == "child:hello" {
 			childVisibleCount++
 		}
-		if e.Object == model.ObjectTypeRunnerCompletion {
+		if e.Object == compat.ObjectTypeRunnerCompletion {
 			completion = e
 		}
 	}
@@ -4136,7 +4136,7 @@ func TestRunner_StreamModeUpdates_WithFinalModelResponses_EmptyResponseIDPreserv
 		context.Background(),
 		"u",
 		"updates-mode-empty-id",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithGraphEmitFinalModelResponses(true),
 		agent.WithStreamMode(agent.StreamModeUpdates),
 	)
@@ -4144,7 +4144,7 @@ func TestRunner_StreamModeUpdates_WithFinalModelResponses_EmptyResponseIDPreserv
 
 	var completion *event.Event
 	for evt := range ch {
-		require.NotEqual(t, model.ObjectTypeChatCompletion, evt.Object)
+		require.NotEqual(t, compat.ObjectTypeChatCompletion, evt.Object)
 		if evt.IsRunnerCompletion() {
 			completion = evt
 		}
@@ -4171,7 +4171,7 @@ func TestRunner_GraphEmitFinalModelResponses_EmptyResponseIDPreservesRunnerCompl
 		context.Background(),
 		"u",
 		"messages-mode-empty-id",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithGraphEmitFinalModelResponses(true),
 	)
 	require.NoError(t, err)
@@ -4210,7 +4210,7 @@ func TestRunner_StreamModeMessages_GraphCompletionPersistsFinalTextInSession(t *
 		context.Background(),
 		"u",
 		"messages-mode-graph-completion",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithStreamMode(agent.StreamModeMessages),
 	)
 	require.NoError(t, err)
@@ -4276,13 +4276,13 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 				agent.WithStreamMode(agent.StreamModeMessages),
 			},
 			allowed: map[string]bool{
-				model.ObjectTypeChatCompletionChunk: true,
-				model.ObjectTypeChatCompletion:      true,
-				model.ObjectTypeRunnerCompletion:    true,
+				compat.ObjectTypeChatCompletionChunk: true,
+				compat.ObjectTypeChatCompletion:      true,
+				compat.ObjectTypeRunnerCompletion:    true,
 			},
 			required: map[string]bool{
-				model.ObjectTypeChatCompletionChunk: true,
-				model.ObjectTypeRunnerCompletion:    true,
+				compat.ObjectTypeChatCompletionChunk: true,
+				compat.ObjectTypeRunnerCompletion:    true,
 			},
 		},
 		{
@@ -4294,12 +4294,12 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 				graph.ObjectTypeGraphStateUpdate:   true,
 				graph.ObjectTypeGraphChannelUpdate: true,
 				graph.ObjectTypeGraphExecution:     true,
-				model.ObjectTypeStateUpdate:        true,
-				model.ObjectTypeRunnerCompletion:   true,
+				compat.ObjectTypeStateUpdate:        true,
+				compat.ObjectTypeRunnerCompletion:   true,
 			},
 			required: map[string]bool{
 				graph.ObjectTypeGraphStateUpdate: true,
-				model.ObjectTypeRunnerCompletion: true,
+				compat.ObjectTypeRunnerCompletion: true,
 			},
 		},
 		{
@@ -4309,11 +4309,11 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 			},
 			allowed: map[string]bool{
 				graph.ObjectTypeGraphCheckpointCommitted: true,
-				model.ObjectTypeRunnerCompletion:         true,
+				compat.ObjectTypeRunnerCompletion:         true,
 			},
 			required: map[string]bool{
 				graph.ObjectTypeGraphCheckpointCommitted: true,
-				model.ObjectTypeRunnerCompletion:         true,
+				compat.ObjectTypeRunnerCompletion:         true,
 			},
 		},
 		{
@@ -4325,11 +4325,11 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 				graph.ObjectTypeGraphNodeStart:    true,
 				graph.ObjectTypeGraphNodeComplete: true,
 				graph.ObjectTypeGraphPregelStep:   true,
-				model.ObjectTypeRunnerCompletion:  true,
+				compat.ObjectTypeRunnerCompletion:  true,
 			},
 			required: map[string]bool{
 				graph.ObjectTypeGraphNodeStart:   true,
-				model.ObjectTypeRunnerCompletion: true,
+				compat.ObjectTypeRunnerCompletion: true,
 			},
 		},
 		{
@@ -4339,11 +4339,11 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 			},
 			allowed: map[string]bool{
 				graph.ObjectTypeGraphNodeCustom:  true,
-				model.ObjectTypeRunnerCompletion: true,
+				compat.ObjectTypeRunnerCompletion: true,
 			},
 			required: map[string]bool{
 				graph.ObjectTypeGraphNodeCustom:  true,
-				model.ObjectTypeRunnerCompletion: true,
+				compat.ObjectTypeRunnerCompletion: true,
 			},
 		},
 		{
@@ -4356,12 +4356,12 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 				graph.ObjectTypeGraphNodeComplete:        true,
 				graph.ObjectTypeGraphCheckpointCommitted: true,
 				graph.ObjectTypeGraphPregelStep:          true,
-				model.ObjectTypeRunnerCompletion:         true,
+				compat.ObjectTypeRunnerCompletion:         true,
 			},
 			required: map[string]bool{
 				graph.ObjectTypeGraphNodeStart:           true,
 				graph.ObjectTypeGraphCheckpointCommitted: true,
-				model.ObjectTypeRunnerCompletion:         true,
+				compat.ObjectTypeRunnerCompletion:         true,
 			},
 		},
 	}
@@ -4372,7 +4372,7 @@ func TestRunner_StreamMode_FiltersEvents(t *testing.T) {
 				context.Background(),
 				userID,
 				sessionID,
-				model.NewUserMessage("hi"),
+				compat.NewUserMessage("hi"),
 				tt.opts...,
 			)
 			require.NoError(t, err)
@@ -4429,13 +4429,13 @@ func (m *streamModeMockAgent) Run(
 		ch <- event.New(invocation.InvocationID, m.name,
 			event.WithObject(graph.ObjectTypeGraphNodeCustom))
 		ch <- event.NewResponseEvent(invocation.InvocationID, m.name,
-			&model.Response{
-				Object: model.ObjectTypeChatCompletionChunk,
+			&compat.Response{
+				Object: compat.ObjectTypeChatCompletionChunk,
 				Done:   false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "hi",
 					},
 				}},
@@ -4485,15 +4485,15 @@ func (m *graphCompletionMockAgent) Run(
 		}
 	}
 	graphEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "graph-completion",
 			Object: "graph.execution",
 			Done:   true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Graph execution completed",
 					},
 				},
@@ -4571,14 +4571,14 @@ func (m *dedupGraphCompletionAgent) Run(
 	eventCh := make(chan *event.Event, 2)
 
 	assistantEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     assistantEventID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: m.assistantText,
 				},
 			}},
@@ -4590,13 +4590,13 @@ func (m *dedupGraphCompletionAgent) Run(
 	}
 
 	graphEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     graphEventID,
 			Object: graph.ObjectTypeGraphExecution,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(m.assistantText),
+				Message: compat.NewAssistantMessage(m.assistantText),
 			}},
 		},
 		StateDelta: map[string][]byte{
@@ -4653,13 +4653,13 @@ func (m *mismatchedIDGraphCompletionAgent) Run(
 ) (<-chan *event.Event, error) {
 	eventCh := make(chan *event.Event, 2)
 	assistantEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(m.assistantText),
+				Message: compat.NewAssistantMessage(m.assistantText),
 			}},
 		},
 		InvocationID: invocation.InvocationID,
@@ -4668,13 +4668,13 @@ func (m *mismatchedIDGraphCompletionAgent) Run(
 		Timestamp:    time.Now(),
 	}
 	graphEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "graph-event-id",
 			Object: graph.ObjectTypeGraphExecution,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(m.assistantText),
+				Message: compat.NewAssistantMessage(m.assistantText),
 			}},
 		},
 		StateDelta: map[string][]byte{
@@ -4752,7 +4752,7 @@ func (m *completionNoticeAgent) Run(ctx context.Context, inv *agent.Invocation) 
 	id := "need-complete-1"
 	m.noticeCh = inv.AddNoticeChannel(ctx, agent.GetAppendEventNoticeKey(id))
 	ch <- &event.Event{
-		Response:           &model.Response{ID: id, Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}},
+		Response:           &compat.Response{ID: id, Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}},
 		ID:                 id,
 		RequiresCompletion: true,
 	}
@@ -4827,7 +4827,7 @@ func (m *noOpAgent) FindSubAgent(name string) agent.Agent { return nil }
 func (m *noOpAgent) Tools() []tool.Tool                   { return nil }
 func (m *noOpAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event, 1)
-	ch <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("hi")}}}}
+	ch <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("hi")}}}}
 	close(ch)
 	return ch, nil
 }
@@ -4846,11 +4846,11 @@ func (m *graphDoneAgent) Tools() []tool.Tool                   { return nil }
 func (m *graphDoneAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event, 1)
 	ev := &event.Event{
-		Response:   &model.Response{ID: "graph-done", Object: graph.ObjectTypeGraphExecution, Done: true},
+		Response:   &compat.Response{ID: "graph-done", Object: graph.ObjectTypeGraphExecution, Done: true},
 		StateDelta: m.delta,
 	}
 	if m.withChoices {
-		ev.Response.Choices = []model.Choice{{Index: 0, Message: model.NewAssistantMessage("final")}}
+		ev.Response.Choices = []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("final")}}
 	}
 	ch <- ev
 	close(ch)
@@ -4905,13 +4905,13 @@ func (m *fallbackCompletionAgent) Run(
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			m.name,
-			&model.Response{
+			&compat.Response{
 				ID:   "fallback-success",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: m.successText,
 					},
 				}},
@@ -4963,7 +4963,7 @@ func (m *fallbackGraphCompletionAgent) Run(
 			graph.WithNodeEventNodeID("lookup"),
 			graph.WithNodeEventNodeType(graph.NodeTypeFunction),
 			graph.WithNodeEventError(m.errMessage),
-			graph.WithNodeEventResponseError(&model.ResponseError{
+			graph.WithNodeEventResponseError(&compat.ResponseError{
 				Type:    m.errType,
 				Message: m.errMessage,
 			}),
@@ -4996,7 +4996,7 @@ func TestRunner_Run_AgentRunError(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.NewUserMessage("m"),
+		compat.NewUserMessage("m"),
 		agent.WithRequestID(requestID),
 		agent.WithEventFilterKey(filterKey),
 	)
@@ -5012,7 +5012,7 @@ func TestRunner_Run_AgentRunError(t *testing.T) {
 	var errorEvent event.Event
 	foundErrorEvent := false
 	for _, evt := range sess.Events {
-		if evt.Error == nil || evt.Error.Type != model.ErrorTypeRunError {
+		if evt.Error == nil || evt.Error.Type != compat.ErrorTypeRunError {
 			continue
 		}
 		errorEvent = evt
@@ -5021,7 +5021,7 @@ func TestRunner_Run_AgentRunError(t *testing.T) {
 	}
 	require.True(t, foundErrorEvent)
 	require.NotNil(t, errorEvent.Error)
-	require.Equal(t, model.ErrorTypeRunError, errorEvent.Error.Type)
+	require.Equal(t, compat.ErrorTypeRunError, errorEvent.Error.Type)
 	require.Equal(t, requestID, errorEvent.RequestID)
 	require.Equal(t, filterKey, errorEvent.FilterKey)
 }
@@ -5084,10 +5084,10 @@ func TestRunnerLatencyDiagnosticHelpers(t *testing.T) {
 		"app",
 		"user",
 		"sess",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.RunOptions{
 			RequestID: "req-latency",
-			Messages:  []model.Message{model.NewSystemMessage("seed")},
+			Messages:  []compat.Message{compat.NewSystemMessage("seed")},
 		},
 	)
 	require.True(t, runnerHasAttr(runAttrs, "runner.app", "app"))
@@ -5114,9 +5114,9 @@ func TestRunnerLatencyDiagnosticHelpers(t *testing.T) {
 	evt := event.New(
 		inv.InvocationID,
 		"a",
-		event.WithResponse(&model.Response{
-			Object:  model.ObjectTypePreprocessingStatus,
-			Choices: []model.Choice{{Index: 1}},
+		event.WithResponse(&compat.Response{
+			Object:  compat.ObjectTypePreprocessingStatus,
+			Choices: []compat.Choice{{Index: 1}},
 		}),
 		event.WithStateDelta(map[string][]byte{"k": []byte("v")}),
 	)
@@ -5126,7 +5126,7 @@ func TestRunnerLatencyDiagnosticHelpers(t *testing.T) {
 		runnerHasAttr(
 			eventAttrs,
 			"runner.event.object",
-			model.ObjectTypePreprocessingStatus,
+			compat.ObjectTypePreprocessingStatus,
 		),
 	)
 	require.True(t, runnerHasAttr(eventAttrs, "runner.event.choices", 1))
@@ -5149,14 +5149,14 @@ func TestRunnerLatencyDiagnosticHelpers(t *testing.T) {
 	require.True(t, runnerTraceEventDetails(nil))
 	require.True(t, runnerTraceEventDetails(&event.Event{}))
 	require.False(t, runnerTraceEventDetails(&event.Event{
-		Response: &model.Response{},
+		Response: &compat.Response{},
 	}))
 	require.True(t, runnerTraceEventDetails(&event.Event{
-		Response: &model.Response{Done: true},
+		Response: &compat.Response{Done: true},
 	}))
 	require.True(t, runnerTraceEventDetails(&event.Event{
-		Response: &model.Response{
-			Error: &model.ResponseError{Type: model.ErrorTypeRunError},
+		Response: &compat.Response{
+			Error: &compat.ResponseError{Type: compat.ErrorTypeRunError},
 		},
 	}))
 }
@@ -5188,7 +5188,7 @@ func TestGetOrCreateSession_Existing(t *testing.T) {
 	require.NoError(t, err)
 
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
-	ch, err := r.Run(context.Background(), key.UserID, key.SessionID, model.NewUserMessage("hi"))
+	ch, err := r.Run(context.Background(), key.UserID, key.SessionID, compat.NewUserMessage("hi"))
 	require.NoError(t, err)
 	for range ch {
 	}
@@ -5198,7 +5198,7 @@ func TestGetOrCreateSession_GetError(t *testing.T) {
 	// Service that fails GetSession should make Run return the error immediately.
 	svc := &getSessionErrorService{mockSessionService: &mockSessionService{}}
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage("m"))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage("m"))
 	require.Error(t, err)
 	require.Nil(t, ch)
 }
@@ -5210,7 +5210,7 @@ func TestProcessAgentEvents_PanicRecovery(t *testing.T) {
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
 
 	// Empty message to avoid initial user append; only agent event will be processed and panic.
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage(""))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage(""))
 	require.NoError(t, err)
 	// Consume until closed; should not hang due to recover.
 	for range ch {
@@ -5222,7 +5222,7 @@ func TestHandleEventPersistence_AppendErrorSkipsSummarize(t *testing.T) {
 	svc := &appendErrorSessionService{mockSessionService: base}
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
 	// Empty message avoids initial user append which would error out early.
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage(""))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage(""))
 	require.NoError(t, err)
 	for range ch {
 	}
@@ -5237,7 +5237,7 @@ func TestEmitRunnerCompletion_AppendErrorStillEmits(t *testing.T) {
 	ag := &graphDoneAgent{name: "g", delta: map[string][]byte{"k": []byte("v")}, withChoices: true}
 	r := NewRunner("app", ag, WithSessionService(svc))
 	// Empty message avoids initial append error; ensures we reach completion emission.
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage(""))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage(""))
 	require.NoError(t, err)
 	var last *event.Event
 	for e := range ch {
@@ -5245,7 +5245,7 @@ func TestEmitRunnerCompletion_AppendErrorStillEmits(t *testing.T) {
 	}
 	require.NotNil(t, last)
 	require.True(t, last.Done)
-	require.Equal(t, model.ObjectTypeRunnerCompletion, last.Object)
+	require.Equal(t, compat.ObjectTypeRunnerCompletion, last.Object)
 	// Even though append failed internally, the completion event is still emitted.
 }
 
@@ -5253,7 +5253,7 @@ func TestRunner_CompletionIncludesFallbackBusinessState(t *testing.T) {
 	const (
 		stateKey   = "_node_error_"
 		stateValue = "fatal callback"
-		errType    = model.ErrorTypeFlowError
+		errType    = compat.ErrorTypeFlowError
 		errMessage = "execution failed"
 	)
 
@@ -5274,7 +5274,7 @@ func TestRunner_CompletionIncludesFallbackBusinessState(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 	)
 	require.NoError(t, err)
 
@@ -5297,7 +5297,7 @@ func TestRunner_CompletionCarriesGraphTerminalError(t *testing.T) {
 	const (
 		stateKey   = "_node_error_"
 		stateValue = "fatal callback"
-		errType    = model.ErrorTypeFlowError
+		errType    = compat.ErrorTypeFlowError
 		errMessage = "execution failed"
 	)
 
@@ -5316,7 +5316,7 @@ func TestRunner_CompletionCarriesGraphTerminalError(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 	)
 	require.NoError(t, err)
 
@@ -5346,7 +5346,7 @@ func TestRunner_CompletionSkipsFallbackAfterRecovery(t *testing.T) {
 	ag := &fallbackCompletionAgent{
 		name:        "fallback",
 		delta:       map[string][]byte{stateKey: []byte(stateValue)},
-		errType:     model.ErrorTypeFlowError,
+		errType:     compat.ErrorTypeFlowError,
 		errMessage:  errMessage,
 		successText: successMsg,
 	}
@@ -5356,7 +5356,7 @@ func TestRunner_CompletionSkipsFallbackAfterRecovery(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 	)
 	require.NoError(t, err)
 
@@ -5377,9 +5377,9 @@ func TestCaptureCompletionFallback_IgnoresPartialError(t *testing.T) {
 	r := &runner{}
 
 	r.captureCompletionFallback(loop, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Error:     &model.ResponseError{Message: "boom"},
+			Error:     &compat.ResponseError{Message: "boom"},
 		},
 	})
 
@@ -5394,20 +5394,20 @@ func TestCaptureRoutedCompletionError(t *testing.T) {
 		r.captureRoutedCompletionError(loop, nil)
 		r.captureRoutedCompletionError(loop, &event.Event{})
 		r.captureRoutedCompletionError(loop, &event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				IsPartial: true,
-				Error:     &model.ResponseError{Message: "partial"},
+				Error:     &compat.ResponseError{Message: "partial"},
 			},
 		})
 	})
 	require.Nil(t, loop.finalError)
-	errEvt := event.NewErrorEvent("invocation", "agent", model.ErrorTypeFlowError, "hidden failure")
+	errEvt := event.NewErrorEvent("invocation", "agent", compat.ErrorTypeFlowError, "hidden failure")
 	r.captureRoutedCompletionError(loop, errEvt)
 	require.NotNil(t, loop.finalError)
 	require.Equal(t, "hidden failure", loop.finalError.Message)
 	require.True(t, loop.sawTerminalError)
 	doneLoop := &eventLoopContext{}
-	r.captureRoutedCompletionError(doneLoop, event.NewResponseEvent("invocation", "agent", &model.Response{Done: true}))
+	r.captureRoutedCompletionError(doneLoop, event.NewResponseEvent("invocation", "agent", &compat.Response{Done: true}))
 	require.Nil(t, doneLoop.finalError)
 	require.False(t, doneLoop.sawTerminalError)
 }
@@ -5470,8 +5470,8 @@ func TestCloneResponseError(t *testing.T) {
 	t.Run("deep copy", func(t *testing.T) {
 		param := "p"
 		code := "c"
-		in := &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		in := &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "boom",
 			Param:   &param,
 			Code:    &code,
@@ -5492,9 +5492,9 @@ func TestCloneResponseError(t *testing.T) {
 }
 
 func TestCloneContentPartsDeepCopiesVideo(t *testing.T) {
-	parts := []model.ContentPart{{
-		Type: model.ContentTypeVideo,
-		Video: &model.Video{
+	parts := []compat.ContentPart{{
+		Type: compat.ContentTypeVideo,
+		Video: &compat.Video{
 			URL:    "https://example.com/video.mp4",
 			Data:   []byte("video"),
 			Format: "mp4",
@@ -5532,7 +5532,7 @@ func TestGraphCompletionNotPersistedAsMessage(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage(userMsg),
+		compat.NewUserMessage(userMsg),
 	)
 	require.NoError(t, err)
 	for range ch {
@@ -5549,7 +5549,7 @@ func TestGraphCompletionNotPersistedAsMessage(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sess.Events, 2)
 	require.True(t, sess.Events[0].IsUserMessage())
-	require.Equal(t, model.ObjectTypeRunnerCompletion,
+	require.Equal(t, compat.ObjectTypeRunnerCompletion,
 		sess.Events[1].Object)
 }
 
@@ -5581,7 +5581,7 @@ func TestRunner_GraphAgent_LegacyRunnerCompletionIncludesFinalResponse(t *testin
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 	)
 	require.NoError(t, err)
 
@@ -5592,7 +5592,7 @@ func TestRunner_GraphAgent_LegacyRunnerCompletionIncludesFinalResponse(t *testin
 	require.NotNil(t, last)
 	require.True(t, last.IsRunnerCompletion())
 	require.Len(t, last.Response.Choices, 1)
-	require.Equal(t, model.RoleAssistant,
+	require.Equal(t, compat.RoleAssistant,
 		last.Response.Choices[0].Message.Role)
 	require.Equal(t, "second",
 		last.Response.Choices[0].Message.Content)
@@ -5605,10 +5605,10 @@ func TestRunner_GraphAgent_LegacyRunnerCompletionIncludesFinalResponse(t *testin
 	require.NoError(t, err)
 	require.Len(t, sess.Events, 2)
 	require.True(t, sess.Events[0].IsUserMessage())
-	require.Equal(t, model.ObjectTypeRunnerCompletion,
+	require.Equal(t, compat.ObjectTypeRunnerCompletion,
 		sess.Events[1].Object)
 	require.Len(t, sess.Events[1].Choices, 1)
-	require.Equal(t, model.RoleAssistant,
+	require.Equal(t, compat.RoleAssistant,
 		sess.Events[1].Choices[0].Message.Role)
 	require.Equal(t, "second",
 		sess.Events[1].Choices[0].Message.Content)
@@ -5632,7 +5632,7 @@ func TestRunner_DisableGraphExecutorEvents_HidesBarrierEvents(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphExecutorEvents(true),
 	)
 	require.NoError(t, err)
@@ -5663,7 +5663,7 @@ func TestRunner_DisableGraphExecutorEvents_PreservesGraphFailure(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithDisableGraphExecutorEvents(true),
 	)
 	require.NoError(t, err)
@@ -5671,7 +5671,7 @@ func TestRunner_DisableGraphExecutorEvents_PreservesGraphFailure(t *testing.T) {
 	var sawErrorEvent bool
 	for evt := range ch {
 		require.NotEqual(t, graph.ObjectTypeGraphPregelStep, evt.Object)
-		if evt.Object == model.ObjectTypeError &&
+		if evt.Object == compat.ObjectTypeError &&
 			evt.Response != nil &&
 			evt.Response.Error != nil {
 			sawErrorEvent = true
@@ -5715,7 +5715,7 @@ func TestRunner_GraphAgentPersistsLLMDoneResponses(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithGraphEmitFinalModelResponses(true),
 	)
 	require.NoError(t, err)
@@ -5737,12 +5737,12 @@ func TestRunner_GraphAgentPersistsLLMDoneResponses(t *testing.T) {
 	require.Len(t, sess.Events, 3)
 	require.True(t, sess.Events[0].IsUserMessage())
 
-	require.Equal(t, model.RoleAssistant,
+	require.Equal(t, compat.RoleAssistant,
 		sess.Events[1].Choices[0].Message.Role)
 	require.Equal(t, "first",
 		sess.Events[1].Choices[0].Message.Content)
 
-	require.Equal(t, model.RoleAssistant,
+	require.Equal(t, compat.RoleAssistant,
 		sess.Events[2].Choices[0].Message.Role)
 	require.Equal(t, "second",
 		sess.Events[2].Choices[0].Message.Content)
@@ -5779,7 +5779,7 @@ func TestRunner_GraphAgentPersistsLLMDoneResponsesWithCallbacksAndHiddenCompleti
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hi"),
+		compat.NewUserMessage("hi"),
 		agent.WithGraphEmitFinalModelResponses(true),
 		agent.WithDisableGraphCompletionEvent(true),
 	)
@@ -5788,7 +5788,7 @@ func TestRunner_GraphAgentPersistsLLMDoneResponsesWithCallbacksAndHiddenCompleti
 	var completion *event.Event
 	for e := range ch {
 		require.False(t, e.Done && e.Object == graph.ObjectTypeGraphExecution)
-		if e.Object == model.ObjectTypeRunnerCompletion {
+		if e.Object == compat.ObjectTypeRunnerCompletion {
 			completion = e
 		}
 	}
@@ -5846,7 +5846,7 @@ func TestRunner_WrappedGraphAgentFinalModelResponses_NoDuplicateFinalText(t *tes
 				context.Background(),
 				"u",
 				tt.name+"-llm",
-				model.NewUserMessage("hi"),
+				compat.NewUserMessage("hi"),
 				agent.WithDisableGraphCompletionEvent(true),
 				agent.WithGraphEmitFinalModelResponses(true),
 			)
@@ -5923,7 +5923,7 @@ func TestRunner_WrappedGraphAgentFinalModelResponses_EmptyResponseID_StreamModeU
 				context.Background(),
 				"u",
 				tt.name+"-llm-empty-id-updates",
-				model.NewUserMessage("hi"),
+				compat.NewUserMessage("hi"),
 				agent.WithDisableGraphCompletionEvent(true),
 				agent.WithGraphEmitFinalModelResponses(true),
 				agent.WithStreamMode(agent.StreamModeUpdates),
@@ -5932,7 +5932,7 @@ func TestRunner_WrappedGraphAgentFinalModelResponses_EmptyResponseID_StreamModeU
 
 			var completion *event.Event
 			for evt := range ch {
-				require.NotEqual(t, model.ObjectTypeChatCompletion, evt.Object)
+				require.NotEqual(t, compat.ObjectTypeChatCompletion, evt.Object)
 				if evt.IsRunnerCompletion() {
 					completion = evt
 				}
@@ -5956,7 +5956,7 @@ func TestRunner_WrappedGraphAgentFinalModelResponses_EmptyResponseID_StreamModeU
 func TestPropagateGraphCompletion_NilStateValue(t *testing.T) {
 	// Call propagateGraphCompletion directly to cover the nil-value copy branch.
 	rr := NewRunner("app", &noOpAgent{name: "a"}).(*runner)
-	ev := event.NewResponseEvent("inv", "app", &model.Response{ID: "rc", Object: model.ObjectTypeRunnerCompletion, Done: true})
+	ev := event.NewResponseEvent("inv", "app", &compat.Response{ID: "rc", Object: compat.ObjectTypeRunnerCompletion, Done: true})
 	delta := map[string][]byte{"nil": nil}
 	rr.propagateGraphCompletion(ev, delta, nil, false)
 	require.Contains(t, ev.StateDelta, "nil")
@@ -5989,9 +5989,9 @@ func TestShouldEchoFinalChoicesInCompletion_Cases(t *testing.T) {
 		))
 		loop := &eventLoopContext{
 			invocation: invocation,
-			finalChoices: []model.Choice{{
+			finalChoices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 			finalStateDelta: map[string][]byte{
 				graph.StateKeyLastResponseID: []byte(responseIDJSON),
@@ -6013,9 +6013,9 @@ func TestShouldEchoFinalChoicesInCompletion_Cases(t *testing.T) {
 		))
 		loop := &eventLoopContext{
 			invocation: invocation,
-			finalChoices: []model.Choice{{
+			finalChoices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		require.True(t, rr.shouldEchoFinalChoicesInCompletion(
@@ -6031,9 +6031,9 @@ func TestShouldEchoFinalChoicesInCompletion_Cases(t *testing.T) {
 		))
 		loop := &eventLoopContext{
 			invocation: invocation,
-			finalChoices: []model.Choice{{
+			finalChoices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 			finalStateDelta: map[string][]byte{
 				graph.StateKeyLastResponseID: []byte(responseIDJSON),
@@ -6055,9 +6055,9 @@ func TestShouldEchoFinalChoicesInCompletion_Cases(t *testing.T) {
 		))
 		loop := &eventLoopContext{
 			invocation: invocation,
-			finalChoices: []model.Choice{{
+			finalChoices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 			finalStateDelta: map[string][]byte{
 				graph.StateKeyLastResponseID: []byte(responseIDJSON),
@@ -6076,15 +6076,15 @@ func TestShouldClearRunnerCompletionChoicesInSession_DoesNotDedupMismatchedRespo
 ) {
 	loop := &eventLoopContext{
 		persistedAssistantChoiceSignatures: map[string]struct{}{
-			assistantChoiceSignature([]model.Choice{{
+			assistantChoiceSignature([]compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("wrapped-final"),
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			}}): {},
 		},
 	}
-	finalChoices := []model.Choice{{
+	finalChoices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("wrapped-final"),
+		Message: compat.NewAssistantMessage("wrapped-final"),
 	}}
 	finalStateDelta := map[string][]byte{
 		graph.StateKeyLastResponseID: []byte(`"response-from-state"`),
@@ -6106,15 +6106,15 @@ func TestShouldClearRunnerCompletionChoicesInSession_FallsBackToChoiceSignatureW
 			)),
 		),
 		persistedAssistantChoiceSignatures: map[string]struct{}{
-			assistantChoiceSignature([]model.Choice{{
+			assistantChoiceSignature([]compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("wrapped-final"),
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			}}): {},
 		},
 	}
-	finalChoices := []model.Choice{{
+	finalChoices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("wrapped-final"),
+		Message: compat.NewAssistantMessage("wrapped-final"),
 	}}
 	require.True(t, shouldClearRunnerCompletionChoicesInSession(
 		loop,
@@ -6136,9 +6136,9 @@ func TestShouldClearRunnerCompletionChoicesInSession_DedupsByPersistedResponseID
 			"response-from-state": {},
 		},
 	}
-	finalChoices := []model.Choice{{
+	finalChoices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("wrapped-final"),
+		Message: compat.NewAssistantMessage("wrapped-final"),
 	}}
 	finalStateDelta := map[string][]byte{
 		graph.StateKeyLastResponseID: []byte(`"response-from-state"`),
@@ -6163,9 +6163,9 @@ func TestShouldClearRunnerCompletionChoicesInSession_DoesNotDedupUsingEmittedRes
 			"response-from-state": {},
 		},
 	}
-	finalChoices := []model.Choice{{
+	finalChoices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("wrapped-final"),
+		Message: compat.NewAssistantMessage("wrapped-final"),
 	}}
 	finalStateDelta := map[string][]byte{
 		graph.StateKeyLastResponseID: []byte(`"response-from-state"`),
@@ -6187,15 +6187,15 @@ func TestShouldClearRunnerCompletionChoicesInSession_PreservesVisibleChoicesWhen
 			)),
 		),
 		persistedAssistantChoiceSignatures: map[string]struct{}{
-			assistantChoiceSignature([]model.Choice{{
+			assistantChoiceSignature([]compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("wrapped-final"),
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			}}): {},
 		},
 	}
-	finalChoices := []model.Choice{{
+	finalChoices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("wrapped-final"),
+		Message: compat.NewAssistantMessage("wrapped-final"),
 	}}
 	require.False(t, shouldClearRunnerCompletionChoicesInSession(
 		loop,
@@ -6218,9 +6218,9 @@ func TestShouldMarkCompletionSnapshotOnly_ResumeRunWithoutNewAssistantContent(t 
 			"resp-1": {},
 		},
 	}
-	choices := []model.Choice{{
+	choices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("stale-final"),
+		Message: compat.NewAssistantMessage("stale-final"),
 	}}
 	finalStateDelta := map[string][]byte{
 		graph.StateKeyLastResponseID: []byte(`"resp-1"`),
@@ -6230,9 +6230,9 @@ func TestShouldMarkCompletionSnapshotOnly_ResumeRunWithoutNewAssistantContent(t 
 }
 
 func TestShouldMarkCompletionSnapshotOnly_SkipsNormalRunsAndFreshAssistantRuns(t *testing.T) {
-	choices := []model.Choice{{
+	choices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("fresh-final"),
+		Message: compat.NewAssistantMessage("fresh-final"),
 	}}
 	finalStateDelta := map[string][]byte{
 		graph.StateKeyLastResponseID: []byte(`"resp-2"`),
@@ -6357,19 +6357,19 @@ func TestCollectPriorAssistantResponseIDs(t *testing.T) {
 	sess := &session.Session{
 		Events: []event.Event{
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "resp-1",
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("assistant-1"),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("assistant-1"),
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
-					Object: model.ObjectTypeRunnerCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeRunnerCompletion,
 					Done:   true,
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("runner-completion"),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("runner-completion"),
 					}},
 				},
 				Author: "app",
@@ -6400,19 +6400,19 @@ func TestCollectPriorAssistantResponseIDs_SkipsNonAssistantBranches(t *testing.T
 		Events: []event.Event{
 			{},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID:        "partial-resp",
 					IsPartial: true,
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("partial"),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("partial"),
 					}},
 				},
 			},
 			{
-				Response: &model.Response{
+				Response: &compat.Response{
 					ID: "user-resp",
-					Choices: []model.Choice{{
-						Message: model.NewUserMessage("user"),
+					Choices: []compat.Choice{{
+						Message: compat.NewUserMessage("user"),
 					}},
 				},
 			},
@@ -6427,9 +6427,9 @@ func TestCollectPriorAssistantResponseIDs_SkipsNonAssistantBranches(t *testing.T
 				return *evt
 			}(),
 			{
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("missing-id"),
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("missing-id"),
 					}},
 				},
 			},
@@ -6564,10 +6564,10 @@ func TestMarkCompletionSnapshotOnly(t *testing.T) {
 		priorAssistantResponseIDs: map[string]struct{}{"resp-1": {}},
 	}
 
-	nonGraph := event.NewResponseEvent("inv", "agent", &model.Response{
+	nonGraph := event.NewResponseEvent("inv", "agent", &compat.Response{
 		ID: "resp-1",
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("assistant"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("assistant"),
 		}},
 	})
 	rr.markCompletionSnapshotOnly(loop, nonGraph)
@@ -6626,14 +6626,14 @@ func TestAssistantChoiceSignature_UsesAllAssistantChoices(t *testing.T) {
 	require.Equal(
 		t,
 		`[{"role":"assistant","content":"wrapped-final"},{"role":"assistant","content":"alt"}]`,
-		assistantChoiceSignature([]model.Choice{
+		assistantChoiceSignature([]compat.Choice{
 			{
 				Index:   0,
-				Message: model.NewAssistantMessage("wrapped-final"),
+				Message: compat.NewAssistantMessage("wrapped-final"),
 			},
 			{
 				Index:   1,
-				Message: model.NewAssistantMessage("alt"),
+				Message: compat.NewAssistantMessage("alt"),
 			},
 		}),
 	)
@@ -6661,13 +6661,13 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 	))
 
 	t.Run("nil loop", func(t *testing.T) {
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     stateEventID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6686,13 +6686,13 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("nil invocation", func(t *testing.T) {
 		loop := &eventLoopContext{}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     stateEventID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6702,13 +6702,13 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("skips when flag disabled", func(t *testing.T) {
 		loop := &eventLoopContext{invocation: agent.NewInvocation()}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     stateEventID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6718,12 +6718,12 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("skips empty response id", func(t *testing.T) {
 		loop := &eventLoopContext{invocation: enabledInvocation}
-		rsp := &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		rsp := &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6733,13 +6733,13 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("records assistant message", func(t *testing.T) {
 		loop := &eventLoopContext{invocation: enabledInvocation}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     stateEventID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6755,13 +6755,13 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 				stateEventID: {},
 			},
 		}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     graphEventID,
 			Object: graph.ObjectTypeGraphExecution,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6771,14 +6771,14 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("skips partial response", func(t *testing.T) {
 		loop := &eventLoopContext{invocation: enabledInvocation}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:        partialEvent,
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			Done:      false,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		e := event.NewResponseEvent(invocationID, author, rsp)
@@ -6788,14 +6788,14 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 
 	t.Run("skips invalid content", func(t *testing.T) {
 		loop := &eventLoopContext{invocation: enabledInvocation}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     invalidEvent,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
 				},
 			}},
 		}
@@ -6808,14 +6808,14 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 		loop := &eventLoopContext{
 			invocation: enabledInvocation,
 		}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     userEvent,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: content,
 				},
 			}},
@@ -6829,16 +6829,16 @@ func TestRecordEmittedAssistantResponseID_Cases(t *testing.T) {
 		loop := &eventLoopContext{
 			invocation: enabledInvocation,
 		}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			ID:     deltaOnlyEvent,
-			Object: model.ObjectTypeChatCompletionChunk,
+			Object: compat.ObjectTypeChatCompletionChunk,
 			Done:   false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
 				},
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: deltaContent,
 				},
 			}},
@@ -6853,7 +6853,7 @@ func TestProcessAgentEvents_NotifyCompletion(t *testing.T) {
 	// Verify that RequiresCompletion results in NotifyCompletion closing the notice channel.
 	ag := &completionNoticeAgent{name: "c"}
 	r := NewRunner("app", ag, WithSessionService(sessioninmemory.NewSessionService()))
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage("go"))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage("go"))
 	require.NoError(t, err)
 	// Drain events to allow processing.
 	for range ch {
@@ -6883,7 +6883,7 @@ func (m *nilEventAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan 
 
 func TestProcessAgentEvents_NilEventSkipped(t *testing.T) {
 	r := NewRunner("app", &nilEventAgent{name: "n"}, WithSessionService(sessioninmemory.NewSessionService()))
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage(""))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage(""))
 	require.NoError(t, err)
 	// Expect only the runner completion event to arrive.
 	var count int
@@ -6897,7 +6897,7 @@ func TestRunner_Run_AppendUserEventError(t *testing.T) {
 	// Non-empty message with append-error service should cause Run to return error.
 	svc := &appendErrorSessionService{mockSessionService: &mockSessionService{}}
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage("hello"))
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage("hello"))
 	require.Error(t, err)
 	require.Nil(t, ch)
 }
@@ -6906,8 +6906,8 @@ func TestRunner_Run_SeedAppendError(t *testing.T) {
 	// Append error should be surfaced when seeding history into an empty session.
 	svc := &appendErrorSessionService{mockSessionService: &mockSessionService{}}
 	r := NewRunner("app", &noOpAgent{name: "a"}, WithSessionService(svc))
-	seed := []model.Message{model.NewUserMessage("seed")}
-	ch, err := r.Run(context.Background(), "u", "s", model.NewUserMessage(""), agent.WithMessages(seed))
+	seed := []compat.Message{compat.NewUserMessage("seed")}
+	ch, err := r.Run(context.Background(), "u", "s", compat.NewUserMessage(""), agent.WithMessages(seed))
 	require.Error(t, err)
 	require.Nil(t, ch)
 }
@@ -6920,25 +6920,25 @@ func TestRunner_Run_UserMessageRewriter_RewritesCurrentTurnMessages(t *testing.T
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			require.Equal(t, "app", args.AppName)
 			require.Equal(t, "u", args.UserID)
 			require.Equal(t, "s", args.SessionID)
 			require.Equal(t, "hello", args.OriginalMessage.Content)
-			return []model.Message{
-				model.NewUserMessage("ctx"),
-				model.NewUserMessage("rewritten"),
+			return []compat.Message{
+				compat.NewUserMessage("ctx"),
+				compat.NewUserMessage("rewritten"),
 			}, nil
 		}),
 	)
 	require.NoError(t, err)
 	for range ch {
 	}
-	require.Equal(t, model.NewUserMessage("rewritten"), ag.invocationMessage)
+	require.Equal(t, compat.NewUserMessage("rewritten"), ag.invocationMessage)
 	sess, err := svc.GetSession(
 		context.Background(),
 		session.Key{AppName: "app", UserID: "u", SessionID: "s"},
@@ -6950,33 +6950,33 @@ func TestRunner_Run_UserMessageRewriter_RewritesCurrentTurnMessages(t *testing.T
 }
 
 func TestRunner_Run_UserMessageRewriter_RewritesCurrentTurnToolTranscript(t *testing.T) {
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call_1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "lookup",
 			Arguments: []byte(`{"query":"hello"}`),
 		},
 	}
-	assistantMessage := model.Message{
-		Role:      model.RoleAssistant,
+	assistantMessage := compat.Message{
+		Role:      compat.RoleAssistant,
 		Content:   "calling lookup",
-		ToolCalls: []model.ToolCall{toolCall},
+		ToolCalls: []compat.ToolCall{toolCall},
 	}
-	rewritten := []model.Message{
-		model.NewUserMessage("first user"),
+	rewritten := []compat.Message{
+		compat.NewUserMessage("first user"),
 		assistantMessage,
-		model.NewToolMessage("call_1", "lookup", `{"answer":"world"}`),
-		model.NewUserMessage("final user"),
+		compat.NewToolMessage("call_1", "lookup", `{"answer":"world"}`),
+		compat.NewUserMessage("final user"),
 	}
 	modelStub := &sequentialModel{
 		name: "seq",
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			ID:   "resp-1",
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("ok"),
+				Message: compat.NewAssistantMessage("ok"),
 			}},
 		}},
 	}
@@ -6987,11 +6987,11 @@ func TestRunner_Run_UserMessageRewriter_RewritesCurrentTurnToolTranscript(t *tes
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			return rewritten, nil
 		}),
 	)
@@ -7007,11 +7007,11 @@ func TestRunner_Run_UserMessageRewriter_RewritesCurrentTurnToolTranscript(t *tes
 	)
 	require.NoError(t, err)
 	require.Len(t, sess.Events, 5)
-	require.Equal(t, model.RoleUser, sess.Events[0].Choices[0].Message.Role)
-	require.Equal(t, model.RoleAssistant, sess.Events[1].Choices[0].Message.Role)
-	require.Equal(t, model.RoleTool, sess.Events[2].Choices[0].Message.Role)
-	require.Equal(t, model.RoleUser, sess.Events[3].Choices[0].Message.Role)
-	require.Equal(t, rewritten, []model.Message{
+	require.Equal(t, compat.RoleUser, sess.Events[0].Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, sess.Events[1].Choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, sess.Events[2].Choices[0].Message.Role)
+	require.Equal(t, compat.RoleUser, sess.Events[3].Choices[0].Message.Role)
+	require.Equal(t, rewritten, []compat.Message{
 		sess.Events[0].Choices[0].Message,
 		sess.Events[1].Choices[0].Message,
 		sess.Events[2].Choices[0].Message,
@@ -7026,11 +7026,11 @@ func TestRunner_Run_UserMessageRewriter_EmptyResultReturnsError(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			return nil, nil
 		}),
 	)
@@ -7047,25 +7047,25 @@ func TestRunner_Run_UserMessageRewriter_NormalizesEmptyRolePayloadMessages(t *te
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
-			return []model.Message{{Content: "rewritten"}}, nil
+		) ([]compat.Message, error) {
+			return []compat.Message{{Content: "rewritten"}}, nil
 		}),
 	)
 	require.NoError(t, err)
 	for range ch {
 	}
-	require.Equal(t, model.RoleUser, ag.capturedRole)
+	require.Equal(t, compat.RoleUser, ag.capturedRole)
 	sess, err := svc.GetSession(
 		context.Background(),
 		session.Key{AppName: "app", UserID: "u", SessionID: "s"},
 	)
 	require.NoError(t, err)
 	require.Len(t, sess.Events, 1)
-	require.Equal(t, model.RoleUser, sess.Events[0].Choices[0].Message.Role)
+	require.Equal(t, compat.RoleUser, sess.Events[0].Choices[0].Message.Role)
 	require.Equal(t, authorUser, sess.Events[0].Author)
 }
 
@@ -7073,24 +7073,24 @@ func TestRunner_Run_UserMessageRewriter_ReplacesCurrentMessageInsideSeedHistory(
 	svc := sessioninmemory.NewSessionService()
 	ag := &capturingInvocationMessagesAgent{name: "a"}
 	r := NewRunner("app", ag, WithSessionService(svc))
-	seed := []model.Message{
-		model.NewUserMessage("previous"),
-		model.NewUserMessage("hello"),
-		model.NewAssistantMessage("after"),
+	seed := []compat.Message{
+		compat.NewUserMessage("previous"),
+		compat.NewUserMessage("hello"),
+		compat.NewAssistantMessage("after"),
 	}
 	ch, err := r.Run(
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithMessages(seed),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
-			return []model.Message{
-				model.NewUserMessage("ctx"),
-				model.NewUserMessage("rewritten"),
+		) ([]compat.Message, error) {
+			return []compat.Message{
+				compat.NewUserMessage("ctx"),
+				compat.NewUserMessage("rewritten"),
 			}, nil
 		}),
 	)
@@ -7107,27 +7107,27 @@ func TestRunner_Run_UserMessageRewriter_ReplacesCurrentMessageInsideSeedHistory(
 	require.Equal(t, "ctx", sess.Events[1].Choices[0].Message.Content)
 	require.Equal(t, "rewritten", sess.Events[2].Choices[0].Message.Content)
 	require.Equal(t, "after", sess.Events[3].Choices[0].Message.Content)
-	require.Equal(t, model.NewUserMessage("rewritten"), ag.invocationMessage)
+	require.Equal(t, compat.NewUserMessage("rewritten"), ag.invocationMessage)
 }
 
 func TestRunner_Run_SecondRequestIncludesRewrittenTranscript(t *testing.T) {
 	modelStub := &sequentialModel{
 		name: "seq",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:   "resp-1",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("first reply"),
+					Message: compat.NewAssistantMessage("first reply"),
 				}},
 			},
 			{
 				ID:   "resp-2",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("second reply"),
+					Message: compat.NewAssistantMessage("second reply"),
 				}},
 			},
 		},
@@ -7140,14 +7140,14 @@ func TestRunner_Run_SecondRequestIncludesRewrittenTranscript(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
-			return []model.Message{
-				model.NewUserMessage("A"),
-				model.NewUserMessage("hello"),
+		) ([]compat.Message, error) {
+			return []compat.Message{
+				compat.NewUserMessage("A"),
+				compat.NewUserMessage("hello"),
 			}, nil
 		}),
 	)
@@ -7159,14 +7159,14 @@ func TestRunner_Run_SecondRequestIncludesRewrittenTranscript(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("again"),
+		compat.NewUserMessage("again"),
 		agent.WithUserMessageRewriter(func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
-			return []model.Message{
-				model.NewUserMessage("B"),
-				model.NewUserMessage("again"),
+		) ([]compat.Message, error) {
+			return []compat.Message{
+				compat.NewUserMessage("B"),
+				compat.NewUserMessage("again"),
 			}, nil
 		}),
 	)
@@ -7176,12 +7176,12 @@ func TestRunner_Run_SecondRequestIncludesRewrittenTranscript(t *testing.T) {
 
 	requests := modelStub.Requests()
 	require.Len(t, requests, 2)
-	require.Equal(t, []model.Message{
-		model.NewUserMessage("A"),
-		model.NewUserMessage("hello"),
-		model.NewAssistantMessage("first reply"),
-		model.NewUserMessage("B"),
-		model.NewUserMessage("again"),
+	require.Equal(t, []compat.Message{
+		compat.NewUserMessage("A"),
+		compat.NewUserMessage("hello"),
+		compat.NewAssistantMessage("first reply"),
+		compat.NewUserMessage("B"),
+		compat.NewUserMessage("again"),
 	}, requests[1].messages)
 }
 
@@ -7196,7 +7196,7 @@ func (m *oneEventAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan 
 	// Unbuffered channel so EmitEvent will block unless receiver is ready
 	ch := make(chan *event.Event)
 	go func() {
-		ch <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("x")}}}}
+		ch <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("x")}}}}
 		close(ch)
 	}()
 	return ch, nil
@@ -7233,11 +7233,11 @@ func (m *tickCtxAgent) Run(
 				evt := event.NewResponseEvent(
 					inv.InvocationID,
 					m.name,
-					&model.Response{
+					&compat.Response{
 						Done: false,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Index: 0,
-							Message: model.NewAssistantMessage(
+							Message: compat.NewAssistantMessage(
 								tickContent,
 							),
 						}},
@@ -7280,33 +7280,33 @@ func (m *partialTextAgent) Run(
 		defer close(ch)
 		responseID := "partial-response"
 		for i, chunk := range m.chunks {
-			choice := model.Choice{Index: 0}
+			choice := compat.Choice{Index: 0}
 			switch {
 			case m.toolCallDelta:
 				idx := i
-				choice.Delta = model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+				choice.Delta = compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:    "call-1",
 						Type:  "function",
 						Index: &idx,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(chunk),
 						},
 					}},
 				}
 			case m.reasoningOnly:
-				choice.Delta = model.Message{
-					Role:             model.RoleAssistant,
+				choice.Delta = compat.Message{
+					Role:             compat.RoleAssistant,
 					ReasoningContent: chunk,
 				}
 			default:
-				role := model.Role("")
+				role := compat.Role("")
 				if i == 0 {
-					role = model.RoleAssistant
+					role = compat.RoleAssistant
 				}
-				choice.Delta = model.Message{
+				choice.Delta = compat.Message{
 					Role:    role,
 					Content: chunk,
 				}
@@ -7314,12 +7314,12 @@ func (m *partialTextAgent) Run(
 			evt := event.NewResponseEvent(
 				inv.InvocationID,
 				m.name,
-				&model.Response{
+				&compat.Response{
 					ID:        responseID,
-					Object:    model.ObjectTypeChatCompletionChunk,
+					Object:    compat.ObjectTypeChatCompletionChunk,
 					Done:      false,
 					IsPartial: true,
-					Choices:   []model.Choice{choice},
+					Choices:   []compat.Choice{choice},
 				},
 			)
 			select {
@@ -7332,14 +7332,14 @@ func (m *partialTextAgent) Run(
 			evt := event.NewResponseEvent(
 				inv.InvocationID,
 				m.name,
-				&model.Response{
+				&compat.Response{
 					ID:        responseID,
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage(m.final),
+						Message: compat.NewAssistantMessage(m.final),
 					}},
 				},
 			)
@@ -7376,7 +7376,7 @@ func TestProcessAgentEvents_EmitEventContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before running
 	r := NewRunner("app", &oneEventAgent{name: "o"}, WithSessionService(sessioninmemory.NewSessionService()))
-	ch, err := r.Run(ctx, "u", "s", model.NewUserMessage(""))
+	ch, err := r.Run(ctx, "u", "s", compat.NewUserMessage(""))
 	require.NoError(t, err)
 	// Agent events are dropped due to cancelled context,
 	// but runner-completion should still be emitted as the terminal signal.
@@ -7407,7 +7407,7 @@ func TestRunner_Run_DetachedCancelKeepsDeadline(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithDetachedCancel(true),
 	)
 	require.NoError(t, err)
@@ -7448,7 +7448,7 @@ func TestRunner_Run_MaxRunDuration(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithMaxRunDuration(maxRun),
 	)
 	require.NoError(t, err)
@@ -7481,7 +7481,7 @@ func TestRunner_ManagedRunner_CancelAndStatus(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 	)
@@ -7533,7 +7533,7 @@ func TestRunner_CancelEmitsRunnerCompletion(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 		agent.WithExecutionTraceEnabled(true),
@@ -7615,7 +7615,7 @@ func TestRunner_CancelPersistsInterruptedPartialAssistant(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 		agent.WithPersistInterruptedAssistant(true),
@@ -7648,7 +7648,7 @@ func TestRunner_CancelPersistsInterruptedPartialAssistant(t *testing.T) {
 	require.NotNil(t, sess)
 	require.Len(t, sess.Events, 2)
 	require.False(t, sess.Events[1].IsPartial)
-	require.Equal(t, model.ObjectTypeChatCompletion, sess.Events[1].Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, sess.Events[1].Object)
 	require.Equal(t, "hello world", sess.Events[1].Choices[0].Message.Content)
 	require.NotNil(t, sess.Events[1].Choices[0].FinishReason)
 	require.Equal(t, interruptedAssistantFinishReason, *sess.Events[1].Choices[0].FinishReason)
@@ -7681,14 +7681,14 @@ func TestRunner_StreamModeUpdatesStillPersistsInterruptedPartialAssistant(t *tes
 	err := rr.processSingleAgentEvent(context.Background(), loop, event.NewResponseEvent(
 		inv.InvocationID,
 		"a",
-		&model.Response{
+		&compat.Response{
 			ID:        "filtered-partial",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "filtered text",
 				},
 			}},
@@ -7743,7 +7743,7 @@ func TestRunner_InterruptedAssistantPluginRunsOnce(t *testing.T) {
 		context.Background(),
 		"u",
 		"s-plugin-once",
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 		agent.WithPersistInterruptedAssistant(true),
@@ -7819,11 +7819,11 @@ func TestRunner_DynamicWorkflowChildDoesNotOverrideRootCompletion(t *testing.T) 
 	childEvent := event.NewResponseEvent(
 		"child-invocation",
 		"child",
-		&model.Response{
+		&compat.Response{
 			ID:   "child-response",
 			Done: true,
-			Choices: []model.Choice{{Index: 0, Message: model.Message{
-				Role: model.RoleAssistant, Content: "child result",
+			Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+				Role: compat.RoleAssistant, Content: "child result",
 			}}},
 		},
 	)
@@ -7844,11 +7844,11 @@ func TestRunner_DynamicWorkflowChildDoesNotOverrideRootCompletion(t *testing.T) 
 	rootEvent := event.NewResponseEvent(
 		inv.InvocationID,
 		"root",
-		&model.Response{
+		&compat.Response{
 			ID:   "root-response",
 			Done: true,
-			Choices: []model.Choice{{Index: 0, Message: model.Message{
-				Role: model.RoleAssistant, Content: "root result",
+			Choices: []compat.Choice{{Index: 0, Message: compat.Message{
+				Role: compat.RoleAssistant, Content: "root result",
 			}}},
 		},
 	)
@@ -7887,14 +7887,14 @@ func TestRunner_RoutedSessionPersistsInterruptedPartialAssistant(t *testing.T) {
 	err := rr.processSingleAgentEvent(context.Background(), loop, event.NewResponseEvent(
 		inv.InvocationID,
 		"member",
-		&model.Response{
+		&compat.Response{
 			ID:        "routed-partial",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "member text",
 				},
 			}},
@@ -7939,14 +7939,14 @@ func TestRunner_InterruptedAssistantPreservesSourceEventIdentity(t *testing.T) {
 	partial := event.NewResponseEvent(
 		"child-inv",
 		"child-agent",
-		&model.Response{
+		&compat.Response{
 			ID:        "child-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				},
 			}},
@@ -7985,14 +7985,14 @@ func TestRunner_InterruptedAssistantFillsRequestIDFromRootInvocation(t *testing.
 	partial := event.NewResponseEvent(
 		rootInv.InvocationID,
 		"agent",
-		&model.Response{
+		&compat.Response{
 			ID:        "response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				},
 			}},
@@ -8030,7 +8030,7 @@ func TestRunner_CancelDoesNotPersistInterruptedPartialAssistantByDefault(t *test
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 	)
@@ -8084,7 +8084,7 @@ func TestRunner_RunOptionOverridesInterruptedAssistantRunnerDefault(t *testing.T
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 		agent.WithRequestID(requestID),
 		agent.WithDetachedCancel(true),
 		agent.WithPersistInterruptedAssistant(false),
@@ -8143,7 +8143,7 @@ func TestRunner_CompletedStreamDoesNotDuplicateInterruptedAssistant(t *testing.T
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage("start"),
+		compat.NewUserMessage("start"),
 	)
 	require.NoError(t, err)
 	for range ch {
@@ -8196,7 +8196,7 @@ func TestRunner_CancelDoesNotPersistNonTextPartialAssistant(t *testing.T) {
 				context.Background(),
 				"u",
 				tt.name,
-				model.NewUserMessage("start"),
+				compat.NewUserMessage("start"),
 				agent.WithRequestID(requestID),
 				agent.WithDetachedCancel(true),
 				agent.WithPersistInterruptedAssistant(true),
@@ -8235,25 +8235,25 @@ func TestInterruptedAssistantDeltaBuffersInterleavedResponses(t *testing.T) {
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "skip-final",
 			IsPartial: false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("final"),
+				Message: compat.NewAssistantMessage("final"),
 			}},
 		},
 	), nil)
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "skip-user",
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleUser,
+				Delta: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "not assistant",
 				},
 			}},
@@ -8264,14 +8264,14 @@ func TestInterruptedAssistantDeltaBuffersInterleavedResponses(t *testing.T) {
 	first := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response-1",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "first",
 				},
 			}},
@@ -8280,14 +8280,14 @@ func TestInterruptedAssistantDeltaBuffersInterleavedResponses(t *testing.T) {
 	second := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response-2",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "second",
 				},
 			}},
@@ -8296,14 +8296,14 @@ func TestInterruptedAssistantDeltaBuffersInterleavedResponses(t *testing.T) {
 	firstAgain := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response-1",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: " again",
 				},
 			}},
@@ -8387,14 +8387,14 @@ func TestInterruptedAssistantDeltaSeparatesSameResponseIDByLineage(t *testing.T)
 	first := event.NewResponseEvent(
 		"shared-invocation",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "shared-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "alpha ",
 				},
 			}},
@@ -8404,14 +8404,14 @@ func TestInterruptedAssistantDeltaSeparatesSameResponseIDByLineage(t *testing.T)
 	second := event.NewResponseEvent(
 		"shared-invocation",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "shared-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "beta",
 				},
 			}},
@@ -8421,14 +8421,14 @@ func TestInterruptedAssistantDeltaSeparatesSameResponseIDByLineage(t *testing.T)
 	firstAgain := event.NewResponseEvent(
 		"shared-invocation",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "shared-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "one",
 				},
 			}},
@@ -8492,14 +8492,14 @@ func TestPersistInterruptedAssistantPersistsInterleavedBuffers(t *testing.T) {
 	first := event.NewResponseEvent(
 		"child-a",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response-a",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "alpha",
 				},
 			}},
@@ -8508,14 +8508,14 @@ func TestPersistInterruptedAssistantPersistsInterleavedBuffers(t *testing.T) {
 	second := event.NewResponseEvent(
 		"child-b",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response-b",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "beta",
 				},
 			}},
@@ -8557,14 +8557,14 @@ func TestPersistInterruptedAssistantPreservesFirstSeenOrder(t *testing.T) {
 	first := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "z-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "first",
 				},
 			}},
@@ -8573,14 +8573,14 @@ func TestPersistInterruptedAssistantPreservesFirstSeenOrder(t *testing.T) {
 	second := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "a-response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "second",
 				},
 			}},
@@ -8642,12 +8642,12 @@ func TestPersistInterruptedAssistantDedupeAfterEventPlugin(t *testing.T) {
 	final := event.NewResponseEvent(
 		inv.InvocationID,
 		"assistant",
-		&model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		&compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("hello"),
+				Message: compat.NewAssistantMessage("hello"),
 			}},
 		},
 	)
@@ -8679,14 +8679,14 @@ func TestPersistInterruptedAssistantEnqueuesSummary(t *testing.T) {
 	partial := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "response",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "summarize me",
 				},
 			}},
@@ -8712,12 +8712,12 @@ func TestInterruptedAssistantDeltaGeneratesFallbackResponseID(t *testing.T) {
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "chunk",
 				},
 			}},
@@ -8734,21 +8734,21 @@ func TestInterruptedAssistantDeltaPreservesChoiceIndexes(t *testing.T) {
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "multi-choice",
 			IsPartial: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 1,
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "choice one",
 					},
 				},
 				{
 					Index: 0,
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "choice zero",
 					},
 				},
@@ -8766,9 +8766,9 @@ func TestInterruptedAssistantDeltaPreservesChoiceIndexes(t *testing.T) {
 
 func TestInterruptedAssistantAlreadyPersisted(t *testing.T) {
 	rr := NewRunner("app", &noOpAgent{name: "a"}).(*runner)
-	choices := []model.Choice{{
+	choices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("already there"),
+		Message: compat.NewAssistantMessage("already there"),
 	}}
 
 	t.Run("by response id", func(t *testing.T) {
@@ -8837,12 +8837,12 @@ func TestInterruptedAssistantSignatureDedupeScopedByRequest(t *testing.T) {
 	prior := event.NewResponseEvent(
 		"inv-1",
 		"assistant",
-		&model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		&compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("same text"),
+				Message: compat.NewAssistantMessage("same text"),
 			}},
 		},
 	)
@@ -8908,13 +8908,13 @@ func TestInterruptedAssistantPriorDedupeScopedByLineage(t *testing.T) {
 		prior := event.NewResponseEvent(
 			"shared-invocation",
 			"assistant",
-			&model.Response{
+			&compat.Response{
 				ID:     "shared-response",
-				Object: model.ObjectTypeChatCompletion,
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("prior"),
+					Message: compat.NewAssistantMessage("prior"),
 				}},
 			},
 		)
@@ -8929,14 +8929,14 @@ func TestInterruptedAssistantPriorDedupeScopedByLineage(t *testing.T) {
 		partial := event.NewResponseEvent(
 			"shared-invocation",
 			"assistant",
-			&model.Response{
+			&compat.Response{
 				ID:        "shared-response",
-				Object:    model.ObjectTypeChatCompletionChunk,
+				Object:    compat.ObjectTypeChatCompletionChunk,
 				IsPartial: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "current",
 					},
 				}},
@@ -8956,12 +8956,12 @@ func TestInterruptedAssistantPriorDedupeScopedByLineage(t *testing.T) {
 		prior := event.NewResponseEvent(
 			"shared-invocation",
 			"assistant",
-			&model.Response{
-				Object: model.ObjectTypeChatCompletion,
+			&compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("same text"),
+					Message: compat.NewAssistantMessage("same text"),
 				}},
 			},
 		)
@@ -9015,7 +9015,7 @@ func TestInterruptedAssistantAccumulatorLineageEdgeCases(t *testing.T) {
 		agent.WithInvocationRunOptions(agent.RunOptions{RequestID: "req"}),
 	)
 	key := interruptedAssistantLineageKey(&eventLoopContext{invocation: child}, &event.Event{
-		Response: &model.Response{ID: "resp"},
+		Response: &compat.Response{ID: "resp"},
 	})
 	for _, part := range []string{
 		"resp",
@@ -9040,7 +9040,7 @@ func TestRecordPersistedAssistantOnAccumulatorEdgeCases(t *testing.T) {
 	recordPersistedAssistantOnAccumulator(acc, nil, true)
 	recordPersistedAssistantOnAccumulator(
 		acc,
-		interruptedAssistantFinalEvent("inv", "non-assistant-id", "user", model.RoleUser),
+		interruptedAssistantFinalEvent("inv", "non-assistant-id", "user", compat.RoleUser),
 		true,
 	)
 	require.Empty(t, acc.persistedAssistantResponseIDs)
@@ -9089,26 +9089,26 @@ func TestRecordInterruptedAssistantDeltaSkipsNonAssistantChoices(t *testing.T) {
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "resp",
 			Created:   123,
 			IsPartial: true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Delta: model.Message{
-						Role:    model.RoleUser,
+					Delta: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "skip wrong role",
 					},
 				},
 				{
 					Index: 1,
-					Delta: model.Message{Role: model.RoleAssistant},
+					Delta: compat.Message{Role: compat.RoleAssistant},
 				},
 				{
 					Index: 2,
-					Delta: model.Message{
-						Role:    model.RoleAssistant,
+					Delta: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "keep",
 					},
 				},
@@ -9234,12 +9234,12 @@ func TestCollectPriorAssistantChoiceSignaturesSkipsAndCollects(t *testing.T) {
 			graph.StateKeyLastResponse: "graph",
 		}),
 	)
-	user := interruptedAssistantFinalEvent("inv", "user-id", "user", model.RoleUser)
+	user := interruptedAssistantFinalEvent("inv", "user-id", "user", compat.RoleUser)
 	assistant := interruptedAssistantFinalEvent(
 		"inv",
 		"assistant-id",
 		"assistant",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 	)
 	assistant.RequestID = "req"
 
@@ -9264,7 +9264,7 @@ func TestCollectPriorAssistantLineageHelpersSkipAndCollect(t *testing.T) {
 		"inv",
 		"resp",
 		"assistant",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 	)
 	regular.RequestID = "req"
 	regular.Branch = "branch/a"
@@ -9290,7 +9290,7 @@ func TestCollectPriorAssistantLineageHelpersSkipAndCollect(t *testing.T) {
 	rawGraph.FilterKey = "filter/a"
 	rawGraph.Author = "assistant"
 
-	user := interruptedAssistantFinalEvent("inv", "resp", "user", model.RoleUser)
+	user := interruptedAssistantFinalEvent("inv", "resp", "user", compat.RoleUser)
 	user.RequestID = "req"
 	user.Branch = "branch/a"
 	user.FilterKey = "filter/a"
@@ -9299,7 +9299,7 @@ func TestCollectPriorAssistantLineageHelpersSkipAndCollect(t *testing.T) {
 		"inv",
 		"other-resp",
 		"other",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 	)
 	mismatch.RequestID = "req"
 	mismatch.Branch = "branch/b"
@@ -9321,7 +9321,7 @@ func TestCollectPriorAssistantLineageHelpersSkipAndCollect(t *testing.T) {
 		"inv-empty",
 		"",
 		"empty id",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 	)
 	require.Nil(t, collectPriorAssistantResponseIDsForLineage(
 		loop,
@@ -9353,13 +9353,13 @@ func interruptedAssistantPartialEvent(invocationID string, content string) *even
 	return event.NewResponseEvent(
 		invocationID,
 		"assistant",
-		&model.Response{
-			Object:    model.ObjectTypeChatCompletionChunk,
+		&compat.Response{
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: content,
 				},
 			}},
@@ -9371,18 +9371,18 @@ func interruptedAssistantFinalEvent(
 	invocationID string,
 	responseID string,
 	content string,
-	role model.Role,
+	role compat.Role,
 ) *event.Event {
 	return event.NewResponseEvent(
 		invocationID,
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:     responseID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -9396,15 +9396,15 @@ func TestInterruptedAssistantEventSkipsEmptyAndPersistedContent(t *testing.T) {
 
 	require.Nil(t, rr.interruptedAssistantEvent(context.Background(), &eventLoopContext{}))
 
-	choices := []model.Choice{{
+	choices := []compat.Choice{{
 		Index:   0,
-		Message: model.NewAssistantMessage("already there"),
+		Message: compat.NewAssistantMessage("already there"),
 	}}
 	prior := event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
-			Object:  model.ObjectTypeChatCompletion,
+		&compat.Response{
+			Object:  compat.ObjectTypeChatCompletion,
 			Done:    true,
 			Choices: choices,
 		},
@@ -9421,12 +9421,12 @@ func TestInterruptedAssistantEventSkipsEmptyAndPersistedContent(t *testing.T) {
 	rr.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "already there",
 				},
 			}},
@@ -9456,13 +9456,13 @@ func TestPersistInterruptedAssistantGuardBranches(t *testing.T) {
 	appendErrRunner.recordInterruptedAssistantDelta(loop, event.NewResponseEvent(
 		"inv",
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			ID:        "resp",
 			IsPartial: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:    model.RoleAssistant,
+				Delta: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				},
 			}},
@@ -9519,7 +9519,7 @@ func TestRunner_Close_CancelsRunningRuns(t *testing.T) {
 		context.Background(),
 		"u",
 		"s",
-		model.NewUserMessage(""),
+		compat.NewUserMessage(""),
 		agent.WithRequestID(requestID),
 	)
 	require.NoError(t, err)
@@ -9577,7 +9577,7 @@ func TestProcessAgentEvents_EmitEventErrorBranch_Direct(t *testing.T) {
 	processed := rr.processAgentEvents(ctx, sess, inv, agentCh, flushCh, nil, nil)
 	// Send one event, then close agentCh
 	go func() {
-		agentCh <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("x")}}}}
+		agentCh <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("x")}}}}
 		close(agentCh)
 	}()
 
@@ -9604,130 +9604,130 @@ func drainChannel(ch <-chan *event.Event) <-chan struct{} {
 }
 
 func TestMergeCurrentTurnMessagesIntoSeed_ReplacesLastUserMessageWhenItMatchesOriginal(t *testing.T) {
-	seed := []model.Message{
-		model.NewUserMessage("first"),
-		model.NewUserMessage("current"),
-		model.NewAssistantMessage("after"),
+	seed := []compat.Message{
+		compat.NewUserMessage("first"),
+		compat.NewUserMessage("current"),
+		compat.NewAssistantMessage("after"),
 	}
-	currentTurn := []model.Message{
-		model.NewUserMessage("ctx"),
-		model.NewUserMessage("rewritten"),
+	currentTurn := []compat.Message{
+		compat.NewUserMessage("ctx"),
+		compat.NewUserMessage("rewritten"),
 	}
 	merged := mergeCurrentTurnMessagesIntoSeed(
 		seed,
-		model.NewUserMessage("current"),
+		compat.NewUserMessage("current"),
 		currentTurn,
 	)
 	require.Equal(t, []pendingSessionMessage{
 		{
-			message:       model.NewUserMessage("first"),
+			message:       compat.NewUserMessage("first"),
 			seededHistory: true,
 		},
 		{
-			message:     model.NewUserMessage("ctx"),
+			message:     compat.NewUserMessage("ctx"),
 			currentTurn: true,
 		},
 		{
-			message:     model.NewUserMessage("rewritten"),
+			message:     compat.NewUserMessage("rewritten"),
 			currentTurn: true,
 		},
 		{
-			message:       model.NewAssistantMessage("after"),
+			message:       compat.NewAssistantMessage("after"),
 			seededHistory: true,
 		},
 	}, merged)
 }
 
 func TestMergeCurrentTurnMessagesIntoSeed_AppendsWhenOnlyOlderMessageMatchesOriginal(t *testing.T) {
-	seed := []model.Message{
-		model.NewUserMessage("current"),
-		model.NewAssistantMessage("after"),
-		model.NewUserMessage("latest"),
+	seed := []compat.Message{
+		compat.NewUserMessage("current"),
+		compat.NewAssistantMessage("after"),
+		compat.NewUserMessage("latest"),
 	}
-	currentTurn := []model.Message{
-		model.NewUserMessage("ctx"),
-		model.NewUserMessage("rewritten"),
+	currentTurn := []compat.Message{
+		compat.NewUserMessage("ctx"),
+		compat.NewUserMessage("rewritten"),
 	}
 	merged := mergeCurrentTurnMessagesIntoSeed(
 		seed,
-		model.NewUserMessage("current"),
+		compat.NewUserMessage("current"),
 		currentTurn,
 	)
 	require.Equal(t, []pendingSessionMessage{
 		{
-			message:       model.NewUserMessage("current"),
+			message:       compat.NewUserMessage("current"),
 			seededHistory: true,
 		},
 		{
-			message:       model.NewAssistantMessage("after"),
+			message:       compat.NewAssistantMessage("after"),
 			seededHistory: true,
 		},
 		{
-			message:       model.NewUserMessage("latest"),
+			message:       compat.NewUserMessage("latest"),
 			seededHistory: true,
 		},
 		{
-			message:     model.NewUserMessage("ctx"),
+			message:     compat.NewUserMessage("ctx"),
 			currentTurn: true,
 		},
 		{
-			message:     model.NewUserMessage("rewritten"),
+			message:     compat.NewUserMessage("rewritten"),
 			currentTurn: true,
 		},
 	}, merged)
 }
 
 func TestMergeCurrentTurnMessagesIntoSeed_AppendsWhenOriginalMissing(t *testing.T) {
-	seed := []model.Message{
-		model.NewUserMessage("first"),
-		model.NewAssistantMessage("after"),
+	seed := []compat.Message{
+		compat.NewUserMessage("first"),
+		compat.NewAssistantMessage("after"),
 	}
-	currentTurn := []model.Message{
-		model.NewUserMessage("ctx"),
-		model.NewUserMessage("rewritten"),
+	currentTurn := []compat.Message{
+		compat.NewUserMessage("ctx"),
+		compat.NewUserMessage("rewritten"),
 	}
 	merged := mergeCurrentTurnMessagesIntoSeed(
 		seed,
-		model.NewUserMessage("current"),
+		compat.NewUserMessage("current"),
 		currentTurn,
 	)
 	require.Equal(t, []pendingSessionMessage{
 		{
-			message:       model.NewUserMessage("first"),
+			message:       compat.NewUserMessage("first"),
 			seededHistory: true,
 		},
 		{
-			message:       model.NewAssistantMessage("after"),
+			message:       compat.NewAssistantMessage("after"),
 			seededHistory: true,
 		},
 		{
-			message:     model.NewUserMessage("ctx"),
+			message:     compat.NewUserMessage("ctx"),
 			currentTurn: true,
 		},
 		{
-			message:     model.NewUserMessage("rewritten"),
+			message:     compat.NewUserMessage("rewritten"),
 			currentTurn: true,
 		},
 	}, merged)
 }
 
 func TestMergeCurrentTurnMessagesIntoSeed_PreservesSeedWhenCurrentTurnIsEmpty(t *testing.T) {
-	seed := []model.Message{
-		model.NewUserMessage("first"),
-		model.NewUserMessage("current"),
+	seed := []compat.Message{
+		compat.NewUserMessage("first"),
+		compat.NewUserMessage("current"),
 	}
 	merged := mergeCurrentTurnMessagesIntoSeed(
 		seed,
-		model.NewUserMessage("current"),
+		compat.NewUserMessage("current"),
 		nil,
 	)
 	require.Equal(t, []pendingSessionMessage{
 		{
-			message:       model.NewUserMessage("first"),
+			message:       compat.NewUserMessage("first"),
 			seededHistory: true,
 		},
 		{
-			message:       model.NewUserMessage("current"),
+			message:       compat.NewUserMessage("current"),
 			seededHistory: true,
 		},
 	}, merged)
@@ -9879,7 +9879,7 @@ func TestHandleFlushRequest_ProcessesEventAndClosesAck(t *testing.T) {
 	ctx := context.Background()
 
 	agentCh := make(chan *event.Event, 1)
-	agentCh <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}}}
+	agentCh <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}}}
 
 	loop := &eventLoopContext{
 		sess:             session.NewSession("app", "u", "s"),
@@ -9946,7 +9946,7 @@ func TestHandleFlushRequest_ProcessSingleAgentEventError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	agentCh := make(chan *event.Event, 1)
-	agentCh <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("err")}}}}
+	agentCh <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("err")}}}}
 	close(agentCh)
 
 	loop := &eventLoopContext{
@@ -9996,7 +9996,7 @@ func TestRunEventLoop_HandleFlushRequestError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	agentCh := make(chan *event.Event, 1)
-	agentCh <- &event.Event{Response: &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("x")}}}}
+	agentCh <- &event.Event{Response: &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("x")}}}}
 	close(agentCh)
 
 	loop := &eventLoopContext{
@@ -10022,25 +10022,25 @@ func TestRunEventLoop_HandleFlushRequestError(t *testing.T) {
 const runnerSurfaceSkillsOverviewHeader = "Available skills:"
 
 type surfaceCapturedRequest struct {
-	messages  []model.Message
+	messages  []compat.Message
 	toolNames []string
 }
 
 type scriptedSurfaceModel struct {
 	name      string
-	responses []model.Message
+	responses []compat.Message
 	mu        sync.Mutex
 	requests  []*surfaceCapturedRequest
 }
 
 func (m *scriptedSurfaceModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	callIndex := len(m.requests)
 	m.requests = append(m.requests, cloneSurfaceCapturedRequest(req))
-	response := model.NewAssistantMessage("")
+	response := compat.NewAssistantMessage("")
 	if len(m.responses) > 0 {
 		if callIndex < len(m.responses) {
 			response = cloneSurfaceMessage(m.responses[callIndex])
@@ -10049,12 +10049,12 @@ func (m *scriptedSurfaceModel) GenerateContent(
 		}
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		ID:        fmt.Sprintf("%s%s-%d", staticModelResponseIDPrefix, m.name, callIndex),
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
 			Message: response,
 		}},
@@ -10063,8 +10063,8 @@ func (m *scriptedSurfaceModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *scriptedSurfaceModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *scriptedSurfaceModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *scriptedSurfaceModel) RequestCount() int {
@@ -10130,11 +10130,11 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesAllRootLLMSurfaces(
 ) {
 	staticModel := &scriptedSurfaceModel{
 		name:      "root-static",
-		responses: []model.Message{model.NewAssistantMessage("static root")},
+		responses: []compat.Message{compat.NewAssistantMessage("static root")},
 	}
 	patchedModel := &scriptedSurfaceModel{
 		name:      "root-patched",
-		responses: []model.Message{model.NewAssistantMessage("patched root")},
+		responses: []compat.Message{compat.NewAssistantMessage("patched root")},
 	}
 	ag := llmagent.New(
 		"assistant",
@@ -10150,9 +10150,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesAllRootLLMSurfaces(
 	var patch agent.SurfacePatch
 	patch.SetInstruction("patched instruction")
 	patch.SetGlobalInstruction("patched global")
-	patch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("few-shot user"),
-		model.NewAssistantMessage("few-shot assistant"),
+	patch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("few-shot user"),
+		compat.NewAssistantMessage("few-shot assistant"),
 	}})
 	patch.SetModel(patchedModel)
 	patch.SetTools([]tool.Tool{
@@ -10168,7 +10168,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesAllRootLLMSurfaces(
 		context.Background(),
 		"user-root",
 		"session-root",
-		model.NewUserMessage("actual user"),
+		compat.NewUserMessage("actual user"),
 		agent.WithSurfacePatchForNode(snapshot.EntryNodeID, patch),
 	)
 	require.NoError(t, err)
@@ -10199,30 +10199,30 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDeepNestedWorkflowPatches(
 ) {
 	startModel := &scriptedSurfaceModel{
 		name:      "workflow-start",
-		responses: []model.Message{model.NewAssistantMessage("start")},
+		responses: []compat.Message{compat.NewAssistantMessage("start")},
 	}
 	plannerStatic := &scriptedSurfaceModel{
 		name:      "workflow-planner-static",
-		responses: []model.Message{model.NewAssistantMessage("planner static")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner static")},
 	}
 	plannerPatched := &scriptedSurfaceModel{
 		name:      "workflow-planner-patched",
-		responses: []model.Message{model.NewAssistantMessage("planner patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner patched")},
 	}
 	workerStatic := &scriptedSurfaceModel{
 		name:      "workflow-worker-static",
-		responses: []model.Message{model.NewAssistantMessage("worker static")},
+		responses: []compat.Message{compat.NewAssistantMessage("worker static")},
 	}
 	workerPatched := &scriptedSurfaceModel{
 		name: "workflow-worker-patched",
-		responses: []model.Message{
-			model.NewAssistantMessage("worker patched first"),
-			model.NewAssistantMessage("worker patched second"),
+		responses: []compat.Message{
+			compat.NewAssistantMessage("worker patched first"),
+			compat.NewAssistantMessage("worker patched second"),
 		},
 	}
 	endModel := &scriptedSurfaceModel{
 		name:      "workflow-end",
-		responses: []model.Message{model.NewAssistantMessage("workflow end")},
+		responses: []compat.Message{compat.NewAssistantMessage("workflow end")},
 	}
 	worker := llmagent.New(
 		"worker",
@@ -10291,7 +10291,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDeepNestedWorkflowPatches(
 		context.Background(),
 		"user-workflow",
 		"session-workflow",
-		model.NewUserMessage("run workflow"),
+		compat.NewUserMessage("run workflow"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(startNodeID, startPatch),
 		agent.WithSurfacePatchForNode(plannerNodeID, plannerPatch),
@@ -10342,15 +10342,15 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectChainChildPatch(
 	)
 	plannerStatic := &scriptedSurfaceModel{
 		name:      "chain-planner-static",
-		responses: []model.Message{model.NewAssistantMessage("planner static")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner static")},
 	}
 	plannerPatched := &scriptedSurfaceModel{
 		name:      "chain-planner-patched",
-		responses: []model.Message{model.NewAssistantMessage("planner patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner patched")},
 	}
 	writerStatic := &scriptedSurfaceModel{
 		name:      "chain-writer-static",
-		responses: []model.Message{model.NewAssistantMessage("writer static")},
+		responses: []compat.Message{compat.NewAssistantMessage("writer static")},
 	}
 	workflow := chainagent.New(
 		"workflow",
@@ -10398,9 +10398,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectChainChildPatch(
 	var plannerPatch agent.SurfacePatch
 	plannerPatch.SetInstruction("planner patched instruction")
 	plannerPatch.SetGlobalInstruction("planner patched global")
-	plannerPatch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("planner few-shot user"),
-		model.NewAssistantMessage("planner few-shot assistant"),
+	plannerPatch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("planner few-shot user"),
+		compat.NewAssistantMessage("planner few-shot assistant"),
 	}})
 	plannerPatch.SetModel(plannerPatched)
 	plannerPatch.SetTools([]tool.Tool{
@@ -10419,7 +10419,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectChainChildPatch(
 		context.Background(),
 		"user-chain",
 		"session-chain",
-		model.NewUserMessage("run chain"),
+		compat.NewUserMessage("run chain"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(plannerNodeID, plannerPatch),
 	)
@@ -10492,19 +10492,19 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectParallelBranchPatches(
 	)
 	researcherStatic := &scriptedSurfaceModel{
 		name:      "parallel-researcher-static",
-		responses: []model.Message{model.NewAssistantMessage("researcher static")},
+		responses: []compat.Message{compat.NewAssistantMessage("researcher static")},
 	}
 	researcherPatched := &scriptedSurfaceModel{
 		name:      "parallel-researcher-patched",
-		responses: []model.Message{model.NewAssistantMessage("researcher patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("researcher patched")},
 	}
 	reviewerStatic := &scriptedSurfaceModel{
 		name:      "parallel-reviewer-static",
-		responses: []model.Message{model.NewAssistantMessage("reviewer static")},
+		responses: []compat.Message{compat.NewAssistantMessage("reviewer static")},
 	}
 	reviewerPatched := &scriptedSurfaceModel{
 		name:      "parallel-reviewer-patched",
-		responses: []model.Message{model.NewAssistantMessage("reviewer patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("reviewer patched")},
 	}
 	fanout := parallelagent.New(
 		"fanout",
@@ -10553,9 +10553,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectParallelBranchPatches(
 	var researcherPatch agent.SurfacePatch
 	researcherPatch.SetInstruction("researcher patched instruction")
 	researcherPatch.SetGlobalInstruction("researcher patched global")
-	researcherPatch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("researcher few-shot user"),
-		model.NewAssistantMessage("researcher few-shot assistant"),
+	researcherPatch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("researcher few-shot user"),
+		compat.NewAssistantMessage("researcher few-shot assistant"),
 	}})
 	researcherPatch.SetModel(researcherPatched)
 	researcherPatch.SetTools([]tool.Tool{
@@ -10568,9 +10568,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectParallelBranchPatches(
 	var reviewerPatch agent.SurfacePatch
 	reviewerPatch.SetInstruction("reviewer patched instruction")
 	reviewerPatch.SetGlobalInstruction("reviewer patched global")
-	reviewerPatch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("reviewer few-shot user"),
-		model.NewAssistantMessage("reviewer few-shot assistant"),
+	reviewerPatch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("reviewer few-shot user"),
+		compat.NewAssistantMessage("reviewer few-shot assistant"),
 	}})
 	reviewerPatch.SetModel(reviewerPatched)
 	reviewerPatch.SetTools([]tool.Tool{
@@ -10589,7 +10589,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectParallelBranchPatches(
 		context.Background(),
 		"user-parallel",
 		"session-parallel",
-		model.NewUserMessage("run parallel"),
+		compat.NewUserMessage("run parallel"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(researcherNodeID, researcherPatch),
 		agent.WithSurfacePatchForNode(reviewerNodeID, reviewerPatch),
@@ -10672,13 +10672,13 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectCycleChildPatch(
 	)
 	workerStatic := &scriptedSurfaceModel{
 		name:      "cycle-worker-static",
-		responses: []model.Message{model.NewAssistantMessage("worker static")},
+		responses: []compat.Message{compat.NewAssistantMessage("worker static")},
 	}
 	workerPatched := &scriptedSurfaceModel{
 		name: "cycle-worker-patched",
-		responses: []model.Message{
-			model.NewAssistantMessage("worker patched first"),
-			model.NewAssistantMessage("worker patched second"),
+		responses: []compat.Message{
+			compat.NewAssistantMessage("worker patched first"),
+			compat.NewAssistantMessage("worker patched second"),
 		},
 	}
 	loop := cycleagent.New(
@@ -10710,9 +10710,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectCycleChildPatch(
 	var workerPatch agent.SurfacePatch
 	workerPatch.SetInstruction("worker patched instruction")
 	workerPatch.SetGlobalInstruction("worker patched global")
-	workerPatch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("cycle few-shot user"),
-		model.NewAssistantMessage("cycle few-shot assistant"),
+	workerPatch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("cycle few-shot user"),
+		compat.NewAssistantMessage("cycle few-shot assistant"),
 	}})
 	workerPatch.SetModel(workerPatched)
 	workerPatch.SetTools([]tool.Tool{
@@ -10731,7 +10731,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesDirectCycleChildPatch(
 		context.Background(),
 		"user-cycle",
 		"session-cycle",
-		model.NewUserMessage("run cycle"),
+		compat.NewUserMessage("run cycle"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(workerNodeID, workerPatch),
 	)
@@ -10777,11 +10777,11 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 	t.Run("chain", func(t *testing.T) {
 		staticModel := &scriptedSurfaceModel{
 			name:      "chain-fallback-static",
-			responses: []model.Message{model.NewAssistantMessage("chain fallback")},
+			responses: []compat.Message{compat.NewAssistantMessage("chain fallback")},
 		}
 		patchedModel := &scriptedSurfaceModel{
 			name:      "chain-fallback-patched",
-			responses: []model.Message{model.NewAssistantMessage("should not run")},
+			responses: []compat.Message{compat.NewAssistantMessage("should not run")},
 		}
 		workflow := chainagent.New(
 			"workflow",
@@ -10805,7 +10805,7 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 			context.Background(),
 			"user-chain-fallback",
 			"session-chain-fallback",
-			model.NewUserMessage("chain fallback"),
+			compat.NewUserMessage("chain fallback"),
 			agent.WithSurfacePatchForNode("workflow/missing", patch),
 		)
 		require.NoError(t, err)
@@ -10822,15 +10822,15 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 	t.Run("parallel", func(t *testing.T) {
 		leftStatic := &scriptedSurfaceModel{
 			name:      "parallel-fallback-left-static",
-			responses: []model.Message{model.NewAssistantMessage("left fallback")},
+			responses: []compat.Message{compat.NewAssistantMessage("left fallback")},
 		}
 		rightStatic := &scriptedSurfaceModel{
 			name:      "parallel-fallback-right-static",
-			responses: []model.Message{model.NewAssistantMessage("right fallback")},
+			responses: []compat.Message{compat.NewAssistantMessage("right fallback")},
 		}
 		patchedModel := &scriptedSurfaceModel{
 			name:      "parallel-fallback-patched",
-			responses: []model.Message{model.NewAssistantMessage("should not run")},
+			responses: []compat.Message{compat.NewAssistantMessage("should not run")},
 		}
 		fanout := parallelagent.New(
 			"fanout",
@@ -10859,7 +10859,7 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 			context.Background(),
 			"user-parallel-fallback",
 			"session-parallel-fallback",
-			model.NewUserMessage("parallel fallback"),
+			compat.NewUserMessage("parallel fallback"),
 			agent.WithSurfacePatchForNode("fanout/missing", patch),
 		)
 		require.NoError(t, err)
@@ -10882,11 +10882,11 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 	t.Run("cycle", func(t *testing.T) {
 		staticModel := &scriptedSurfaceModel{
 			name:      "cycle-fallback-static",
-			responses: []model.Message{model.NewAssistantMessage("cycle fallback")},
+			responses: []compat.Message{compat.NewAssistantMessage("cycle fallback")},
 		}
 		patchedModel := &scriptedSurfaceModel{
 			name:      "cycle-fallback-patched",
-			responses: []model.Message{model.NewAssistantMessage("should not run")},
+			responses: []compat.Message{compat.NewAssistantMessage("should not run")},
 		}
 		loop := cycleagent.New(
 			"loop",
@@ -10911,7 +10911,7 @@ func TestRunner_Run_WithSurfacePatchForNode_IgnoresUnknownDirectShapeNodeID(
 			context.Background(),
 			"user-cycle-fallback",
 			"session-cycle-fallback",
-			model.NewUserMessage("cycle fallback"),
+			compat.NewUserMessage("cycle fallback"),
 			agent.WithSurfacePatchForNode("loop/missing", patch),
 		)
 		require.NoError(t, err)
@@ -10936,13 +10936,13 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesComplexGraphPatches(
 	patchedTool := &callCountingTool{name: "patched_graph_tool", result: "patched graph tool"}
 	staticGraphModel := &scriptedSurfaceModel{
 		name:      "graph-static",
-		responses: []model.Message{model.NewAssistantMessage("graph static")},
+		responses: []compat.Message{compat.NewAssistantMessage("graph static")},
 	}
 	patchedGraphModel := &scriptedSurfaceModel{
 		name: "graph-patched",
-		responses: []model.Message{
+		responses: []compat.Message{
 			toolCallAssistantMessage("patched_graph_tool", `{}`),
-			model.NewAssistantMessage("branch-a"),
+			compat.NewAssistantMessage("branch-a"),
 		},
 	}
 	schema := graph.MessagesStateSchema().
@@ -11012,9 +11012,9 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesComplexGraphPatches(
 	)
 	var llmPatch agent.SurfacePatch
 	llmPatch.SetInstruction("graph patched instruction")
-	llmPatch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("graph few-shot user"),
-		model.NewAssistantMessage("graph few-shot assistant"),
+	llmPatch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("graph few-shot user"),
+		compat.NewAssistantMessage("graph few-shot assistant"),
 	}})
 	llmPatch.SetModel(patchedGraphModel)
 	llmPatch.SetTools([]tool.Tool{patchedTool})
@@ -11029,7 +11029,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesComplexGraphPatches(
 		context.Background(),
 		"user-graph",
 		"session-graph",
-		model.NewUserMessage("graph input"),
+		compat.NewUserMessage("graph input"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(llmNodeID, llmPatch),
 		agent.WithSurfacePatchForNode(toolsNodeID, toolsPatch),
@@ -11068,11 +11068,11 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesGraphChildAgentPatch(
 ) {
 	childStatic := &scriptedSurfaceModel{
 		name:      "graph-child-static",
-		responses: []model.Message{model.NewAssistantMessage("child static")},
+		responses: []compat.Message{compat.NewAssistantMessage("child static")},
 	}
 	childPatched := &scriptedSurfaceModel{
 		name:      "graph-child-patched",
-		responses: []model.Message{model.NewAssistantMessage("child patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("child patched")},
 	}
 	child := llmagent.New(
 		"researcher",
@@ -11109,7 +11109,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesGraphChildAgentPatch(
 		context.Background(),
 		"user-graph-child",
 		"session-graph-child",
-		model.NewUserMessage("graph child input"),
+		compat.NewUserMessage("graph child input"),
 		agent.WithSurfacePatchForNode(childNodeID, patch),
 	)
 	require.NoError(t, err)
@@ -11129,11 +11129,11 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesNestedGraphChildLLMPatch(
 ) {
 	childStatic := &scriptedSurfaceModel{
 		name:      "nested-graph-child-static",
-		responses: []model.Message{model.NewAssistantMessage("child static")},
+		responses: []compat.Message{compat.NewAssistantMessage("child static")},
 	}
 	childPatched := &scriptedSurfaceModel{
 		name:      "nested-graph-child-patched",
-		responses: []model.Message{model.NewAssistantMessage("child patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("child patched")},
 	}
 	childCompiled := graph.NewStateGraph(graph.MessagesStateSchema()).
 		AddLLMNode(
@@ -11178,7 +11178,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesNestedGraphChildLLMPatch(
 		context.Background(),
 		"user-nested-graph-child",
 		"session-nested-graph-child",
-		model.NewUserMessage("nested graph child input"),
+		compat.NewUserMessage("nested graph child input"),
 		agent.WithSurfacePatchForNode(planNodeID, patch),
 	)
 	require.NoError(t, err)
@@ -11196,11 +11196,11 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesNestedGraphAgentNodePatch(
 ) {
 	reviewerStatic := &scriptedSurfaceModel{
 		name:      "nested-agent-node-static",
-		responses: []model.Message{model.NewAssistantMessage("reviewer static")},
+		responses: []compat.Message{compat.NewAssistantMessage("reviewer static")},
 	}
 	reviewerPatched := &scriptedSurfaceModel{
 		name:      "nested-agent-node-patched",
-		responses: []model.Message{model.NewAssistantMessage("reviewer patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("reviewer patched")},
 	}
 	reviewer := llmagent.New(
 		"reviewer",
@@ -11249,7 +11249,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesNestedGraphAgentNodePatch(
 		context.Background(),
 		"user-nested-agent-node",
 		"session-nested-agent-node",
-		model.NewUserMessage("nested agent node input"),
+		compat.NewUserMessage("nested agent node input"),
 		agent.WithSurfacePatchForNode(reviewerNodeID, patch),
 	)
 	require.NoError(t, err)
@@ -11267,15 +11267,15 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesGraphCompositeChildPatch(
 ) {
 	plannerStatic := &scriptedSurfaceModel{
 		name:      "graph-composite-planner-static",
-		responses: []model.Message{model.NewAssistantMessage("planner static")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner static")},
 	}
 	plannerPatched := &scriptedSurfaceModel{
 		name:      "graph-composite-planner-patched",
-		responses: []model.Message{model.NewAssistantMessage("planner patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("planner patched")},
 	}
 	writerStatic := &scriptedSurfaceModel{
 		name:      "graph-composite-writer-static",
-		responses: []model.Message{model.NewAssistantMessage("writer static")},
+		responses: []compat.Message{compat.NewAssistantMessage("writer static")},
 	}
 	pipeline := chainagent.New(
 		"pipeline",
@@ -11323,7 +11323,7 @@ func TestRunner_Run_WithSurfacePatchForNode_AppliesGraphCompositeChildPatch(
 		context.Background(),
 		"user-graph-composite",
 		"session-graph-composite",
-		model.NewUserMessage("graph composite input"),
+		compat.NewUserMessage("graph composite input"),
 		agent.WithSurfacePatchForNode(plannerNodeID, patch),
 	)
 	require.NoError(t, err)
@@ -11352,9 +11352,9 @@ func TestRunner_GraphChildAgentNode_PersistedRunnerCompletionDoesNotReplayIntoNe
 
 	childModel := &scriptedSurfaceModel{
 		name: "graph-child-history",
-		responses: []model.Message{
-			model.NewAssistantMessage(firstReply),
-			model.NewAssistantMessage("child second"),
+		responses: []compat.Message{
+			compat.NewAssistantMessage(firstReply),
+			compat.NewAssistantMessage("child second"),
 		},
 	}
 	child := llmagent.New("researcher", llmagent.WithModel(childModel))
@@ -11377,7 +11377,7 @@ func TestRunner_GraphChildAgentNode_PersistedRunnerCompletionDoesNotReplayIntoNe
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	firstCompletion := collectRunnerCompletionEvent(t, firstTurn)
@@ -11390,7 +11390,7 @@ func TestRunner_GraphChildAgentNode_PersistedRunnerCompletionDoesNotReplayIntoNe
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("next"),
+		compat.NewUserMessage("next"),
 	)
 	require.NoError(t, err)
 	_ = collectRunnerCompletionEvent(t, secondTurn)
@@ -11404,13 +11404,13 @@ func TestRunner_GraphChildAgentNode_PersistedRunnerCompletionDoesNotReplayIntoNe
 	)
 }
 
-func cloneSurfaceCapturedRequest(req *model.Request) *surfaceCapturedRequest {
+func cloneSurfaceCapturedRequest(req *compat.Request) *surfaceCapturedRequest {
 	if req == nil {
 		return nil
 	}
 	return &surfaceCapturedRequest{
-		messages:  append([]model.Message(nil), req.Messages...),
-		toolNames: surfaceToolNames(req.Tools),
+		messages:  append([]compat.Message(nil), req.Messages...),
+		toolNames: surfaceToolNames(req.Tools.(map[string]tool.Tool)),
 	}
 }
 
@@ -11421,18 +11421,18 @@ func cloneSurfaceCapturedRequestValue(
 		return nil
 	}
 	return &surfaceCapturedRequest{
-		messages:  append([]model.Message(nil), req.messages...),
+		messages:  append([]compat.Message(nil), req.messages...),
 		toolNames: append([]string(nil), req.toolNames...),
 	}
 }
 
-func cloneSurfaceMessage(message model.Message) model.Message {
+func cloneSurfaceMessage(message compat.Message) compat.Message {
 	cloned := message
 	if len(message.ToolCalls) > 0 {
-		cloned.ToolCalls = append([]model.ToolCall(nil), message.ToolCalls...)
+		cloned.ToolCalls = append([]compat.ToolCall(nil), message.ToolCalls...)
 	}
 	if len(message.ContentParts) > 0 {
-		cloned.ContentParts = append([]model.ContentPart(nil), message.ContentParts...)
+		cloned.ContentParts = append([]compat.ContentPart(nil), message.ContentParts...)
 	}
 	return cloned
 }
@@ -11449,13 +11449,13 @@ func surfaceToolNames(tools map[string]tool.Tool) []string {
 	return names
 }
 
-func toolCallAssistantMessage(name string, args string) model.Message {
-	return model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+func toolCallAssistantMessage(name string, args string) compat.Message {
+	return compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   name + "-call",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      name,
 				Arguments: []byte(args),
 			},
@@ -11495,7 +11495,7 @@ func countTraceStepsByNodeID(steps []atrace.Step) map[string]int {
 	return counts
 }
 
-func surfaceMessageContents(messages []model.Message) []string {
+func surfaceMessageContents(messages []compat.Message) []string {
 	contents := make([]string, 0, len(messages))
 	for _, message := range messages {
 		if message.Content != "" {
@@ -11505,7 +11505,7 @@ func surfaceMessageContents(messages []model.Message) []string {
 	return contents
 }
 
-func surfaceRoleContentSummaries(messages []model.Message) []string {
+func surfaceRoleContentSummaries(messages []compat.Message) []string {
 	summaries := make([]string, 0, len(messages))
 	for _, message := range messages {
 		if message.Content == "" {
@@ -11598,7 +11598,7 @@ func TestRunner_WithAppName_OverridesSessionKey(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithAppName(overrideAppName),
 	)
 	require.NoError(t, err)
@@ -11639,7 +11639,7 @@ func TestRunner_WithAppName_FallbackToDefault(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	for range ch {
@@ -11674,7 +11674,7 @@ func TestRunner_WithAppName_IsolatesDifferentProjects(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello from A"),
+		compat.NewUserMessage("hello from A"),
 		agent.WithAppName(projectA),
 	)
 	require.NoError(t, err)
@@ -11686,7 +11686,7 @@ func TestRunner_WithAppName_IsolatesDifferentProjects(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello from B"),
+		compat.NewUserMessage("hello from B"),
 		agent.WithAppName(projectB),
 	)
 	require.NoError(t, err)
@@ -11736,14 +11736,14 @@ func TestRunner_WithAppName_EventAuthor(t *testing.T) {
 		context.Background(),
 		userID,
 		sessionID,
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithAppName(overrideAppName),
 	)
 	require.NoError(t, err)
 
 	var completionAuthor string
 	for ev := range ch {
-		if ev.Response != nil && ev.Response.Object == model.ObjectTypeRunnerCompletion {
+		if ev.Response != nil && ev.Response.Object == compat.ObjectTypeRunnerCompletion {
 			completionAuthor = ev.Author
 		}
 	}

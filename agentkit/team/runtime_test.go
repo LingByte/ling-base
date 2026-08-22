@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/sessionroute"
 	itransfer "github.com/LingByte/ling-base/agentkit/internal/transfer"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/require"
@@ -90,7 +90,7 @@ func (c *composedTransferController) CustomizeTransferInvocation(
 	target *agent.Invocation,
 ) error {
 	c.customized++
-	target.Message = model.NewUserMessage("existing")
+	target.Message = compat.NewUserMessage("existing")
 	return nil
 }
 
@@ -101,9 +101,9 @@ func TestEnsureSwarmRuntime_PreservesExistingTransferControllerAndComposesCustom
 			agent.RuntimeStateKeyTransferController: existing,
 		},
 	}))
-	inputBuilder := func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+	inputBuilder := func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 		_ = ctx
-		return model.NewUserMessage(args.TransferMessage + "+swarm"), nil
+		return compat.NewUserMessage(args.TransferMessage + "+swarm"), nil
 	}
 	ensureSwarmRuntime(
 		inv,
@@ -179,43 +179,43 @@ func TestEnsureSwarmRuntime_IsolatesSharedRuntimeState(t *testing.T) {
 func TestSwarmRuntime_CustomizeTransferInvocation_BuildsInput(t *testing.T) {
 	source := agent.NewInvocation(
 		agent.WithInvocationAgent(testAgent{name: "parent"}),
-		agent.WithInvocationMessage(model.NewUserMessage("raw user input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("raw user input")),
 	)
 	target := agent.NewInvocation(
 		agent.WithInvocationAgent(testAgent{name: "child"}),
 		agent.WithInvocationID("target-invocation"),
-		agent.WithInvocationMessage(model.NewUserMessage("parent supplied transfer")),
+		agent.WithInvocationMessage(compat.NewUserMessage("parent supplied transfer")),
 	)
 	rt := &swarmRuntime{
-		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 			require.Equal(t, "parent", args.FromAgentName)
 			require.Equal(t, "child", args.ToAgentName)
 			require.Equal(t, "raw user input", args.RootInput.Content)
 			require.Equal(t, "raw user input", args.ParentInput.Content)
 			require.Equal(t, "parent supplied transfer", args.TransferMessage)
 			_ = ctx
-			return model.Message{Content: "rendered child input"}, nil
+			return compat.Message{Content: "rendered child input"}, nil
 		},
 	}
 	require.NoError(t, rt.CustomizeTransferInvocation(context.Background(), source, target))
-	require.Equal(t, model.RoleUser, target.Message.Role)
+	require.Equal(t, compat.RoleUser, target.Message.Role)
 	require.Equal(t, "rendered child input", target.Message.Content)
 }
 
 func TestSwarmRuntime_CustomizeTransferInvocation_UsesRawTransferMessage(t *testing.T) {
 	source := agent.NewInvocation(
 		agent.WithInvocationAgent(testAgent{name: "parent"}),
-		agent.WithInvocationMessage(model.NewUserMessage("original user input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("original user input")),
 	)
 	target := agent.NewInvocation(
 		agent.WithInvocationAgent(testAgent{name: "child"}),
-		agent.WithInvocationMessage(model.NewUserMessage("original user input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("original user input")),
 	)
 	rt := &swarmRuntime{
-		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 			_ = ctx
 			require.Empty(t, args.TransferMessage)
-			return model.NewUserMessage("custom child input"), nil
+			return compat.NewUserMessage("custom child input"), nil
 		},
 	}
 	ctx := itransfer.ContextWithTransferMessage(context.Background(), "")
@@ -235,19 +235,19 @@ func TestSwarmRuntime_CustomizeTransferInvocation_IsolatesSessionAndBuildsInput(
 	source := &agent.Invocation{
 		AgentName: "parent",
 		Session:   parentSess,
-		Message:   model.NewUserMessage("raw user input"),
+		Message:   compat.NewUserMessage("raw user input"),
 	}
 	target := &agent.Invocation{
 		AgentName:      "child",
 		InvocationID:   "target-invocation",
 		Session:        parentSess,
 		SessionService: service,
-		Message:        model.NewUserMessage("parent supplied transfer"),
+		Message:        compat.NewUserMessage("parent supplied transfer"),
 	}
 	rt := &swarmRuntime{
 		teamName: "support",
 		handoff:  swarmHandoffPolicy{sessionScope: swarmSessionScopePerAgent},
-		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 			require.Equal(t, "parent", args.FromAgentName)
 			require.Equal(t, "child", args.ToAgentName)
 			require.Equal(t, "raw user input", args.RootInput.Content)
@@ -255,12 +255,12 @@ func TestSwarmRuntime_CustomizeTransferInvocation_IsolatesSessionAndBuildsInput(
 			require.Equal(t, "parent supplied transfer", args.TransferMessage)
 			require.Equal(t, "parent/support/child", target.Session.ID)
 			_ = ctx
-			return model.Message{Content: "rendered child input"}, nil
+			return compat.Message{Content: "rendered child input"}, nil
 		},
 	}
 	require.NoError(t, rt.CustomizeTransferInvocation(ctx, source, target))
 	require.Equal(t, "parent/support/child", target.Session.ID)
-	require.Equal(t, model.RoleUser, target.Message.Role)
+	require.Equal(t, compat.RoleUser, target.Message.Role)
 	require.Equal(t, "rendered child input", target.Message.Content)
 	got, err := service.GetSession(ctx, session.Key{
 		AppName:   "app",
@@ -395,7 +395,7 @@ func TestSwarmRuntime_OnTransferCompleteUsesRuntimeTeamName(t *testing.T) {
 		AgentName: "child",
 		Session:   rootSess,
 	}
-	targetEvent := event.NewResponseEvent("target", "child", &model.Response{Done: true})
+	targetEvent := event.NewResponseEvent("target", "child", &compat.Response{Done: true})
 	rt := &swarmRuntime{
 		teamName: "team",
 		handoff:  swarmHandoffPolicy{turnRouting: swarmTurnRoutingTargetTakesOver},
@@ -458,7 +458,7 @@ func TestSwarmRuntime_OnTransferCompletePersistsSharedSyntheticFallback(t *testi
 		AgentName: "child",
 		Session:   rootSess,
 	}
-	targetEvent := event.NewResponseEvent("target", "child", &model.Response{Done: true})
+	targetEvent := event.NewResponseEvent("target", "child", &compat.Response{Done: true})
 	itransfer.MarkSyntheticCompletionEvent(targetEvent)
 	rt := &swarmRuntime{handoff: swarmHandoffPolicy{
 		turnRouting: swarmTurnRoutingTargetTakesOver,
@@ -491,7 +491,7 @@ func TestSwarmRuntime_OnTransferTerminalErrorPreservesSharedOwnerStateDelta(t *t
 		AgentName: "child",
 		Session:   rootSess,
 	}
-	targetEvent := event.NewErrorEvent("target", "child", model.ErrorTypeFlowError, "boom")
+	targetEvent := event.NewErrorEvent("target", "child", compat.ErrorTypeFlowError, "boom")
 	rt := &swarmRuntime{handoff: swarmHandoffPolicy{
 		turnRouting: swarmTurnRoutingTargetTakesOver,
 	}}
@@ -532,7 +532,7 @@ func TestSwarmRuntime_RouteIsolatedEventInheritsParentRoute(t *testing.T) {
 	childEvent := event.NewResponseEvent(
 		"child-descendant",
 		"child",
-		&model.Response{Done: true, Choices: []model.Choice{{Message: model.NewAssistantMessage("child answer")}}},
+		&compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.NewAssistantMessage("child answer")}}},
 	)
 	childEvent.ParentInvocationID = "child-parent"
 	got, ok := rt.RouteEvent(inv, childEvent)
@@ -541,7 +541,7 @@ func TestSwarmRuntime_RouteIsolatedEventInheritsParentRoute(t *testing.T) {
 	grandchildEvent := event.NewResponseEvent(
 		"child-grandchild",
 		"child",
-		&model.Response{Done: true, Choices: []model.Choice{{Message: model.NewAssistantMessage("grandchild answer")}}},
+		&compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.NewAssistantMessage("grandchild answer")}}},
 	)
 	grandchildEvent.ParentInvocationID = "child-descendant"
 	grandchildEvent.Branch = "team/child/internal"
@@ -574,7 +574,7 @@ func TestSwarmRuntime_RouteIsolatedEventUsesBranchFallback(t *testing.T) {
 	childEvent := event.NewResponseEvent(
 		"child-internal-without-parent",
 		"child",
-		&model.Response{Done: true, Choices: []model.Choice{{Message: model.NewAssistantMessage("branch-routed answer")}}},
+		&compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.NewAssistantMessage("branch-routed answer")}}},
 	)
 	childEvent.Branch = "team/child/internal"
 	got, ok := rt.RouteEvent(inv, childEvent)
@@ -675,15 +675,15 @@ func TestSwarmRuntime_GetOrCreateSessionFallsBackAfterConcurrentCreate(t *testin
 func TestRootMessageUsesRootMostPayload(t *testing.T) {
 	root := agent.NewInvocation(
 		agent.WithInvocationID("root"),
-		agent.WithInvocationMessage(model.NewUserMessage("root input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("root input")),
 	)
 	parent := root.Clone(
 		agent.WithInvocationID("parent"),
-		agent.WithInvocationMessage(model.NewUserMessage("parent input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("parent input")),
 	)
 	child := parent.Clone(
 		agent.WithInvocationID("child"),
-		agent.WithInvocationMessage(model.NewUserMessage("child input")),
+		agent.WithInvocationMessage(compat.NewUserMessage("child input")),
 	)
 	require.Equal(t, "root input", rootMessage(child).Content)
 }
@@ -701,14 +701,14 @@ func TestRootSessionPrefersSwarmMarkedAncestor(t *testing.T) {
 
 func TestCurrentTurnUserEventsCloneCurrentInvocationUserEvents(t *testing.T) {
 	sess := session.NewSession("app", "user", "root")
-	currentUser := event.NewResponseEvent("turn", "user", &model.Response{
-		Choices: []model.Choice{{Message: model.NewUserMessage("current input")}},
+	currentUser := event.NewResponseEvent("turn", "user", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewUserMessage("current input")}},
 	})
-	currentAssistant := event.NewResponseEvent("turn", "agent", &model.Response{
-		Choices: []model.Choice{{Message: model.NewAssistantMessage("answer")}},
+	currentAssistant := event.NewResponseEvent("turn", "agent", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage("answer")}},
 	})
-	otherUser := event.NewResponseEvent("other", "user", &model.Response{
-		Choices: []model.Choice{{Message: model.NewUserMessage("other input")}},
+	otherUser := event.NewResponseEvent("other", "user", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewUserMessage("other input")}},
 	})
 	sess.Events = []event.Event{*currentUser, *currentAssistant, *otherUser}
 	inv := agent.NewInvocation(
@@ -739,8 +739,8 @@ func TestAppendCurrentTurnUserEvents(t *testing.T) {
 		SessionID: "root/team/member",
 	}, session.StateMap{})
 	require.NoError(t, err)
-	root.Events = []event.Event{*event.NewResponseEvent("turn", "user", &model.Response{
-		Choices: []model.Choice{{Message: model.NewUserMessage("current input")}},
+	root.Events = []event.Event{*event.NewResponseEvent("turn", "user", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewUserMessage("current input")}},
 	})}
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("turn"),
@@ -771,8 +771,8 @@ func TestPrepareSwarmStartSessionAppendsCurrentTurnInput(t *testing.T) {
 		SessionID: "root",
 	}, session.StateMap{})
 	require.NoError(t, err)
-	root.Events = []event.Event{*event.NewResponseEvent("turn", "user", &model.Response{
-		Choices: []model.Choice{{Message: model.NewUserMessage("current input")}},
+	root.Events = []event.Event{*event.NewResponseEvent("turn", "user", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.NewUserMessage("current input")}},
 	})}
 	handoff := swarmHandoffPolicy{
 		sessionScope: swarmSessionScopePerAgent,
@@ -799,24 +799,24 @@ func TestPrepareSwarmStartSessionAppendsCurrentTurnInput(t *testing.T) {
 func TestSwarmRuntime_CustomizeTransferInvocation_HandlesNilAndBuilderErrors(t *testing.T) {
 	called := false
 	rt := &swarmRuntime{
-		inputBuilder: func(context.Context, SwarmHandoffInputArgs) (model.Message, error) {
+		inputBuilder: func(context.Context, SwarmHandoffInputArgs) (compat.Message, error) {
 			called = true
-			return model.NewUserMessage("unused"), nil
+			return compat.NewUserMessage("unused"), nil
 		},
 	}
 	require.NoError(t, rt.CustomizeTransferInvocation(context.Background(), nil, nil))
 	require.False(t, called)
-	target := agent.NewInvocation(agent.WithInvocationMessage(model.NewUserMessage("original")))
+	target := agent.NewInvocation(agent.WithInvocationMessage(compat.NewUserMessage("original")))
 	require.NoError(t, (&swarmRuntime{}).CustomizeTransferInvocation(context.Background(), nil, target))
 	require.Equal(t, "original", target.Message.Content)
 	buildErr := errors.New("build failed")
 	rt = &swarmRuntime{
-		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+		inputBuilder: func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 			_ = ctx
 			require.Empty(t, args.FromAgentName)
 			require.Empty(t, args.RootInput.Content)
 			require.Empty(t, args.ParentInput.Content)
-			return model.Message{}, buildErr
+			return compat.Message{}, buildErr
 		},
 	}
 	require.ErrorIs(t, rt.CustomizeTransferInvocation(context.Background(), nil, target), buildErr)
@@ -902,7 +902,7 @@ func TestChainedTransferController_CustomizeTransferInvocation_PropagatesErrorsA
 func TestChainedTransferController_OnTransferCompleteNotifiesObservers(t *testing.T) {
 	first := &runtimeCompletionController{}
 	second := &runtimeCompletionController{}
-	targetEvent := event.NewResponseEvent("target", "child", &model.Response{Done: true})
+	targetEvent := event.NewResponseEvent("target", "child", &compat.Response{Done: true})
 	(chainedTransferController{first: first, second: second}).OnTransferComplete(
 		context.Background(),
 		nil,
@@ -922,7 +922,7 @@ func TestChainedTransferController_OnTransferCompleteNotifiesObservers(t *testin
 func TestChainedTransferController_OnTransferTerminalErrorNotifiesObservers(t *testing.T) {
 	first := &runtimeCompletionController{}
 	second := &runtimeCompletionController{}
-	targetEvent := event.NewErrorEvent("target", "child", model.ErrorTypeFlowError, "boom")
+	targetEvent := event.NewErrorEvent("target", "child", compat.ErrorTypeFlowError, "boom")
 	(chainedTransferController{first: first, second: second}).OnTransferTerminalError(
 		context.Background(),
 		nil,
@@ -974,7 +974,7 @@ func (c *runtimeTestController) CustomizeTransferInvocation(
 		return c.customizeErr
 	}
 	if c.message != "" {
-		target.Message = model.NewUserMessage(c.message)
+		target.Message = compat.NewUserMessage(c.message)
 	}
 	return nil
 }

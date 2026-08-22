@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 )
 
@@ -48,7 +48,7 @@ func New(opts ...Option) planner.Planner {
 
 // BuildPlanningInstruction injects A2UI protocol constraints.
 func (p *a2uiPlanner) BuildPlanningInstruction(ctx context.Context, invocation *agent.Invocation,
-	llmRequest *model.Request) string {
+	llmRequest *compat.Request) string {
 	instructions := make([]string, 0)
 	if p.instruction != "" {
 		instructions = append(instructions, p.instruction)
@@ -88,6 +88,6 @@ func (p *a2uiPlanner) BuildPlanningInstruction(ctx context.Context, invocation *
 
 // ProcessPlanningResponse returns nil to indicate that no planning-specific response processing is needed.
 func (p *a2uiPlanner) ProcessPlanningResponse(ctx context.Context, invocation *agent.Invocation,
-	response *model.Response) *model.Response {
+	response *compat.Response) *compat.Response {
 	return nil
 }

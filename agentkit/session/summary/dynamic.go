@@ -12,7 +12,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -97,7 +97,7 @@ func (d *dynamicSummarizer) SetPrompt(string) {}
 
 // SetModel is a no-op for dynamic summarizers. Configure request-scoped models
 // in the resolver instead.
-func (d *dynamicSummarizer) SetModel(model.Model) {}
+func (d *dynamicSummarizer) SetModel(compat.Model) {}
 
 // Metadata returns metadata about the dynamic summarizer.
 func (d *dynamicSummarizer) Metadata() map[string]any {

@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const defaultSystemPrompt = `Given a chat history and the latest user question, rewrite the question into a standalone search query optimized for vector database retrieval.
@@ -28,7 +28,7 @@ Rules:
 
 // LLMEnhancer uses a language model to rewrite queries for better retrieval.
 type LLMEnhancer struct {
-	model        model.Model
+	model        compat.Model
 	systemPrompt string
 }
 
@@ -43,7 +43,7 @@ func WithSystemPrompt(prompt string) LLMEnhancerOption {
 }
 
 // NewLLMEnhancer creates a query enhancer that uses an LLM to rewrite queries.
-func NewLLMEnhancer(m model.Model, opts ...LLMEnhancerOption) *LLMEnhancer {
+func NewLLMEnhancer(m compat.Model, opts ...LLMEnhancerOption) *LLMEnhancer {
 	e := &LLMEnhancer{
 		model:        m,
 		systemPrompt: defaultSystemPrompt,
@@ -60,22 +60,22 @@ func (e *LLMEnhancer) EnhanceQuery(ctx context.Context, req *Request) (*Enhanced
 		return &Enhanced{}, nil
 	}
 
-	messages := []model.Message{
-		model.NewSystemMessage(e.systemPrompt),
+	messages := []compat.Message{
+		compat.NewSystemMessage(e.systemPrompt),
 	}
 
 	for _, h := range req.History {
 		switch h.Role {
 		case "user":
-			messages = append(messages, model.NewUserMessage(h.Content))
+			messages = append(messages, compat.NewUserMessage(h.Content))
 		case "assistant":
-			messages = append(messages, model.NewAssistantMessage(h.Content))
+			messages = append(messages, compat.NewAssistantMessage(h.Content))
 		}
 	}
 
-	messages = append(messages, model.NewUserMessage(req.Query))
+	messages = append(messages, compat.NewUserMessage(req.Query))
 
-	ch, err := e.model.GenerateContent(ctx, &model.Request{
+	ch, err := e.model.GenerateContent(ctx, &compat.Request{
 		Messages: messages,
 	})
 	if err != nil {

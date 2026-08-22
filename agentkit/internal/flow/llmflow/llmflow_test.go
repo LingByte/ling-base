@@ -31,7 +31,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -52,7 +52,7 @@ import (
 // Additional unit tests for long-running tool tracking and preprocess
 
 func TestCloneRequestForContextCompactionDeepCopiesExtraFields(t *testing.T) {
-	req := &model.Request{
+	req := &compat.Request{
 		ExtraFields: map[string]any{
 			"prompt_cache_key": "cache-1",
 			"metadata": map[string]any{
@@ -99,11 +99,11 @@ func useSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
 }
 
 func TestCollectLongRunningToolIDs(t *testing.T) {
-	calls := []model.ToolCall{
-		{ID: "1", Function: model.FunctionDefinitionParam{Name: "fast"}},
-		{ID: "2", Function: model.FunctionDefinitionParam{Name: "slow"}},
-		{ID: "3", Function: model.FunctionDefinitionParam{Name: "unknown"}},
-		{ID: "4", Function: model.FunctionDefinitionParam{Name: "nolong"}},
+	calls := []compat.ToolCall{
+		{ID: "1", Function: compat.FunctionDefinitionParam{Name: "fast"}},
+		{ID: "2", Function: compat.FunctionDefinitionParam{Name: "slow"}},
+		{ID: "3", Function: compat.FunctionDefinitionParam{Name: "unknown"}},
+		{ID: "4", Function: compat.FunctionDefinitionParam{Name: "nolong"}},
 	}
 	tools := map[string]tool.Tool{
 		"fast":   &mockLongRunnerTool{name: "fast", long: false},
@@ -194,9 +194,9 @@ func TestLatencyDiagnosticHelpers(t *testing.T) {
 			RequestID:                    "req-latency",
 		}),
 	)
-	req := &model.Request{
-		Messages:         []model.Message{model.NewUserMessage("hi")},
-		GenerationConfig: model.GenerationConfig{Stream: true},
+	req := &compat.Request{
+		Messages:         []compat.Message{compat.NewUserMessage("hi")},
+		GenerationConfig: compat.GenerationConfig{Stream: true},
 		Tools: map[string]tool.Tool{
 			"slow": &mockLongRunnerTool{name: "slow", long: true},
 		},
@@ -217,12 +217,12 @@ func TestLatencyDiagnosticHelpers(t *testing.T) {
 	require.True(t, flowHasAttr(reqAttrs, "llmflow.request.stream", true))
 	require.Nil(t, latencyRequestAttrs(nil))
 
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done:      true,
 		IsPartial: true,
-		Object:    model.ObjectTypePreprocessingStatus,
-		Error:     &model.ResponseError{Type: model.ErrorTypeRunError},
-		Choices:   []model.Choice{{Index: 1}},
+		Object:    compat.ObjectTypePreprocessingStatus,
+		Error:     &compat.ResponseError{Type: compat.ErrorTypeRunError},
+		Choices:   []compat.Choice{{Index: 1}},
 	}
 	respAttrs := latencyResponseAttrs(resp)
 	require.True(t, flowHasAttr(respAttrs, "llmflow.response.done", true))
@@ -233,7 +233,7 @@ func TestLatencyDiagnosticHelpers(t *testing.T) {
 		flowHasAttr(
 			respAttrs,
 			"llmflow.response.object",
-			model.ObjectTypePreprocessingStatus,
+			compat.ObjectTypePreprocessingStatus,
 		),
 	)
 	require.True(
@@ -241,13 +241,13 @@ func TestLatencyDiagnosticHelpers(t *testing.T) {
 		flowHasAttr(
 			respAttrs,
 			"llmflow.response.error_type",
-			string(model.ErrorTypeRunError),
+			string(compat.ErrorTypeRunError),
 		),
 	)
 	require.Nil(t, latencyResponseAttrs(nil))
 	require.True(t, latencyTraceResponseDetails(nil))
 	require.True(t, latencyTraceResponseDetails(resp))
-	require.False(t, latencyTraceResponseDetails(&model.Response{}))
+	require.False(t, latencyTraceResponseDetails(&compat.Response{}))
 
 	invAttrs := latencyInvocationAttrs(inv)
 	require.True(t, flowHasAttr(invAttrs, "llmflow.agent", "a"))
@@ -310,9 +310,9 @@ func TestEmitLatencyDiagnosticEventAndContextAttrs(t *testing.T) {
 	)
 	require.Empty(t, ch)
 
-	req := &model.Request{
-		Messages:         []model.Message{model.NewUserMessage("hi")},
-		GenerationConfig: model.GenerationConfig{Stream: true},
+	req := &compat.Request{
+		Messages:         []compat.Message{compat.NewUserMessage("hi")},
+		GenerationConfig: compat.GenerationConfig{Stream: true},
 	}
 	attrs := contextCompactionAttrs(
 		contextCompactionDecision{
@@ -388,7 +388,7 @@ func TestEmitLatencyDiagnosticEventAndContextAttrs(t *testing.T) {
 
 func TestPreprocess_AddsAgentToolsWhenPresent(t *testing.T) {
 	f := New(nil, nil, Options{})
-	req := &model.Request{Tools: map[string]tool.Tool{}}
+	req := &compat.Request{Tools: map[string]tool.Tool{}}
 	inv := agent.NewInvocation()
 	inv.Agent = &minimalAgent{tools: []tool.Tool{&mockLongRunnerTool{name: "t1"}}}
 	ch := make(chan *event.Event, 4)
@@ -398,10 +398,10 @@ func TestPreprocess_AddsAgentToolsWhenPresent(t *testing.T) {
 
 func TestPreprocess_DowngradesOrphanToolCallBeforeModel(t *testing.T) {
 	modelStub := &mockModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleAssistant, Content: "ok"},
+				Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 				}},
 			},
 		},
@@ -409,21 +409,21 @@ func TestPreprocess_DowngradesOrphanToolCallBeforeModel(t *testing.T) {
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{
-					model.NewUserMessage("read file"),
+				messages: []compat.Message{
+					compat.NewUserMessage("read file"),
 					{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID: "call_orphan",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "test_tool",
 									Arguments: []byte(`{"path":"a.txt"}`),
 								},
 							},
 						},
 					},
-					model.NewUserMessage("retry"),
+					compat.NewUserMessage("retry"),
 				},
 			},
 		},
@@ -436,33 +436,33 @@ func TestPreprocess_DowngradesOrphanToolCallBeforeModel(t *testing.T) {
 		}}),
 		agent.WithInvocationModel(modelStub),
 	)
-	req := &model.Request{Tools: map[string]tool.Tool{}}
+	req := &compat.Request{Tools: map[string]tool.Tool{}}
 	ch := make(chan *event.Event, 4)
 
 	f.preprocess(context.Background(), inv, req, ch)
 	_, seq, _, err := f.callLLM(context.Background(), inv, req, inv.Model)
 	require.NoError(t, err)
-	seq(func(resp *model.Response) bool { return false })
+	seq(func(resp *compat.Response) bool { return false })
 
 	captured := modelStub.LastRequest()
 	require.NotNil(t, captured)
 	require.Len(t, captured.Messages, 3)
-	require.Equal(t, model.RoleUser, captured.Messages[0].Role)
+	require.Equal(t, compat.RoleUser, captured.Messages[0].Role)
 	require.Equal(t, "read file", captured.Messages[0].Content)
-	require.Equal(t, model.RoleUser, captured.Messages[1].Role)
+	require.Equal(t, compat.RoleUser, captured.Messages[1].Role)
 	require.Contains(t, captured.Messages[1].Content, "[orphan_tool_call]")
 	require.Empty(t, captured.Messages[1].ToolCalls)
-	require.Equal(t, model.RoleUser, captured.Messages[2].Role)
+	require.Equal(t, compat.RoleUser, captured.Messages[2].Role)
 	require.Equal(t, "retry", captured.Messages[2].Content)
 }
 
 func TestCreateLLMResponseEvent_LongRunningIDs(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation()
-	req := &model.Request{Tools: map[string]tool.Tool{
+	req := &compat.Request{Tools: map[string]tool.Tool{
 		"slow": &mockLongRunnerTool{name: "slow", long: true},
 	}}
-	rsp := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{{ID: "x", Function: model.FunctionDefinitionParam{Name: "slow"}}}}}}}
+	rsp := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{{ID: "x", Function: compat.FunctionDefinitionParam{Name: "slow"}}}}}}}
 	evt := f.createLLMResponseEvent(inv, inv, rsp, req)
 	require.Contains(t, evt.LongRunningToolIDs, "x")
 }
@@ -492,8 +492,8 @@ func TestMaybeConsumeQueuedUserMessages_DrainsInOrder(t *testing.T) {
 
 	queue := steer.NewQueue()
 	steer.Attach(inv, queue)
-	require.True(t, queue.Enqueue(model.NewUserMessage("first")))
-	require.True(t, queue.Enqueue(model.NewUserMessage("second")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("first")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("second")))
 
 	ch := make(chan *event.Event, 2)
 	done := make(chan struct{})
@@ -544,7 +544,7 @@ func TestMaybeConsumeQueuedUserMessages_ContextCanceledOnEmit(
 	inv := agent.NewInvocation()
 	queue := steer.NewQueue()
 	steer.Attach(inv, queue)
-	require.True(t, queue.Enqueue(model.NewUserMessage("hello")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("hello")))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -581,11 +581,11 @@ func TestRun_ClosesQueuedUserMessagesAfterTerminalStep(t *testing.T) {
 		agent.WithInvocationID("inv-close-steer"),
 		agent.WithInvocationAgent(&minimalAgent{}),
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
 					Done: true,
-					Choices: []model.Choice{
-						{Message: model.NewAssistantMessage("done")},
+					Choices: []compat.Choice{
+						{Message: compat.NewAssistantMessage("done")},
 					},
 				},
 			},
@@ -611,7 +611,7 @@ func TestRun_ClosesQueuedUserMessagesAfterTerminalStep(t *testing.T) {
 		)
 	}
 
-	require.False(t, queue.Enqueue(model.NewUserMessage("late")))
+	require.False(t, queue.Enqueue(compat.NewUserMessage("late")))
 }
 
 // TestProcessStreamingResponses_RepairsToolCallArgumentsWhenEnabled verifies tool call arguments are repaired when enabled.
@@ -621,16 +621,16 @@ func TestProcessStreamingResponses_RepairsToolCallArgumentsWhenEnabled(t *testin
 	inv := agent.NewInvocation(agent.WithInvocationRunOptions(agent.RunOptions{
 		ToolCallArgumentsJSONRepairEnabled: &repairEnabled,
 	}))
-	req := &model.Request{}
-	response := &model.Response{
-		Choices: []model.Choice{
+	req := &compat.Request{}
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   "call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "tool",
 								Arguments: []byte("{a:2}"),
 							},
@@ -640,7 +640,7 @@ func TestProcessStreamingResponses_RepairsToolCallArgumentsWhenEnabled(t *testin
 			},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 
@@ -658,16 +658,16 @@ func TestProcessStreamingResponses_RepairsToolCallArgumentsWhenEnabled(t *testin
 func TestProcessStreamingResponses_RejectsEmptyCompletedToolCallNameBeforeEmit(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationID("inv-empty-tool-name"))
-	response := &model.Response{
+	response := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call-empty-name",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Arguments: []byte(`{"command":"pwd"}`),
 							},
 						},
@@ -676,7 +676,7 @@ func TestProcessStreamingResponses_RejectsEmptyCompletedToolCallNameBeforeEmit(t
 			},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 
@@ -689,7 +689,7 @@ func TestProcessStreamingResponses_RejectsEmptyCompletedToolCallNameBeforeEmit(t
 		ctx,
 		inv,
 		nil,
-		&model.Request{},
+		&compat.Request{},
 		responseSeq,
 		eventChan,
 		span,
@@ -702,9 +702,9 @@ func TestProcessStreamingResponses_RejectsEmptyCompletedToolCallNameBeforeEmit(t
 }
 
 func TestValidateCompletedToolCallNames(t *testing.T) {
-	validCall := model.ToolCall{
+	validCall := compat.ToolCall{
 		ID: "call-valid",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "shell",
 			Arguments: []byte(`{"command":"pwd"}`),
 		},
@@ -715,41 +715,41 @@ func TestValidateCompletedToolCallNames(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		response *model.Response
+		response *compat.Response
 		wantErr  bool
 	}{
 		{name: "nil response"},
 		{
 			name: "partial response may have incomplete name",
-			response: &model.Response{
+			response: &compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Delta: model.Message{ToolCalls: []model.ToolCall{emptyCall}},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{ToolCalls: []compat.ToolCall{emptyCall}},
 				}},
 			},
 		},
 		{
 			name: "completed message with valid name",
-			response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{ToolCalls: []model.ToolCall{validCall}},
+			response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{ToolCalls: []compat.ToolCall{validCall}},
 				}},
 			},
 		},
 		{
 			name: "completed message with empty name",
-			response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{ToolCalls: []model.ToolCall{emptyCall}},
+			response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{ToolCalls: []compat.ToolCall{emptyCall}},
 				}},
 			},
 			wantErr: true,
 		},
 		{
 			name: "completed delta with empty name",
-			response: &model.Response{
-				Choices: []model.Choice{{
-					Delta: model.Message{ToolCalls: []model.ToolCall{emptyCall}},
+			response: &compat.Response{
+				Choices: []compat.Choice{{
+					Delta: compat.Message{ToolCalls: []compat.ToolCall{emptyCall}},
 				}},
 			},
 			wantErr: true,
@@ -771,7 +771,7 @@ func TestValidateCompletedToolCallNames(t *testing.T) {
 func TestRunOneStep_DisableTracingSkipsSpanCreation(t *testing.T) {
 	recorder := useSpanRecorder(t)
 	f := New([]flow.RequestProcessor{&seedMessagesRequestProcessor{
-		messages: []model.Message{model.NewUserMessage("test")},
+		messages: []compat.Message{compat.NewUserMessage("test")},
 	}}, nil, Options{})
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-disable-tracing"),
@@ -781,11 +781,11 @@ func TestRunOneStep_DisableTracingSkipsSpanCreation(t *testing.T) {
 	)
 	inv.AgentName = "test-agent"
 	inv.Model = &mockModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				Model: "mock",
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("ok")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("ok")},
 				},
 			},
 		},
@@ -821,7 +821,7 @@ func TestRunOneStep_UpdatesCurrentExecutionTraceStepOnSuccess(t *testing.T) {
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{model.NewUserMessage("trace me")},
+				messages: []compat.Message{compat.NewUserMessage("trace me")},
 			},
 		},
 		nil,
@@ -830,16 +830,16 @@ func TestRunOneStep_UpdatesCurrentExecutionTraceStepOnSuccess(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(&minimalAgent{}),
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
 					Done: true,
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     2,
 						CompletionTokens: 3,
 						TotalTokens:      5,
 					},
-					Choices: []model.Choice{
-						{Message: model.NewAssistantMessage("ok")},
+					Choices: []compat.Choice{
+						{Message: compat.NewAssistantMessage("ok")},
 					},
 				},
 			},
@@ -877,28 +877,28 @@ func TestRunOneStep_UpdatesCurrentExecutionTraceStepOnSuccess(t *testing.T) {
 func TestRunOneStep_RecordsUsageBeforeReturningProcessError(t *testing.T) {
 	f := New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("trace me")},
+			messages: []compat.Message{compat.NewUserMessage("trace me")},
 		}},
 		nil,
-		Options{ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
+		Options{ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
 			func(
 				context.Context,
-				*model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
+				*compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
 				return nil, errors.New("after-model failed")
 			},
 		)},
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(&minimalAgent{}),
-		agent.WithInvocationModel(&mockModel{responses: []*model.Response{{
+		agent.WithInvocationModel(&mockModel{responses: []*compat.Response{{
 			Done: true,
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     2,
 				CompletionTokens: 3,
 				TotalTokens:      5,
 			},
-			Choices: []model.Choice{{Message: model.NewAssistantMessage("unused")}},
+			Choices: []compat.Choice{{Message: compat.NewAssistantMessage("unused")}},
 		}}}),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
@@ -924,34 +924,34 @@ func TestRunOneStep_RecordsUsageBeforeReturningProcessError(t *testing.T) {
 }
 
 func TestRunOneStep_TraceCapturesRequestAfterBeforeModelCallback(t *testing.T) {
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			_ = ctx
-			args.Request.Messages = []model.Message{
-				model.NewUserMessage("after callback"),
+			args.Request.Messages = []compat.Message{
+				compat.NewUserMessage("after callback"),
 			}
 			return nil, nil
 		},
 	)
 	f := New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("before callback")},
+			messages: []compat.Message{compat.NewUserMessage("before callback")},
 		}},
 		nil,
 		Options{ModelCallbacks: callbacks},
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(&minimalAgent{}),
-		agent.WithInvocationModel(&mockModel{responses: []*model.Response{{
+		agent.WithInvocationModel(&mockModel{responses: []*compat.Response{{
 			Done: true,
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens: 1,
 				TotalTokens:  1,
 			},
-			Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}},
+			Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}},
 		}}}),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 	)
@@ -972,18 +972,18 @@ func TestRunOneStep_TraceCapturesRequestAfterBeforeModelCallback(t *testing.T) {
 }
 
 func TestRunOneStep_BeforeModelCustomResponseKeepsEntryTraceData(t *testing.T) {
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(context.Context, *model.Request) (*model.Response, error) {
-			return &model.Response{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(context.Context, *compat.Request) (*compat.Response, error) {
+			return &compat.Response{
 				Done:    true,
-				Usage:   &model.Usage{TotalTokens: 99},
-				Choices: []model.Choice{{Message: model.NewAssistantMessage("custom")}},
+				Usage:   &compat.Usage{TotalTokens: 99},
+				Choices: []compat.Choice{{Message: compat.NewAssistantMessage("custom")}},
 			}, nil
 		},
 	)
 	f := New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("never sent")},
+			messages: []compat.Message{compat.NewUserMessage("never sent")},
 		}},
 		nil,
 		Options{ModelCallbacks: callbacks},
@@ -1014,9 +1014,9 @@ func TestRunOneStep_AttachesCacheSafeSummaryForkRequest(t *testing.T) {
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{
-					model.NewSystemMessage("stable system"),
-					model.NewUserMessage("current user"),
+				messages: []compat.Message{
+					compat.NewSystemMessage("stable system"),
+					compat.NewUserMessage("current user"),
 				},
 			},
 		},
@@ -1026,11 +1026,11 @@ func TestRunOneStep_AttachesCacheSafeSummaryForkRequest(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(&minimalAgent{}),
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
 					Done: true,
-					Choices: []model.Choice{
-						{Message: model.NewAssistantMessage("ok")},
+					Choices: []compat.Choice{
+						{Message: compat.NewAssistantMessage("ok")},
 					},
 				},
 			},
@@ -1045,9 +1045,9 @@ func TestRunOneStep_AttachesCacheSafeSummaryForkRequest(t *testing.T) {
 	require.NotNil(t, parent)
 	require.Equal(
 		t,
-		[]model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage("current user"),
+		[]compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage("current user"),
 		},
 		parent.Messages,
 	)
@@ -1057,9 +1057,9 @@ func TestCallLLM_TokenTailoringInvalidatesSummarySnapshots(t *testing.T) {
 	callModel := &tailoringModel{}
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationModel(callModel))
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable"),
-		model.NewUserMessage("history"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable"),
+		compat.NewUserMessage("history"),
 	}}
 	summaryview.AttachProjection(inv, &summaryview.View{
 		ContentRequestLength: len(req.Messages),
@@ -1098,9 +1098,9 @@ func TestCallLLM_LazyTokenTailoringFinalizesDiagnosticsAfterIteration(
 			LatencyDiagnosticsEnabled: true,
 		}),
 	)
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable"),
-		model.NewUserMessage("history"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable"),
+		compat.NewUserMessage("history"),
 	}}
 	summaryview.AttachProjection(inv, &summaryview.View{
 		ContentRequestLength: len(req.Messages),
@@ -1129,7 +1129,7 @@ func TestCallLLM_LazyTokenTailoringFinalizesDiagnosticsAfterIteration(
 	require.True(t, ok)
 
 	var responses int
-	seq(func(*model.Response) bool {
+	seq(func(*compat.Response) bool {
 		responses++
 		return true
 	})
@@ -1164,7 +1164,7 @@ func TestRunOneStep_LeavesExecutionTraceFinalizationToOwnerWhenModelFails(t *tes
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{model.NewUserMessage("trace failure")},
+				messages: []compat.Message{compat.NewUserMessage("trace failure")},
 			},
 		},
 		nil,
@@ -1212,16 +1212,16 @@ func TestProcessStreamingResponses_UsesInvocationFromContextForResponseOptions(t
 		}),
 	)
 	updatedInvocation.AgentName = "updated-agent"
-	req := &model.Request{}
+	req := &compat.Request{}
 	respTimestamp := time.Unix(1, 0).UTC()
-	response := &model.Response{
+	response := &compat.Response{
 		IsPartial: true,
 		Timestamp: respTimestamp,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 	eventChan := make(chan *event.Event, 10)
@@ -1293,13 +1293,13 @@ func TestProcessStreamingResponses_DisableResponseUsageTrackingStillRecordsMetri
 		}),
 	)
 	invocation.AgentName = "agent-disable-usage-metrics"
-	req := &model.Request{}
-	response := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	response := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 	eventChan := make(chan *event.Event, 10)
@@ -1427,11 +1427,11 @@ func TestProcessStreamingResponses_UsesStableInvocationForMetricsMetadata(t *tes
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-metrics"
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		})
 	}
@@ -1518,11 +1518,11 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForMetricsMetadataWhenBa
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-full-metrics"
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		})
 	}
@@ -1600,9 +1600,9 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForMetricsMetadataAfterC
 	)
 	updatedInvocation.AgentName = "agent-updated-after-metrics"
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			},
@@ -1611,11 +1611,11 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForMetricsMetadataAfterC
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-after-metrics"),
 	)
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		})
 	}
@@ -1656,34 +1656,34 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForResponseUsageTiming(t
 	)
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 2 {
-					return &model.AfterModelResult{
+					return &compat.AfterModelResult{
 						Context: agent.NewInvocationContext(ctx, updatedInvocation),
 					}, nil
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-usage"),
 	)
-	req := &model.Request{}
-	response1 := &model.Response{
+	req := &compat.Request{}
+	response1 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
-	response2 := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	response2 := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response1)
 		yield(response2)
 	}
@@ -1713,31 +1713,31 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForResponseUsageTiming(t
 func TestProcessStreamingResponses_RequestAttributeStateIgnoresLaterModelMutation(t *testing.T) {
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 2 {
 					args.Request.Messages[0].Content = "bbbb" // Same length, different bytes.
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	invocation := agent.NewInvocation(agent.WithInvocationID("inv-request-attribute-state"))
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("aaaa")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("aaaa")},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "partial"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 			}},
 		})
-		yield(&model.Response{
+		yield(&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("done"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		})
 	}
@@ -1770,31 +1770,31 @@ func TestProcessStreamingResponses_RequestAttributeStateIgnoresLaterModelMutatio
 func TestProcessStreamingResponses_RequestAttributeStateCapturesFirstAfterModelMutation(t *testing.T) {
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 1 {
 					args.Request.Messages[0].Content = "bbbb" // Same length, different bytes.
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	invocation := agent.NewInvocation(agent.WithInvocationID("inv-request-first-chunk-mutation"))
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("aaaa")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("aaaa")},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleAssistant, Content: "partial"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 			}},
 		})
-		yield(&model.Response{
+		yield(&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("done"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		})
 	}
@@ -1827,28 +1827,28 @@ func TestProcessStreamingResponses_RequestAttributeStateCapturesFirstAfterModelM
 }
 
 func TestProcessStreamingResponses_AttachesTimingInfoBeforeAfterModelCallbacks(t *testing.T) {
-	var callbackTimingInfo *model.TimingInfo
+	var callbackTimingInfo *compat.TimingInfo
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				require.NotNil(t, args.Response)
 				require.NotNil(t, args.Response.Usage)
 				require.NotNil(t, args.Response.Usage.TimingInfo)
 				require.NotZero(t, args.Response.Usage.TimingInfo.FirstTokenDuration)
 				callbackTimingInfo = args.Response.Usage.TimingInfo
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-callback-timing"),
 	)
-	response := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	response := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		time.Sleep(time.Millisecond)
 		yield(response)
 	}
@@ -1863,7 +1863,7 @@ func TestProcessStreamingResponses_AttachesTimingInfoBeforeAfterModelCallbacks(t
 		ctx,
 		invocation,
 		nil,
-		&model.Request{},
+		&compat.Request{},
 		responseSeq,
 		eventChan,
 		span,
@@ -1883,9 +1883,9 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForResponseUsageTimingOn
 		}),
 	)
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			},
@@ -1894,13 +1894,13 @@ func TestProcessStreamingResponses_UsesUpdatedInvocationForResponseUsageTimingOn
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-single-usage"),
 	)
-	req := &model.Request{}
-	response := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	response := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 	eventChan := make(chan *event.Event, 10)
@@ -1931,40 +1931,40 @@ func TestProcessStreamingResponses_PreservesTimingInfoWhenInvocationChanges(t *t
 	)
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 2 {
-					return &model.AfterModelResult{
+					return &compat.AfterModelResult{
 						Context: agent.NewInvocationContext(ctx, updatedInvocation),
 					}, nil
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-usage"),
 	)
-	req := &model.Request{}
-	response1 := &model.Response{
+	req := &compat.Request{}
+	response1 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
-	response2 := &model.Response{
+	response2 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial-updated")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial-updated")},
 		},
 	}
-	response3 := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	response3 := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		time.Sleep(time.Millisecond)
 		yield(response1)
 		time.Sleep(time.Millisecond)
@@ -2009,44 +2009,44 @@ func TestProcessStreamingResponses_PreservesReasoningTimingWhenInvocationChanges
 	)
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 1 {
-					return &model.AfterModelResult{
+					return &compat.AfterModelResult{
 						Context: agent.NewInvocationContext(ctx, updatedInvocation),
 					}, nil
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-reasoning"),
 	)
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	response1 := &model.Response{
+	response1 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Delta: model.Message{ReasoningContent: "thinking"}},
+		Choices: []compat.Choice{
+			{Delta: compat.Message{ReasoningContent: "thinking"}},
 		},
 	}
-	response2 := &model.Response{
+	response2 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Delta: model.Message{ReasoningContent: "thinking-more"}},
+		Choices: []compat.Choice{
+			{Delta: compat.Message{ReasoningContent: "thinking-more"}},
 		},
 	}
-	response3 := &model.Response{
-		Choices: []model.Choice{
-			{Delta: model.Message{Content: "done"}},
+	response3 := &compat.Response{
+		Choices: []compat.Choice{
+			{Delta: compat.Message{Content: "done"}},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		time.Sleep(time.Millisecond)
 		yield(response1)
 		time.Sleep(time.Millisecond)
@@ -2085,44 +2085,44 @@ func TestProcessStreamingResponses_PreservesReasoningTimingWhenTrackingDisabledM
 	)
 	var callbackCount int
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 1 {
-					return &model.AfterModelResult{
+					return &compat.AfterModelResult{
 						Context: agent.NewInvocationContext(ctx, updatedInvocation),
 					}, nil
 				}
-				return &model.AfterModelResult{}, nil
+				return &compat.AfterModelResult{}, nil
 			},
 		),
 	})
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-disable-reasoning"),
 	)
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	response1 := &model.Response{
+	response1 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Delta: model.Message{ReasoningContent: "thinking"}},
+		Choices: []compat.Choice{
+			{Delta: compat.Message{ReasoningContent: "thinking"}},
 		},
 	}
-	response2 := &model.Response{
+	response2 := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Delta: model.Message{ReasoningContent: "thinking-more"}},
+		Choices: []compat.Choice{
+			{Delta: compat.Message{ReasoningContent: "thinking-more"}},
 		},
 	}
-	response3 := &model.Response{
-		Choices: []model.Choice{
-			{Delta: model.Message{Content: "done"}},
+	response3 := &compat.Response{
+		Choices: []compat.Choice{
+			{Delta: compat.Message{Content: "done"}},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		time.Sleep(time.Millisecond)
 		yield(response1)
 		time.Sleep(time.Millisecond)
@@ -2155,8 +2155,8 @@ func TestProcessStreamingResponses_PreservesReasoningTimingWhenTrackingDisabledM
 
 func TestProcessStreamingResponses_PreservesOriginalInvocationEventMetadata(t *testing.T) {
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				updatedInvocation := agent.NewInvocation(
 					agent.WithInvocationID("inv-updated-event"),
 					agent.WithInvocationRunOptions(agent.RunOptions{
@@ -2164,7 +2164,7 @@ func TestProcessStreamingResponses_PreservesOriginalInvocationEventMetadata(t *t
 						DisablePartialEventTimestamps: true,
 					}),
 				)
-				return &model.AfterModelResult{
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			},
@@ -2178,14 +2178,14 @@ func TestProcessStreamingResponses_PreservesOriginalInvocationEventMetadata(t *t
 		agent.WithInvocationEventFilterKey("filter-base"),
 	)
 	baseInvocation.AgentName = "base-agent"
-	req := &model.Request{}
-	response := &model.Response{
+	req := &compat.Request{}
+	response := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
-	responseSeq := func(yield func(*model.Response) bool) {
+	responseSeq := func(yield func(*compat.Response) bool) {
 		yield(response)
 	}
 	eventChan := make(chan *event.Event, 10)
@@ -2221,9 +2221,9 @@ func TestProcessStreamingResponses_PostprocessUsesOriginalInvocation(t *testing.
 		agent.WithInvocationID("inv-updated-postprocess"),
 	)
 	f := New(nil, []flow.ResponseProcessor{&endInvocationResponseProcessor{}}, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			},
@@ -2232,11 +2232,11 @@ func TestProcessStreamingResponses_PostprocessUsesOriginalInvocation(t *testing.
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-base-postprocess"),
 	)
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		})
 	}
@@ -2270,11 +2270,11 @@ func TestProcessStreamingResponses_AfterModelErrorKeepsOriginalInvocationEventMe
 		agent.WithInvocationID("inv-updated-error"),
 	)
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 				callbackCount++
 				if callbackCount == 1 {
-					return &model.AfterModelResult{
+					return &compat.AfterModelResult{
 						Context: agent.NewInvocationContext(ctx, updatedInvocation),
 					}, nil
 				}
@@ -2290,18 +2290,18 @@ func TestProcessStreamingResponses_AfterModelErrorKeepsOriginalInvocationEventMe
 		}),
 	)
 	baseInvocation.AgentName = "base-agent"
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		})
-		yield(&model.Response{
+		yield(&compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial-2")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial-2")},
 			},
 		})
 	}
@@ -2338,7 +2338,7 @@ func TestProcessStreamingResponses_AfterModelErrorKeepsOriginalInvocationEventMe
 	require.Equal(t, baseInvocation.AgentName, errorEvent.Author)
 	require.Equal(t, baseInvocation.RunOptions.RequestID, errorEvent.RequestID)
 	require.Equal(t, baseInvocation.GetEventFilterKey(), errorEvent.FilterKey)
-	require.Equal(t, model.ErrorTypeFlowError, errorEvent.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, errorEvent.Error.Type)
 }
 
 func TestProcessStreamingResponses_UsesStableInvocationForTraceMetadata(t *testing.T) {
@@ -2346,9 +2346,9 @@ func TestProcessStreamingResponses_UsesStableInvocationForTraceMetadata(t *testi
 		agent.WithInvocationID("inv-updated-trace"),
 	)
 	f := New(nil, nil, Options{
-		ModelCallbacks: model.NewCallbacks().RegisterAfterModel(
-			func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+		ModelCallbacks: compat.NewCallbacks().RegisterAfterModel(
+			func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			},
@@ -2363,11 +2363,11 @@ func TestProcessStreamingResponses_UsesStableInvocationForTraceMetadata(t *testi
 			UserID: "user-base-trace",
 		}),
 	)
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		})
 	}
@@ -2455,9 +2455,9 @@ func (m *mockAgentWithTools) FindSubAgent(name string) agent.Agent {
 }
 
 // testLLMRequest returns a minimal request that passes the empty-messages guard.
-func testLLMRequest() *model.Request {
-	return &model.Request{
-		Messages: []model.Message{model.NewUserMessage("test")},
+func testLLMRequest() *compat.Request {
+	return &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("test")},
 	}
 }
 
@@ -2468,39 +2468,39 @@ func newRunFlow(respProcessors []flow.ResponseProcessor, opts ...Options) *Flow 
 	}
 	return New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("test")},
+			messages: []compat.Message{compat.NewUserMessage("test")},
 		}},
 		respProcessors,
 		opt,
 	)
 }
 
-func runInvocationWithUserMessage(m model.Model, opts ...agent.InvocationOptions) *agent.Invocation {
+func runInvocationWithUserMessage(m compat.Model, opts ...agent.InvocationOptions) *agent.Invocation {
 	opts = append(opts, agent.WithInvocationModel(m))
 	inv := agent.NewInvocation(opts...)
-	inv.Message = model.NewUserMessage("test")
+	inv.Message = compat.NewUserMessage("test")
 	return inv
 }
 
-// mockModel implements model.Model for testing
+// mockModel implements compat.Model for testing
 type mockModel struct {
 	ShouldError bool
-	responses   []*model.Response
+	responses   []*compat.Response
 	currentIdx  int
 	mu          sync.Mutex
-	requests    []*model.Request
+	requests    []*compat.Request
 }
 
 type tailoringModel struct{}
 
-func (m *tailoringModel) Info() model.Info {
-	return model.Info{Name: "tailoring-model"}
+func (m *tailoringModel) Info() compat.Info {
+	return compat.Info{Name: "tailoring-model"}
 }
 
 func (m *tailoringModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	beforeMessages := len(req.Messages)
 	req.Messages = req.Messages[:1]
 	imodelrequest.RecordTokenTailoring(
@@ -2512,11 +2512,11 @@ func (m *tailoringModel) GenerateContent(
 			AfterMessages:  len(req.Messages),
 		},
 	)
-	respChan := make(chan *model.Response, 1)
-	respChan <- &model.Response{
+	respChan := make(chan *compat.Response, 1)
+	respChan <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("ok"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	}
 	close(respChan)
@@ -2525,22 +2525,22 @@ func (m *tailoringModel) GenerateContent(
 
 type lazyTailoringModel struct{}
 
-func (m *lazyTailoringModel) Info() model.Info {
-	return model.Info{Name: "lazy-tailoring-model"}
+func (m *lazyTailoringModel) Info() compat.Info {
+	return compat.Info{Name: "lazy-tailoring-model"}
 }
 
 func (m *lazyTailoringModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
+	*compat.Request,
+) (<-chan *compat.Response, error) {
 	return nil, errors.New("unexpected GenerateContent call")
 }
 
 func (m *lazyTailoringModel) GenerateContentIter(
 	ctx context.Context,
-	req *model.Request,
-) (model.Seq[*model.Response], error) {
-	return func(yield func(*model.Response) bool) {
+	req *compat.Request,
+) (compat.Seq[*compat.Response], error) {
+	return func(yield func(*compat.Response) bool) {
 		beforeMessages := len(req.Messages)
 		req.Messages = req.Messages[:1]
 		imodelrequest.RecordTokenTailoring(
@@ -2552,10 +2552,10 @@ func (m *lazyTailoringModel) GenerateContentIter(
 				AfterMessages:  len(req.Messages),
 			},
 		)
-		yield(&model.Response{
+		yield(&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("ok"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("ok"),
 			}},
 		})
 	}, nil
@@ -2567,22 +2567,22 @@ type namedFlowModel struct {
 	mu     sync.Mutex
 }
 
-func (m *namedFlowModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *namedFlowModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *namedFlowModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.called = true
 	m.mu.Unlock()
-	respChan := make(chan *model.Response, 1)
-	respChan <- &model.Response{
+	respChan := make(chan *compat.Response, 1)
+	respChan <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("ok"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	}
 	close(respChan)
@@ -2602,7 +2602,7 @@ type captureInvocationModelNameProcessor struct {
 func (p *captureInvocationModelNameProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if invocation != nil && invocation.Model != nil {
@@ -2610,19 +2610,19 @@ func (p *captureInvocationModelNameProcessor) ProcessRequest(
 	}
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{
 		Name: "mock",
 	}
 }
 
-func (m *mockModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *mockModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	if m.ShouldError {
 		return nil, errors.New("mock model error")
 	}
 	m.recordRequest(req)
 
-	respChan := make(chan *model.Response, len(m.responses))
+	respChan := make(chan *compat.Response, len(m.responses))
 
 	go func() {
 		defer close(respChan)
@@ -2638,11 +2638,11 @@ func (m *mockModel) GenerateContent(ctx context.Context, req *model.Request) (<-
 	return respChan, nil
 }
 
-func (m *mockModel) recordRequest(req *model.Request) {
+func (m *mockModel) recordRequest(req *compat.Request) {
 	if req == nil {
 		return
 	}
-	cloned := &model.Request{
+	cloned := &compat.Request{
 		Messages: cloneMessagesForTest(req.Messages),
 	}
 	m.mu.Lock()
@@ -2650,7 +2650,7 @@ func (m *mockModel) recordRequest(req *model.Request) {
 	m.mu.Unlock()
 }
 
-func (m *mockModel) LastRequest() *model.Request {
+func (m *mockModel) LastRequest() *compat.Request {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.requests) == 0 {
@@ -2659,43 +2659,43 @@ func (m *mockModel) LastRequest() *model.Request {
 	return m.requests[len(m.requests)-1]
 }
 
-func cloneMessagesForTest(messages []model.Message) []model.Message {
+func cloneMessagesForTest(messages []compat.Message) []compat.Message {
 	if messages == nil {
 		return nil
 	}
-	cloned := make([]model.Message, len(messages))
+	cloned := make([]compat.Message, len(messages))
 	for i, msg := range messages {
 		cloned[i] = msg
 		if len(msg.ContentParts) > 0 {
-			cloned[i].ContentParts = append([]model.ContentPart(nil), msg.ContentParts...)
+			cloned[i].ContentParts = append([]compat.ContentPart(nil), msg.ContentParts...)
 		}
 		if len(msg.ToolCalls) > 0 {
-			cloned[i].ToolCalls = append([]model.ToolCall(nil), msg.ToolCalls...)
+			cloned[i].ToolCalls = append([]compat.ToolCall(nil), msg.ToolCalls...)
 		}
 	}
 	return cloned
 }
 
 type mockIterModel struct {
-	IterSeq model.Seq[*model.Response]
+	IterSeq compat.Seq[*compat.Response]
 	IterErr error
 
 	GenerateContentCalled     bool
 	GenerateContentIterCalled bool
 }
 
-func (m *mockIterModel) Info() model.Info {
-	return model.Info{Name: "mock-iter"}
+func (m *mockIterModel) Info() compat.Info {
+	return compat.Info{Name: "mock-iter"}
 }
 
-func (m *mockIterModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *mockIterModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	m.GenerateContentCalled = true
-	ch := make(chan *model.Response)
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *mockIterModel) GenerateContentIter(ctx context.Context, req *model.Request) (model.Seq[*model.Response], error) {
+func (m *mockIterModel) GenerateContentIter(ctx context.Context, req *compat.Request) (compat.Seq[*compat.Response], error) {
 	m.GenerateContentIterCalled = true
 	if m.IterErr != nil {
 		return nil, m.IterErr
@@ -2706,7 +2706,7 @@ func (m *mockIterModel) GenerateContentIter(ctx context.Context, req *model.Requ
 type stubPluginManager struct{}
 
 func (stubPluginManager) AgentCallbacks() *agent.Callbacks { return nil }
-func (stubPluginManager) ModelCallbacks() *model.Callbacks { return nil }
+func (stubPluginManager) ModelCallbacks() *compat.Callbacks { return nil }
 func (stubPluginManager) ToolCallbacks() *tool.Callbacks   { return nil }
 func (stubPluginManager) OnEvent(context.Context, *agent.Invocation, *event.Event) (*event.Event, error) {
 	return nil, nil
@@ -2719,7 +2719,7 @@ type mockRequestProcessor struct{}
 func (m *mockRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	evt := event.New(invocation.InvocationID, invocation.AgentName)
@@ -2731,13 +2731,13 @@ func (m *mockRequestProcessor) ProcessRequest(
 }
 
 type seedMessagesRequestProcessor struct {
-	messages []model.Message
+	messages []compat.Message
 }
 
 func (p *seedMessagesRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	req.Messages = append(req.Messages, cloneMessagesForTest(p.messages)...)
@@ -2750,7 +2750,7 @@ type panicRequestProcessor struct{}
 func (p *panicRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	panic(errors.New(flowRunPanicTestMsg))
@@ -2762,8 +2762,8 @@ type mockResponseProcessor struct{}
 func (m *mockResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	resp *model.Response,
+	req *compat.Request,
+	resp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	evt := event.New(invocation.InvocationID, invocation.AgentName)
@@ -2781,8 +2781,8 @@ type cancelResponseProcessor struct {
 func (c *cancelResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	resp *model.Response,
+	req *compat.Request,
+	resp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	c.cancel()
@@ -2793,8 +2793,8 @@ type endInvocationResponseProcessor struct{}
 func (p *endInvocationResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	resp *model.Response,
+	req *compat.Request,
+	resp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if invocation != nil {
@@ -2844,7 +2844,7 @@ func TestFlow_Run_RecoversPanic(t *testing.T) {
 	}
 
 	require.NotNil(t, errorEvent)
-	require.Equal(t, model.ErrorTypeFlowError, errorEvent.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, errorEvent.Error.Type)
 	require.Contains(t, errorEvent.Error.Message, flowRunPanicTestMsg)
 }
 
@@ -2872,7 +2872,7 @@ func TestRecoverFlowRunPanic_EmitsEventForUnknownType(t *testing.T) {
 	select {
 	case evt := <-eventChan:
 		require.NotNil(t, evt.Error)
-		require.Equal(t, model.ErrorTypeFlowError, evt.Error.Type)
+		require.Equal(t, compat.ErrorTypeFlowError, evt.Error.Type)
 		require.Contains(t, evt.Error.Message, "123")
 	default:
 		t.Fatal("expected error event")
@@ -2895,15 +2895,15 @@ func TestModelCallbacks_BeforeSkip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	modelCallbacks := model.NewCallbacks()
-	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *model.Request) (*model.Response, error) {
-		return &model.Response{ID: "skip-response"}, nil // Return custom response to skip model call
+	modelCallbacks := compat.NewCallbacks()
+	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
+		return &compat.Response{ID: "skip-response"}, nil // Return custom response to skip model call
 	})
 
 	llmFlow := New(nil, nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := agent.NewInvocation(
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{{ID: "should-not-be-called"}},
+			responses: []*compat.Response{{ID: "should-not-be-called"}},
 		}),
 		agent.WithInvocationSession(&session.Session{ID: "test-session"}),
 	)
@@ -2928,15 +2928,15 @@ func TestModelCBs_BeforeCustom(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	modelCallbacks := model.NewCallbacks()
-	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *model.Request) (*model.Response, error) {
-		return &model.Response{ID: "custom-before"}, nil
+	modelCallbacks := compat.NewCallbacks()
+	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
+		return &compat.Response{ID: "custom-before"}, nil
 	})
 
 	llmFlow := New(nil, nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := agent.NewInvocation(
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{{ID: "should-not-be-called"}},
+			responses: []*compat.Response{{ID: "should-not-be-called"}},
 		}),
 		agent.WithInvocationSession(&session.Session{ID: "test-session"}),
 	)
@@ -2961,15 +2961,15 @@ func TestModelCallbacks_BeforeError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	modelCallbacks := model.NewCallbacks()
-	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	modelCallbacks := compat.NewCallbacks()
+	modelCallbacks.RegisterBeforeModel(func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 		return nil, errors.New("before error")
 	})
 
 	llmFlow := New(nil, nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := agent.NewInvocation(
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{{ID: "should-not-be-called"}},
+			responses: []*compat.Response{{ID: "should-not-be-called"}},
 		}),
 		agent.WithInvocationSession(&session.Session{ID: "test-session"}),
 	)
@@ -3002,19 +3002,19 @@ func TestModelCallbacks_BeforeSetsContext_AfterSeesValue(t *testing.T) {
 	const want = "ctx-from-before"
 	afterSawCh := make(chan string, 1)
 
-	modelCallbacks := model.NewCallbacks().
+	modelCallbacks := compat.NewCallbacks().
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: context.WithValue(ctx, testCtxKey{}, want),
 			}, nil
 		}).
 		RegisterAfterModel(func(
 			ctx context.Context,
-			args *model.AfterModelArgs,
-		) (*model.AfterModelResult, error) {
+			args *compat.AfterModelArgs,
+		) (*compat.AfterModelResult, error) {
 			if v, ok := ctx.Value(testCtxKey{}).(string); ok {
 				select {
 				case afterSawCh <- v:
@@ -3026,11 +3026,11 @@ func TestModelCallbacks_BeforeSetsContext_AfterSeesValue(t *testing.T) {
 
 	llmFlow := newRunFlow(nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := runInvocationWithUserMessage(&mockModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				Done: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("ok")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("ok")},
 				},
 			},
 		},
@@ -3058,16 +3058,16 @@ func TestModelCBs_AfterOverride(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	modelCallbacks := model.NewCallbacks()
+	modelCallbacks := compat.NewCallbacks()
 	modelCallbacks.RegisterAfterModel(
-		func(ctx context.Context, req *model.Request, rsp *model.Response, modelErr error) (*model.Response, error) {
-			return &model.Response{Object: "after-override"}, nil
+		func(ctx context.Context, req *compat.Request, rsp *compat.Response, modelErr error) (*compat.Response, error) {
+			return &compat.Response{Object: "after-override"}, nil
 		},
 	)
 
 	llmFlow := newRunFlow(nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := runInvocationWithUserMessage(&mockModel{
-		responses: []*model.Response{{ID: "original"}},
+		responses: []*compat.Response{{ID: "original"}},
 	}, agent.WithInvocationSession(&session.Session{ID: "test-session"}))
 	eventChan, err := llmFlow.Run(ctx, invocation)
 	require.NoError(t, err)
@@ -3091,16 +3091,16 @@ func TestModelCallbacks_AfterError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	modelCallbacks := model.NewCallbacks()
+	modelCallbacks := compat.NewCallbacks()
 	modelCallbacks.RegisterAfterModel(
-		func(ctx context.Context, req *model.Request, rsp *model.Response, modelErr error) (*model.Response, error) {
+		func(ctx context.Context, req *compat.Request, rsp *compat.Response, modelErr error) (*compat.Response, error) {
 			return nil, errors.New("after error")
 		},
 	)
 
 	llmFlow := newRunFlow(nil, Options{ModelCallbacks: modelCallbacks})
 	invocation := runInvocationWithUserMessage(&mockModel{
-		responses: []*model.Response{{ID: "original"}},
+		responses: []*compat.Response{{ID: "original"}},
 	}, agent.WithInvocationSession(&session.Session{ID: "test-session"}))
 	eventChan, err := llmFlow.Run(ctx, invocation)
 	require.NoError(t, err)
@@ -3130,7 +3130,7 @@ func TestFlow_RunBeforeModelCallbacks_NoModelCallbacks(t *testing.T) {
 	inv.Plugins = stubPluginManager{}
 
 	ctx := context.Background()
-	gotCtx, resp, err := f.runBeforeModelCallbacks(ctx, inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(ctx, inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Equal(t, ctx, gotCtx)
 	require.Nil(t, resp)
@@ -3138,17 +3138,17 @@ func TestFlow_RunBeforeModelCallbacks_NoModelCallbacks(t *testing.T) {
 
 func TestFlow_RunBeforeModelCallbacks_PreservesInvocationContext(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationID("invocation-id"))
-	local := model.NewCallbacks().RegisterBeforeModel(func(
+	local := compat.NewCallbacks().RegisterBeforeModel(func(
 		ctx context.Context,
-		args *model.BeforeModelArgs,
-	) (*model.BeforeModelResult, error) {
+		args *compat.BeforeModelArgs,
+	) (*compat.BeforeModelResult, error) {
 		callbackInvocation, ok := agent.InvocationFromContext(ctx)
 		require.True(t, ok)
 		require.Same(t, inv, callbackInvocation)
-		return &model.BeforeModelResult{Context: context.WithValue(ctx, testCtxKey{}, "v")}, nil
+		return &compat.BeforeModelResult{Context: context.WithValue(ctx, testCtxKey{}, "v")}, nil
 	})
 	f := New(nil, nil, Options{ModelCallbacks: local})
-	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", gotCtx.Value(testCtxKey{}))
@@ -3160,16 +3160,16 @@ func TestFlow_RunBeforeModelCallbacks_PreservesInvocationContext(t *testing.T) {
 func TestFlow_RunBeforeModelCallbacks_PreservesReplacedInvocationContext(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationID("original-invocation-id"))
 	replacementInvocation := agent.NewInvocation(agent.WithInvocationID("replacement-invocation-id"))
-	local := model.NewCallbacks().RegisterBeforeModel(func(
+	local := compat.NewCallbacks().RegisterBeforeModel(func(
 		ctx context.Context,
-		args *model.BeforeModelArgs,
-	) (*model.BeforeModelResult, error) {
-		return &model.BeforeModelResult{
+		args *compat.BeforeModelArgs,
+	) (*compat.BeforeModelResult, error) {
+		return &compat.BeforeModelResult{
 			Context: agent.NewInvocationContext(context.WithValue(ctx, testCtxKey{}, "v"), replacementInvocation),
 		}, nil
 	})
 	f := New(nil, nil, Options{ModelCallbacks: local})
-	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", gotCtx.Value(testCtxKey{}))
@@ -3180,26 +3180,26 @@ func TestFlow_RunBeforeModelCallbacks_PreservesReplacedInvocationContext(t *test
 
 func TestFlow_RunBeforeModelCallbacks_PreservesInvocationContextWithinCallbackGroup(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationID("invocation-id"))
-	local := model.NewCallbacks().
+	local := compat.NewCallbacks().
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: context.WithValue(context.Background(), testCtxKey{}, "v"),
 			}, nil
 		}).
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			callbackInvocation, ok := agent.InvocationFromContext(ctx)
 			require.True(t, ok)
 			require.Same(t, inv, callbackInvocation)
 			return nil, nil
 		})
 	f := New(nil, nil, Options{ModelCallbacks: local})
-	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", gotCtx.Value(testCtxKey{}))
@@ -3211,26 +3211,26 @@ func TestFlow_RunBeforeModelCallbacks_PreservesInvocationContextWithinCallbackGr
 func TestFlow_RunBeforeModelCallbacks_PreservesReplacedInvocationWithinCallbackGroup(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationID("original-invocation-id"))
 	replacementInvocation := agent.NewInvocation(agent.WithInvocationID("replacement-invocation-id"))
-	local := model.NewCallbacks().
+	local := compat.NewCallbacks().
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(context.Background(), replacementInvocation),
 			}, nil
 		}).
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			callbackInvocation, ok := agent.InvocationFromContext(ctx)
 			require.True(t, ok)
 			require.Same(t, replacementInvocation, callbackInvocation)
 			return nil, nil
 		})
 	f := New(nil, nil, Options{ModelCallbacks: local})
-	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	callbackInvocation, ok := agent.InvocationFromContext(gotCtx)
@@ -3241,28 +3241,28 @@ func TestFlow_RunBeforeModelCallbacks_PreservesReplacedInvocationWithinCallbackG
 func TestFlow_RunBeforeModelCallbacks_PreservesReplacementInvocationForFreshResultContext(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationID("original-invocation-id"))
 	replacementInvocation := agent.NewInvocation(agent.WithInvocationID("replacement-invocation-id"))
-	local := model.NewCallbacks().
+	local := compat.NewCallbacks().
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(context.Background(), replacementInvocation),
 			}, nil
 		}).
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			callbackInvocation, ok := agent.InvocationFromContext(ctx)
 			require.True(t, ok)
 			require.Same(t, replacementInvocation, callbackInvocation)
-			return &model.BeforeModelResult{
+			return &compat.BeforeModelResult{
 				Context: context.WithValue(context.Background(), testCtxKey{}, "v"),
 			}, nil
 		})
 	f := New(nil, nil, Options{ModelCallbacks: local})
-	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &model.Request{})
+	gotCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), inv, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", gotCtx.Value(testCtxKey{}))
@@ -3272,18 +3272,18 @@ func TestFlow_RunBeforeModelCallbacks_PreservesReplacementInvocationForFreshResu
 }
 
 func TestFlow_RunBeforeModelCallbacks_DoesNotMutateSharedBeforeModelResult(t *testing.T) {
-	sharedResult := &model.BeforeModelResult{
+	sharedResult := &compat.BeforeModelResult{
 		Context: context.WithValue(context.Background(), testCtxKey{}, "v"),
 	}
-	local := model.NewCallbacks().RegisterBeforeModel(func(
+	local := compat.NewCallbacks().RegisterBeforeModel(func(
 		ctx context.Context,
-		args *model.BeforeModelArgs,
-	) (*model.BeforeModelResult, error) {
+		args *compat.BeforeModelArgs,
+	) (*compat.BeforeModelResult, error) {
 		return sharedResult, nil
 	})
 	f := New(nil, nil, Options{ModelCallbacks: local})
 	firstInvocation := agent.NewInvocation(agent.WithInvocationID("first-invocation-id"))
-	firstCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), firstInvocation, &model.Request{})
+	firstCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), firstInvocation, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", firstCtx.Value(testCtxKey{}))
@@ -3291,7 +3291,7 @@ func TestFlow_RunBeforeModelCallbacks_DoesNotMutateSharedBeforeModelResult(t *te
 	require.True(t, ok)
 	require.Same(t, firstInvocation, firstCallbackInvocation)
 	secondInvocation := agent.NewInvocation(agent.WithInvocationID("second-invocation-id"))
-	secondCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), secondInvocation, &model.Request{})
+	secondCtx, resp, err := f.runBeforeModelCallbacks(context.Background(), secondInvocation, &compat.Request{})
 	require.NoError(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, "v", secondCtx.Value(testCtxKey{}))
@@ -3305,8 +3305,8 @@ func TestFlow_RunBeforeModelCallbacks_DoesNotMutateSharedBeforeModelResult(t *te
 func TestFlow_GenerateContentSeq_UsesIterModel(t *testing.T) {
 	f := New(nil, nil, Options{})
 	iterModel := &mockIterModel{
-		IterSeq: func(yield func(*model.Response) bool) {
-			yield(&model.Response{ID: "iter"})
+		IterSeq: func(yield func(*compat.Response) bool) {
+			yield(&compat.Response{ID: "iter"})
 		},
 	}
 	inv := agent.NewInvocation(agent.WithInvocationModel(iterModel))
@@ -3316,8 +3316,8 @@ func TestFlow_GenerateContentSeq_UsesIterModel(t *testing.T) {
 	require.True(t, iterModel.GenerateContentIterCalled)
 	require.False(t, iterModel.GenerateContentCalled)
 
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3328,15 +3328,15 @@ func TestFlow_GenerateContentSeq_UsesIterModel(t *testing.T) {
 func TestFlow_GenerateContentSeq_AssignsGeneratedIDForStreamingResponses(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationModel(&mockModel{
-		responses: []*model.Response{
-			{Object: model.ObjectTypeChatCompletionChunk, IsPartial: true},
-			{Object: model.ObjectTypeChatCompletion, Done: true},
+		responses: []*compat.Response{
+			{Object: compat.ObjectTypeChatCompletionChunk, IsPartial: true},
+			{Object: compat.ObjectTypeChatCompletion, Done: true},
 		},
 	}))
 	seq, err := f.generateContentSeq(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3348,15 +3348,15 @@ func TestFlow_GenerateContentSeq_AssignsGeneratedIDForStreamingResponses(t *test
 func TestFlow_GenerateContentSeq_PreservesActiveResponseIDWhenLaterChunksMissIt(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationModel(&mockModel{
-		responses: []*model.Response{
-			{ID: "resp-1", Object: model.ObjectTypeChatCompletionChunk, IsPartial: true},
-			{Object: model.ObjectTypeChatCompletion, Done: true},
+		responses: []*compat.Response{
+			{ID: "resp-1", Object: compat.ObjectTypeChatCompletionChunk, IsPartial: true},
+			{Object: compat.ObjectTypeChatCompletion, Done: true},
 		},
 	}))
 	seq, err := f.generateContentSeq(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3368,15 +3368,15 @@ func TestFlow_GenerateContentSeq_PreservesActiveResponseIDWhenLaterChunksMissIt(
 func TestFlow_GenerateContentSeq_KeepsGeneratedIDWhenRealIDArrivesLate(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationModel(&mockModel{
-		responses: []*model.Response{
-			{Object: model.ObjectTypeChatCompletionChunk, IsPartial: true},
-			{ID: "real-1", Object: model.ObjectTypeChatCompletion, Done: true},
+		responses: []*compat.Response{
+			{Object: compat.ObjectTypeChatCompletionChunk, IsPartial: true},
+			{ID: "real-1", Object: compat.ObjectTypeChatCompletion, Done: true},
 		},
 	}))
 	seq, err := f.generateContentSeq(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3390,15 +3390,15 @@ func TestFlow_GenerateContentSeq_KeepsGeneratedIDWhenRealIDArrivesLate(t *testin
 func TestFlow_GenerateContentSeq_ResetsGeneratedIDAfterFinalResponse(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(agent.WithInvocationModel(&mockModel{
-		responses: []*model.Response{
-			{Object: model.ObjectTypeChatCompletion, Done: true},
-			{Object: model.ObjectTypeChatCompletion, Done: true},
+		responses: []*compat.Response{
+			{Object: compat.ObjectTypeChatCompletion, Done: true},
+			{Object: compat.ObjectTypeChatCompletion, Done: true},
 		},
 	}))
 	seq, err := f.generateContentSeq(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3411,17 +3411,17 @@ func TestFlow_GenerateContentSeq_ResetsGeneratedIDAfterFinalResponse(t *testing.
 func TestFlow_GenerateContentSeq_IterModelAssignsGeneratedIDForStreamingResponses(t *testing.T) {
 	f := New(nil, nil, Options{})
 	iterModel := &mockIterModel{
-		IterSeq: func(yield func(*model.Response) bool) {
-			yield(&model.Response{Object: model.ObjectTypeChatCompletionChunk, IsPartial: true})
-			yield(&model.Response{Object: model.ObjectTypeChatCompletion, Done: true})
+		IterSeq: func(yield func(*compat.Response) bool) {
+			yield(&compat.Response{Object: compat.ObjectTypeChatCompletionChunk, IsPartial: true})
+			yield(&compat.Response{Object: compat.ObjectTypeChatCompletion, Done: true})
 		},
 	}
 	inv := agent.NewInvocation(agent.WithInvocationModel(iterModel))
 	seq, err := f.generateContentSeq(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
 	require.True(t, iterModel.GenerateContentIterCalled)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3435,14 +3435,14 @@ func TestNormalizeResponseIDs_NilSequence(t *testing.T) {
 }
 
 func TestNormalizeResponseIDs_PassesThroughNilResponse(t *testing.T) {
-	seq := normalizeResponseIDs(func(yield func(*model.Response) bool) {
+	seq := normalizeResponseIDs(func(yield func(*compat.Response) bool) {
 		yield(nil)
-		yield(&model.Response{Object: model.ObjectTypeChatCompletion, Done: true, IsPartial: true})
-		yield(&model.Response{Object: model.ObjectTypeChatCompletion, Done: true})
+		yield(&compat.Response{Object: compat.ObjectTypeChatCompletion, Done: true, IsPartial: true})
+		yield(&compat.Response{Object: compat.ObjectTypeChatCompletion, Done: true})
 	})
 	require.NotNil(t, seq)
-	var responses []*model.Response
-	seq(func(resp *model.Response) bool {
+	var responses []*compat.Response
+	seq(func(resp *compat.Response) bool {
 		responses = append(responses, resp)
 		return true
 	})
@@ -3453,7 +3453,7 @@ func TestNormalizeResponseIDs_PassesThroughNilResponse(t *testing.T) {
 }
 
 func TestNormalizeResponseID_PreservesResponseWhenCurrentIDIsNil(t *testing.T) {
-	resp := &model.Response{ID: "resp-1"}
+	resp := &compat.Response{ID: "resp-1"}
 	require.Same(t, resp, normalizeResponseID(resp, nil))
 	require.Nil(t, normalizeResponseID(nil, new(string)))
 }
@@ -3495,7 +3495,7 @@ func TestFlow_CallLLM_MaxLLMCallsExceeded(t *testing.T) {
 	f := New(nil, nil, Options{})
 	inv := agent.NewInvocation(
 		agent.WithInvocationModel(&mockModel{
-			responses: []*model.Response{{ID: "ok"}},
+			responses: []*compat.Response{{ID: "ok"}},
 		}),
 	)
 	inv.MaxLLMCalls = 1
@@ -3510,19 +3510,19 @@ func TestFlow_CallLLM_MaxLLMCallsExceeded(t *testing.T) {
 
 func TestFlow_CallLLM_FinalizesOnLastAllowedCall(t *testing.T) {
 	instruction := "finish with the available context"
-	callbacks := model.NewCallbacks().
+	callbacks := compat.NewCallbacks().
 		RegisterBeforeModel(
 			func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				require.True(t, imodelrequest.ToolsDisabled(ctx))
 				require.Nil(t, args.Request.Tools)
 				require.NotContains(t, args.Request.ExtraFields, "tool_choice")
 				require.Equal(t, "value", args.Request.ExtraFields["keep"])
 				require.Len(t, args.Request.Messages, 3)
 				require.Equal(t, "base instruction", args.Request.Messages[0].Content)
-				require.Equal(t, model.RoleUser, args.Request.Messages[2].Role)
+				require.Equal(t, compat.RoleUser, args.Request.Messages[2].Role)
 				require.Equal(t, instruction, args.Request.Messages[2].Content)
 
 				// Finalization remains tool-free even if a callback attempts
@@ -3531,7 +3531,7 @@ func TestFlow_CallLLM_FinalizesOnLastAllowedCall(t *testing.T) {
 					"lookup": &mockLongRunnerTool{name: "lookup"},
 				}
 				args.Request.ExtraFields["tool_choice"] = "required"
-				return &model.BeforeModelResult{
+				return &compat.BeforeModelResult{
 					Context: context.Background(),
 				}, nil
 			},
@@ -3539,8 +3539,8 @@ func TestFlow_CallLLM_FinalizesOnLastAllowedCall(t *testing.T) {
 		RegisterBeforeModel(
 			func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				require.True(t, imodelrequest.ToolsDisabled(ctx))
 				require.Nil(t, args.Request.Tools)
 				require.NotContains(t, args.Request.ExtraFields, "tool_choice")
@@ -3554,20 +3554,20 @@ func TestFlow_CallLLM_FinalizesOnLastAllowedCall(t *testing.T) {
 		)
 	f := New(nil, nil, Options{ModelCallbacks: callbacks})
 	modelStub := &mockModel{
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("final"),
 			}},
 		}},
 	}
 	inv := agent.NewInvocation(agent.WithInvocationModel(modelStub))
 	inv.MaxLLMCalls = 1
 	calllimit.Configure(inv, &instruction, nil)
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base instruction"),
-			model.NewUserMessage("question"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base instruction"),
+			compat.NewUserMessage("question"),
 		},
 		Tools: map[string]tool.Tool{
 			"lookup": &mockLongRunnerTool{name: "lookup"},
@@ -3594,7 +3594,7 @@ func TestFlow_CallLLM_FinalizesOnLastAllowedCall(t *testing.T) {
 	require.Equal(t, "value", req.ExtraFields["keep"])
 	require.Equal(t, "base instruction", req.Messages[0].Content)
 	require.Len(t, req.Messages, 3)
-	require.Equal(t, model.RoleUser, req.Messages[2].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[2].Role)
 	require.Equal(t, instruction, req.Messages[2].Content)
 	require.True(t, calllimit.Active(inv))
 }
@@ -3603,11 +3603,11 @@ func TestFlow_CallLLM_FinalizationIsExcludedFromSummaryFork(t *testing.T) {
 	instruction := "finish with the available context"
 	rewrittenInstruction := "rewritten finalization instruction"
 	callbackPart := "callback-added content part"
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			_ context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			require.NotNil(t, args.Request)
 			require.NotEmpty(t, args.Request.Messages)
 			tail := &args.Request.Messages[len(args.Request.Messages)-1]
@@ -3615,27 +3615,27 @@ func TestFlow_CallLLM_FinalizationIsExcludedFromSummaryFork(t *testing.T) {
 			tail.Content = rewrittenInstruction
 			tail.ContentParts = append(
 				tail.ContentParts,
-				model.ContentPart{
-					Type: model.ContentTypeText,
+				compat.ContentPart{
+					Type: compat.ContentTypeText,
 					Text: &callbackPart,
 				},
 			)
 			return nil, nil
 		},
 	)
-	response := &model.Response{
+	response := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("final answer"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("final answer"),
 		}},
 	}
-	modelStub := &mockModel{responses: []*model.Response{response}}
+	modelStub := &mockModel{responses: []*compat.Response{response}}
 	f := New(nil, nil, Options{ModelCallbacks: callbacks})
 	inv := agent.NewInvocation(agent.WithInvocationModel(modelStub))
 	inv.MaxLLMCalls = 1
 	calllimit.Configure(inv, &instruction, nil)
-	req := &model.Request{Messages: []model.Message{
-		model.NewUserMessage("real user question"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage("real user question"),
 	}}
 
 	_, _, modelCalled, err := f.callLLM(
@@ -3668,28 +3668,28 @@ func TestAppendCallLimitFinalizationMessage_PreservesSystemContentParts(
 	t *testing.T,
 ) {
 	partText := "existing content part"
-	req := &model.Request{
-		Messages: []model.Message{
+	req := &compat.Request{
+		Messages: []compat.Message{
 			{
-				Role:    model.RoleSystem,
+				Role:    compat.RoleSystem,
 				Content: "existing content",
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &partText,
 				}},
 			},
-			model.NewUserMessage("question"),
+			compat.NewUserMessage("question"),
 		},
 	}
 
 	appendCallLimitFinalizationMessage(req, "finalize now")
 
 	require.Len(t, req.Messages, 3)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Equal(t, "existing content", req.Messages[0].Content)
 	require.Len(t, req.Messages[0].ContentParts, 1)
 	require.Equal(t, partText, *req.Messages[0].ContentParts[0].Text)
-	require.Equal(t, model.RoleUser, req.Messages[2].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[2].Role)
 	require.Equal(t, "finalize now", req.Messages[2].Content)
 }
 
@@ -3697,8 +3697,8 @@ func TestRequestWithoutCallLimitFinalizationMessage_KeepsMatchingUserMessage(
 	t *testing.T,
 ) {
 	instruction := "finalize now"
-	req := &model.Request{Messages: []model.Message{
-		model.NewUserMessage(instruction),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage(instruction),
 	}}
 	marker := appendCallLimitFinalizationMessage(req, instruction)
 	require.Len(t, req.Messages, 2)
@@ -3718,10 +3718,10 @@ func TestRequestWithoutCallLimitFinalizationMessage_KeepsMatchingUserMessage(
 
 func TestRunOneStep_LLMCallLimitFinalizationEndsInvocation(t *testing.T) {
 	modelStub := &mockModel{
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("final"),
 			}},
 		}},
 	}
@@ -3744,19 +3744,19 @@ func TestRunOneStep_LLMCallLimitFinalizationEndsInvocation(t *testing.T) {
 	req := modelStub.LastRequest()
 	require.NotNil(t, req)
 	require.Len(t, req.Messages, 2)
-	require.Equal(t, model.RoleUser, req.Messages[0].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[0].Role)
 	require.Equal(t, "test", req.Messages[0].Content)
-	require.Equal(t, model.RoleUser, req.Messages[len(req.Messages)-1].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[len(req.Messages)-1].Role)
 	require.Equal(t, calllimit.DefaultInstruction, req.Messages[len(req.Messages)-1].Content)
 }
 
 func TestFlow_CallLLM_LLMFinalizationPrecedesPendingToolFinalization(t *testing.T) {
 	f := New(nil, nil, Options{})
 	modelStub := &mockModel{
-		responses: []*model.Response{{
+		responses: []*compat.Response{{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("final"),
 			}},
 		}},
 	}
@@ -3778,7 +3778,7 @@ func TestFlow_CallLLM_LLMFinalizationPrecedesPendingToolFinalization(t *testing.
 
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2)
-	require.Equal(t, model.RoleUser, req.Messages[1].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[1].Role)
 	require.Equal(t, llmInstruction, req.Messages[1].Content)
 	require.NotEqual(t, toolInstruction, req.Messages[1].Content)
 }
@@ -3786,7 +3786,7 @@ func TestFlow_CallLLM_LLMFinalizationPrecedesPendingToolFinalization(t *testing.
 func TestFlow_CallLLM_ToolFinalizationDoesNotExceedLLMBudget(t *testing.T) {
 	f := New(nil, nil, Options{})
 	modelStub := &mockModel{
-		responses: []*model.Response{{Done: true}},
+		responses: []*compat.Response{{Done: true}},
 	}
 	inv := agent.NewInvocation(agent.WithInvocationModel(modelStub))
 	inv.MaxLLMCalls = 1
@@ -3818,9 +3818,9 @@ func TestProcessStreamingResponses_ContextCancelledAfterPostprocess(t *testing.T
 	f := New(nil, []flow.ResponseProcessor{&cancelResponseProcessor{cancel: cancel}}, Options{})
 
 	inv := agent.NewInvocation()
-	req := &model.Request{}
-	responseSeq := func(yield func(*model.Response) bool) {
-		yield(&model.Response{ID: "resp", Done: true})
+	req := &compat.Request{}
+	responseSeq := func(yield func(*compat.Response) bool) {
+		yield(&compat.Response{ID: "resp", Done: true})
 	}
 
 	eventChan := make(chan *event.Event, 10)
@@ -3835,9 +3835,9 @@ func TestProcessStreamingResponses_ContextCancelledAfterPostprocess(t *testing.T
 // noResponseModel returns a closed channel without emitting any responses.
 type noResponseModel struct{}
 
-func (m *noResponseModel) Info() model.Info { return model.Info{Name: "noresp"} }
-func (m *noResponseModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *noResponseModel) Info() compat.Info { return compat.Info{Name: "noresp"} }
+func (m *noResponseModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
@@ -3889,7 +3889,7 @@ func TestRun_NilIterModelEmitsErrorEvent(t *testing.T) {
 	}
 	require.Equal(t, 2, count)
 	require.NotNil(t, errorEvent)
-	require.Equal(t, model.ErrorTypeFlowError, errorEvent.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, errorEvent.Error.Type)
 	require.Contains(t, errorEvent.Error.Message, errMsgNoModelResponse)
 }
 
@@ -3941,15 +3941,15 @@ func attributeSetContains(set attribute.Set, key, value string) bool {
 func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 	tests := []struct {
 		name       string
-		response   *model.Response
+		response   *compat.Response
 		wantErr    bool
 		wantErrMsg string
 	}{
 		{
 			name: "response with error",
-			response: &model.Response{
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeAPIError,
+			response: &compat.Response{
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeAPIError,
 					Message: "rate limit exceeded",
 				},
 			},
@@ -3958,8 +3958,8 @@ func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 		},
 		{
 			name: "response without error",
-			response: &model.Response{
-				Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}},
+			response: &compat.Response{
+				Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}},
 			},
 			wantErr:    false,
 			wantErrMsg: "",
@@ -3972,7 +3972,7 @@ func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 		},
 		{
 			name: "response with nil error field",
-			response: &model.Response{
+			response: &compat.Response{
 				Error: nil,
 			},
 			wantErr:    false,
@@ -3983,8 +3983,8 @@ func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var receivedErr error
-			callbacks := model.NewCallbacks().RegisterAfterModel(
-				func(ctx context.Context, req *model.Request, rsp *model.Response, modelErr error) (*model.Response, error) {
+			callbacks := compat.NewCallbacks().RegisterAfterModel(
+				func(ctx context.Context, req *compat.Request, rsp *compat.Response, modelErr error) (*compat.Response, error) {
 					receivedErr = modelErr
 					return nil, nil
 				},
@@ -3997,7 +3997,7 @@ func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 			_, _, err := flow.runAfterModelCallbacks(
 				context.Background(),
 				nil,
-				&model.Request{},
+				&compat.Request{},
 				tt.response,
 			)
 			require.NoError(t, err)
@@ -4015,19 +4015,19 @@ func TestRunAfterModelCallbacks_ErrorPassing(t *testing.T) {
 // blockingModel emits one response then waits for ctx cancellation.
 type blockingModel struct{}
 
-func (m *blockingModel) Info() model.Info {
-	return model.Info{Name: "blocking"}
+func (m *blockingModel) Info() compat.Info {
+	return compat.Info{Name: "blocking"}
 }
 
 func (m *blockingModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
-		Choices: []model.Choice{
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.NewAssistantMessage("hi"),
+				Message: compat.NewAssistantMessage("hi"),
 			},
 		},
 	}
@@ -4084,16 +4084,16 @@ type captureModel struct {
 
 func (m *captureModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.called = true
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Done: true}
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Done: true}
 	close(ch)
 	return ch, nil
 }
 
-func (m *captureModel) Info() model.Info { return model.Info{Name: "m"} }
+func (m *captureModel) Info() compat.Info { return compat.Info{Name: "m"} }
 
 func TestFlow_CallLLM_PluginBeforeModelCanShortCircuit(t *testing.T) {
 	plugCalled := false
@@ -4104,19 +4104,19 @@ func TestFlow_CallLLM_PluginBeforeModelCanShortCircuit(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				plugCalled = true
-				return &model.BeforeModelResult{
-					CustomResponse: &model.Response{Done: true},
+				return &compat.BeforeModelResult{
+					CustomResponse: &compat.Response{Done: true},
 				}, nil
 			})
 		},
 	}
 	pm := plugin.MustNewManager(p)
 
-	local := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	local := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 			localCalled = true
 			return nil, nil
 		},
@@ -4133,7 +4133,7 @@ func TestFlow_CallLLM_PluginBeforeModelCanShortCircuit(t *testing.T) {
 	_, ch, modelCalled, err := flow.callLLM(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
 	require.False(t, modelCalled)
-	ch(func(_ *model.Response) bool { return true })
+	ch(func(_ *compat.Response) bool { return true })
 	require.True(t, plugCalled)
 	require.False(t, localCalled)
 	require.False(t, m.called)
@@ -4150,8 +4150,8 @@ func TestFlow_CallLLM_PluginBeforeModelError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				plugCalled = true
 				return nil, fmt.Errorf("boom")
 			})
@@ -4159,8 +4159,8 @@ func TestFlow_CallLLM_PluginBeforeModelError(t *testing.T) {
 	}
 	pm := plugin.MustNewManager(p)
 
-	local := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	local := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 			localCalled = true
 			return nil, nil
 		},
@@ -4192,10 +4192,10 @@ func TestFlow_CallLLM_PluginBeforeModelContextPropagates(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				plugCalled = true
-				return &model.BeforeModelResult{
+				return &compat.BeforeModelResult{
 					Context: context.WithValue(ctx, testCtxKey{}, "v"),
 				}, nil
 			})
@@ -4203,12 +4203,12 @@ func TestFlow_CallLLM_PluginBeforeModelContextPropagates(t *testing.T) {
 	}
 	pm := plugin.MustNewManager(p)
 
-	local := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	local := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 			if v, ok := ctx.Value(testCtxKey{}).(string); ok {
 				localSaw = v
 			}
-			return &model.Response{Done: true}, nil
+			return &compat.Response{Done: true}, nil
 		},
 	)
 
@@ -4223,7 +4223,7 @@ func TestFlow_CallLLM_PluginBeforeModelContextPropagates(t *testing.T) {
 	_, ch, modelCalled, err := flow.callLLM(context.Background(), inv, testLLMRequest(), inv.Model)
 	require.NoError(t, err)
 	require.False(t, modelCalled)
-	ch(func(_ *model.Response) bool { return true })
+	ch(func(_ *compat.Response) bool { return true })
 	require.True(t, plugCalled)
 	require.Equal(t, "v", localSaw)
 
@@ -4231,16 +4231,16 @@ func TestFlow_CallLLM_PluginBeforeModelContextPropagates(t *testing.T) {
 
 func TestFlow_AfterModelPluginOverridesLocal(t *testing.T) {
 	localCalled := false
-	custom := &model.Response{Done: true}
+	custom := &compat.Response{Done: true}
 
 	p := &hookPlugin{
 		name: "p",
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					CustomResponse: custom,
 				}, nil
 			})
@@ -4248,13 +4248,13 @@ func TestFlow_AfterModelPluginOverridesLocal(t *testing.T) {
 	}
 	pm := plugin.MustNewManager(p)
 
-	local := model.NewCallbacks().RegisterAfterModel(
+	local := compat.NewCallbacks().RegisterAfterModel(
 		func(
 			ctx context.Context,
-			req *model.Request,
-			rsp *model.Response,
+			req *compat.Request,
+			rsp *compat.Response,
 			modelErr error,
-		) (*model.Response, error) {
+		) (*compat.Response, error) {
 			localCalled = true
 			return nil, nil
 		},
@@ -4266,8 +4266,8 @@ func TestFlow_AfterModelPluginOverridesLocal(t *testing.T) {
 	_, got, err := flow.runAfterModelCallbacks(
 		context.Background(),
 		inv,
-		&model.Request{},
-		&model.Response{Done: true},
+		&compat.Request{},
+		&compat.Response{Done: true},
 	)
 	require.NoError(t, err)
 	require.Equal(t, custom, got)
@@ -4280,8 +4280,8 @@ func TestFlow_AfterModelPluginError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
 				return nil, fmt.Errorf("boom")
 			})
 		},
@@ -4294,8 +4294,8 @@ func TestFlow_AfterModelPluginError(t *testing.T) {
 	_, _, err := flow.runAfterModelCallbacks(
 		context.Background(),
 		inv,
-		&model.Request{},
-		&model.Response{Done: true},
+		&compat.Request{},
+		&compat.Response{Done: true},
 	)
 	require.Error(t, err)
 }
@@ -4307,9 +4307,9 @@ func TestFlow_AfterModelPluginContextPropagatesToLocal(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
-				return &model.AfterModelResult{
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
+				return &compat.AfterModelResult{
 					Context: context.WithValue(ctx, testCtxKey{}, "v"),
 				}, nil
 			})
@@ -4317,13 +4317,13 @@ func TestFlow_AfterModelPluginContextPropagatesToLocal(t *testing.T) {
 	}
 	pm := plugin.MustNewManager(p)
 
-	local := model.NewCallbacks().RegisterAfterModel(
+	local := compat.NewCallbacks().RegisterAfterModel(
 		func(
 			ctx context.Context,
-			req *model.Request,
-			rsp *model.Response,
+			req *compat.Request,
+			rsp *compat.Response,
 			modelErr error,
-		) (*model.Response, error) {
+		) (*compat.Response, error) {
 			if v, ok := ctx.Value(testCtxKey{}).(string); ok {
 				localSaw = v
 			}
@@ -4337,8 +4337,8 @@ func TestFlow_AfterModelPluginContextPropagatesToLocal(t *testing.T) {
 	_, _, err := flow.runAfterModelCallbacks(
 		context.Background(),
 		inv,
-		&model.Request{},
-		&model.Response{Done: true},
+		&compat.Request{},
+		&compat.Response{Done: true},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "v", localSaw)
@@ -4351,8 +4351,8 @@ func TestFlow_AfterModelPluginSeesResponseError(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
 				if args != nil && args.Error != nil {
 					sawErr = args.Error.Error()
 				}
@@ -4364,9 +4364,9 @@ func TestFlow_AfterModelPluginSeesResponseError(t *testing.T) {
 
 	flow := &Flow{modelCallbacks: nil}
 	inv := &agent.Invocation{Plugins: pm}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    "test",
 			Message: "boom",
 		},
@@ -4375,7 +4375,7 @@ func TestFlow_AfterModelPluginSeesResponseError(t *testing.T) {
 	_, _, err := flow.runAfterModelCallbacks(
 		context.Background(),
 		inv,
-		&model.Request{},
+		&compat.Request{},
 		rsp,
 	)
 	require.NoError(t, err)
@@ -4400,7 +4400,7 @@ func TestFlow_callLLM_EmptyMessages(t *testing.T) {
 		agent.WithInvocationModel(&mockModel{}),
 	)
 
-	_, ch, modelCalled, err := f.callLLM(context.Background(), inv, &model.Request{}, inv.Model)
+	_, ch, modelCalled, err := f.callLLM(context.Background(), inv, &compat.Request{}, inv.Model)
 	require.Error(t, err)
 	require.EqualError(t, err, errMsgNoLLMMessages)
 	require.Nil(t, ch)
@@ -4413,7 +4413,7 @@ func TestFlow_generateContentSeq_EmptyMessages(t *testing.T) {
 		agent.WithInvocationModel(&mockModel{}),
 	)
 
-	seq, err := f.generateContentSeq(context.Background(), inv, &model.Request{}, inv.Model)
+	seq, err := f.generateContentSeq(context.Background(), inv, &compat.Request{}, inv.Model)
 	require.Error(t, err)
 	require.EqualError(t, err, errMsgNoLLMMessages)
 	require.Nil(t, seq)
@@ -4439,7 +4439,7 @@ func TestFlow_RunOneStep_ModelSelectorSelectsBeforePreprocess(t *testing.T) {
 	f := New(
 		[]flow.RequestProcessor{
 			&seedMessagesRequestProcessor{
-				messages: []model.Message{model.NewUserMessage("test")},
+				messages: []compat.Message{compat.NewUserMessage("test")},
 			},
 			processor,
 		},
@@ -4451,7 +4451,7 @@ func TestFlow_RunOneStep_ModelSelectorSelectsBeforePreprocess(t *testing.T) {
 					AllowAgentSelector: true,
 				}
 			},
-			ModelSelector: func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+			ModelSelector: func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 				require.Equal(t, "base", inv.Model.Info().Name)
 				return selectedModel, nil
 			},
@@ -4483,7 +4483,7 @@ func TestFlow_SelectModelForStep_RunLevelNilSuppressesAgentSelector(t *testing.T
 					AllowAgentSelector: true,
 				}
 			},
-			ModelSelector: func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+			ModelSelector: func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 				agentSelectorCalled = true
 				return &namedFlowModel{name: "agent"}, nil
 			},
@@ -4491,7 +4491,7 @@ func TestFlow_SelectModelForStep_RunLevelNilSuppressesAgentSelector(t *testing.T
 	)
 	inv := agent.NewInvocation(
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
-			agent.WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+			agent.WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 				inv.Model = &namedFlowModel{name: "ignored"}
 				return nil, nil
 			}),
@@ -4532,8 +4532,8 @@ func TestFlow_SelectModelForStep_NoSelectorUsesBaseModelResolver(t *testing.T) {
 func TestFlow_CallLLM_BeforeModelCannotReplaceCallModel(t *testing.T) {
 	selectedModel := &namedFlowModel{name: "selected"}
 	hijackModel := &namedFlowModel{name: "hijack"}
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			inv, ok := agent.InvocationFromContext(ctx)
 			require.True(t, ok)
 			inv.Model = hijackModel
@@ -4544,7 +4544,7 @@ func TestFlow_CallLLM_BeforeModelCannotReplaceCallModel(t *testing.T) {
 	inv := agent.NewInvocation(agent.WithInvocationModel(selectedModel))
 	_, seq, _, err := f.callLLM(context.Background(), inv, testLLMRequest(), selectedModel)
 	require.NoError(t, err)
-	seq(func(response *model.Response) bool { return true })
+	seq(func(response *compat.Response) bool { return true })
 	require.True(t, selectedModel.Called())
 	require.False(t, hijackModel.Called())
 	require.Equal(t, hijackModel, inv.Model)
@@ -4556,11 +4556,11 @@ func TestFlow_Postprocess_WithProcessor(t *testing.T) {
 
 	ctx := context.Background()
 	inv := agent.NewInvocation()
-	req := &model.Request{}
-	resp := &model.Response{
-		Choices: []model.Choice{
+	req := &compat.Request{}
+	resp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.NewAssistantMessage("ok"),
+				Message: compat.NewAssistantMessage("ok"),
 			},
 		},
 	}
@@ -4608,16 +4608,16 @@ func TestRun_WithResumeExecutesPendingToolCalls(t *testing.T) {
 
 	// Session contains a single assistant tool_call response.
 	sess := &session.Session{}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call-1",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "resume_tool",
 								Arguments: []byte(`{"value":"resume"}`),
 							},
@@ -4645,11 +4645,11 @@ func TestRun_WithResumeExecutesPendingToolCalls(t *testing.T) {
 			Resume: true,
 		}),
 	)
-	inv.Message = model.NewUserMessage("test")
+	inv.Message = compat.NewUserMessage("test")
 
 	llmFlow := New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("test")},
+			messages: []compat.Message{compat.NewUserMessage("test")},
 		}},
 		[]flow.ResponseProcessor{
 			processor.NewFunctionCallResponseProcessor(false, nil),
@@ -4710,27 +4710,27 @@ type twoStepToolCallModel struct {
 	callNum int
 }
 
-func (m *twoStepToolCallModel) Info() model.Info {
-	return model.Info{Name: "two-step"}
+func (m *twoStepToolCallModel) Info() compat.Info {
+	return compat.Info{Name: "two-step"}
 }
 
 func (m *twoStepToolCallModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.callNum++
 	callNum := m.callNum
 	m.mu.Unlock()
 
-	response := &model.Response{Done: true}
+	response := &compat.Response{Done: true}
 	if callNum == 1 {
-		response.Choices = []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+		response.Choices = []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "intra_run_tool",
 						Arguments: []byte("{}"),
 					},
@@ -4738,12 +4738,12 @@ func (m *twoStepToolCallModel) GenerateContent(
 			},
 		}}
 	} else {
-		response.Choices = []model.Choice{{
-			Message: model.NewAssistantMessage("done"),
+		response.Choices = []compat.Choice{{
+			Message: compat.NewAssistantMessage("done"),
 		}}
 	}
 
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- response
 	close(ch)
 	return ch, nil
@@ -4792,11 +4792,11 @@ func TestRun_SyncSummaryIntraRun_TriggersBetweenIterations(t *testing.T) {
 		agent.WithInvocationModel(modelStub),
 		agent.WithInvocationEventFilterKey("branch/agent-intra-run"),
 	)
-	inv.Message = model.NewUserMessage("test")
+	inv.Message = compat.NewUserMessage("test")
 
 	llmFlow := New(
 		[]flow.RequestProcessor{&seedMessagesRequestProcessor{
-			messages: []model.Message{model.NewUserMessage("test")},
+			messages: []compat.Message{compat.NewUserMessage("test")},
 		}},
 		[]flow.ResponseProcessor{
 			processor.NewFunctionCallResponseProcessor(false, nil),
@@ -4893,10 +4893,10 @@ func TestMaybeSyncSummaryIntraRun_AttachesCacheSafeForkRequest(t *testing.T) {
 		agent.WithInvocationSessionService(svc),
 		agent.WithInvocationEventFilterKey("branch/fork"),
 	)
-	parent := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("system"),
-			model.NewUserMessage("question"),
+	parent := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("system"),
+			compat.NewUserMessage("question"),
 		},
 	}
 	summaryfork.Attach(inv, parent)

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestCheckMessageThreshold(t *testing.T) {
@@ -54,9 +54,9 @@ func TestCheckMessageThreshold(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := CheckMessageThreshold(tt.threshold)
-			messages := make([]model.Message, tt.messageCount)
+			messages := make([]compat.Message, tt.messageCount)
 			for i := range messages {
-				messages[i] = model.NewUserMessage(fmt.Sprintf("msg%d", i))
+				messages[i] = compat.NewUserMessage(fmt.Sprintf("msg%d", i))
 			}
 			ctx := &ExtractionContext{Messages: messages}
 			assert.Equal(t, tt.want, checker(ctx))
@@ -180,9 +180,9 @@ func TestChecksAny(t *testing.T) {
 func TestExtractionContext(t *testing.T) {
 	// Test that ExtractionContext can hold all expected fields.
 	now := time.Now()
-	messages := []model.Message{
-		model.NewUserMessage("hello"),
-		model.NewAssistantMessage("world"),
+	messages := []compat.Message{
+		compat.NewUserMessage("hello"),
+		compat.NewAssistantMessage("world"),
 	}
 	ctx := &ExtractionContext{
 		UserKey: memory.UserKey{
@@ -209,19 +209,19 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 		{
 			name: "no checkers always returns true",
 			opts: nil,
-			ctx:  &ExtractionContext{Messages: []model.Message{model.NewUserMessage("test")}},
+			ctx:  &ExtractionContext{Messages: []compat.Message{compat.NewUserMessage("test")}},
 			want: true,
 		},
 		{
 			name: "single checker passes",
 			opts: []Option{WithChecker(CheckMessageThreshold(10))},
-			ctx:  &ExtractionContext{Messages: make([]model.Message, 11)},
+			ctx:  &ExtractionContext{Messages: make([]compat.Message, 11)},
 			want: true,
 		},
 		{
 			name: "single checker fails",
 			opts: []Option{WithChecker(CheckMessageThreshold(10))},
-			ctx:  &ExtractionContext{Messages: make([]model.Message, 5)},
+			ctx:  &ExtractionContext{Messages: make([]compat.Message, 5)},
 			want: false,
 		},
 		{
@@ -231,7 +231,7 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 				WithChecker(CheckTimeInterval(time.Minute)),
 			},
 			ctx: &ExtractionContext{
-				Messages:      make([]model.Message, 11),
+				Messages:      make([]compat.Message, 11),
 				LastExtractAt: nil, // First extraction.
 			},
 			want: true,
@@ -243,7 +243,7 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 				WithChecker(CheckTimeInterval(time.Minute)),
 			},
 			ctx: &ExtractionContext{
-				Messages:      make([]model.Message, 5),
+				Messages:      make([]compat.Message, 5),
 				LastExtractAt: nil,
 			},
 			want: false,
@@ -257,7 +257,7 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 				),
 			},
 			ctx: &ExtractionContext{
-				Messages:      make([]model.Message, 5),
+				Messages:      make([]compat.Message, 5),
 				LastExtractAt: nil, // First extraction triggers time interval.
 			},
 			want: true,
@@ -271,7 +271,7 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 				),
 			},
 			ctx: &ExtractionContext{
-				Messages:      make([]model.Message, 5),
+				Messages:      make([]compat.Message, 5),
 				LastExtractAt: timePtr(time.Now()), // Just extracted.
 			},
 			want: false,
@@ -288,7 +288,7 @@ func TestMemoryExtractorShouldExtract(t *testing.T) {
 func TestWithCheckerNil(t *testing.T) {
 	// WithChecker should ignore nil checkers.
 	ext := NewExtractor(nil, WithChecker(nil))
-	ctx := &ExtractionContext{Messages: []model.Message{model.NewUserMessage("test")}}
+	ctx := &ExtractionContext{Messages: []compat.Message{compat.NewUserMessage("test")}}
 	assert.True(t, ext.ShouldExtract(ctx))
 }
 

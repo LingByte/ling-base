@@ -39,7 +39,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -319,7 +319,7 @@ func TestA2AAgent_AnonymousCookiesAreSessionScoped(t *testing.T) {
 		eventChan, runErr := a.Run(context.Background(), &agent.Invocation{
 			InvocationID: fmt.Sprintf("invocation-%d", runCount),
 			Session:      sess,
-			Message:      model.NewUserMessage("test message"),
+			Message:      compat.NewUserMessage("test message"),
 		})
 		require.NoError(t, runErr)
 		var events []*event.Event
@@ -494,7 +494,7 @@ func TestA2AAgent_AnonymousCookiesSerializeConcurrentInitialAcquisition(t *testi
 		eventChan, runErr := a.Run(ctx, &agent.Invocation{
 			InvocationID: invocationID,
 			Session:      sess,
-			Message:      model.NewUserMessage("test message"),
+			Message:      compat.NewUserMessage("test message"),
 		})
 		if runErr != nil {
 			return runErr
@@ -697,7 +697,7 @@ func TestA2AAgent_AnonymousCookiesCoordinateAcrossAgentInstances(
 			ctx,
 			"local-user",
 			"session-a",
-			model.NewUserMessage(message),
+			compat.NewUserMessage(message),
 		)
 		if runErr != nil {
 			return runErr
@@ -916,7 +916,7 @@ func TestA2AAgent_TransientAnonymousCookieRemainsSharedWithCapableService(
 			InvocationID:   invocationID,
 			Session:        sharedSession,
 			SessionService: service,
-			Message:        model.NewUserMessage("test message"),
+			Message:        compat.NewUserMessage("test message"),
 		})
 		require.NoError(t, runErr)
 		for evt := range eventChan {
@@ -1145,7 +1145,7 @@ func TestA2AAgent_AnonymousCookiePersistsThroughSessionService(t *testing.T) {
 			context.Background(),
 			"local-user",
 			"session-a",
-			model.NewUserMessage(message),
+			compat.NewUserMessage(message),
 		)
 		require.NoError(t, runErr)
 		var events []*event.Event
@@ -1945,10 +1945,10 @@ func TestA2AAgent_StrictAnonymousIdentityCoordinationFailsBeforeRPC(
 	events, err := a.Run(context.Background(), &agent.Invocation{
 		InvocationID: "strict-coordination",
 		Session:      session.NewSession("", "", ""),
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	})
 	require.NoError(t, err)
-	var responseError *model.ResponseError
+	var responseError *compat.ResponseError
 	for evt := range events {
 		if evt != nil && evt.Response != nil && evt.Response.Error != nil {
 			responseError = evt.Response.Error
@@ -2200,7 +2200,7 @@ func TestA2AAgent_AnonymousCookieInitializationDoesNotBlockIndependentScopes(t *
 		eventChan, runErr := a.Run(ctx, &agent.Invocation{
 			InvocationID: invocationID,
 			Session:      sess,
-			Message:      model.NewUserMessage("test message"),
+			Message:      compat.NewUserMessage("test message"),
 		})
 		if runErr != nil {
 			return runErr
@@ -2647,7 +2647,7 @@ func TestA2AAgent_AnonymousCookieStateIsScopedByRemoteAgentURL(t *testing.T) {
 		eventChan, runErr := a.Run(context.Background(), &agent.Invocation{
 			InvocationID: invocationID,
 			Session:      sess,
-			Message:      model.NewUserMessage("test message"),
+			Message:      compat.NewUserMessage("test message"),
 		})
 		require.NoError(t, runErr)
 		var events []*event.Event
@@ -3302,7 +3302,7 @@ func TestA2AAgent_CustomHTTPReqHandlerComposesWithAnonymousCookies(t *testing.T)
 		eventChan, runErr := a.Run(context.Background(), &agent.Invocation{
 			InvocationID: invocationID,
 			Session:      sess,
-			Message:      model.NewUserMessage("hello"),
+			Message:      compat.NewUserMessage("hello"),
 		})
 		require.NoError(t, runErr)
 		for evt := range eventChan {
@@ -3988,7 +3988,7 @@ func TestA2AAgent_CustomHTTPClientJarDoesNotCollapseAnonymousSessions(t *testing
 		eventChan, runErr := a.Run(context.Background(), &agent.Invocation{
 			InvocationID: fmt.Sprintf("invocation-%s", sess.ID),
 			Session:      sess,
-			Message:      model.NewUserMessage("test message"),
+			Message:      compat.NewUserMessage("test message"),
 		})
 		require.NoError(t, runErr)
 		for evt := range eventChan {
@@ -4273,9 +4273,9 @@ func TestWrapEventChannelWithTelemetry_AccumulatesTokenUsage(t *testing.T) {
 	wrappedChan := (&A2AAgent{}).wrapEventChannelWithTelemetry(ctx, &agent.Invocation{}, originalChan, sdkSpan, &itelemetry.InvokeAgentTracker{}, true)
 
 	partialEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     1,
 				CompletionTokens: 2,
 				TotalTokens:      3,
@@ -4283,9 +4283,9 @@ func TestWrapEventChannelWithTelemetry_AccumulatesTokenUsage(t *testing.T) {
 		},
 	}
 	finalEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: false,
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     10,
 				CompletionTokens: 20,
 				TotalTokens:      30,
@@ -4328,9 +4328,9 @@ func TestWrapEventChannelWithTelemetry_PreservesFallbackErrorTypeWithoutFinalRes
 	originalChan := make(chan *event.Event, 1)
 	code := "429"
 	partialErrorEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Type:    "rate_limit",
 				Code:    &code,
 				Message: "rate limited",
@@ -4373,9 +4373,9 @@ func TestWrapEventChannelWithTelemetry_ClearsFallbackErrorTypeOnFinalSuccess(t *
 	originalChan := make(chan *event.Event, 2)
 	code := "429"
 	partialErrorEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Type:    "rate_limit",
 				Code:    &code,
 				Message: "rate limited",
@@ -4385,10 +4385,10 @@ func TestWrapEventChannelWithTelemetry_ClearsFallbackErrorTypeOnFinalSuccess(t *
 	finalSuccessEvent := event.NewResponseEvent(
 		"inv-success",
 		"a2a",
-		&model.Response{
+		&compat.Response{
 			IsPartial: false,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("ok"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("ok"),
 			}},
 		},
 	)
@@ -4567,8 +4567,8 @@ func TestA2AAgent_buildA2AMessage(t *testing.T) {
 				a2aMessageConverter: &defaultEventA2AConverter{},
 			},
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "test content",
 				},
 			},
@@ -4669,8 +4669,8 @@ func TestA2AAgent_Run_ErrorCases(t *testing.T) {
 			},
 			invocation: &agent.Invocation{
 				InvocationID: "test-inv",
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "test message",
 				},
 			},
@@ -4743,8 +4743,8 @@ func TestWithTransferStateKey(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test message",
 			},
 			RunOptions: agent.RunOptions{
@@ -4857,8 +4857,8 @@ func TestTransferStateKeyWildcardInBuild(t *testing.T) {
 			transferStateKey:    []string{"*"},
 		}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -4880,8 +4880,8 @@ func TestTransferStateKeyWildcardInBuild(t *testing.T) {
 			transferStateKey:    []string{"user.*"},
 		}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -4906,8 +4906,8 @@ func TestTransferStateKeyWildcardInBuild(t *testing.T) {
 			transferStateKey:    []string{"*.id"},
 		}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -4932,8 +4932,8 @@ func TestTransferStateKeyWildcardInBuild(t *testing.T) {
 			transferStateKey:    []string{"user.*", "trace_id"},
 		}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -4976,8 +4976,8 @@ func TestWithBuildMessageHook(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 		}
@@ -5009,8 +5009,8 @@ func TestWithBuildMessageHook(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -5044,8 +5044,8 @@ func TestWithBuildMessageHook(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 		}
@@ -5068,8 +5068,8 @@ func TestWithBuildMessageHook(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 		}
@@ -5098,8 +5098,8 @@ func TestWithBuildMessageHook(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "hello",
 			},
 			RunOptions: agent.RunOptions{
@@ -5121,7 +5121,7 @@ func TestWithStreamingRespHandler(t *testing.T) {
 		agent := &A2AAgent{}
 
 		// Mock handler
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			return "processed_content", nil
 		}
 
@@ -5133,7 +5133,7 @@ func TestWithStreamingRespHandler(t *testing.T) {
 		}
 
 		// Test that the handler works
-		result, err := agent.streamingRespHandler(&model.Response{})
+		result, err := agent.streamingRespHandler(&compat.Response{})
 		if err != nil {
 			t.Errorf("handler should not return error: %v", err)
 		}
@@ -5158,8 +5158,8 @@ func TestA2ARequestOptions(t *testing.T) {
 	t.Run("invocation can store A2A request options", func(t *testing.T) {
 		// Create invocation
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test message",
 			},
 			RunOptions: agent.RunOptions{},
@@ -5190,8 +5190,8 @@ func TestA2ARequestOptions(t *testing.T) {
 	t.Run("can use client.RequestOption", func(t *testing.T) {
 		// Create invocation with actual client.RequestOption
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test message",
 			},
 			RunOptions: agent.RunOptions{},
@@ -5243,8 +5243,8 @@ func TestA2ARequestOptions(t *testing.T) {
 
 		// Create invocation with invalid option type
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "test message",
 			},
 			RunOptions: agent.RunOptions{
@@ -5411,8 +5411,8 @@ func TestUserIDHeaderInRequest(t *testing.T) {
 
 			// Create invocation with session
 			invocation := &agent.Invocation{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "test message",
 				},
 			}
@@ -5535,8 +5535,8 @@ func TestTraceHeadersInRequest(t *testing.T) {
 	)
 
 	eventChan, err := a2aAgent.Run(ctx, &agent.Invocation{
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "test message",
 		},
 	})
@@ -5574,7 +5574,7 @@ func TestA2AAgent_Run_RecordsStreamTraceAttribute(t *testing.T) {
 	stream := false
 	_, err := a.Run(context.Background(), &agent.Invocation{
 		InvocationID: "test-invocation",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 		RunOptions: agent.RunOptions{
 			Stream: &stream,
 		},
@@ -5605,7 +5605,7 @@ func boolPtr(b bool) *bool {
 // TestStreamingConfiguration tests streaming-related configuration
 func TestStreamingConfiguration(t *testing.T) {
 	t.Run("handler_execution", func(t *testing.T) {
-		handler := func(resp *model.Response) (string, error) {
+		handler := func(resp *compat.Response) (string, error) {
 			if len(resp.Choices) > 0 {
 				return "processed:" + resp.Choices[0].Delta.Content, nil
 			}
@@ -5621,7 +5621,7 @@ func TestStreamingConfiguration(t *testing.T) {
 		}
 
 		// Test handler with empty response
-		result, err := agent.streamingRespHandler(&model.Response{})
+		result, err := agent.streamingRespHandler(&compat.Response{})
 		if err != nil {
 			t.Errorf("handler should not error: %v", err)
 		}
@@ -5630,8 +5630,8 @@ func TestStreamingConfiguration(t *testing.T) {
 		}
 
 		// Test handler with content
-		result, err = agent.streamingRespHandler(&model.Response{
-			Choices: []model.Choice{{Delta: model.Message{Content: "test"}}},
+		result, err = agent.streamingRespHandler(&compat.Response{
+			Choices: []compat.Choice{{Delta: compat.Message{Content: "test"}}},
 		})
 		if err != nil {
 			t.Errorf("handler should not error: %v", err)
@@ -5798,46 +5798,46 @@ func TestConverterEdgeCases(t *testing.T) {
 	t.Run("ConvertToA2AMessage_with_all_content_types", func(t *testing.T) {
 		converter := &defaultEventA2AConverter{}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "main content",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: stringPtr("text part"),
 					},
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							Data:   []byte("image-data"),
 							Format: "png",
 						},
 					},
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL:    "http://example.com/image.jpg",
 							Format: "jpg",
 						},
 					},
 					{
-						Type: model.ContentTypeAudio,
-						Audio: &model.Audio{
+						Type: compat.ContentTypeAudio,
+						Audio: &compat.Audio{
 							Data:   []byte("audio-data"),
 							Format: "mp3",
 						},
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name:     "test.txt",
 							Data:     []byte("file-data"),
 							MimeType: "text/plain",
 						},
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Data:     []byte("unnamed-file"),
 							MimeType: "application/octet-stream",
 						},
@@ -5871,8 +5871,8 @@ func TestConverterEdgeCases(t *testing.T) {
 	t.Run("ConvertToA2AMessage_with_empty_content", func(t *testing.T) {
 		converter := &defaultEventA2AConverter{}
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role: model.RoleUser,
+			Message: compat.Message{
+				Role: compat.RoleUser,
 			},
 		}
 
@@ -5919,7 +5919,7 @@ func TestRunNonStreaming_AdditionalCases(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message:      model.Message{Role: model.RoleUser, Content: "test"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "test"},
 		}
 
 		eventChan, err := a2aAgent.Run(context.Background(), invocation)
@@ -5973,7 +5973,7 @@ func TestRunNonStreaming_AdditionalCases(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message:      model.Message{Role: model.RoleUser, Content: "test"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "test"},
 		}
 
 		eventChan, err := a2aAgent.Run(context.Background(), invocation)
@@ -6100,7 +6100,7 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 		}
 		invocation := &agent.Invocation{
 			InvocationID: "inv-test",
-			Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6111,7 +6111,7 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 			t.Fatalf("runStreaming() error = %v", err)
 		}
 
-		var finalResponse *model.Response
+		var finalResponse *compat.Response
 		for evt := range eventCh {
 			if evt.Response != nil && evt.Response.Done {
 				finalResponse = evt.Response
@@ -6124,8 +6124,8 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 		if finalResponse.ID != "resp-1" {
 			t.Fatalf("expected final response ID 'resp-1', got %q", finalResponse.ID)
 		}
-		if finalResponse.Object != model.ObjectTypeChatCompletion {
-			t.Fatalf("expected final response object %s, got %s", model.ObjectTypeChatCompletion, finalResponse.Object)
+		if finalResponse.Object != compat.ObjectTypeChatCompletion {
+			t.Fatalf("expected final response object %s, got %s", compat.ObjectTypeChatCompletion, finalResponse.Object)
 		}
 		if len(finalResponse.Choices) == 0 {
 			t.Fatal("expected final response choices, got none")
@@ -6190,7 +6190,7 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 		}
 		invocation := &agent.Invocation{
 			InvocationID: "inv-test",
-			Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+			Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6202,8 +6202,8 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 		}
 
 		var (
-			bufferedResponse *model.Response
-			toolCallResponse *model.Response
+			bufferedResponse *compat.Response
+			toolCallResponse *compat.Response
 		)
 		for evt := range eventCh {
 			if evt.Response == nil || len(evt.Response.Choices) == 0 {
@@ -6213,13 +6213,13 @@ func TestA2AAgentRunStreamingPreservesResponseID(t *testing.T) {
 			switch {
 			case !evt.Response.Done &&
 				!evt.Response.IsPartial &&
-				msg.Role == model.RoleAssistant &&
+				msg.Role == compat.RoleAssistant &&
 				msg.Content == "preface" &&
 				len(msg.ToolCalls) == 0:
 				bufferedResponse = evt.Response
 			case !evt.Response.Done &&
 				!evt.Response.IsPartial &&
-				msg.Role == model.RoleAssistant &&
+				msg.Role == compat.RoleAssistant &&
 				len(msg.ToolCalls) == 1:
 				toolCallResponse = evt.Response
 			}
@@ -6292,7 +6292,7 @@ func TestA2AAgentRunStreamingPreservesTerminalMessageContentParts(
 	}
 	invocation := &agent.Invocation{
 		InvocationID: "inv-test",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6301,7 +6301,7 @@ func TestA2AAgentRunStreamingPreservesTerminalMessageContentParts(
 	eventCh, err := a.runStreaming(ctx, invocation)
 	require.NoError(t, err)
 
-	var finalResponse *model.Response
+	var finalResponse *compat.Response
 	for evt := range eventCh {
 		if evt.Response != nil && evt.Response.Done {
 			finalResponse = evt.Response
@@ -6312,7 +6312,7 @@ func TestA2AAgentRunStreamingPreservesTerminalMessageContentParts(
 	require.Len(t, finalResponse.Choices, 1)
 	contentParts := finalResponse.Choices[0].Message.ContentParts
 	require.Len(t, contentParts, 1)
-	require.Equal(t, model.ContentTypeFile, contentParts[0].Type)
+	require.Equal(t, compat.ContentTypeFile, contentParts[0].Type)
 	require.NotNil(t, contentParts[0].File)
 	require.Equal(
 		t,
@@ -6325,8 +6325,8 @@ func TestA2AAgentRunStreaming_SkipsSyntheticFinalOnTaskError(
 	t *testing.T,
 ) {
 	code := "A2A_500"
-	metadata := ia2a.WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := ia2a.WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "task failed",
 		Code:    &code,
 	})
@@ -6356,7 +6356,7 @@ func TestA2AAgentRunStreaming_SkipsSyntheticFinalOnTaskError(
 	}
 	invocation := &agent.Invocation{
 		InvocationID: "inv-test",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6372,7 +6372,7 @@ func TestA2AAgentRunStreaming_SkipsSyntheticFinalOnTaskError(
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].Response)
 	require.NotNil(t, events[0].Response.Error)
-	require.Equal(t, model.ObjectTypeError, events[0].Response.Object)
+	require.Equal(t, compat.ObjectTypeError, events[0].Response.Object)
 	require.True(t, events[0].Response.Done)
 }
 
@@ -6397,7 +6397,7 @@ func TestA2AAgentRunStreaming_StreamingHandlerErrorStopsFinalSuccess(t *testing.
 		agentCard:           &server.AgentCard{URL: "http://stream.test/"},
 		eventConverter:      &defaultA2AEventConverter{},
 		a2aMessageConverter: stubInvocationConverter{},
-		streamingRespHandler: func(resp *model.Response) (string, error) {
+		streamingRespHandler: func(resp *compat.Response) (string, error) {
 			return "", fmt.Errorf("handler failed")
 		},
 		streamingBufSize: 4,
@@ -6405,7 +6405,7 @@ func TestA2AAgentRunStreaming_StreamingHandlerErrorStopsFinalSuccess(t *testing.
 	}
 	invocation := &agent.Invocation{
 		InvocationID: "inv-test",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6461,7 +6461,7 @@ func TestA2AAgentRunStreaming_StreamingHandlerErrorCancelsStream(t *testing.T) {
 		agentCard:           &server.AgentCard{URL: "http://stream.test/"},
 		eventConverter:      &defaultA2AEventConverter{},
 		a2aMessageConverter: stubInvocationConverter{},
-		streamingRespHandler: func(resp *model.Response) (string, error) {
+		streamingRespHandler: func(resp *compat.Response) (string, error) {
 			return "", fmt.Errorf("handler failed")
 		},
 		streamingBufSize: 4,
@@ -6469,7 +6469,7 @@ func TestA2AAgentRunStreaming_StreamingHandlerErrorCancelsStream(t *testing.T) {
 	}
 	invocation := &agent.Invocation{
 		InvocationID: "inv-test",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6546,7 +6546,7 @@ func TestA2AAgentRunStreaming_ContinuesAfterRecoverableStructuredError(t *testin
 	}
 	invocation := &agent.Invocation{
 		InvocationID: "inv-test",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -6556,8 +6556,8 @@ func TestA2AAgentRunStreaming_ContinuesAfterRecoverableStructuredError(t *testin
 	require.NoError(t, err)
 
 	var (
-		recoverableError *model.Response
-		finalResponse    *model.Response
+		recoverableError *compat.Response
+		finalResponse    *compat.Response
 	)
 	for evt := range eventCh {
 		if evt.Response == nil {
@@ -6576,11 +6576,11 @@ func TestA2AAgentRunStreaming_ContinuesAfterRecoverableStructuredError(t *testin
 	require.NotNil(t, recoverableError.Error.Code)
 	require.Equal(t, code, *recoverableError.Error.Code)
 	require.False(t, recoverableError.Done)
-	require.Equal(t, model.ObjectTypeChatCompletion, recoverableError.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, recoverableError.Object)
 
 	require.NotNil(t, finalResponse)
 	require.Nil(t, finalResponse.Error)
-	require.Equal(t, model.ObjectTypeChatCompletion, finalResponse.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, finalResponse.Object)
 	require.NotEmpty(t, finalResponse.Choices)
 	require.Equal(t, "final answer", finalResponse.Choices[0].Message.Content)
 }
@@ -6742,7 +6742,7 @@ func TestA2AAgentRunStreaming_PersistsBufferedTextBeforeToolEvents(
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithStream(true),
 	)
 	require.NoError(t, err)
@@ -6759,7 +6759,7 @@ func TestA2AAgentRunStreaming_PersistsBufferedTextBeforeToolEvents(
 
 	events := sess.GetEvents()
 	require.Len(t, events, 8)
-	require.Equal(t, model.RoleUser, events[0].Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleUser, events[0].Response.Choices[0].Message.Role)
 	require.Equal(t, "preface before tool-1", events[1].Response.Choices[0].Message.Content)
 	require.Len(t, events[2].Response.Choices[0].Message.ToolCalls, 1)
 	require.Equal(t, "call-1", events[2].Response.Choices[0].Message.ToolCalls[0].ID)
@@ -6804,14 +6804,14 @@ func TestA2AAgent_sendErrorEvent_UsesRunErrorType(t *testing.T) {
 	)
 
 	require.NotNil(t, respErr)
-	require.Equal(t, model.ErrorTypeRunError, respErr.Type)
+	require.Equal(t, compat.ErrorTypeRunError, respErr.Type)
 	require.Equal(t, "boom", respErr.Message)
 
 	evt := <-eventCh
 	require.NotNil(t, evt)
 	require.NotNil(t, evt.Response)
 	require.NotNil(t, evt.Response.Error)
-	require.Equal(t, model.ObjectTypeError, evt.Response.Object)
+	require.Equal(t, compat.ObjectTypeError, evt.Response.Object)
 	require.Equal(t, evt.Response.Error, respErr)
 }
 
@@ -6824,8 +6824,8 @@ func TestA2AAgent_aggregateEventContent_IgnoresErrorResponses(t *testing.T) {
 		&agent.Invocation{InvocationID: "inv-test"},
 		make(chan *event.Event, 1),
 		&event.Event{
-			Response: &model.Response{
-				Error: &model.ResponseError{Message: "boom"},
+			Response: &compat.Response{
+				Error: &compat.ResponseError{Message: "boom"},
 			},
 		},
 		"resp-1",
@@ -6843,7 +6843,7 @@ func TestA2AAgent_aggregateEventContent_HandlerError(t *testing.T) {
 	a := &A2AAgent{
 		name: "remote-agent",
 		streamingRespHandler: func(
-			resp *model.Response,
+			resp *compat.Response,
 		) (string, error) {
 			return "", fmt.Errorf("handler failed")
 		},
@@ -6856,10 +6856,10 @@ func TestA2AAgent_aggregateEventContent_HandlerError(t *testing.T) {
 		&agent.Invocation{InvocationID: "inv-test"},
 		eventCh,
 		&event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID: "resp-2",
-				Choices: []model.Choice{{
-					Delta: model.Message{Content: "ignored"},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{Content: "ignored"},
 				}},
 			},
 		},
@@ -6871,22 +6871,22 @@ func TestA2AAgent_aggregateEventContent_HandlerError(t *testing.T) {
 
 	require.Equal(t, "resp-2", responseID)
 	require.NotNil(t, terminalError)
-	require.Equal(t, model.ErrorTypeRunError, terminalError.Type)
+	require.Equal(t, compat.ErrorTypeRunError, terminalError.Type)
 	require.Equal(t, "", builder.String())
 
 	evt := <-eventCh
 	require.NotNil(t, evt)
 	require.NotNil(t, evt.Response)
 	require.NotNil(t, evt.Response.Error)
-	require.Equal(t, model.ErrorTypeRunError, evt.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeRunError, evt.Response.Error.Type)
 }
 
 func TestA2AAgent_aggregateEventContent_ContentParts(t *testing.T) {
 	builder := &strings.Builder{}
-	var contentParts []model.ContentPart
-	image := model.ContentPart{
-		Type: model.ContentTypeImage,
-		Image: &model.Image{
+	var contentParts []compat.ContentPart
+	image := compat.ContentPart{
+		Type: compat.ContentTypeImage,
+		Image: &compat.Image{
 			Data:   []byte("image"),
 			Format: "image/png",
 		},
@@ -6896,10 +6896,10 @@ func TestA2AAgent_aggregateEventContent_ContentParts(t *testing.T) {
 		nil,
 		nil,
 		&event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID: "resp-file",
-				Choices: []model.Choice{{
-					Delta: model.Message{ContentParts: []model.ContentPart{image}},
+				Choices: []compat.Choice{{
+					Delta: compat.Message{ContentParts: []compat.ContentPart{image}},
 				}},
 			},
 		},
@@ -6911,7 +6911,7 @@ func TestA2AAgent_aggregateEventContent_ContentParts(t *testing.T) {
 
 	require.Equal(t, "resp-file", responseID)
 	require.Nil(t, terminalError)
-	require.Equal(t, []model.ContentPart{image}, contentParts)
+	require.Equal(t, []compat.ContentPart{image}, contentParts)
 }
 
 // TestValidateA2ARequestOptions tests validation logic for A2A request options

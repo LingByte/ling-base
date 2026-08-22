@@ -9,16 +9,16 @@
 
 package messagemerger
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 func mergeConsecutiveMessages(
-	messages []model.Message,
+	messages []compat.Message,
 	separator string,
-) []model.Message {
+) []compat.Message {
 	if len(messages) == 0 {
 		return messages
 	}
-	merged := make([]model.Message, 0, len(messages))
+	merged := make([]compat.Message, 0, len(messages))
 	for _, msg := range messages {
 		if len(merged) == 0 {
 			merged = append(merged, cloneMessage(msg))
@@ -36,12 +36,12 @@ func mergeConsecutiveMessages(
 	return merged
 }
 
-func canMergeConsecutiveMessage(msg model.Message) bool {
+func canMergeConsecutiveMessage(msg compat.Message) bool {
 	if msg.ToolID != "" || msg.ToolName != "" {
 		return false
 	}
 	switch msg.Role {
-	case model.RoleSystem, model.RoleUser, model.RoleAssistant:
+	case compat.RoleSystem, compat.RoleUser, compat.RoleAssistant:
 		return true
 	default:
 		return false
@@ -49,10 +49,10 @@ func canMergeConsecutiveMessage(msg model.Message) bool {
 }
 
 func mergeMessage(
-	dst model.Message,
-	src model.Message,
+	dst compat.Message,
+	src compat.Message,
 	separator string,
-) model.Message {
+) compat.Message {
 	dst.ReasoningContent = joinMessageText(
 		dst.ReasoningContent,
 		src.ReasoningContent,
@@ -80,25 +80,25 @@ func joinMessageText(first, second, separator string) string {
 	return first + separator + second
 }
 
-func cloneMessage(msg model.Message) model.Message {
+func cloneMessage(msg compat.Message) compat.Message {
 	cloned := msg
 	if len(msg.ContentParts) > 0 {
 		cloned.ContentParts = append(
-			[]model.ContentPart(nil),
+			[]compat.ContentPart(nil),
 			msg.ContentParts...,
 		)
 	}
 	if len(msg.ToolCalls) > 0 {
-		cloned.ToolCalls = append([]model.ToolCall(nil), msg.ToolCalls...)
+		cloned.ToolCalls = append([]compat.ToolCall(nil), msg.ToolCalls...)
 	}
 	return cloned
 }
 
 func mergeMessageContentParts(
-	dst model.Message,
-	src model.Message,
+	dst compat.Message,
+	src compat.Message,
 	separator string,
-) []model.ContentPart {
+) []compat.ContentPart {
 	parts := orderedMessageContentParts(dst)
 	if shouldInsertMessageSeparator(dst, src, separator) {
 		parts = append(parts, textContentPart(separator))
@@ -106,8 +106,8 @@ func mergeMessageContentParts(
 	return append(parts, orderedMessageContentParts(src)...)
 }
 
-func orderedMessageContentParts(msg model.Message) []model.ContentPart {
-	parts := make([]model.ContentPart, 0, len(msg.ContentParts)+1)
+func orderedMessageContentParts(msg compat.Message) []compat.ContentPart {
+	parts := make([]compat.ContentPart, 0, len(msg.ContentParts)+1)
 	if msg.Content != "" {
 		parts = append(parts, textContentPart(msg.Content))
 	}
@@ -115,8 +115,8 @@ func orderedMessageContentParts(msg model.Message) []model.ContentPart {
 }
 
 func shouldInsertMessageSeparator(
-	dst model.Message,
-	src model.Message,
+	dst compat.Message,
+	src compat.Message,
 	separator string,
 ) bool {
 	if separator == "" {
@@ -125,7 +125,7 @@ func shouldInsertMessageSeparator(
 	return messageEndsWithText(dst) && messageStartsWithText(src)
 }
 
-func messageStartsWithText(msg model.Message) bool {
+func messageStartsWithText(msg compat.Message) bool {
 	if msg.Content != "" {
 		return true
 	}
@@ -133,24 +133,24 @@ func messageStartsWithText(msg model.Message) bool {
 		return false
 	}
 	first := msg.ContentParts[0]
-	return first.Type == model.ContentTypeText &&
+	return first.Type == compat.ContentTypeText &&
 		first.Text != nil &&
 		*first.Text != ""
 }
 
-func messageEndsWithText(msg model.Message) bool {
+func messageEndsWithText(msg compat.Message) bool {
 	if len(msg.ContentParts) == 0 {
 		return msg.Content != ""
 	}
 	last := msg.ContentParts[len(msg.ContentParts)-1]
-	return last.Type == model.ContentTypeText &&
+	return last.Type == compat.ContentTypeText &&
 		last.Text != nil &&
 		*last.Text != ""
 }
 
-func textContentPart(text string) model.ContentPart {
-	return model.ContentPart{
-		Type: model.ContentTypeText,
-		Text: model.StringPtr(text),
+func textContentPart(text string) compat.ContentPart {
+	return compat.ContentPart{
+		Type: compat.ContentTypeText,
+		Text: compat.StringPtr(text),
 	}
 }

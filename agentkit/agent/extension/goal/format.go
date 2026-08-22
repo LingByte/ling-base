@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const defaultGuidanceTemplate = `## Goal extension
@@ -95,7 +95,7 @@ func DefaultNudgeFormatter(ctx NudgeContext) string {
 	)
 }
 
-func insertGuidance(req *model.Request, guidance string) {
+func insertGuidance(req *compat.Request, guidance string) {
 	if req == nil {
 		return
 	}
@@ -103,12 +103,12 @@ func insertGuidance(req *model.Request, guidance string) {
 	if guidance == "" {
 		return
 	}
-	msg := model.NewSystemMessage(guidance)
+	msg := compat.NewSystemMessage(guidance)
 	idx := 0
-	for idx < len(req.Messages) && req.Messages[idx].Role == model.RoleSystem {
+	for idx < len(req.Messages) && req.Messages[idx].Role == compat.RoleSystem {
 		idx++
 	}
-	req.Messages = append(req.Messages, model.Message{})
+	req.Messages = append(req.Messages, compat.Message{})
 	copy(req.Messages[idx+1:], req.Messages[idx:])
 	req.Messages[idx] = msg
 }

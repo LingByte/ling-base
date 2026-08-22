@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/toolcall"
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
@@ -150,8 +150,8 @@ const (
 type EventMessageProjector func(
 	inv *agent.Invocation,
 	evt event.Event,
-	msg model.Message,
-) model.Message
+	msg compat.Message,
+) compat.Message
 
 // ToolResultCompactionSkipRecentFunc determines how many recent events should
 // be protected from historical tool-result compaction.
@@ -229,9 +229,9 @@ type Options struct {
 	// Name is the name of the agent.
 	Name string
 	// Model is the model to use for generating responses.
-	Model model.Model
+	Model compat.Model
 	// Models is a map of models that can be switched by name at runtime.
-	Models map[string]model.Model
+	Models map[string]compat.Model
 	// ModelSelector selects the default model for each LLMAgent LLM call.
 	ModelSelector agent.ModelSelector
 	// Description is a description of the agent.
@@ -247,13 +247,13 @@ type Options struct {
 	// state adapter in `internal/prompt/adapter/state`. See `Render` there for
 	// supported placeholder forms and resolution rules.
 	GlobalInstruction string
-	// ModelInstructions maps model.Info().Name to a model-specific instruction
+	// ModelInstructions maps compat.Info().Name to a model-specific instruction
 	// template. When present, it overrides Instruction for matching models.
 	// Values are rendered at request time using the same placeholder subset as
 	// the internal prompt state adapter in `internal/prompt/adapter/state`. See
 	// `Render` there for supported placeholder forms and resolution rules.
 	ModelInstructions map[string]string
-	// ModelGlobalInstructions maps model.Info().Name to a model-specific system
+	// ModelGlobalInstructions maps compat.Info().Name to a model-specific system
 	// prompt template. When present, it overrides GlobalInstruction for matching
 	// models. Values are rendered at request time using the same placeholder
 	// subset as the internal prompt state adapter in
@@ -261,7 +261,7 @@ type Options struct {
 	// placeholder forms and resolution rules.
 	ModelGlobalInstructions map[string]string
 	// GenerationConfig contains the generation configuration.
-	GenerationConfig model.GenerationConfig
+	GenerationConfig compat.GenerationConfig
 	// ChannelBufferSize is the buffer size for event channels (default: 256).
 	ChannelBufferSize int
 	codeExecutor      codeexecutor.CodeExecutor
@@ -310,7 +310,7 @@ type Options struct {
 	// AgentCallbacks contains callbacks for agent operations.
 	AgentCallbacks *agent.Callbacks
 	// ModelCallbacks contains callbacks for model operations.
-	ModelCallbacks *model.Callbacks
+	ModelCallbacks *compat.Callbacks
 	// ToolCallbacks contains callbacks for tool operations.
 	ToolCallbacks *tool.Callbacks
 	// ToolResultAttachmentBudget limits callback-managed attachments across
@@ -407,7 +407,7 @@ type Options struct {
 	// context compaction. Compaction thresholds are compared against this
 	// estimate, not provider-reported usage tokens. When nil,
 	// SimpleTokenCounter is used.
-	ContextCompactionTokenCounter model.TokenCounter
+	ContextCompactionTokenCounter compat.TokenCounter
 	// ToolResultCompactionConfig declares tool-name based compaction rules.
 	ToolResultCompactionConfig *ToolResultCompactionConfig
 	// summaryFormatter allows custom formatting of session summary content.
@@ -451,7 +451,7 @@ type Options struct {
 	// is appended to the model request.
 	EventMessageProjector EventMessageProjector
 	// StructuredOutput defines how the model should produce structured output in normal runs.
-	StructuredOutput *model.StructuredOutput
+	StructuredOutput *compat.StructuredOutput
 	// StructuredOutputType is the reflect.Type of the example pointer used to generate the schema.
 	StructuredOutputType reflect.Type
 	// EndInvocationAfterTransfer controls whether to end the current agent invocation after transfer.
@@ -724,18 +724,18 @@ const (
 )
 
 // WithModel sets the model to use.
-func WithModel(model model.Model) Option {
+func WithModel(model compat.Model) Option {
 	return func(opts *Options) {
 		opts.Model = model
 	}
 }
 
 // WithModels registers a map of models that can be switched by name.
-// The map key is the model name, and the value is the model.Model instance.
+// The map key is the model name, and the value is the compat.Model instance.
 // If both WithModel and WithModels are set, WithModel specifies the initial
 // model. If only WithModels is set, the first model in the map will be used
 // as the initial model (note: map iteration order is not guaranteed).
-func WithModels(models map[string]model.Model) Option {
+func WithModels(models map[string]compat.Model) Option {
 	return func(opts *Options) {
 		opts.Models = models
 	}
@@ -782,7 +782,7 @@ func WithGlobalInstruction(instruction string) Option {
 // Values use the same placeholder subset as the internal prompt state adapter
 // in `internal/prompt/adapter/state`. See `Render` there for supported
 // placeholder forms and resolution rules.
-// Key: model.Info().Name, Value: instruction text.
+// Key: compat.Info().Name, Value: instruction text.
 func WithModelInstructions(instructions map[string]string) Option {
 	return func(opts *Options) {
 		opts.ModelInstructions = cloneStringMap(instructions)
@@ -793,7 +793,7 @@ func WithModelInstructions(instructions map[string]string) Option {
 // overrides. Values use the same placeholder subset as the internal prompt
 // state adapter in `internal/prompt/adapter/state`. See `Render` there for
 // supported placeholder forms and resolution rules.
-// Key: model.Info().Name, Value: system prompt text.
+// Key: compat.Info().Name, Value: system prompt text.
 func WithModelGlobalInstructions(prompts map[string]string) Option {
 	return func(opts *Options) {
 		opts.ModelGlobalInstructions = cloneStringMap(prompts)
@@ -801,7 +801,7 @@ func WithModelGlobalInstructions(prompts map[string]string) Option {
 }
 
 // WithGenerationConfig sets the generation configuration.
-func WithGenerationConfig(config model.GenerationConfig) Option {
+func WithGenerationConfig(config compat.GenerationConfig) Option {
 	return func(opts *Options) {
 		opts.GenerationConfig = config
 	}
@@ -1485,7 +1485,7 @@ func WithAgentCallbacks(callbacks *agent.Callbacks) Option {
 }
 
 // WithModelCallbacks sets the model callbacks.
-func WithModelCallbacks(callbacks *model.Callbacks) Option {
+func WithModelCallbacks(callbacks *compat.Callbacks) Option {
 	return func(opts *Options) {
 		opts.ModelCallbacks = callbacks
 	}
@@ -1692,13 +1692,13 @@ func WithStructuredOutputJSON(examplePtr any, strict bool, description string) O
 	}
 }
 
-func newStructuredOutput(name string, schema map[string]any, strict bool, description string) *model.StructuredOutput {
+func newStructuredOutput(name string, schema map[string]any, strict bool, description string) *compat.StructuredOutput {
 	if schema == nil {
 		return nil
 	}
-	return &model.StructuredOutput{
-		Type: model.StructuredOutputJSONSchema,
-		JSONSchema: &model.JSONSchemaConfig{
+	return &compat.StructuredOutput{
+		Type: compat.StructuredOutputJSONSchema,
+		JSONSchema: &compat.JSONSchemaConfig{
 			Name:        name,
 			Schema:      schema,
 			Strict:      strict,
@@ -1853,7 +1853,7 @@ func WithContextCompactionOversizedToolResultMaxTokens(tokens int) Option {
 // budgets use the counter's estimated token count, not provider-reported usage
 // tokens. For SimpleTokenCounter, WithApproxRunesPerToken is runes per token
 // (estimated tokens = counted runes / value).
-func WithContextCompactionTokenCounter(counter model.TokenCounter) Option {
+func WithContextCompactionTokenCounter(counter compat.TokenCounter) Option {
 	return func(opts *Options) {
 		if counter != nil {
 			opts.ContextCompactionTokenCounter = counter

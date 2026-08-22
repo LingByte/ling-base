@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/telemetry/metric/histogram"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
@@ -116,7 +116,7 @@ func NewInvokeAgentTracker(
 }
 
 // TrackResponse updates telemetry state for each response chunk.
-func (t *InvokeAgentTracker) TrackResponse(response *model.Response) {
+func (t *InvokeAgentTracker) TrackResponse(response *compat.Response) {
 	if response == nil {
 		return
 	}

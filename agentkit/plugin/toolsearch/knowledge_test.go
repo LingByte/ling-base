@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore/inmemory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 )
@@ -127,7 +127,7 @@ func TestEmbeddingSearch_RecordsUsage(t *testing.T) {
 	p := newKnowledgePlugin(t)
 	// beforeModel seeds the usage accumulator into the context.
 	ctx, inv := ctxWithInvocation()
-	res, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: &model.Request{}})
+	res, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: &compat.Request{}})
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	ctx = res.Context
@@ -162,7 +162,7 @@ func TestToolToText(t *testing.T) {
 func TestAddEmbedderUsage_TokenTypes(t *testing.T) {
 	// Embedders differ: OpenAI reports int64, Ollama int, others float64.
 	// All must accumulate rather than be silently dropped.
-	var u model.Usage
+	var u compat.Usage
 	addEmbedderUsage(&u, map[string]any{"prompt_tokens": int64(2), "total_tokens": int64(3)})
 	addEmbedderUsage(&u, map[string]any{"prompt_tokens": int(4)})
 	addEmbedderUsage(&u, map[string]any{"total_tokens": float64(5)})

@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	telemetrytrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
 )
@@ -105,7 +105,7 @@ func runnerRunAttrs(
 	appName string,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
 ) []attribute.KeyValue {
 	return []attribute.KeyValue{
@@ -114,7 +114,7 @@ func runnerRunAttrs(
 		attribute.String("runner.session_id", sessionID),
 		attribute.String("runner.request_id", ro.RequestID),
 		attribute.String("runner.message.role", string(message.Role)),
-		attribute.Bool("runner.message.has_payload", model.HasPayload(message)),
+		attribute.Bool("runner.message.has_payload", compat.HasPayload(message)),
 		attribute.Int("runner.options.seed_messages", len(ro.Messages)),
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,16 +22,16 @@ func TestTranscriptContent_CoversOptionalBranches(t *testing.T) {
 	require.Equal(
 		t,
 		"hello",
-		transcriptContent(model.Message{
-			Role:         model.RoleAssistant,
-			ContentParts: []model.ContentPart{{Type: model.ContentTypeText, Text: &text}},
+		transcriptContent(compat.Message{
+			Role:         compat.RoleAssistant,
+			ContentParts: []compat.ContentPart{{Type: compat.ContentTypeText, Text: &text}},
 		}),
 	)
-	require.Equal(t, "", transcriptContent(model.Message{Role: model.RoleUser, Content: " "}))
+	require.Equal(t, "", transcriptContent(compat.Message{Role: compat.RoleUser, Content: " "}))
 	require.Equal(
 		t,
 		"tool result: [empty tool result]",
-		transcriptContent(model.Message{Role: model.RoleTool}),
+		transcriptContent(compat.Message{Role: compat.RoleTool}),
 	)
 }
 
@@ -39,13 +39,13 @@ func TestToolCallSummary_UsesFallbacks(t *testing.T) {
 	assert.Equal(
 		t,
 		"tool unknown call: {}",
-		toolCallSummary(model.ToolCall{}),
+		toolCallSummary(compat.ToolCall{}),
 	)
 	assert.Equal(
 		t,
 		`tool shell call: {`,
-		toolCallSummary(model.ToolCall{
-			Function: model.FunctionDefinitionParam{
+		toolCallSummary(compat.ToolCall{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "shell",
 				Arguments: []byte("{"),
 			},
@@ -67,7 +67,7 @@ func TestCompactJSON_InvalidJSONReturnsOriginal(t *testing.T) {
 }
 
 func TestBuildTranscript_EmptyEventsReturnsNil(t *testing.T) {
-	p := &Plugin{tokenCounter: model.NewSimpleTokenCounter()}
+	p := &Plugin{tokenCounter: compat.NewSimpleTokenCounter()}
 	invocation := invocationWithEvents(t, nil)
 	assert.Nil(t, p.buildTranscript(context.Background(), invocation))
 }

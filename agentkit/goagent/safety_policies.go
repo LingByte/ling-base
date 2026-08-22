@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // RegexBlocklistPolicy enforces that a configurable list of regular
@@ -42,7 +42,7 @@ func (p *RegexBlocklistPolicy) Validate(ctx context.Context, response string) er
 // LLMEvaluatorPolicy uses a secondary language model to evaluate the safety
 // of the proposed response.
 type LLMEvaluatorPolicy struct {
-	model  gomodel.Agent
+	model  compat.Model
 	prompt string
 }
 
@@ -57,7 +57,7 @@ TEXT TO EVALUATE:
 
 // NewLLMEvaluatorPolicy creates a new safety policy that uses an LLM to evaluate responses.
 // If promptTemplate is empty, a default evaluation prompt is used.
-func NewLLMEvaluatorPolicy(model gomodel.Agent, promptTemplate string) *LLMEvaluatorPolicy {
+func NewLLMEvaluatorPolicy(model compat.Model, promptTemplate string) *LLMEvaluatorPolicy {
 	if promptTemplate == "" {
 		promptTemplate = defaultEvaluatorPrompt
 	}
@@ -75,12 +75,12 @@ func (p *LLMEvaluatorPolicy) Validate(ctx context.Context, response string) erro
 
 	evalPrompt := fmt.Sprintf(p.prompt, safeResponse)
 
-	result, err := p.model.Generate(ctx, evalPrompt)
+	result, err := generateText(ctx, p.model, evalPrompt)
 	if err != nil {
 		return fmt.Errorf("safety evaluation failed: %w", err)
 	}
 
-	verdict := strings.ToUpper(strings.TrimSpace(fmt.Sprintf("%v", result)))
+	verdict := strings.ToUpper(strings.TrimSpace(result))
 
 	if strings.Contains(verdict, "UNSAFE") {
 		return fmt.Errorf("safety policy violation: output flagged as unsafe by LLM evaluator")

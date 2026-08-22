@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -40,26 +40,30 @@ func isToolCallTextRepairEnabled(invocation *agent.Invocation) bool {
 
 func repairResponseToolCallTextInPlace(
 	ctx context.Context,
-	req *model.Request,
-	response *model.Response,
+	req *compat.Request,
+	response *compat.Response,
 ) bool {
 	if response == nil || response.IsPartial ||
 		response.IsToolCallResponse() || response.IsToolResultResponse() ||
-		req == nil || len(req.Tools) == 0 {
+		req == nil {
+		return false
+	}
+	reqTools, _ := req.Tools.(map[string]tool.Tool)
+	if len(reqTools) == 0 {
 		return false
 	}
 
 	repaired := false
 	for i := range response.Choices {
 		msg := &response.Choices[i].Message
-		if msg.Role != model.RoleAssistant || len(msg.ToolCalls) > 0 {
+		if msg.Role != compat.RoleAssistant || len(msg.ToolCalls) > 0 {
 			continue
 		}
 		text, ok := repairableMessageText(msg)
 		if !ok {
 			continue
 		}
-		cleaned, calls, ok := parseTextToolCalls(text, req.Tools)
+		cleaned, calls, ok := parseTextToolCalls(text, reqTools)
 		if !ok {
 			continue
 		}
@@ -80,12 +84,12 @@ func repairResponseToolCallTextInPlace(
 	return repaired
 }
 
-func repairableMessageText(msg *model.Message) (string, bool) {
+func repairableMessageText(msg *compat.Message) (string, bool) {
 	if msg == nil {
 		return "", false
 	}
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			return "", false
 		}
 	}
@@ -97,7 +101,7 @@ func repairableMessageText(msg *model.Message) (string, bool) {
 	}
 	var b strings.Builder
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			return "", false
 		}
 		b.WriteString(*part.Text)
@@ -109,13 +113,13 @@ func repairableMessageText(msg *model.Message) (string, bool) {
 func parseTextToolCalls(
 	text string,
 	tools map[string]tool.Tool,
-) (string, []model.ToolCall, bool) {
+) (string, []compat.ToolCall, bool) {
 	if !strings.Contains(text, textToolCallOpenTag) {
 		return text, nil, false
 	}
 
 	var cleaned strings.Builder
-	var calls []model.ToolCall
+	var calls []compat.ToolCall
 	remaining := text
 	seenCall := false
 	for {
@@ -161,7 +165,7 @@ func parseTextToolCallBlock(
 	block string,
 	tools map[string]tool.Tool,
 	index int,
-) (model.ToolCall, bool) {
+) (compat.ToolCall, bool) {
 	firstArg := strings.Index(block, textToolCallArgKeyOpen)
 	if firstArg < 0 {
 		toolName := strings.TrimSpace(block)
@@ -170,11 +174,11 @@ func parseTextToolCallBlock(
 	toolName := strings.TrimSpace(block[:firstArg])
 	args, ok := parseTextToolCallArgs(block[firstArg:])
 	if !ok {
-		return model.ToolCall{}, false
+		return compat.ToolCall{}, false
 	}
 	rawArgs, err := json.Marshal(args)
 	if err != nil {
-		return model.ToolCall{}, false
+		return compat.ToolCall{}, false
 	}
 	return newTextToolCall(toolName, rawArgs, tools, index)
 }
@@ -184,19 +188,19 @@ func newTextToolCall(
 	rawArgs json.RawMessage,
 	tools map[string]tool.Tool,
 	index int,
-) (model.ToolCall, bool) {
+) (compat.ToolCall, bool) {
 	if toolName == "" {
-		return model.ToolCall{}, false
+		return compat.ToolCall{}, false
 	}
 	if _, ok := tools[toolName]; !ok {
-		return model.ToolCall{}, false
+		return compat.ToolCall{}, false
 	}
 	idx := index
-	return model.ToolCall{
+	return compat.ToolCall{
 		ID:    fmt.Sprintf("auto_text_call_%d", index),
 		Type:  "function",
 		Index: &idx,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: rawArgs,
 		},

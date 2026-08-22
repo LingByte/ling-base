@@ -22,7 +22,7 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -247,7 +247,7 @@ func classifyExecutionError(ctx context.Context, err error) (Details, bool) {
 		}, true
 	}
 	code := "tool_execution"
-	if responseError := model.ResponseErrorFromError(err, ""); responseError != nil && responseError.Code != nil &&
+	if responseError := compat.ResponseErrorFromError(err, ""); responseError != nil && responseError.Code != nil &&
 		*responseError.Code != "" {
 		code = *responseError.Code
 	}

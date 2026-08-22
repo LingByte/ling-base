@@ -14,7 +14,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 )
 
@@ -43,8 +43,8 @@ func (p *recallPlugin) Register(r *plugin.Registry) {
 
 func (p *recallPlugin) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}

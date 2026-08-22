@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -220,10 +220,10 @@ func newPersistenceDedupTestInput() (
 	evt := event.NewResponseEvent(
 		invocation.InvocationID,
 		"assistant",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	)

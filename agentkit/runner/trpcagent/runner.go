@@ -23,7 +23,7 @@ import (
 	astructure "github.com/LingByte/ling-base/agentkit/agent/structure"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/profilecompiler"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	rootrunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/google/uuid"
 )
@@ -66,7 +66,7 @@ func (r *runner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	runOpts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	options := agent.NewRunOptions(runOpts...)
@@ -123,7 +123,7 @@ func (r *runner) Describe(ctx context.Context) (*astructure.Snapshot, error) {
 func (r *runner) newRunRequest(
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	options agent.RunOptions,
 ) runRequest {
 	request := runRequest{

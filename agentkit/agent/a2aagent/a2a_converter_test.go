@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/protocol"
 )
 
@@ -109,8 +109,8 @@ func TestDefaultA2AEventConverter_ConvertToEvent(t *testing.T) {
 				if event.Response.ID != "msg-123" {
 					t.Errorf("expected response ID 'msg-123', got %s", event.Response.ID)
 				}
-				if event.Response.Object != model.ObjectTypeChatCompletion {
-					t.Errorf("expected response object %s, got %s", model.ObjectTypeChatCompletion, event.Response.Object)
+				if event.Response.Object != compat.ObjectTypeChatCompletion {
+					t.Errorf("expected response object %s, got %s", compat.ObjectTypeChatCompletion, event.Response.Object)
 				}
 			},
 		},
@@ -195,8 +195,8 @@ func TestDefaultA2AEventConverter_ConvertToEvent(t *testing.T) {
 				if event == nil {
 					t.Fatal("expected event, got nil")
 				}
-				if event.Response.Object != model.ObjectTypeChatCompletion {
-					t.Errorf("expected response object %s, got %s", model.ObjectTypeChatCompletion, event.Response.Object)
+				if event.Response.Object != compat.ObjectTypeChatCompletion {
+					t.Errorf("expected response object %s, got %s", compat.ObjectTypeChatCompletion, event.Response.Object)
 				}
 			},
 		},
@@ -293,8 +293,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents(t *testing.T) {
 				if evt.Response.ID != "stream-1" {
 					t.Errorf("expected response ID 'stream-1', got %s", evt.Response.ID)
 				}
-				if evt.Response.Object != model.ObjectTypeChatCompletionChunk {
-					t.Errorf("expected response object %s, got %s", model.ObjectTypeChatCompletionChunk, evt.Response.Object)
+				if evt.Response.Object != compat.ObjectTypeChatCompletionChunk {
+					t.Errorf("expected response object %s, got %s", compat.ObjectTypeChatCompletionChunk, evt.Response.Object)
 				}
 			},
 		},
@@ -331,8 +331,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents(t *testing.T) {
 				if evt.Response.ID != "artifact-1" {
 					t.Errorf("expected response ID 'artifact-1', got %s", evt.Response.ID)
 				}
-				if evt.Response.Object != model.ObjectTypeChatCompletionChunk {
-					t.Errorf("expected response object %s, got %s", model.ObjectTypeChatCompletionChunk, evt.Response.Object)
+				if evt.Response.Object != compat.ObjectTypeChatCompletionChunk {
+					t.Errorf("expected response object %s, got %s", compat.ObjectTypeChatCompletionChunk, evt.Response.Object)
 				}
 			},
 		},
@@ -398,8 +398,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents(t *testing.T) {
 				if evt.Response.ID != "artifact-99" {
 					t.Errorf("expected response ID 'artifact-99', got %s", evt.Response.ID)
 				}
-				if evt.Response.Object != model.ObjectTypeChatCompletionChunk {
-					t.Errorf("expected response object %s, got %s", model.ObjectTypeChatCompletionChunk, evt.Response.Object)
+				if evt.Response.Object != compat.ObjectTypeChatCompletionChunk {
+					t.Errorf("expected response object %s, got %s", compat.ObjectTypeChatCompletionChunk, evt.Response.Object)
 				}
 			},
 		},
@@ -523,8 +523,8 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Hello, world!",
 				},
 			},
@@ -555,11 +555,11 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
+				Message: compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: stringPtr("Text content"),
 						},
 					},
@@ -586,12 +586,12 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
+				Message: compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeImage,
-							Image: &model.Image{
+							Type: compat.ContentTypeImage,
+							Image: &compat.Image{
 								Format: "png",
 								Data:   []byte("image data"),
 							},
@@ -628,12 +628,12 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
+				Message: compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeImage,
-							Image: &model.Image{
+							Type: compat.ContentTypeImage,
+							Image: &compat.Image{
 								Format: "jpg",
 								URL:    "https://example.com/image.jpg",
 							},
@@ -670,12 +670,12 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
+				Message: compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeAudio,
-							Audio: &model.Audio{
+							Type: compat.ContentTypeAudio,
+							Audio: &compat.Audio{
 								Format: "mp3",
 								Data:   []byte("audio data"),
 							},
@@ -705,12 +705,12 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
+				Message: compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeFile,
-							File: &model.File{
+							Type: compat.ContentTypeFile,
+							File: &compat.File{
 								Name:     "test.txt",
 								MimeType: "text/plain",
 								Data:     []byte("file content"),
@@ -741,8 +741,8 @@ func TestDefaultEventA2AConverter_ConvertToA2AMessage(t *testing.T) {
 			isStream:  false,
 			agentName: "test-agent",
 			invocation: &agent.Invocation{
-				Message: model.Message{
-					Role: model.RoleUser,
+				Message: compat.Message{
+					Role: compat.RoleUser,
 				},
 			},
 			validateFunc: func(t *testing.T, msg *protocol.Message, err error) {
@@ -957,8 +957,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_FailedStatus(
 ) {
 	converter := &defaultA2AEventConverter{}
 	code := "A2A_500"
-	metadata := ia2a.WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := ia2a.WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "task failed",
 		Code:    &code,
 	})
@@ -1036,8 +1036,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_MessageStructuredErro
 	if events[0].Response.IsPartial {
 		t.Fatal("expected structured error message event to be non-partial")
 	}
-	if events[0].Response.Object != model.ObjectTypeChatCompletion {
-		t.Fatalf("object = %q, want %q", events[0].Response.Object, model.ObjectTypeChatCompletion)
+	if events[0].Response.Object != compat.ObjectTypeChatCompletion {
+		t.Fatalf("object = %q, want %q", events[0].Response.Object, compat.ObjectTypeChatCompletion)
 	}
 	if events[0].Response.Error.Message != "Tool 'upload_to_cos' not found" {
 		t.Fatalf(
@@ -1051,8 +1051,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_MessageStructuredErro
 func TestDefaultA2AEventConverter_ConvertStreamingToEvents_CompletedStatusStructuredError(t *testing.T) {
 	converter := &defaultA2AEventConverter{}
 	code := "A2A_500"
-	metadata := ia2a.WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := ia2a.WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "runner failed",
 		Code:    &code,
 	})
@@ -1087,8 +1087,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_CompletedStatusStruct
 	if !events[0].Response.Done {
 		t.Fatal("expected terminal error event")
 	}
-	if events[0].Response.Object != model.ObjectTypeError {
-		t.Fatalf("object = %q, want %q", events[0].Response.Object, model.ObjectTypeError)
+	if events[0].Response.Object != compat.ObjectTypeError {
+		t.Fatalf("object = %q, want %q", events[0].Response.Object, compat.ObjectTypeError)
 	}
 }
 
@@ -1096,8 +1096,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_FinalArtifactStructur
 	converter := &defaultA2AEventConverter{}
 	code := "A2A_500"
 	lastChunk := true
-	metadata := ia2a.WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := ia2a.WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "runner failed",
 		Code:    &code,
 	})
@@ -1135,8 +1135,8 @@ func TestDefaultA2AEventConverter_ConvertStreamingToEvents_FinalArtifactStructur
 	if !events[0].Response.Done {
 		t.Fatal("expected terminal error event")
 	}
-	if events[0].Response.Object != model.ObjectTypeError {
-		t.Fatalf("object = %q, want %q", events[0].Response.Object, model.ObjectTypeError)
+	if events[0].Response.Object != compat.ObjectTypeError {
+		t.Fatalf("object = %q, want %q", events[0].Response.Object, compat.ObjectTypeError)
 	}
 }
 
@@ -1144,8 +1144,8 @@ func TestDefaultA2AEventConverter_ConvertToEvents_FailedTask(
 	t *testing.T,
 ) {
 	converter := &defaultA2AEventConverter{}
-	metadata := ia2a.WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := ia2a.WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "task failed",
 	})
 
@@ -1219,8 +1219,8 @@ func TestDefaultA2AEventConverter_ConvertToEvents_MessageStructuredError(t *test
 	if !events[0].Response.Done {
 		t.Fatal("expected terminal error event")
 	}
-	if events[0].Response.Object != model.ObjectTypeError {
-		t.Fatalf("object = %q, want %q", events[0].Response.Object, model.ObjectTypeError)
+	if events[0].Response.Object != compat.ObjectTypeError {
+		t.Fatalf("object = %q, want %q", events[0].Response.Object, compat.ObjectTypeError)
 	}
 	if events[0].Response.Error.Message != "Tool 'upload_to_cos' not found" {
 		t.Fatalf(
@@ -1242,8 +1242,8 @@ func TestTaskResponseError_EdgeCases(t *testing.T) {
 		t.Fatal("expected nil response error for non-failure state")
 	}
 
-	passthrough := &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	passthrough := &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "structured",
 	}
 	if got := taskResponseError(&parseResult{
@@ -1292,7 +1292,7 @@ func TestTaskResponseError_FallbackMessages(t *testing.T) {
 			if respErr == nil {
 				t.Fatal("expected response error, got nil")
 			}
-			if respErr.Type != model.ErrorTypeFlowError {
+			if respErr.Type != compat.ErrorTypeFlowError {
 				t.Fatalf("unexpected error type: %s", respErr.Type)
 			}
 			if respErr.Message != tt.want {
@@ -1428,7 +1428,7 @@ func TestBuildRespEvent_ToolScenarios(t *testing.T) {
 			},
 			validate: func(t *testing.T, evt *event.Event) {
 				choice := evt.Response.Choices[0]
-				if choice.Message.Role != model.RoleAssistant {
+				if choice.Message.Role != compat.RoleAssistant {
 					t.Errorf("expected role assistant, got %s", choice.Message.Role)
 				}
 				if choice.Message.Content != "I'll check the weather for you." {
@@ -1462,7 +1462,7 @@ func TestBuildRespEvent_ToolScenarios(t *testing.T) {
 			},
 			validate: func(t *testing.T, evt *event.Event) {
 				choice := evt.Response.Choices[0]
-				if choice.Message.Role != model.RoleTool {
+				if choice.Message.Role != compat.RoleTool {
 					t.Fatalf("expected role tool, got %s", choice.Message.Role)
 				}
 				if choice.Message.ToolID != "call-123" || choice.Message.ToolName != "get_weather" {
@@ -2055,10 +2055,10 @@ func TestApplyDataPartMappingResult(t *testing.T) {
 	mapped.SetReasoningContent("new reasoning")
 	mapped.SetCodeExecution("new code")
 	mapped.SetCodeExecutionResult("new result")
-	mapped.AppendToolCall(model.ToolCall{
+	mapped.AppendToolCall(compat.ToolCall{
 		ID:   "call-1",
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name: "lookup",
 		},
 	})
@@ -2388,8 +2388,8 @@ func TestBuildRespEvent_CodeExecution(t *testing.T) {
 				if choice.Message.Content != "print('test')" {
 					t.Errorf("expected content 'print('test')', got %s", choice.Message.Content)
 				}
-				if evt.Response.Object != model.ObjectTypePostprocessingCodeExecution {
-					t.Errorf("expected object type %s, got %s", model.ObjectTypePostprocessingCodeExecution, evt.Response.Object)
+				if evt.Response.Object != compat.ObjectTypePostprocessingCodeExecution {
+					t.Errorf("expected object type %s, got %s", compat.ObjectTypePostprocessingCodeExecution, evt.Response.Object)
 				}
 			},
 		},
@@ -2423,8 +2423,8 @@ func TestBuildRespEvent_CodeExecution(t *testing.T) {
 					t.Errorf("expected content 'test output', got %s", choice.Message.Content)
 				}
 				// Both code execution and result use the same ObjectType
-				if evt.Response.Object != model.ObjectTypePostprocessingCodeExecution {
-					t.Errorf("expected object type %s, got %s", model.ObjectTypePostprocessingCodeExecution, evt.Response.Object)
+				if evt.Response.Object != compat.ObjectTypePostprocessingCodeExecution {
+					t.Errorf("expected object type %s, got %s", compat.ObjectTypePostprocessingCodeExecution, evt.Response.Object)
 				}
 			},
 		},
@@ -2516,16 +2516,16 @@ func TestExtractObjectType(t *testing.T) {
 		{
 			name: "with tool calls",
 			result: &parseResult{
-				toolCalls: []model.ToolCall{{ID: "call-1"}},
+				toolCalls: []compat.ToolCall{{ID: "call-1"}},
 			},
-			expected: model.ObjectTypeChatCompletion,
+			expected: compat.ObjectTypeChatCompletion,
 		},
 		{
 			name: "with code execution",
 			result: &parseResult{
 				codeExecution: "some code",
 			},
-			expected: model.ObjectTypePostprocessingCodeExecution,
+			expected: compat.ObjectTypePostprocessingCodeExecution,
 		},
 		{
 			name: "with code execution result",
@@ -2533,7 +2533,7 @@ func TestExtractObjectType(t *testing.T) {
 				codeExecutionResult: "some output",
 			},
 			// Both code execution and result use the same ObjectType now
-			expected: model.ObjectTypePostprocessingCodeExecution,
+			expected: compat.ObjectTypePostprocessingCodeExecution,
 		},
 		{
 			name: "objectType takes precedence over inferred type",
@@ -2759,7 +2759,7 @@ func TestConvertToEvents_WithHistory(t *testing.T) {
 	}
 
 	// Second event should be tool response
-	if len(events[1].Response.Choices) > 0 && events[1].Response.Choices[0].Message.Role != model.RoleTool {
+	if len(events[1].Response.Choices) > 0 && events[1].Response.Choices[0].Message.Role != compat.RoleTool {
 		t.Errorf("expected second event to be tool response, got role %s", events[1].Response.Choices[0].Message.Role)
 	}
 
@@ -3059,7 +3059,7 @@ func TestBuildEventResponse_WithTag(t *testing.T) {
 			name: "event with code execution tag",
 			result: &parseResult{
 				textContent: "print('hello')",
-				objectType:  model.ObjectTypePostprocessingCodeExecution,
+				objectType:  compat.ObjectTypePostprocessingCodeExecution,
 				tag:         event.CodeExecutionTag,
 			},
 			isStreaming: false,
@@ -3069,7 +3069,7 @@ func TestBuildEventResponse_WithTag(t *testing.T) {
 			name: "event with code execution result tag",
 			result: &parseResult{
 				textContent: "hello world",
-				objectType:  model.ObjectTypePostprocessingCodeExecution,
+				objectType:  compat.ObjectTypePostprocessingCodeExecution,
 				tag:         event.CodeExecutionResultTag,
 			},
 			isStreaming: false,
@@ -3161,7 +3161,7 @@ func TestConvertStreamingToEvents_CodeExecutionWithTag(t *testing.T) {
 						},
 					},
 					Metadata: map[string]any{
-						"object_type": model.ObjectTypePostprocessingCodeExecution,
+						"object_type": compat.ObjectTypePostprocessingCodeExecution,
 						"tag":         event.CodeExecutionTag,
 					},
 				},
@@ -3187,7 +3187,7 @@ func TestConvertStreamingToEvents_CodeExecutionWithTag(t *testing.T) {
 						},
 					},
 					Metadata: map[string]any{
-						"object_type": model.ObjectTypePostprocessingCodeExecution,
+						"object_type": compat.ObjectTypePostprocessingCodeExecution,
 						"tag":         event.CodeExecutionResultTag,
 					},
 				},
@@ -3245,7 +3245,7 @@ func TestConvertToEvents_CodeExecutionWithTag(t *testing.T) {
 						},
 					},
 					Metadata: map[string]any{
-						"object_type": model.ObjectTypePostprocessingCodeExecution,
+						"object_type": compat.ObjectTypePostprocessingCodeExecution,
 						"tag":         event.CodeExecutionTag,
 					},
 				},
@@ -3270,7 +3270,7 @@ func TestConvertToEvents_CodeExecutionWithTag(t *testing.T) {
 						},
 					},
 					Metadata: map[string]any{
-						"object_type": model.ObjectTypePostprocessingCodeExecution,
+						"object_type": compat.ObjectTypePostprocessingCodeExecution,
 						"tag":         event.CodeExecutionResultTag,
 					},
 				},
@@ -3380,14 +3380,14 @@ func TestBuildStreamingResponse_ToolResponses(t *testing.T) {
 	if resp == nil {
 		t.Fatalf("expected response, got nil")
 	}
-	if resp.Object != model.ObjectTypeToolResponse {
+	if resp.Object != compat.ObjectTypeToolResponse {
 		t.Fatalf("unexpected object type: %s", resp.Object)
 	}
 	if len(resp.Choices) != 1 {
 		t.Fatalf("expected one choice, got %d", len(resp.Choices))
 	}
 	msg := resp.Choices[0].Message
-	if msg.Role != model.RoleTool || msg.ToolID != "tool-1" || msg.ToolName != "tool" || msg.Content != "resp" {
+	if msg.Role != compat.RoleTool || msg.ToolID != "tool-1" || msg.ToolName != "tool" || msg.Content != "resp" {
 		t.Fatalf("unexpected tool response message: %+v", msg)
 	}
 }
@@ -3546,12 +3546,12 @@ func TestBuildStreamingResponse_PassesThroughStructuredMessageError(t *testing.T
 	code := "tool_not_found"
 	resp := buildStreamingResponse("msg-123", &parseResult{
 		textContent: "Tool 'upload_to_cos' not found",
-		responseError: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		responseError: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "Tool 'upload_to_cos' not found",
 			Code:    &code,
 		},
-		objectType: model.ObjectTypeError,
+		objectType: compat.ObjectTypeError,
 	}, protocol.MessageRoleAgent)
 	if resp == nil {
 		t.Fatal("expected response, got nil")
@@ -3568,8 +3568,8 @@ func TestBuildStreamingResponse_PassesThroughStructuredMessageError(t *testing.T
 	if resp.IsPartial {
 		t.Fatal("expected recoverable error response to be non-partial")
 	}
-	if resp.Object != model.ObjectTypeChatCompletion {
-		t.Fatalf("object = %q, want %q", resp.Object, model.ObjectTypeChatCompletion)
+	if resp.Object != compat.ObjectTypeChatCompletion {
+		t.Fatalf("object = %q, want %q", resp.Object, compat.ObjectTypeChatCompletion)
 	}
 	if resp.Error.Message != "Tool 'upload_to_cos' not found" {
 		t.Fatalf(
@@ -3582,8 +3582,8 @@ func TestBuildStreamingResponse_PassesThroughStructuredMessageError(t *testing.T
 
 func TestBuildStreamingResponse_UsesStructuredErrorMessageWhenTextMissing(t *testing.T) {
 	resp := buildStreamingResponse("msg-123", &parseResult{
-		responseError: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		responseError: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "tool invocation failed",
 		},
 	}, protocol.MessageRoleAgent)
@@ -3628,12 +3628,12 @@ func TestBuildNonStreamingResponse_PassesThroughStructuredMessageError(t *testin
 	code := "tool_not_found"
 	resp := buildNonStreamingResponse("msg-123", &parseResult{
 		textContent: "Tool 'upload_to_cos' not found",
-		responseError: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		responseError: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "Tool 'upload_to_cos' not found",
 			Code:    &code,
 		},
-		objectType: model.ObjectTypeError,
+		objectType: compat.ObjectTypeError,
 	}, protocol.MessageRoleAgent)
 	if resp == nil {
 		t.Fatal("expected response, got nil")
@@ -3644,8 +3644,8 @@ func TestBuildNonStreamingResponse_PassesThroughStructuredMessageError(t *testin
 	if resp.Error.Code == nil || *resp.Error.Code != code {
 		t.Fatalf("code = %v, want %q", resp.Error.Code, code)
 	}
-	if resp.Object != model.ObjectTypeError {
-		t.Fatalf("object = %q, want %q", resp.Object, model.ObjectTypeError)
+	if resp.Object != compat.ObjectTypeError {
+		t.Fatalf("object = %q, want %q", resp.Object, compat.ObjectTypeError)
 	}
 	if resp.Error.Message != "Tool 'upload_to_cos' not found" {
 		t.Fatalf(
@@ -3658,8 +3658,8 @@ func TestBuildNonStreamingResponse_PassesThroughStructuredMessageError(t *testin
 
 func TestBuildNonStreamingResponse_UsesStructuredErrorMessageWhenTextMissing(t *testing.T) {
 	resp := buildNonStreamingResponse("msg-123", &parseResult{
-		responseError: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		responseError: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "tool invocation failed",
 		},
 	}, protocol.MessageRoleAgent)
@@ -3678,27 +3678,27 @@ func TestConvertA2ARoleToModelRole(t *testing.T) {
 	tests := []struct {
 		name     string
 		role     protocol.MessageRole
-		expected model.Role
+		expected compat.Role
 	}{
 		{
 			name:     "MessageRoleUser converts to RoleUser",
 			role:     protocol.MessageRoleUser,
-			expected: model.RoleUser,
+			expected: compat.RoleUser,
 		},
 		{
 			name:     "MessageRoleAgent converts to RoleAssistant",
 			role:     protocol.MessageRoleAgent,
-			expected: model.RoleAssistant,
+			expected: compat.RoleAssistant,
 		},
 		{
 			name:     "unknown role defaults to RoleAssistant",
 			role:     protocol.MessageRole("unknown"),
-			expected: model.RoleAssistant,
+			expected: compat.RoleAssistant,
 		},
 		{
 			name:     "empty role defaults to RoleAssistant",
 			role:     protocol.MessageRole(""),
-			expected: model.RoleAssistant,
+			expected: compat.RoleAssistant,
 		},
 	}
 
@@ -3713,30 +3713,30 @@ func TestConvertA2ARoleToModelRole(t *testing.T) {
 }
 
 func TestAppendContentPart_UnknownType(t *testing.T) {
-	parts := appendContentPart(nil, model.ContentPart{Type: "unknown"})
+	parts := appendContentPart(nil, compat.ContentPart{Type: "unknown"})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for unknown content type, got %d", len(parts))
 	}
 }
 
 func TestAppendTextPart_NilText(t *testing.T) {
-	parts := appendTextPart(nil, model.ContentPart{Type: model.ContentTypeText, Text: nil})
+	parts := appendTextPart(nil, compat.ContentPart{Type: compat.ContentTypeText, Text: nil})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for nil Text, got %d", len(parts))
 	}
 }
 
 func TestAppendImagePart_NilImage(t *testing.T) {
-	parts := appendImagePart(nil, model.ContentPart{Type: model.ContentTypeImage, Image: nil})
+	parts := appendImagePart(nil, compat.ContentPart{Type: compat.ContentTypeImage, Image: nil})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for nil Image, got %d", len(parts))
 	}
 }
 
 func TestAppendImagePart_NoDataNoURL(t *testing.T) {
-	parts := appendImagePart(nil, model.ContentPart{
-		Type:  model.ContentTypeImage,
-		Image: &model.Image{},
+	parts := appendImagePart(nil, compat.ContentPart{
+		Type:  compat.ContentTypeImage,
+		Image: &compat.Image{},
 	})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for Image with no data and no URL, got %d", len(parts))
@@ -3744,9 +3744,9 @@ func TestAppendImagePart_NoDataNoURL(t *testing.T) {
 }
 
 func TestAppendImagePart_WithURL(t *testing.T) {
-	parts := appendImagePart(nil, model.ContentPart{
-		Type: model.ContentTypeImage,
-		Image: &model.Image{
+	parts := appendImagePart(nil, compat.ContentPart{
+		Type: compat.ContentTypeImage,
+		Image: &compat.Image{
 			URL:    "https://example.com/img.png",
 			Format: "image/png",
 		},
@@ -3760,16 +3760,16 @@ func TestAppendImagePart_WithURL(t *testing.T) {
 }
 
 func TestAppendAudioPart_NilAudio(t *testing.T) {
-	parts := appendAudioPart(nil, model.ContentPart{Type: model.ContentTypeAudio, Audio: nil})
+	parts := appendAudioPart(nil, compat.ContentPart{Type: compat.ContentTypeAudio, Audio: nil})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for nil Audio, got %d", len(parts))
 	}
 }
 
 func TestAppendAudioPart_NilData(t *testing.T) {
-	parts := appendAudioPart(nil, model.ContentPart{
-		Type:  model.ContentTypeAudio,
-		Audio: &model.Audio{Data: nil, Format: "wav"},
+	parts := appendAudioPart(nil, compat.ContentPart{
+		Type:  compat.ContentTypeAudio,
+		Audio: &compat.Audio{Data: nil, Format: "wav"},
 	})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for Audio with nil Data, got %d", len(parts))
@@ -3778,9 +3778,9 @@ func TestAppendAudioPart_NilData(t *testing.T) {
 
 func TestAppendAudioPart_WithData(t *testing.T) {
 	audioData := []byte("fake-audio-data")
-	parts := appendAudioPart(nil, model.ContentPart{
-		Type:  model.ContentTypeAudio,
-		Audio: &model.Audio{Data: audioData, Format: "wav"},
+	parts := appendAudioPart(nil, compat.ContentPart{
+		Type:  compat.ContentTypeAudio,
+		Audio: &compat.Audio{Data: audioData, Format: "wav"},
 	})
 	if len(parts) != 1 {
 		t.Fatalf("expected 1 part, got %d", len(parts))
@@ -3791,16 +3791,16 @@ func TestAppendAudioPart_WithData(t *testing.T) {
 }
 
 func TestAppendFilePart_NilFile(t *testing.T) {
-	parts := appendFilePart(nil, model.ContentPart{Type: model.ContentTypeFile, File: nil})
+	parts := appendFilePart(nil, compat.ContentPart{Type: compat.ContentTypeFile, File: nil})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for nil File, got %d", len(parts))
 	}
 }
 
 func TestAppendFilePart_EmptyData(t *testing.T) {
-	parts := appendFilePart(nil, model.ContentPart{
-		Type: model.ContentTypeFile,
-		File: &model.File{Name: "test.txt", Data: nil},
+	parts := appendFilePart(nil, compat.ContentPart{
+		Type: compat.ContentTypeFile,
+		File: &compat.File{Name: "test.txt", Data: nil},
 	})
 	if len(parts) != 0 {
 		t.Fatalf("expected empty parts for File with empty Data, got %d", len(parts))
@@ -3808,9 +3808,9 @@ func TestAppendFilePart_EmptyData(t *testing.T) {
 }
 
 func TestAppendFilePart_WithFileIDAndDefaultName(t *testing.T) {
-	parts := appendFilePart(nil, model.ContentPart{
-		Type: model.ContentTypeFile,
-		File: &model.File{
+	parts := appendFilePart(nil, compat.ContentPart{
+		Type: compat.ContentTypeFile,
+		File: &compat.File{
 			FileID:   "file-id",
 			MimeType: "text/plain",
 		},
@@ -3840,9 +3840,9 @@ func TestAppendFilePart_WithFileIDAndDefaultName(t *testing.T) {
 }
 
 func TestAppendFilePart_URLTakesPrecedenceOverFileID(t *testing.T) {
-	parts := appendFilePart(nil, model.ContentPart{
-		Type: model.ContentTypeFile,
-		File: &model.File{
+	parts := appendFilePart(nil, compat.ContentPart{
+		Type: compat.ContentTypeFile,
+		File: &compat.File{
 			URL:    "https://example.com/file",
 			FileID: "provider-file-id",
 		},
@@ -3870,7 +3870,7 @@ func TestConvertResponseFilePart(t *testing.T) {
 		base64.StdEncoding.EncodeToString([]byte("image")),
 	)
 	got := convertResponseFilePart(&imageBytes)
-	if got == nil || got.Type != model.ContentTypeImage ||
+	if got == nil || got.Type != compat.ContentTypeImage ||
 		got.Image == nil || string(got.Image.Data) != "image" ||
 		got.Image.Format != "image/png" {
 		t.Fatalf("converted image = %#v", got)
@@ -3882,7 +3882,7 @@ func TestConvertResponseFilePart(t *testing.T) {
 		"https://example.com/report.pdf",
 	)
 	got = convertResponseFilePart(&fileURI)
-	if got == nil || got.Type != model.ContentTypeFile ||
+	if got == nil || got.Type != compat.ContentTypeFile ||
 		got.File == nil || got.File.Name != "report.pdf" ||
 		got.File.URL != "https://example.com/report.pdf" ||
 		got.File.MimeType != "application/pdf" {
@@ -3902,7 +3902,7 @@ func TestConvertResponseFilePart(t *testing.T) {
 		base64.StdEncoding.EncodeToString([]byte("audio")),
 	)
 	got = convertResponseFilePart(audioBytes)
-	if got == nil || got.Type != model.ContentTypeAudio ||
+	if got == nil || got.Type != compat.ContentTypeAudio ||
 		got.Audio == nil || string(got.Audio.Data) != "audio" ||
 		got.Audio.Format != "audio/mpeg" {
 		t.Fatalf("converted audio = %#v", got)
@@ -3917,7 +3917,7 @@ func TestConvertResponseFilePart(t *testing.T) {
 		ia2a.FilePartMetadataContentTypeKey: ia2a.FilePartMetadataContentTypeImage,
 	}
 	got = convertResponseFilePart(&imageURI)
-	if got == nil || got.Type != model.ContentTypeImage ||
+	if got == nil || got.Type != compat.ContentTypeImage ||
 		got.Image == nil || got.Image.URL != "https://example.com/image" ||
 		got.Image.Format != "application/octet-stream" {
 		t.Fatalf("converted image URI = %#v", got)
@@ -4064,7 +4064,7 @@ func TestDefaultA2AEventConverter_FileContentParts(t *testing.T) {
 				t.Fatalf("content parts = %d, want 1", len(message.ContentParts))
 			}
 			part := message.ContentParts[0]
-			if part.Type != model.ContentTypeImage || part.Image == nil ||
+			if part.Type != compat.ContentTypeImage || part.Image == nil ||
 				string(part.Image.Data) != "image" {
 				t.Fatalf("content part = %#v, want decoded image", part)
 			}
@@ -4122,7 +4122,7 @@ func TestBuildNonStreamingResponse_EmptyParseResult(t *testing.T) {
 	if len(resp.Choices) != 1 {
 		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
 	}
-	if resp.Choices[0].Message.Role != model.RoleAssistant {
+	if resp.Choices[0].Message.Role != compat.RoleAssistant {
 		t.Errorf("expected RoleAssistant, got %s", resp.Choices[0].Message.Role)
 	}
 	if resp.Choices[0].Message.Content != "" {

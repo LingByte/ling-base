@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	trunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/eventstream"
@@ -181,7 +181,7 @@ type runAgentResult struct {
 }
 
 type runAgentMessages struct {
-	inputMessage *model.Message
+	inputMessage *compat.Message
 	inputID      string
 	userMessage  *types.Message
 	toolMessages []toolResultInputMessage
@@ -193,7 +193,7 @@ type runForwardedPropsSourceMetadata struct {
 }
 
 type toolResultInputMessage struct {
-	message   model.Message
+	message   compat.Message
 	messageID string
 }
 
@@ -217,8 +217,8 @@ func inputMessagesFromRunAgentInput(input *adapter.RunAgentInput) (*runAgentMess
 		return toolMessagesFromRunAgentInput(input.Messages)
 	}
 	if content, ok := lastMessage.ContentString(); ok {
-		inputMessage := model.Message{
-			Role:    model.RoleUser,
+		inputMessage := compat.Message{
+			Role:    compat.RoleUser,
 			Content: content,
 		}
 		userMessage := lastMessage
@@ -260,8 +260,8 @@ func toolMessagesFromRunAgentInput(messages []types.Message) (*runAgentMessages,
 			return nil, fmt.Errorf("tool message %q content is not a string", msg.ID)
 		}
 		toolMessages = append(toolMessages, toolResultInputMessage{
-			message: model.Message{
-				Role:     model.RoleTool,
+			message: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  content,
 				ToolID:   msg.ToolCallID,
 				ToolName: msg.Name,
@@ -288,15 +288,15 @@ func withToolResultMessageRewriter(toolMessages []toolResultInputMessage) agent.
 			opts.UserMessageRewriter = func(
 				context.Context,
 				*agent.UserMessageRewriteArgs,
-			) ([]model.Message, error) {
-				return append([]model.Message(nil), currentTurnMessages...), nil
+			) ([]compat.Message, error) {
+				return append([]compat.Message(nil), currentTurnMessages...), nil
 			}
 			return
 		}
 		opts.UserMessageRewriter = func(
 			ctx context.Context,
 			args *agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			rewritten, err := userMessageRewriter(ctx, args)
 			if err != nil {
 				return nil, err
@@ -306,8 +306,8 @@ func withToolResultMessageRewriter(toolMessages []toolResultInputMessage) agent.
 	}
 }
 
-func toolResultModelMessages(toolMessages []toolResultInputMessage) []model.Message {
-	modelMessages := make([]model.Message, 0, len(toolMessages))
+func toolResultModelMessages(toolMessages []toolResultInputMessage) []compat.Message {
+	modelMessages := make([]compat.Message, 0, len(toolMessages))
 	for _, msg := range toolMessages {
 		modelMessages = append(modelMessages, msg.message)
 	}
@@ -315,19 +315,19 @@ func toolResultModelMessages(toolMessages []toolResultInputMessage) []model.Mess
 }
 
 func mergeToolResultRewriteMessages(
-	rewritten []model.Message,
-	toolResults []model.Message,
-) []model.Message {
+	rewritten []compat.Message,
+	toolResults []compat.Message,
+) []compat.Message {
 	toolResultIDs := make(map[string]struct{}, len(toolResults))
-	rewrittenToolResults := make(map[string]model.Message, len(toolResults))
+	rewrittenToolResults := make(map[string]compat.Message, len(toolResults))
 	for _, msg := range toolResults {
 		if msg.ToolID != "" {
 			toolResultIDs[msg.ToolID] = struct{}{}
 		}
 	}
-	merged := make([]model.Message, 0, len(rewritten)+len(toolResults))
+	merged := make([]compat.Message, 0, len(rewritten)+len(toolResults))
 	for _, msg := range rewritten {
-		if msg.Role == model.RoleTool && msg.ToolID != "" {
+		if msg.Role == compat.RoleTool && msg.ToolID != "" {
 			if _, ok := toolResultIDs[msg.ToolID]; ok {
 				rewrittenToolResults[msg.ToolID] = msg
 				continue
@@ -337,7 +337,7 @@ func mergeToolResultRewriteMessages(
 	}
 	for _, msg := range toolResults {
 		if rewrittenMsg, ok := rewrittenToolResults[msg.ToolID]; ok {
-			rewrittenMsg.Role = model.RoleTool
+			rewrittenMsg.Role = compat.RoleTool
 			rewrittenMsg.ToolID = msg.ToolID
 			if msg.ToolName != "" {
 				rewrittenMsg.ToolName = msg.ToolName
@@ -499,7 +499,7 @@ func (r *runner) run(ctx context.Context, cancel context.CancelCauseFunc, key se
 				)
 			}
 		}()
-		if input.messages.inputMessage.Role == model.RoleUser {
+		if input.messages.inputMessage.Role == compat.RoleUser {
 			if err := r.recordUserMessage(ctx, input); err != nil {
 				log.WarnfContext(
 					ctx,
@@ -515,7 +515,7 @@ func (r *runner) run(ctx context.Context, cancel context.CancelCauseFunc, key se
 	if !r.emitStartupEvent(ctx, events, aguievents.NewRunStartedEvent(threadID, runID), input) {
 		return
 	}
-	if input.messages.inputMessage.Role == model.RoleTool {
+	if input.messages.inputMessage.Role == compat.RoleTool {
 		if !r.emitToolResultEvents(ctx, events, input) {
 			return
 		}
@@ -1005,13 +1005,13 @@ func (r *runner) emitToolResultEvent(
 }
 
 // newToolResultInputEvent normalizes a tool-result input into an internal event for translation.
-func newToolResultInputEvent(messageID string, msg *model.Message) *event.Event {
-	rsp := &model.Response{
+func newToolResultInputEvent(messageID string, msg *compat.Message) *event.Event {
+	rsp := &compat.Response{
 		ID:     messageID,
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:     model.RoleTool,
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  msg.Content,
 				ToolID:   msg.ToolID,
 				ToolName: msg.ToolName,

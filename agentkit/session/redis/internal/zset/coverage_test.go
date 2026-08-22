@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -786,10 +786,10 @@ func TestCov_TrimConversations_EventsWithoutRequestID(t *testing.T) {
 	evt := &event.Event{
 		ID:        "e1",
 		Timestamp: time.Now(),
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleUser, Content: "test"}},
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleUser, Content: "test"}},
 			},
 		},
 		// No RequestID set
@@ -826,10 +826,10 @@ func TestCov_GetEventsList_ConfigEventLimit(t *testing.T) {
 		evt := &event.Event{
 			ID:        fmt.Sprintf("e%d", i),
 			Timestamp: baseTime.Add(time.Duration(i) * time.Second),
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{
-					{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("msg%d", i)}},
+				Choices: []compat.Choice{
+					{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("msg%d", i)}},
 				},
 			},
 		}

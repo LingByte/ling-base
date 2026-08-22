@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/evolution"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -107,7 +107,7 @@ func TestRunner_WithEvolutionService_Integration(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	eventCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	eventCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	for range eventCh {

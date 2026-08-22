@@ -25,7 +25,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/mysql"
 	"github.com/go-sql-driver/mysql"
@@ -634,13 +634,13 @@ func TestAppendEvent_Sync(t *testing.T) {
 
 	// Create test event using New helper
 	evt := event.New("inv-123", "test-author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "test response content",
 				},
 			},
@@ -1651,7 +1651,7 @@ func (m *mockSummarizer) ShouldSummarize(sess *session.Session) bool {
 
 func (m *mockSummarizer) SetPrompt(prompt string) {}
 
-func (m *mockSummarizer) SetModel(mdl model.Model) {}
+func (m *mockSummarizer) SetModel(mdl compat.Model) {}
 
 func (m *mockSummarizer) Metadata() map[string]any {
 	return map[string]any{"type": "mock"}
@@ -1867,13 +1867,13 @@ func TestAppendEvent_Async(t *testing.T) {
 
 	// Create test event
 	evt := event.New("inv-123", "test-author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "test response",
 				},
 			},
@@ -2406,10 +2406,10 @@ func TestListSessions_WithEvents(t *testing.T) {
 
 	// Prepare mock event
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{
-			{Index: 0, Message: model.Message{Role: model.RoleUser, Content: "response"}},
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{
+			{Index: 0, Message: compat.Message{Role: compat.RoleUser, Content: "response"}},
 		},
 	}
 	eventBytes, _ := json.Marshal(evt)
@@ -2477,16 +2477,16 @@ func TestGetSession_WithEvents(t *testing.T) {
 
 	// Prepare multiple mock events
 	evt1 := event.New("inv-1", "author")
-	evt1.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{
-			{Index: 0, Message: model.Message{Role: model.RoleUser, Content: "response1"}},
+	evt1.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{
+			{Index: 0, Message: compat.Message{Role: compat.RoleUser, Content: "response1"}},
 		},
 	}
 	event1Bytes, _ := json.Marshal(evt1)
 
 	evt2 := event.New("inv-2", "author")
-	evt2.Response = &model.Response{Object: model.ObjectTypeChatCompletion}
+	evt2.Response = &compat.Response{Object: compat.ObjectTypeChatCompletion}
 	event2Bytes, _ := json.Marshal(evt2)
 
 	// Mock: Query events (multiple rows)
@@ -2983,13 +2983,13 @@ func TestAppendEvent_AsyncPath(t *testing.T) {
 	}
 
 	evt := event.New("inv-1", "test-author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
+				Message: compat.Message{
 					Content: "test response",
 				},
 			},
@@ -3897,8 +3897,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = s.AppendEvent(ctx, sess, evt)
@@ -3923,8 +3923,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		// No DB expectations - hook aborts before DB call
@@ -3958,8 +3958,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		// Hook2 aborts, so no DB call

@@ -22,7 +22,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/session/summaryrestore"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,12 +151,12 @@ func TestGetSession_WithLimit(t *testing.T) {
 
 	// Prepare mock event
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Hello, world!",
 				},
 			},
@@ -212,14 +212,14 @@ func TestGetSession_WithLimitFetchesUserAnchor(t *testing.T) {
 		WithArgs(key.AppName, key.UserID, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"key", "value"}))
 
-	anchor := event.NewResponseEvent("inv-1", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user"}}},
+	anchor := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user"}}},
 	})
-	evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-1"}}},
+	evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-1"}}},
 	})
-	evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+	evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 	})
 	anchorBytes, _ := json.Marshal(anchor)
 	evt2Bytes, _ := json.Marshal(evt2)
@@ -317,8 +317,8 @@ func TestGetSession_SummaryAwareRestoreUsesSummaryBoundary(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"app_name", "user_id", "session_id", "filter_key", "summary", "updated_at"}).
 			AddRow(key.AppName, key.UserID, key.SessionID, key.AppName, summaryBytes, cutoff))
 
-	evt := event.NewResponseEvent("inv-after-summary", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "after"}}},
+	evt := event.NewResponseEvent("inv-after-summary", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "after"}}},
 	})
 	evt.Timestamp = cutoff.Add(time.Minute)
 	eventBytes, err := json.Marshal(evt)
@@ -400,8 +400,8 @@ func TestGetSession_SummaryAwareRestoreFallsBackToCreatedAtWhenEventTimestampMis
 		WillReturnRows(sqlmock.NewRows([]string{"app_name", "user_id", "session_id", "filter_key", "summary", "updated_at"}).
 			AddRow(key.AppName, key.UserID, key.SessionID, key.AppName, summaryBytes, cutoff))
 
-	legacy := event.NewResponseEvent("inv-legacy", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "legacy"}}},
+	legacy := event.NewResponseEvent("inv-legacy", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "legacy"}}},
 	})
 	legacyBytes := marshalEventWithoutTimestamp(t, legacy)
 	eventCreatedAt := cutoff.Add(time.Minute)
@@ -474,8 +474,8 @@ func TestGetSession_SummaryAwareRestoreBoundsAnchorSearch(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"app_name", "user_id", "session_id", "filter_key", "summary", "updated_at"}).
 			AddRow(key.AppName, key.UserID, key.SessionID, key.AppName, summaryBytes, cutoff))
 
-	assistant := event.NewResponseEvent("inv-after-summary", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "after"}}},
+	assistant := event.NewResponseEvent("inv-after-summary", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "after"}}},
 	})
 	assistant.Timestamp = cutoff.Add(time.Minute)
 	assistantBytes, err := json.Marshal(assistant)
@@ -560,8 +560,8 @@ func TestGetSession_SummaryAwareRestoreIgnoredForEventPage(t *testing.T) {
 		WithArgs(key.AppName, key.UserID, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"key", "value"}))
 
-	evt := event.NewResponseEvent("inv-page", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "page"}}},
+	evt := event.NewResponseEvent("inv-page", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "page"}}},
 	})
 	eventBytes, err := json.Marshal(evt)
 	require.NoError(t, err)
@@ -620,16 +620,16 @@ func TestGetSession_WithEventTimeFiltersEventTimestamp(t *testing.T) {
 		WithArgs(key.AppName, key.UserID, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"key", "value"}))
 
-	anchor := event.NewResponseEvent("inv-anchor", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "anchor"}}},
+	anchor := event.NewResponseEvent("inv-anchor", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "anchor"}}},
 	})
 	anchor.Timestamp = afterTime.Add(-30 * time.Minute)
-	oldByEventTime := event.NewResponseEvent("inv-old", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "old"}}},
+	oldByEventTime := event.NewResponseEvent("inv-old", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "old"}}},
 	})
 	oldByEventTime.Timestamp = afterTime.Add(-time.Minute)
-	newByEventTime := event.NewResponseEvent("inv-new", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "new"}}},
+	newByEventTime := event.NewResponseEvent("inv-new", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "new"}}},
 	})
 	newByEventTime.Timestamp = afterTime.Add(time.Minute)
 	anchorBytes, _ := json.Marshal(anchor)
@@ -691,12 +691,12 @@ func TestGetSession_WithEventTimeUsesLoadedUserAnchor(t *testing.T) {
 		WithArgs(key.AppName, key.UserID, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"key", "value"}))
 
-	userAnchor := event.NewResponseEvent("inv-user", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user"}}},
+	userAnchor := event.NewResponseEvent("inv-user", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user"}}},
 	})
 	userAnchor.Timestamp = afterTime.Add(-time.Minute)
-	assistant := event.NewResponseEvent("inv-assistant", "author", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant"}}},
+	assistant := event.NewResponseEvent("inv-assistant", "author", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant"}}},
 	})
 	assistant.Timestamp = afterTime.Add(time.Minute)
 	userBytes, _ := json.Marshal(userAnchor)
@@ -1430,10 +1430,10 @@ func TestAddEvent_ExpiredSession(t *testing.T) {
 	}
 
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{
-		Object:  model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object:  compat.ObjectTypeChatCompletion,
 		Done:    true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{Content: "test"}}},
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{Content: "test"}}},
 	}
 	evt.IsPartial = false
 
@@ -1488,10 +1488,10 @@ func TestAddEvent_BindsJSONColumnsAsString(t *testing.T) {
 	}
 
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{
-		Object:  model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object:  compat.ObjectTypeChatCompletion,
 		Done:    true,
-		Choices: []model.Choice{{Index: 0, Message: model.Message{Content: "test"}}},
+		Choices: []compat.Choice{{Index: 0, Message: compat.Message{Content: "test"}}},
 	}
 	evt.IsPartial = false
 
@@ -1574,7 +1574,7 @@ func TestAddEvent_PartialEvent(t *testing.T) {
 	}
 
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{Object: model.ObjectTypeChatCompletion}
+	evt.Response = &compat.Response{Object: compat.ObjectTypeChatCompletion}
 	evt.IsPartial = true // Partial event should not be inserted
 
 	sessState := SessionState{ID: key.SessionID, State: session.StateMap{}}

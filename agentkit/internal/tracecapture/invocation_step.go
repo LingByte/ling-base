@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // StepBinding identifies the execution trace step for one structural node
@@ -188,7 +188,7 @@ func AddStepSkill(ctx context.Context, stepID string, skill atrace.Skill) {
 }
 
 // AddInvocationStepUsage accumulates model usage into the current step.
-func AddInvocationStepUsage(ctx context.Context, usage *model.Usage) {
+func AddInvocationStepUsage(ctx context.Context, usage *compat.Usage) {
 	capture, stepID := currentInvocationStep(ctx)
 	if capture == nil || stepID == "" {
 		return

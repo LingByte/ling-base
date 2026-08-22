@@ -23,7 +23,7 @@ import (
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	toolcallidplugin "github.com/LingByte/ling-base/agentkit/plugin/toolcallid"
 	baserunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
@@ -219,8 +219,8 @@ func TestHandleHookEventReportsClosedRunWhenWriteFails(t *testing.T) {
 func TestRunFromContextAvailableToHookAndUnderlyingRunner(t *testing.T) {
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -230,7 +230,7 @@ func TestRunFromContextAvailableToHookAndUnderlyingRunner(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			run, ok := RunFromContext(ctx)
 			runnerSeen <- runContextObservation{fromContext: run, ok: ok}
@@ -261,8 +261,8 @@ func TestRunFromContextAvailableToHookAndUnderlyingRunner(t *testing.T) {
 func TestRunHookEmitsBeforeDelayedRunFinished(t *testing.T) {
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -272,7 +272,7 @@ func TestRunHookEmitsBeforeDelayedRunFinished(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -314,7 +314,7 @@ func TestRunHookFailureCancelsBlockedRunnerStartup(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			close(runnerStarted)
 			<-ctx.Done()
@@ -358,12 +358,12 @@ func TestRunTerminalEventWaitsForAgentStreamCloseBeforeReleasingSession(t *testi
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event, 1)
 			agentEvents <- &agentevent.Event{
-				Response: &model.Response{
-					Object: model.ObjectTypeRunnerCompletion,
+				Response: &compat.Response{
+					Object: compat.ObjectTypeRunnerCompletion,
 					Done:   true,
 				},
 			}
@@ -413,7 +413,7 @@ func TestRunCancellationWaitsForHookBeforeReleasingSession(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			go func() {
@@ -474,7 +474,7 @@ func TestRunHookEmitsBeforeDelayedRunnerError(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return nil, errors.New("runner failed")
 		},
@@ -521,7 +521,7 @@ func TestRunHookEmitsBeforeAfterTranslateTerminalReplacement(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -560,8 +560,8 @@ func TestRunHookEventTrackedButNotSessionEvents(t *testing.T) {
 	sessionService := inmemory.NewSessionService()
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -569,7 +569,7 @@ func TestRunHookEventTrackedButNotSessionEvents(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -623,8 +623,8 @@ func TestRunHookEventTrackedButNotSessionEvents(t *testing.T) {
 func TestRunHookEventBypassesAfterTranslateCallback(t *testing.T) {
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -642,7 +642,7 @@ func TestRunHookEventBypassesAfterTranslateCallback(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -695,7 +695,7 @@ func TestRunEmitRejectsAfterTranslateCallbackReentrancy(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -732,7 +732,7 @@ func TestRunAfterTranslateFailureCancelsAgentStream(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			go func() {
 				<-ctx.Done()
@@ -782,8 +782,8 @@ func TestRunHookRejectsFrameworkOwnedEvents(t *testing.T) {
 	errCh := make(chan error, 1)
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -791,7 +791,7 @@ func TestRunHookRejectsFrameworkOwnedEvents(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -825,8 +825,8 @@ func TestRunHookRejectsFrameworkOwnedEvents(t *testing.T) {
 func TestRunHookErrorEmitsRunError(t *testing.T) {
 	agentEvents := make(chan *agentevent.Event, 1)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -834,7 +834,7 @@ func TestRunHookErrorEmitsRunError(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -871,7 +871,7 @@ func TestRunHookFailureRetainsSessionUntilAgentStreamCloses(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			go func() {
@@ -923,16 +923,16 @@ func TestRunEventSourceMetadataEnabledAttachesRawEvent(t *testing.T) {
 		InvocationID:       "inv-1",
 		ParentInvocationID: "parent-1",
 		Branch:             "root.member-a",
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "msg-tool-call",
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "search",
 							Arguments: []byte(`{"q":"agent"}`),
 						},
@@ -947,11 +947,11 @@ func TestRunEventSourceMetadataEnabledAttachesRawEvent(t *testing.T) {
 		InvocationID:       "inv-1",
 		ParentInvocationID: "parent-1",
 		Branch:             "root.member-a",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleTool,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleTool,
 					ToolID:  "call-1",
 					Content: "done",
 				},
@@ -959,8 +959,8 @@ func TestRunEventSourceMetadataEnabledAttachesRawEvent(t *testing.T) {
 		},
 	}
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
@@ -969,7 +969,7 @@ func TestRunEventSourceMetadataEnabledAttachesRawEvent(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -1039,7 +1039,7 @@ func TestRunEmitsGraphNodeStartActivityWhenEnabled(t *testing.T) {
 	close(agentEvents)
 
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -1105,7 +1105,7 @@ func TestRunEmitsCanonicalAgentNodeLifecycleWhenEmitterMetadataPresent(t *testin
 	close(agentEvents)
 
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -1157,7 +1157,7 @@ func TestRunEmitsGraphNodeInterruptActivityWhenEnabled(t *testing.T) {
 	close(agentEvents)
 
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -1185,7 +1185,7 @@ func TestRunEmitsGraphNodeInterruptActivityWhenEnabled(t *testing.T) {
 
 func TestRunEmitsGraphNodeInterruptResumeAckWhenResuming(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			close(agentEvents)
@@ -1242,7 +1242,7 @@ func TestRunEmitsGraphNodeInterruptResumeAckWhenResuming(t *testing.T) {
 
 func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaStateKeyResumeMap(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			close(agentEvents)
@@ -1293,7 +1293,7 @@ func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaStateKeyResumeMap(t *
 
 func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaResumeChannel(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			close(agentEvents)
@@ -1340,7 +1340,7 @@ func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaResumeChannel(t *test
 
 func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaResumeChannelNull(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			close(agentEvents)
@@ -1387,7 +1387,7 @@ func TestRunEmitsGraphNodeInterruptResumeAckWhenResumingViaResumeChannelNull(t *
 
 func TestRunDoesNotEmitGraphNodeInterruptResumeAckWhenCommandBindsEmptyResumeMap(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			agentEvents := make(chan *agentevent.Event)
 			close(agentEvents)
@@ -1436,7 +1436,7 @@ func TestRunValidatesInput(t *testing.T) {
 func TestRunIgnoresRequestCancelButRespectsBackendTimeout(t *testing.T) {
 	ctxCh := make(chan context.Context, 1)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ctxCh <- ctx
 			ch := make(chan *agentevent.Event)
@@ -1552,7 +1552,7 @@ func TestWriteEventAfterConsumerDone(t *testing.T) {
 func TestRunCancelsOnRequestCancelWhenEnabled(t *testing.T) {
 	ctxCh := make(chan context.Context, 1)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ctxCh <- ctx
 			ch := make(chan *agentevent.Event)
@@ -1607,7 +1607,7 @@ func TestRunCancelsOnRequestCancelWhenEnabled(t *testing.T) {
 func TestRunTimeoutUsesMinRequestDeadlineAndBackendTimeout(t *testing.T) {
 	ctxCh := make(chan context.Context, 1)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ctxCh <- ctx
 			ch := make(chan *agentevent.Event)
@@ -1771,7 +1771,7 @@ func TestRunToolMessageMissingToolCallID(t *testing.T) {
 
 func TestRunUnderlyingRunnerError(t *testing.T) {
 	underlying := &fakeRunner{}
-	underlying.run = func(ctx context.Context, userID, sessionID string, message model.Message,
+	underlying.run = func(ctx context.Context, userID, sessionID string, message compat.Message,
 		_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 		return nil, errors.New("fail")
 	}
@@ -1802,12 +1802,12 @@ func TestRunUnderlyingRunnerError(t *testing.T) {
 }
 
 func TestRunToolMessageRecordedInTrackAndForwarded(t *testing.T) {
-	var got model.Message
+	var got compat.Message
 	tracker := &recordingTracker{}
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			got = message
 			ch := make(chan *agentevent.Event)
@@ -1857,7 +1857,7 @@ func TestRunToolMessageRecordedInTrackAndForwarded(t *testing.T) {
 	}
 	assert.True(t, sseFound)
 
-	assert.Equal(t, model.RoleTool, got.Role)
+	assert.Equal(t, compat.RoleTool, got.Role)
 	assert.Equal(t, "result", got.Content)
 	assert.Equal(t, "calc", got.ToolName)
 	assert.Equal(t, "call-1", got.ToolID)
@@ -1879,12 +1879,12 @@ func TestRunToolMessageRecordedInTrackAndForwarded(t *testing.T) {
 }
 
 func TestRunTailToolMessagesEmitAndPersistAsCurrentTurn(t *testing.T) {
-	var gotMessage model.Message
+	var gotMessage compat.Message
 	var gotOptions agent.RunOptions
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotMessage = message
 			gotOptions = agent.NewRunOptions(opts...)
@@ -1926,7 +1926,7 @@ func TestRunTailToolMessagesEmitAndPersistAsCurrentTurn(t *testing.T) {
 	assert.Equal(t, "tool-msg-2", result2.MessageID)
 	assert.Equal(t, "call-2", result2.ToolCallID)
 	assert.Equal(t, "result 2", result2.Content)
-	assert.Equal(t, model.RoleTool, gotMessage.Role)
+	assert.Equal(t, compat.RoleTool, gotMessage.Role)
 	assert.Equal(t, "result 2", gotMessage.Content)
 	assert.Equal(t, "call-2", gotMessage.ToolID)
 	require.NotNil(t, gotOptions.UserMessageRewriter)
@@ -1949,7 +1949,7 @@ func TestRunInjectsAGUIInputToolsByDefault(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -1982,7 +1982,7 @@ func TestRunInjectsAGUIInputToolsWithCustomResolver(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -2048,12 +2048,12 @@ func newExternalToolRunAgentInput() (*adapter.RunAgentInput, string) {
 }
 
 func TestRunToolMessageKeepsCurrentTurnWithoutRewriter(t *testing.T) {
-	var gotMessage model.Message
+	var gotMessage compat.Message
 	var gotOptions agent.RunOptions
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotMessage = message
 			gotOptions = agent.NewRunOptions(opts...)
@@ -2087,7 +2087,7 @@ func TestRunToolMessageKeepsCurrentTurnWithoutRewriter(t *testing.T) {
 	assert.Equal(t, "tool-msg-1", result.MessageID)
 	assert.Equal(t, "call-1", result.ToolCallID)
 	assert.Equal(t, "result 1", result.Content)
-	assert.Equal(t, model.RoleTool, gotMessage.Role)
+	assert.Equal(t, compat.RoleTool, gotMessage.Role)
 	assert.Equal(t, "result 1", gotMessage.Content)
 	assert.Equal(t, "call-1", gotMessage.ToolID)
 	assert.Nil(t, gotOptions.UserMessageRewriter)
@@ -2099,11 +2099,11 @@ func TestRunTailToolMessagesPersistThroughBaseRunner(t *testing.T) {
 	ag := &capturingAGUIInvocationAgent{name: "agent"}
 	base := baserunner.NewRunner("app", ag, baserunner.WithSessionService(sessionService))
 	defer base.Close()
-	seedCh, err := base.Run(ctx, "user", "thread", model.NewUserMessage("seed"))
+	seedCh, err := base.Run(ctx, "user", "thread", compat.NewUserMessage("seed"))
 	require.NoError(t, err)
 	for range seedCh {
 	}
-	ag.message = model.Message{}
+	ag.message = compat.Message{}
 	ag.hasRewriter = false
 	r := &runner{
 		appName:           "app",
@@ -2130,7 +2130,7 @@ func TestRunTailToolMessagesPersistThroughBaseRunner(t *testing.T) {
 	assert.IsType(t, (*aguievents.ToolCallResultEvent)(nil), evts[1])
 	assert.IsType(t, (*aguievents.ToolCallResultEvent)(nil), evts[2])
 	assert.IsType(t, (*aguievents.RunFinishedEvent)(nil), evts[3])
-	assert.Equal(t, model.RoleTool, ag.message.Role)
+	assert.Equal(t, compat.RoleTool, ag.message.Role)
 	assert.Equal(t, "result 2", ag.message.Content)
 	assert.Equal(t, "call-2", ag.message.ToolID)
 	assert.True(t, ag.hasRewriter)
@@ -2146,15 +2146,15 @@ func TestRunTailToolMessagesPersistThroughBaseRunner(t *testing.T) {
 	seed := persistedEvents[0].Choices[0].Message
 	first := persistedEvents[1].Choices[0].Message
 	second := persistedEvents[2].Choices[0].Message
-	assert.Equal(t, model.RoleUser, seed.Role)
+	assert.Equal(t, compat.RoleUser, seed.Role)
 	assert.Equal(t, "seed", seed.Content)
 	assert.Equal(t, "user", persistedEvents[0].Author)
-	assert.Equal(t, model.RoleTool, first.Role)
+	assert.Equal(t, compat.RoleTool, first.Role)
 	assert.Equal(t, "result 1", first.Content)
 	assert.Equal(t, "call-1", first.ToolID)
 	assert.Equal(t, "search", first.ToolName)
 	assert.Equal(t, "agent", persistedEvents[1].Author)
-	assert.Equal(t, model.RoleTool, second.Role)
+	assert.Equal(t, compat.RoleTool, second.Role)
 	assert.Equal(t, "result 2", second.Content)
 	assert.Equal(t, "call-2", second.ToolID)
 	assert.Equal(t, "lookup", second.ToolName)
@@ -2195,7 +2195,7 @@ func TestRunTailToolMessagesComposeUserMessageRewriter(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			called = true
 			gotOptions = agent.NewRunOptions(opts...)
@@ -2215,11 +2215,11 @@ func TestRunTailToolMessagesComposeUserMessageRewriter(t *testing.T) {
 				agent.WithUserMessageRewriter(func(
 					context.Context,
 					*agent.UserMessageRewriteArgs,
-				) ([]model.Message, error) {
+				) ([]compat.Message, error) {
 					customRewriterCalled = true
-					return []model.Message{
-						model.NewUserMessage("custom"),
-						model.NewToolMessage("call-2", "lookup", "rewritten duplicate"),
+					return []compat.Message{
+						compat.NewUserMessage("custom"),
+						compat.NewToolMessage("call-2", "lookup", "rewritten duplicate"),
 					}, nil
 				}),
 			}, nil
@@ -2242,11 +2242,11 @@ func TestRunTailToolMessagesComposeUserMessageRewriter(t *testing.T) {
 	require.NotNil(t, gotOptions.UserMessageRewriter)
 	currentTurn, err := gotOptions.UserMessageRewriter(
 		context.Background(),
-		&agent.UserMessageRewriteArgs{OriginalMessage: model.NewToolMessage("call-2", "lookup", "ignored")},
+		&agent.UserMessageRewriteArgs{OriginalMessage: compat.NewToolMessage("call-2", "lookup", "ignored")},
 	)
 	require.NoError(t, err)
 	require.Len(t, currentTurn, 3)
-	assert.Equal(t, model.RoleUser, currentTurn[0].Role)
+	assert.Equal(t, compat.RoleUser, currentTurn[0].Role)
 	assert.Equal(t, "custom", currentTurn[0].Content)
 	assert.Equal(t, "result 1", currentTurn[1].Content)
 	assert.Equal(t, "call-1", currentTurn[1].ToolID)
@@ -2262,7 +2262,7 @@ func TestRunToolMessageKeepsUserMessageRewriter(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			called = true
 			gotOptions = agent.NewRunOptions(opts...)
@@ -2282,10 +2282,10 @@ func TestRunToolMessageKeepsUserMessageRewriter(t *testing.T) {
 				agent.WithUserMessageRewriter(func(
 					context.Context,
 					*agent.UserMessageRewriteArgs,
-				) ([]model.Message, error) {
+				) ([]compat.Message, error) {
 					customRewriterCalled = true
-					return []model.Message{
-						model.NewUserMessage("custom"),
+					return []compat.Message{
+						compat.NewUserMessage("custom"),
 					}, nil
 				}),
 			}, nil
@@ -2307,29 +2307,29 @@ func TestRunToolMessageKeepsUserMessageRewriter(t *testing.T) {
 	require.NotNil(t, gotOptions.UserMessageRewriter)
 	currentTurn, err := gotOptions.UserMessageRewriter(
 		context.Background(),
-		&agent.UserMessageRewriteArgs{OriginalMessage: model.NewToolMessage("call-1", "search", "ignored")},
+		&agent.UserMessageRewriteArgs{OriginalMessage: compat.NewToolMessage("call-1", "search", "ignored")},
 	)
 	require.NoError(t, err)
 	require.Len(t, currentTurn, 1)
-	assert.Equal(t, model.RoleUser, currentTurn[0].Role)
+	assert.Equal(t, compat.RoleUser, currentTurn[0].Role)
 	assert.Equal(t, "custom", currentTurn[0].Content)
 	assert.True(t, customRewriterCalled)
 }
 
 func TestMergeToolResultRewriteMessagesKeepsNonToolMessagesWithToolID(t *testing.T) {
-	rewritten := []model.Message{
-		{Role: model.RoleUser, Content: "context", ToolID: "call-1"},
-		model.NewToolMessage("call-1", "search", "rewritten duplicate"),
+	rewritten := []compat.Message{
+		{Role: compat.RoleUser, Content: "context", ToolID: "call-1"},
+		compat.NewToolMessage("call-1", "search", "rewritten duplicate"),
 	}
-	toolResults := []model.Message{
-		model.NewToolMessage("call-1", "search", "authoritative result"),
+	toolResults := []compat.Message{
+		compat.NewToolMessage("call-1", "search", "authoritative result"),
 	}
 	got := mergeToolResultRewriteMessages(rewritten, toolResults)
 	require.Len(t, got, 2)
-	assert.Equal(t, model.RoleUser, got[0].Role)
+	assert.Equal(t, compat.RoleUser, got[0].Role)
 	assert.Equal(t, "context", got[0].Content)
 	assert.Equal(t, "call-1", got[0].ToolID)
-	assert.Equal(t, model.RoleTool, got[1].Role)
+	assert.Equal(t, compat.RoleTool, got[1].Role)
 	assert.Equal(t, "rewritten duplicate", got[1].Content)
 	assert.Equal(t, "call-1", got[1].ToolID)
 }
@@ -2339,7 +2339,7 @@ func TestRunUserMessageKeepsUserMessageRewriter(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -2358,8 +2358,8 @@ func TestRunUserMessageKeepsUserMessageRewriter(t *testing.T) {
 				agent.WithUserMessageRewriter(func(
 					context.Context,
 					*agent.UserMessageRewriteArgs,
-				) ([]model.Message, error) {
-					return []model.Message{model.NewUserMessage("custom")}, nil
+				) ([]compat.Message, error) {
+					return []compat.Message{compat.NewUserMessage("custom")}, nil
 				}),
 			}, nil
 		},
@@ -2378,7 +2378,7 @@ func TestRunUserMessageKeepsUserMessageRewriter(t *testing.T) {
 	require.NotNil(t, gotOptions.UserMessageRewriter)
 	currentTurn, err := gotOptions.UserMessageRewriter(
 		context.Background(),
-		&agent.UserMessageRewriteArgs{OriginalMessage: model.NewUserMessage("hello")},
+		&agent.UserMessageRewriteArgs{OriginalMessage: compat.NewUserMessage("hello")},
 	)
 	require.NoError(t, err)
 	require.Len(t, currentTurn, 1)
@@ -2544,7 +2544,7 @@ func TestRecordUserMessageSkipsMissingForwardedPropsMetadata(t *testing.T) {
 func TestRunUsesResolvedAppNameForTrackKey(t *testing.T) {
 	tracker := &recordingTracker{}
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -2585,7 +2585,7 @@ func TestRunUsesResolvedAppNameForTrackKey(t *testing.T) {
 func TestRunUsesResolvedAppNameForUnderlyingRunner(t *testing.T) {
 	var gotOptions agent.RunOptions
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -2613,7 +2613,7 @@ func TestRunUsesResolvedAppNameForUnderlyingRunner(t *testing.T) {
 func TestRunUsesStaticAppNameForUnderlyingRunner(t *testing.T) {
 	var gotOptions agent.RunOptions
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -2636,7 +2636,7 @@ func TestRunUsesStaticAppNameForUnderlyingRunner(t *testing.T) {
 func TestRunResolvedAppNameOverridesRunOptionResolverAppName(t *testing.T) {
 	var gotOptions agent.RunOptions
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			gotOptions = agent.NewRunOptions(opts...)
 			ch := make(chan *agentevent.Event)
@@ -2744,7 +2744,7 @@ func recordUserMessageInput(
 func TestRunUserMessageRecordedInTrackAsCustomEventWithStringContent(t *testing.T) {
 	tracker := &recordingTracker{}
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -2800,7 +2800,7 @@ func TestRunUserMessageRecordedInTrackAsCustomEventWithStringContent(t *testing.
 func TestRunUserMessageRecordedInTrackAsCustomEventWithInputContents(t *testing.T) {
 	tracker := &recordingTracker{}
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -2869,7 +2869,7 @@ func TestRunToolMessageSSEOrderAfterRunStarted(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event, 1)
 			ch <- agentevent.New("inv", "assistant")
@@ -2941,7 +2941,7 @@ func TestRunToolMessageTranslatedWhenEnabled(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -2992,10 +2992,10 @@ func TestRunToolMessageTranslatedWhenEnabled(t *testing.T) {
 	assert.Empty(t, seen.Tag)
 	assert.Equal(t, "tool-msg-1", seen.ID)
 	require.NotNil(t, seen.Response)
-	assert.Equal(t, model.ObjectTypeToolResponse, seen.Response.Object)
+	assert.Equal(t, compat.ObjectTypeToolResponse, seen.Response.Object)
 	assert.True(t, seen.Response.IsToolResultResponse())
 	require.Len(t, seen.Response.Choices, 1)
-	assert.Equal(t, model.RoleTool, seen.Response.Choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, seen.Response.Choices[0].Message.Role)
 	assert.Equal(t, "tool result", seen.Response.Choices[0].Message.Content)
 	assert.Equal(t, "call-1", seen.Response.Choices[0].Message.ToolID)
 	assert.Equal(t, "calculator", seen.Response.Choices[0].Message.ToolName)
@@ -3005,7 +3005,7 @@ func TestRunTailToolMessagesTranslatedWhenEnabled(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -3099,7 +3099,7 @@ func TestRunExternalToolConversionError(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			called = true
 			ch := make(chan *agentevent.Event)
@@ -3158,9 +3158,9 @@ func TestRunStartSpanError(t *testing.T) {
 }
 
 func TestRunLastMessageContentArray(t *testing.T) {
-	messageCh := make(chan model.Message, 1)
+	messageCh := make(chan compat.Message, 1)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			messageCh <- message
 			ch := make(chan *agentevent.Event)
@@ -3200,14 +3200,14 @@ func TestRunLastMessageContentArray(t *testing.T) {
 	collectEvents(t, eventsCh)
 
 	gotMessage := <-messageCh
-	assert.Equal(t, model.RoleUser, gotMessage.Role)
+	assert.Equal(t, compat.RoleUser, gotMessage.Role)
 	assert.Empty(t, gotMessage.Content)
 	require.Len(t, gotMessage.ContentParts, 2)
-	assert.Equal(t, model.ContentTypeImage, gotMessage.ContentParts[0].Type)
+	assert.Equal(t, compat.ContentTypeImage, gotMessage.ContentParts[0].Type)
 	require.NotNil(t, gotMessage.ContentParts[0].Image)
 	assert.Equal(t, "https://example.com/resource/download?id=1", gotMessage.ContentParts[0].Image.URL)
 	assert.Empty(t, gotMessage.ContentParts[0].Image.Detail)
-	assert.Equal(t, model.ContentTypeText, gotMessage.ContentParts[1].Type)
+	assert.Equal(t, compat.ContentTypeText, gotMessage.ContentParts[1].Type)
 	require.NotNil(t, gotMessage.ContentParts[1].Text)
 	assert.Equal(t, "图中有哪些信息?", *gotMessage.ContentParts[1].Text)
 	assert.Equal(t, 1, underlying.calls)
@@ -3232,10 +3232,10 @@ func TestInputMessagesFromRunAgentInputConvertsInputContentsFromAny(t *testing.T
 	assert.Equal(t, "msg-1", got.inputID)
 	require.NotNil(t, got.userMessage)
 
-	assert.Equal(t, model.RoleUser, got.inputMessage.Role)
+	assert.Equal(t, compat.RoleUser, got.inputMessage.Role)
 	assert.Empty(t, got.inputMessage.Content)
 	require.Len(t, got.inputMessage.ContentParts, 2)
-	assert.Equal(t, model.ContentTypeImage, got.inputMessage.ContentParts[0].Type)
+	assert.Equal(t, compat.ContentTypeImage, got.inputMessage.ContentParts[0].Type)
 	require.NotNil(t, got.inputMessage.ContentParts[0].Image)
 	assert.Equal(t, "https://example.com/a.jpg", got.inputMessage.ContentParts[0].Image.URL)
 
@@ -3264,7 +3264,7 @@ func TestInputMessagesFromRunAgentInputCollectsTailToolMessages(t *testing.T) {
 	require.NotNil(t, got.inputMessage)
 	assert.Equal(t, "tool-msg-2", got.inputID)
 	assert.Nil(t, got.userMessage)
-	assert.Equal(t, model.RoleTool, got.inputMessage.Role)
+	assert.Equal(t, compat.RoleTool, got.inputMessage.Role)
 	assert.Equal(t, "result 2", got.inputMessage.Content)
 	assert.Equal(t, "call-2", got.inputMessage.ToolID)
 	require.Len(t, got.toolMessages, 2)
@@ -3340,7 +3340,7 @@ func TestRunToolMessageContentNotString(t *testing.T) {
 func TestRunFlushesTracker(t *testing.T) {
 	recorder := &flushRecorder{}
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -3374,7 +3374,7 @@ func TestRunFlushesInitialTrackBeforePublishingRunStarted(t *testing.T) {
 		t.Run(string(role), func(t *testing.T) {
 			tracker := newBlockingInitialFlushTracker()
 			baseStarted := make(chan struct{}, 1)
-			underlying := &fakeRunner{run: func(context.Context, string, string, model.Message,
+			underlying := &fakeRunner{run: func(context.Context, string, string, compat.Message,
 				...agent.RunOption) (<-chan *agentevent.Event, error) {
 				baseStarted <- struct{}{}
 				ch := make(chan *agentevent.Event)
@@ -3437,7 +3437,7 @@ func TestRunSkipsInitialTrackFlushWhenPeriodicFlushDisabled(t *testing.T) {
 	for _, follow := range []bool{false, true} {
 		t.Run(fmt.Sprintf("follow_%t", follow), func(t *testing.T) {
 			recorder := &flushRecorder{}
-			underlying := &fakeRunner{run: func(context.Context, string, string, model.Message,
+			underlying := &fakeRunner{run: func(context.Context, string, string, compat.Message,
 				...agent.RunOption) (<-chan *agentevent.Event, error) {
 				ch := make(chan *agentevent.Event)
 				close(ch)
@@ -3477,7 +3477,7 @@ func TestRunFlushesHookEventsWhileWrappedRunnerInitializes(t *testing.T) {
 		releaseWrappedRunOnce.Do(func() { close(releaseWrappedRun) })
 		closeAgentEventsOnce.Do(func() { close(agentEvents) })
 	})
-	underlying := &fakeRunner{run: func(context.Context, string, string, model.Message,
+	underlying := &fakeRunner{run: func(context.Context, string, string, compat.Message,
 		...agent.RunOption) (<-chan *agentevent.Event, error) {
 		close(wrappedRunStarted)
 		<-releaseWrappedRun
@@ -3553,7 +3553,7 @@ func TestRunInitialTrackFlushFailureDoesNotAbortRun(t *testing.T) {
 		releaseWrappedRunOnce.Do(func() { close(releaseWrappedRun) })
 		closeAgentEventsOnce.Do(func() { close(agentEvents) })
 	})
-	underlying := &fakeRunner{run: func(context.Context, string, string, model.Message,
+	underlying := &fakeRunner{run: func(context.Context, string, string, compat.Message,
 		...agent.RunOption) (<-chan *agentevent.Event, error) {
 		close(wrappedRunStarted)
 		<-releaseWrappedRun
@@ -3598,7 +3598,7 @@ func TestRunInitialTrackFlushFailureDoesNotAbortRun(t *testing.T) {
 func TestRunConsumerMutationDoesNotChangeBufferedHistory(t *testing.T) {
 	ctx := context.Background()
 	svc := inmemory.NewSessionService()
-	underlying := &fakeRunner{run: func(context.Context, string, string, model.Message,
+	underlying := &fakeRunner{run: func(context.Context, string, string, compat.Message,
 		...agent.RunOption) (<-chan *agentevent.Event, error) {
 		ch := make(chan *agentevent.Event)
 		close(ch)
@@ -3692,7 +3692,7 @@ func TestRecordTrackEventTimeoutBoundsDetachedPersistence(t *testing.T) {
 func TestRunSSEDoesNotWaitForInFlightTrackFlushPersistence(t *testing.T) {
 	agentEvents := make(chan *agentevent.Event, 2)
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
 	}
@@ -3727,12 +3727,12 @@ func TestRunSSEDoesNotWaitForInFlightTrackFlushPersistence(t *testing.T) {
 	})
 	require.NoError(t, err)
 	waitForAGUIEventType(t, eventsCh, (*aguievents.RunStartedEvent)(nil))
-	agentEvents <- &agentevent.Event{Response: &model.Response{
+	agentEvents <- &agentevent.Event{Response: &compat.Response{
 		ID:        "assistant-1",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "hello"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 		}},
 	}}
 	content := waitForTextMessageContent(t, eventsCh)
@@ -3743,12 +3743,12 @@ func TestRunSSEDoesNotWaitForInFlightTrackFlushPersistence(t *testing.T) {
 	case <-time.After(time.Second):
 		require.FailNow(t, "timeout waiting for track flush persistence")
 	}
-	agentEvents <- &agentevent.Event{Response: &model.Response{
+	agentEvents <- &agentevent.Event{Response: &compat.Response{
 		ID:        "assistant-1",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Role: model.RoleAssistant, Content: "world"},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: "world"},
 		}},
 	}}
 	content = waitForTextMessageContent(t, eventsCh)
@@ -3761,7 +3761,7 @@ func TestRunSSEDoesNotWaitForInFlightTrackFlushPersistence(t *testing.T) {
 
 func TestNewWithSessionServiceEnablesTracker(t *testing.T) {
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
 			return ch, nil
@@ -3787,7 +3787,7 @@ func TestNewWithSessionServiceWithoutTrackDisablesTracker(t *testing.T) {
 func TestRunRejectsConcurrentSession(t *testing.T) {
 	ch := make(chan *agentevent.Event)
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return ch, nil
 		},
 	}
@@ -3820,7 +3820,7 @@ func TestRunClosesEventsAfterCleanup(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -3889,7 +3889,7 @@ func TestRunRunOptionResolverOptions(t *testing.T) {
 	underlying := &fakeRunner{}
 	underlying.run = func(ctx context.Context,
 		userID, sessionID string,
-		message model.Message,
+		message compat.Message,
 		opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 		assert.Equal(t, "user-123", userID)
 		assert.Len(t, opts, 1)
@@ -3941,7 +3941,7 @@ func TestRunStateResolverMergesRuntimeState(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			for _, opt := range opts {
 				opt(&runOpts)
@@ -3988,7 +3988,7 @@ func TestRunDefaultStateResolverForwardsObjectState(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			for _, opt := range opts {
 				opt(&runOpts)
@@ -4043,7 +4043,7 @@ func TestRunTranslateError(t *testing.T) {
 	underlying := &fakeRunner{}
 	underlying.run = func(ctx context.Context,
 		userID, sessionID string,
-		message model.Message,
+		message compat.Message,
 		_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 		return eventsCh, nil
 	}
@@ -4080,7 +4080,7 @@ func TestRunNormal(t *testing.T) {
 	underlying := &fakeRunner{}
 	underlying.run = func(ctx context.Context,
 		userID, sessionID string,
-		message model.Message,
+		message compat.Message,
 		_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 		assert.Equal(t, "user-123", userID)
 		assert.Equal(t, "thread", sessionID)
@@ -4125,7 +4125,7 @@ func TestRunAgentInputHook(t *testing.T) {
 		underlying := &fakeRunner{}
 		underlying.run = func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			assert.Equal(t, "user-123", userID)
 			assert.Equal(t, "new-thread", sessionID)
@@ -4174,7 +4174,7 @@ func TestRunAgentInputHook(t *testing.T) {
 		underlying := &fakeRunner{}
 		underlying.run = func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			assert.Equal(t, "thread", sessionID)
 			ch := make(chan *agentevent.Event)
@@ -4423,15 +4423,15 @@ func TestRunnerHandleAfterWithCallback(t *testing.T) {
 
 func TestRunnerBeforeTranslateCallbackOverridesInput(t *testing.T) {
 	original := agentevent.NewResponseEvent("inv", "assistant",
-		&model.Response{
+		&compat.Response{
 			ID:      "id",
-			Object:  model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "original"}}}})
+			Object:  compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "original"}}}})
 	replacement := agentevent.NewResponseEvent("inv", "assistant",
-		&model.Response{
+		&compat.Response{
 			ID:      "id",
-			Object:  model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "replacement"}}}})
+			Object:  compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "replacement"}}}})
 
 	callbacks := translator.NewCallbacks().
 		RegisterBeforeTranslate(func(ctx context.Context, evt *agentevent.Event) (*agentevent.Event, error) {
@@ -4441,7 +4441,7 @@ func TestRunnerBeforeTranslateCallbackOverridesInput(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event, 1)
 			ch <- original
@@ -4482,7 +4482,7 @@ func TestRunnerAfterTranslateCallbackOverridesEmission(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event, 1)
 			ch <- agentevent.New("inv", "assistant")
@@ -4761,7 +4761,7 @@ func (r *recordingTracker) Close(ctx context.Context, key session.Key) error {
 
 type capturingAGUIInvocationAgent struct {
 	name                string
-	message             model.Message
+	message             compat.Message
 	hasRewriter         bool
 	aguiRun             *Run
 	hasAGUIRun          bool
@@ -4873,14 +4873,14 @@ func (s *blockingSpan) End(options ...trace.SpanEndOption) {
 type fakeRunner struct {
 	run func(ctx context.Context,
 		userID, sessionID string,
-		message model.Message,
+		message compat.Message,
 		opts ...agent.RunOption) (<-chan *agentevent.Event, error)
 	calls int
 }
 
 func (f *fakeRunner) Run(ctx context.Context,
 	userID, sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 	f.calls++
 	if f.run != nil {
@@ -4900,7 +4900,7 @@ func TestRunTrackingErrorsAreIgnored(t *testing.T) {
 	underlying := &fakeRunner{
 		run: func(ctx context.Context,
 			userID, sessionID string,
-			message model.Message,
+			message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			ch := make(chan *agentevent.Event)
 			close(ch)
@@ -4939,20 +4939,20 @@ func TestRunTrackingErrorsAreIgnored(t *testing.T) {
 
 func TestRunUsesCanonicalToolCallIDFromInstalledPlugin(t *testing.T) {
 	modelStub := &toolCallIDRunnerIntegrationModel{
-		responses: [][]*model.Response{
+		responses: [][]*compat.Response{
 			{{
 				ID:        "rsp-tool",
-				Object:    model.ObjectTypeChatCompletion,
+				Object:    compat.ObjectTypeChatCompletion,
 				Done:      true,
 				IsPartial: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID:   "call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "echo",
 								Arguments: []byte(`{"value":"ok"}`),
 							},
@@ -4962,12 +4962,12 @@ func TestRunUsesCanonicalToolCallIDFromInstalledPlugin(t *testing.T) {
 			}},
 			{{
 				ID:        "rsp-final",
-				Object:    model.ObjectTypeChatCompletion,
+				Object:    compat.ObjectTypeChatCompletion,
 				Done:      true,
 				IsPartial: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("done"),
+					Message: compat.NewAssistantMessage("done"),
 				}},
 			}},
 		},
@@ -5066,20 +5066,20 @@ func TestRunEmitsToolResultsAsEachParallelCallCompletes(t *testing.T) {
 		function.WithDescription("Returns after the slow tool starts."),
 	)
 	modelStub := &toolCallIDRunnerIntegrationModel{
-		responses: [][]*model.Response{
+		responses: [][]*compat.Response{
 			{{
 				ID:     "tool-calls",
-				Object: model.ObjectTypeChatCompletion,
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:   "call-slow",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "slow",
 									Arguments: []byte(`{}`),
 								},
@@ -5087,7 +5087,7 @@ func TestRunEmitsToolResultsAsEachParallelCallCompletes(t *testing.T) {
 							{
 								ID:   "call-fast",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "fast",
 									Arguments: []byte(`{}`),
 								},
@@ -5098,11 +5098,11 @@ func TestRunEmitsToolResultsAsEachParallelCallCompletes(t *testing.T) {
 			}},
 			{{
 				ID:     "final",
-				Object: model.ObjectTypeChatCompletion,
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("done"),
+					Message: compat.NewAssistantMessage("done"),
 				}},
 			}},
 		},
@@ -5188,11 +5188,11 @@ func TestRunGraphToolMetadataUsesCanonicalToolCallID(t *testing.T) {
 	}
 	agentEvents <- &agentevent.Event{
 		ID: "tool-result",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  "ok",
 					ToolID:   canonicalToolCallID,
 					ToolName: "echo",
@@ -5202,7 +5202,7 @@ func TestRunGraphToolMetadataUsesCanonicalToolCallID(t *testing.T) {
 	}
 	close(agentEvents)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message,
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 			_ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
@@ -5244,16 +5244,16 @@ func TestRunStreamingToolResultActivityEnabledTracksOnlyFinalToolResult(t *testi
 	sessionService := inmemory.NewSessionService()
 	agentEvents := make(chan *agentevent.Event, 5)
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "msg-tool-call",
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "streamer",
 							Arguments: []byte(`{"count":2}`),
 						},
@@ -5264,42 +5264,42 @@ func TestRunStreamingToolResultActivityEnabledTracksOnlyFinalToolResult(t *testi
 	}
 	agentEvents <- &agentevent.Event{
 		ID: "tool-partial-1",
-		Response: &model.Response{
-			Object:    model.ObjectTypeToolResponse,
+		Response: &compat.Response{
+			Object:    compat.ObjectTypeToolResponse,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleTool, ToolID: "call-1", Content: "Hello"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: "Hello"},
 			}},
 		},
 	}
 	agentEvents <- &agentevent.Event{
 		ID: "tool-partial-2",
-		Response: &model.Response{
-			Object:    model.ObjectTypeToolResponse,
+		Response: &compat.Response{
+			Object:    compat.ObjectTypeToolResponse,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Role: model.RoleTool, ToolID: "call-1", Content: " World"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: " World"},
 			}},
 		},
 	}
 	agentEvents <- &agentevent.Event{
 		ID: "tool-final",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleTool, ToolID: "call-1", Content: `{"final":"done"}`},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: `{"final":"done"}`},
 			}},
 		},
 	}
 	agentEvents <- &agentevent.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 	}
 	close(agentEvents)
 	underlying := &fakeRunner{
-		run: func(ctx context.Context, userID, sessionID string, message model.Message, _ ...agent.RunOption) (<-chan *agentevent.Event, error) {
+		run: func(ctx context.Context, userID, sessionID string, message compat.Message, _ ...agent.RunOption) (<-chan *agentevent.Event, error) {
 			return agentEvents, nil
 		},
 	}
@@ -5402,15 +5402,15 @@ func TestRunConcurrentAgentToolStreamsEndToEnd(t *testing.T) {
 		},
 	}))
 	parentModel := &toolCallIDRunnerIntegrationModel{
-		responses: [][]*model.Response{
+		responses: [][]*compat.Response{
 			{concurrentAgentToolParentToolCallResponse()},
 			{{
 				ID:     "parent-final",
-				Object: model.ObjectTypeChatCompletion,
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("parent done"),
+					Message: compat.NewAssistantMessage("parent done"),
 				}},
 			}},
 		},
@@ -5466,20 +5466,20 @@ func TestRunConcurrentAgentToolStreamsEndToEnd(t *testing.T) {
 	assert.True(t, containsSnapshotMessageContent(snapshotMessages, types.RoleAssistant, "b1b2"))
 }
 
-func concurrentAgentToolParentToolCallResponse() *model.Response {
-	return &model.Response{
+func concurrentAgentToolParentToolCallResponse() *compat.Response {
+	return &compat.Response{
 		ID:     "parent-tool-calls",
-		Object: model.ObjectTypeChatCompletion,
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						ID:   "call-child-a",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "child_a",
 							Arguments: []byte(`{"request":"ask child a"}`),
 						},
@@ -5487,7 +5487,7 @@ func concurrentAgentToolParentToolCallResponse() *model.Response {
 					{
 						ID:   "call-child-b",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "child_b",
 							Arguments: []byte(`{"request":"ask child b"}`),
 						},
@@ -5591,16 +5591,16 @@ type gatedAGUIStreamStep struct {
 	finish  bool
 }
 
-func (m *gatedAGUIStreamModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *gatedAGUIStreamModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *gatedAGUIStreamModel) GenerateContent(
 	ctx context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	steps := append([]gatedAGUIStreamStep(nil), m.steps...)
-	ch := make(chan *model.Response)
+	ch := make(chan *compat.Response)
 	go func() {
 		defer close(ch)
 		for _, step := range steps {
@@ -5620,13 +5620,13 @@ func (m *gatedAGUIStreamModel) GenerateContent(
 		select {
 		case <-ctx.Done():
 			return
-		case ch <- &model.Response{
+		case ch <- &compat.Response{
 			ID:     m.messageID,
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.Message{Role: model.RoleAssistant},
+				Message: compat.Message{Role: compat.RoleAssistant},
 			}},
 		}:
 		}
@@ -5634,21 +5634,21 @@ func (m *gatedAGUIStreamModel) GenerateContent(
 	return ch, nil
 }
 
-func gatedAGUIStreamResponse(messageID string, step gatedAGUIStreamStep) *model.Response {
-	choice := model.Choice{
+func gatedAGUIStreamResponse(messageID string, step gatedAGUIStreamStep) *compat.Response {
+	choice := compat.Choice{
 		Index: 0,
-		Delta: model.Message{Role: model.RoleAssistant, Content: step.content},
+		Delta: compat.Message{Role: compat.RoleAssistant, Content: step.content},
 	}
 	if step.finish {
 		reason := "stop"
-		choice.Delta = model.Message{Role: model.RoleAssistant}
+		choice.Delta = compat.Message{Role: compat.RoleAssistant}
 		choice.FinishReason = &reason
 	}
-	return &model.Response{
+	return &compat.Response{
 		ID:        messageID,
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices:   []model.Choice{choice},
+		Choices:   []compat.Choice{choice},
 	}
 }
 
@@ -5693,27 +5693,27 @@ func containsSnapshotMessageContent(
 
 type toolCallIDRunnerIntegrationModel struct {
 	mu        sync.Mutex
-	responses [][]*model.Response
+	responses [][]*compat.Response
 	callIndex int
 }
 
-func (m *toolCallIDRunnerIntegrationModel) Info() model.Info {
-	return model.Info{Name: "toolcallid-agui-model"}
+func (m *toolCallIDRunnerIntegrationModel) Info() compat.Info {
+	return compat.Info{Name: "toolcallid-agui-model"}
 }
 
 func (m *toolCallIDRunnerIntegrationModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	callIndex := m.callIndex
 	m.callIndex++
-	var responses []*model.Response
+	var responses []*compat.Response
 	if callIndex < len(m.responses) {
 		responses = m.responses[callIndex]
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, len(responses))
+	ch := make(chan *compat.Response, len(responses))
 	for _, rsp := range responses {
 		ch <- cloneToolCallIDRunnerIntegrationResponse(rsp)
 	}
@@ -5721,12 +5721,12 @@ func (m *toolCallIDRunnerIntegrationModel) GenerateContent(
 	return ch, nil
 }
 
-func cloneToolCallIDRunnerIntegrationResponse(rsp *model.Response) *model.Response {
+func cloneToolCallIDRunnerIntegrationResponse(rsp *compat.Response) *compat.Response {
 	if rsp == nil {
 		return nil
 	}
 	cloned := rsp.Clone()
-	choices := make([]model.Choice, len(rsp.Choices))
+	choices := make([]compat.Choice, len(rsp.Choices))
 	for i, choice := range rsp.Choices {
 		choices[i] = choice
 		choices[i].Message = cloneToolCallIDRunnerIntegrationMessage(choice.Message)
@@ -5736,13 +5736,13 @@ func cloneToolCallIDRunnerIntegrationResponse(rsp *model.Response) *model.Respon
 	return cloned
 }
 
-func cloneToolCallIDRunnerIntegrationMessage(message model.Message) model.Message {
+func cloneToolCallIDRunnerIntegrationMessage(message compat.Message) compat.Message {
 	cloned := message
 	if len(message.ToolCalls) > 0 {
-		cloned.ToolCalls = append([]model.ToolCall(nil), message.ToolCalls...)
+		cloned.ToolCalls = append([]compat.ToolCall(nil), message.ToolCalls...)
 	}
 	if len(message.ContentParts) > 0 {
-		cloned.ContentParts = append([]model.ContentPart(nil), message.ContentParts...)
+		cloned.ContentParts = append([]compat.ContentPart(nil), message.ContentParts...)
 	}
 	return cloned
 }
@@ -5759,20 +5759,20 @@ func runStreamingToolResultIntegrationScenario(
 ) streamingToolResultIntegrationOutcome {
 	t.Helper()
 	modelStub := &toolCallIDRunnerIntegrationModel{
-		responses: [][]*model.Response{
+		responses: [][]*compat.Response{
 			{{
 				ID:        "rsp-tool",
-				Object:    model.ObjectTypeChatCompletion,
+				Object:    compat.ObjectTypeChatCompletion,
 				Done:      true,
 				IsPartial: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID:   "call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "streamer",
 								Arguments: []byte(`{}`),
 							},
@@ -5782,12 +5782,12 @@ func runStreamingToolResultIntegrationScenario(
 			}},
 			{{
 				ID:        "rsp-final",
-				Object:    model.ObjectTypeChatCompletion,
+				Object:    compat.ObjectTypeChatCompletion,
 				Done:      true,
 				IsPartial: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("done"),
+					Message: compat.NewAssistantMessage("done"),
 				}},
 			}},
 		},
@@ -6091,7 +6091,7 @@ func TestTranslateCallbackError(t *testing.T) {
 			})
 		r := &runner{
 			runner: &fakeRunner{
-				run: func(ctx context.Context, userID, sessionID string, message model.Message,
+				run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 					opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 					ch := make(chan *agentevent.Event, 1)
 					ch <- agentevent.New("inv", "assistant")
@@ -6124,7 +6124,7 @@ func TestTranslateCallbackError(t *testing.T) {
 				return nil, errors.New("fail")
 			})
 		underlying := &fakeRunner{
-			run: func(ctx context.Context, userID, sessionID string, message model.Message,
+			run: func(ctx context.Context, userID, sessionID string, message compat.Message,
 				opts ...agent.RunOption) (<-chan *agentevent.Event, error) {
 				ch := make(chan *agentevent.Event, 1)
 				ch <- agentevent.New("inv", "assistant")

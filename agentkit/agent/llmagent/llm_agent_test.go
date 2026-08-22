@@ -30,8 +30,8 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	"github.com/LingByte/ling-base/agentkit/knowledge/document"
-	"github.com/LingByte/ling-base/agentkit/model"
-	"github.com/LingByte/ling-base/agentkit/model/openai"
+	compat "github.com/LingByte/ling-base/relay/compat"
+	"github.com/LingByte/ling-base/agentkit/relaymodel"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	transfertool "github.com/LingByte/ling-base/agentkit/tool/transfer"
@@ -62,20 +62,20 @@ const (
 	testModelPromptMappedSysPrompt  = "mapped system prompt"
 )
 
-func newDummyModel() model.Model {
-	return openai.New("dummy-model")
+func newDummyModel() compat.Model {
+	return relaymodel.New("dummy-model")
 }
 
 // mockModelWithResponse is a mock model that returns a predefined response.
 type mockModelWithResponse struct {
-	response *model.Response
+	response *compat.Response
 }
 
 func (m *mockModelWithResponse) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	if m.response != nil {
 		ch <- m.response
 	}
@@ -83,8 +83,8 @@ func (m *mockModelWithResponse) GenerateContent(
 	return ch, nil
 }
 
-func (m *mockModelWithResponse) Info() model.Info {
-	return model.Info{Name: "mock-model"}
+func (m *mockModelWithResponse) Info() compat.Info {
+	return compat.Info{Name: "mock-model"}
 }
 
 func TestLLMAgent_SubAgents(t *testing.T) {
@@ -179,17 +179,17 @@ func TestLLMAgent_Transfer_WorksAfterSetSubAgents(t *testing.T) {
 	require.NoError(t, err)
 
 	mockModel := &mockModelWithResponse{
-		response: &model.Response{
+		response: &compat.Response{
 			ID:    testTransferResponseID,
 			Model: testTransferModelName,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						Type: testToolCallTypeFunction,
 						ID:   testToolCallID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      transfertool.TransferToolName,
 							Arguments: args,
 						},
@@ -203,7 +203,7 @@ func TestLLMAgent_Transfer_WorksAfterSetSubAgents(t *testing.T) {
 	agt.SetSubAgents([]agent.Agent{sub})
 
 	inv := &agent.Invocation{
-		Message:      model.NewUserMessage(testTransferUserMessage),
+		Message:      compat.NewUserMessage(testTransferUserMessage),
 		InvocationID: testTransferInvocationID,
 		Session:      &session.Session{ID: testTransferSessionID},
 	}
@@ -367,7 +367,7 @@ func TestBuildRequestProcessors_ContextCompactionWiring(t *testing.T) {
 	WithEnableContextCompaction(true)(opts)
 	WithContextCompactionKeepRecentRequests(2)(opts)
 	WithContextCompactionToolResultMaxTokens(2048)(opts)
-	counter := model.NewSimpleTokenCounter(model.WithApproxRunesPerToken(1))
+	counter := compat.NewSimpleTokenCounter(compat.WithApproxRunesPerToken(1))
 	WithContextCompactionTokenCounter(counter)(opts)
 	WithToolResultCompactionConfig(&ToolResultCompactionConfig{
 		SkipRecentFunc: func([]event.Event) int { return 3 },
@@ -488,8 +488,8 @@ func TestBuildRequestProcessors_EventMessageProjectorWiring(
 	projector := func(
 		_ *agent.Invocation,
 		_ event.Event,
-		msg model.Message,
-	) model.Message {
+		msg compat.Message,
+	) compat.Message {
 		msg.Content = "projected"
 		return msg
 	}
@@ -510,7 +510,7 @@ func TestBuildRequestProcessors_EventMessageProjectorWiring(
 	got := crp.EventMessageProjector(
 		nil,
 		event.Event{},
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Equal(t, "projected", got.Content)
 }
@@ -543,10 +543,10 @@ func TestBuildRequestProcessors_PostToolPromptInjection(t *testing.T) {
 		ptp := findPostToolProcessor(t, opts)
 		require.NotNil(t, ptp)
 
-		req := &model.Request{
-			Messages: []model.Message{
-				{Role: model.RoleSystem, Content: systemContent},
-				{Role: model.RoleTool, Content: toolContent},
+		req := &compat.Request{
+			Messages: []compat.Message{
+				{Role: compat.RoleSystem, Content: systemContent},
+				{Role: compat.RoleTool, Content: toolContent},
 			},
 		}
 		ptp.ProcessRequest(
@@ -730,15 +730,15 @@ func TestWithMaxHistoryRuns_Option(t *testing.T) {
 func TestLLMAgent_Run_BeforeAgentShort(t *testing.T) {
 	// BeforeAgentCallback returns a custom response, should short-circuit.
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "short-circuit"},
+	agentCallbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "short-circuit"},
 			}},
 		}, nil
 	})
 	agt := New("test", WithModel(newDummyModel()), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -751,11 +751,11 @@ func TestLLMAgent_Run_BeforeAgentShort(t *testing.T) {
 
 func TestLLMAgent_Run_BeforeAgentError(t *testing.T) {
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	agentCallbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, errors.New("fail")
 	})
 	agt := New("test", WithModel(newDummyModel()), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	_, err := agt.Run(context.Background(), inv)
 	if err == nil || !strings.Contains(err.Error(), "before agent callback failed") {
 		t.Errorf("expected before agent callback error, got %v", err)
@@ -765,15 +765,15 @@ func TestLLMAgent_Run_BeforeAgentError(t *testing.T) {
 func TestLLMAgent_Run_AfterAgentCallback(t *testing.T) {
 	// AfterAgentCallback should append a custom event after normal flow.
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
-		return &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "after-cb"},
+	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
+		return &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "after-cb"},
 			}},
 		}, nil
 	})
 	agt := New("test", WithModel(newDummyModel()), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -792,7 +792,7 @@ func TestLLMAgent_Run_AfterAgentCallback(t *testing.T) {
 
 func TestLLMAgent_Run_NormalFlow(t *testing.T) {
 	agt := New("test", WithModel(newDummyModel()))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -806,11 +806,11 @@ func TestLLMAgent_Run_NormalFlow(t *testing.T) {
 
 func TestLLMAgent_Run_AfterAgentCbErr(t *testing.T) {
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
+	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
 		return nil, errors.New("after error")
 	})
 	agt := New("test", WithModel(newDummyModel()), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -831,15 +831,15 @@ func TestLLMAgent_Run_AfterAgentReceivesResponseError(t *testing.T) {
 	// Test that AfterAgent callback receives error from response.Error field.
 	var receivedErr error
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
+	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
 		receivedErr = runErr
 		return nil, nil
 	})
 
 	// Mock model that returns error in response.Error (like Taiji rate limit).
 	mockModel := &mockModelWithResponse{
-		response: &model.Response{
-			Error: &model.ResponseError{
+		response: &compat.Response{
+			Error: &compat.ResponseError{
 				Type:    "rate_limit_exceeded",
 				Message: "Rate limit exceeded",
 			},
@@ -848,7 +848,7 @@ func TestLLMAgent_Run_AfterAgentReceivesResponseError(t *testing.T) {
 	}
 
 	agt := New("test", WithModel(mockModel), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -874,17 +874,17 @@ func TestLLMAgent_Run_AfterAgentNoErrorOnSuccess(t *testing.T) {
 	// Test that AfterAgent callback receives nil error when response is successful.
 	var receivedErr error
 	agentCallbacks := agent.NewCallbacks()
-	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
+	agentCallbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
 		receivedErr = runErr
 		return nil, nil
 	})
 
 	// Mock model that returns successful response.
 	mockModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Success",
 				},
 			}},
@@ -893,7 +893,7 @@ func TestLLMAgent_Run_AfterAgentNoErrorOnSuccess(t *testing.T) {
 	}
 
 	agt := New("test", WithModel(mockModel), WithAgentCallbacks(agentCallbacks))
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi"), InvocationID: "test-invocation", Session: &session.Session{ID: "test-session"}}
 	events, err := agt.Run(context.Background(), inv)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -1030,12 +1030,12 @@ func TestLLMAgent_WithKnowledge(t *testing.T) {
 // staticModel is a lightweight test model that exposes a fixed name.
 type staticModel struct{ name string }
 
-func (m *staticModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *staticModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	// Not used in this test since we short-circuit via callbacks.
 	return nil, nil
 }
 
-func (m *staticModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *staticModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 func TestLLMAgent_SetModel_UpdatesInvocationModel(t *testing.T) {
 	mA := &staticModel{name: "model-A"}
@@ -1044,20 +1044,20 @@ func TestLLMAgent_SetModel_UpdatesInvocationModel(t *testing.T) {
 	// Capture model name seen inside the agent before run.
 	var seen string
 	cbs := agent.NewCallbacks()
-	cbs.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	cbs.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		if inv.Model != nil {
 			seen = inv.Model.Info().Name
 		}
 		// Short-circuit to avoid invoking underlying flow.
-		return &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: "ok"},
+		return &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 		}}}, nil
 	})
 
 	agt := New("test-agent", WithModel(mA), WithAgentCallbacks(cbs))
 
 	// First run should use model-A.
-	inv1 := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv1 := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	ch1, err := agt.Run(context.Background(), inv1)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -1069,7 +1069,7 @@ func TestLLMAgent_SetModel_UpdatesInvocationModel(t *testing.T) {
 
 	// Switch to model-B and verify it is applied.
 	agt.SetModel(mB)
-	inv2 := &agent.Invocation{Message: model.NewUserMessage("hi again")}
+	inv2 := &agent.Invocation{Message: compat.NewUserMessage("hi again")}
 	ch2, err := agt.Run(context.Background(), inv2)
 	if err != nil {
 		t.Fatalf("Run error after SetModel: %v", err)
@@ -1249,14 +1249,14 @@ func TestLLMAgent_OutputSchemaOnly_InjectsJSONInstructions(t *testing.T) {
 	inv := &agent.Invocation{InvocationID: testModelPromptInvocationID}
 	agt.setupInvocation(inv)
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
 	}
 	eventCh := make(chan *event.Event, 10)
 	instrProc.ProcessRequest(context.Background(), inv, req, eventCh)
 
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Contains(t, req.Messages[0].Content, "IMPORTANT: Return ONLY a JSON object")
 	require.Contains(t, req.Messages[0].Content, `"status"`)
 }
@@ -1271,7 +1271,7 @@ func TestLLMAgent_InvocationContextAccess(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation-123",
 		AgentName:    "test-llm-agent",
-		Message:      model.NewUserMessage("Test invocation context access"),
+		Message:      compat.NewUserMessage("Test invocation context access"),
 	}
 
 	// Create context with invocation (simulating what runner does).
@@ -1301,7 +1301,7 @@ func TestLLMAgent_InvocationContextAccess(t *testing.T) {
 // fakeInvocation creates an invocation carrying a runtime state include_contents flag.
 func fakeInvocation(include string) *agent.Invocation {
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("u")),
+		agent.WithInvocationMessage(compat.NewUserMessage("u")),
 	)
 	st := map[string]any{graph.CfgKeyIncludeContents: include}
 	inv.RunOptions = agent.RunOptions{RuntimeState: st}
@@ -1325,7 +1325,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 		// Last processor is content processor created with include mode.
 		// We cannot access internals directly; instead, simulate request processing:
 		// When include=none and session is nil, invocation message should be appended.
-		req := &model.Request{}
+		req := &compat.Request{}
 		for _, p := range procs {
 			p.ProcessRequest(ctx, inv, req, nil)
 		}
@@ -1334,7 +1334,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 			t.Fatalf("expected invocation message appended")
 		}
 		last := req.Messages[len(req.Messages)-1]
-		if last.Role != model.RoleUser || last.Content != "u" {
+		if last.Role != compat.RoleUser || last.Content != "u" {
 			t.Fatalf("unexpected last message: %+v", last)
 		}
 	}
@@ -1344,7 +1344,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 		inv := fakeInvocation("filtered")
 		ctx := agent.NewInvocationContext(context.Background(), inv)
 		procs := buildRequestProcessors("tester", opts)
-		req := &model.Request{}
+		req := &compat.Request{}
 		for _, p := range procs {
 			p.ProcessRequest(ctx, inv, req, nil)
 		}
@@ -1353,7 +1353,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 			t.Fatalf("expected invocation message appended (filtered)")
 		}
 		last := req.Messages[len(req.Messages)-1]
-		if last.Role != model.RoleUser || last.Content != "u" {
+		if last.Role != compat.RoleUser || last.Content != "u" {
 			t.Fatalf("unexpected last message (filtered): %+v", last)
 		}
 	}
@@ -1363,7 +1363,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 		inv := fakeInvocation("all")
 		ctx := agent.NewInvocationContext(context.Background(), inv)
 		procs := buildRequestProcessors("tester", opts)
-		req := &model.Request{}
+		req := &compat.Request{}
 		for _, p := range procs {
 			p.ProcessRequest(ctx, inv, req, nil)
 		}
@@ -1371,7 +1371,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 			t.Fatalf("expected invocation message appended (all)")
 		}
 		last := req.Messages[len(req.Messages)-1]
-		if last.Role != model.RoleUser || last.Content != "u" {
+		if last.Role != compat.RoleUser || last.Content != "u" {
 			t.Fatalf("unexpected last message (all): %+v", last)
 		}
 	}
@@ -1381,7 +1381,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 		inv := fakeInvocation("invalid")
 		ctx := agent.NewInvocationContext(context.Background(), inv)
 		procs := buildRequestProcessors("tester", opts)
-		req := &model.Request{}
+		req := &compat.Request{}
 		for _, p := range procs {
 			p.ProcessRequest(ctx, inv, req, nil)
 		}
@@ -1389,7 +1389,7 @@ func TestBuildRequestProcessors_IncludeContentsHonored(t *testing.T) {
 			t.Fatalf("expected invocation message appended (invalid->filtered)")
 		}
 		last := req.Messages[len(req.Messages)-1]
-		if last.Role != model.RoleUser || last.Content != "u" {
+		if last.Role != compat.RoleUser || last.Content != "u" {
 			t.Fatalf("unexpected last message (invalid->filtered): %+v", last)
 		}
 	}
@@ -1407,10 +1407,10 @@ func TestLLMAgent_EnableCodeExecutionResponseProcessor(t *testing.T) {
 
 	newMockModel := func() *mockModelWithResponse {
 		return &mockModelWithResponse{
-			response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: codeBlock,
 					},
 				}},
@@ -1421,7 +1421,7 @@ func TestLLMAgent_EnableCodeExecutionResponseProcessor(t *testing.T) {
 
 	newInvocation := func(opts ...agent.RunOption) *agent.Invocation {
 		return &agent.Invocation{
-			Message:      model.NewUserMessage("hi"),
+			Message:      compat.NewUserMessage("hi"),
 			InvocationID: "test-invocation",
 			Session:      &session.Session{ID: "test-session"},
 			RunOptions:   agent.NewRunOptions(opts...),
@@ -1496,10 +1496,10 @@ func TestLLMAgent_EnableCodeExecutionResponseProcessor(t *testing.T) {
 		agt := New(
 			"test",
 			WithModel(&mockModelWithResponse{
-				response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
+				response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
 							Content: "```markdown\n" +
 								"# hello\n```",
 						},
@@ -1566,7 +1566,7 @@ func TestLLMAgent_OptionsWithStructuredOutputJSON(t *testing.T) {
 	opts := &Options{}
 	WithStructuredOutputJSON(new(MyStruct), true, "test description")(opts)
 	require.NotNil(t, opts.StructuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
 	require.NotNil(t, opts.StructuredOutput.JSONSchema)
 	require.Equal(t, "MyStruct", opts.StructuredOutput.JSONSchema.Name)
 	require.True(t, opts.StructuredOutput.JSONSchema.Strict)
@@ -1605,7 +1605,7 @@ func TestLLMAgent_OptionsWithStructuredOutputJSONSchema(t *testing.T) {
 	opts := &Options{}
 	WithStructuredOutputJSONSchema("", schema, true, "test description")(opts)
 	require.NotNil(t, opts.StructuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
 	require.NotNil(t, opts.StructuredOutput.JSONSchema)
 	require.Equal(t, "output", opts.StructuredOutput.JSONSchema.Name)
 	require.True(t, opts.StructuredOutput.JSONSchema.Strict)
@@ -1648,16 +1648,16 @@ func TestLLMAgent_Run_UsesRunStructuredOutputWithoutStaticOutputProcessor(t *tes
 	agt := New(
 		"test-agent",
 		WithModel(&mockModelWithResponse{
-			response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(`{"run_field":"ok"}`),
+			response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(`{"run_field":"ok"}`),
 				}},
 				Done: true,
 			},
 		}),
 	)
 	inv := &agent.Invocation{
-		Message:      model.NewUserMessage("hi"),
+		Message:      compat.NewUserMessage("hi"),
 		InvocationID: "test-invocation",
 		Session:      &session.Session{ID: "test-session"},
 	}
@@ -1770,7 +1770,7 @@ func TestLLMAgent_SetPrompts(t *testing.T) {
 }
 
 func TestLLMAgent_ModelInstructions(t *testing.T) {
-	mdl := openai.New(testModelPromptModelName)
+	mdl := relaymodel.New(testModelPromptModelName)
 	agt := New(
 		"test-agent",
 		WithModel(mdl),
@@ -1795,8 +1795,8 @@ func TestLLMAgent_ModelInstructions(t *testing.T) {
 	}
 	agt.setupInvocation(inv)
 
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	eventCh := make(chan *event.Event, 10)
 	instrProc.ProcessRequest(context.Background(), inv, req, eventCh)
@@ -1811,7 +1811,7 @@ func TestLLMAgent_ModelInstructions(t *testing.T) {
 }
 
 func TestLLMAgent_ModelGlobalInstructions(t *testing.T) {
-	mdl := openai.New(testModelPromptModelName)
+	mdl := relaymodel.New(testModelPromptModelName)
 	agt := New(
 		"test-agent",
 		WithModel(mdl),
@@ -1840,8 +1840,8 @@ func TestLLMAgent_ModelGlobalInstructions(t *testing.T) {
 	}
 	agt.setupInvocation(inv)
 
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	eventCh := make(chan *event.Event, 10)
 	instrProc.ProcessRequest(context.Background(), inv, req, eventCh)
@@ -1870,7 +1870,7 @@ func TestLLMAgent_ModelGlobalInstructions(t *testing.T) {
 }
 
 func TestLLMAgent_ModelInstructions_FallbackToDefault(t *testing.T) {
-	mdl := openai.New(testModelPromptModelName)
+	mdl := relaymodel.New(testModelPromptModelName)
 	agt := New(
 		"test-agent",
 		WithModel(mdl),
@@ -1895,8 +1895,8 @@ func TestLLMAgent_ModelInstructions_FallbackToDefault(t *testing.T) {
 	}
 	agt.setupInvocation(inv)
 
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	eventCh := make(chan *event.Event, 10)
 	instrProc.ProcessRequest(context.Background(), inv, req, eventCh)
@@ -1911,7 +1911,7 @@ func TestLLMAgent_ModelInstructions_FallbackToDefault(t *testing.T) {
 }
 
 func TestLLMAgent_SetModelInstructions(t *testing.T) {
-	mdl := openai.New(testModelPromptModelName)
+	mdl := relaymodel.New(testModelPromptModelName)
 	agt := New(
 		"test-agent",
 		WithModel(mdl),
@@ -1933,8 +1933,8 @@ func TestLLMAgent_SetModelInstructions(t *testing.T) {
 	}
 	agt.setupInvocation(inv)
 
-	req := &model.Request{
-		Messages: []model.Message{},
+	req := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	eventCh := make(chan *event.Event, 10)
 	instrProc.ProcessRequest(context.Background(), inv, req, eventCh)
@@ -1944,8 +1944,8 @@ func TestLLMAgent_SetModelInstructions(t *testing.T) {
 	agt.SetModelInstructions(map[string]string{
 		testModelPromptModelName: testModelPromptMappedIns,
 	})
-	req2 := &model.Request{
-		Messages: []model.Message{},
+	req2 := &compat.Request{
+		Messages: []compat.Message{},
 	}
 	instrProc.ProcessRequest(context.Background(), inv, req2, eventCh)
 	require.NotEmpty(t, req2.Messages)
@@ -2051,7 +2051,7 @@ func TestWithModels(t *testing.T) {
 	model2 := newDummyModel()
 	model3 := newDummyModel()
 
-	models := map[string]model.Model{
+	models := map[string]compat.Model{
 		"model1": model1,
 		"model2": model2,
 		"model3": model3,
@@ -2072,7 +2072,7 @@ func TestSetModelByName(t *testing.T) {
 	model1 := newDummyModel()
 	model2 := newDummyModel()
 
-	models := map[string]model.Model{
+	models := map[string]compat.Model{
 		"fast":  model1,
 		"smart": model2,
 	}
@@ -2118,7 +2118,7 @@ func TestWithModelsOnly(t *testing.T) {
 	model1 := newDummyModel()
 	model2 := newDummyModel()
 
-	models := map[string]model.Model{
+	models := map[string]compat.Model{
 		"model1": model1,
 		"model2": model2,
 	}
@@ -2138,7 +2138,7 @@ func TestWithModelAndModels_ModelNotInMap(t *testing.T) {
 	model2 := newDummyModel()
 	model3 := newDummyModel()
 
-	models := map[string]model.Model{
+	models := map[string]compat.Model{
 		"model2": model2,
 		"model3": model3,
 	}
@@ -2179,7 +2179,7 @@ func TestSetModelByName_Concurrent(t *testing.T) {
 	model1 := newDummyModel()
 	model2 := newDummyModel()
 
-	models := map[string]model.Model{
+	models := map[string]compat.Model{
 		"model1": model1,
 		"model2": model2,
 	}
@@ -2246,7 +2246,7 @@ func TestInitializeModels_OnlyWithModels(t *testing.T) {
 	model2 := newDummyModel()
 
 	opts := &Options{
-		Models: map[string]model.Model{
+		Models: map[string]compat.Model{
 			"model1": model1,
 			"model2": model2,
 		},
@@ -2268,7 +2268,7 @@ func TestInitializeModels_BothWithModelAndModels(t *testing.T) {
 
 	opts := &Options{
 		Model: model1,
-		Models: map[string]model.Model{
+		Models: map[string]compat.Model{
 			"model2": model2,
 			"model3": model3,
 		},
@@ -2289,7 +2289,7 @@ func TestInitializeModels_WithModelInModelsMap(t *testing.T) {
 
 	opts := &Options{
 		Model: model1,
-		Models: map[string]model.Model{
+		Models: map[string]compat.Model{
 			"model1": model1,
 			"model2": model2,
 		},
@@ -2307,26 +2307,26 @@ func TestInitializeModels_WithModelInModelsMap(t *testing.T) {
 func TestLLMAgent_RunWithModel(t *testing.T) {
 	// Create two mock models with different responses.
 	defaultModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from default model",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 100},
+			Usage: &compat.Usage{TotalTokens: 100},
 		},
 	}
 
 	customModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from custom model",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 200},
+			Usage: &compat.Usage{TotalTokens: 200},
 		},
 	}
 
@@ -2340,7 +2340,7 @@ func TestLLMAgent_RunWithModel(t *testing.T) {
 	inv1 := &agent.Invocation{
 		InvocationID: "test-1",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message 1"),
+		Message:      compat.NewUserMessage("Test message 1"),
 		RunOptions:   agent.RunOptions{},
 	}
 
@@ -2351,7 +2351,7 @@ func TestLLMAgent_RunWithModel(t *testing.T) {
 	inv2 := &agent.Invocation{
 		InvocationID: "test-2",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message 2"),
+		Message:      compat.NewUserMessage("Test message 2"),
 		RunOptions: agent.RunOptions{
 			Model: customModel,
 		},
@@ -2368,33 +2368,33 @@ func TestLLMAgent_RunWithModel(t *testing.T) {
 func TestLLMAgent_RunWithModelName(t *testing.T) {
 	// Create multiple mock models.
 	gpt4Model := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from GPT-4",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 150},
+			Usage: &compat.Usage{TotalTokens: 150},
 		},
 	}
 
 	gpt35Model := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from GPT-3.5",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 80},
+			Usage: &compat.Usage{TotalTokens: 80},
 		},
 	}
 
 	// Create agent with multiple models registered.
 	llmAgent := New(
 		"test-agent",
-		WithModels(map[string]model.Model{
+		WithModels(map[string]compat.Model{
 			"gpt-4":   gpt4Model,
 			"gpt-3.5": gpt35Model,
 		}),
@@ -2404,7 +2404,7 @@ func TestLLMAgent_RunWithModelName(t *testing.T) {
 	inv1 := &agent.Invocation{
 		InvocationID: "test-1",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message 1"),
+		Message:      compat.NewUserMessage("Test message 1"),
 		RunOptions: agent.RunOptions{
 			ModelName: "gpt-4",
 		},
@@ -2417,7 +2417,7 @@ func TestLLMAgent_RunWithModelName(t *testing.T) {
 	inv2 := &agent.Invocation{
 		InvocationID: "test-2",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message 2"),
+		Message:      compat.NewUserMessage("Test message 2"),
 		RunOptions: agent.RunOptions{
 			ModelName: "gpt-3.5",
 		},
@@ -2430,14 +2430,14 @@ func TestLLMAgent_RunWithModelName(t *testing.T) {
 // TestLLMAgent_RunWithModelName_NotFound tests fallback when model name is not found.
 func TestLLMAgent_RunWithModelName_NotFound(t *testing.T) {
 	defaultModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from default model",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 100},
+			Usage: &compat.Usage{TotalTokens: 100},
 		},
 	}
 
@@ -2451,7 +2451,7 @@ func TestLLMAgent_RunWithModelName_NotFound(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "test-1",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message"),
+		Message:      compat.NewUserMessage("Test message"),
 		RunOptions: agent.RunOptions{
 			ModelName: "non-existent-model",
 		},
@@ -2467,14 +2467,14 @@ func TestLLMAgent_BaseModelForInvocation_MissingModelNameSuppressesAgentSelector
 	llmAgent := New(
 		"test-agent",
 		WithModel(defaultModel),
-		WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+		WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 			return selectorModel, nil
 		}),
 	)
 	inv := &agent.Invocation{
 		InvocationID: "test-1",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message"),
+		Message:      compat.NewUserMessage("Test message"),
 		RunOptions: agent.RunOptions{
 			ModelName: "non-existent-model",
 		},
@@ -2488,33 +2488,33 @@ func TestLLMAgent_BaseModelForInvocation_MissingModelNameSuppressesAgentSelector
 // TestLLMAgent_RunWithModel_Priority tests that WithModel takes priority over WithModelName.
 func TestLLMAgent_RunWithModel_Priority(t *testing.T) {
 	modelFromWithModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from WithModel",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 300},
+			Usage: &compat.Usage{TotalTokens: 300},
 		},
 	}
 
 	namedModel := &mockModelWithResponse{
-		response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+		response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Response from named model",
 				},
 			}},
-			Usage: &model.Usage{TotalTokens: 250},
+			Usage: &compat.Usage{TotalTokens: 250},
 		},
 	}
 
 	// Create agent with named models.
 	llmAgent := New(
 		"test-agent",
-		WithModels(map[string]model.Model{
+		WithModels(map[string]compat.Model{
 			"named-model": namedModel,
 		}),
 	)
@@ -2523,7 +2523,7 @@ func TestLLMAgent_RunWithModel_Priority(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "test-1",
 		AgentName:    "test-agent",
-		Message:      model.NewUserMessage("Test message"),
+		Message:      compat.NewUserMessage("Test message"),
 		RunOptions: agent.RunOptions{
 			Model:     modelFromWithModel,
 			ModelName: "named-model",
@@ -2551,7 +2551,7 @@ func TestLLMAgent_SetupInvocation_PropagatesMaxLimits(t *testing.T) {
 	invWithLimits := &agent.Invocation{
 		InvocationID: "inv-with-limits",
 		AgentName:    "limits-agent",
-		Message:      model.NewUserMessage("hello"),
+		Message:      compat.NewUserMessage("hello"),
 	}
 
 	llmWithLimits.setupInvocation(invWithLimits)
@@ -2567,7 +2567,7 @@ func TestLLMAgent_SetupInvocation_PropagatesMaxLimits(t *testing.T) {
 	invNoLimits := &agent.Invocation{
 		InvocationID: "inv-no-limits",
 		AgentName:    "no-limits-agent",
-		Message:      model.NewUserMessage("hello"),
+		Message:      compat.NewUserMessage("hello"),
 	}
 
 	llmNoLimits.setupInvocation(invNoLimits)

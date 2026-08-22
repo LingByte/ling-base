@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -55,7 +55,7 @@ func (a *persistentHistoryTestAgent) Run(
 				continue
 			}
 			msg := evt.Response.Choices[0].Message
-			if msg.Role == model.RoleAssistant && msg.Content != "" {
+			if msg.Role == compat.RoleAssistant && msg.Content != "" {
 				prev = append(prev, msg.Content)
 			}
 		}
@@ -68,11 +68,11 @@ func (a *persistentHistoryTestAgent) Run(
 
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		},
 	}
@@ -106,11 +106,11 @@ func (a *constantReplyAgent) Run(
 ) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(a.content),
+				Message: compat.NewAssistantMessage(a.content),
 			}},
 		},
 	}
@@ -133,14 +133,14 @@ type persistentHistoryStreamingAgent struct {
 
 	mu       sync.Mutex
 	calls    int
-	requests [][]model.Message
+	requests [][]compat.Message
 }
 
 func (a *persistentHistoryStreamingAgent) Run(
 	ctx context.Context,
 	inv *coreagent.Invocation,
 ) (<-chan *event.Event, error) {
-	var request []model.Message
+	var request []compat.Message
 	if inv != nil {
 		if inv.Session != nil {
 			filterKey := inv.GetEventFilterKey()
@@ -152,7 +152,7 @@ func (a *persistentHistoryStreamingAgent) Run(
 					continue
 				}
 				msg := evt.Response.Choices[0].Message
-				if msg.Role == model.RoleUser || msg.Role == model.RoleAssistant {
+				if msg.Role == compat.RoleUser || msg.Role == compat.RoleAssistant {
 					request = append(request, msg)
 				}
 			}
@@ -166,7 +166,7 @@ func (a *persistentHistoryStreamingAgent) Run(
 	a.mu.Lock()
 	a.calls++
 	call := a.calls
-	a.requests = append(a.requests, append([]model.Message(nil), request...))
+	a.requests = append(a.requests, append([]compat.Message(nil), request...))
 	a.mu.Unlock()
 
 	ch := make(chan *event.Event, 2)
@@ -184,7 +184,7 @@ func (a *persistentHistoryStreamingAgent) Run(
 			ch <- event.NewErrorEvent(
 				inv.InvocationID,
 				a.name,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				err.Error(),
 			)
 			return
@@ -192,10 +192,10 @@ func (a *persistentHistoryStreamingAgent) Run(
 		ch <- event.NewResponseEvent(
 			inv.InvocationID,
 			a.name,
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(fmt.Sprintf("A%d", call)),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(fmt.Sprintf("A%d", call)),
 				}},
 			},
 		)
@@ -210,12 +210,12 @@ func (a *persistentHistoryStreamingAgent) Info() coreagent.Info {
 func (a *persistentHistoryStreamingAgent) SubAgents() []coreagent.Agent        { return nil }
 func (a *persistentHistoryStreamingAgent) FindSubAgent(string) coreagent.Agent { return nil }
 
-func (a *persistentHistoryStreamingAgent) requestHistory() [][]model.Message {
+func (a *persistentHistoryStreamingAgent) requestHistory() [][]compat.Message {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	requests := make([][]model.Message, len(a.requests))
+	requests := make([][]compat.Message, len(a.requests))
 	for i := range a.requests {
-		requests[i] = append([]model.Message(nil), a.requests[i]...)
+		requests[i] = append([]compat.Message(nil), a.requests[i]...)
 	}
 	return requests
 }
@@ -266,7 +266,7 @@ func (a *persistentHistoryRunnerAgent) Run(
 				out <- event.NewErrorEvent(
 					inv.InvocationID,
 					a.name,
-					model.ErrorTypeFlowError,
+					compat.ErrorTypeFlowError,
 					recvErr.Error(),
 				)
 				return
@@ -280,10 +280,10 @@ func (a *persistentHistoryRunnerAgent) Run(
 		final := event.NewResponseEvent(
 			inv.InvocationID,
 			a.name,
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(fmt.Sprintf("root-%d", call)),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(fmt.Sprintf("root-%d", call)),
 				}},
 			},
 		)
@@ -323,7 +323,7 @@ func (a *prevCountAgent) Run(
 				continue
 			}
 			msg := evt.Response.Choices[0].Message
-			if msg.Role == model.RoleAssistant && msg.Content != "" {
+			if msg.Role == compat.RoleAssistant && msg.Content != "" {
 				count++
 			}
 		}
@@ -331,11 +331,11 @@ func (a *prevCountAgent) Run(
 
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(fmt.Sprintf("prev=%d", count)),
+				Message: compat.NewAssistantMessage(fmt.Sprintf("prev=%d", count)),
 			}},
 		},
 	}
@@ -401,7 +401,7 @@ func TestTool_PersistentHistory_StreamableCall_MultiRoundRunnerHistory(t *testin
 			context.Background(),
 			"user",
 			"session",
-			model.NewUserMessage(fmt.Sprintf("turn-%d", i)),
+			compat.NewUserMessage(fmt.Sprintf("turn-%d", i)),
 			coreagent.WithStream(true),
 		)
 		require.NoError(t, err)
@@ -414,14 +414,14 @@ func TestTool_PersistentHistory_StreamableCall_MultiRoundRunnerHistory(t *testin
 	requests := child.requestHistory()
 	require.Len(t, requests, 4)
 	for i, request := range requests {
-		var want []model.Message
+		var want []compat.Message
 		for previous := 1; previous <= i; previous++ {
 			want = append(want,
-				model.NewUserMessage(fmt.Sprintf(`{"request":"U%d"}`, previous)),
-				model.NewAssistantMessage(fmt.Sprintf("A%d", previous)),
+				compat.NewUserMessage(fmt.Sprintf(`{"request":"U%d"}`, previous)),
+				compat.NewAssistantMessage(fmt.Sprintf("A%d", previous)),
 			)
 		}
-		want = append(want, model.NewUserMessage(fmt.Sprintf(`{"request":"U%d"}`, i+1)))
+		want = append(want, compat.NewUserMessage(fmt.Sprintf(`{"request":"U%d"}`, i+1)))
 		require.Equal(t, want, request, "child request history on round %d", i+1)
 	}
 }
@@ -568,7 +568,7 @@ func TestTool_PersistentHistory_ParentFilterExcludesChildEvents(t *testing.T) {
 	parent := coreagent.NewInvocation(
 		coreagent.WithInvocationSession(sess),
 		coreagent.WithInvocationEventFilterKey("parent"),
-		coreagent.WithInvocationMessage(model.NewUserMessage("parent ask")),
+		coreagent.WithInvocationMessage(compat.NewUserMessage("parent ask")),
 	)
 	parent.AgentName = "parent"
 	ctx := coreagent.NewInvocationContext(context.Background(), parent)
@@ -583,7 +583,7 @@ func TestTool_PersistentHistory_ParentFilterExcludesChildEvents(t *testing.T) {
 			continue
 		}
 		msg := evt.Response.Choices[0].Message
-		if msg.Role == model.RoleAssistant && msg.Content == childInternal {
+		if msg.Role == compat.RoleAssistant && msg.Content == childInternal {
 			foundChildInternal = true
 			break
 		}
@@ -597,16 +597,16 @@ func TestTool_PersistentHistory_ParentFilterExcludesChildEvents(t *testing.T) {
 	toolCallEvt := event.NewResponseEvent(
 		parent.InvocationID,
 		parent.AgentName,
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   toolCallID,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      at.Declaration().Name,
 							Arguments: []byte(`{"request":"ignored"}`),
 						},
@@ -618,20 +618,20 @@ func TestTool_PersistentHistory_ParentFilterExcludesChildEvents(t *testing.T) {
 	coreagent.InjectIntoEvent(parent, toolCallEvt)
 	sess.Events = append(sess.Events, *toolCallEvt)
 
-	toolMsg := model.NewToolMessage(toolCallID, at.Declaration().Name, parentToolOut)
+	toolMsg := compat.NewToolMessage(toolCallID, at.Declaration().Name, parentToolOut)
 	toolEvt := event.NewResponseEvent(
 		parent.InvocationID,
 		parent.AgentName,
-		&model.Response{
+		&compat.Response{
 			Done:    true,
-			Object:  model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{Index: 0, Message: toolMsg}},
+			Object:  compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{Index: 0, Message: toolMsg}},
 		},
 	)
 	coreagent.InjectIntoEvent(parent, toolEvt)
 	sess.Events = append(sess.Events, *toolEvt)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	p := processor.NewContentRequestProcessor()
 	p.ProcessRequest(context.Background(), parent, req, nil)
 

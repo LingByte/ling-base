@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type progressAccumulator struct {
@@ -50,7 +50,7 @@ func (a *progressAccumulator) snapshot() *Progress {
 	return cloneProgress(&a.progress)
 }
 
-func (a *progressAccumulator) addUsage(usage *model.Usage) {
+func (a *progressAccumulator) addUsage(usage *compat.Usage) {
 	if usage == nil {
 		return
 	}

@@ -19,31 +19,32 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/LingByte/ling-base/agentkit/tool"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const currentDatePlaceholder = "{current_date}"
 
-// mockModel is a mock implementation of model.Model for testing.
+// mockModel is a mock implementation of compat.Model for testing.
 type mockModel struct {
 	name      string
-	responses []*model.Response
+	responses []*compat.Response
 	err       error
 
 	called      int
-	lastRequest *model.Request
+	lastRequest *compat.Request
 }
 
 func (m *mockModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.called++
 	m.lastRequest = request
 	if m.err != nil {
 		return nil, m.err
 	}
-	ch := make(chan *model.Response, len(m.responses))
+	ch := make(chan *compat.Response, len(m.responses))
 	for _, rsp := range m.responses {
 		ch <- rsp
 	}
@@ -51,8 +52,8 @@ func (m *mockModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type blockingModel struct {
@@ -61,14 +62,14 @@ type blockingModel struct {
 
 func (m *blockingModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	// The channel is intentionally never closed to exercise context timeout handling.
-	return make(chan *model.Response), nil
+	return make(chan *compat.Response), nil
 }
 
-func (m *blockingModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *blockingModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type nilChannelModel struct {
@@ -77,24 +78,24 @@ type nilChannelModel struct {
 
 func (m *nilChannelModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	return nil, nil
 }
 
-func (m *nilChannelModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *nilChannelModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 // newMockModelWithToolCalls creates a mock model that returns tool calls.
-func newMockModelWithToolCalls(toolCalls []model.ToolCall) *mockModel {
+func newMockModelWithToolCalls(toolCalls []compat.ToolCall) *mockModel {
 	return &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
+						Message: compat.Message{
 							ToolCalls: toolCalls,
 						},
 					},
@@ -105,10 +106,10 @@ func newMockModelWithToolCalls(toolCalls []model.ToolCall) *mockModel {
 }
 
 // makeToolCall creates a ToolCall with the given name and arguments.
-func makeToolCall(name string, args []byte) model.ToolCall {
-	return model.ToolCall{
+func makeToolCall(name string, args []byte) compat.ToolCall {
+	return compat.ToolCall{
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      name,
 			Arguments: args,
 		},
@@ -150,8 +151,8 @@ func TestNewExtractor(t *testing.T) {
 
 func TestExtractor_Extract_NoModel(t *testing.T) {
 	e := NewExtractor(nil)
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.Error(t, err)
@@ -176,8 +177,8 @@ func TestExtractor_Extract_ModelError(t *testing.T) {
 	}
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.Error(t, err)
@@ -188,8 +189,8 @@ func TestExtractor_Extract_ModelError(t *testing.T) {
 func TestExtractor_Extract_NilResponseChannel(t *testing.T) {
 	e := NewExtractor(&nilChannelModel{name: "nil-channel"})
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("remember that I like tea"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("remember that I like tea"),
 	}, nil)
 
 	require.Error(t, err)
@@ -204,8 +205,8 @@ func TestExtractor_Extract_ContextTimeoutWhileWaitingForResponse(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	ops, err := e.Extract(ctx, []model.Message{
-		model.NewUserMessage("remember that I like coffee"),
+	ops, err := e.Extract(ctx, []compat.Message{
+		compat.NewUserMessage("remember that I like coffee"),
 	}, nil)
 
 	require.Error(t, err)
@@ -217,9 +218,9 @@ func TestExtractor_Extract_ContextTimeoutWhileWaitingForResponse(t *testing.T) {
 func TestExtractor_Extract_ResponseError(t *testing.T) {
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Message: "API error",
 				},
 			},
@@ -227,8 +228,8 @@ func TestExtractor_Extract_ResponseError(t *testing.T) {
 	}
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.Error(t, err)
@@ -239,26 +240,26 @@ func TestExtractor_Extract_ResponseError(t *testing.T) {
 func TestExtractor_Extract_BeforeModelCallback_ModifiesRequest(t *testing.T) {
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{{
-			Choices: []model.Choice{{
-				Message: model.Message{},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		}},
 	}
 
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(_ context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(_ context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			args.Request.Messages = append(
 				args.Request.Messages,
-				model.NewUserMessage("sentinel"),
+				compat.NewUserMessage("sentinel"),
 			)
 			return nil, nil
 		},
 	)
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	require.NoError(t, err)
@@ -273,24 +274,24 @@ func TestExtractor_Extract_BeforeModelCallback_ShortCircuit(t *testing.T) {
 	args, _ := json.Marshal(map[string]any{
 		"memory": "User likes coffee.",
 	})
-	customResp := &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				ToolCalls: []model.ToolCall{makeToolCall(memory.AddToolName, args)},
+	customResp := &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				ToolCalls: []compat.ToolCall{makeToolCall(memory.AddToolName, args)},
 			},
 		}},
 	}
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(_ context.Context, _ *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{CustomResponse: customResp}, nil
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(_ context.Context, _ *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{CustomResponse: customResp}, nil
 		},
 	)
 
 	m := &mockModel{name: "test-model", err: errors.New("should not call")}
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	require.NoError(t, err)
@@ -301,8 +302,8 @@ func TestExtractor_Extract_BeforeModelCallback_ShortCircuit(t *testing.T) {
 }
 
 func TestExtractor_Extract_BeforeModelCallback_Error(t *testing.T) {
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(_ context.Context, _ *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(_ context.Context, _ *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			return nil, errors.New("before failed")
 		},
 	)
@@ -310,8 +311,8 @@ func TestExtractor_Extract_BeforeModelCallback_Error(t *testing.T) {
 	m := &mockModel{name: "test-model"}
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.Error(t, err)
@@ -327,17 +328,17 @@ func TestExtractor_Extract_AfterModelCallback_OverridesError(t *testing.T) {
 
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{{
-			Error: &model.ResponseError{Message: "API error"},
+		responses: []*compat.Response{{
+			Error: &compat.ResponseError{Message: "API error"},
 		}},
 	}
 
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(_ context.Context, _ *model.AfterModelArgs) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{CustomResponse: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{makeToolCall(memory.AddToolName, args)},
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(_ context.Context, _ *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{CustomResponse: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{makeToolCall(memory.AddToolName, args)},
 					},
 				}},
 			}}, nil
@@ -345,8 +346,8 @@ func TestExtractor_Extract_AfterModelCallback_OverridesError(t *testing.T) {
 	)
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	require.NoError(t, err)
@@ -358,22 +359,22 @@ func TestExtractor_Extract_AfterModelCallback_OverridesError(t *testing.T) {
 func TestExtractor_Extract_AfterModelCallback_Error(t *testing.T) {
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{{
-			Choices: []model.Choice{{
-				Message: model.Message{},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{},
 			}},
 		}},
 	}
 
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(_ context.Context, _ *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(_ context.Context, _ *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			return nil, errors.New("after failed")
 		},
 	)
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.Error(t, err)
@@ -386,13 +387,13 @@ func TestExtractor_Extract_AddOperation(t *testing.T) {
 		"memory": "User likes coffee.",
 		"topics": []string{"preferences", "food"},
 	})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.AddToolName, args),
 	})
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("I love coffee."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("I love coffee."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -408,7 +409,7 @@ func TestExtractor_Extract_UpdateOperation(t *testing.T) {
 		"memory":    "User now prefers tea.",
 		"topics":    []string{"preferences"},
 	})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.UpdateToolName, args),
 	})
 	e := NewExtractor(m)
@@ -421,8 +422,8 @@ func TestExtractor_Extract_UpdateOperation(t *testing.T) {
 			UserID:  "user-1",
 		},
 	}
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("Actually, I prefer tea now."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("Actually, I prefer tea now."),
 	}, existing)
 
 	require.NoError(t, err)
@@ -436,13 +437,13 @@ func TestExtractor_Extract_DeleteOperation(t *testing.T) {
 	args, _ := json.Marshal(map[string]any{
 		"memory_id": "mem-456",
 	})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.DeleteToolName, args),
 	})
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("Please forget my coffee preference."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("Please forget my coffee preference."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -459,14 +460,14 @@ func TestExtractor_Extract_MultipleOperations(t *testing.T) {
 		"memory_id": "mem-1",
 		"memory":    "User lives in Beijing.",
 	})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.AddToolName, addArgs),
 		makeToolCall(memory.UpdateToolName, updateArgs),
 	})
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("I'm a software engineer living in Beijing."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("I'm a software engineer living in Beijing."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -484,19 +485,19 @@ func TestExtractor_Extract_UsesOnlyFirstChoiceToolCalls(t *testing.T) {
 	})
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{
 								makeToolCall(memory.AddToolName, addArgs),
 							},
 						},
 					},
 					{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{
 								makeToolCall(memory.DeleteToolName, deleteArgs),
 							},
 						},
@@ -507,8 +508,8 @@ func TestExtractor_Extract_UsesOnlyFirstChoiceToolCalls(t *testing.T) {
 	}
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("Remember coffee and forget mem-1."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("Remember coffee and forget mem-1."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -519,14 +520,14 @@ func TestExtractor_Extract_UsesOnlyFirstChoiceToolCalls(t *testing.T) {
 func TestExtractor_Extract_EmptyChoices(t *testing.T) {
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{Choices: nil},
 		},
 	}
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.NoError(t, err)
@@ -653,9 +654,9 @@ func TestExtractor_ParseToolCall_InvalidJSON(t *testing.T) {
 	e := NewExtractor(m)
 	extractor := e.(*memoryExtractor)
 
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      memory.AddToolName,
 			Arguments: []byte("invalid json"),
 		},
@@ -673,9 +674,9 @@ func TestExtractor_ParseToolCall_UnknownTool(t *testing.T) {
 	args, _ := json.Marshal(map[string]any{
 		"memory": "test",
 	})
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "unknown_tool",
 			Arguments: args,
 		},
@@ -822,7 +823,7 @@ func TestExtractor_Extract_FilteredTools(t *testing.T) {
 	args, _ := json.Marshal(map[string]any{
 		"memory": "User likes coffee.",
 	})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.AddToolName, args),
 	})
 	e := NewExtractor(m)
@@ -833,8 +834,8 @@ func TestExtractor_Extract_FilteredTools(t *testing.T) {
 		memory.AddToolName: {},
 	})
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("I love coffee."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("I love coffee."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -843,7 +844,7 @@ func TestExtractor_Extract_FilteredTools(t *testing.T) {
 	// Verify the model request only contains enabled tools.
 	require.NotNil(t, m.lastRequest)
 	assert.Len(t, m.lastRequest.Tools, 1)
-	for name := range m.lastRequest.Tools {
+	for name := range m.lastRequest.Tools.(map[string]tool.Tool) {
 		assert.Equal(t, memory.AddToolName, name)
 	}
 }
@@ -930,21 +931,21 @@ func TestExtractor_BeforeModelCallback_UpdatesContext(t *testing.T) {
 	type ctxKey struct{}
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{}}},
 		}},
 	}
 
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			newCtx := context.WithValue(ctx, ctxKey{}, "injected")
-			return &model.BeforeModelResult{Context: newCtx}, nil
+			return &compat.BeforeModelResult{Context: newCtx}, nil
 		},
 	)
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	require.NoError(t, err)
@@ -955,21 +956,21 @@ func TestExtractor_AfterModelCallback_UpdatesContext(t *testing.T) {
 	type ctxKey struct{}
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{}}},
 		}},
 	}
 
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			newCtx := context.WithValue(ctx, ctxKey{}, "injected")
-			return &model.AfterModelResult{Context: newCtx}, nil
+			return &compat.AfterModelResult{Context: newCtx}, nil
 		},
 	)
 	e := NewExtractor(m, WithModelCallbacks(callbacks))
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	require.NoError(t, err)
@@ -979,15 +980,15 @@ func TestExtractor_AfterModelCallback_UpdatesContext(t *testing.T) {
 func TestExtractor_Extract_NilResponseInStream(t *testing.T) {
 	m := &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			nil,
-			{Choices: []model.Choice{{Message: model.Message{}}}},
+			{Choices: []compat.Choice{{Message: compat.Message{}}}},
 		},
 	}
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("hello"),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("hello"),
 	}, nil)
 
 	assert.NoError(t, err)
@@ -996,13 +997,13 @@ func TestExtractor_Extract_NilResponseInStream(t *testing.T) {
 
 func TestExtractor_Extract_ClearOperation(t *testing.T) {
 	args, _ := json.Marshal(map[string]any{})
-	m := newMockModelWithToolCalls([]model.ToolCall{
+	m := newMockModelWithToolCalls([]compat.ToolCall{
 		makeToolCall(memory.ClearToolName, args),
 	})
 	e := NewExtractor(m)
 
-	ops, err := e.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("Forget everything about me."),
+	ops, err := e.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("Forget everything about me."),
 	}, nil)
 
 	require.NoError(t, err)
@@ -1049,11 +1050,11 @@ func TestModelErrFromResponse(t *testing.T) {
 		assert.Nil(t, modelErrFromResponse(nil))
 	})
 	t.Run("nil error", func(t *testing.T) {
-		assert.Nil(t, modelErrFromResponse(&model.Response{}))
+		assert.Nil(t, modelErrFromResponse(&compat.Response{}))
 	})
 	t.Run("with error", func(t *testing.T) {
-		resp := &model.Response{
-			Error: &model.ResponseError{
+		resp := &compat.Response{
+			Error: &compat.ResponseError{
 				Type:    "invalid_request",
 				Message: "bad input",
 			},
@@ -1070,49 +1071,49 @@ func TestBuildMessages_TrailingAssistantSuffix(t *testing.T) {
 	ext := NewExtractor(m).(*memoryExtractor)
 
 	t.Run("ends with assistant appends user", func(t *testing.T) {
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
-			model.NewAssistantMessage("hi there"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
+			compat.NewAssistantMessage("hi there"),
 		}
 		result := ext.buildMessages(
 			context.Background(), msgs, nil,
 		)
 		// system + user + assistant + trailing user.
 		require.Len(t, result, 4)
-		assert.Equal(t, model.RoleSystem,
+		assert.Equal(t, compat.RoleSystem,
 			result[0].Role)
-		assert.Equal(t, model.RoleUser,
+		assert.Equal(t, compat.RoleUser,
 			result[len(result)-1].Role)
 		assert.Equal(t, extractionUserSuffix,
 			result[len(result)-1].Content)
 	})
 
 	t.Run("ends with user no suffix", func(t *testing.T) {
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
 		}
 		result := ext.buildMessages(
 			context.Background(), msgs, nil,
 		)
 		// system + user.
 		require.Len(t, result, 2)
-		assert.Equal(t, model.RoleUser,
+		assert.Equal(t, compat.RoleUser,
 			result[len(result)-1].Role)
 		assert.Equal(t, "hello",
 			result[len(result)-1].Content)
 	})
 
 	t.Run("ends with tool no suffix", func(t *testing.T) {
-		msgs := []model.Message{
-			model.NewUserMessage("search for X"),
-			model.NewToolMessage("t1", "search", "result"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("search for X"),
+			compat.NewToolMessage("t1", "search", "result"),
 		}
 		result := ext.buildMessages(
 			context.Background(), msgs, nil,
 		)
 		// system + user + tool.
 		require.Len(t, result, 3)
-		assert.Equal(t, model.RoleTool,
+		assert.Equal(t, compat.RoleTool,
 			result[len(result)-1].Role)
 	})
 
@@ -1121,14 +1122,14 @@ func TestBuildMessages_TrailingAssistantSuffix(t *testing.T) {
 			// When the trailing assistant message carries
 			// tool_calls, appending a user message would
 			// break the tool-call → tool-result ordering.
-			msgs := []model.Message{
-				model.NewUserMessage("check weather"),
+			msgs := []compat.Message{
+				compat.NewUserMessage("check weather"),
 				{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   "call_1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name: "get_weather",
 							Arguments: []byte(
 								`{"city":"Beijing"}`),
@@ -1142,7 +1143,7 @@ func TestBuildMessages_TrailingAssistantSuffix(t *testing.T) {
 			// system + user + assistant(tool_calls).
 			// No trailing user message appended.
 			require.Len(t, result, 3)
-			assert.Equal(t, model.RoleAssistant,
+			assert.Equal(t, compat.RoleAssistant,
 				result[len(result)-1].Role)
 			assert.NotEmpty(t,
 				result[len(result)-1].ToolCalls)
@@ -1155,14 +1156,14 @@ func TestBuildMessages_TrailingAssistantSuffix(t *testing.T) {
 			"memory": "User said hello.",
 			"topics": []string{"greeting"},
 		})
-		mm := newMockModelWithToolCalls([]model.ToolCall{
+		mm := newMockModelWithToolCalls([]compat.ToolCall{
 			makeToolCall(memory.AddToolName, args),
 		})
 		e := NewExtractor(mm)
 
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
-			model.NewAssistantMessage("hi there"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
+			compat.NewAssistantMessage("hi there"),
 		}
 		ops, err := e.Extract(
 			context.Background(), msgs, nil,
@@ -1173,6 +1174,6 @@ func TestBuildMessages_TrailingAssistantSuffix(t *testing.T) {
 		// Verify the request sent to the model ends
 		// with a user message.
 		last := mm.lastRequest.Messages[len(mm.lastRequest.Messages)-1]
-		assert.Equal(t, model.RoleUser, last.Role)
+		assert.Equal(t, compat.RoleUser, last.Role)
 	})
 }

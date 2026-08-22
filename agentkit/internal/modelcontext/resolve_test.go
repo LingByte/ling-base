@@ -14,12 +14,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestResolveContextWindowUsesInstanceBeforeRegistry(t *testing.T) {
 	const modelName = "resolve-instance-window"
-	model.RegisterModelContextWindow(modelName, 12345)
+	compat.RegisterModelContextWindow(modelName, 12345)
 
 	window, ok := ResolveContextWindow(contextWindowTestModel{
 		name:   modelName,
@@ -41,7 +41,7 @@ func TestResolveInputTokenBudgetUsesOptionalCapability(t *testing.T) {
 	_, ok := ResolveInputTokenBudget(
 		context.Background(),
 		nil,
-		&model.Request{},
+		&compat.Request{},
 	)
 	assert.False(t, ok)
 
@@ -49,7 +49,7 @@ func TestResolveInputTokenBudgetUsesOptionalCapability(t *testing.T) {
 	budget, ok := ResolveInputTokenBudget(
 		context.Background(),
 		m,
-		&model.Request{},
+		&compat.Request{},
 	)
 	assert.True(t, ok)
 	assert.Equal(t, 1234, budget)
@@ -57,14 +57,14 @@ func TestResolveInputTokenBudgetUsesOptionalCapability(t *testing.T) {
 	_, ok = ResolveInputTokenBudget(
 		context.Background(),
 		contextWindowOnlyTestModel{},
-		&model.Request{},
+		&compat.Request{},
 	)
 	assert.False(t, ok)
 
 	_, ok = ResolveInputTokenBudget(
 		context.Background(),
 		contextWindowTestModel{name: "zero-budget"},
-		&model.Request{},
+		&compat.Request{},
 	)
 	assert.False(t, ok)
 }
@@ -77,15 +77,15 @@ type contextWindowTestModel struct {
 
 func (m contextWindowTestModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m contextWindowTestModel) Info() model.Info {
-	return model.Info{
+func (m contextWindowTestModel) Info() compat.Info {
+	return compat.Info{
 		Name:          m.name,
 		ContextWindow: m.window,
 	}
@@ -93,7 +93,7 @@ func (m contextWindowTestModel) Info() model.Info {
 
 func (m contextWindowTestModel) InputTokenBudget(
 	context.Context,
-	*model.Request,
+	*compat.Request,
 ) int {
 	return m.budget
 }
@@ -102,13 +102,13 @@ type contextWindowOnlyTestModel struct{}
 
 func (contextWindowOnlyTestModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (contextWindowOnlyTestModel) Info() model.Info {
-	return model.Info{Name: "context-only"}
+func (contextWindowOnlyTestModel) Info() compat.Info {
+	return compat.Info{Name: "context-only"}
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	imemory "github.com/LingByte/ling-base/agentkit/memory/internal/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/mysql"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -2219,7 +2219,7 @@ type mockExtractor struct {
 
 func (m *mockExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	m.extractCalled = true
@@ -2232,7 +2232,7 @@ func (m *mockExtractor) ShouldExtract(ctx *extractor.ExtractionContext) bool {
 
 func (m *mockExtractor) SetPrompt(prompt string) {}
 
-func (m *mockExtractor) SetModel(mdl model.Model) {}
+func (m *mockExtractor) SetModel(mdl compat.Model) {}
 
 func (m *mockExtractor) SetEnabledTools(enabled map[string]struct{}) {}
 

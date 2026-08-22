@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
 )
 
 func benchmarkAgent(b *testing.B) *Agent {
@@ -40,10 +39,10 @@ func BenchmarkAgentGenerate(b *testing.B) {
 func BenchmarkAgentGenerateWithFiles(b *testing.B) {
 	agent := benchmarkAgent(b)
 	ctx := context.Background()
-	files := []gomodel.File{
-		{Name: "one.txt", MIME: "text/plain", Data: []byte("one")},
-		{Name: "two.txt", MIME: "text/plain", Data: []byte("two")},
-		{Name: "three.txt", MIME: "text/plain", Data: []byte("three")},
+	files := []File{
+		{Name: "one.txt", MimeType: "text/plain", Data: []byte("one")},
+		{Name: "two.txt", MimeType: "text/plain", Data: []byte("two")},
+		{Name: "three.txt", MimeType: "text/plain", Data: []byte("three")},
 	}
 
 	b.ReportAllocs()

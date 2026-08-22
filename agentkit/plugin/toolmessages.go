@@ -13,7 +13,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // AfterToolMessagesArgs contains the model-facing context available after a
@@ -27,24 +27,24 @@ type AfterToolMessagesArgs struct {
 	// Invocation is the active invocation.
 	Invocation *agent.Invocation
 	// Request is the model request that produced ToolCallResponse.
-	Request *model.Request
+	Request *compat.Request
 	// ToolCallResponse is the assistant response containing tool calls.
-	ToolCallResponse *model.Response
+	ToolCallResponse *compat.Response
 	// ToolResultEvent is the event carrying the current tool result messages.
 	ToolResultEvent *event.Event
 	// Messages is the current conversation view, including tool results.
-	Messages []model.Message
+	Messages []compat.Message
 	// ToolCalls contains the assistant tool calls being answered.
-	ToolCalls []model.ToolCall
+	ToolCalls []compat.ToolCall
 	// ToolResultMessages contains the current tool result messages.
-	ToolResultMessages []model.Message
+	ToolResultMessages []compat.Message
 }
 
 // AfterToolMessagesResult contains replacements for tool result messages.
 type AfterToolMessagesResult struct {
 	// ToolResultMessages replaces the current tool result messages when non-empty.
 	// The framework validates that replacements preserve the same tool IDs.
-	ToolResultMessages []model.Message
+	ToolResultMessages []compat.Message
 }
 
 // AfterToolMessagesCallback is called after tool results are converted into

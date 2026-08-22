@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evolution"
 	"github.com/LingByte/ling-base/agentkit/internal/jsonrepair"
 	"github.com/LingByte/ling-base/agentkit/internal/redact"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -62,7 +62,7 @@ type reflector interface {
 }
 
 type llmReflector struct {
-	model model.Model
+	model compat.Model
 }
 
 type reflectionResponse struct {
@@ -83,7 +83,7 @@ type reflectionRecord struct {
 	Trace    string  `json:"trace,omitempty"`
 }
 
-func newLLMReflector(m model.Model) reflector {
+func newLLMReflector(m compat.Model) reflector {
 	return &llmReflector{model: m}
 }
 
@@ -102,12 +102,12 @@ func (r *llmReflector) propose(
 		return mutation{}, err
 	}
 	example := &reflectionResponse{}
-	req := model.NewRequest(
-		[]model.Message{
-			{Role: model.RoleSystem, Content: reflectionSystemPrompt},
-			{Role: model.RoleUser, Content: prompt},
+	req := compat.NewRequest(
+		[]compat.Message{
+			{Role: compat.RoleSystem, Content: reflectionSystemPrompt},
+			{Role: compat.RoleUser, Content: prompt},
 		},
-		model.WithStructuredOutputJSON(example, true, "one skill component mutation"),
+		compat.WithStructuredOutputJSON(example, true, "one skill component mutation"),
 	)
 	maxTokens := reflectionMaxOutputTokens
 	req.GenerationConfig.MaxTokens = &maxTokens
@@ -225,7 +225,7 @@ func reflectionRejection(cause error) error {
 	return fmt.Errorf("%w: %w", errReflectionRejected, cause)
 }
 
-func generateText(ctx context.Context, m model.Model, req *model.Request) (string, error) {
+func generateText(ctx context.Context, m compat.Model, req *compat.Request) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -233,7 +233,7 @@ func generateText(ctx context.Context, m model.Model, req *model.Request) (strin
 		return "", err
 	}
 	type generationResult struct {
-		responses <-chan *model.Response
+		responses <-chan *compat.Response
 		err       error
 	}
 	started := make(chan generationResult, 1)

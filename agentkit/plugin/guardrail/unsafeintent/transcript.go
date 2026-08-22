@@ -11,13 +11,13 @@ package unsafeintent
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/currentinput"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 	unsafereview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/unsafeintent/review"
 )
 
-func (p *Plugin) buildReviewRequest(ctx context.Context, messages []model.Message) *unsafereview.Request {
+func (p *Plugin) buildReviewRequest(ctx context.Context, messages []compat.Message) *unsafereview.Request {
 	req := currentinput.Build(ctx, messages, p.tokenCounter, func(entry guardtranscript.Entry) unsafereview.TranscriptEntry {
 		return unsafereview.TranscriptEntry{
 			Role:    entry.Role,

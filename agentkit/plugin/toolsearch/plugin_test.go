@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore/inmemory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -262,18 +262,18 @@ func TestBeforeModel_InjectsSearchToolAndCatalog(t *testing.T) {
 	}))
 	ctx, _ := ctxWithInvocation()
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "Tools:\n" + Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "Tools:\n" + Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
-	_, ok := req.Tools[toolSearchToolName]
+	_, ok := req.Tools.(map[string]tool.Tool)[toolSearchToolName]
 	assert.True(t, ok, "tool_search must be injected")
 	assert.Contains(t, req.Messages[0].Content, "<toolbox-catalog>")
 	assert.Contains(t, req.Messages[0].Content, "billing")
 	// Deferred tool schema must NOT be injected before it is loaded.
-	_, loaded := req.Tools["create_invoice"]
+	_, loaded := req.Tools.(map[string]tool.Tool)["create_invoice"]
 	assert.False(t, loaded)
 }
 
@@ -285,10 +285,10 @@ func TestBeforeModel_InjectsLoadedToolSchema(t *testing.T) {
 
 	callSearch(t, ctx, p, toolSearchInput{ToolNames: []string{"create_invoice"}})
 
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["create_invoice"]
+	_, ok := req.Tools.(map[string]tool.Tool)["create_invoice"]
 	assert.True(t, ok, "loaded deferred tool schema must be injected")
 }
 
@@ -296,10 +296,10 @@ func TestBeforeModel_LegacyDeferredRendering(t *testing.T) {
 	p := New(nil, WithDeferredTools([]tool.Tool{newTestTool("send_email", "x")}))
 	ctx, _ := ctxWithInvocation()
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Contains(t, req.Messages[0].Content, "<available-deferred-tools>")
 	assert.Contains(t, req.Messages[0].Content, "send_email")
@@ -413,12 +413,12 @@ func TestSessionState_PersistsAcrossLoad(t *testing.T) {
 	callSearch(t, ctx, p, toolSearchInput{ToolNames: []string{"send_email"}})
 	callSearch(t, ctx, p, toolSearchInput{ToolNames: []string{"create_doc"}})
 
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["send_email"]
+	_, ok := req.Tools.(map[string]tool.Tool)["send_email"]
 	assert.True(t, ok, "send_email should be injected after loading")
-	_, ok = req.Tools["create_doc"]
+	_, ok = req.Tools.(map[string]tool.Tool)["create_doc"]
 	assert.True(t, ok, "create_doc should be injected after loading")
 }
 
@@ -477,12 +477,12 @@ func TestSessionState_ParallelLoadsMergeInSharedSession(t *testing.T) {
 	}
 
 	// Both schemas should be injected on the next model turn.
-	req := &model.Request{}
-	_, err := p.beforeModel(ctxA, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctxA, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["send_email"]
+	_, ok := req.Tools.(map[string]tool.Tool)["send_email"]
 	assert.True(t, ok, "send_email schema must be injected after parallel load")
-	_, ok = req.Tools["create_doc"]
+	_, ok = req.Tools.(map[string]tool.Tool)["create_doc"]
 	assert.True(t, ok, "create_doc schema must be injected after parallel load")
 }
 
@@ -569,7 +569,7 @@ func TestBeforeModel_NilArgs(t *testing.T) {
 func TestBeforeModel_NilRequest(t *testing.T) {
 	p := New(nil)
 	ctx, _ := ctxWithInvocation()
-	res, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: nil})
+	res, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: nil})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 }
@@ -577,7 +577,7 @@ func TestBeforeModel_NilRequest(t *testing.T) {
 func TestBeforeModel_NoInvocation(t *testing.T) {
 	p := New(nil)
 	ctx := context.Background() // no invocation
-	res, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: &model.Request{}})
+	res, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: &compat.Request{}})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 }
@@ -588,19 +588,19 @@ func TestBeforeModel_CatalogInDescription(t *testing.T) {
 	}))
 	ctx, _ := ctxWithInvocation()
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "Tools:\n" + Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "Tools:\n" + Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
-	_, ok := req.Tools[toolSearchToolName]
+	_, ok := req.Tools.(map[string]tool.Tool)[toolSearchToolName]
 	assert.True(t, ok, "tool_search must be injected")
 	// In catalogInDescription mode, placeholder should be stripped, not replaced with catalog.
 	assert.NotContains(t, req.Messages[0].Content, "<toolbox-catalog>")
 	assert.NotContains(t, req.Messages[0].Content, Placeholder)
 	// The catalog lives in the tool_search description.
-	found := req.Tools[toolSearchToolName]
+	found := req.Tools.(map[string]tool.Tool)[toolSearchToolName]
 	assert.Contains(t, found.Declaration().Description, "<toolbox-catalog>")
 }
 
@@ -611,7 +611,7 @@ func TestBeforeModel_WithSemanticToolIndex(t *testing.T) {
 	p := New(nil, WithSemanticToolIndex(k))
 	ctx, _ := ctxWithInvocation()
 
-	res, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: &model.Request{}})
+	res, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: &compat.Request{}})
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	// Context should be updated with usage accumulator.
@@ -664,10 +664,10 @@ func TestReplaceDeferredToolsPlaceholder_NoPlaceholderAppend(t *testing.T) {
 	p := New(nil, WithToolboxes([]Toolbox{
 		{Name: "billing", Description: "invoices", Tools: []tool.Tool{newTestTool("create_invoice", "x")}},
 	}))
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "System prompt without placeholder."}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "System prompt without placeholder."}},
 	}
-	p.replaceDeferredToolsPlaceholder(&model.BeforeModelArgs{Request: req}, nil)
+	p.replaceDeferredToolsPlaceholder(&compat.BeforeModelArgs{Request: req}, nil)
 	// Placeholder not found → catalog appended to the first system message.
 	assert.Contains(t, req.Messages[0].Content, "<toolbox-catalog>")
 }
@@ -676,33 +676,33 @@ func TestReplaceDeferredToolsPlaceholder_NoSystemMessage(t *testing.T) {
 	p := New(nil, WithToolboxes([]Toolbox{
 		{Name: "billing", Description: "invoices", Tools: []tool.Tool{newTestTool("create_invoice", "x")}},
 	}))
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "Hello"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "Hello"}},
 	}
-	p.replaceDeferredToolsPlaceholder(&model.BeforeModelArgs{Request: req}, nil)
+	p.replaceDeferredToolsPlaceholder(&compat.BeforeModelArgs{Request: req}, nil)
 	// No system message → one is prepended.
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "<toolbox-catalog>")
 }
 
 func TestReplaceDeferredToolsPlaceholder_EmptyCatalog(t *testing.T) {
 	// No toolboxes → empty catalog → nothing appended.
 	p := New(nil)
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "System prompt."}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "System prompt."}},
 	}
-	p.replaceDeferredToolsPlaceholder(&model.BeforeModelArgs{Request: req}, nil)
+	p.replaceDeferredToolsPlaceholder(&compat.BeforeModelArgs{Request: req}, nil)
 	// Should remain unchanged (no catalog, no placeholder to strip).
 	assert.Equal(t, "System prompt.", req.Messages[0].Content)
 }
 
 func TestReplaceDeferredToolsPlaceholder_CatalogInDescriptionStripsPlaceholder(t *testing.T) {
 	p := New(nil, WithCatalogInDescription(true))
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "Tools:\n" + Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "Tools:\n" + Placeholder}},
 	}
-	p.replaceDeferredToolsPlaceholder(&model.BeforeModelArgs{Request: req}, nil)
+	p.replaceDeferredToolsPlaceholder(&compat.BeforeModelArgs{Request: req}, nil)
 	assert.NotContains(t, req.Messages[0].Content, Placeholder, "placeholder stripped in catalogInDescription mode")
 }
 
@@ -874,10 +874,10 @@ func TestBeforeModel_AppendToSystemMessage(t *testing.T) {
 	ctx, _ := ctxWithInvocation()
 
 	// System message without placeholder → catalog appended.
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: "Hello"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: "Hello"}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Contains(t, req.Messages[0].Content, "Hello")
 	assert.Contains(t, req.Messages[0].Content, "<toolbox-catalog>")
@@ -890,14 +890,14 @@ func TestBeforeModel_PrependSystemMessage(t *testing.T) {
 	ctx, _ := ctxWithInvocation()
 
 	// No system message → prepend one.
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "hi"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "<toolbox-catalog>")
-	assert.Equal(t, model.RoleUser, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[1].Role)
 }
 
 func TestBeforeModel_CatalogWithPermissionFilter(t *testing.T) {
@@ -913,10 +913,10 @@ func TestBeforeModel_CatalogWithPermissionFilter(t *testing.T) {
 	}))
 	ctx, _ := ctxWithInvocation()
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Contains(t, req.Messages[0].Content, "allowed")
 	assert.NotContains(t, req.Messages[0].Content, "denied")
@@ -1058,12 +1058,12 @@ func TestInvocationMode_DefaultIsNativeToolCalls(t *testing.T) {
 
 	// beforeModel should inject the loaded tool as an individual function tool,
 	// and must NOT inject a call_tool function tool.
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["create_invoice"]
+	_, ok := req.Tools.(map[string]tool.Tool)["create_invoice"]
 	assert.True(t, ok, "loaded deferred tool schema must be injected in NativeToolCalls")
-	_, hasCallTool := req.Tools[callToolToolName]
+	_, hasCallTool := req.Tools.(map[string]tool.Tool)[callToolToolName]
 	assert.False(t, hasCallTool, "call_tool must not be injected in NativeToolCalls")
 
 	// tool_search description should be the direct-call variant.
@@ -1113,14 +1113,14 @@ func TestInvocationMode_DispatchToolCalls_InjectsCallTool(t *testing.T) {
 
 	// beforeModel must inject tool_search + call_tool, but NOT the loaded
 	// deferred tool as an individual function.
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, hasSearch := req.Tools[toolSearchToolName]
+	_, hasSearch := req.Tools.(map[string]tool.Tool)[toolSearchToolName]
 	assert.True(t, hasSearch, "tool_search must be injected")
-	_, hasCallTool := req.Tools[callToolToolName]
+	_, hasCallTool := req.Tools.(map[string]tool.Tool)[callToolToolName]
 	assert.True(t, hasCallTool, "call_tool must be injected in DispatchToolCalls")
-	_, hasDeferred := req.Tools["create_invoice"]
+	_, hasDeferred := req.Tools.(map[string]tool.Tool)["create_invoice"]
 	assert.False(t, hasDeferred,
 		"loaded deferred tool must NOT be advertised as an individual function in DispatchToolCalls")
 }

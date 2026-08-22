@@ -13,7 +13,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,39 +24,39 @@ type fixedTokenCounter struct {
 	err   error
 }
 
-func (c fixedTokenCounter) CountTokens(ctx context.Context, message model.Message) (int, error) {
+func (c fixedTokenCounter) CountTokens(ctx context.Context, message compat.Message) (int, error) {
 	return c.count, c.err
 }
 
 func (c fixedTokenCounter) CountTokensRange(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	start, end int,
 ) (int, error) {
 	return c.count, c.err
 }
 
 func TestBuild_KeepsLatestUserInputOutsideTranscript(t *testing.T) {
-	req := Build(context.Background(), []model.Message{
-		{Role: model.RoleUser, Content: "Earlier user context."},
-		{Role: model.RoleAssistant, Content: "Assistant context."},
-		{Role: model.RoleUser, Content: "Latest user input."},
+	req := Build(context.Background(), []compat.Message{
+		{Role: compat.RoleUser, Content: "Earlier user context."},
+		{Role: compat.RoleAssistant, Content: "Assistant context."},
+		{Role: compat.RoleUser, Content: "Latest user input."},
 	}, fixedTokenCounter{count: 1}, func(entry guardtranscript.Entry) guardtranscript.Entry {
 		return entry
 	})
 	require.NotNil(t, req)
 	require.Len(t, req.Transcript, 2)
-	assert.Equal(t, model.RoleUser, req.Transcript[0].Role)
+	assert.Equal(t, compat.RoleUser, req.Transcript[0].Role)
 	assert.Equal(t, "Earlier user context.", req.Transcript[0].Content)
-	assert.Equal(t, model.RoleAssistant, req.Transcript[1].Role)
+	assert.Equal(t, compat.RoleAssistant, req.Transcript[1].Role)
 	assert.Equal(t, "Assistant context.", req.Transcript[1].Content)
 	assert.Equal(t, "Latest user input.", req.LastUserInput)
 }
 
 func TestBuild_KeepsFullLatestUserInput(t *testing.T) {
 	longInput := repeat("user ", guardtranscript.DefaultMessageEntryCap+10)
-	req := Build(context.Background(), []model.Message{
-		{Role: model.RoleUser, Content: longInput},
+	req := Build(context.Background(), []compat.Message{
+		{Role: compat.RoleUser, Content: longInput},
 	}, fixedTokenCounter{count: 1}, func(entry guardtranscript.Entry) guardtranscript.Entry {
 		return entry
 	})
@@ -66,23 +66,23 @@ func TestBuild_KeepsFullLatestUserInput(t *testing.T) {
 }
 
 func TestBuild_CountTokenFailureFallsBackToOmission(t *testing.T) {
-	req := Build(context.Background(), []model.Message{
-		{Role: model.RoleUser, Content: "Latest user input."},
-		{Role: model.RoleAssistant, Content: "Assistant context."},
+	req := Build(context.Background(), []compat.Message{
+		{Role: compat.RoleUser, Content: "Latest user input."},
+		{Role: compat.RoleAssistant, Content: "Assistant context."},
 	}, fixedTokenCounter{err: errors.New("count tokens failed")}, func(entry guardtranscript.Entry) guardtranscript.Entry {
 		return entry
 	})
 	require.NotNil(t, req)
 	require.Len(t, req.Transcript, 1)
-	assert.Equal(t, model.RoleAssistant, req.Transcript[0].Role)
+	assert.Equal(t, compat.RoleAssistant, req.Transcript[0].Role)
 	assert.Equal(t, guardtranscript.DefaultOmissionNote, req.Transcript[0].Content)
 	assert.Equal(t, "Latest user input.", req.LastUserInput)
 }
 
 func TestBuild_WithoutLatestUserInputReturnsNil(t *testing.T) {
-	req := Build(context.Background(), []model.Message{
-		{Role: model.RoleAssistant, Content: "Assistant context."},
-		{Role: model.RoleTool, Content: "Tool context."},
+	req := Build(context.Background(), []compat.Message{
+		{Role: compat.RoleAssistant, Content: "Assistant context."},
+		{Role: compat.RoleTool, Content: "Tool context."},
 	}, fixedTokenCounter{count: 1}, func(entry guardtranscript.Entry) guardtranscript.Entry {
 		return entry
 	})
@@ -90,13 +90,13 @@ func TestBuild_WithoutLatestUserInputReturnsNil(t *testing.T) {
 }
 
 func TestBuild_WithoutTextInLatestUserMessageReturnsNil(t *testing.T) {
-	req := Build(context.Background(), []model.Message{
-		{Role: model.RoleUser, Content: "Earlier user context."},
+	req := Build(context.Background(), []compat.Message{
+		{Role: compat.RoleUser, Content: "Earlier user context."},
 		{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeImage,
-				Image: &model.Image{URL: "https://example.com/image.png"},
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeImage,
+				Image: &compat.Image{URL: "https://example.com/image.png"},
 			}},
 		},
 	}, fixedTokenCounter{count: 1}, func(entry guardtranscript.Entry) guardtranscript.Entry {

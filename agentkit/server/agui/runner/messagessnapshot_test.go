@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/multimodal"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/source"
@@ -568,7 +568,7 @@ func TestMessagesSnapshotAllowsConcurrentRequests(t *testing.T) {
 func TestMessagesSnapshotAllowsConcurrentWithRunningRun(t *testing.T) {
 	agentCh := make(chan *event.Event)
 	underlying := &fakeRunner{
-		run: func(context.Context, string, string, model.Message, ...agent.RunOption) (<-chan *event.Event, error) {
+		run: func(context.Context, string, string, compat.Message, ...agent.RunOption) (<-chan *event.Event, error) {
 			return agentCh, nil
 		},
 	}
@@ -753,13 +753,13 @@ func TestMessagesSnapshotFollowReceivesPeriodicFlushedContent(t *testing.T) {
 	})
 	require.NoError(t, err)
 	waitForAGUIEventType(t, snapshotStream, (*aguievents.MessagesSnapshotEvent)(nil))
-	underlying.events <- &event.Event{Response: &model.Response{
+	underlying.events <- &event.Event{Response: &compat.Response{
 		ID:        "assistant-1",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "hello",
 			},
 		}},
@@ -837,13 +837,13 @@ func TestMessagesSnapshotFollowReceivesPeriodicFlushedContentForToolRun(t *testi
 	})
 	require.NoError(t, err)
 	waitForAGUIEventType(t, snapshotStream, (*aguievents.MessagesSnapshotEvent)(nil))
-	underlying.events <- &event.Event{Response: &model.Response{
+	underlying.events <- &event.Event{Response: &compat.Response{
 		ID:        "assistant-1",
-		Object:    model.ObjectTypeChatCompletionChunk,
+		Object:    compat.ObjectTypeChatCompletionChunk,
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "hello",
 			},
 		}},
@@ -1501,8 +1501,8 @@ func TestMessagesSnapshotFollowAcrossRunnersAfterOwnerRunStarted(t *testing.T) {
 			}
 
 			go func() {
-				agentEvents <- &event.Event{Response: &model.Response{
-					Object: model.ObjectTypeRunnerCompletion,
+				agentEvents <- &event.Event{Response: &compat.Response{
+					Object: compat.ObjectTypeRunnerCompletion,
 					Done:   true,
 				}}
 				close(agentEvents)
@@ -1932,7 +1932,7 @@ func newTrackEventAt(t *testing.T, evt aguievents.Event, ts time.Time) session.T
 
 type noopBaseRunner struct{}
 
-func (noopBaseRunner) Run(ctx context.Context, userID, sessionID string, message model.Message,
+func (noopBaseRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message,
 	runOpts ...agent.RunOption) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event)
 	close(ch)
@@ -1943,17 +1943,17 @@ func (noopBaseRunner) Close() error { return nil }
 
 type reasoningWaitRunner struct{}
 
-func (reasoningWaitRunner) Run(ctx context.Context, userID, sessionID string, message model.Message,
+func (reasoningWaitRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message,
 	runOpts ...agent.RunOption) (<-chan *event.Event, error) {
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:        "reasoning-msg-1",
-			Object:    model.ObjectTypeChatCompletionChunk,
+			Object:    compat.ObjectTypeChatCompletionChunk,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					Role:             model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					Role:             compat.RoleAssistant,
 					ReasoningContent: "thinking",
 				},
 			}},
@@ -1973,7 +1973,7 @@ type streamingWaitRunner struct {
 	events  chan *event.Event
 }
 
-func (r *streamingWaitRunner) Run(ctx context.Context, userID, sessionID string, message model.Message,
+func (r *streamingWaitRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message,
 	runOpts ...agent.RunOption) (<-chan *event.Event, error) {
 	close(r.started)
 	return r.events, nil

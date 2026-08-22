@@ -7,11 +7,11 @@
 // Package errs provides helpers to convert between the agent ResponseError
 package errs
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 // ToResponseError converts an error to a ResponseError.
-var ToResponseError = func(err error) *model.ResponseError {
-	respErr := model.ResponseErrorFromError(err, "")
+var ToResponseError = func(err error) *compat.ResponseError {
+	respErr := compat.ResponseErrorFromError(err, "")
 	if respErr == nil {
 		return nil
 	}

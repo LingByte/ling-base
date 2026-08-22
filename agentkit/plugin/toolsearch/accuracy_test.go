@@ -40,8 +40,8 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
-	"github.com/LingByte/ling-base/agentkit/model/openai"
+	compat "github.com/LingByte/ling-base/relay/compat"
+	"github.com/LingByte/ling-base/agentkit/relaymodel"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -60,17 +60,17 @@ const (
 
 // newTestModel builds an OpenAI-compatible model from the environment. BaseURL
 // is only applied when set so the official endpoint is the default.
-func newTestModel(t *testing.T) *openai.Model {
+func newTestModel(t *testing.T) *relaymodel.Model {
 	t.Helper()
-	opts := []openai.Option{openai.WithAPIKey(os.Getenv(envOpenAIKey))}
+	opts := []relaymodel.Option{relaymodel.WithAPIKey(os.Getenv(envOpenAIKey))}
 	if base := os.Getenv(envOpenAIBase); base != "" {
-		opts = append(opts, openai.WithBaseURL(base))
+		opts = append(opts, relaymodel.WithBaseURL(base))
 	}
 	name := os.Getenv(envModelName)
 	if name == "" {
 		name = defaultModelID
 	}
-	return openai.New(name, opts...)
+	return relaymodel.New(name, opts...)
 }
 
 // requireAPIKey skips the test unless an API key is present — these tests cost
@@ -291,7 +291,7 @@ func (p *interceptPlugin) Register(r *plugin.Registry) {
 }
 
 // beforeModel accumulates the deferred tools the search plugin injected on every turn
-func (p *interceptPlugin) beforeModel(_ context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+func (p *interceptPlugin) beforeModel(_ context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -501,12 +501,12 @@ func collectToolCalls(t *testing.T, ch <-chan *event.Event, timeout time.Duratio
 					buf.WriteString(choice.Delta.Content)
 				}
 				// accumulate full (non-streaming) assistant content
-				if choice.Message.Role == model.RoleAssistant && choice.Message.Content != "" {
+				if choice.Message.Role == compat.RoleAssistant && choice.Message.Content != "" {
 					buf.WriteString(choice.Message.Content)
 					buf.WriteString("\n")
 				}
 				// record tool calls
-				allCalls := make([]model.ToolCall, 0, len(choice.Message.ToolCalls)+len(choice.Delta.ToolCalls))
+				allCalls := make([]compat.ToolCall, 0, len(choice.Message.ToolCalls)+len(choice.Delta.ToolCalls))
 				allCalls = append(allCalls, choice.Message.ToolCalls...)
 				allCalls = append(allCalls, choice.Delta.ToolCalls...)
 				for _, tc := range allCalls {
@@ -521,7 +521,7 @@ func collectToolCalls(t *testing.T, ch <-chan *event.Event, timeout time.Duratio
 					}
 				}
 				// record tool responses
-				if choice.Message.Role == model.RoleTool && choice.Message.Content != "" {
+				if choice.Message.Role == compat.RoleTool && choice.Message.Content != "" {
 					buf.WriteString(fmt.Sprintf("[TOOL_RESULT(%s): %s]\n", choice.Message.ToolName, choice.Message.Content))
 				}
 			}
@@ -569,7 +569,7 @@ func TestToolSearchAccuracy(t *testing.T) {
 			llmagent.WithModel(newTestModel(t)),
 			llmagent.WithInstruction(testInstruction()),
 			llmagent.WithTools(preset),
-			llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true}),
+			llmagent.WithGenerationConfig(compat.GenerationConfig{Stream: true}),
 		)
 		appRunner := runner.NewRunner(
 			fmt.Sprintf("accuracy_%d", i),
@@ -579,7 +579,7 @@ func TestToolSearchAccuracy(t *testing.T) {
 		)
 
 		sessionID := fmt.Sprintf("acc-%d-%d", i, time.Now().UnixNano())
-		ch, err := appRunner.Run(context.Background(), "test_user", sessionID, model.NewUserMessage(tc.UserMessage))
+		ch, err := appRunner.Run(context.Background(), "test_user", sessionID, compat.NewUserMessage(tc.UserMessage))
 		if err != nil {
 			t.Logf("[%d] Run failed: %v", i, err)
 			results[i] = caseResult{UserMessage: tc.UserMessage, Domain: tc.Domain, ExpectedTools: tc.ExpectedTools}

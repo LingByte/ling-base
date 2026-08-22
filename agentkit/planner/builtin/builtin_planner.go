@@ -32,7 +32,7 @@ import (
 	"context"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 )
 
@@ -123,7 +123,7 @@ func New(opts Options) *Planner {
 func (p *Planner) BuildPlanningInstruction(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
+	llmRequest *compat.Request,
 ) string {
 	// Apply thinking configuration to the request.
 	// The model will use these parameters to engage its internal thinking.
@@ -151,8 +151,8 @@ func (p *Planner) BuildPlanningInstruction(
 func (p *Planner) ProcessPlanningResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	response *model.Response,
-) *model.Response {
+	response *compat.Response,
+) *compat.Response {
 	// No response processing needed for thinking-capable models.
 	// The planning is already integrated into the model's response.
 	return nil

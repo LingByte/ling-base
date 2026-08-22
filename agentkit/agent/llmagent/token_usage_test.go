@@ -17,21 +17,21 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
 // mockModelWithUsage is a mock model that returns responses with token usage information.
 type mockModelWithUsage struct {
-	responses []*model.Response
+	responses []*compat.Response
 	callCount int
 }
 
 func (m *mockModelWithUsage) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, len(m.responses))
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, len(m.responses))
 	for _, resp := range m.responses {
 		ch <- resp
 	}
@@ -40,30 +40,30 @@ func (m *mockModelWithUsage) GenerateContent(
 	return ch, nil
 }
 
-func (m *mockModelWithUsage) Info() model.Info {
-	return model.Info{Name: "mock-model-with-usage"}
+func (m *mockModelWithUsage) Info() compat.Info {
+	return compat.Info{Name: "mock-model-with-usage"}
 }
 
 // TestLLMAgent_TokenUsageCounting tests that token usage is correctly counted and accumulated.
 func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 	tests := []struct {
 		name             string
-		responses        []*model.Response
+		responses        []*compat.Response
 		expectedPrompt   int
 		expectedComplete int
 		expectedTotal    int
 	}{
 		{
 			name: "single response with usage",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Test response",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 20,
 						TotalTokens:      30,
@@ -77,15 +77,15 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 		},
 		{
 			name: "streaming responses with incremental usage",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "First ",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     15,
 						CompletionTokens: 5,
 						TotalTokens:      20,
@@ -93,12 +93,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "part ",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     15,
 						CompletionTokens: 10,
 						TotalTokens:      25,
@@ -106,12 +106,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "of response",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     15,
 						CompletionTokens: 15,
 						TotalTokens:      30,
@@ -119,12 +119,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "First part of response",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     15,
 						CompletionTokens: 15,
 						TotalTokens:      30,
@@ -138,15 +138,15 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 		},
 		{
 			name: "streaming responses with no usage and incremental usage",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "First ",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     0,
 						CompletionTokens: 0,
 						TotalTokens:      0,
@@ -154,12 +154,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "part ",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     0,
 						CompletionTokens: 0,
 						TotalTokens:      0,
@@ -167,12 +167,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "of response",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     0,
 						CompletionTokens: 0,
 						TotalTokens:      0,
@@ -180,12 +180,12 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 					IsPartial: true,
 				},
 				{
-					Choices: []model.Choice{{
-						Delta: model.Message{
+					Choices: []compat.Choice{{
+						Delta: compat.Message{
 							Content: "First part of response",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     15,
 						CompletionTokens: 15,
 						TotalTokens:      30,
@@ -199,15 +199,15 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 		},
 		{
 			name: "response with zero usage",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "Response with zero usage",
 						},
 					}},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     0,
 						CompletionTokens: 0,
 						TotalTokens:      0,
@@ -233,7 +233,7 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 			// Create invocation
 			inv := agent.NewInvocation(
 				agent.WithInvocationID("test-invocation"),
-				agent.WithInvocationMessage(model.NewUserMessage("Test message")),
+				agent.WithInvocationMessage(compat.NewUserMessage("Test message")),
 			)
 			inv.AgentName = "test-agent"
 			inv.Session = &session.Session{ID: "test-session"}
@@ -265,15 +265,15 @@ func TestLLMAgent_TokenUsageCounting(t *testing.T) {
 // TestLLMAgent_TokenUsageMultipleInvocation tests that token usage correctly across multiple invocations.
 func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 	mockModel := &mockModelWithUsage{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "First response",
 					},
 				}},
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     10,
 					CompletionTokens: 5,
 					TotalTokens:      15,
@@ -288,7 +288,7 @@ func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 	// First invocation
 	inv1 := agent.NewInvocation(
 		agent.WithInvocationID("test-invocation-1"),
-		agent.WithInvocationMessage(model.NewUserMessage("First message")),
+		agent.WithInvocationMessage(compat.NewUserMessage("First message")),
 	)
 	inv1.AgentName = "test-agent"
 	inv1.Session = &session.Session{ID: "test-session"}
@@ -296,7 +296,7 @@ func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 	events1, err := agt.Run(context.Background(), inv1)
 	require.NoError(t, err)
 
-	var usage1 *model.Usage
+	var usage1 *compat.Usage
 	for evt := range events1 {
 		if evt.Response != nil && evt.Response.Usage != nil {
 			usage1 = evt.Response.Usage
@@ -309,15 +309,15 @@ func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 	require.Equal(t, 15, usage1.TotalTokens)
 
 	// Second invocation with different usage
-	mockModel.responses = []*model.Response{
+	mockModel.responses = []*compat.Response{
 		{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Second response",
 				},
 			}},
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     20,
 				CompletionTokens: 10,
 				TotalTokens:      30,
@@ -328,7 +328,7 @@ func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 
 	inv2 := agent.NewInvocation(
 		agent.WithInvocationID("test-invocation-2"),
-		agent.WithInvocationMessage(model.NewUserMessage("Second message")),
+		agent.WithInvocationMessage(compat.NewUserMessage("Second message")),
 	)
 	inv2.AgentName = "test-agent"
 	inv2.Session = &session.Session{ID: "test-session"}
@@ -336,7 +336,7 @@ func TestLLMAgent_TokenUsageMultipleInvocation(t *testing.T) {
 	events2, err := agt.Run(context.Background(), inv2)
 	require.NoError(t, err)
 
-	var usage2 *model.Usage
+	var usage2 *compat.Usage
 	for evt := range events2 {
 		if evt.Response != nil && evt.Response.Usage != nil {
 			usage2 = evt.Response.Usage

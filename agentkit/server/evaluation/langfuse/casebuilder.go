@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/evaluation/evalset"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // CaseSpec is the framework-native case definition derived from a dataset item.
@@ -45,12 +45,12 @@ func buildCaseSpec(_ context.Context, item *DatasetItem) (*CaseSpec, error) {
 		return nil, fmt.Errorf("resolve expected output: %w", err)
 	}
 	invocation := &evalset.Invocation{
-		UserContent: &model.Message{
-			Role:    model.RoleUser,
+		UserContent: &compat.Message{
+			Role:    compat.RoleUser,
 			Content: prompt,
 		},
-		FinalResponse: &model.Message{
-			Role:    model.RoleAssistant,
+		FinalResponse: &compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: expectedOutput,
 		},
 	}

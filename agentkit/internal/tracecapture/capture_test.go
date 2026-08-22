@@ -14,7 +14,7 @@ import (
 	"time"
 
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,7 +103,7 @@ func TestCapture_BuildReturnsDetachedCopies(t *testing.T) {
 		Input:        &atrace.Snapshot{Text: "input"},
 	})
 	capture.FinishStep(stepID, &atrace.Snapshot{Text: "output"}, "", startedAt.Add(time.Second))
-	capture.SetStepUsage(stepID, &model.Usage{TotalTokens: 3})
+	capture.SetStepUsage(stepID, &compat.Usage{TotalTokens: 3})
 	capture.addStepTools(stepID, []atrace.Tool{{
 		ID:        "call-1",
 		Name:      "lookup",
@@ -237,8 +237,8 @@ func TestCapture_SetStepUsageIgnoresTimingOnlyUsage(t *testing.T) {
 		NodeID:       "assistant",
 		StartedAt:    startedAt,
 	})
-	capture.SetStepUsage(stepID, &model.Usage{
-		TimingInfo: &model.TimingInfo{FirstTokenDuration: time.Second},
+	capture.SetStepUsage(stepID, &compat.Usage{
+		TimingInfo: &compat.TimingInfo{FirstTokenDuration: time.Second},
 	})
 	trace := capture.Build(atrace.TraceStatusCompleted, startedAt.Add(time.Second))
 	require.Len(t, trace.Steps, 1)
@@ -255,9 +255,9 @@ func TestCapture_SetStepUsageDropsTimingInfo(t *testing.T) {
 		NodeID:       "assistant",
 		StartedAt:    startedAt,
 	})
-	capture.SetStepUsage(stepID, &model.Usage{
+	capture.SetStepUsage(stepID, &compat.Usage{
 		TotalTokens: 1,
-		TimingInfo:  &model.TimingInfo{FirstTokenDuration: time.Second},
+		TimingInfo:  &compat.TimingInfo{FirstTokenDuration: time.Second},
 	})
 	trace := capture.Build(atrace.TraceStatusCompleted, startedAt.Add(time.Second))
 	require.Len(t, trace.Steps, 1)
@@ -281,29 +281,29 @@ func TestCapture_BuildAggregatesStepUsage(t *testing.T) {
 		NodeID:       "assistant/second",
 		StartedAt:    startedAt.Add(time.Second),
 	})
-	capture.SetStepUsage(firstStepID, &model.Usage{
+	capture.SetStepUsage(firstStepID, &compat.Usage{
 		PromptTokens:     2,
 		CompletionTokens: 3,
 		TotalTokens:      5,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens:        1,
 			CacheCreationTokens: 2,
 			CacheReadTokens:     3,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{
+		CompletionTokensDetails: compat.CompletionTokensDetails{
 			ReasoningTokens: 4,
 		},
 	})
-	capture.SetStepUsage(secondStepID, &model.Usage{
+	capture.SetStepUsage(secondStepID, &compat.Usage{
 		PromptTokens:     5,
 		CompletionTokens: 7,
 		TotalTokens:      12,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens:        2,
 			CacheCreationTokens: 3,
 			CacheReadTokens:     4,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{
+		CompletionTokensDetails: compat.CompletionTokensDetails{
 			ReasoningTokens: 5,
 		},
 	})
@@ -325,33 +325,33 @@ func TestCapture_AddStepUsageAggregatesAllFieldsAndDropsTiming(t *testing.T) {
 		InvocationID: "root-inv",
 		NodeID:       "assistant",
 	})
-	first := &model.Usage{
+	first := &compat.Usage{
 		PromptTokens:     2,
 		CompletionTokens: 3,
 		TotalTokens:      5,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens:        1,
 			CacheCreationTokens: 2,
 			CacheReadTokens:     3,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{ReasoningTokens: 4},
-		TimingInfo: &model.TimingInfo{
+		CompletionTokensDetails: compat.CompletionTokensDetails{ReasoningTokens: 4},
+		TimingInfo: &compat.TimingInfo{
 			FirstTokenDuration: time.Second,
 		},
 	}
 	capture.addStepUsage(stepID, first)
 	first.TotalTokens = 100
-	capture.addStepUsage(stepID, &model.Usage{
+	capture.addStepUsage(stepID, &compat.Usage{
 		PromptTokens:     5,
 		CompletionTokens: 7,
 		TotalTokens:      12,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens:        2,
 			CacheCreationTokens: 3,
 			CacheReadTokens:     4,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{ReasoningTokens: 5},
-		TimingInfo: &model.TimingInfo{
+		CompletionTokensDetails: compat.CompletionTokensDetails{ReasoningTokens: 5},
+		TimingInfo: &compat.TimingInfo{
 			ReasoningDuration: time.Second,
 		},
 	})
@@ -381,7 +381,7 @@ func TestCapture_AddStepUsageIsConcurrentSafe(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			capture.addStepUsage(stepID, &model.Usage{
+			capture.addStepUsage(stepID, &compat.Usage{
 				PromptTokens:     1,
 				CompletionTokens: 2,
 				TotalTokens:      3,
@@ -436,8 +436,8 @@ func TestCapture_CoversNilGuardsAndMetadataFallbacks(t *testing.T) {
 	nilCapture.setStepInput("step-1", nil)
 	nilCapture.SetStepAppliedSurfaceIDs("step-1", []string{"assistant#instruction"})
 	nilCapture.mergeStepAppliedSurfaceIDs("step-1", []string{"assistant#instruction"})
-	nilCapture.SetStepUsage("step-1", &model.Usage{TotalTokens: 1})
-	nilCapture.addStepUsage("step-1", &model.Usage{TotalTokens: 1})
+	nilCapture.SetStepUsage("step-1", &compat.Usage{TotalTokens: 1})
+	nilCapture.addStepUsage("step-1", &compat.Usage{TotalTokens: 1})
 	nilCapture.SetRootAgentName("assistant")
 	nilCapture.SetSessionID("session-1")
 	nilCapture.RegisterInvocation("parent", "child")
@@ -464,11 +464,11 @@ func TestCapture_CoversNilGuardsAndMetadataFallbacks(t *testing.T) {
 	capture.setStepInput("missing", nil)
 	capture.mergeStepAppliedSurfaceIDs("", []string{"assistant#instruction"})
 	capture.mergeStepAppliedSurfaceIDs("missing", []string{"assistant#instruction"})
-	capture.SetStepUsage("", &model.Usage{TotalTokens: 1})
-	capture.SetStepUsage("missing", &model.Usage{TotalTokens: 1})
+	capture.SetStepUsage("", &compat.Usage{TotalTokens: 1})
+	capture.SetStepUsage("missing", &compat.Usage{TotalTokens: 1})
 	capture.SetStepUsage(stepID, nil)
-	capture.addStepUsage("", &model.Usage{TotalTokens: 1})
-	capture.addStepUsage("missing", &model.Usage{TotalTokens: 1})
+	capture.addStepUsage("", &compat.Usage{TotalTokens: 1})
+	capture.addStepUsage("missing", &compat.Usage{TotalTokens: 1})
 	capture.addStepUsage(stepID, nil)
 	capture.FinishStep("missing", nil, "", time.Time{})
 	capture.FinishStep(stepID, nil, "boom", time.Time{})

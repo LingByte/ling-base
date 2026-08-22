@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -93,12 +93,12 @@ func (a *awaitReplyTrackingAgent) Run(
 			event.NewResponseEvent(
 				inv.InvocationID,
 				a.name,
-				&model.Response{
+				&compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index: 0,
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: a.name,
 						},
 					}},
@@ -138,7 +138,7 @@ func TestRunner_Run_AwaitUserReplyRoutingConsumesRoute(t *testing.T) {
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-consume"),
 	)
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestRunner_Run_AwaitUserReplyRoutingDisabledByDefault(t *testing.T) {
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-disabled"),
 	)
 	require.NoError(t, err)
@@ -230,7 +230,7 @@ func TestRunner_Run_AwaitUserReplyRoutingExplicitAgentWins(t *testing.T) {
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-explicit"),
 		agent.WithAgentByName("parent"),
 	)
@@ -275,7 +275,7 @@ func TestRunner_Run_AwaitUserReplyRoutingFallsBackWhenMissing(t *testing.T) {
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-missing"),
 	)
 	require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestRunner_Run_AwaitUserReplyRoutingResolvesNestedPath(t *testing.T) {
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-nested"),
 	)
 	require.NoError(t, err)
@@ -374,7 +374,7 @@ func TestRunner_Run_AwaitUserReplyRoutingPreservesNestedPathOnRepeatedAwait(
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-nested-repeat"),
 	)
 	require.NoError(t, err)
@@ -418,7 +418,7 @@ func TestRunner_Run_AwaitUserReplyRoutingPersistsFactoryLookupPath(
 		ctx,
 		"user",
 		"sess-factory-root",
-		model.NewUserMessage("first turn"),
+		compat.NewUserMessage("first turn"),
 		agent.WithRequestID("req-await-factory-root"),
 	)
 	require.NoError(t, err)
@@ -479,7 +479,7 @@ func TestRunner_Run_AwaitUserReplyRoutingResolvesFactorySubAgentPath(
 		ctx,
 		key.UserID,
 		key.SessionID,
-		model.NewUserMessage("follow up"),
+		compat.NewUserMessage("follow up"),
 		agent.WithRequestID("req-await-factory-nested"),
 	)
 	require.NoError(t, err)
@@ -522,7 +522,7 @@ func TestRunner_ApplyAwaitUserReplyRoute_EdgeCases(t *testing.T) {
 		UserID:    "user",
 		SessionID: "sess",
 	}
-	userMessage := model.NewUserMessage("follow up")
+	userMessage := compat.NewUserMessage("follow up")
 
 	t.Run("disabled", func(t *testing.T) {
 		r := &runner{}
@@ -548,7 +548,7 @@ func TestRunner_ApplyAwaitUserReplyRoute_EdgeCases(t *testing.T) {
 			ctx,
 			key,
 			nil,
-			model.Message{Role: model.RoleAssistant},
+			compat.Message{Role: compat.RoleAssistant},
 			agent.RunOptions{},
 		)
 		require.NoError(t, err)

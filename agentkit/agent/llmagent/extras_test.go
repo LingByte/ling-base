@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	"github.com/LingByte/ling-base/agentkit/knowledge/document"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -153,8 +153,8 @@ func TestLLMAgent_AfterCb(t *testing.T) {
 	close(orig)
 
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
-		return &model.Response{Object: "after", Done: true}, nil
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
+		return &compat.Response{Object: "after", Done: true}, nil
 	})
 
 	inv := &agent.Invocation{InvocationID: "id", AgentName: "agent"}
@@ -184,7 +184,7 @@ func TestLLMAgent_AfterCbNoResp(t *testing.T) {
 	close(orig)
 
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		// Return nil response and nil error to exercise no-op branch.
 		return nil, nil
 	})
@@ -274,7 +274,7 @@ func TestLLMAgent_AfterCbErrorRecordsTelemetryErrorType(t *testing.T) {
 	close(orig)
 
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		return nil, errors.New("after callback failed")
 	})
 
@@ -380,18 +380,18 @@ func TestLLMAgent_Tools_WithSubAgents(t *testing.T) {
 // dummyPlanner provides minimal planner implementation for option coverage.
 type dummyPlanner struct{}
 
-func (d *dummyPlanner) BuildPlanningInstruction(ctx context.Context, inv *agent.Invocation, req *model.Request) string {
+func (d *dummyPlanner) BuildPlanningInstruction(ctx context.Context, inv *agent.Invocation, req *compat.Request) string {
 	return ""
 }
 
-func (d *dummyPlanner) ProcessPlanningResponse(ctx context.Context, inv *agent.Invocation, rsp *model.Response) *model.Response {
+func (d *dummyPlanner) ProcessPlanningResponse(ctx context.Context, inv *agent.Invocation, rsp *compat.Response) *compat.Response {
 	return rsp
 }
 
 func TestLLMAgent_WithVariousOptions(t *testing.T) {
 	max := 42
-	genConfig := model.GenerationConfig{MaxTokens: &max}
-	mc := model.NewCallbacks()
+	genConfig := compat.GenerationConfig{MaxTokens: &max}
+	mc := compat.NewCallbacks()
 	tc := tool.NewCallbacks()
 
 	a := New("opts",

@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/toolresultround"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -42,8 +42,8 @@ type perCallBarrierModel struct {
 
 func (m *perCallBarrierModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	if len(m.delegate.Requests()) > 0 {
 		select {
 		case <-m.roundCompleted:
@@ -56,7 +56,7 @@ func (m *perCallBarrierModel) GenerateContent(
 	return m.delegate.GenerateContent(ctx, req)
 }
 
-func (m *perCallBarrierModel) Info() model.Info {
+func (m *perCallBarrierModel) Info() compat.Info {
 	return m.delegate.Info()
 }
 
@@ -114,19 +114,19 @@ func TestRunner_PerToolCallResultEventsEndToEnd(t *testing.T) {
 
 	modelStub := &sequentialModel{
 		name: "per-tool-call-result-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				ID:   "tool-call-response",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID:   "call-slow",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "slow",
 									Arguments: []byte(`{}`),
 								},
@@ -134,7 +134,7 @@ func TestRunner_PerToolCallResultEventsEndToEnd(t *testing.T) {
 							{
 								ID:   "call-fast",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "fast",
 									Arguments: []byte(`{}`),
 								},
@@ -146,9 +146,9 @@ func TestRunner_PerToolCallResultEventsEndToEnd(t *testing.T) {
 			{
 				ID:   "final-response",
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage(finalAnswer),
+					Message: compat.NewAssistantMessage(finalAnswer),
 				}},
 			},
 		},
@@ -199,7 +199,7 @@ func TestRunner_PerToolCallResultEventsEndToEnd(t *testing.T) {
 		ctx,
 		userID,
 		sessionID,
-		model.NewUserMessage("run both tools"),
+		compat.NewUserMessage("run both tools"),
 		agent.WithToolResultEventPerCallEnabled(true),
 	)
 	require.NoError(t, err)
@@ -281,10 +281,10 @@ func perCallPersistedToolResultEvents(events []event.Event) []event.Event {
 	return results
 }
 
-func toolResultMessageIDs(messages []model.Message) []string {
+func toolResultMessageIDs(messages []compat.Message) []string {
 	var ids []string
 	for _, message := range messages {
-		if message.Role == model.RoleTool {
+		if message.Role == compat.RoleTool {
 			ids = append(ids, message.ToolID)
 		}
 	}
@@ -297,7 +297,7 @@ func hasAssistantContent(events []*event.Event, content string) bool {
 			continue
 		}
 		for _, choice := range evt.Response.Choices {
-			if choice.Message.Role == model.RoleAssistant &&
+			if choice.Message.Role == compat.RoleAssistant &&
 				choice.Message.Content == content {
 				return true
 			}

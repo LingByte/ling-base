@@ -18,7 +18,7 @@ import (
 
 	coreagent "github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -168,7 +168,7 @@ func TestDynamicAgentModelProfileOmissionPreservesTemplateDefault(t *testing.T) 
 	templateAgent := llmagent.New(
 		"worker",
 		llmagent.WithModel(templateDefault),
-		llmagent.WithModels(map[string]model.Model{
+		llmagent.WithModels(map[string]compat.Model{
 			"internal-alternative": templateHiddenAlternative,
 		}),
 	)
@@ -238,7 +238,7 @@ func TestDynamicAgentModelProfileOverridesInheritedModelNameWithoutTemplate(
 	parentAgent := llmagent.New(
 		"parent",
 		llmagent.WithModel(parentDefault),
-		llmagent.WithModels(map[string]model.Model{"named": parentNamed}),
+		llmagent.WithModels(map[string]compat.Model{"named": parentNamed}),
 	)
 	dynamicTool := NewDynamicTool(
 		WithAgentModelProfile("deep", "Careful reasoning.", profileModel),
@@ -278,7 +278,7 @@ func TestDynamicAgentModelProfileOverridesInheritedRunModelSelector(t *testing.T
 	selector := func(
 		context.Context,
 		*coreagent.Invocation,
-	) (model.Model, error) {
+	) (compat.Model, error) {
 		selectorCalls.Add(1)
 		return selectorModel, nil
 	}
@@ -318,7 +318,7 @@ func TestDynamicAgentModelProfileOverridesTemplateModelSelector(t *testing.T) {
 		llmagent.WithModelSelector(func(
 			context.Context,
 			*coreagent.Invocation,
-		) (model.Model, error) {
+		) (compat.Model, error) {
 			selectorCalls.Add(1)
 			return templateSelected, nil
 		}),

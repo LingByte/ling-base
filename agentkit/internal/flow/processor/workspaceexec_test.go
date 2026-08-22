@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/artifact/inmemory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -41,7 +41,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_NoSkillsRepo(
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 
 	p.ProcessRequest(
 		context.Background(),
@@ -51,7 +51,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_NoSkillsRepo(
 	)
 
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	sys := req.Messages[0].Content
 	require.Contains(t, sys, workspaceExecGuidanceHeader)
 	require.Contains(t, sys, "shell command tool for the current workspace")
@@ -85,8 +85,8 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_InteractiveWithSkillsRepo(
 		WithWorkspaceExecSessionsEnabled(),
 		WithWorkspaceExecSkillsRepo(),
 	)
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("base"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("base"),
 	}}
 
 	p.ProcessRequest(
@@ -140,7 +140,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_InteractiveWithSkillsRepo(
 
 func TestWorkspaceExecRequestProcessor_NoDuplicateGuidance(t *testing.T) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 	inv := &agent.Invocation{AgentName: "tester"}
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
@@ -152,8 +152,8 @@ func TestWorkspaceExecRequestProcessor_NoDuplicateGuidance(t *testing.T) {
 
 func TestWorkspaceExecRequestProcessor_NoDuplicateLegacyGuidance(t *testing.T) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage(legacyWorkspaceExecGuidanceHeader + "\nold"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage(legacyWorkspaceExecGuidanceHeader + "\nold"),
 	}}
 
 	p.ProcessRequest(
@@ -172,8 +172,8 @@ func TestWorkspaceExecRequestProcessor_NoDuplicateGuidanceWhenHeaderMentionedInl
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("Existing " + workspaceExecGuidanceHeader + " text."),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("Existing " + workspaceExecGuidanceHeader + " text."),
 	}}
 	p.ProcessRequest(
 		context.Background(),
@@ -195,7 +195,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_UsesSkillsRepoResolver(
 			},
 		),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{AgentName: "tester"},
@@ -221,7 +221,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_ResolverCanDisableSkillsGu
 			},
 		),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{AgentName: "tester"},
@@ -246,7 +246,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_DisabledByResolver(
 			},
 		),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 
 	p.ProcessRequest(
 		context.Background(),
@@ -262,7 +262,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_GuidanceOverride(
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{
@@ -285,7 +285,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_GuidanceOverrideWithHeader
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{
@@ -307,7 +307,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_GuidanceOverrideAddsHeader
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{
@@ -329,7 +329,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_GuidanceOverrideEmptyUsesD
 	t *testing.T,
 ) {
 	p := NewWorkspaceExecRequestProcessor()
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{
@@ -355,7 +355,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_GuidanceOverrideDisabled(
 			return false
 		}),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 	p.ProcessRequest(
 		context.Background(),
 		&agent.Invocation{
@@ -380,7 +380,7 @@ func TestWorkspaceExecRequestProcessor_ProcessRequest_SessionToolsEnabledByResol
 			},
 		),
 	)
-	req := &model.Request{}
+	req := &compat.Request{}
 
 	p.ProcessRequest(
 		context.Background(),

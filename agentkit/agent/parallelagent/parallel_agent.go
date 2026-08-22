@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	istructure "github.com/LingByte/ling-base/agentkit/internal/structure"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -170,7 +170,7 @@ func (a *ParallelAgent) startSubAgents(
 					errorEvent := event.NewErrorEvent(
 						invocation.InvocationID,
 						invocation.AgentName,
-						model.ErrorTypeFlowError,
+						compat.ErrorTypeFlowError,
 						fmt.Sprintf("sub-agent %s panic: %v", sa.Info().Name, r),
 					)
 					agent.EmitEvent(ctx, invocation, eventChan, errorEvent)
@@ -202,7 +202,7 @@ func (a *ParallelAgent) startSubAgents(
 				agent.EmitEvent(ctx, invocation, eventChan, event.NewErrorEvent(
 					invocation.InvocationID,
 					invocation.AgentName,
-					model.ErrorTypeFlowError,
+					compat.ErrorTypeFlowError,
 					err.Error(),
 				))
 				return

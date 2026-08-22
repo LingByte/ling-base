@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/metric/histogram"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
@@ -30,30 +30,30 @@ type telemetryTestModel struct{}
 
 func (m *telemetryTestModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *telemetryTestModel) Info() model.Info {
-	return model.Info{Name: "telemetry-test-model"}
+func (m *telemetryTestModel) Info() compat.Info {
+	return compat.Info{Name: "telemetry-test-model"}
 }
 
 type telemetryAltTestModel struct{}
 
 func (m *telemetryAltTestModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *telemetryAltTestModel) Info() model.Info {
-	return model.Info{Name: "telemetry-alt-test-model"}
+func (m *telemetryAltTestModel) Info() compat.Info {
+	return compat.Info{Name: "telemetry-alt-test-model"}
 }
 
 func TestChatMetricsTracker_RecordMetrics_NoMetrics_ReturnsNoop(t *testing.T) {
@@ -82,7 +82,7 @@ func TestChatMetricsTracker_RecordMetrics_NoMetrics_ReturnsNoop(t *testing.T) {
 	ChatMetricTRPCAgentGoClientTimePerOutputToken = nil
 	ChatMetricTRPCAgentGoClientOutputTokenPerTime = nil
 
-	tracker := NewChatMetricsTracker(context.Background(), nil, nil, &model.TimingInfo{}, nil, nil)
+	tracker := NewChatMetricsTracker(context.Background(), nil, nil, &compat.TimingInfo{}, nil, nil)
 	recordFunc := tracker.RecordMetrics()
 	require.NotNil(t, recordFunc)
 	require.NotPanics(t, recordFunc)
@@ -90,22 +90,22 @@ func TestChatMetricsTracker_RecordMetrics_NoMetrics_ReturnsNoop(t *testing.T) {
 
 func TestChatMetricsTracker_TrackResponse_ReasoningDuration_UsesLazyNow(t *testing.T) {
 	ctx := context.Background()
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, nil, req, timingInfo, nil, nil)
 
-	tracker.TrackResponse(&model.Response{})
+	tracker.TrackResponse(&compat.Response{})
 	require.True(t, tracker.isFirstToken, "expected empty chunk to be ignored for TTFT")
 	require.Zero(t, tracker.firstTokenTimeDuration, "expected TTFT to remain unset after empty chunk")
 
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{ReasoningContent: "r1"},
+				Delta: compat.Message{ReasoningContent: "r1"},
 			},
 		},
 	})
@@ -115,19 +115,19 @@ func TestChatMetricsTracker_TrackResponse_ReasoningDuration_UsesLazyNow(t *testi
 	require.Equal(t, tracker.firstReasoningTime, tracker.lastReasoningTime, "expected first reasoning chunk to update last time")
 
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{ReasoningContent: "r2"},
+				Delta: compat.Message{ReasoningContent: "r2"},
 			},
 		},
 	})
 	require.True(t, tracker.lastReasoningTime.After(tracker.firstReasoningTime), "expected reasoning time to advance")
 
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{Content: "done"},
+				Delta: compat.Message{Content: "done"},
 			},
 		},
 	})
@@ -148,8 +148,8 @@ func TestChatMetricsTracker_SetInvocationState_PreservesMetricsAttributes(t *tes
 	tracker := NewChatMetricsTracker(
 		context.Background(),
 		baseInvocation,
-		&model.Request{},
-		&model.TimingInfo{},
+		&compat.Request{},
+		&compat.TimingInfo{},
 		nil,
 		nil,
 	)
@@ -159,7 +159,7 @@ func TestChatMetricsTracker_SetInvocationState_PreservesMetricsAttributes(t *tes
 			DisableResponseUsageTracking: true,
 		}),
 	)
-	updatedTimingInfo := &model.TimingInfo{}
+	updatedTimingInfo := &compat.TimingInfo{}
 	tracker.SetInvocationState(updatedInvocation, updatedTimingInfo)
 	mergedInvocation := tracker.invocation
 	tracker.SetInvocationState(updatedInvocation, updatedTimingInfo)
@@ -182,8 +182,8 @@ func TestChatMetricsTracker_SetInvocationState_MergesInPlaceInvocationUpdates(t 
 	tracker := NewChatMetricsTracker(
 		context.Background(),
 		invocation,
-		&model.Request{},
-		&model.TimingInfo{},
+		&compat.Request{},
+		&compat.TimingInfo{},
 		nil,
 		nil,
 	)
@@ -194,7 +194,7 @@ func TestChatMetricsTracker_SetInvocationState_MergesInPlaceInvocationUpdates(t 
 		UserID:  "user-updated",
 		AppName: "app-updated",
 	}
-	tracker.SetInvocationState(invocation, &model.TimingInfo{})
+	tracker.SetInvocationState(invocation, &compat.TimingInfo{})
 	attrs := tracker.buildAttributes()
 	require.Equal(t, invocation.AgentName, attrs.AgentName)
 	require.Equal(t, invocation.Model.Info().Name, attrs.RequestModelName)
@@ -217,8 +217,8 @@ func TestChatMetricsTracker_SetInvocationState_MergesSparseSessionAttributes(t *
 	tracker := NewChatMetricsTracker(
 		context.Background(),
 		baseInvocation,
-		&model.Request{},
-		&model.TimingInfo{},
+		&compat.Request{},
+		&compat.TimingInfo{},
 		nil,
 		nil,
 	)
@@ -228,7 +228,7 @@ func TestChatMetricsTracker_SetInvocationState_MergesSparseSessionAttributes(t *
 			ID: "sess-updated",
 		}),
 	)
-	tracker.SetInvocationState(updatedInvocation, &model.TimingInfo{})
+	tracker.SetInvocationState(updatedInvocation, &compat.TimingInfo{})
 	attrs := tracker.buildAttributes()
 	require.Equal(t, baseInvocation.AgentName, attrs.AgentName)
 	require.Equal(t, baseInvocation.Model.Info().Name, attrs.RequestModelName)
@@ -255,8 +255,8 @@ func TestChatMetricsTracker_SetInvocationState_PreservesExistingMetricsAttribute
 	tracker := NewChatMetricsTracker(
 		context.Background(),
 		baseInvocation,
-		&model.Request{},
-		&model.TimingInfo{},
+		&compat.Request{},
+		&compat.TimingInfo{},
 		nil,
 		nil,
 	)
@@ -270,7 +270,7 @@ func TestChatMetricsTracker_SetInvocationState_PreservesExistingMetricsAttribute
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated"
-	tracker.SetInvocationState(updatedInvocation, &model.TimingInfo{})
+	tracker.SetInvocationState(updatedInvocation, &compat.TimingInfo{})
 	attrs := tracker.buildAttributes()
 	require.Equal(t, baseInvocation.AgentName, attrs.AgentName)
 	require.Equal(t, baseInvocation.Model.Info().Name, attrs.RequestModelName)
@@ -284,7 +284,7 @@ func TestChatMetricsTracker_BuildAttributesFormatsErrorCode(t *testing.T) {
 		context.Background(),
 		nil,
 		nil,
-		&model.TimingInfo{},
+		&compat.TimingInfo{},
 		nil,
 		nil,
 	)
@@ -292,8 +292,8 @@ func TestChatMetricsTracker_BuildAttributesFormatsErrorCode(t *testing.T) {
 	tracker.SetLastEvent(event.NewResponseEvent(
 		"inv-123",
 		"test-author",
-		&model.Response{
-			Error: &model.ResponseError{
+		&compat.Response{
+			Error: &compat.ResponseError{
 				Type:    "rate_limit",
 				Code:    &code,
 				Message: "rate limit exceeded",
@@ -306,25 +306,25 @@ func TestChatMetricsTracker_BuildAttributesFormatsErrorCode(t *testing.T) {
 }
 
 func TestChatMetricsTracker_SetInvocationState_PreservesReasoningTimingWhenDisabled(t *testing.T) {
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(context.Background(), nil, req, timingInfo, nil, nil)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{ReasoningContent: "r1"},
+				Delta: compat.Message{ReasoningContent: "r1"},
 			},
 		},
 	})
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{ReasoningContent: "r2"},
+				Delta: compat.Message{ReasoningContent: "r2"},
 			},
 		},
 	})
@@ -335,10 +335,10 @@ func TestChatMetricsTracker_SetInvocationState_PreservesReasoningTimingWhenDisab
 		}),
 	)
 	tracker.SetInvocationState(updatedInvocation, nil)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{Content: "done"},
+				Delta: compat.Message{Content: "done"},
 			},
 		},
 	})
@@ -401,9 +401,9 @@ func TestChatMetricsTracker_RecordMetrics_SkipsTimeToFirstTokenWithoutValidConte
 	ChatMetricTRPCAgentGoClientOutputTokenPerTime = nil
 
 	ctx := context.Background()
-	tracker := NewChatMetricsTracker(ctx, nil, nil, &model.TimingInfo{}, nil, nil)
-	tracker.TrackResponse(&model.Response{
-		Usage: &model.Usage{
+	tracker := NewChatMetricsTracker(ctx, nil, nil, &compat.TimingInfo{}, nil, nil)
+	tracker.TrackResponse(&compat.Response{
+		Usage: &compat.Usage{
 			PromptTokens:     10,
 			CompletionTokens: 5,
 		},

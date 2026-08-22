@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionwindow "github.com/LingByte/ling-base/agentkit/session/internal/window"
 )
@@ -97,7 +97,7 @@ func (s *Service) loadWindowAnchor(
 	key session.Key,
 	sessionCreatedAt time.Time,
 	anchorEventID string,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) (*mongoWindowEntry, error) {
 	filter := activeFilterNoExpiry(bson.M{
 		"app_name":   key.AppName,
@@ -148,7 +148,7 @@ func (s *Service) loadWindowNeighbors(
 	sessionCreatedAt time.Time,
 	anchor *mongoWindowEntry,
 	limit int,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 	before bool,
 ) ([]session.EventWindowEntry, error) {
 	if limit <= 0 {

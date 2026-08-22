@@ -23,7 +23,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	trunner "github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -125,8 +125,8 @@ func newTestInvocation(invocationID string, sess *session.Session, prompt string
 	return &agent.Invocation{
 		InvocationID: invocationID,
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: prompt,
 		},
 	}
@@ -165,7 +165,7 @@ func TestCodexAgent_Run_CreateParsesEventsAndStoresThread(t *testing.T) {
 	require.True(t, events[2].IsToolResultResponse())
 	require.False(t, events[3].IsFinalResponse())
 	require.True(t, events[3].IsPartial)
-	require.Equal(t, model.ObjectTypeChatCompletionChunk, events[3].Object)
+	require.Equal(t, compat.ObjectTypeChatCompletionChunk, events[3].Object)
 	require.True(t, events[4].IsFinalResponse())
 	require.Equal(t, "command_execution", events[0].Choices[0].Message.ToolCalls[0].Function.Name)
 	require.Equal(t, `{"command":"/usr/bin/bash -lc 'printf hi'"}`, string(events[0].Choices[0].Message.ToolCalls[0].Function.Arguments))
@@ -282,7 +282,7 @@ func TestCodexAgent_Run_StreamsAssistantMessagesAroundToolEvents(t *testing.T) {
 	}
 	require.False(t, first.IsFinalResponse())
 	require.True(t, first.IsPartial)
-	require.Equal(t, model.ObjectTypeChatCompletionChunk, first.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletionChunk, first.Object)
 	require.Equal(t, "inv-stream-2:item_0", first.Response.ID)
 	require.Equal(t, "good luck", first.Choices[0].Delta.Content)
 	select {
@@ -349,7 +349,7 @@ func TestCodexAgent_Run_StreamsErrorsAsNonTerminalUntilCommandFinishes(t *testin
 	}
 	require.NotNil(t, terminal)
 	require.True(t, terminal.IsTerminalError())
-	require.Equal(t, model.ObjectTypeError, terminal.Object)
+	require.Equal(t, compat.ObjectTypeError, terminal.Object)
 	require.Equal(t, "second failure", terminal.Error.Message)
 }
 
@@ -368,9 +368,9 @@ func TestCodexAgent_Run_StreamParseErrorEmitsFlowError(t *testing.T) {
 	require.NoError(t, err)
 	events := drainEvents(ch)
 	require.Len(t, events, 1)
-	require.Equal(t, model.ObjectTypeError, events[0].Object)
+	require.Equal(t, compat.ObjectTypeError, events[0].Object)
 	require.NotNil(t, events[0].Error)
-	require.Equal(t, model.ErrorTypeFlowError, events[0].Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, events[0].Error.Type)
 	require.Contains(t, events[0].Error.Message, "stream codex transcript")
 	require.Equal(t, "{not-json}", events[0].Choices[0].Message.Content)
 }
@@ -630,7 +630,7 @@ func TestCodexAgent_Run_ResumeFailureAfterStreamedEventDoesNotFallback(t *testin
 	require.True(t, events[0].IsToolCallResponse())
 	require.True(t, events[0].IsPartial)
 	require.True(t, events[1].IsTerminalError())
-	require.Equal(t, model.ErrorTypeRunError, events[1].Error.Type)
+	require.Equal(t, compat.ErrorTypeRunError, events[1].Error.Type)
 	require.Contains(t, events[1].Error.Message, "resume crashed")
 	require.Empty(t, events[1].StateDelta)
 	calls := runner.Calls()
@@ -654,7 +654,7 @@ func TestCodexAgent_Run_ToolStartedFailureDoesNotPersistOrphanToolCall(t *testin
 	t.Cleanup(func() {
 		require.NoError(t, r.Close())
 	})
-	eventCh, err := r.Run(ctx, "user", "sess-orphan-tool", model.NewUserMessage("Run slow command."))
+	eventCh, err := r.Run(ctx, "user", "sess-orphan-tool", compat.NewUserMessage("Run slow command."))
 	require.NoError(t, err)
 	var sawPartialToolCall bool
 	for evt := range eventCh {
@@ -695,7 +695,7 @@ func TestCodexAgent_Run_ResumeAndCreateErrorsReturnRunError(t *testing.T) {
 	events := drainEvents(ch)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].Error)
-	require.Equal(t, model.ErrorTypeRunError, events[0].Error.Type)
+	require.Equal(t, compat.ErrorTypeRunError, events[0].Error.Type)
 	require.Equal(t, "create unavailable", events[0].Error.Message)
 	calls := runner.Calls()
 	require.Len(t, calls, 2)
@@ -771,7 +771,7 @@ func TestCodexAgent_Run_RawOutputHookReceivesCommandError(t *testing.T) {
 	require.Empty(t, string(got.Stdout))
 	require.Equal(t, "stderr text", string(got.Stderr))
 	require.NotNil(t, events[0].Error)
-	require.Equal(t, model.ErrorTypeRunError, events[0].Error.Type)
+	require.Equal(t, compat.ErrorTypeRunError, events[0].Error.Type)
 	require.Equal(t, "stderr text", events[0].Error.Message)
 	require.Equal(t, "stderr text", events[0].Choices[0].Message.Content)
 	calls := runner.Calls()
@@ -809,9 +809,9 @@ func TestCodexAgent_Run_RawOutputHookError(t *testing.T) {
 	require.True(t, events[3].IsPartial)
 	require.Equal(t, "hello", events[3].Choices[0].Delta.Content)
 	require.True(t, events[4].IsFinalResponse())
-	require.Equal(t, model.ObjectTypeError, events[4].Object)
+	require.Equal(t, compat.ObjectTypeError, events[4].Object)
 	require.NotNil(t, events[4].Error)
-	require.Equal(t, model.ErrorTypeFlowError, events[4].Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, events[4].Error.Type)
 	require.Contains(t, events[4].Error.Message, "raw output hook")
 	require.Contains(t, events[4].Error.Message, "hook failed")
 	require.Contains(t, events[4].Choices[0].Message.Content, "thread-hook-2")
@@ -1086,7 +1086,7 @@ func TestParseTranscriptEvents_ErrorEventMapping(t *testing.T) {
 	result, err := parseTranscriptEvents([]byte(transcript), "inv-parse-error-1", "codex")
 	require.NoError(t, err)
 	require.Len(t, result.Events, 2)
-	require.Equal(t, model.ObjectTypeChatCompletionChunk, result.Events[0].Object)
+	require.Equal(t, compat.ObjectTypeChatCompletionChunk, result.Events[0].Object)
 	require.False(t, result.Events[0].Done)
 	require.True(t, result.Events[0].IsPartial)
 	require.Nil(t, result.Events[0].Error)
@@ -1133,8 +1133,8 @@ func TestErrorEventFromRecord(t *testing.T) {
 func TestErrorEventFromResponseErrorClonesTerminalError(t *testing.T) {
 	param := "prompt"
 	code := "bad_turn"
-	responseErr := &model.ResponseError{
-		Type:    model.ErrorTypeRunError,
+	responseErr := &compat.ResponseError{
+		Type:    compat.ErrorTypeRunError,
 		Message: "original",
 		Param:   &param,
 		Code:    &code,

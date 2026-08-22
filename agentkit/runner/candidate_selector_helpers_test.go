@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestWrapAgentWithCandidateSelector_EdgeCases(t *testing.T) {
@@ -81,7 +81,7 @@ func TestCandidateSelectorHelpers(t *testing.T) {
 		map[string][]byte{"k": []byte("v")},
 	)
 	requireEvent := events[len(events)-1]
-	assert.Equal(t, model.ObjectTypeStateUpdate, requireEvent.Object)
+	assert.Equal(t, compat.ObjectTypeStateUpdate, requireEvent.Object)
 	assert.Equal(t, "v", string(requireEvent.StateDelta["k"]))
 
 	existing := event.New("invocation", "agent")

@@ -15,7 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -65,7 +65,7 @@ type toolResultRecoveryRef struct {
 
 func toolResultRecoveryRefForMessage(
 	evt event.Event,
-	msg model.Message,
+	msg compat.Message,
 	reason string,
 ) toolResultRecoveryRef {
 	return toolResultRecoveryRef{
@@ -78,7 +78,7 @@ func toolResultRecoveryRefForMessage(
 
 func (cfg ContextCompactionConfig) recoveryRefForMessage(
 	evt event.Event,
-	msg model.Message,
+	msg compat.Message,
 	reason string,
 ) toolResultRecoveryRef {
 	ref := toolResultRecoveryRefForMessage(evt, msg, reason)
@@ -219,7 +219,7 @@ type ContextCompactionConfig struct {
 	OversizedToolResultMaxTokens int
 	// TokenCounter estimates request and tool-result size for compaction decisions.
 	// When nil, SimpleTokenCounter is used.
-	TokenCounter model.TokenCounter
+	TokenCounter compat.TokenCounter
 	// SkipRecentFunc returns how many tail events should be treated as recent
 	// and protected from historical tool-result compaction.
 	SkipRecentFunc ContextCompactionSkipRecentFunc
@@ -260,7 +260,7 @@ func normalizeContextCompactionConfig(
 		cfg.OversizedToolResultMaxTokens = 0
 	}
 	if cfg.TokenCounter == nil {
-		cfg.TokenCounter = model.NewSimpleTokenCounter()
+		cfg.TokenCounter = compat.NewSimpleTokenCounter()
 	}
 	cfg.toolResultCompactionRules.forceCleanToolNames = normalizeToolNameSet(
 		cfg.toolResultCompactionRules.forceCleanToolNames,
@@ -368,7 +368,7 @@ func (cfg ContextCompactionConfig) hasForceCleanToolResults() bool {
 	return len(cfg.toolResultCompactionRules.forceCleanToolNames) > 0
 }
 
-func (cfg ContextCompactionConfig) keepToolResult(msg model.Message) bool {
+func (cfg ContextCompactionConfig) keepToolResult(msg compat.Message) bool {
 	if msg.ToolName == "" {
 		return false
 	}
@@ -376,7 +376,7 @@ func (cfg ContextCompactionConfig) keepToolResult(msg model.Message) bool {
 	return ok
 }
 
-func (cfg ContextCompactionConfig) forceCleanToolResult(msg model.Message) bool {
+func (cfg ContextCompactionConfig) forceCleanToolResult(msg compat.Message) bool {
 	if msg.ToolName == "" || cfg.keepToolResult(msg) {
 		return false
 	}
@@ -400,7 +400,7 @@ func applyForceCleanToolResultPass(
 			events[i],
 			0,
 			cfg.SessionLoadRecoveryEnabled,
-			func(ctx context.Context, msg model.Message, _ int, _ toolResultRecoveryRef) (model.Message, bool, int) {
+			func(ctx context.Context, msg compat.Message, _ int, _ toolResultRecoveryRef) (compat.Message, bool, int) {
 				if !cfg.forceCleanToolResult(msg) {
 					return msg, false, 0
 				}
@@ -474,7 +474,7 @@ func compactHistoricalToolResultEvent(
 		evt,
 		maxTokens,
 		cfg.SessionLoadRecoveryEnabled,
-		func(ctx context.Context, msg model.Message, maxTokens int, ref toolResultRecoveryRef) (model.Message, bool, int) {
+		func(ctx context.Context, msg compat.Message, maxTokens int, ref toolResultRecoveryRef) (compat.Message, bool, int) {
 			if cfg.keepToolResult(msg) {
 				return msg, false, 0
 			}
@@ -509,7 +509,7 @@ func applyOversizedToolResultPass(
 			events[i],
 			maxTokens,
 			sessionLoadRecoveryEnabled,
-			func(ctx context.Context, msg model.Message, maxTokens int, ref toolResultRecoveryRef) (model.Message, bool, int) {
+			func(ctx context.Context, msg compat.Message, maxTokens int, ref toolResultRecoveryRef) (compat.Message, bool, int) {
 				if cfg.keepToolResult(msg) {
 					return msg, false, 0
 				}
@@ -534,7 +534,7 @@ func rewriteToolResultEventMessages(
 	evt event.Event,
 	maxTokens int,
 	sessionLoadAvailable bool,
-	rewrite func(context.Context, model.Message, int, toolResultRecoveryRef) (model.Message, bool, int),
+	rewrite func(context.Context, compat.Message, int, toolResultRecoveryRef) (compat.Message, bool, int),
 	reason string,
 ) (event.Event, bool, int, int) {
 	if evt.Response == nil || len(evt.Response.Choices) == 0 {
@@ -680,23 +680,23 @@ func compactionUnitKey(requestID, invocationID string) string {
 // inside ContentParts is deferred until multimodal tool results are common.
 func truncateOversizedToolResultMessage(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-) (model.Message, bool, int) {
+) (compat.Message, bool, int) {
 	return truncateOversizedToolResultMessageWithCounter(
 		ctx,
 		msg,
 		maxTokens,
-		model.NewSimpleTokenCounter(),
+		compat.NewSimpleTokenCounter(),
 	)
 }
 
 func truncateOversizedToolResultMessageWithCounter(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-	counter model.TokenCounter,
-) (model.Message, bool, int) {
+	counter compat.TokenCounter,
+) (compat.Message, bool, int) {
 	ref := toolResultRecoveryRef{
 		ToolCallID: msg.ToolID,
 		ToolName:   msg.ToolName,
@@ -713,12 +713,12 @@ func truncateOversizedToolResultMessageWithCounter(
 
 func truncateOversizedToolResultMessageWithCounterAndRef(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-	counter model.TokenCounter,
+	counter compat.TokenCounter,
 	ref toolResultRecoveryRef,
-) (model.Message, bool, int) {
-	if msg.Role != model.RoleTool || msg.ToolID == "" || maxTokens <= 0 {
+) (compat.Message, bool, int) {
+	if msg.Role != compat.RoleTool || msg.ToolID == "" || maxTokens <= 0 {
 		return msg, false, 0
 	}
 	if msg.Content == "" && len(msg.ContentParts) == 0 {
@@ -732,7 +732,7 @@ func truncateOversizedToolResultMessageWithCounterAndRef(
 		return msg, false, 0
 	}
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 
 	originalTokens, err := counter.CountTokens(ctx, msg)
@@ -748,10 +748,10 @@ func truncateOversizedToolResultMessageWithCounterAndRef(
 	result := msg
 	result.Content = truncated
 	if len(msg.ContentParts) > 0 {
-		result.ContentParts = append([]model.ContentPart(nil), msg.ContentParts...)
+		result.ContentParts = append([]compat.ContentPart(nil), msg.ContentParts...)
 	}
 	if len(msg.ToolCalls) > 0 {
-		result.ToolCalls = append([]model.ToolCall(nil), msg.ToolCalls...)
+		result.ToolCalls = append([]compat.ToolCall(nil), msg.ToolCalls...)
 	}
 	resultTokens, err := counter.CountTokens(ctx, result)
 	if err != nil || resultTokens >= originalTokens {
@@ -763,9 +763,9 @@ func truncateOversizedToolResultMessageWithCounterAndRef(
 
 func truncateMiddleToTokenBudget(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-	counter model.TokenCounter,
+	counter compat.TokenCounter,
 	ref toolResultRecoveryRef,
 ) (string, bool) {
 	if msg.Content == "" || counter == nil || maxTokens <= 0 {
@@ -845,10 +845,10 @@ func truncateMiddleWithRef(
 
 func cleanToolResultMessageWithCounter(
 	ctx context.Context,
-	msg model.Message,
-	counter model.TokenCounter,
-) (model.Message, bool, int) {
-	if msg.Role != model.RoleTool || msg.ToolID == "" {
+	msg compat.Message,
+	counter compat.TokenCounter,
+) (compat.Message, bool, int) {
+	if msg.Role != compat.RoleTool || msg.ToolID == "" {
 		return msg, false, 0
 	}
 	if msg.Content == "" && len(msg.ContentParts) == 0 {
@@ -860,7 +860,7 @@ func cleanToolResultMessageWithCounter(
 		return msg, false, 0
 	}
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 
 	// Force-clean is policy-driven, not threshold-driven. Even if token
@@ -870,7 +870,7 @@ func cleanToolResultMessageWithCounter(
 	if err != nil {
 		originalTokens = 0
 	}
-	compacted := model.Message{
+	compacted := compat.Message{
 		Role:     msg.Role,
 		Content:  policyToolResultPlaceholder,
 		ToolID:   msg.ToolID,
@@ -889,23 +889,23 @@ func cleanToolResultMessageWithCounter(
 
 func compactHistoricalToolResultMessage(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-) (model.Message, bool, int) {
+) (compat.Message, bool, int) {
 	return compactHistoricalToolResultMessageWithCounter(
 		ctx,
 		msg,
 		maxTokens,
-		model.NewSimpleTokenCounter(),
+		compat.NewSimpleTokenCounter(),
 	)
 }
 
 func compactHistoricalToolResultMessageWithCounter(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-	counter model.TokenCounter,
-) (model.Message, bool, int) {
+	counter compat.TokenCounter,
+) (compat.Message, bool, int) {
 	ref := toolResultRecoveryRef{
 		ToolCallID: msg.ToolID,
 		ToolName:   msg.ToolName,
@@ -922,12 +922,12 @@ func compactHistoricalToolResultMessageWithCounter(
 
 func compactHistoricalToolResultMessageWithCounterAndRef(
 	ctx context.Context,
-	msg model.Message,
+	msg compat.Message,
 	maxTokens int,
-	counter model.TokenCounter,
+	counter compat.TokenCounter,
 	ref toolResultRecoveryRef,
-) (model.Message, bool, int) {
-	if msg.Role != model.RoleTool || msg.ToolID == "" || maxTokens <= 0 {
+) (compat.Message, bool, int) {
+	if msg.Role != compat.RoleTool || msg.ToolID == "" || maxTokens <= 0 {
 		return msg, false, 0
 	}
 	if isRecoverablePlaceholderContent(msg.Content) && len(msg.ContentParts) == 0 {
@@ -935,14 +935,14 @@ func compactHistoricalToolResultMessageWithCounterAndRef(
 	}
 
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 	originalTokens, err := counter.CountTokens(ctx, msg)
 	if err != nil || originalTokens <= maxTokens {
 		return msg, false, 0
 	}
 
-	compacted := model.Message{
+	compacted := compat.Message{
 		Role:     msg.Role,
 		Content:  recoverableToolResultPlaceholder(ref),
 		ToolID:   msg.ToolID,

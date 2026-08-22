@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	"github.com/LingByte/ling-base/agentkit/internal/teamtrace"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -234,10 +234,10 @@ func (m *agentToolCallingSwarmMember) Run(
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		ch <- event.NewResponseEvent(inv.InvocationID, m.name, &model.Response{
+		ch <- event.NewResponseEvent(inv.InvocationID, m.name, &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("worker final: " + text),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("worker final: " + text),
 			}},
 		})
 	}()
@@ -266,10 +266,10 @@ func (a *assistantTextAgent) Run(
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		ch <- event.NewResponseEvent(inv.InvocationID, a.name, &model.Response{
+		ch <- event.NewResponseEvent(inv.InvocationID, a.name, &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage(a.content),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage(a.content),
 			}},
 		})
 	}()
@@ -359,8 +359,8 @@ type swarmStructuredOutputModel struct {
 
 func (m *swarmStructuredOutputModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	if req != nil &&
 		req.StructuredOutput != nil &&
@@ -370,19 +370,19 @@ func (m *swarmStructuredOutputModel) GenerateContent(
 		m.description = req.StructuredOutput.JSONSchema.Description
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(`{"answer":"ok","score":7}`),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(`{"answer":"ok","score":7}`),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *swarmStructuredOutputModel) Info() model.Info {
-	return model.Info{Name: "swarm-structured-output-model"}
+func (m *swarmStructuredOutputModel) Info() compat.Info {
+	return compat.Info{Name: "swarm-structured-output-model"}
 }
 
 func (m *swarmStructuredOutputModel) Snapshot() (bool, string, string) {
@@ -721,7 +721,7 @@ func TestTeam_Run_Coordinator(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -744,7 +744,7 @@ func TestTeam_RunCoordinator_SetsCoordinatorSurfaceRootNodeID(t *testing.T) {
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(session.NewSession(testAppName, testUserID, testSessionID)),
 		agent.WithInvocationTraceNodeID("workflow/team"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -777,7 +777,7 @@ func TestTeam_RunCoordinator_DoesNotMutateSourceRunOptions(t *testing.T) {
 			RequestID:          "request-id",
 			CustomAgentConfigs: sourceConfigs,
 		}),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -793,7 +793,7 @@ func TestTeam_RunCoordinator_DoesNotMutateSourceRunOptions(t *testing.T) {
 func TestTeam_RunCoordinator_PreservesSourceInvocationObservableState(t *testing.T) {
 	modelImpl := &teamScriptedSurfaceModel{
 		name:      "team-coordinator-model",
-		responses: []model.Message{model.NewAssistantMessage("coordinator response")},
+		responses: []compat.Message{compat.NewAssistantMessage("coordinator response")},
 	}
 	coordinator := llmagent.New(
 		testCoordinatorName,
@@ -808,7 +808,7 @@ func TestTeam_RunCoordinator_PreservesSourceInvocationObservableState(t *testing
 			RequestID:          "request-id",
 			CustomAgentConfigs: sourceConfigs,
 		}),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -845,7 +845,7 @@ func TestTeam_RunCoordinator_PreservesCustomInvocationState(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(session.NewSession(testAppName, testUserID, testSessionID)),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -886,7 +886,7 @@ func TestTeam_RunCoordinator_MemberToolUsesMemberSurfaceRootNodeID(t *testing.T)
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(session.NewSession(testAppName, testUserID, testSessionID)),
 		agent.WithInvocationTraceNodeID("workflow/team"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -915,7 +915,7 @@ func TestTeam_RunCoordinator_ClearsMountedRootsOnCoordinatorError(t *testing.T) 
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationTraceNodeID("workflow/team"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -954,7 +954,7 @@ func TestTeam_RunSwarm_PreservesRunStructuredOutput(t *testing.T) {
 		context.Background(),
 		"user-structured-output",
 		"session-structured-output",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithStructuredOutputJSON(
 			new(teamStructuredOutputPayload),
 			true,
@@ -1094,7 +1094,7 @@ func TestTeam_RunSwarm_InstallsController(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 
 	ctx := agent.NewInvocationContext(context.Background(), inv)
@@ -1117,7 +1117,7 @@ func TestTeam_RunSwarm_MountsMemberTraceNodeID(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationTraceNodeID("workflow/swarm"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1151,7 +1151,7 @@ func TestTeam_RunSwarm_PreservesTraceNodeIDWhenSurfaceRootIsMounted(t *testing.T
 			),
 		}),
 		agent.WithInvocationTraceNodeID("workflow/parent/delegate"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1183,7 +1183,7 @@ func TestTeam_RunSwarm_CrossRequestTransfer_UsesActiveAgent(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1216,7 +1216,7 @@ func TestTeam_RunSwarm_CrossRequestTransfer_StoresMountedTraceRoot(t *testing.T)
 		agent.WithInvocationSession(sess),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
 		agent.WithInvocationTraceNodeID("workflow/swarm"),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1243,7 +1243,7 @@ func TestTeam_RunSwarm_CrossRequestTransfer_DoesNotOverwriteBusinessTraceKeyWhen
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1276,7 +1276,7 @@ func TestTeam_RunSwarm_CrossRequestTransfer_MissingActiveAgentFallsBackToEntry(t
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1297,7 +1297,7 @@ func TestTeam_RunSwarm_EntryMissing(t *testing.T) {
 	}
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	_, err := tm.runSwarm(context.Background(), inv)
 	require.Error(t, err)
@@ -1321,7 +1321,7 @@ func TestTeam_RunSwarm_DoesNotCompareNonComparableAgentValues(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationRunOptions(agent.RunOptions{ExecutionTraceEnabled: true}),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ch, err := tm.runSwarm(context.Background(), inv)
 	require.NoError(t, err)
@@ -1583,7 +1583,7 @@ func TestTeam_RunSwarm_CrossRequestTransfer_RemovedActiveAgent(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationAgent(tm),
 		agent.WithInvocationSession(sess),
-		agent.WithInvocationMessage(model.NewUserMessage(testUserMessage)),
+		agent.WithInvocationMessage(compat.NewUserMessage(testUserMessage)),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	ch, err := tm.Run(ctx, inv)
@@ -1597,24 +1597,24 @@ func TestTeam_RunSwarm_CrossRequestTransfer_RemovedActiveAgent(t *testing.T) {
 }
 
 type teamSurfaceCapturedRequest struct {
-	messages []model.Message
+	messages []compat.Message
 }
 
 type teamScriptedSurfaceModel struct {
 	name      string
-	responses []model.Message
+	responses []compat.Message
 	mu        sync.Mutex
 	requests  []*teamSurfaceCapturedRequest
 }
 
 func (m *teamScriptedSurfaceModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	callIndex := len(m.requests)
 	m.requests = append(m.requests, cloneTeamSurfaceCapturedRequest(req))
-	response := model.NewAssistantMessage("")
+	response := compat.NewAssistantMessage("")
 	if len(m.responses) > 0 {
 		if callIndex < len(m.responses) {
 			response = cloneTeamSurfaceMessage(m.responses[callIndex])
@@ -1623,10 +1623,10 @@ func (m *teamScriptedSurfaceModel) GenerateContent(
 		}
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Message: response,
 		}},
 	}
@@ -1634,8 +1634,8 @@ func (m *teamScriptedSurfaceModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *teamScriptedSurfaceModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *teamScriptedSurfaceModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *teamScriptedSurfaceModel) RequestCount() int {
@@ -1666,7 +1666,7 @@ func (m *teamScriptedSurfaceModel) Requests() []*teamSurfaceCapturedRequest {
 func TestRunnerRun_SwarmHandoffInputBuilder_RewritesTargetInput(t *testing.T) {
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"child","message":"transfer payload"}`,
@@ -1675,7 +1675,7 @@ func TestRunnerRun_SwarmHandoffInputBuilder_RewritesTargetInput(t *testing.T) {
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name:      "swarm-child-model",
-		responses: []model.Message{model.NewAssistantMessage("child done")},
+		responses: []compat.Message{compat.NewAssistantMessage("child done")},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
 	child := llmagent.New("child", llmagent.WithModel(childModel))
@@ -1683,13 +1683,13 @@ func TestRunnerRun_SwarmHandoffInputBuilder_RewritesTargetInput(t *testing.T) {
 		"support",
 		"parent",
 		[]agent.Agent{parent, child},
-		WithSwarmHandoffInputBuilder(func(ctx context.Context, args SwarmHandoffInputArgs) (model.Message, error) {
+		WithSwarmHandoffInputBuilder(func(ctx context.Context, args SwarmHandoffInputArgs) (compat.Message, error) {
 			_ = ctx
 			require.Equal(t, "parent", args.FromAgentName)
 			require.Equal(t, "child", args.ToAgentName)
 			require.Equal(t, "original user input", args.RootInput.Content)
 			require.Equal(t, "transfer payload", args.TransferMessage)
-			return model.NewUserMessage("CUSTOM_CHILD_INPUT: " + args.RootInput.Content), nil
+			return compat.NewUserMessage("CUSTOM_CHILD_INPUT: " + args.RootInput.Content), nil
 		}),
 	)
 	require.NoError(t, err)
@@ -1702,7 +1702,7 @@ func TestRunnerRun_SwarmHandoffInputBuilder_RewritesTargetInput(t *testing.T) {
 		context.Background(),
 		"user-swarm-builder",
 		"session-swarm-builder",
-		model.NewUserMessage("original user input"),
+		compat.NewUserMessage("original user input"),
 	)
 	require.NoError(t, err)
 	completion := collectTeamRunnerCompletionEvent(t, eventCh)
@@ -1720,7 +1720,7 @@ func TestRunnerRun_SwarmIndependentAgents_KeepsMemberHistoryPrivate(t *testing.T
 	service := sessioninmemory.NewSessionService()
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"child","message":"private child input"}`,
@@ -1729,7 +1729,7 @@ func TestRunnerRun_SwarmIndependentAgents_KeepsMemberHistoryPrivate(t *testing.T
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name:      "swarm-child-model",
-		responses: []model.Message{model.NewAssistantMessage("private child answer")},
+		responses: []compat.Message{compat.NewAssistantMessage("private child answer")},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
 	child := llmagent.New("child", llmagent.WithModel(childModel))
@@ -1745,7 +1745,7 @@ func TestRunnerRun_SwarmIndependentAgents_KeepsMemberHistoryPrivate(t *testing.T
 		ctx,
 		"user-independent",
 		"root-session",
-		model.NewUserMessage("root user input"),
+		compat.NewUserMessage("root user input"),
 	)
 	require.NoError(t, err)
 	completion := collectTeamRunnerCompletionEvent(t, eventCh)
@@ -1778,7 +1778,7 @@ func TestRunnerRun_SwarmIndependentAgents_PersistsPostPluginEventByOriginalRoute
 	service := sessioninmemory.NewSessionService()
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"child","message":"private child input"}`,
@@ -1787,7 +1787,7 @@ func TestRunnerRun_SwarmIndependentAgents_PersistsPostPluginEventByOriginalRoute
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name:      "swarm-child-model",
-		responses: []model.Message{model.NewAssistantMessage("sensitive child answer")},
+		responses: []compat.Message{compat.NewAssistantMessage("sensitive child answer")},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
 	child := llmagent.New("child", llmagent.WithModel(childModel))
@@ -1812,11 +1812,11 @@ func TestRunnerRun_SwarmIndependentAgents_PersistsPostPluginEventByOriginalRoute
 				redacted := event.NewResponseEvent(
 					"wrong-invocation",
 					"child",
-					&model.Response{
+					&compat.Response{
 						ID:   "redacted-child",
 						Done: true,
-						Choices: []model.Choice{{
-							Message: model.NewAssistantMessage("redacted child answer"),
+						Choices: []compat.Choice{{
+							Message: compat.NewAssistantMessage("redacted child answer"),
 						}},
 					},
 				)
@@ -1837,7 +1837,7 @@ func TestRunnerRun_SwarmIndependentAgents_PersistsPostPluginEventByOriginalRoute
 		ctx,
 		"user-plugin-route",
 		"root-session",
-		model.NewUserMessage("root user input"),
+		compat.NewUserMessage("root user input"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, eventCh)
@@ -1869,7 +1869,7 @@ func TestRunnerRun_SwarmIndependentAgents_RoutesAppenderEvents(t *testing.T) {
 	service := sessioninmemory.NewSessionService()
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"worker","message":"handoff to worker"}`,
@@ -1897,7 +1897,7 @@ func TestRunnerRun_SwarmIndependentAgents_RoutesAppenderEvents(t *testing.T) {
 		ctx,
 		"user-appender-route",
 		"root-session",
-		model.NewUserMessage("root user input"),
+		compat.NewUserMessage("root user input"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, eventCh)
@@ -1930,7 +1930,7 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestPersistsNextTurnToActi
 	service := sessioninmemory.NewSessionService()
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"child","message":"handoff to child"}`,
@@ -1939,9 +1939,9 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestPersistsNextTurnToActi
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name: "swarm-child-model",
-		responses: []model.Message{
-			model.NewAssistantMessage("child first answer"),
-			model.NewAssistantMessage("child second answer"),
+		responses: []compat.Message{
+			compat.NewAssistantMessage("child first answer"),
+			compat.NewAssistantMessage("child second answer"),
 		},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
@@ -1959,7 +1959,7 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestPersistsNextTurnToActi
 		ctx,
 		"user-independent-cross",
 		"root-session",
-		model.NewUserMessage("start child"),
+		compat.NewUserMessage("start child"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, firstCh)
@@ -1967,7 +1967,7 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestPersistsNextTurnToActi
 		ctx,
 		"user-independent-cross",
 		"root-session",
-		model.NewUserMessage("second turn for child"),
+		compat.NewUserMessage("second turn for child"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, secondCh)
@@ -2015,11 +2015,11 @@ func TestRunnerRun_SwarmIndependentAgents_BackfillsLegacyActiveMemberTurn(t *tes
 	require.NoError(t, err)
 	parentModel := &teamScriptedSurfaceModel{
 		name:      "swarm-parent-model",
-		responses: []model.Message{model.NewAssistantMessage("parent should not run")},
+		responses: []compat.Message{compat.NewAssistantMessage("parent should not run")},
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name:      "swarm-child-model",
-		responses: []model.Message{model.NewAssistantMessage("child legacy answer")},
+		responses: []compat.Message{compat.NewAssistantMessage("child legacy answer")},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
 	child := llmagent.New("child", llmagent.WithModel(childModel))
@@ -2036,7 +2036,7 @@ func TestRunnerRun_SwarmIndependentAgents_BackfillsLegacyActiveMemberTurn(t *tes
 		ctx,
 		"user-independent-legacy",
 		"root-session",
-		model.NewUserMessage("legacy active child turn"),
+		compat.NewUserMessage("legacy active child turn"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, eventCh)
@@ -2066,17 +2066,17 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestRemovedActiveMemberUse
 	service := sessioninmemory.NewSessionService()
 	parentModel := &teamScriptedSurfaceModel{
 		name: "swarm-parent-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"child","message":"handoff to child"}`,
 			),
-			model.NewAssistantMessage("parent after removal"),
+			compat.NewAssistantMessage("parent after removal"),
 		},
 	}
 	childModel := &teamScriptedSurfaceModel{
 		name:      "swarm-child-model",
-		responses: []model.Message{model.NewAssistantMessage("child first answer")},
+		responses: []compat.Message{compat.NewAssistantMessage("child first answer")},
 	}
 	parent := llmagent.New("parent", llmagent.WithModel(parentModel))
 	child := llmagent.New("child", llmagent.WithModel(childModel))
@@ -2093,7 +2093,7 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestRemovedActiveMemberUse
 		ctx,
 		"user-independent-removed",
 		"root-session",
-		model.NewUserMessage("start child"),
+		compat.NewUserMessage("start child"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, firstCh)
@@ -2102,7 +2102,7 @@ func TestRunnerRun_SwarmIndependentAgents_WithCrossRequestRemovedActiveMemberUse
 		ctx,
 		"user-independent-removed",
 		"root-session",
-		model.NewUserMessage("second turn after removal"),
+		compat.NewUserMessage("second turn after removal"),
 	)
 	require.NoError(t, err)
 	collectTeamRunnerCompletionEvent(t, secondCh)
@@ -2135,21 +2135,21 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesCoordinatorAndMemberPatches(
 ) {
 	coordinatorModel := &teamScriptedSurfaceModel{
 		name: "team-coordinator-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				defaultMemberToolSetNamePrefix+"team_researcher",
 				`{"request":"please help"}`,
 			),
-			model.NewAssistantMessage("coordinator done"),
+			compat.NewAssistantMessage("coordinator done"),
 		},
 	}
 	memberStatic := &teamScriptedSurfaceModel{
 		name:      "team-member-static",
-		responses: []model.Message{model.NewAssistantMessage("member static")},
+		responses: []compat.Message{compat.NewAssistantMessage("member static")},
 	}
 	memberPatched := &teamScriptedSurfaceModel{
 		name:      "team-member-patched",
-		responses: []model.Message{model.NewAssistantMessage("member patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("member patched")},
 	}
 	coordinator := llmagent.New("team", llmagent.WithModel(coordinatorModel))
 	member := llmagent.New(
@@ -2181,7 +2181,7 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesCoordinatorAndMemberPatches(
 		context.Background(),
 		"user-team",
 		"session-team",
-		model.NewUserMessage("team input"),
+		compat.NewUserMessage("team input"),
 		agent.WithSurfacePatchForNode(coordinatorNodeID, coordinatorPatch),
 		agent.WithSurfacePatchForNode(memberNodeID, memberPatch),
 	)
@@ -2210,7 +2210,7 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesSwarmMemberPatches(
 ) {
 	alphaModel := &teamScriptedSurfaceModel{
 		name: "swarm-alpha-model",
-		responses: []model.Message{
+		responses: []compat.Message{
 			teamToolCallAssistantMessage(
 				transfertool.TransferToolName,
 				`{"agent_name":"beta","message":"handoff"}`,
@@ -2219,11 +2219,11 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesSwarmMemberPatches(
 	}
 	betaStatic := &teamScriptedSurfaceModel{
 		name:      "swarm-beta-static",
-		responses: []model.Message{model.NewAssistantMessage("beta static")},
+		responses: []compat.Message{compat.NewAssistantMessage("beta static")},
 	}
 	betaPatched := &teamScriptedSurfaceModel{
 		name:      "swarm-beta-patched",
-		responses: []model.Message{model.NewAssistantMessage("beta patched")},
+		responses: []compat.Message{compat.NewAssistantMessage("beta patched")},
 	}
 	alpha := llmagent.New(
 		"alpha",
@@ -2269,7 +2269,7 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesSwarmMemberPatches(
 		context.Background(),
 		"user-swarm",
 		"session-swarm",
-		model.NewUserMessage("swarm input"),
+		compat.NewUserMessage("swarm input"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithSurfacePatchForNode(alphaNodeID, alphaPatch),
 		agent.WithSurfacePatchForNode(betaNodeID, betaPatch),
@@ -2300,13 +2300,13 @@ func TestRunnerRun_WithSurfacePatchForNode_AppliesSwarmMemberPatches(
 }
 
 func cloneTeamSurfaceCapturedRequest(
-	req *model.Request,
+	req *compat.Request,
 ) *teamSurfaceCapturedRequest {
 	if req == nil {
 		return nil
 	}
 	return &teamSurfaceCapturedRequest{
-		messages: append([]model.Message(nil), req.Messages...),
+		messages: append([]compat.Message(nil), req.Messages...),
 	}
 }
 
@@ -2317,28 +2317,28 @@ func cloneTeamSurfaceCapturedRequestValue(
 		return nil
 	}
 	return &teamSurfaceCapturedRequest{
-		messages: append([]model.Message(nil), req.messages...),
+		messages: append([]compat.Message(nil), req.messages...),
 	}
 }
 
-func cloneTeamSurfaceMessage(message model.Message) model.Message {
+func cloneTeamSurfaceMessage(message compat.Message) compat.Message {
 	cloned := message
 	if len(message.ToolCalls) > 0 {
-		cloned.ToolCalls = append([]model.ToolCall(nil), message.ToolCalls...)
+		cloned.ToolCalls = append([]compat.ToolCall(nil), message.ToolCalls...)
 	}
 	if len(message.ContentParts) > 0 {
-		cloned.ContentParts = append([]model.ContentPart(nil), message.ContentParts...)
+		cloned.ContentParts = append([]compat.ContentPart(nil), message.ContentParts...)
 	}
 	return cloned
 }
 
-func teamToolCallAssistantMessage(name string, args string) model.Message {
-	return model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+func teamToolCallAssistantMessage(name string, args string) compat.Message {
+	return compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   name + "-call",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      name,
 				Arguments: []byte(args),
 			},
@@ -2346,16 +2346,16 @@ func teamToolCallAssistantMessage(name string, args string) model.Message {
 	}
 }
 
-func teamFirstSystemMessageContent(messages []model.Message) string {
+func teamFirstSystemMessageContent(messages []compat.Message) string {
 	for _, msg := range messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			return msg.Content
 		}
 	}
 	return ""
 }
 
-func teamMessagesContainContent(messages []model.Message, content string) bool {
+func teamMessagesContainContent(messages []compat.Message, content string) bool {
 	for _, msg := range messages {
 		if strings.Contains(msg.Content, content) {
 			return true

@@ -18,22 +18,22 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
 var (
 	// benchCountSink and benchRespSink prevent the compiler from optimizing away the benchmarked work.
-	benchRespSink  *model.Response
+	benchRespSink  *compat.Response
 	benchCountSink int
 )
 
 type benchChanModel struct {
-	responses []*model.Response
+	responses []*compat.Response
 }
 
-func (m *benchChanModel) GenerateContent(ctx context.Context, request *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *benchChanModel) GenerateContent(ctx context.Context, request *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	go func() {
 		for _, resp := range m.responses {
 			ch <- resp
@@ -43,22 +43,22 @@ func (m *benchChanModel) GenerateContent(ctx context.Context, request *model.Req
 	return ch, nil
 }
 
-func (m *benchChanModel) Info() model.Info {
-	return model.Info{Name: "benchChanModel"}
+func (m *benchChanModel) Info() compat.Info {
+	return compat.Info{Name: "benchChanModel"}
 }
 
 type benchIterModel struct {
-	responses []*model.Response
+	responses []*compat.Response
 }
 
-func (m *benchIterModel) GenerateContent(ctx context.Context, request *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *benchIterModel) GenerateContent(ctx context.Context, request *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *benchIterModel) GenerateContentIter(ctx context.Context, request *model.Request) (model.Seq[*model.Response], error) {
-	return func(yield func(*model.Response) bool) {
+func (m *benchIterModel) GenerateContentIter(ctx context.Context, request *compat.Request) (compat.Seq[*compat.Response], error) {
+	return func(yield func(*compat.Response) bool) {
 		for _, resp := range m.responses {
 			if !yield(resp) {
 				return
@@ -67,20 +67,20 @@ func (m *benchIterModel) GenerateContentIter(ctx context.Context, request *model
 	}, nil
 }
 
-func (m *benchIterModel) Info() model.Info {
-	return model.Info{Name: "benchIterModel"}
+func (m *benchIterModel) Info() compat.Info {
+	return compat.Info{Name: "benchIterModel"}
 }
 
-func makeBenchResponses(n int) []*model.Response {
-	responses := make([]*model.Response, n)
+func makeBenchResponses(n int) []*compat.Response {
+	responses := make([]*compat.Response, n)
 	for i := 0; i < n; i++ {
-		responses[i] = &model.Response{Created: int64(i + 1)}
+		responses[i] = &compat.Response{Created: int64(i + 1)}
 	}
 	return responses
 }
 
-func consumeSeq(seq model.Seq[*model.Response]) (checksum int, last *model.Response) {
-	seq(func(resp *model.Response) bool {
+func consumeSeq(seq compat.Seq[*compat.Response]) (checksum int, last *compat.Response) {
+	seq(func(resp *compat.Response) bool {
 		checksum += int(resp.Created)
 		last = resp
 		return true
@@ -92,8 +92,8 @@ func BenchmarkGenerateContentSeq(b *testing.B) {
 	ctx := context.Background()
 	f := new(Flow)
 	invocation := &agent.Invocation{AgentName: "bench"}
-	request := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("benchmark request")},
+	request := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("benchmark request")},
 	}
 
 	for _, n := range []int{1, 16, 256, 1024} {
@@ -142,8 +142,8 @@ func BenchmarkStreamingResponseProcessorUpdateMetricsState(b *testing.B) {
 			items := make([]summaryview.Item, itemCount)
 			for i := range items {
 				items[i] = summaryview.Item{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "benchmark model-visible history",
 					},
 					EffectiveEvent: event.Event{
@@ -172,7 +172,7 @@ func BenchmarkStreamingResponseProcessorUpdateMetricsState(b *testing.B) {
 				tracker: itelemetry.NewChatMetricsTracker(
 					context.Background(),
 					base,
-					&model.Request{},
+					&compat.Request{},
 					nil,
 					nil,
 					nil,

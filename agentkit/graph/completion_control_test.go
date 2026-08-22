@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +31,7 @@ func TestIsGraphCompletionEventAndVisibleCompletionEvent(t *testing.T) {
 	require.False(t, IsGraphCompletionEvent(nil))
 	require.False(t, IsGraphCompletionEvent(&event.Event{}))
 	raw := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Object: ObjectTypeGraphExecution,
 			Done:   true,
 		},
@@ -46,8 +46,8 @@ func TestIsGraphCompletionEventAndVisibleCompletionEvent(t *testing.T) {
 
 func TestVisibleGraphCompletionEvent_ReturnsFalseForNonCompletion(t *testing.T) {
 	visible, ok := VisibleGraphCompletionEvent(&event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 	})
@@ -57,11 +57,11 @@ func TestVisibleGraphCompletionEvent_ReturnsFalseForNonCompletion(t *testing.T) 
 
 func TestVisibleGraphCompletionEvent_AddsCompletionMetadataWhenMissing(t *testing.T) {
 	raw := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Object: "graph.execution",
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("manual-final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("manual-final"),
 			}},
 		},
 		StateDelta: map[string][]byte{
@@ -72,7 +72,7 @@ func TestVisibleGraphCompletionEvent_AddsCompletionMetadataWhenMissing(t *testin
 	visible, ok := VisibleGraphCompletionEvent(raw)
 	require.True(t, ok)
 	require.True(t, IsVisibleGraphCompletionEvent(visible))
-	require.Equal(t, model.ObjectTypeChatCompletion, visible.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visible.Object)
 	require.Equal(t, []byte("{}"), visible.StateDelta[MetadataKeyCompletion])
 }
 
@@ -81,13 +81,13 @@ func TestVisibleGraphCompletionEventWithDedup_DedupsByAssistantChoicesWhenRespon
 ) {
 	finishReason := "stop"
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:        1,
-				Message:      model.NewAssistantMessage("answer"),
+				Message:      compat.NewAssistantMessage("answer"),
 				FinishReason: &finishReason,
 			}},
 		},
@@ -109,18 +109,18 @@ func TestVisibleGraphCompletionEventWithDedup_DoesNotDedupWhenLaterChoicesDiffer
 	t *testing.T,
 ) {
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index:   0,
-					Message: model.NewAssistantMessage("answer"),
+					Message: compat.NewAssistantMessage("answer"),
 				},
 				{
 					Index:   1,
-					Message: model.NewAssistantMessage("other"),
+					Message: compat.NewAssistantMessage("other"),
 				},
 			},
 		},
@@ -139,12 +139,12 @@ func TestVisibleGraphCompletionEventWithDedup_DoesNotDedupWhenLaterChoicesDiffer
 
 func TestVisibleGraphCompletionEventWithDedup_DedupsByResponseID(t *testing.T) {
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	})
@@ -164,12 +164,12 @@ func TestVisibleGraphCompletionEventWithDedup_DedupsByMetadataFinalResponseID(
 	t *testing.T,
 ) {
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	})
@@ -189,12 +189,12 @@ func TestVisibleGraphCompletionEventWithDedup_DoesNotFallbackToSignatureWhenResp
 	t *testing.T,
 ) {
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	})
@@ -216,12 +216,12 @@ func TestVisibleGraphCompletionEventsForForwarding_PreservesFullResponseForCallb
 	t *testing.T,
 ) {
 	emitted := RecordAssistantResponseID(nil, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "resp-1",
-			Object: model.ObjectTypeChatCompletion,
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	})
@@ -283,8 +283,8 @@ func TestVisibleGraphCompletionEventsForForwardingWithAuthor_RestoresAuthor(
 func TestVisibleGraphCompletionEventsForForwardingWithAuthor_NonCompletion(t *testing.T) {
 	visible, fullRespEvent, ok := VisibleGraphCompletionEventsForForwardingWithAuthor(
 		&event.Event{
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
 			},
 		},
@@ -311,17 +311,17 @@ func TestRecordAssistantResponseID_IgnoresUnsupportedEvents(t *testing.T) {
 	emitted := map[string]struct{}{"keep": {}}
 	require.Equal(t, emitted, RecordAssistantResponseID(emitted, nil))
 	require.Equal(t, emitted, RecordAssistantResponseID(emitted, &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}))
 	require.Equal(t, emitted, RecordAssistantResponseID(emitted, &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewUserMessage("question"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewUserMessage("question"),
 			}},
 		},
 	}))
@@ -337,34 +337,34 @@ func TestVisibleGraphCompletionDedupHelpers_FalseBranches(t *testing.T) {
 	require.True(t, ok)
 	require.False(t, shouldClearVisibleGraphCompletionChoices(nil, nil))
 	require.False(t, shouldClearVisibleGraphCompletionChoices(&event.Event{
-		Response: &model.Response{},
+		Response: &compat.Response{},
 	}, map[string]struct{}{}))
 	require.False(t, shouldClearVisibleGraphCompletionChoices(visible, map[string]struct{}{}))
 	require.False(t, visibleGraphCompletionNeedsFullResponseSnapshot(nil, visible))
 	require.False(t, visibleGraphCompletionNeedsFullResponseSnapshot(raw, &event.Event{
-		Response: &model.Response{IsPartial: true},
+		Response: &compat.Response{IsPartial: true},
 	}))
 	require.False(t, visibleGraphCompletionNeedsFullResponseSnapshot(raw, visible))
 }
 
 func TestAssistantChoiceSignature(t *testing.T) {
 	require.Empty(t, assistantChoiceSignature(nil))
-	require.Empty(t, assistantChoiceSignature([]model.Choice{{
-		Message: model.NewUserMessage("user"),
+	require.Empty(t, assistantChoiceSignature([]compat.Choice{{
+		Message: compat.NewUserMessage("user"),
 	}}))
 	require.Equal(
 		t,
 		`[{"role":"assistant","content":"answer"}]`,
-		assistantChoiceSignature([]model.Choice{{
-			Message: model.NewAssistantMessage("answer"),
+		assistantChoiceSignature([]compat.Choice{{
+			Message: compat.NewAssistantMessage("answer"),
 		}}),
 	)
 	require.Equal(
 		t,
 		`[{"role":"assistant","content":"answer"},{"role":"assistant","content":"alt"}]`,
-		assistantChoiceSignature([]model.Choice{
-			{Message: model.NewAssistantMessage("answer")},
-			{Message: model.NewAssistantMessage("alt")},
+		assistantChoiceSignature([]compat.Choice{
+			{Message: compat.NewAssistantMessage("answer")},
+			{Message: compat.NewAssistantMessage("alt")},
 		}),
 	)
 }

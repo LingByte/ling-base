@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	"github.com/LingByte/ling-base/relay/compat"
 	"github.com/google/uuid"
 )
 
@@ -98,7 +98,7 @@ type ParentInvocationMetadata struct {
 // Event represents an event in conversation between agents and users.
 type Event struct {
 	// Response is the base struct for all LLM response functionality.
-	*model.Response
+	*compat.Response
 
 	// RequestID is the request ID of the event.
 	RequestID string `json:"requestID,omitempty"`
@@ -331,7 +331,7 @@ func cloneExecutionTraceSnapshot(snapshot *trace.Snapshot) *trace.Snapshot {
 	return &trace.Snapshot{Text: snapshot.Text}
 }
 
-func cloneUsage(usage *model.Usage) *model.Usage {
+func cloneUsage(usage *compat.Usage) *compat.Usage {
 	if usage == nil {
 		return nil
 	}
@@ -366,7 +366,7 @@ func (e *Event) Filter(filterKey string) bool {
 // New creates a new Event with generated ID and timestamp.
 func New(invocationID, author string, opts ...Option) *Event {
 	e := &Event{
-		Response:     &model.Response{},
+		Response:     &compat.Response{},
 		ID:           uuid.New().String(),
 		Timestamp:    time.Now(),
 		InvocationID: invocationID,
@@ -383,10 +383,10 @@ func New(invocationID, author string, opts ...Option) *Event {
 // This provides a clean way to create error events without manual field assignment.
 func NewErrorEvent(invocationID, author, errorType, errorMessage string,
 	opts ...Option) *Event {
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    errorType,
 			Message: errorMessage,
 		},
@@ -396,7 +396,7 @@ func NewErrorEvent(invocationID, author, errorType, errorMessage string,
 }
 
 // NewResponseEvent creates a new Event from a model Response.
-func NewResponseEvent(invocationID, author string, response *model.Response,
+func NewResponseEvent(invocationID, author string, response *compat.Response,
 	opts ...Option) *Event {
 	opts = append(opts, WithResponse(response))
 	return New(invocationID, author, opts...)
@@ -436,7 +436,7 @@ func (e *Event) IsRunnerCompletion() bool {
 	if e == nil || e.Response == nil {
 		return false
 	}
-	return e.Done && e.Object == model.ObjectTypeRunnerCompletion
+	return e.Done && e.Object == compat.ObjectTypeRunnerCompletion
 }
 
 // IsError reports whether this event carries any error signal.
@@ -446,7 +446,7 @@ func (e *Event) IsError() bool {
 	if e == nil || e.Response == nil {
 		return false
 	}
-	return e.Object == model.ObjectTypeError || e.Error != nil
+	return e.Object == compat.ObjectTypeError || e.Error != nil
 }
 
 // IsTerminalError reports whether this event represents a terminal failure for
@@ -455,7 +455,7 @@ func (e *Event) IsTerminalError() bool {
 	if e == nil || e.Response == nil || e.Response.Error == nil {
 		return false
 	}
-	return e.Object == model.ObjectTypeError || e.Done
+	return e.Object == compat.ObjectTypeError || e.Done
 }
 
 // EmitEvent sends an event to the channel without timeout.
@@ -625,7 +625,7 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 	}
 	if nested.Response != nil {
 		if e.Response == nil {
-			e.Response = &model.Response{}
+			e.Response = &compat.Response{}
 		}
 		e.Response.ID = nested.Response.ID
 		e.Response.Timestamp = nested.Response.Timestamp

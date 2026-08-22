@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -62,10 +62,10 @@ type ContextOffloadConfig struct {
 
 	// TokenCounter estimates per-message tokens for the local CompactionRatio
 	// trigger and for gateway request metadata. Nil uses
-	// model.NewSimpleTokenCounter. If counting fails or returns a negative
+	// compat.NewSimpleTokenCounter. If counting fails or returns a negative
 	// value, the plugin retries token counting with the simple counter for that
 	// model call.
-	TokenCounter model.TokenCounter
+	TokenCounter compat.TokenCounter
 }
 
 // Options configures Service.

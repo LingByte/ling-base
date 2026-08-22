@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/protocol"
 )
 
@@ -87,7 +87,7 @@ func TestA2ADataPartMappingResult_AccessorsAndMutators(t *testing.T) {
 	}
 	nilResult.SetTextContent("ignored")
 	nilResult.SetReasoningContent("ignored")
-	nilResult.AppendToolCall(model.ToolCall{ID: "ignored"})
+	nilResult.AppendToolCall(compat.ToolCall{ID: "ignored"})
 	nilResult.AppendToolResponse(A2ADataPartToolResponse{ID: "ignored"})
 	nilResult.SetCodeExecution("ignored")
 	nilResult.SetCodeExecutionResult("ignored")
@@ -98,10 +98,10 @@ func TestA2ADataPartMappingResult_AccessorsAndMutators(t *testing.T) {
 	result := &A2ADataPartMappingResult{}
 	result.SetTextContent("mapped text")
 	result.SetReasoningContent("mapped reasoning")
-	result.AppendToolCall(model.ToolCall{
+	result.AppendToolCall(compat.ToolCall{
 		ID:   "call-1",
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name: "lookup",
 		},
 	})

@@ -23,7 +23,7 @@ import (
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/profilecompiler"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	rootrunner "github.com/LingByte/ling-base/agentkit/runner"
 	servertrpcagent "github.com/LingByte/ling-base/agentkit/server/trpcagent"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -38,15 +38,15 @@ func TestRunPostsRequestAndConvertsResponseEvents(t *testing.T) {
 		assert.Equal(t, "/trpc-agent/v1/apps/sports-agent/runs", r.URL.Path)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
-		toolCall := event.NewResponseEvent("inv-1", "writer", &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+		toolCall := event.NewResponseEvent("inv-1", "writer", &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "fetch_match",
 							Arguments: []byte(`{"matchId":"match_001"}`),
 						},
@@ -54,20 +54,20 @@ func TestRunPostsRequestAndConvertsResponseEvents(t *testing.T) {
 				},
 			}},
 		})
-		toolResult := event.NewResponseEvent("inv-1", "writer", &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "fetch_match", `{"homeScore":102}`),
+		toolResult := event.NewResponseEvent("inv-1", "writer", &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "fetch_match", `{"homeScore":102}`),
 			}},
 		})
-		final := event.NewResponseEvent("inv-1", "writer", &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("home team won"),
+		final := event.NewResponseEvent("inv-1", "writer", &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("home team won"),
 			}},
 		})
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		w.Header().Set("Content-Type", "application/json")
@@ -100,7 +100,7 @@ func TestRunPostsRequestAndConvertsResponseEvents(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("match_001"),
+		compat.NewUserMessage("match_001"),
 		runOpts...,
 	)
 	require.NoError(t, err)
@@ -108,14 +108,14 @@ func TestRunPostsRequestAndConvertsResponseEvents(t *testing.T) {
 	require.Len(t, gotEvents, 4)
 	assert.Equal(t, "user-1", got.Session.UserID)
 	assert.Equal(t, "session-1", got.Session.SessionID)
-	assert.Equal(t, model.NewUserMessage("match_001"), got.Input)
+	assert.Equal(t, compat.NewUserMessage("match_001"), got.Input)
 	assert.Equal(t, "req-1", got.RunOptions.RequestID)
 	assert.True(t, got.RunOptions.ExecutionTraceEnabled)
 	assert.Equal(t, true, got.RunOptions.RuntimeState["ignore"])
 	assert.Equal(t, "promptiter", got.RunOptions.RuntimeState["source"])
 	assert.True(t, gotEvents[0].IsToolCallResponse())
 	assert.True(t, gotEvents[1].IsToolResultResponse())
-	assert.Equal(t, model.ObjectTypeChatCompletion, gotEvents[2].Object)
+	assert.Equal(t, compat.ObjectTypeChatCompletion, gotEvents[2].Object)
 	assert.Equal(t, "home team won", gotEvents[2].Choices[0].Message.Content)
 	assert.True(t, gotEvents[3].IsRunnerCompletion())
 	assert.True(t, gotEvents[3].Done)
@@ -125,11 +125,11 @@ func TestRunPostsRequestAndConvertsResponseEvents(t *testing.T) {
 }
 
 func TestRunPreservesWireEventMetadata(t *testing.T) {
-	wireEvent := event.NewResponseEvent("child-inv", "worker", &model.Response{
+	wireEvent := event.NewResponseEvent("child-inv", "worker", &compat.Response{
 		ID:     "rsp-1",
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{{
-			Delta: model.Message{Content: "partial"},
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Content: "partial"},
 		}},
 	})
 	wireEvent.ParentInvocationID = "parent-inv"
@@ -142,8 +142,8 @@ func TestRunPreservesWireEventMetadata(t *testing.T) {
 	wireEvent.StateDelta = map[string][]byte{"state": []byte(`"value"`)}
 	wireEvent.Extensions = map[string]json.RawMessage{"ext": json.RawMessage(`{"ok":true}`)}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		completion := event.NewResponseEvent("child-inv", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("child-inv", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		writeRunResponse(t, w, r, runResponse{
@@ -161,7 +161,7 @@ func TestRunPreservesWireEventMetadata(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("input"),
+		compat.NewUserMessage("input"),
 		agent.WithRequestID("req-1"),
 	)
 	require.NoError(t, err)
@@ -184,11 +184,11 @@ func TestRunRejectsSuccessResponseWithoutRunnerCompletion(t *testing.T) {
 		writeRunResponse(t, w, r, runResponse{
 			Status: atrace.TraceStatusCompleted,
 			Events: []event.Event{
-				*event.NewResponseEvent("inv-1", "writer", &model.Response{
-					Object: model.ObjectTypeChatCompletion,
+				*event.NewResponseEvent("inv-1", "writer", &compat.Response{
+					Object: compat.ObjectTypeChatCompletion,
 					Done:   true,
-					Choices: []model.Choice{{
-						Message: model.NewAssistantMessage("done"),
+					Choices: []compat.Choice{{
+						Message: compat.NewAssistantMessage("done"),
 					}},
 				}),
 			},
@@ -201,7 +201,7 @@ func TestRunRejectsSuccessResponseWithoutRunnerCompletion(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("input"),
+		compat.NewUserMessage("input"),
 	)
 	require.Nil(t, events)
 	require.EqualError(t, err, "trpcagent runner: run response last event is not runner completion")
@@ -210,8 +210,8 @@ func TestRunRejectsSuccessResponseWithoutRunnerCompletion(t *testing.T) {
 func TestRunPostsAttachedProfile(t *testing.T) {
 	var got runRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		got = writeRunResponse(t, w, r, runResponse{
@@ -241,7 +241,7 @@ func TestRunPostsAttachedProfile(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("match_001"),
+		compat.NewUserMessage("match_001"),
 		runOpts...,
 	)
 	require.NoError(t, err)
@@ -260,8 +260,8 @@ func TestRunUsesAppNameOverrideAndBasePath(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.EscapedPath()
-		completion := event.NewResponseEvent("inv-1", "tenant app", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "tenant app", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		writeRunResponse(t, w, r, runResponse{
@@ -280,7 +280,7 @@ func TestRunUsesAppNameOverrideAndBasePath(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithAppName("tenant app"),
 	)
 	require.NoError(t, err)
@@ -304,7 +304,7 @@ func TestRunReturnsHTTPStatusError(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Nil(t, events)
 	require.Error(t, err)
@@ -326,7 +326,7 @@ func TestRunReturnsPostClientError(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Nil(t, events)
 	require.Error(t, err)
@@ -347,7 +347,7 @@ func TestRunReturnsDecodeError(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Nil(t, events)
 	require.Error(t, err)
@@ -361,12 +361,12 @@ func TestRunUsesWireRunErrorEvents(t *testing.T) {
 		Status:           atrace.TraceStatusFailed,
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		errorEvent := event.NewErrorEvent("inv-1", "sports-agent", model.ErrorTypeRunError, "run failed")
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		errorEvent := event.NewErrorEvent("inv-1", "sports-agent", compat.ErrorTypeRunError, "run failed")
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error: &model.ResponseError{
-				Type:    model.ErrorTypeRunError,
+			Error: &compat.ResponseError{
+				Type:    compat.ErrorTypeRunError,
 				Message: "run failed",
 			},
 		})
@@ -384,7 +384,7 @@ func TestRunUsesWireRunErrorEvents(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	gotEvents := collectEvents(events)
@@ -410,7 +410,7 @@ func TestRunRejectsResponseWithoutEvents(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.Nil(t, events)
 	require.EqualError(t, err, "trpcagent runner: run response events are empty")
@@ -418,8 +418,8 @@ func TestRunRejectsResponseWithoutEvents(t *testing.T) {
 
 func TestRunRejectsMismatchedEventRequestID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		completion.RequestID = "other-req"
@@ -435,7 +435,7 @@ func TestRunRejectsMismatchedEventRequestID(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithRequestID("req-1"),
 	)
 	require.Nil(t, events)
@@ -444,8 +444,8 @@ func TestRunRejectsMismatchedEventRequestID(t *testing.T) {
 
 func TestRunRejectsMissingEventRequestID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		assert.NoError(t, json.NewEncoder(w).Encode(runResponse{
@@ -460,7 +460,7 @@ func TestRunRejectsMissingEventRequestID(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithRequestID("req-1"),
 	)
 	require.Nil(t, events)
@@ -474,11 +474,11 @@ func TestRunPreservesCompletedErrorMessage(t *testing.T) {
 		Status:           atrace.TraceStatusCompleted,
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error: &model.ResponseError{
-				Type:    model.ErrorTypeRunError,
+			Error: &compat.ResponseError{
+				Type:    compat.ErrorTypeRunError,
 				Message: "stop requested",
 			},
 		})
@@ -496,21 +496,21 @@ func TestRunPreservesCompletedErrorMessage(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	gotEvents := collectEvents(events)
 	require.Len(t, gotEvents, 1)
 	assert.True(t, gotEvents[0].IsRunnerCompletion())
 	require.NotNil(t, gotEvents[0].Error)
-	assert.Equal(t, model.ErrorTypeRunError, gotEvents[0].Error.Type)
+	assert.Equal(t, compat.ErrorTypeRunError, gotEvents[0].Error.Type)
 	assert.Equal(t, "stop requested", gotEvents[0].Error.Message)
 	assert.Equal(t, atrace.TraceStatusCompleted, gotEvents[0].ExecutionTrace.Status)
 }
 
 func TestRunInteroperatesWithServerTRPCAgent(t *testing.T) {
-	completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-		Object: model.ObjectTypeRunnerCompletion,
+	completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
 	completion.ExecutionTrace = &atrace.Trace{
@@ -528,11 +528,11 @@ func TestRunInteroperatesWithServerTRPCAgent(t *testing.T) {
 	}
 	serverRunner := &fakeServerRunner{
 		events: []*event.Event{
-			event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-				Object: model.ObjectTypeChatCompletion,
+			event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("patched reply"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("patched reply"),
 				}},
 			}),
 			completion,
@@ -551,13 +551,13 @@ func TestRunInteroperatesWithServerTRPCAgent(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("input"),
+		compat.NewUserMessage("input"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
 	gotEvents := collectEvents(events)
 	require.Len(t, gotEvents, 2)
-	assert.Equal(t, model.ObjectTypeChatCompletion, gotEvents[0].Object)
+	assert.Equal(t, compat.ObjectTypeChatCompletion, gotEvents[0].Object)
 	assert.True(t, gotEvents[0].IsFinalResponse())
 	assert.Equal(t, "patched reply", gotEvents[0].Choices[0].Message.Content)
 	assert.True(t, gotEvents[1].IsRunnerCompletion())
@@ -769,8 +769,8 @@ func TestRunAllowsCustomTargetScheme(t *testing.T) {
 	var gotRequest *http.Request
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		gotRequest = request
-		completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		})
 		response := runResponse{
@@ -800,7 +800,7 @@ func TestRunAllowsCustomTargetScheme(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, events)
@@ -849,7 +849,7 @@ func (errReadCloser) Close() error {
 }
 
 type fakeServerRunner struct {
-	message    model.Message
+	message    compat.Message
 	runOptions []agent.RunOptions
 	events     []*event.Event
 }
@@ -858,7 +858,7 @@ func (r *fakeServerRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	runOpts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.message = message

@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,10 +82,10 @@ func TestAppendEventUpdatesOnlyTransientSession(t *testing.T) {
 	evt := event.NewResponseEvent(
 		"invocation",
 		"author",
-		&model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				},
 			}},

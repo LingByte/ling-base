@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -69,10 +69,10 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 	}
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
+					Message: compat.Message{
 						Content: "mock response",
 					},
 				},
@@ -240,9 +240,9 @@ func (m *mockSessionService) GetSessionSummaryText(ctx context.Context, sess *se
 
 type mockA2AToAgentConverter struct{}
 
-func (m *mockA2AToAgentConverter) ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*model.Message, error) {
-	return &model.Message{
-		Role:    model.RoleUser,
+func (m *mockA2AToAgentConverter) ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*compat.Message, error) {
+	return &compat.Message{
+		Role:    compat.RoleUser,
 		Content: "converted message",
 	}, nil
 }
@@ -695,22 +695,22 @@ func createTestMessageProcessorWithCustomErrorHandler() *messageProcessor {
 
 // mockRunner for testing
 type mockRunner struct {
-	runFunc func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error)
+	runFunc func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error)
 }
 
-func (m *mockRunner) Run(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+func (m *mockRunner) Run(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 	if m.runFunc != nil {
 		return m.runFunc(ctx, userID, sessionID, message, opts...)
 	}
 	// Return a channel with a simple completion event
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:        "test-response-id",
 			Object:    "chat.completion",
 			Created:   time.Now().Unix(),
 			Model:     "test-model",
-			Choices:   []model.Choice{},
+			Choices:   []compat.Choice{},
 			Timestamp: time.Now(),
 			Done:      true,
 		},
@@ -728,7 +728,7 @@ func (m *mockRunner) Close() error { return nil }
 // errorA2AMessageConverter for testing conversion errors
 type errorA2AMessageConverter struct{}
 
-func (e *errorA2AMessageConverter) ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*model.Message, error) {
+func (e *errorA2AMessageConverter) ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*compat.Message, error) {
 	return nil, errors.New("conversion failed")
 }
 
@@ -1024,40 +1024,40 @@ func TestIsFinalStreamingEventVariants(t *testing.T) {
 	assert.False(t, isFinalStreamingEvent(&event.Event{}))
 
 	// Regular done event is NOT final (we wait for runner.completion)
-	base := &event.Event{Response: &model.Response{Done: false}}
+	base := &event.Event{Response: &compat.Response{Done: false}}
 	assert.False(t, isFinalStreamingEvent(base))
 
 	// Tool calls are not final
-	toolCall := &event.Event{Response: &model.Response{
+	toolCall := &event.Event{Response: &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{ToolCalls: []model.ToolCall{{ID: "call"}}}},
+		Choices: []compat.Choice{
+			{Message: compat.Message{ToolCalls: []compat.ToolCall{{ID: "call"}}}},
 		},
 	}}
 	assert.False(t, isFinalStreamingEvent(toolCall))
 
 	// Tool role is not final
-	toolRole := &event.Event{Response: &model.Response{
+	toolRole := &event.Event{Response: &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleTool}},
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleTool}},
 		},
 	}}
 	assert.False(t, isFinalStreamingEvent(toolRole))
 
 	// Regular assistant response is NOT final (we wait for runner.completion)
-	assistantResp := &event.Event{Response: &model.Response{
+	assistantResp := &event.Event{Response: &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant}},
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant}},
 		},
 	}}
 	assert.False(t, isFinalStreamingEvent(assistantResp))
 
 	// Only runner.completion is truly final
-	runnerCompletion := &event.Event{Response: &model.Response{
+	runnerCompletion := &event.Event{Response: &compat.Response{
 		Done:   true,
-		Object: model.ObjectTypeRunnerCompletion,
+		Object: compat.ObjectTypeRunnerCompletion,
 	}}
 	assert.True(t, isFinalStreamingEvent(runnerCompletion))
 }
@@ -1107,7 +1107,7 @@ func TestMessageProcessor_ProcessMessage_EdgeCases(t *testing.T) {
 			setupProcessor: func() *messageProcessor {
 				return &messageProcessor{
 					runner: &mockRunner{
-						runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+						runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 							return nil, errors.New("runner failed")
 						},
 					},
@@ -1229,11 +1229,11 @@ func TestMessageProcessor_ProcessStreamingMessage_Errors(t *testing.T) {
 		}
 		processor := createTestMessageProcessor()
 		processor.runner = &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				return nil, errors.New("runner failure")
 			},
 		}
-		agentMsg := &model.Message{Role: model.RoleUser, Content: "input"}
+		agentMsg := &compat.Message{Role: compat.RoleUser, Content: "input"}
 
 		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, agentMsg, handler, nil)
 		assert.NoError(t, err)
@@ -1250,7 +1250,7 @@ func TestMessageProcessor_ProcessStreamingMessage_Errors(t *testing.T) {
 				return "", fmt.Errorf("build failed")
 			},
 		}
-		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &model.Message{}, handler, nil)
+		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{}, handler, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.StreamingEvents)
@@ -1271,7 +1271,7 @@ func TestMessageProcessor_ProcessStreamingMessage_Errors(t *testing.T) {
 				return nil
 			},
 		}
-		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &model.Message{}, handler, nil)
+		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{}, handler, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.StreamingEvents)
@@ -1283,15 +1283,15 @@ func TestMessageProcessor_ProcessStreamingMessage_Errors(t *testing.T) {
 		processor.debugLogging = true
 		eventCh := make(chan *event.Event, 1)
 		eventCh <- &event.Event{
-			Response: &model.Response{
-				Choices: []model.Choice{
-					{Delta: model.Message{Content: "chunk"}},
+			Response: &compat.Response{
+				Choices: []compat.Choice{
+					{Delta: compat.Message{Content: "chunk"}},
 				},
 			},
 		}
 		close(eventCh)
 		processor.runner = &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				return eventCh, nil
 			},
 		}
@@ -1304,7 +1304,7 @@ func TestMessageProcessor_ProcessStreamingMessage_Errors(t *testing.T) {
 			},
 			cleanTaskFunc: func(taskID *string) error { return nil },
 		}
-		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &model.Message{Content: "input"}, handler, nil)
+		result, err := processor.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{Content: "input"}, handler, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.StreamingEvents)
@@ -1354,7 +1354,7 @@ func TestMessageProcessor_ProcessBatchStreamingEvents(t *testing.T) {
 		proc := createTestMessageProcessor()
 		proc.eventToA2AConverter = streamingErrorConverter{}
 		sub := &mockTaskSubscriber{}
-		evt := &event.Event{Response: &model.Response{}}
+		evt := &event.Event{Response: &compat.Response{}}
 		_, err := proc.processBatchStreamingEvents(
 			ctx,
 			taskID,
@@ -1374,9 +1374,9 @@ func TestMessageProcessor_ProcessBatchStreamingEvents(t *testing.T) {
 				return fmt.Errorf("send error")
 			},
 		}
-		evt := &event.Event{Response: &model.Response{
-			Choices: []model.Choice{
-				{Delta: model.Message{Content: "chunk"}},
+		evt := &event.Event{Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Delta: compat.Message{Content: "chunk"}},
 			},
 		}}
 		_, err := proc.processBatchStreamingEvents(
@@ -1396,8 +1396,8 @@ func TestMessageProcessor_ProcessBatchStreamingEvents(t *testing.T) {
 		sub := &mockTaskSubscriber{}
 		// Only runner.completion is treated as final event
 		final := &event.Event{
-			Response: &model.Response{
-				Object: model.ObjectTypeRunnerCompletion,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeRunnerCompletion,
 				Done:   true,
 			},
 			StateDelta: map[string][]byte{
@@ -1459,11 +1459,11 @@ func TestMessageProcessor_ProcessMessage_Success(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: true,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -1731,7 +1731,7 @@ func TestMessageProcessor_ProcessMessage_RunnerError_WithAuthUser(
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			return nil, errors.New("runner failed")
@@ -1763,9 +1763,9 @@ func TestProcessAgentStreamingEvents_ConverterError(t *testing.T) {
 	msg := &protocol.Message{ContextID: &ctxID}
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Delta: model.Message{Content: "chunk"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Delta: compat.Message{Content: "chunk"}},
 			},
 		},
 	}
@@ -1831,8 +1831,8 @@ func TestProcessAgentStreamingEvents_Success(t *testing.T) {
 	msg := &protocol.Message{ContextID: &ctxID}
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{Delta: model.Message{Content: "chunk"}}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Delta: compat.Message{Content: "chunk"}}},
 		},
 	}
 	close(events)
@@ -1894,12 +1894,12 @@ func TestMessageProcessor_ProcessMessage_EmptyUserID(t *testing.T) {
 
 			// Create a mock runner that captures the userID
 			mockRunner := &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					capturedUserID = userID
 					ch := make(chan *event.Event, 1)
 					ch <- &event.Event{
-						Response: &model.Response{
-							Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+						Response: &compat.Response{
+							Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 						},
 					}
 					close(ch)
@@ -1994,12 +1994,12 @@ func TestMessageProcessor_ProcessStreamingMessage_EmptyUserID(t *testing.T) {
 	var capturedUserID string
 
 	mockRunner := &mockRunner{
-		runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+		runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 			capturedUserID = userID
 			ch := make(chan *event.Event, 1)
 			ch <- &event.Event{
-				Response: &model.Response{
-					Choices: []model.Choice{{Delta: model.Message{Content: "chunk"}}},
+				Response: &compat.Response{
+					Choices: []compat.Choice{{Delta: compat.Message{Content: "chunk"}}},
 				},
 			}
 			close(ch)
@@ -2072,7 +2072,7 @@ func TestA2AHTTPAnonymousContextDoesNotRebindPrincipal(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			sessionID string,
-			message model.Message,
+			message compat.Message,
 			opts ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
@@ -2080,14 +2080,14 @@ func TestA2AHTTPAnonymousContextDoesNotRebindPrincipal(t *testing.T) {
 			mu.Unlock()
 
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("anonymous-context-rebinding", "agent", &model.Response{
+			ch <- event.NewResponseEvent("anonymous-context-rebinding", "agent", &compat.Response{
 				ID:      "response-anonymous-context-rebinding",
-				Object:  model.ObjectTypeChatCompletion,
+				Object:  compat.ObjectTypeChatCompletion,
 				Created: time.Now().Unix(),
 				Done:    true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "ok",
 					},
 				}},
@@ -2163,17 +2163,17 @@ func TestA2AHTTPIdentityNormalizationRunsBeforeAnonymousCookie(t *testing.T) {
 				_ context.Context,
 				userID string,
 				_ string,
-				_ model.Message,
+				_ compat.Message,
 				_ ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				mu.Lock()
 				runs = append(runs, userID)
 				mu.Unlock()
 				ch := make(chan *event.Event, 1)
-				ch <- event.NewResponseEvent("response", "agent", &model.Response{
+				ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{Message: model.Message{
-						Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "ok",
 					}}},
 				})
@@ -2248,17 +2248,17 @@ func TestA2AHTTPIdentityNormalizationRunsBeforeAnonymousCookie(t *testing.T) {
 				_ context.Context,
 				userID string,
 				_ string,
-				_ model.Message,
+				_ compat.Message,
 				_ ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				mu.Lock()
 				runs = append(runs, userID)
 				mu.Unlock()
 				ch := make(chan *event.Event, 1)
-				ch <- event.NewResponseEvent("response", "agent", &model.Response{
+				ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{Message: model.Message{
-						Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "ok",
 					}}},
 				})
@@ -2323,17 +2323,17 @@ func TestA2AHTTPExtraMiddlewareObservesFinalAuthenticatedUser(t *testing.T) {
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
 			runs = append(runs, userID)
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2396,15 +2396,15 @@ func TestA2AHTTPAnonymousCookieSurvivesPostAuthUserClone(t *testing.T) {
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			runs = append(runs, userID)
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2480,17 +2480,17 @@ func TestA2AHTTPCustomAuthProviderRemainsFinalIdentityAuthority(t *testing.T) {
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
 			runs = append(runs, userID)
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2553,14 +2553,14 @@ func TestA2AHTTPCustomAuthProviderDoesNotIssueAnonymousCookie(t *testing.T) {
 			_ context.Context,
 			_ string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2610,7 +2610,7 @@ func TestA2AHTTPCustomAuthProviderEmptyUserIDIsRejected(t *testing.T) {
 			_ context.Context,
 			_ string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			runnerCalled <- struct{}{}
@@ -2665,15 +2665,15 @@ func TestA2AHTTPCustomAuthProviderReturningAnonymousIDDoesNotIssueCookie(t *test
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			runUserID = userID
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2727,15 +2727,15 @@ func TestA2AHTTPAnonymousCookieRejectsForeignServerScope(t *testing.T) {
 				_ context.Context,
 				userID string,
 				_ string,
-				_ model.Message,
+				_ compat.Message,
 				_ ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				*runs = append(*runs, userID)
 				ch := make(chan *event.Event, 1)
-				ch <- event.NewResponseEvent("response", "agent", &model.Response{
+				ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{Message: model.Message{
-						Role:    model.RoleAssistant,
+					Choices: []compat.Choice{{Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "ok",
 					}}},
 				})
@@ -2807,7 +2807,7 @@ func TestA2AHTTPConcurrentAnonymousRequestsKeepIdentityIsolated(t *testing.T) {
 			ctx context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			requestID, _ := ctx.Value(concurrentRequestIDContextKey{}).(string)
@@ -2815,10 +2815,10 @@ func TestA2AHTTPConcurrentAnonymousRequestsKeepIdentityIsolated(t *testing.T) {
 			runs[requestID] = userID
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -2933,14 +2933,14 @@ func TestA2AHTTPAnonymousCookieIsScopedToBasePath(t *testing.T) {
 			_ context.Context,
 			_ string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -3014,17 +3014,17 @@ func TestA2AHTTPAnonymousCookieFollowsEffectiveJSONRPCEndpoint(t *testing.T) {
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
 			runs = append(runs, userID)
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -3095,17 +3095,17 @@ func TestA2AHTTPAnonymousCookieUsesOriginalPathWhenMiddlewareRewrites(t *testing
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
 			runs = append(runs, userID)
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -3167,17 +3167,17 @@ func TestA2AHTTPDirectClientCookieJarProvidesAnonymousContinuity(t *testing.T) {
 			_ context.Context,
 			userID string,
 			_ string,
-			_ model.Message,
+			_ compat.Message,
 			_ ...agent.RunOption,
 		) (<-chan *event.Event, error) {
 			mu.Lock()
 			runs = append(runs, userID)
 			mu.Unlock()
 			ch := make(chan *event.Event, 1)
-			ch <- event.NewResponseEvent("response", "agent", &model.Response{
+			ch <- event.NewResponseEvent("response", "agent", &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				}}},
 			})
@@ -3829,7 +3829,7 @@ func TestMessageProcessor_ProcessMessage_RuntimeStateIncludesServerContext(t *te
 
 	proc := &messageProcessor{
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ro := agent.RunOptions{}
 				for _, opt := range opts {
 					opt(&ro)
@@ -3838,8 +3838,8 @@ func TestMessageProcessor_ProcessMessage_RuntimeStateIncludesServerContext(t *te
 
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -3878,7 +3878,7 @@ func TestMessageProcessor_ProcessMessage_AppendsRunOptions(t *testing.T) {
 
 	proc := &messageProcessor{
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ro := agent.RunOptions{}
 				for _, opt := range opts {
 					opt(&ro)
@@ -3888,8 +3888,8 @@ func TestMessageProcessor_ProcessMessage_AppendsRunOptions(t *testing.T) {
 
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -3925,7 +3925,7 @@ func TestMessageProcessor_ProcessMessage_RuntimeStateMergesWithRunOptions(t *tes
 
 	proc := &messageProcessor{
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ro := agent.RunOptions{}
 				for _, opt := range opts {
 					opt(&ro)
@@ -3934,8 +3934,8 @@ func TestMessageProcessor_ProcessMessage_RuntimeStateMergesWithRunOptions(t *tes
 
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -3992,15 +3992,15 @@ func TestMessageProcessor_ProcessMessage_SharedRuntimeStateNotMutated(t *testing
 
 	proc := &messageProcessor{
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ro := agent.RunOptions{}
 				for _, opt := range opts {
 					opt(&ro)
 				}
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -4497,18 +4497,18 @@ func TestMessageProcessor_ProcessMessage_ContextCancellation(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 2)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response1"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response1"}}},
 					},
 				}
 				// Cancel context before sending second event
 				cancel()
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response2"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response2"}}},
 					},
 				}
 				close(ch)
@@ -4520,7 +4520,7 @@ func TestMessageProcessor_ProcessMessage_ContextCancellation(t *testing.T) {
 		errorHandler:        defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	// handleError returns a result with error message, not an error
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -4541,14 +4541,14 @@ func TestMessageProcessor_ProcessMessage_NilEvent(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 2)
 				// Send nil event
 				ch <- nil
 				// Send valid event
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -4560,7 +4560,7 @@ func TestMessageProcessor_ProcessMessage_NilEvent(t *testing.T) {
 		errorHandler:        defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result.Result)
@@ -4580,14 +4580,14 @@ func TestMessageProcessor_ProcessMessage_NilResponse(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 2)
 				// Send event with nil response
 				ch <- &event.Event{Response: nil}
 				// Send valid event
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -4599,7 +4599,7 @@ func TestMessageProcessor_ProcessMessage_NilResponse(t *testing.T) {
 		errorHandler:        defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result.Result)
@@ -4758,7 +4758,7 @@ func TestMessageProcessor_ProcessMessage_GraphResumeMetadataBecomesCommand(t *te
 		errorHandler:         defaultErrorHandler,
 		structuredTaskErrors: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				var ro agent.RunOptions
 				for _, opt := range opts {
 					opt(&ro)
@@ -4774,8 +4774,8 @@ func TestMessageProcessor_ProcessMessage_GraphResumeMetadataBecomesCommand(t *te
 				}
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -4819,7 +4819,7 @@ func TestMessageProcessor_ProcessMessage_StateDeltaResumeBecomesCommand(t *testi
 		errorHandler:         defaultErrorHandler,
 		structuredTaskErrors: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				var ro agent.RunOptions
 				for _, opt := range opts {
 					opt(&ro)
@@ -4835,8 +4835,8 @@ func TestMessageProcessor_ProcessMessage_StateDeltaResumeBecomesCommand(t *testi
 				}
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "ok"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}},
 					},
 				}
 				close(ch)
@@ -4882,7 +4882,7 @@ func TestMessageProcessor_ProcessMessage_StateDeltaCheckpointAndSerializedComman
 		errorHandler:         defaultErrorHandler,
 		structuredTaskErrors: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				var ro agent.RunOptions
 				for _, opt := range opts {
 					opt(&ro)
@@ -4897,7 +4897,7 @@ func TestMessageProcessor_ProcessMessage_StateDeltaCheckpointAndSerializedComman
 					}
 				}
 				ch := make(chan *event.Event, 1)
-				ch <- &event.Event{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "ok"}}}}}
+				ch <- &event.Event{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}}}}
 				close(ch)
 				return ch, nil
 			},
@@ -4928,11 +4928,11 @@ func TestMessageProcessor_ProcessMessage_ConversionFailure(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -4948,7 +4948,7 @@ func TestMessageProcessor_ProcessMessage_ConversionFailure(t *testing.T) {
 		errorHandler: defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	// handleError returns a result with error message, not an error
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -4969,11 +4969,11 @@ func TestMessageProcessor_ProcessMessage_TaskTypeResult(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -5001,7 +5001,7 @@ func TestMessageProcessor_ProcessMessage_TaskTypeResult(t *testing.T) {
 		errorHandler: defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result.Result)
@@ -5025,13 +5025,13 @@ func TestMessageProcessor_ProcessMessage_MultipleEvents(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 3)
 				// Send multiple events
 				for i := 1; i <= 3; i++ {
 					ch <- &event.Event{
-						Response: &model.Response{
-							Choices: []model.Choice{{Message: model.Message{Content: fmt.Sprintf("response%d", i)}}},
+						Response: &compat.Response{
+							Choices: []compat.Choice{{Message: compat.Message{Content: fmt.Sprintf("response%d", i)}}},
 						},
 					}
 				}
@@ -5044,7 +5044,7 @@ func TestMessageProcessor_ProcessMessage_MultipleEvents(t *testing.T) {
 		errorHandler:        defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result.Result)
@@ -5070,15 +5070,15 @@ func TestBuildTaskErrorMetadata(t *testing.T) {
 
 	t.Run("missing error returns nil", func(t *testing.T) {
 		assert.Nil(t, buildTaskErrorMetadata(&event.Event{
-			Response: &model.Response{},
+			Response: &compat.Response{},
 		}))
 	})
 
 	t.Run("flow error keeps failed metadata", func(t *testing.T) {
 		metadata := buildTaskErrorMetadata(&event.Event{
-			Response: &model.Response{
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+			Response: &compat.Response{
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "task failed",
 				},
 			},
@@ -5087,12 +5087,12 @@ func TestBuildTaskErrorMetadata(t *testing.T) {
 		if assert.NotNil(t, metadata) {
 			assert.Equal(
 				t,
-				model.ObjectTypeError,
+				compat.ObjectTypeError,
 				metadata[ia2a.MessageMetadataObjectTypeKey],
 			)
 			assert.Equal(
 				t,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				metadata[ia2a.MessageMetadataErrorTypeKey],
 			)
 			assert.Equal(
@@ -5113,9 +5113,9 @@ func TestBuildTaskErrorMetadata(t *testing.T) {
 	t.Run("stop agent error keeps canceled state and response id", func(t *testing.T) {
 		const responseID = "resp-1"
 		metadata := buildTaskErrorMetadata(&event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID: responseID,
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Type:    agent.ErrorTypeStopAgentError,
 					Message: "task canceled",
 				},
@@ -5165,7 +5165,7 @@ func TestBuildTaskErrorMessage(t *testing.T) {
 			taskID,
 			ctxID,
 			&event.Event{
-				Response: &model.Response{},
+				Response: &compat.Response{},
 			},
 			nil,
 		))
@@ -5174,10 +5174,10 @@ func TestBuildTaskErrorMessage(t *testing.T) {
 	t.Run("response id and text keep mirrored metadata", func(t *testing.T) {
 		const responseID = "resp-2"
 		agentEvent := &event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID: responseID,
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "task failed",
 				},
 			},
@@ -5225,9 +5225,9 @@ func TestBuildTaskErrorMessage(t *testing.T) {
 
 	t.Run("empty error message keeps empty parts", func(t *testing.T) {
 		agentEvent := &event.Event{
-			Response: &model.Response{
-				Error: &model.ResponseError{
-					Type: model.ErrorTypeFlowError,
+			Response: &compat.Response{
+				Error: &compat.ResponseError{
+					Type: compat.ErrorTypeFlowError,
 				},
 			},
 		}
@@ -5265,16 +5265,16 @@ func TestMessageProcessor_ProcessMessage_StructuredTaskError(
 				ctx context.Context,
 				userID string,
 				sessionID string,
-				message model.Message,
+				message compat.Message,
 				opts ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
+					Response: &compat.Response{
 						ID:   "resp-1",
 						Done: true,
-						Error: &model.ResponseError{
-							Type:    model.ErrorTypeFlowError,
+						Error: &compat.ResponseError{
+							Type:    compat.ErrorTypeFlowError,
 							Message: "task failed",
 							Code:    &code,
 						},
@@ -5294,7 +5294,7 @@ func TestMessageProcessor_ProcessMessage_StructuredTaskError(
 		"user",
 		ctxID,
 		&msg,
-		&model.Message{Content: "input"},
+		&compat.Message{Content: "input"},
 		nil,
 	)
 	assert.NoError(t, err)
@@ -5347,15 +5347,15 @@ func TestMessageProcessor_ProcessMessage_StructuredTaskError_ResponseRewriterDro
 				ctx context.Context,
 				userID string,
 				sessionID string,
-				message model.Message,
+				message compat.Message,
 				opts ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
+					Response: &compat.Response{
 						Done: true,
-						Error: &model.ResponseError{
-							Type:    model.ErrorTypeFlowError,
+						Error: &compat.ResponseError{
+							Type:    compat.ErrorTypeFlowError,
 							Message: "task failed",
 						},
 					},
@@ -5374,7 +5374,7 @@ func TestMessageProcessor_ProcessMessage_StructuredTaskError_ResponseRewriterDro
 		"user",
 		ctxID,
 		&msg,
-		&model.Message{Content: "input"},
+		&compat.Message{Content: "input"},
 		nil,
 	)
 	assert.NoError(t, err)
@@ -5403,25 +5403,25 @@ func TestMessageProcessor_ProcessMessage_MultipleEvents_PreservesArtifactMetadat
 				ctx context.Context,
 				userID string,
 				sessionID string,
-				message model.Message,
+				message compat.Message,
 				opts ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 2)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
 								Content: "response1",
 							},
 						}},
 					},
 				}
 				ch <- &event.Event{
-					Response: &model.Response{
+					Response: &compat.Response{
 						ID:     "resp-final",
 						Object: "graph.execution",
-						Choices: []model.Choice{{
-							Message: model.Message{},
+						Choices: []compat.Choice{{
+							Message: compat.Message{},
 						}},
 					},
 					StateDelta: map[string][]byte{
@@ -5444,7 +5444,7 @@ func TestMessageProcessor_ProcessMessage_MultipleEvents_PreservesArtifactMetadat
 		"user",
 		"session",
 		&msg,
-		&model.Message{Content: "input"},
+		&compat.Message{Content: "input"},
 		nil,
 	)
 	assert.NoError(t, err)
@@ -5496,11 +5496,11 @@ func TestMessageProcessor_ProcessBatchStreamingEvents_StructuredTaskError(
 		"task-1",
 		msg,
 		[]*event.Event{{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:   "resp-1",
 				Done: true,
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "task failed",
 					Code:    &code,
 				},
@@ -5570,10 +5570,10 @@ func TestMessageProcessor_ProcessBatchStreamingEvents_DropStructuredTaskError(
 		"task-1",
 		msg,
 		[]*event.Event{{
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "task failed",
 				},
 			},
@@ -5656,10 +5656,10 @@ func TestProcessAgentStreamingEvents_StopAgentError(t *testing.T) {
 	code := "A2A_499"
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:   "resp-1",
 			Done: true,
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Type:    agent.ErrorTypeStopAgentError,
 				Message: "task canceled",
 				Code:    &code,
@@ -5763,10 +5763,10 @@ func TestMessageProcessor_ProcessBatchStreamingEvents_GraphNodeErrorNotTerminal(
 		"task-1",
 		msg,
 		[]*event.Event{{
-			Response: &model.Response{
+			Response: &compat.Response{
 				Object: graph.ObjectTypeGraphNodeError,
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "node failed",
 				},
 			},
@@ -5792,9 +5792,9 @@ func TestProcessAgentStreamingEvents_HidesRunnerCompletion_TaskArtifact(t *testi
 	msg := &protocol.Message{ContextID: &ctxID}
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "runner-completion-test",
-			Object: model.ObjectTypeRunnerCompletion,
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 		StateDelta: map[string][]byte{
@@ -5873,9 +5873,9 @@ func TestProcessAgentStreamingEvents_HidesRunnerCompletion_MessageMode(t *testin
 	msg := &protocol.Message{ContextID: &ctxID}
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "runner-completion-test",
-			Object: model.ObjectTypeRunnerCompletion,
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
 		},
 		StateDelta: map[string][]byte{
@@ -5948,12 +5948,12 @@ func TestProcessAgentStreamingEvents_PropagatesRunnerCompletionError_TaskArtifac
 	code := "A2A_500"
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "runner-completion-test",
-			Object: model.ObjectTypeRunnerCompletion,
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error: &model.ResponseError{
-				Type:    model.ErrorTypeFlowError,
+			Error: &compat.ResponseError{
+				Type:    compat.ErrorTypeFlowError,
 				Message: "runner failed",
 				Code:    &code,
 			},
@@ -6005,8 +6005,8 @@ doneArtifactError:
 	if !assert.True(t, ok, "expected final artifact event") {
 		return
 	}
-	assert.Equal(t, model.ObjectTypeError, finalArtifact.Metadata[ia2a.MessageMetadataObjectTypeKey])
-	assert.Equal(t, model.ErrorTypeFlowError, finalArtifact.Metadata[ia2a.MessageMetadataErrorTypeKey])
+	assert.Equal(t, compat.ObjectTypeError, finalArtifact.Metadata[ia2a.MessageMetadataObjectTypeKey])
+	assert.Equal(t, compat.ErrorTypeFlowError, finalArtifact.Metadata[ia2a.MessageMetadataErrorTypeKey])
 	assert.Equal(t, "runner failed", finalArtifact.Metadata[ia2a.MessageMetadataErrorMessageKey])
 	assert.Equal(t, code, finalArtifact.Metadata[ia2a.MessageMetadataErrorCodeKey])
 	assert.Equal(t, "resp-final", finalArtifact.Metadata[ia2a.MessageMetadataResponseIDKey])
@@ -6024,12 +6024,12 @@ func TestProcessAgentStreamingEvents_PropagatesRunnerCompletionError_MessageMode
 	code := "A2A_500"
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:     "runner-completion-test",
-			Object: model.ObjectTypeRunnerCompletion,
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error: &model.ResponseError{
-				Type:    model.ErrorTypeFlowError,
+			Error: &compat.ResponseError{
+				Type:    compat.ErrorTypeFlowError,
 				Message: "runner failed",
 				Code:    &code,
 			},
@@ -6083,8 +6083,8 @@ doneMessageError:
 		return
 	}
 
-	assert.Equal(t, model.ObjectTypeError, completed.Metadata[ia2a.MessageMetadataObjectTypeKey])
-	assert.Equal(t, model.ErrorTypeFlowError, completed.Metadata[ia2a.MessageMetadataErrorTypeKey])
+	assert.Equal(t, compat.ObjectTypeError, completed.Metadata[ia2a.MessageMetadataObjectTypeKey])
+	assert.Equal(t, compat.ErrorTypeFlowError, completed.Metadata[ia2a.MessageMetadataErrorTypeKey])
 	assert.Equal(t, "runner failed", completed.Metadata[ia2a.MessageMetadataErrorMessageKey])
 	assert.Equal(t, code, completed.Metadata[ia2a.MessageMetadataErrorCodeKey])
 	assert.Equal(t, "resp-final", completed.Metadata[ia2a.MessageMetadataResponseIDKey])
@@ -6119,15 +6119,15 @@ func TestBuildFinalStreamingMetadata(t *testing.T) {
 
 	t.Run("only error no state delta", func(t *testing.T) {
 		evt := &event.Event{
-			Response: &model.Response{
-				Error: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+			Response: &compat.Response{
+				Error: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: "boom",
 				},
 			},
 		}
 		meta := buildFinalStreamingMetadata(evt)
-		assert.Equal(t, model.ObjectTypeError, meta[ia2a.MessageMetadataObjectTypeKey])
+		assert.Equal(t, compat.ObjectTypeError, meta[ia2a.MessageMetadataObjectTypeKey])
 		assert.Equal(t, "boom", meta[ia2a.MessageMetadataErrorMessageKey])
 	})
 
@@ -6408,12 +6408,12 @@ func TestMessageProcessor_ProcessMessage_NoPartsCollected(t *testing.T) {
 	processor := &messageProcessor{
 		debugLogging: false,
 		runner: &mockRunner{
-			runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+			runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				// Send event that converts to nil result
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{Message: model.Message{Content: "response"}}},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{Message: compat.Message{Content: "response"}}},
 					},
 				}
 				close(ch)
@@ -6430,7 +6430,7 @@ func TestMessageProcessor_ProcessMessage_NoPartsCollected(t *testing.T) {
 		errorHandler: defaultErrorHandler,
 	}
 
-	result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+	result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 	// handleError returns a result with error message, not an error
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -6461,14 +6461,14 @@ func TestMessageProcessor_ProcessMessage_ResponseRewriterDropFinalResult(
 				ctx context.Context,
 				userID string,
 				sessionID string,
-				message model.Message,
+				message compat.Message,
 				opts ...agent.RunOption,
 			) (<-chan *event.Event, error) {
 				ch := make(chan *event.Event, 1)
 				ch <- &event.Event{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{Content: "answer"},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{Content: "answer"},
 						}},
 					},
 				}
@@ -6486,7 +6486,7 @@ func TestMessageProcessor_ProcessMessage_ResponseRewriterDropFinalResult(
 		"user",
 		"session",
 		&msg,
-		&model.Message{Content: "input"},
+		&compat.Message{Content: "input"},
 		nil,
 	)
 	assert.NoError(t, err)
@@ -6514,18 +6514,18 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 		processor := &messageProcessor{
 			debugLogging: false,
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 2)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "real answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "real answer"}}},
 						},
 					}
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object: model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object: compat.ObjectTypeRunnerCompletion,
 							Done:   true,
 						},
 					}
@@ -6546,7 +6546,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.Result)
@@ -6565,24 +6565,24 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 		processor := &messageProcessor{
 			debugLogging: false,
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 3)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
-							Choices: []model.Choice{{Message: model.Message{Content: "tool call"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "tool call"}}},
 						},
 					}
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "final answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "final answer"}}},
 						},
 					}
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object: model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object: compat.ObjectTypeRunnerCompletion,
 							Done:   true,
 						},
 					}
@@ -6603,7 +6603,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.Result)
@@ -6622,11 +6622,11 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 		processor := &messageProcessor{
 			debugLogging: false,
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 1)
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object: model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object: compat.ObjectTypeRunnerCompletion,
 							Done:   true,
 						},
 					}
@@ -6639,7 +6639,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler:        defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		// When all events are runner.completion, no messages are collected → error path
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -6651,13 +6651,13 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 		processor := &messageProcessor{
 			debugLogging: false,
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 1)
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object:  model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object:  compat.ObjectTypeRunnerCompletion,
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "graph final answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "graph final answer"}}},
 						},
 					}
 					close(ch)
@@ -6677,7 +6677,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.Result)
@@ -6696,18 +6696,18 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 		processor := &messageProcessor{
 			debugLogging: false,
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 2)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "answer"}}},
 						},
 					}
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object: model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object: compat.ObjectTypeRunnerCompletion,
 							Done:   true,
 						},
 						StateDelta: map[string][]byte{
@@ -6731,7 +6731,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.Result)
@@ -6768,18 +6768,18 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 				},
 			},
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 2)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "answer"}}},
 						},
 					}
 					ch <- &event.Event{
-						Response: &model.Response{
-							Object: model.ObjectTypeRunnerCompletion,
+						Response: &compat.Response{
+							Object: compat.ObjectTypeRunnerCompletion,
 							Done:   true,
 						},
 						StateDelta: map[string][]byte{
@@ -6803,7 +6803,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotNil(t, result.Result)
@@ -6834,13 +6834,13 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 				},
 			},
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 1)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							ID:      "resp-filter-once",
 							Object:  "graph.execution",
-							Choices: []model.Choice{{Message: model.Message{}}},
+							Choices: []compat.Choice{{Message: compat.Message{}}},
 						},
 						StateDelta: map[string][]byte{
 							"business_result": []byte(`"ok"`),
@@ -6857,7 +6857,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		resultMsg, ok := result.Result.(*protocol.Message)
 		if !assert.True(t, ok, "Expected *protocol.Message, got %T", result.Result) {
@@ -6887,13 +6887,13 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 				},
 			},
 			runner: &mockRunner{
-				runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+				runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 					ch := make(chan *event.Event, 1)
 					ch <- &event.Event{
-						Response: &model.Response{
+						Response: &compat.Response{
 							Object:  "chat.completion",
 							Done:    true,
-							Choices: []model.Choice{{Message: model.Message{Content: "answer"}}},
+							Choices: []compat.Choice{{Message: compat.Message{Content: "answer"}}},
 						},
 					}
 					close(ch)
@@ -6918,7 +6918,7 @@ func TestMessageProcessor_ProcessMessage_SkipsRunnerCompletion(t *testing.T) {
 			errorHandler: defaultErrorHandler,
 		}
 
-		result, err := processor.processMessage(ctx, "user", "session", &msg, &model.Message{Content: "input"}, nil)
+		result, err := processor.processMessage(ctx, "user", "session", &msg, &compat.Message{Content: "input"}, nil)
 		assert.NoError(t, err)
 		resultMsg, ok := result.Result.(*protocol.Message)
 		if !assert.True(t, ok, "Expected *protocol.Message, got %T", result.Result) {
@@ -7043,7 +7043,7 @@ func TestProcessStreamingMessage_CleanupTask_OnSubscribeError(t *testing.T) {
 		}
 
 		proc := createTestMessageProcessor()
-		result, err := proc.processStreamingMessage(ctx, "user", "session", msg, &model.Message{Content: "hi"}, handler, nil)
+		result, err := proc.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{Content: "hi"}, handler, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, "task-cleanup", cleanedTaskID)
@@ -7070,7 +7070,7 @@ func TestProcessStreamingMessage_CleanupTask_OnSubscribeError(t *testing.T) {
 
 		proc := createTestMessageProcessor()
 		assert.NotPanics(t, func() {
-			_, _ = proc.processStreamingMessage(ctx, "user", "session", msg, &model.Message{Content: "hi"}, handler, nil)
+			_, _ = proc.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{Content: "hi"}, handler, nil)
 		})
 		assert.True(t, cleanCalled)
 	})
@@ -7101,12 +7101,12 @@ func TestProcessStreamingMessage_CleanupTask_OnRunnerError(t *testing.T) {
 
 	proc := createTestMessageProcessor()
 	proc.runner = &mockRunner{
-		runFunc: func(ctx context.Context, userID string, sessionID string, message model.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
+		runFunc: func(ctx context.Context, userID string, sessionID string, message compat.Message, opts ...agent.RunOption) (<-chan *event.Event, error) {
 			return nil, errors.New("runner boom")
 		},
 	}
 
-	result, err := proc.processStreamingMessage(ctx, "user", "session", msg, &model.Message{Content: "hi"}, handler, nil)
+	result, err := proc.processStreamingMessage(ctx, "user", "session", msg, &compat.Message{Content: "hi"}, handler, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "task-runner-err", cleanedTaskID)
@@ -7120,8 +7120,8 @@ func TestAbortStreaming_ContextCanceled(t *testing.T) {
 
 	events := make(chan *event.Event, 1)
 	events <- &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{Delta: model.Message{Content: "chunk"}}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Delta: compat.Message{Content: "chunk"}}},
 		},
 	}
 	close(events)

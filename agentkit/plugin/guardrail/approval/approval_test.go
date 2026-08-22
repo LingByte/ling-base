@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	approvallog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	approvalreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval/review"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
@@ -171,19 +171,19 @@ func TestBeforeTool_RequireApprovalBuildsRequestFromSession(t *testing.T) {
 				"inv-1",
 				"author",
 				"app",
-				model.Message{Role: model.RoleUser, Content: "Please inspect the workspace."},
+				compat.Message{Role: compat.RoleUser, Content: "Please inspect the workspace."},
 			),
 			responseEvent(
 				"inv-1",
 				"author",
 				"app",
-				model.Message{
-					Role:    model.RoleAssistant,
+				compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "I will inspect the workspace first.",
-					ToolCalls: []model.ToolCall{{
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   "tool-call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "shell",
 							Arguments: []byte(`{"command":"ls"}`),
 						},
@@ -194,13 +194,13 @@ func TestBeforeTool_RequireApprovalBuildsRequestFromSession(t *testing.T) {
 				"inv-1",
 				"author",
 				"app",
-				model.Message{Role: model.RoleTool, ToolID: "tool-call-1", ToolName: "shell", Content: "file-a\nfile-b"},
+				compat.Message{Role: compat.RoleTool, ToolID: "tool-call-1", ToolName: "shell", Content: "file-a\nfile-b"},
 			),
 			responseEvent(
 				"inv-2",
 				"author",
 				"other",
-				model.Message{Role: model.RoleUser, Content: "This should be filtered out."},
+				compat.Message{Role: compat.RoleUser, Content: "This should be filtered out."},
 			),
 		},
 	)
@@ -218,7 +218,7 @@ func TestBeforeTool_RequireApprovalBuildsRequestFromSession(t *testing.T) {
 	require.Equal(t, "Runs shell commands.", captured.Action.ToolDescription)
 	require.JSONEq(t, `{"command":"pwd"}`, string(captured.Action.Arguments))
 	require.Len(t, captured.Transcript, 4)
-	assert.Equal(t, model.RoleUser, captured.Transcript[0].Role)
+	assert.Equal(t, compat.RoleUser, captured.Transcript[0].Role)
 	assert.Equal(t, "Please inspect the workspace.", captured.Transcript[0].Content)
 	assert.Equal(t, "I will inspect the workspace first.", captured.Transcript[1].Content)
 	assert.Equal(t, "tool shell call: {\"command\":\"ls\"}", captured.Transcript[2].Content)
@@ -376,7 +376,7 @@ func TestBeforeTool_UnsupportedPolicyReturnsFailureMessage(t *testing.T) {
 		reviewer:          &stubReviewer{},
 		defaultToolPolicy: ToolPolicy("unsupported"),
 		toolPolicies:      map[string]ToolPolicy{},
-		tokenCounter:      model.NewSimpleTokenCounter(),
+		tokenCounter:      compat.NewSimpleTokenCounter(),
 	}
 	result, runErr := p.beforeTool()(context.Background(), &tool.BeforeToolArgs{
 		ToolName:   "shell",
@@ -401,14 +401,14 @@ func TestBuildTranscript_UserOverflowReturnsOmissionOnly(t *testing.T) {
 			"inv-1",
 			"author",
 			"app",
-			model.Message{Role: model.RoleUser, Content: stringsRepeat("user ", guardtranscript.DefaultMessageEntryCap)},
+			compat.Message{Role: compat.RoleUser, Content: stringsRepeat("user ", guardtranscript.DefaultMessageEntryCap)},
 		))
 	}
 	events = append(events, responseEvent(
 		"inv-1",
 		"author",
 		"app",
-		model.Message{Role: model.RoleAssistant, Content: "assistant context"},
+		compat.Message{Role: compat.RoleAssistant, Content: "assistant context"},
 	))
 	invocation := invocationWithEvents(
 		t,
@@ -416,7 +416,7 @@ func TestBuildTranscript_UserOverflowReturnsOmissionOnly(t *testing.T) {
 	)
 	transcript := p.buildTranscript(context.Background(), invocation)
 	require.Len(t, transcript, 1)
-	assert.Equal(t, model.RoleAssistant, transcript[0].Role)
+	assert.Equal(t, compat.RoleAssistant, transcript[0].Role)
 	assert.Equal(t, guardtranscript.DefaultOmissionNote, transcript[0].Content)
 }
 
@@ -438,13 +438,13 @@ func TestBuildRequest_WithoutInvocationReturnsActionOnly(t *testing.T) {
 
 type errorTokenCounter struct{}
 
-func (errorTokenCounter) CountTokens(ctx context.Context, message model.Message) (int, error) {
+func (errorTokenCounter) CountTokens(ctx context.Context, message compat.Message) (int, error) {
 	return 0, errors.New("count tokens failed")
 }
 
 func (errorTokenCounter) CountTokensRange(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	start, end int,
 ) (int, error) {
 	return 0, errors.New("count tokens failed")
@@ -453,7 +453,7 @@ func (errorTokenCounter) CountTokensRange(
 func TestCountTranscriptTokens_ReturnsOmissionSentinelOnCounterError(t *testing.T) {
 	p := &Plugin{tokenCounter: errorTokenCounter{}}
 	require.Equal(t, guardtranscript.DefaultMessageTranscriptBudget+1, p.countTranscriptTokens(context.Background(), guardtranscript.Entry{
-		Role:    model.RoleUser,
+		Role:    compat.RoleUser,
 		Content: "hello",
 	}))
 }
@@ -465,18 +465,18 @@ func TestBuildTranscript_TokenCounterErrorFailsClosed(t *testing.T) {
 			"inv-1",
 			"author",
 			"app",
-			model.Message{Role: model.RoleUser, Content: "Please inspect the workspace."},
+			compat.Message{Role: compat.RoleUser, Content: "Please inspect the workspace."},
 		),
 		responseEvent(
 			"inv-1",
 			"author",
 			"app",
-			model.Message{Role: model.RoleAssistant, Content: "I will inspect it."},
+			compat.Message{Role: compat.RoleAssistant, Content: "I will inspect it."},
 		),
 	})
 	transcript := p.buildTranscript(context.Background(), invocation)
 	require.Len(t, transcript, 1)
-	require.Equal(t, model.RoleAssistant, transcript[0].Role)
+	require.Equal(t, compat.RoleAssistant, transcript[0].Role)
 	require.Equal(t, guardtranscript.DefaultOmissionNote, transcript[0].Content)
 }
 
@@ -497,9 +497,9 @@ func invocationWithEvents(t *testing.T, events []event.Event) *agent.Invocation 
 	)
 }
 
-func responseEvent(invocationID, author, filterKey string, message model.Message) event.Event {
-	evt := event.NewResponseEvent(invocationID, author, &model.Response{
-		Choices: []model.Choice{{Message: message}},
+func responseEvent(invocationID, author, filterKey string, message compat.Message) event.Event {
+	evt := event.NewResponseEvent(invocationID, author, &compat.Response{
+		Choices: []compat.Choice{{Message: message}},
 		Done:    true,
 	})
 	evt.FilterKey = filterKey

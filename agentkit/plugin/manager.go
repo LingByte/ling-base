@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -104,13 +104,13 @@ func (r *Registry) AfterAgent(cb agent.AfterAgentCallbackStructured) {
 }
 
 // BeforeModel registers a before-model callback.
-func (r *Registry) BeforeModel(cb model.BeforeModelCallbackStructured) {
+func (r *Registry) BeforeModel(cb compat.BeforeModelCallbackStructured) {
 	if r == nil || r.mgr == nil || cb == nil {
 		return
 	}
 	r.mgr.modelCallbacks.RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error,
+		func(ctx context.Context, args *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error,
 		) {
 			res, err := cb(ctx, args)
 			if err != nil {
@@ -122,13 +122,13 @@ func (r *Registry) BeforeModel(cb model.BeforeModelCallbackStructured) {
 }
 
 // AfterModel registers an after-model callback.
-func (r *Registry) AfterModel(cb model.AfterModelCallbackStructured) {
+func (r *Registry) AfterModel(cb compat.AfterModelCallbackStructured) {
 	if r == nil || r.mgr == nil || cb == nil {
 		return
 	}
 	r.mgr.modelCallbacks.RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (
-			*model.AfterModelResult, error,
+		func(ctx context.Context, args *compat.AfterModelArgs) (
+			*compat.AfterModelResult, error,
 		) {
 			res, err := cb(ctx, args)
 			if err != nil {
@@ -215,7 +215,7 @@ func (r *Registry) AfterRun(hook AfterRunHook) {
 type Manager struct {
 	plugins                []Plugin
 	agentCallbacks         *agent.Callbacks
-	modelCallbacks         *model.Callbacks
+	modelCallbacks         *compat.Callbacks
 	toolCallbacks          *tool.Callbacks
 	eventHooks             []namedEventHook
 	afterRunHooks          []namedAfterRunHook
@@ -241,7 +241,7 @@ type namedAfterToolMessagesHook struct {
 func NewManager(plugins ...Plugin) (*Manager, error) {
 	m := &Manager{
 		agentCallbacks: agent.NewCallbacks(),
-		modelCallbacks: model.NewCallbacks(),
+		modelCallbacks: compat.NewCallbacks(),
 		toolCallbacks:  tool.NewCallbacks(),
 	}
 	seen := make(map[string]struct{})
@@ -288,7 +288,7 @@ func (m *Manager) AgentCallbacks() *agent.Callbacks {
 }
 
 // ModelCallbacks implements agent.PluginManager.
-func (m *Manager) ModelCallbacks() *model.Callbacks {
+func (m *Manager) ModelCallbacks() *compat.Callbacks {
 	if m == nil {
 		return nil
 	}
@@ -406,9 +406,9 @@ func (m *Manager) AfterToolMessages(
 }
 
 func normalizeToolResultReplacements(
-	original []model.Message,
-	replacements []model.Message,
-) ([]model.Message, error) {
+	original []compat.Message,
+	replacements []compat.Message,
+) ([]compat.Message, error) {
 	if len(original) == 0 {
 		return nil, errors.New("after tool messages: original tool result messages are empty")
 	}
@@ -419,16 +419,16 @@ func normalizeToolResultReplacements(
 			len(original),
 		)
 	}
-	byID := make(map[string]model.Message, len(replacements))
+	byID := make(map[string]compat.Message, len(replacements))
 	for _, msg := range replacements {
 		if msg.ToolID == "" {
 			return nil, errors.New("after tool messages: replacement tool message missing tool id")
 		}
-		if msg.Role != model.RoleTool {
+		if msg.Role != compat.RoleTool {
 			return nil, fmt.Errorf(
 				"after tool messages: replacement for tool id %q must use role %q",
 				msg.ToolID,
-				model.RoleTool,
+				compat.RoleTool,
 			)
 		}
 		if _, ok := byID[msg.ToolID]; ok {
@@ -439,16 +439,16 @@ func normalizeToolResultReplacements(
 		}
 		byID[msg.ToolID] = msg
 	}
-	out := make([]model.Message, 0, len(original))
+	out := make([]compat.Message, 0, len(original))
 	for _, msg := range original {
 		if msg.ToolID == "" {
 			return nil, errors.New("after tool messages: original tool message missing tool id")
 		}
-		if msg.Role != model.RoleTool {
+		if msg.Role != compat.RoleTool {
 			return nil, fmt.Errorf(
 				"after tool messages: original for tool id %q must use role %q",
 				msg.ToolID,
-				model.RoleTool,
+				compat.RoleTool,
 			)
 		}
 		replacement, ok := byID[msg.ToolID]
@@ -472,16 +472,16 @@ func normalizeToolResultReplacements(
 
 func replaceToolResultEventChoices(
 	ev *event.Event,
-	replacements []model.Message,
+	replacements []compat.Message,
 ) error {
 	if ev == nil || ev.Response == nil || len(replacements) == 0 {
 		return nil
 	}
-	byID := make(map[string]model.Message, len(replacements))
+	byID := make(map[string]compat.Message, len(replacements))
 	for _, msg := range replacements {
 		byID[msg.ToolID] = msg
 	}
-	choices := make([]model.Choice, 0, len(ev.Response.Choices))
+	choices := make([]compat.Choice, 0, len(ev.Response.Choices))
 	seen := make(map[string]struct{}, len(replacements))
 	for _, choice := range ev.Response.Choices {
 		toolID := toolChoiceID(choice)
@@ -510,7 +510,7 @@ func replaceToolResultEventChoices(
 	return nil
 }
 
-func replaceChoiceToolMessage(choice model.Choice, msg model.Message) model.Choice {
+func replaceChoiceToolMessage(choice compat.Choice, msg compat.Message) compat.Choice {
 	updated := choice
 	if updated.Message.ToolID != "" {
 		updated.Message = msg
@@ -524,11 +524,11 @@ func replaceChoiceToolMessage(choice model.Choice, msg model.Message) model.Choi
 	return updated
 }
 
-func toolResultMessagesFromEvent(ev *event.Event) []model.Message {
+func toolResultMessagesFromEvent(ev *event.Event) []compat.Message {
 	if ev == nil || ev.Response == nil {
 		return nil
 	}
-	out := make([]model.Message, 0, len(ev.Response.Choices))
+	out := make([]compat.Message, 0, len(ev.Response.Choices))
 	for _, choice := range ev.Response.Choices {
 		msg := choice.Message
 		if msg.ToolID == "" && choice.Delta.ToolID != "" {
@@ -541,7 +541,7 @@ func toolResultMessagesFromEvent(ev *event.Event) []model.Message {
 	return cloneMessages(out)
 }
 
-func toolChoiceID(choice model.Choice) string {
+func toolChoiceID(choice compat.Choice) string {
 	if choice.Message.ToolID != "" {
 		return choice.Message.ToolID
 	}
@@ -578,24 +578,24 @@ func (m *Manager) Close(ctx context.Context) error {
 }
 
 func replaceTailMessages(
-	messages []model.Message,
+	messages []compat.Message,
 	oldTailLen int,
-	replacement []model.Message,
-) []model.Message {
+	replacement []compat.Message,
+) []compat.Message {
 	if oldTailLen < 0 || oldTailLen > len(messages) {
 		return cloneMessages(messages)
 	}
-	out := make([]model.Message, 0, len(messages)-oldTailLen+len(replacement))
+	out := make([]compat.Message, 0, len(messages)-oldTailLen+len(replacement))
 	out = append(out, messages[:len(messages)-oldTailLen]...)
 	out = append(out, replacement...)
 	return cloneMessages(out)
 }
 
-func cloneMessages(messages []model.Message) []model.Message {
+func cloneMessages(messages []compat.Message) []compat.Message {
 	if len(messages) == 0 {
 		return nil
 	}
-	out := make([]model.Message, len(messages))
+	out := make([]compat.Message, len(messages))
 	copy(out, messages)
 	return out
 }

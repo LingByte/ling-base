@@ -16,14 +16,14 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 // endInvokingProcessor ends the invocation immediately and emits one event.
 type endInvokingProcessor struct{}
 
-func (p *endInvokingProcessor) ProcessRequest(ctx context.Context, inv *agent.Invocation, req *model.Request, ch chan<- *event.Event) {
+func (p *endInvokingProcessor) ProcessRequest(ctx context.Context, inv *agent.Invocation, req *compat.Request, ch chan<- *event.Event) {
 	inv.EndInvocation = true
 	e := event.New(inv.InvocationID, inv.AgentName)
 	e.Object = "preprocess.end"
@@ -33,7 +33,7 @@ func (p *endInvokingProcessor) ProcessRequest(ctx context.Context, inv *agent.In
 // shouldNotRunProcessor records if it is invoked.
 type shouldNotRunProcessor struct{ called *bool }
 
-func (p *shouldNotRunProcessor) ProcessRequest(ctx context.Context, inv *agent.Invocation, req *model.Request, ch chan<- *event.Event) {
+func (p *shouldNotRunProcessor) ProcessRequest(ctx context.Context, inv *agent.Invocation, req *compat.Request, ch chan<- *event.Event) {
 	if p.called != nil {
 		*p.called = true
 	}
@@ -71,22 +71,22 @@ func TestPreprocess_StopsAfterEndInvocation(t *testing.T) {
 // twoChunkModel returns two streaming chunks to ensure we break after EndInvocation.
 type twoChunkModel struct{}
 
-func (m *twoChunkModel) Info() model.Info { return model.Info{Name: "mock"} }
+func (m *twoChunkModel) Info() compat.Info { return compat.Info{Name: "mock"} }
 
-func (m *twoChunkModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 2)
+func (m *twoChunkModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 2)
 	go func() {
 		defer close(ch)
-		ch <- &model.Response{
+		ch <- &compat.Response{
 			ID:        "1",
-			Object:    model.ObjectTypeChatCompletionChunk,
-			Choices:   []model.Choice{{Delta: model.Message{Role: model.RoleAssistant, Content: "a"}}},
+			Object:    compat.ObjectTypeChatCompletionChunk,
+			Choices:   []compat.Choice{{Delta: compat.Message{Role: compat.RoleAssistant, Content: "a"}}},
 			IsPartial: true,
 		}
-		ch <- &model.Response{
+		ch <- &compat.Response{
 			ID:        "2",
-			Object:    model.ObjectTypeChatCompletionChunk,
-			Choices:   []model.Choice{{Delta: model.Message{Role: model.RoleAssistant, Content: "b"}}},
+			Object:    compat.ObjectTypeChatCompletionChunk,
+			Choices:   []compat.Choice{{Delta: compat.Message{Role: compat.RoleAssistant, Content: "b"}}},
 			IsPartial: true,
 		}
 	}()
@@ -96,7 +96,7 @@ func (m *twoChunkModel) GenerateContent(ctx context.Context, req *model.Request)
 // endOnFirstChunkProcessor sets EndInvocation on the first response.
 type endOnFirstChunkProcessor struct{ done bool }
 
-func (p *endOnFirstChunkProcessor) ProcessResponse(ctx context.Context, inv *agent.Invocation, req *model.Request, rsp *model.Response, ch chan<- *event.Event) {
+func (p *endOnFirstChunkProcessor) ProcessResponse(ctx context.Context, inv *agent.Invocation, req *compat.Request, rsp *compat.Response, ch chan<- *event.Event) {
 	if !p.done {
 		inv.EndInvocation = true
 		p.done = true
@@ -118,7 +118,7 @@ func TestStreaming_BreaksWhenEndInvocationSet(t *testing.T) {
 	// Collect events authored by the LLM chunks.
 	var chunkCount int
 	for e := range ch {
-		if e.Response != nil && e.Response.Object == model.ObjectTypeChatCompletionChunk {
+		if e.Response != nil && e.Response.Object == compat.ObjectTypeChatCompletionChunk {
 			chunkCount++
 		}
 	}

@@ -15,7 +15,7 @@ import (
 
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ func TestNewInvocation_InitializesExecutionTraceMetadata(t *testing.T) {
 		WithInvocationAgent(&mockAgent{name: "assistant/root~"}),
 		WithInvocationSession(&session.Session{ID: "session-1"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	require.True(t, executionTraceEnabled(inv))
 	assert.Equal(t, "assistant~1root~0", InvocationTraceNodeID(inv))
@@ -52,7 +52,7 @@ func TestClone_PreservesExecutionTraceCaptureAndEntryPredecessors(t *testing.T) 
 	root := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "assistant"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	rootStepID := StartExecutionTraceStep(
 		root,
@@ -174,7 +174,7 @@ func TestNextExecutionTracePredecessors_UsesNestedChildInvocationTerminals(t *te
 	root := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "workflow"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	rootStepID := StartExecutionTraceStep(
 		root,
@@ -218,13 +218,13 @@ func TestExecutionTraceHelpers_HandleNilAndDisabledInvocation(t *testing.T) {
 	FinishExecutionTraceStep(nilInv, "step-1", nil, nil)
 	SetExecutionTraceStepAppliedSurfaceIDs(nilInv, "step-1")
 	SetExecutionTraceStepNodeType(nilInv, "step-1", "agent")
-	SetExecutionTraceStepUsage(nilInv, "step-1", &model.Usage{TotalTokens: 1})
+	SetExecutionTraceStepUsage(nilInv, "step-1", &compat.Usage{TotalTokens: 1})
 	assert.Nil(t, NextExecutionTracePredecessors(nilInv))
 	assert.Nil(t, BuildExecutionTrace(nilInv, atrace.TraceStatusCompleted))
 	nilInv.ensureTraceCaptureMetadata()
 	disabled := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "assistant"}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	assert.False(t, executionTraceEnabled(disabled))
 	assert.Empty(t, StartExecutionTraceStep(disabled, "assistant", nil, nil))
@@ -235,8 +235,8 @@ func TestExecutionTraceHelpers_HandleNilAndDisabledInvocation(t *testing.T) {
 	SetExecutionTraceStepNodeType(disabled, "step-1", "agent")
 	SetExecutionTraceStepNodeType(disabled, "", "agent")
 	SetExecutionTraceStepNodeType(disabled, "step-1", "")
-	SetExecutionTraceStepUsage(disabled, "step-1", &model.Usage{TotalTokens: 1})
-	SetExecutionTraceStepUsage(disabled, "", &model.Usage{TotalTokens: 1})
+	SetExecutionTraceStepUsage(disabled, "step-1", &compat.Usage{TotalTokens: 1})
+	SetExecutionTraceStepUsage(disabled, "", &compat.Usage{TotalTokens: 1})
 	SetExecutionTraceStepUsage(disabled, "step-1", nil)
 	assert.Nil(t, NextExecutionTracePredecessors(disabled))
 	assert.Nil(t, BuildExecutionTrace(disabled, atrace.TraceStatusCompleted))
@@ -268,7 +268,7 @@ func TestExecutionTraceHelpers_RecordAppliedSurfaceIDs(t *testing.T) {
 			surfaceIDs: []string{"assistant#instruction", "assistant#model"},
 		}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	stepID := StartExecutionTraceStep(
 		inv,
@@ -289,7 +289,7 @@ func TestExecutionTraceHelpers_RecordStepNodeType(t *testing.T) {
 	inv := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "assistant"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	stepID := StartExecutionTraceStep(
 		inv,
@@ -311,7 +311,7 @@ func TestExecutionTraceHelpers_RecordStepUsage(t *testing.T) {
 	inv := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "assistant"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	stepID := StartExecutionTraceStep(
 		inv,
@@ -320,7 +320,7 @@ func TestExecutionTraceHelpers_RecordStepUsage(t *testing.T) {
 		nil,
 	)
 	require.NotEmpty(t, stepID)
-	SetExecutionTraceStepUsage(inv, stepID, &model.Usage{PromptTokens: 2, CompletionTokens: 3, TotalTokens: 5})
+	SetExecutionTraceStepUsage(inv, stepID, &compat.Usage{PromptTokens: 2, CompletionTokens: 3, TotalTokens: 5})
 	FinishExecutionTraceStep(inv, stepID, &atrace.Snapshot{Text: "output"}, nil)
 	executionTrace := BuildExecutionTrace(inv, atrace.TraceStatusCompleted)
 	require.NotNil(t, executionTrace)
@@ -335,7 +335,7 @@ func TestExecutionTraceHelpers_SetAppliedSurfaceIDs_IgnoresNilAgent(t *testing.T
 	inv := NewInvocation(
 		WithInvocationAgent(&mockAgent{name: "assistant"}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	stepID := StartExecutionTraceStep(
 		inv,
@@ -360,7 +360,7 @@ func TestExecutionTraceHelpers_SetAppliedSurfaceIDs_IgnoresEmptyStepID(t *testin
 			surfaceIDs: []string{"assistant#instruction"},
 		}),
 		WithInvocationRunOptions(RunOptions{ExecutionTraceEnabled: true}),
-		WithInvocationMessage(model.NewUserMessage("hello")),
+		WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	SetExecutionTraceStepAppliedSurfaceIDs(inv, "")
 	executionTrace := BuildExecutionTrace(inv, atrace.TraceStatusCompleted)

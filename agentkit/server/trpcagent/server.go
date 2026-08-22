@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/profilecompiler"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/google/uuid"
 )
@@ -194,14 +194,14 @@ func (s *Server) exportStructure(ctx context.Context) (*astructure.Snapshot, err
 	return profilecompiler.NormalizeStructureSnapshot(snapshot)
 }
 
-func runErrorResponse(input model.Message, appName string, requestID string, err error) runResponse {
+func runErrorResponse(input compat.Message, appName string, requestID string, err error) runResponse {
 	status := atrace.TraceStatusFailed
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		status = atrace.TraceStatusIncomplete
 	}
 	response := runResponse{
 		Status:       status,
-		Messages:     []model.Message{input},
+		Messages:     []compat.Message{input},
 		ErrorMessage: err.Error(),
 	}
 	appendRunTerminalEvents(&response, appName, requestID, err)
@@ -221,10 +221,10 @@ func validateRunRequest(req *runRequest) error {
 	if !req.Input.Role.IsValid() {
 		return errors.New("input.role is invalid")
 	}
-	if req.Input.Role != model.RoleUser {
+	if req.Input.Role != compat.RoleUser {
 		return errors.New("input.role must be user")
 	}
-	if !model.HasPayload(req.Input) && len(req.Input.ToolCalls) == 0 && req.Input.ToolID == "" {
+	if !compat.HasPayload(req.Input) && len(req.Input.ToolCalls) == 0 && req.Input.ToolID == "" {
 		return errors.New("input payload is required")
 	}
 	return nil
@@ -232,7 +232,7 @@ func validateRunRequest(req *runRequest) error {
 
 func collectRunResponse(
 	ctx context.Context,
-	input model.Message,
+	input compat.Message,
 	eventCh <-chan *event.Event,
 	requestID string,
 ) (runResponse, error) {
@@ -290,17 +290,17 @@ func collectRunResponse(
 func appendRunTerminalEvents(response *runResponse, appName string, requestID string, err error) {
 	invocationID := terminalInvocationID(response)
 	if !lastEventIsTerminalError(response.Events) {
-		evt := event.NewErrorEvent(invocationID, appName, model.ErrorTypeRunError, err.Error())
+		evt := event.NewErrorEvent(invocationID, appName, compat.ErrorTypeRunError, err.Error())
 		evt.RequestID = requestID
 		response.Events = append(response.Events, *evt)
 	}
-	evt := event.NewResponseEvent(invocationID, appName, &model.Response{
+	evt := event.NewResponseEvent(invocationID, appName, &compat.Response{
 		ID:      "trpcagent-runner-completion-" + uuid.NewString(),
-		Object:  model.ObjectTypeRunnerCompletion,
+		Object:  compat.ObjectTypeRunnerCompletion,
 		Created: time.Now().Unix(),
 		Done:    true,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeRunError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeRunError,
 			Message: err.Error(),
 		},
 	})

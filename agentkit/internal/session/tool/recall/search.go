@@ -18,7 +18,7 @@ import (
 	"unicode"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
@@ -181,10 +181,10 @@ func searchCurrentSession(
 		MaxResults: normalizeTopK(req.TopK),
 		MinScore:   req.MinScore,
 		FilterKey:  invocationFilterKey(inv),
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 		SearchMode: normalizeSearchMode(req.SearchMode),
 	}
@@ -218,10 +218,10 @@ func searchCurrentHidden(
 		MaxResults: normalizeTopK(req.TopK),
 		MinScore:   req.MinScore,
 		FilterKey:  invocationFilterKey(inv),
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 		CreatedBefore: ptrTime(boundary.CutoffTime()),
 		SearchMode:    normalizeSearchMode(req.SearchMode),
@@ -251,10 +251,10 @@ func searchOtherSessions(
 		MaxResults: normalizeTopK(req.TopK),
 		MinScore:   req.MinScore,
 		FilterKey:  invocationFilterKey(inv),
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 		SearchMode: normalizeSearchMode(req.SearchMode),
 	}
@@ -342,10 +342,10 @@ func searchResultWindow(
 			AnchorEventID: result.Event.ID,
 			Before:        searchSnippetBefore,
 			After:         searchSnippetAfter,
-			Roles: []model.Role{
-				model.RoleUser,
-				model.RoleAssistant,
-				model.RoleTool,
+			Roles: []compat.Role{
+				compat.RoleUser,
+				compat.RoleAssistant,
+				compat.RoleTool,
 			},
 		},
 	)

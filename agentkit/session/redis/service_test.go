@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/util"
@@ -858,10 +858,10 @@ func TestService_ListSessions_WithListSessionOnlyMeta(t *testing.T) {
 			require.NoError(t, err)
 
 			evt := event.New("test-invocation", "author")
-			evt.Response = &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleUser,
+			evt.Response = &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "hello",
 					},
 				}},
@@ -1203,12 +1203,12 @@ func createTestEvent(id, agent, content string, ts time.Time, done bool) *event.
 	return &event.Event{
 		ID:        id,
 		Timestamp: ts,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: done,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: content,
 					},
 				},

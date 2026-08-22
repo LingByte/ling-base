@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/appender"
 	"github.com/LingByte/ling-base/agentkit/internal/state/steer"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -518,12 +518,12 @@ func (a *ralphLoopAgent) appendFeedback(
 	evt := event.NewResponseEvent(
 		base.InvocationID,
 		authorUser,
-		&model.Response{
+		&compat.Response{
 			Done: false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: msg,
 				},
 			}},
@@ -592,7 +592,7 @@ func firstTagText(
 	}
 	for _, choice := range evt.Choices {
 		msg := choice.Message
-		if msg.Role != model.RoleAssistant {
+		if msg.Role != compat.RoleAssistant {
 			continue
 		}
 		text := msg.Content
@@ -627,10 +627,10 @@ func firstTagTextInString(
 	return text[start : start+end], true
 }
 
-func textFromContentParts(parts []model.ContentPart) string {
+func textFromContentParts(parts []compat.ContentPart) string {
 	var b strings.Builder
 	for _, part := range parts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		if b.Len() > 0 {

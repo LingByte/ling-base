@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/skillprofile"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -95,9 +95,9 @@ func TestSkillsRequestProcessor_ProcessRequest_OverviewAndDocs(
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base sys"),
 		},
 	}
 
@@ -111,7 +111,7 @@ func TestSkillsRequestProcessor_ProcessRequest_OverviewAndDocs(
 
 	// System message should be merged with overview and loaded content.
 	idx := 0
-	require.Equal(t, model.RoleSystem, req.Messages[idx].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[idx].Role)
 	sys := req.Messages[idx].Content
 	require.Contains(t, sys, skillsOverviewHeader)
 	require.NotContains(t, sys, skillsCapabilityHeader)
@@ -134,7 +134,7 @@ func TestSkillsRequestProcessor_ProcessRequest_OverviewAndDocs(
 	// A preprocessing event should be emitted.
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev.Object)
 }
 
 func TestSkillsRequestProcessor_AppliesDeclaredLoadsAfterTurnClear(
@@ -166,7 +166,7 @@ func TestSkillsRequestProcessor_AppliesDeclaredLoadsAfterTurnClear(
 			}},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 8)
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -237,7 +237,7 @@ func TestSkillsRequestProcessor_DeclaredLoadPreservesSessionDocs(
 			SkillLoads: []skill.LoadRequest{{Name: "review"}},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 4)
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -275,7 +275,7 @@ func TestSkillsRequestProcessor_DeclaredLoadStaysWithinMaxLoadedSkills(
 			SkillLoads: []skill.LoadRequest{{Name: "c"}},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 4)
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -306,9 +306,9 @@ func TestSkillsRequestProcessor_ProcessRequest_PrioritizesRelevantSkillsBeforeOv
 			{Name: "Weather Monitor - Multi-City", Description: "Monitor weather across cities"},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("Monitor weather across multiple cities and compare current conditions."),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("Monitor weather across multiple cities and compare current conditions."),
 		},
 	}
 	p := NewSkillsRequestProcessor(
@@ -359,7 +359,7 @@ func TestSkillsRequestProcessor_LatencyDiagnosticsSpans(
 			},
 		},
 	}
-	req := &model.Request{}
+	req := &compat.Request{}
 
 	ch := make(chan *event.Event, 2)
 	p := NewSkillsRequestProcessor(repo)
@@ -485,9 +485,9 @@ func TestSkillsRequestProcessor_ProcessRequest_ContextAwareRepoFiltersVisibleSki
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base sys"),
 		},
 	}
 
@@ -513,8 +513,8 @@ func TestSkillsRequestProcessor_NoDuplicateOverview(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{
-		Messages: []model.Message{model.NewSystemMessage("sys")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewSystemMessage("sys")},
 	}
 	p := NewSkillsRequestProcessor(repo)
 	ch := make(chan *event.Event, 2)
@@ -537,9 +537,9 @@ func TestSkillsRequestProcessor_NoDuplicateOverviewWhenHeaderMentionedInline(
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("Existing " + skillsOverviewHeader + " text."),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("Existing " + skillsOverviewHeader + " text."),
 		},
 	}
 	p := NewSkillsRequestProcessor(repo)
@@ -555,7 +555,7 @@ func TestSkillsRequestProcessor_ToolingGuidance_Disabled(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillsToolingGuidance(""),
@@ -564,7 +564,7 @@ func TestSkillsRequestProcessor_ToolingGuidance_Disabled(t *testing.T) {
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	sys := req.Messages[0].Content
 	require.Contains(t, sys, skillsOverviewHeader)
 	require.NotContains(t, sys, skillsCapabilityHeader)
@@ -596,9 +596,9 @@ func TestSkillsRequestProcessor_DirectoryHints(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 		},
 	}
 
@@ -638,9 +638,9 @@ func TestSkillsRequestProcessor_FilePathHints(t *testing.T) {
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 		},
 	}
 	p := NewSkillsRequestProcessor(
@@ -691,9 +691,9 @@ func TestSkillsRequestProcessor_RepositoryResolverAndHints(t *testing.T) {
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 		},
 	}
 	p := NewSkillsRequestProcessor(
@@ -866,7 +866,7 @@ func TestSkillsRequestProcessor_CapabilityGuidanceOverride(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolProfile(skillprofile.KnowledgeOnly),
@@ -890,7 +890,7 @@ func TestSkillsRequestProcessor_ProtocolGuidanceOverride(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolProfile(skillprofile.KnowledgeOnly),
@@ -936,7 +936,7 @@ func TestSkillsRequestProcessor_OverviewRendererOverride(t *testing.T) {
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Equal(t, repo.sums, got)
@@ -981,7 +981,7 @@ func TestSkillsRequestProcessor_OverviewRendererReceivesVisibleSummaries(
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	p.ProcessRequest(ctx, inv, req, nil)
@@ -1013,7 +1013,7 @@ func TestSkillsRequestProcessor_OverviewRendererKeepsSingleHeader(
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	sys := req.Messages[0].Content
@@ -1039,7 +1039,7 @@ func TestSkillsRequestProcessor_OverviewRendererAddsHeaderWhenMentionedInBody(
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	sys := req.Messages[0].Content
@@ -1075,7 +1075,7 @@ func TestSkillsRequestProcessor_OverviewRendererKeepsLoadedContent(
 			},
 		},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillLoadMode(SkillLoadModeSession),
@@ -1116,7 +1116,7 @@ func TestSkillsRequestProcessor_OverviewRendererBlankOmitsAvailableSkillsOnly(
 			},
 		},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillLoadMode(SkillLoadModeSession),
@@ -1149,7 +1149,7 @@ func TestSkillsRequestProcessor_OverviewRendererBlankDoesNotDuplicateGuidance(
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	p.ProcessRequest(context.Background(), inv, req, nil)
@@ -1175,7 +1175,7 @@ func TestSkillsRequestProcessor_OverviewRendererNotCalledWithoutSummaries(
 		},
 		Session: &session.Session{},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.False(t, called)
@@ -1188,7 +1188,7 @@ func TestSkillsRequestProcessor_ExecToolsDisabled(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillExecToolsDisabled(),
@@ -1210,7 +1210,7 @@ func TestSkillsRequestProcessor_KnowledgeOnlyGuidance(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolProfile(skillprofile.KnowledgeOnly),
@@ -1239,7 +1239,7 @@ func TestSkillsRequestProcessor_KnowledgeOnlyGuidance_Disabled(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolProfile(skillprofile.KnowledgeOnly),
@@ -1261,7 +1261,7 @@ func TestSkillsRequestProcessor_LoadOnlyGuidance(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolFlags(skillprofile.Flags{Load: true}),
@@ -1288,7 +1288,7 @@ func TestSkillsRequestProcessor_ListDocsOnlyGuidance(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolFlags(skillprofile.Flags{ListDocs: true}),
@@ -1314,7 +1314,7 @@ func TestSkillsRequestProcessor_RunOnlyGuidance(t *testing.T) {
 		full: map[string]*skill.Skill{},
 	}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillToolFlags(skillprofile.Flags{Run: true}),
@@ -1474,7 +1474,7 @@ func TestSkillsRequestProcessor_ArrayDocs_NoSystemMessage(t *testing.T) {
 		},
 	}
 	// No system message initially.
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillLoadMode(SkillLoadModeSession),
@@ -1483,7 +1483,7 @@ func TestSkillsRequestProcessor_ArrayDocs_NoSystemMessage(t *testing.T) {
 	p.ProcessRequest(context.Background(), inv, req, ch)
 
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	sys := req.Messages[0].Content
 	require.Contains(t, sys, skillsOverviewHeader)
 	require.Contains(t, sys, "[Loaded] calc")
@@ -1508,8 +1508,8 @@ func TestSkillsRequestProcessor_MergeIntoEmptySystem(t *testing.T) {
 		},
 	}
 	// Pre-existing empty system message.
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage(""),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage(""),
 	}}
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -1518,7 +1518,7 @@ func TestSkillsRequestProcessor_MergeIntoEmptySystem(t *testing.T) {
 	ch := make(chan *event.Event, 2)
 	p.ProcessRequest(context.Background(), inv, req, ch)
 	// Should fill content into the empty system message.
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.NotEmpty(t, req.Messages[0].Content)
 	require.Contains(t, req.Messages[0].Content, "[Loaded] calc")
 }
@@ -1544,7 +1544,7 @@ func TestSkillsRequestProcessor_InvalidDocsSelectionJSON(t *testing.T) {
 			},
 		},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(
 		repo,
 		WithSkillLoadMode(SkillLoadModeSession),
@@ -1561,7 +1561,7 @@ func TestSkillsRequestProcessor_InvalidDocsSelectionJSON(t *testing.T) {
 func TestSkillsRequestProcessor_NoOverviewWhenNoSummaries(t *testing.T) {
 	repo := &mockRepo{sums: nil, full: map[string]*skill.Skill{}}
 	inv := &agent.Invocation{Session: &session.Session{}}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	p := NewSkillsRequestProcessor(repo)
 	ch := make(chan *event.Event, 1)
 	p.ProcessRequest(context.Background(), inv, req, ch)
@@ -1570,7 +1570,7 @@ func TestSkillsRequestProcessor_NoOverviewWhenNoSummaries(t *testing.T) {
 	// Still emits a preprocessing instruction for trace consistency.
 	e := <-ch
 	require.NotNil(t, e)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, e.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, e.Object)
 }
 
 func TestSkillsRequestProcessor_BuildDocsText_EdgeCases(t *testing.T) {
@@ -1588,8 +1588,8 @@ func TestSkillsRequestProcessor_MergeIntoSystem_Edge(t *testing.T) {
 	p.mergeIntoSystem(nil, "content")
 
 	// empty content should not modify messages
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("sys"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("sys"),
 	}}
 	p.mergeIntoSystem(req, "")
 	require.Equal(t, "sys", req.Messages[0].Content)
@@ -1616,7 +1616,7 @@ func TestSkillsRequestProcessor_SkillLoadModeOnce_OffloadsLoadedSkills(
 			},
 		},
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 
 	ch := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
@@ -1636,7 +1636,7 @@ func TestSkillsRequestProcessor_SkillLoadModeOnce_OffloadsLoadedSkills(
 
 	ev1 := <-ch
 	require.NotNil(t, ev1)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev1.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev1.Object)
 	require.Contains(
 		t,
 		ev1.StateDelta,
@@ -1650,7 +1650,7 @@ func TestSkillsRequestProcessor_SkillLoadModeOnce_OffloadsLoadedSkills(
 
 	ev2 := <-ch
 	require.NotNil(t, ev2)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev2.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev2.Object)
 }
 
 func TestSkillsRequestProcessor_SkillLoadModeTurn_ClearsOncePerInvocation(
@@ -1676,7 +1676,7 @@ func TestSkillsRequestProcessor_SkillLoadModeTurn_ClearsOncePerInvocation(
 		},
 	}
 
-	req1 := &model.Request{Messages: nil}
+	req1 := &compat.Request{Messages: nil}
 	ch1 := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -1701,7 +1701,7 @@ func TestSkillsRequestProcessor_SkillLoadModeTurn_ClearsOncePerInvocation(
 
 	ev1 := <-ch1
 	require.NotNil(t, ev1)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev1.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev1.Object)
 	require.Contains(
 		t,
 		ev1.StateDelta,
@@ -1710,10 +1710,10 @@ func TestSkillsRequestProcessor_SkillLoadModeTurn_ClearsOncePerInvocation(
 
 	ev2 := <-ch1
 	require.NotNil(t, ev2)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev2.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev2.Object)
 
 	inv.Session.SetState(skill.LoadedKey("tester", "calc"), []byte("1"))
-	req2 := &model.Request{Messages: nil}
+	req2 := &compat.Request{Messages: nil}
 	ch2 := make(chan *event.Event, 2)
 	p.ProcessRequest(context.Background(), inv, req2, ch2)
 
@@ -1724,7 +1724,7 @@ func TestSkillsRequestProcessor_SkillLoadModeTurn_ClearsOncePerInvocation(
 
 	ev3 := <-ch2
 	require.NotNil(t, ev3)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev3.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev3.Object)
 }
 
 func TestSkillsRequestProcessor_TurnMode_IsolatesAgents(t *testing.T) {
@@ -1746,7 +1746,7 @@ func TestSkillsRequestProcessor_TurnMode_IsolatesAgents(t *testing.T) {
 		AgentName:    "child",
 		Session:      sess,
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 
 	ch := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
@@ -1782,7 +1782,7 @@ func TestSkillsRequestProcessor_LoadedSkills_DoNotLeakAcrossAgents(t *testing.T)
 		AgentName:    "parent",
 		Session:      sess,
 	}
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 
 	ch := make(chan *event.Event, 2)
 	p := NewSkillsRequestProcessor(
@@ -1827,9 +1827,9 @@ func TestSkillsRequestProcessor_ToolResultMode_OverviewOnly(
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base sys"),
 		},
 	}
 
@@ -1849,7 +1849,7 @@ func TestSkillsRequestProcessor_ToolResultMode_OverviewOnly(
 
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev.Object)
 }
 
 func TestSkillsRequestProcessor_MaxLoadedSkills_EvictsOldest(
@@ -1908,8 +1908,8 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_EvictsOldest(
 		},
 	}
 
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("base sys"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("base sys"),
 	}}
 	ch := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
@@ -1935,7 +1935,7 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_EvictsOldest(
 
 	ev1 := <-ch
 	require.NotNil(t, ev1)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev1.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev1.Object)
 	require.Contains(t, ev1.StateDelta, skill.LoadedKey("tester", "a"))
 	require.Contains(t, ev1.StateDelta, skill.DocsKey("tester", "a"))
 	require.Equal(
@@ -1946,7 +1946,7 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_EvictsOldest(
 
 	ev2 := <-ch
 	require.NotNil(t, ev2)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev2.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev2.Object)
 }
 
 func TestSkillsRequestProcessor_MaxLoadedSkills_SelectDocsTouchesSkill(
@@ -2013,7 +2013,7 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_SelectDocsTouchesSkill(
 		},
 	}
 
-	req := &model.Request{Messages: nil}
+	req := &compat.Request{Messages: nil}
 	ch := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
 		repo,
@@ -2092,9 +2092,9 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_ToolResultMode_EvictsOldest(
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base sys"),
 		},
 	}
 	ch := make(chan *event.Event, 3)
@@ -2119,7 +2119,7 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_ToolResultMode_EvictsOldest(
 
 	ev1 := <-ch
 	require.NotNil(t, ev1)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev1.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev1.Object)
 	require.Equal(
 		t,
 		`["b","c","d"]`,
@@ -2128,7 +2128,7 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_ToolResultMode_EvictsOldest(
 
 	ev2 := <-ch
 	require.NotNil(t, ev2)
-	require.Equal(t, model.ObjectTypePreprocessingInstruction, ev2.Object)
+	require.Equal(t, compat.ObjectTypePreprocessingInstruction, ev2.Object)
 }
 
 func TestSkillsRequestProcessor_MaxLoadedSkills_UsesStoredOrder(t *testing.T) {
@@ -2169,8 +2169,8 @@ func TestSkillsRequestProcessor_MaxLoadedSkills_UsesStoredOrder(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("base sys"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("base sys"),
 	}}
 	ch := make(chan *event.Event, 3)
 	p := NewSkillsRequestProcessor(
@@ -2274,7 +2274,7 @@ func TestAppendSkillsToOrderFromToolResponseEvent_EarlyReturns(t *testing.T) {
 
 	order = appendSkillsToOrderFromToolResponseEvent(
 		event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				Object: "not_tool_response",
 			},
 		},
@@ -2286,8 +2286,8 @@ func TestAppendSkillsToOrderFromToolResponseEvent_EarlyReturns(t *testing.T) {
 
 	order = appendSkillsToOrderFromToolResponseEvent(
 		event.Event{
-			Response: &model.Response{
-				Object: model.ObjectTypeToolResponse,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeToolResponse,
 			},
 		},
 		"",
@@ -2304,38 +2304,38 @@ func TestAppendSkillsToOrderFromToolResp_SkipsInvalidMessages(t *testing.T) {
 	}
 
 	ev := event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
 				},
 			}, {
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: "other_tool",
 				},
 			}, {
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: skillToolSelectDocs,
 					Content:  "not json",
 				},
 			}, {
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: skillToolLoad,
 					Content:  loadedPrefix + " c",
 				},
 			}, {
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: skillToolLoad,
 					Content:  loadedPrefix + " b",
 				},
 			}, {
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: skillToolLoad,
 					Content:  loadedPrefix + " a",
 				},
@@ -2353,7 +2353,7 @@ func TestAppendSkillsToOrderFromToolResp_SkipsInvalidMessages(t *testing.T) {
 }
 
 func TestSkillNameFromToolResponse_UnknownTool(t *testing.T) {
-	name := skillNameFromToolResponse(model.Message{
+	name := skillNameFromToolResponse(compat.Message{
 		ToolName: "unknown_tool",
 		Content:  "ignored",
 	})
@@ -2361,7 +2361,7 @@ func TestSkillNameFromToolResponse_UnknownTool(t *testing.T) {
 }
 
 func TestSkillNameFromToolResponse_SelectDocsInvalidJSON(t *testing.T) {
-	name := skillNameFromToolResponse(model.Message{
+	name := skillNameFromToolResponse(compat.Message{
 		ToolName: skillToolSelectDocs,
 		Content:  "not valid json",
 	})
@@ -2405,13 +2405,13 @@ func TestSkillsToolResultRequestProcessor_MaterializesIntoLastToolMsg(
 		toolCallID1 = "tc1"
 		toolCallID2 = "tc2"
 	)
-	assistant := model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	assistant := compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{
 				Type: "function",
 				ID:   toolCallID1,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      skillToolLoad,
 					Arguments: args1,
 				},
@@ -2419,7 +2419,7 @@ func TestSkillsToolResultRequestProcessor_MaterializesIntoLastToolMsg(
 			{
 				Type: "function",
 				ID:   toolCallID2,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      skillToolLoad,
 					Arguments: args2,
 				},
@@ -2428,18 +2428,18 @@ func TestSkillsToolResultRequestProcessor_MaterializesIntoLastToolMsg(
 	}
 
 	baseOut := loadedPrefix + " calc"
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			assistant,
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   toolCallID1,
 				Content:  baseOut,
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   toolCallID2,
 				Content:  baseOut,
@@ -2462,7 +2462,7 @@ func TestSkillsToolResultRequestProcessor_MaterializesIntoLastToolMsg(
 	require.Contains(t, lastTool, "use")
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		require.NotContains(t, m.Content, skillsLoadedContextHeader)
@@ -2489,10 +2489,10 @@ func TestSkillsToolResultRequestProcessor_FallbackSystemMessageAdded(
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2504,7 +2504,7 @@ func TestSkillsToolResultRequestProcessor_FallbackSystemMessageAdded(
 
 	var found bool
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -2519,7 +2519,7 @@ func TestSkillsToolResultRequestProcessor_FallbackSystemMessageAdded(
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		require.NotContains(t, m.Content, skillsLoadedContextHeader)
@@ -2547,10 +2547,10 @@ func TestSkillsToolResultRequestProcessor_DirectoryHints(t *testing.T) {
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2562,7 +2562,7 @@ func TestSkillsToolResultRequestProcessor_DirectoryHints(t *testing.T) {
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if !strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -2592,10 +2592,10 @@ func TestSkillsToolResultRequestProcessor_FilePathHints(t *testing.T) {
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 	p := NewSkillsToolResultRequestProcessor(
@@ -2606,7 +2606,7 @@ func TestSkillsToolResultRequestProcessor_FilePathHints(t *testing.T) {
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if !strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -2656,10 +2656,10 @@ func TestSkillsToolResultRequestProcessor_FallbackSkipsHiddenSkills(
 			},
 		},
 	}
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2668,7 +2668,7 @@ func TestSkillsToolResultRequestProcessor_FallbackSkipsHiddenSkills(
 	p.ProcessRequest(ctx, inv, req, nil)
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		require.NotContains(t, m.Content, skillsLoadedContextHeader)
@@ -2703,10 +2703,10 @@ func TestSkillsToolResultRequestProcessor_FallbackSystemMessageIncludesSelectedD
 		},
 	}
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2718,7 +2718,7 @@ func TestSkillsToolResultRequestProcessor_FallbackSystemMessageIncludesSelectedD
 
 	var found bool
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -2752,10 +2752,10 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_DisablesFallbackWithout
 	}
 	inv.SetState(contentHasSessionSummaryStateKey, true)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2766,7 +2766,7 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_DisablesFallbackWithout
 	p.ProcessRequest(context.Background(), inv, req, nil)
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		require.NotContains(t, m.Content, skillsLoadedContextHeader)
@@ -2793,9 +2793,9 @@ func TestSkillsToolResultRequestProcessor_DeclaredLoadOverridesSummaryFallbackSk
 		},
 	}
 	inv.SetState(contentHasSessionSummaryStateKey, true)
-	req := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("sys"),
-		model.NewUserMessage("u"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("sys"),
+		compat.NewUserMessage("u"),
 	}}
 
 	p := NewSkillsToolResultRequestProcessor(
@@ -2806,7 +2806,7 @@ func TestSkillsToolResultRequestProcessor_DeclaredLoadOverridesSummaryFallbackSk
 
 	var found bool
 	for _, message := range req.Messages {
-		if message.Role == model.RoleSystem &&
+		if message.Role == compat.RoleSystem &&
 			strings.Contains(message.Content, skillsLoadedContextHeader) {
 			found = true
 			require.Contains(t, message.Content, "[Loaded] calc")
@@ -2841,22 +2841,22 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_SkipsFallbackWhenMateri
 	require.NoError(t, err)
 	const toolCallID = "tc1"
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   toolCallID,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      skillToolLoad,
 						Arguments: args,
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   toolCallID,
 				Content:  loadedPrefix + " calc",
@@ -2874,7 +2874,7 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_SkipsFallbackWhenMateri
 	require.Contains(t, req.Messages[2].Content, "B")
 
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		require.NotContains(t, m.Content, skillsLoadedContextHeader)
@@ -2903,10 +2903,10 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_ReenablesFallbackWhenTo
 	inv.SetState(contentHasSessionSummaryStateKey, true)
 	inv.SetState(contentHasCompactedToolResultsStateKey, true)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2918,7 +2918,7 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_ReenablesFallbackWhenTo
 
 	var matchCount int
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -2951,10 +2951,10 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_AllowsFallback(
 	}
 	inv.SetState(contentHasSessionSummaryStateKey, true)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
+			compat.NewUserMessage("u"),
 		},
 	}
 
@@ -2967,7 +2967,7 @@ func TestSkillsToolResultRequestProcessor_SessionSummary_AllowsFallback(
 
 	var matchCount int
 	for _, m := range req.Messages {
-		if m.Role != model.RoleSystem {
+		if m.Role != compat.RoleSystem {
 			continue
 		}
 		if strings.Contains(m.Content, skillsLoadedContextHeader) {
@@ -3056,22 +3056,22 @@ func TestSkillsToolResultRequestProcessor_RebuildRequestForContextCompaction(
 	args, err := json.Marshal(skillNameInput{Skill: "calc"})
 	require.NoError(t, err)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "tc1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      skillToolLoad,
 						Arguments: args,
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   "tc1",
 				Content:  loadedPrefix + " calc",
@@ -3165,22 +3165,22 @@ func TestSkillsToolResultRequestProcessor_SkillLoadModeOnce_Offloads(
 	require.NoError(t, err)
 
 	const toolCallID = "tc1"
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   toolCallID,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      skillToolLoad,
 						Arguments: args,
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   toolCallID,
 				Content:  loadedPrefix + " calc",
@@ -3216,7 +3216,7 @@ func TestSkillsToolResultRequestProcessor_SkillLoadModeOnce_Offloads(
 
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev.Object)
 	require.Contains(
 		t,
 		ev.StateDelta,
@@ -3248,14 +3248,14 @@ func TestSkillNameFromToolMessage_FallsBackToToolOutput(t *testing.T) {
 		"tc1": {
 			ID:   "tc1",
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      skillToolLoad,
 				Arguments: []byte("{not json}"),
 			},
 		},
 	}
-	m := model.Message{
-		Role:     model.RoleTool,
+	m := compat.Message{
+		Role:     compat.RoleTool,
 		ToolName: skillToolLoad,
 		ToolID:   "tc1",
 		Content:  loadedPrefix + " calc",
@@ -3267,16 +3267,16 @@ func TestSkillNameFromToolMessage_FallsBackToToolOutput(t *testing.T) {
 }
 
 func TestIndexToolCalls_SkipsEmptyIDsAndNonAssistant(t *testing.T) {
-	msgs := []model.Message{
+	msgs := []compat.Message{
 		{
-			Role: model.RoleUser,
-			ToolCalls: []model.ToolCall{{
+			Role: compat.RoleUser,
+			ToolCalls: []compat.ToolCall{{
 				ID: "u1",
 			}},
 		},
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{ID: ""},
 				{ID: "a1"},
 			},
@@ -3296,25 +3296,25 @@ func TestLastSkillToolMsgIndex_HandlesSelectDocs(t *testing.T) {
 	args, err := json.Marshal(skillNameInput{Skill: "calc"})
 	require.NoError(t, err)
 
-	msgs := []model.Message{
+	msgs := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID: "tc1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      skillToolSelectDocs,
 					Arguments: args,
 				},
 			}},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolName: skillToolSelectDocs,
 			ToolID:   "tc1",
 			Content:  "{}",
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolName: "other",
 			ToolID:   "tc1",
 			Content:  "{}",
@@ -3327,29 +3327,29 @@ func TestLastSkillToolMsgIndex_HandlesSelectDocs(t *testing.T) {
 }
 
 func TestInsertAfterLastSystemMessage_NoSystemMessage(t *testing.T) {
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("u"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("u"),
 		},
 	}
 	insertAfterLastSystemMessage(
 		req,
-		model.NewSystemMessage("sys"),
+		compat.NewSystemMessage("sys"),
 	)
 
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Equal(t, "sys", req.Messages[0].Content)
 }
 
 func TestUpsertLoadedContextMessage_UpdatesAndRemoves(t *testing.T) {
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base"),
-			model.NewSystemMessage(
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base"),
+			compat.NewSystemMessage(
 				skillsLoadedContextHeader + "\nold",
 			),
-			model.NewUserMessage("u"),
+			compat.NewUserMessage("u"),
 		},
 	}
 	p := &SkillsToolResultRequestProcessor{}
@@ -3415,22 +3415,22 @@ func TestSkillsToolResultRequestProcessor_RepositoryResolver_MaterializesToolRes
 	}
 	args, err := json.Marshal(skillNameInput{Skill: "calc"})
 	require.NoError(t, err)
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "tc1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      skillToolLoad,
 						Arguments: args,
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   "tc1",
 				Content:  loadedPrefix + " calc",
@@ -3469,22 +3469,22 @@ func TestSkillsToolResultRequestProcessor_RepositoryResolver_CanDisableStaticRep
 	}
 	args, err := json.Marshal(skillNameInput{Skill: "calc"})
 	require.NoError(t, err)
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("sys"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("sys"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "tc1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      skillToolLoad,
 						Arguments: args,
 					},
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: skillToolLoad,
 				ToolID:   "tc1",
 				Content:  loadedPrefix + " calc",
@@ -3517,7 +3517,7 @@ func TestSkillsToolResultRequestProcessor_RepositoryResolver_DoesNotPanicOnNilIn
 		),
 	)
 	require.NotPanics(t, func() {
-		p.ProcessRequest(context.Background(), nil, &model.Request{}, nil)
+		p.ProcessRequest(context.Background(), nil, &compat.Request{}, nil)
 	})
 }
 
@@ -3634,7 +3634,7 @@ func TestMaybeMigrateLegacySkillState_MigratesLegacyKeys(t *testing.T) {
 
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev.Object)
 
 	scopedLoadedKey := skill.LoadedKey(subAgent, skillName)
 	scopedDocsKey := skill.DocsKey(subAgent, skillName)
@@ -3703,7 +3703,7 @@ func TestMaybeMigrateLegacySkillState_ClearsLegacyWhenScopedExists(
 
 	ev := <-ch
 	require.NotNil(t, ev)
-	require.Equal(t, model.ObjectTypeStateUpdate, ev.Object)
+	require.Equal(t, compat.ObjectTypeStateUpdate, ev.Object)
 	require.Contains(t, ev.StateDelta, legacyKey)
 	require.NotContains(t, ev.StateDelta, scopedKey)
 	require.Nil(t, ev.StateDelta[legacyKey])
@@ -3749,16 +3749,16 @@ func TestMaybeMigrateLegacySkillState_NoOwnerKeepsLegacyState(
 func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 	toolEvent := func(
 		author string,
-		role model.Role,
+		role compat.Role,
 		toolName string,
 		content string,
 	) event.Event {
 		return event.Event{
 			Author: author,
-			Response: &model.Response{
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{{
-					Message: model.Message{
+			Response: &compat.Response{
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
 						Role:     role,
 						ToolName: toolName,
 						Content:  content,
@@ -3774,23 +3774,23 @@ func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 
 	owners = addOwnersFromEvent(event.Event{
 		Author: "a",
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 		},
 	}, owners)
 	require.Empty(t, owners)
 
 	owners = addOwnersFromEvent(event.Event{
 		Author: "a",
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
 		},
 	}, owners)
 	require.Empty(t, owners)
 
 	owners = addOwnersFromEvent(toolEvent(
 		" ",
-		model.RoleTool,
+		compat.RoleTool,
 		skillToolLoad,
 		loadedPrefix+" demo",
 	), owners)
@@ -3798,7 +3798,7 @@ func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 
 	owners = addOwnersFromEvent(toolEvent(
 		"a",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 		skillToolLoad,
 		loadedPrefix+" demo",
 	), owners)
@@ -3806,7 +3806,7 @@ func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 
 	owners = addOwnersFromEvent(toolEvent(
 		"a",
-		model.RoleTool,
+		compat.RoleTool,
 		"other_tool",
 		loadedPrefix+" demo",
 	), owners)
@@ -3814,7 +3814,7 @@ func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 
 	owners = addOwnersFromEvent(toolEvent(
 		"a",
-		model.RoleTool,
+		compat.RoleTool,
 		skillToolLoad,
 		"not loaded",
 	), owners)
@@ -3822,7 +3822,7 @@ func TestAddOwnersFromEvent_EarlyReturnsAndSkips(t *testing.T) {
 
 	owners = addOwnersFromEvent(toolEvent(
 		"a",
-		model.RoleTool,
+		compat.RoleTool,
 		skillToolSelectDocs,
 		"{",
 	), owners)
@@ -3855,12 +3855,12 @@ func toolResponseEvent(
 ) event.Event {
 	return event.Event{
 		Author: author,
-		Response: &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: toolName,
 					Content:  content,
 				},
@@ -3896,12 +3896,12 @@ func runOverviewProcessor(
 		AgentName:    "tester",
 		Session:      &session.Session{State: session.StateMap{}},
 	}
-	req := &model.Request{Messages: []model.Message{model.NewSystemMessage("base sys")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewSystemMessage("base sys")}}
 	ch := make(chan *event.Event, 4)
 	p := NewSkillsRequestProcessor(repo, opts...)
 	p.ProcessRequest(context.Background(), inv, req, ch)
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	return req.Messages[0].Content
 }
 

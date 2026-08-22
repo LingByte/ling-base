@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	sessionpkg "github.com/LingByte/ling-base/agentkit/session"
 	rootskill "github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -98,11 +98,11 @@ func TestConversationFilesProvider_NoSessionStillStagesMessageFiles(
 	provider := NewConversationFilesProvider()
 
 	inv := &agent.Invocation{
-		Message: model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+		Message: compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					FileID: "upload-1",
 					Name:   "note.txt",
 					Data:   []byte("hello"),
@@ -148,39 +148,39 @@ func TestLoadedSkillsFromInvocation_ScansScopedAndLegacyPrefixes(t *testing.T) {
 // workspaceinput.StageConversationFiles:
 //
 //  1. Session events are considered only when the message role is
-//     model.RoleUser (assistant/tool file parts are dropped).
+//     compat.RoleUser (assistant/tool file parts are dropped).
 //  2. The current invocation message always contributes its file
 //     parts because it represents the active user turn that has not
 //     yet been appended to the event log.
 func TestAllConversationFiles_FiltersByRoleAndIncludesCurrentMessage(t *testing.T) {
 	sess := sessionpkg.NewSession("app", "user", "sid")
 	sess.Events = append(sess.Events,
-		event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleUser,
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeFile,
-					File: &model.File{FileID: "user-past"},
+		event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleUser,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeFile,
+					File: &compat.File{FileID: "user-past"},
 				}},
 			},
 		}}}},
 		// Assistant-authored file must be dropped.
-		event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeFile,
-					File: &model.File{FileID: "assistant-output"},
+		event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeFile,
+					File: &compat.File{FileID: "assistant-output"},
 				}},
 			},
 		}}}},
 		// Tool-authored file must also be dropped.
-		event.Event{Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleTool,
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeFile,
-					File: &model.File{FileID: "tool-output"},
+		event.Event{Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleTool,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeFile,
+					File: &compat.File{FileID: "tool-output"},
 				}},
 			},
 		}}}},
@@ -188,11 +188,11 @@ func TestAllConversationFiles_FiltersByRoleAndIncludesCurrentMessage(t *testing.
 
 	inv := &agent.Invocation{
 		Session: sess,
-		Message: model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{FileID: "user-current"},
+		Message: compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{FileID: "user-current"},
 			}},
 		},
 	}
@@ -291,11 +291,11 @@ func TestConversationFilesRequirement_FingerprintReflectsFiles(t *testing.T) {
 	require.Empty(t, fp)
 
 	inv := &agent.Invocation{
-		Message: model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{FileID: "upload-1"},
+		Message: compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{FileID: "upload-1"},
 			}},
 		},
 	}
@@ -305,9 +305,9 @@ func TestConversationFilesRequirement_FingerprintReflectsFiles(t *testing.T) {
 
 	// Adding a second file part changes the digest.
 	inv.Message.ContentParts = append(inv.Message.ContentParts,
-		model.ContentPart{
-			Type: model.ContentTypeFile,
-			File: &model.File{FileID: "upload-2"},
+		compat.ContentPart{
+			Type: compat.ContentTypeFile,
+			File: &compat.File{FileID: "upload-2"},
 		},
 	)
 	fp2, err := r.Fingerprint(ctx, ApplyContext{Invocation: inv})
@@ -335,11 +335,11 @@ func TestConversationFilesRequirement_ApplyStagesInlineBytes(t *testing.T) {
 	eng, ws := newTestEngine(t)
 
 	inv := &agent.Invocation{
-		Message: model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+		Message: compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name: "note.txt",
 					Data: []byte("hello"),
 				},
@@ -368,11 +368,11 @@ func TestConversationFilesRequirement_ApplyStagesInlineBytes(t *testing.T) {
 
 func TestConversationFilesRequirement_ApplyPropagatesStale(t *testing.T) {
 	inv := &agent.Invocation{
-		Message: model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+		Message: compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name: "note.txt",
 					Data: []byte("hello"),
 				},

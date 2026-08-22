@@ -26,7 +26,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/assistantmemory"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/updatepolicy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -34,10 +34,10 @@ func newTestSession(appName, userID string) *session.Session {
 	return session.NewSession(appName, userID, "test-session")
 }
 
-func appendSessionMessage(sess *session.Session, ts time.Time, msg model.Message) {
+func appendSessionMessage(sess *session.Session, ts time.Time, msg compat.Message) {
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: ts,
-		Response:  &model.Response{Choices: []model.Choice{{Message: msg}}},
+		Response:  &compat.Response{Choices: []compat.Choice{{Message: msg}}},
 	})
 }
 
@@ -64,7 +64,7 @@ func (m *mockAssistantExtractor) ConfiguredUpdatePolicy() updatepolicy.Value {
 
 func (m *mockExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	if m.err != nil {
@@ -82,7 +82,7 @@ func (m *mockExtractor) ShouldExtract(ctx *extractor.ExtractionContext) bool {
 
 func (m *mockExtractor) SetPrompt(prompt string) {}
 
-func (m *mockExtractor) SetModel(model model.Model) {}
+func (m *mockExtractor) SetModel(model compat.Model) {}
 
 func (m *mockExtractor) Metadata() map[string]any {
 	if m.metadata != nil {
@@ -304,7 +304,7 @@ func TestAutoMemoryWorker_EnqueueJob_NoExtractor(t *testing.T) {
 	worker := NewAutoMemoryWorker(config, op)
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -322,13 +322,13 @@ func TestAutoMemoryWorker_EnqueueJob_EmptyUserKey(t *testing.T) {
 
 	// Empty AppName.
 	sess1 := newTestSession("", "user-1")
-	appendSessionMessage(sess1, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess1, time.Now(), compat.NewUserMessage("hello"))
 	err := worker.EnqueueJob(context.Background(), sess1)
 	assert.NoError(t, err)
 
 	// Empty UserID.
 	sess2 := newTestSession("test-app", "")
-	appendSessionMessage(sess2, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess2, time.Now(), compat.NewUserMessage("hello"))
 	err = worker.EnqueueJob(context.Background(), sess2)
 	assert.NoError(t, err)
 }
@@ -359,27 +359,27 @@ func TestScanDeltaSince_SkipsToolMessages(t *testing.T) {
 	sess := newTestSession("test-app", "user-1")
 	base := time.Now()
 
-	appendSessionMessage(sess, base.Add(userOffset), model.NewUserMessage("who am I"))
-	appendSessionMessage(sess, base.Add(toolCallOffset), model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{{
+	appendSessionMessage(sess, base.Add(userOffset), compat.NewUserMessage("who am I"))
+	appendSessionMessage(sess, base.Add(toolCallOffset), compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call_1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      memory.SearchToolName,
 				Arguments: []byte("{}"),
 			},
 		}},
 	})
 	appendSessionMessage(sess, base.Add(toolResultOffset),
-		model.NewToolMessage("call_1", memory.SearchToolName, "{\"count\":0}"))
-	appendSessionMessage(sess, base.Add(assistOffset), model.NewAssistantMessage("answer"))
+		compat.NewToolMessage("call_1", memory.SearchToolName, "{\"count\":0}"))
+	appendSessionMessage(sess, base.Add(assistOffset), compat.NewAssistantMessage("answer"))
 
 	latestTs, msgs := scanDeltaSince(sess, time.Time{}, false)
 	require.Equal(t, base.Add(assistOffset), latestTs)
 	require.Len(t, msgs, 2)
-	assert.Equal(t, model.RoleUser, msgs[0].Role)
-	assert.Equal(t, model.RoleAssistant, msgs[1].Role)
+	assert.Equal(t, compat.RoleUser, msgs[0].Role)
+	assert.Equal(t, compat.RoleAssistant, msgs[1].Role)
 }
 
 func TestAutoMemoryWorker_EnqueueJob_SyncFallback(t *testing.T) {
@@ -400,7 +400,7 @@ func TestAutoMemoryWorker_EnqueueJob_SyncFallback(t *testing.T) {
 	// Do not start the worker, so it falls back to sync.
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -463,7 +463,7 @@ func TestAutoMemoryWorker_EnqueueJob_DisableOnExternalContext(t *testing.T) {
 					[]byte(memory.MemoryModePolluted),
 				)
 			}
-			appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+			appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 			err := worker.EnqueueJob(context.Background(), sess)
 
@@ -494,7 +494,7 @@ func TestAutoMemoryWorker_EnqueueJob_SyncFallback_CancelledContext(t *testing.T)
 	cancel() // Cancel immediately.
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(ctx, sess)
 
@@ -525,7 +525,7 @@ func TestAutoMemoryWorker_EnqueueJob_Async(t *testing.T) {
 	defer worker.Stop()
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -559,7 +559,7 @@ func TestAutoMemoryWorker_EnqueueJob_QueueFull(t *testing.T) {
 
 	// First job blocks the worker.
 	sess1 := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess1, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess1, time.Now(), compat.NewUserMessage("hello"))
 	_ = worker.EnqueueJob(context.Background(), sess1)
 
 	// Wait a bit for the worker to pick up the job.
@@ -567,7 +567,7 @@ func TestAutoMemoryWorker_EnqueueJob_QueueFull(t *testing.T) {
 
 	// Second job fills the queue.
 	sess2 := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess2, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess2, time.Now(), compat.NewUserMessage("hello"))
 	_ = worker.EnqueueJob(context.Background(), sess2)
 
 	// Third job should fall back to sync (queue is full).
@@ -576,7 +576,7 @@ func TestAutoMemoryWorker_EnqueueJob_QueueFull(t *testing.T) {
 	syncDone := make(chan struct{})
 	go func() {
 		sess3 := newTestSession("test-app", "user-2")
-		appendSessionMessage(sess3, time.Now(), model.NewUserMessage("hello"))
+		appendSessionMessage(sess3, time.Now(), compat.NewUserMessage("hello"))
 		_ = worker.EnqueueJob(context.Background(), sess3)
 		close(syncDone)
 	}()
@@ -596,7 +596,7 @@ type blockingExtractor struct {
 
 func (e *blockingExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	<-e.blockCh
@@ -609,7 +609,7 @@ func (e *blockingExtractor) ShouldExtract(ctx *extractor.ExtractionContext) bool
 
 func (e *blockingExtractor) SetPrompt(prompt string) {}
 
-func (e *blockingExtractor) SetModel(m model.Model) {}
+func (e *blockingExtractor) SetModel(m compat.Model) {}
 
 func (e *blockingExtractor) Metadata() map[string]any {
 	return map[string]any{}
@@ -630,8 +630,8 @@ func TestAutoMemoryWorker_CreateAutoMemory_ExtractError(t *testing.T) {
 	err := worker.createAutoMemory(context.Background(), memory.UserKey{
 		AppName: "test-app",
 		UserID:  "user-1",
-	}, []model.Message{
-		model.NewUserMessage("hello"),
+	}, []compat.Message{
+		compat.NewUserMessage("hello"),
 	})
 
 	assert.Error(t, err)
@@ -660,8 +660,8 @@ func TestAutoMemoryWorker_CreateAutoMemory_ExistingMemoryLookupError(t *testing.
 	err := worker.createAutoMemory(context.Background(), memory.UserKey{
 		AppName: "test-app",
 		UserID:  "user-1",
-	}, []model.Message{
-		model.NewUserMessage("hello"),
+	}, []compat.Message{
+		compat.NewUserMessage("hello"),
 	})
 
 	assert.Error(t, err)
@@ -925,8 +925,8 @@ func TestAutoMemoryWorker_ProcessJob_NilContext(t *testing.T) {
 			AppName: "test-app",
 			UserID:  "user-1",
 		},
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	})
 
@@ -956,8 +956,8 @@ func TestAutoMemoryWorker_ProcessJob_DefaultTimeout(t *testing.T) {
 			AppName: "test-app",
 			UserID:  "user-1",
 		},
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	})
 
@@ -995,8 +995,8 @@ func TestMemoryJob(t *testing.T) {
 			AppName: "test-app",
 			UserID:  "user-1",
 		},
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 
@@ -1027,23 +1027,23 @@ func TestDefaultConstants(t *testing.T) {
 	assert.Equal(t, 30*time.Second, DefaultMemoryJobTimeout)
 }
 
-// mockModel is a mock implementation of model.Model for testing.
+// mockModel is a mock implementation of compat.Model for testing.
 type mockModel struct {
 	name      string
-	responses []*model.Response
+	responses []*compat.Response
 	err       error
 	calls     int
 }
 
 func (m *mockModel) GenerateContent(
 	ctx context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.calls++
 	if m.err != nil {
 		return nil, m.err
 	}
-	ch := make(chan *model.Response, len(m.responses))
+	ch := make(chan *compat.Response, len(m.responses))
 	for _, rsp := range m.responses {
 		ch <- rsp
 	}
@@ -1051,8 +1051,8 @@ func (m *mockModel) GenerateContent(
 	return ch, nil
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 type assistantDeadlineModel struct {
@@ -1069,8 +1069,8 @@ type assistantDeleteModel struct {
 
 func (m *assistantDeleteModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.calls++
 	var name string
 	var arguments []byte
@@ -1084,32 +1084,32 @@ func (m *assistantDeleteModel) GenerateContent(
 			"memory":  "The assistant recommended Alpha and Beta.",
 		})
 	}
-	return responseChannel([]model.ToolCall{{
+	return responseChannel([]compat.ToolCall{{
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      name,
 			Arguments: arguments,
 		},
 	}}), nil
 }
 
-func (m *assistantDeleteModel) Info() model.Info {
-	return model.Info{Name: "assistant-delete-model"}
+func (m *assistantDeleteModel) Info() compat.Info {
+	return compat.Info{Name: "assistant-delete-model"}
 }
 
 func (m *assistantBestEffortModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.calls++
 	switch m.calls {
 	case 1:
 		arguments, _ := json.Marshal(map[string]string{
 			"memory": "User wants two recommendations.",
 		})
-		return responseChannel([]model.ToolCall{{
+		return responseChannel([]compat.ToolCall{{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      memory.AddToolName,
 				Arguments: arguments,
 			},
@@ -1121,14 +1121,14 @@ func (m *assistantBestEffortModel) GenerateContent(
 	}
 }
 
-func (m *assistantBestEffortModel) Info() model.Info {
-	return model.Info{Name: "assistant-best-effort-model"}
+func (m *assistantBestEffortModel) Info() compat.Info {
+	return compat.Info{Name: "assistant-best-effort-model"}
 }
 
 func (m *assistantDeadlineModel) GenerateContent(
 	ctx context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
 	call := m.calls
 	m.calls++
 
@@ -1137,9 +1137,9 @@ func (m *assistantDeadlineModel) GenerateContent(
 		arguments, _ := json.Marshal(map[string]string{
 			"memory": "User wants two recommendations.",
 		})
-		return responseChannel([]model.ToolCall{{
+		return responseChannel([]compat.ToolCall{{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      memory.AddToolName,
 				Arguments: arguments,
 			},
@@ -1152,28 +1152,28 @@ func (m *assistantDeadlineModel) GenerateContent(
 	}
 }
 
-func (m *assistantDeadlineModel) Info() model.Info {
-	return model.Info{Name: "assistant-deadline-model"}
+func (m *assistantDeadlineModel) Info() compat.Info {
+	return compat.Info{Name: "assistant-deadline-model"}
 }
 
-func responseChannel(calls []model.ToolCall) <-chan *model.Response {
-	responses := make(chan *model.Response, 1)
-	responses <- &model.Response{Choices: []model.Choice{{
-		Message: model.Message{ToolCalls: calls},
+func responseChannel(calls []compat.ToolCall) <-chan *compat.Response {
+	responses := make(chan *compat.Response, 1)
+	responses <- &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{ToolCalls: calls},
 	}}}
 	close(responses)
 	return responses
 }
 
 // newMockModelWithToolCalls creates a mock model that returns tool calls.
-func newMockModelWithToolCalls(toolCalls []model.ToolCall) *mockModel {
+func newMockModelWithToolCalls(toolCalls []compat.ToolCall) *mockModel {
 	return &mockModel{
 		name: "test-model",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
+						Message: compat.Message{
 							ToolCalls: toolCalls,
 						},
 					},
@@ -1189,10 +1189,10 @@ func TestAutoMemoryWorker_IntegrationWithRealExtractor(t *testing.T) {
 		"memory": "User likes coffee.",
 		"topics": []any{"preferences"},
 	})
-	mockMdl := newMockModelWithToolCalls([]model.ToolCall{
+	mockMdl := newMockModelWithToolCalls([]compat.ToolCall{
 		{
 			Type: "function",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      memory.AddToolName,
 				Arguments: args,
 			},
@@ -1214,7 +1214,7 @@ func TestAutoMemoryWorker_IntegrationWithRealExtractor(t *testing.T) {
 	defer worker.Stop()
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("I love coffee."))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("I love coffee."))
 	err := worker.EnqueueJob(context.Background(), sess)
 
 	assert.NoError(t, err)
@@ -1262,7 +1262,7 @@ func TestAutoMemoryWorker_EnqueueJob_RaceWithStop(t *testing.T) {
 			defer wg.Done()
 			// This should not panic even if Stop() is called concurrently.
 			sess := newTestSession("test-app", fmt.Sprintf("user-%d", id))
-			appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+			appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 			_ = worker.EnqueueJob(context.Background(), sess)
 		}(i)
 	}
@@ -1290,7 +1290,7 @@ type checkerExtractor struct {
 
 func (e *checkerExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	e.mu.Lock()
@@ -1305,7 +1305,7 @@ func (e *checkerExtractor) ShouldExtract(ctx *extractor.ExtractionContext) bool 
 
 func (e *checkerExtractor) SetPrompt(prompt string) {}
 
-func (e *checkerExtractor) SetModel(m model.Model) {}
+func (e *checkerExtractor) SetModel(m compat.Model) {}
 
 func (e *checkerExtractor) Metadata() map[string]any {
 	return map[string]any{}
@@ -1330,7 +1330,7 @@ func TestAutoMemoryWorker_ShouldExtract_Skipped(t *testing.T) {
 
 	// Enqueue job - should be skipped by checker.
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -1356,7 +1356,7 @@ func TestAutoMemoryWorker_ShouldExtract_Proceeds(t *testing.T) {
 
 	// Enqueue job - should proceed.
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -1377,7 +1377,7 @@ type mockExtractorWithCapture struct {
 
 func (e *mockExtractorWithCapture) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	return nil, nil
@@ -1392,7 +1392,7 @@ func (e *mockExtractorWithCapture) ShouldExtract(ctx *extractor.ExtractionContex
 
 func (e *mockExtractorWithCapture) SetPrompt(prompt string) {}
 
-func (e *mockExtractorWithCapture) SetModel(m model.Model) {}
+func (e *mockExtractorWithCapture) SetModel(m compat.Model) {}
 
 func (e *mockExtractorWithCapture) Metadata() map[string]any {
 	return map[string]any{}
@@ -1416,8 +1416,8 @@ func TestAutoMemoryWorker_DeltaMessages_UsesTimestamp(t *testing.T) {
 	sess := newTestSession("test-app", "user-1")
 	t1 := time.Now().Add(-2 * time.Minute)
 	t2 := t1.Add(time.Minute)
-	appendSessionMessage(sess, t1, model.NewUserMessage("hello"))
-	appendSessionMessage(sess, t2, model.NewAssistantMessage("world"))
+	appendSessionMessage(sess, t1, compat.NewUserMessage("hello"))
+	appendSessionMessage(sess, t2, compat.NewAssistantMessage("world"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 	assert.NoError(t, err)
@@ -1456,7 +1456,7 @@ func TestAutoMemoryWorker_EnqueueJob_SyncFallback_Error(t *testing.T) {
 	worker := NewAutoMemoryWorker(config, op)
 
 	sess := newTestSession("test-app", "user-1")
-	appendSessionMessage(sess, time.Now(), model.NewUserMessage("hello"))
+	appendSessionMessage(sess, time.Now(), compat.NewUserMessage("hello"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 
@@ -1483,8 +1483,8 @@ func TestAutoMemoryWorker_ProcessJob_CreateAutoMemoryError(t *testing.T) {
 		Ctx:     context.Background(),
 		UserKey: memory.UserKey{AppName: "test-app", UserID: "user-1"},
 		Session: sess,
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	})
 
@@ -1503,7 +1503,7 @@ func TestAutoMemoryWorker_CreateAutoMemory_NilExtractor(t *testing.T) {
 	err := worker.createAutoMemory(
 		context.Background(),
 		memory.UserKey{AppName: "test-app", UserID: "user-1"},
-		[]model.Message{model.NewUserMessage("hello")},
+		[]compat.Message{compat.NewUserMessage("hello")},
 	)
 
 	assert.NoError(t, err)
@@ -1629,7 +1629,7 @@ func TestScanDeltaSince_NilResponse(t *testing.T) {
 	})
 	// Add a normal event after it.
 	appendSessionMessage(sess, now.Add(time.Second),
-		model.NewUserMessage("hello"))
+		compat.NewUserMessage("hello"))
 
 	latestTs, msgs := scanDeltaSince(sess, time.Time{}, false)
 
@@ -1643,9 +1643,9 @@ func TestScanDeltaSince_PreservesAllResponseChoices(t *testing.T) {
 	now := time.Now()
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: now,
-		Response: &model.Response{Choices: []model.Choice{
-			{Index: 0, Message: model.NewAssistantMessage("first choice")},
-			{Index: 1, Message: model.NewAssistantMessage("second choice")},
+		Response: &compat.Response{Choices: []compat.Choice{
+			{Index: 0, Message: compat.NewAssistantMessage("first choice")},
+			{Index: 1, Message: compat.NewAssistantMessage("second choice")},
 		}},
 	})
 
@@ -1661,9 +1661,9 @@ func TestScanDeltaSince_AssistantExtractionUsesPrimaryResponseChoice(t *testing.
 	now := time.Now()
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: now,
-		Response: &model.Response{Choices: []model.Choice{
-			{Index: 1, Message: model.NewAssistantMessage("alternative choice")},
-			{Index: 0, Message: model.NewAssistantMessage("primary choice")},
+		Response: &compat.Response{Choices: []compat.Choice{
+			{Index: 1, Message: compat.NewAssistantMessage("alternative choice")},
+			{Index: 0, Message: compat.NewAssistantMessage("primary choice")},
 		}},
 	})
 
@@ -1678,8 +1678,8 @@ func TestScanDeltaSince_AssistantExtractionRequiresPrimaryResponseChoice(t *test
 	now := time.Now()
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: now,
-		Response: &model.Response{Choices: []model.Choice{
-			{Index: 1, Message: model.NewAssistantMessage("alternative choice")},
+		Response: &compat.Response{Choices: []compat.Choice{
+			{Index: 1, Message: compat.NewAssistantMessage("alternative choice")},
 		}},
 	})
 
@@ -1694,8 +1694,8 @@ func TestScanDeltaSince_AssistantExtractionKeepsPrimaryChoicePerEvent(t *testing
 	for i, content := range []string{"first event", "second event"} {
 		sess.Events = append(sess.Events, event.Event{
 			Timestamp: now.Add(time.Duration(i) * time.Second),
-			Response: &model.Response{Choices: []model.Choice{
-				{Index: 0, Message: model.NewAssistantMessage(content)},
+			Response: &compat.Response{Choices: []compat.Choice{
+				{Index: 0, Message: compat.NewAssistantMessage(content)},
 			}},
 		})
 	}
@@ -1712,13 +1712,13 @@ func TestScanDeltaSince_SkipsMessagesWithToolCalls(t *testing.T) {
 	now := time.Now()
 
 	// Add a message with ToolCalls but also has content.
-	appendSessionMessage(sess, now, model.Message{
-		Role:    model.RoleAssistant,
+	appendSessionMessage(sess, now, compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "I'll search for that.",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			Type: "function",
 			ID:   "call_1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "search",
 				Arguments: []byte("{}"),
 			},
@@ -1726,7 +1726,7 @@ func TestScanDeltaSince_SkipsMessagesWithToolCalls(t *testing.T) {
 	})
 	// Add a normal message.
 	appendSessionMessage(sess, now.Add(time.Second),
-		model.NewAssistantMessage("Here is the result."))
+		compat.NewAssistantMessage("Here is the result."))
 
 	_, msgs := scanDeltaSince(sess, time.Time{}, false)
 
@@ -1741,15 +1741,15 @@ func TestScanDeltaSince_ContentParts(t *testing.T) {
 
 	// Add a message with ContentParts but no Content string.
 	textContent := "hi"
-	appendSessionMessage(sess, now, model.Message{
-		Role:         model.RoleUser,
-		ContentParts: []model.ContentPart{{Type: "text", Text: &textContent}},
+	appendSessionMessage(sess, now, compat.Message{
+		Role:         compat.RoleUser,
+		ContentParts: []compat.ContentPart{{Type: "text", Text: &textContent}},
 	})
 
 	_, msgs := scanDeltaSince(sess, time.Time{}, false)
 
 	require.Len(t, msgs, 1)
-	assert.Equal(t, model.RoleUser, msgs[0].Role)
+	assert.Equal(t, compat.RoleUser, msgs[0].Role)
 	assert.Len(t, msgs[0].ContentParts, 1)
 }
 
@@ -1758,8 +1758,8 @@ func TestScanDeltaSince_EmptyContentSkipped(t *testing.T) {
 	now := time.Now()
 
 	// Message with no content and no content parts.
-	appendSessionMessage(sess, now, model.Message{
-		Role: model.RoleAssistant,
+	appendSessionMessage(sess, now, compat.Message{
+		Role: compat.RoleAssistant,
 	})
 
 	_, msgs := scanDeltaSince(sess, time.Time{}, false)
@@ -1777,8 +1777,8 @@ func TestAutoMemoryWorker_WritesLastExtractAt_OnSuccess(t *testing.T) {
 	sess := newTestSession("test-app", "user-1")
 	t1 := time.Now().Add(-2 * time.Minute)
 	t2 := t1.Add(time.Minute)
-	appendSessionMessage(sess, t1, model.NewUserMessage("m1"))
-	appendSessionMessage(sess, t2, model.NewAssistantMessage("m2"))
+	appendSessionMessage(sess, t1, compat.NewUserMessage("m1"))
+	appendSessionMessage(sess, t2, compat.NewAssistantMessage("m2"))
 
 	err := worker.EnqueueJob(context.Background(), sess)
 	assert.NoError(t, err)
@@ -1808,11 +1808,11 @@ func TestAutoMemoryWorker_AssistantDeadlineAdvancesWatermark(t *testing.T) {
 		UserKey:  memory.UserKey{AppName: "test-app", UserID: "user-1"},
 		Session:  sess,
 		LatestTs: latest,
-		Messages: []model.Message{
-			model.NewUserMessage("Recommend two options."),
-			model.NewAssistantMessage("1. Alpha\n2. Beta"),
-			model.NewUserMessage("Suggest two alternatives."),
-			model.NewAssistantMessage("1. Gamma\n2. Delta"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("Recommend two options."),
+			compat.NewAssistantMessage("1. Alpha\n2. Beta"),
+			compat.NewUserMessage("Suggest two alternatives."),
+			compat.NewAssistantMessage("1. Gamma\n2. Delta"),
 		},
 	}
 
@@ -1842,9 +1842,9 @@ func TestAutoMemoryWorker_AssistantOptionalFailureAdvancesWatermark(t *testing.T
 		UserKey:  memory.UserKey{AppName: "test-app", UserID: "user-1"},
 		Session:  sess,
 		LatestTs: latest,
-		Messages: []model.Message{
-			model.NewUserMessage("Recommend two options."),
-			model.NewAssistantMessage("1. Alpha\n2. Beta"),
+		Messages: []compat.Message{
+			compat.NewUserMessage("Recommend two options."),
+			compat.NewAssistantMessage("1. Alpha\n2. Beta"),
 		},
 	})
 
@@ -1910,9 +1910,9 @@ func TestConfigureExtractorEnabledToolsPreventsWrappedAssistantRequest(t *testin
 		memory.DeleteToolName: {},
 	})
 
-	_, err := ext.Extract(context.Background(), []model.Message{
-		model.NewUserMessage("Recommend two options."),
-		model.NewAssistantMessage("1. Alpha\n2. Beta"),
+	_, err := ext.Extract(context.Background(), []compat.Message{
+		compat.NewUserMessage("Recommend two options."),
+		compat.NewAssistantMessage("1. Alpha\n2. Beta"),
 	}, nil)
 	require.NoError(t, err)
 	require.Len(t, recording.requests, 1)
@@ -2078,19 +2078,19 @@ func TestOpToMetadata(t *testing.T) {
 
 func TestBuildSearchQuery(t *testing.T) {
 	t.Run("only user messages", func(t *testing.T) {
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
-			model.NewAssistantMessage("hi there"),
-			model.NewUserMessage("world"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
+			compat.NewAssistantMessage("hi there"),
+			compat.NewUserMessage("world"),
 		}
 		q := buildSearchQuery(msgs)
 		assert.Equal(t, "hello world", q)
 	})
 
 	t.Run("no user messages", func(t *testing.T) {
-		msgs := []model.Message{
-			model.NewAssistantMessage("hi there"),
-			model.NewSystemMessage("system prompt"),
+		msgs := []compat.Message{
+			compat.NewAssistantMessage("hi there"),
+			compat.NewSystemMessage("system prompt"),
 		}
 		q := buildSearchQuery(msgs)
 		assert.Equal(t, "", q)
@@ -2102,9 +2102,9 @@ func TestBuildSearchQuery(t *testing.T) {
 	})
 
 	t.Run("user message with empty content", func(t *testing.T) {
-		msgs := []model.Message{
-			{Role: model.RoleUser, Content: ""},
-			model.NewUserMessage("hello"),
+		msgs := []compat.Message{
+			{Role: compat.RoleUser, Content: ""},
+			compat.NewUserMessage("hello"),
 		}
 		q := buildSearchQuery(msgs)
 		assert.Equal(t, "hello", q)
@@ -2112,11 +2112,11 @@ func TestBuildSearchQuery(t *testing.T) {
 
 	t.Run("includes text content parts", func(t *testing.T) {
 		text := "hello from parts"
-		msgs := []model.Message{
+		msgs := []compat.Message{
 			{
-				Role: model.RoleUser,
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+				Role: compat.RoleUser,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &text,
 				}},
 			},
@@ -2133,8 +2133,8 @@ func TestSearchRelevantMemories(t *testing.T) {
 		worker := NewAutoMemoryWorker(AutoMemoryConfig{Extractor: ext}, op)
 
 		// Messages with no user content.
-		msgs := []model.Message{
-			model.NewAssistantMessage("hi"),
+		msgs := []compat.Message{
+			compat.NewAssistantMessage("hi"),
 		}
 		entries, err := worker.searchRelevantMemories(
 			context.Background(),
@@ -2157,8 +2157,8 @@ func TestSearchRelevantMemories(t *testing.T) {
 		}
 		worker := NewAutoMemoryWorker(AutoMemoryConfig{Extractor: ext}, op)
 
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
 		}
 		entries, err := worker.searchRelevantMemories(
 			context.Background(),
@@ -2177,8 +2177,8 @@ func TestSearchRelevantMemories(t *testing.T) {
 		op.readErr = errors.New("read failed")
 		worker := NewAutoMemoryWorker(AutoMemoryConfig{Extractor: ext}, op)
 
-		msgs := []model.Message{
-			model.NewUserMessage("hello"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("hello"),
 		}
 		entries, err := worker.searchRelevantMemories(
 			context.Background(),
@@ -2200,8 +2200,8 @@ func TestSearchRelevantMemories(t *testing.T) {
 		}
 		worker := NewAutoMemoryWorker(AutoMemoryConfig{Extractor: ext}, op)
 
-		msgs := []model.Message{
-			model.NewUserMessage("test query"),
+		msgs := []compat.Message{
+			compat.NewUserMessage("test query"),
 		}
 		entries, err := worker.searchRelevantMemories(
 			context.Background(),
@@ -2236,7 +2236,7 @@ func TestCreateAutoMemory_SearchError_FallsBackToRead(t *testing.T) {
 	err := worker.createAutoMemory(
 		context.Background(),
 		memory.UserKey{AppName: "app", UserID: "user"},
-		[]model.Message{model.NewUserMessage("hello")},
+		[]compat.Message{compat.NewUserMessage("hello")},
 	)
 
 	assert.NoError(t, err)
@@ -2272,7 +2272,7 @@ func TestCreateAutoMemory_AssistantPrefixDoesNotBypassReconcile(t *testing.T) {
 	err := worker.createAutoMemory(
 		context.Background(),
 		reconcileUserKey(),
-		[]model.Message{model.NewUserMessage("Recommend two options.")},
+		[]compat.Message{compat.NewUserMessage("Recommend two options.")},
 	)
 
 	require.NoError(t, err)
@@ -2362,9 +2362,9 @@ func TestAutoMemoryWorker_DecoratorCannotHalfEnableAssistantExtraction(t *testin
 	err := worker.createAutoMemory(
 		context.Background(),
 		reconcileUserKey(),
-		[]model.Message{
-			model.NewUserMessage("Recommend two options."),
-			model.NewAssistantMessage("1. Alpha\n2. Beta"),
+		[]compat.Message{
+			compat.NewUserMessage("Recommend two options."),
+			compat.NewAssistantMessage("1. Alpha\n2. Beta"),
 		},
 	)
 
@@ -2393,9 +2393,9 @@ func TestAutoMemoryWorker_CooperatingDecoratorPreservesAssistantExtraction(t *te
 			err := worker.createAutoMemory(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{
-					model.NewUserMessage("Recommend two options."),
-					model.NewAssistantMessage("1. Alpha\n2. Beta"),
+				[]compat.Message{
+					compat.NewUserMessage("Recommend two options."),
+					compat.NewAssistantMessage("1. Alpha\n2. Beta"),
 				},
 			)
 
@@ -2448,7 +2448,7 @@ func TestPrepareAutoMemoryOperations_ComposesAssistantExtractionWithPolicies(t *
 			operations, err := worker.prepareAutoMemoryOperations(
 				context.Background(),
 				reconcileUserKey(),
-				[]model.Message{model.NewUserMessage("Remember Alpha.")},
+				[]compat.Message{compat.NewUserMessage("Remember Alpha.")},
 			)
 
 			require.NoError(t, err)
@@ -2484,9 +2484,9 @@ func TestAutoMemoryWorker_DeleteOperationSkipsAssistantEpisode(t *testing.T) {
 	err := worker.createAutoMemory(
 		context.Background(),
 		reconcileUserKey(),
-		[]model.Message{
-			model.NewUserMessage("Recommend two options."),
-			model.NewAssistantMessage("1. Alpha\n2. Beta"),
+		[]compat.Message{
+			compat.NewUserMessage("Recommend two options."),
+			compat.NewAssistantMessage("1. Alpha\n2. Beta"),
 		},
 	)
 

@@ -28,7 +28,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/evaluation/service/local"
 	evalstatus "github.com/LingByte/ling-base/agentkit/evaluation/status"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/google/uuid"
 )
@@ -36,7 +36,7 @@ import (
 type evaluationSelector struct {
 	metrics                 []*metric.EvalMetric
 	selectionMode           SelectionMode
-	contextMessages         []*model.Message
+	contextMessages         []*compat.Message
 	evalSetManager          evalset.Manager
 	judgeRunner             runner.Runner
 	judgeRunnerNumSamples   *int
@@ -556,7 +556,7 @@ func (s *pairwiseCandidateScore) betterThan(other *pairwiseCandidateScore) bool 
 }
 
 func invocationFromAttempt(
-	message model.Message,
+	message compat.Message,
 	attempt *runner.CandidateAttempt,
 ) (*evalset.Invocation, error) {
 	invocationID, finalResponse, err := invocationIdentityAndFinalResponse(attempt)
@@ -583,9 +583,9 @@ func invocationFromAttempt(
 func intermediateResponsesFromEvents(
 	events []*event.Event,
 	invocationID string,
-	finalResponse *model.Message,
-) []*model.Message {
-	responses := make([]*model.Message, 0)
+	finalResponse *compat.Message,
+) []*compat.Message {
+	responses := make([]*compat.Message, 0)
 	for _, evt := range events {
 		if evt == nil || evt.IsRunnerCompletion() {
 			continue
@@ -602,7 +602,7 @@ func intermediateResponsesFromEvents(
 	return responses
 }
 
-func messagesEqual(a *model.Message, b *model.Message) bool {
+func messagesEqual(a *compat.Message, b *compat.Message) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -616,13 +616,13 @@ func messagesEqual(a *model.Message, b *model.Message) bool {
 
 func invocationIdentityAndFinalResponse(
 	attempt *runner.CandidateAttempt,
-) (string, *model.Message, error) {
+) (string, *compat.Message, error) {
 	if attempt == nil {
 		return "", nil, errors.New("attempt is nil")
 	}
 	invocationID := attempt.InvocationID
-	finalByInvocationID := make(map[string]*model.Message)
-	var fallbackFinal *model.Message
+	finalByInvocationID := make(map[string]*compat.Message)
+	var fallbackFinal *compat.Message
 	for _, evt := range attempt.Events {
 		if evt == nil {
 			continue
@@ -651,7 +651,7 @@ func invocationIdentityAndFinalResponse(
 	return invocationID, fallbackFinal, nil
 }
 
-func finalResponseFromEvent(evt *event.Event) *model.Message {
+func finalResponseFromEvent(evt *event.Event) *compat.Message {
 	if evt == nil || evt.Response == nil || !isAssistantFinalResponse(evt.Response) {
 		return nil
 	}
@@ -659,7 +659,7 @@ func finalResponseFromEvent(evt *event.Event) *model.Message {
 	return &message
 }
 
-func messageFromResponse(response *model.Response) *model.Message {
+func messageFromResponse(response *compat.Response) *compat.Message {
 	if !isAssistantFinalResponse(response) {
 		return nil
 	}
@@ -667,7 +667,7 @@ func messageFromResponse(response *model.Response) *model.Message {
 	return &message
 }
 
-func isAssistantFinalResponse(response *model.Response) bool {
+func isAssistantFinalResponse(response *compat.Response) bool {
 	return response != nil &&
 		response.IsFinalResponse() &&
 		!response.IsToolResultResponse() &&
@@ -766,7 +766,7 @@ func (noOpRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	runOpts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	return nil, errors.New("bestofn: no-op runner cannot run inference")

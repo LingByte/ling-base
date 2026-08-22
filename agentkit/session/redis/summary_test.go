@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
 	"github.com/alicebob/miniredis/v2"
@@ -35,7 +35,7 @@ func (f *fakeSummarizer) Summarize(ctx context.Context, sess *session.Session) (
 	return f.out, nil
 }
 func (f *fakeSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeSummarizer) SetModel(m model.Model)   {}
+func (f *fakeSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestRedisService_GetSessionSummaryText_LocalPreferred(t *testing.T) {
@@ -127,8 +127,8 @@ func TestRedisService_CreateSessionSummary_PersistToRedis(t *testing.T) {
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
@@ -167,7 +167,7 @@ func TestRedisService_CreateSessionSummary_UpdateAndPersist_WithFetchedSession(t
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enable summarizer.
@@ -220,8 +220,8 @@ func TestRedisService_CreateSessionSummary_SetIfNewer_NoOverride(t *testing.T) {
 	require.NoError(t, err)
 	e := event.New("inv2", "author2")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hi"},
+	e.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hi"},
 	}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
@@ -263,7 +263,7 @@ func TestRedisService_EnqueueSummaryJob_AsyncEnabled(t *testing.T) {
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue summary job
@@ -310,7 +310,7 @@ func TestRedisService_EnqueueSummaryJob_AsyncDisabled_FallbackToSync(t *testing.
 	// Append an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue summary job (should fall back to sync).
@@ -406,14 +406,14 @@ func TestRedisService_EnqueueSummaryJob_QueueFull_FallbackToSync(t *testing.T) {
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "user-messages"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e1.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e1))
 
 	e2 := event.New("inv2", "author")
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "other-key"
 	e2.Version = event.CurrentVersion
-	e2.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "world"}}}}
+	e2.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "world"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e2))
 
 	// Fill up the queue by sending multiple jobs
@@ -473,7 +473,7 @@ func TestRedisService_EnqueueSummaryJob_ConcurrentJobs(t *testing.T) {
 
 		e := event.New("inv", "author")
 		e.Timestamp = time.Now()
-		e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: fmt.Sprintf("hello%d", i)}}}}
+		e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: fmt.Sprintf("hello%d", i)}}}}
 		require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 		// Enqueue summary job
@@ -506,7 +506,7 @@ func (f *fakeBlockingSummarizer) Summarize(ctx context.Context, sess *session.Se
 	return "", ctx.Err()
 }
 func (f *fakeBlockingSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeBlockingSummarizer) SetModel(m model.Model)   {}
+func (f *fakeBlockingSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeBlockingSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestRedisService_SummaryJobTimeout_CancelsSummarizer(t *testing.T) {
@@ -528,7 +528,7 @@ func TestRedisService_SummaryJobTimeout_CancelsSummarizer(t *testing.T) {
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue job; summarizer will block until timeout; worker should cancel and not persist.
@@ -566,7 +566,7 @@ func TestRedisService_EnqueueSummaryJob_ChannelClosed_PanicRecovery(t *testing.T
 	// Append an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Get the latest session from storage to ensure we have the latest events.
@@ -627,7 +627,7 @@ func TestRedisService_EnqueueSummaryJob_ChannelClosed_AllChannelsClosed(t *testi
 	// Append an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Get the latest session from storage to ensure we have the latest events.
@@ -692,14 +692,14 @@ func TestRedisService_EnqueueSummaryJob_NoAsyncWorkers_FallbackToSyncWithCascade
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "tool-usage"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e1.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e1))
 
 	e2 := event.New("inv2", "author")
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "other-key"
 	e2.Version = event.CurrentVersion
-	e2.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "world"}}}}
+	e2.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "world"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e2))
 
 	// Get the latest session from storage to ensure we have the latest events.
@@ -760,8 +760,8 @@ func TestRedisService_EnqueueSummaryJob_SingleFilterKey_PersistsBothKeys(t *test
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "tool-usage"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e1.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e1))
 
@@ -769,8 +769,8 @@ func TestRedisService_EnqueueSummaryJob_SingleFilterKey_PersistsBothKeys(t *test
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "tool-usage" // Same filterKey as e1.
 	e2.Version = event.CurrentVersion
-	e2.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "world"},
+	e2.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "world"},
 	}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e2))
 
@@ -851,8 +851,8 @@ func TestRedisService_EnqueueSummaryJob_CascadeDisabled(t *testing.T) {
 	e1.Timestamp = time.Now()
 	e1.FilterKey = "tool-usage"
 	e1.Version = event.CurrentVersion
-	e1.Response = &model.Response{Choices: []model.Choice{{
-		Message: model.Message{Role: model.RoleUser, Content: "hello"},
+	e1.Response = &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e1))
 
@@ -926,7 +926,7 @@ func (f *fakeErrorSummarizer) Summarize(ctx context.Context, sess *session.Sessi
 	return "", fmt.Errorf("summarizer error")
 }
 func (f *fakeErrorSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeErrorSummarizer) SetModel(m model.Model)   {}
+func (f *fakeErrorSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeErrorSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestCreateSessionSummary_WithSessionTTL(t *testing.T) {
@@ -971,8 +971,8 @@ func TestCreateSessionSummary_WithSessionTTL(t *testing.T) {
 
 			e := event.New("inv", "author")
 			e.Timestamp = time.Now()
-			e.Response = &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "hello"},
+			e.Response = &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 			}}}
 			require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
@@ -1019,7 +1019,7 @@ func TestRedisService_CreateAndGetSessionSummaryWithKeyPrefix(t *testing.T) {
 	// Append an event to make delta non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Create summary via public API.

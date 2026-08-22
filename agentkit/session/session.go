@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // StateMap is a map of state key-value pairs.
@@ -928,7 +928,7 @@ type EventSearchRequest struct {
 	// session/event branch semantics.
 	FilterKey string
 	// Roles restricts matches to specific message roles.
-	Roles []model.Role
+	Roles []compat.Role
 	// CreatedAfter restricts matches to events created on
 	// or after this time.
 	CreatedAfter *time.Time
@@ -963,7 +963,7 @@ type EventSearchResult struct {
 	Event event.Event
 	// Role is the normalized message role used for
 	// indexing/search.
-	Role model.Role
+	Role compat.Role
 	// Text is the indexed text returned for prompt
 	// injection or debugging.
 	Text string
@@ -1014,7 +1014,7 @@ type EventWindowRequest struct {
 	After int
 	// Roles optionally restrict the window to specific
 	// message roles.
-	Roles []model.Role
+	Roles []compat.Role
 }
 
 // EventWindowEntry stores one event plus its persisted

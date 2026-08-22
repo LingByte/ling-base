@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	rootplugin "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/plugin/errormessage"
 )
@@ -52,7 +52,7 @@ func TestPlugin_RewritesEmptyErrorEventContent(t *testing.T) {
 
 	// Rewritten event carries the customised visible content.
 	require.Len(t, out.Response.Choices, 1)
-	require.Equal(t, model.RoleAssistant, out.Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, out.Response.Choices[0].Message.Role)
 	require.Equal(
 		t,
 		"Friendly fallback.",
@@ -80,17 +80,17 @@ func TestPlugin_KeepsExistingAssistantContent(t *testing.T) {
 	)
 	m := newPluginManager(t, p)
 
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    "flow_error",
 			Message: "inner details",
 		},
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "partial answer before failure",
 			},
 		}},
@@ -113,11 +113,11 @@ func TestPlugin_SkipsNonErrorEvents(t *testing.T) {
 	p := errormessage.New(errormessage.WithContent("fallback"))
 	m := newPluginManager(t, p)
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("normal reply"),
+			Message: compat.NewAssistantMessage("normal reply"),
 		}},
 	}
 	original := event.NewResponseEvent("inv", "agent", rsp)
@@ -222,17 +222,17 @@ func TestPlugin_CustomFinishReason(t *testing.T) {
 
 func TestPlugin_PreservesExistingFinishReason(t *testing.T) {
 	existing := "length"
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    "flow_error",
 			Message: "boom",
 		},
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 			},
 			FinishReason: &existing,
 		}},
@@ -297,10 +297,10 @@ func TestPlugin_SkipsPartialErrorEvents(t *testing.T) {
 	p := errormessage.New(errormessage.WithContent("should not apply"))
 	m := newPluginManager(t, p)
 
-	rsp := &model.Response{
-		Object:    model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object:    compat.ObjectTypeError,
 		IsPartial: true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    "flow_error",
 			Message: "transient failure",
 		},
@@ -320,17 +320,17 @@ func TestPlugin_NormalisesNonAssistantFirstChoiceRole(t *testing.T) {
 	p := errormessage.New(errormessage.WithContent("friendly"))
 	m := newPluginManager(t, p)
 
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Type:    "flow_error",
 			Message: "boom",
 		},
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleUser,
+			Message: compat.Message{
+				Role: compat.RoleUser,
 			},
 		}},
 	}
@@ -343,7 +343,7 @@ func TestPlugin_NormalisesNonAssistantFirstChoiceRole(t *testing.T) {
 	require.Len(t, out.Response.Choices, 1)
 	require.Equal(
 		t,
-		model.RoleAssistant,
+		compat.RoleAssistant,
 		out.Response.Choices[0].Message.Role,
 	)
 	require.Equal(
@@ -355,7 +355,7 @@ func TestPlugin_NormalisesNonAssistantFirstChoiceRole(t *testing.T) {
 	// Original event must not be mutated by the plugin.
 	require.Equal(
 		t,
-		model.RoleUser,
+		compat.RoleUser,
 		original.Response.Choices[0].Message.Role,
 	)
 }

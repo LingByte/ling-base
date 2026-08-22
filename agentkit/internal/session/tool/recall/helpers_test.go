@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/assert"
@@ -203,10 +203,10 @@ func TestCurrentSummaryCutoff_PrefixMissingCutoff(t *testing.T) {
 
 func TestExtractSessionMessageText(t *testing.T) {
 	toolText, toolRole, ok := extractSessionMessageText(event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "call-1",
 					ToolName: "web_fetch",
 					Content:  "HTTP 200",
@@ -215,16 +215,16 @@ func TestExtractSessionMessageText(t *testing.T) {
 		},
 	})
 	require.True(t, ok)
-	assert.Equal(t, model.RoleTool, toolRole)
+	assert.Equal(t, compat.RoleTool, toolRole)
 	assert.Equal(t, "web_fetch: HTTP 200", toolText)
 
 	part1 := "alpha"
 	part2 := "beta"
 	text, role, ok := extractSessionMessageText(event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					ContentParts: []compat.ContentPart{
 						{Text: &part1},
 						{Text: &part2},
 					},
@@ -233,15 +233,15 @@ func TestExtractSessionMessageText(t *testing.T) {
 		},
 	})
 	require.True(t, ok)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 	assert.Equal(t, "alpha\nbeta", text)
 
 	_, _, ok = extractSessionMessageText(event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				},
 			}},
@@ -250,11 +250,11 @@ func TestExtractSessionMessageText(t *testing.T) {
 	assert.False(t, ok)
 
 	_, _, ok = extractSessionMessageText(event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-1", Type: "function"},
 					},
 				},
@@ -272,10 +272,10 @@ func TestLoadedMessagesFromWindow_SkipsUnusableEntries(t *testing.T) {
 			{
 				Event: event.Event{
 					ID: "evt-user",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								Role:    model.RoleUser,
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								Role:    compat.RoleUser,
 								Content: "hello",
 							},
 						}},
@@ -286,10 +286,10 @@ func TestLoadedMessagesFromWindow_SkipsUnusableEntries(t *testing.T) {
 			{
 				Event: event.Event{
 					ID: "evt-toolcall",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								ToolCalls: []model.ToolCall{
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								ToolCalls: []compat.ToolCall{
 									{ID: "call-1", Type: "function"},
 								},
 							},
@@ -312,10 +312,10 @@ func TestLoadToolResolvesToolCallIDFromSessionService(t *testing.T) {
 	sess.Events = []event.Event{
 		{
 			ID: "evt-tool-result",
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call-1",
 						Content: "tool result",
 					},
@@ -365,18 +365,18 @@ func TestLoadToolEventIDSelectsMatchingToolCallID(t *testing.T) {
 			Entries: []session.EventWindowEntry{{
 				Event: event.Event{
 					ID: "evt-anchor",
-					Response: &model.Response{
-						Choices: []model.Choice{
+					Response: &compat.Response{
+						Choices: []compat.Choice{
 							{
-								Message: model.Message{
-									Role:    model.RoleTool,
+								Message: compat.Message{
+									Role:    compat.RoleTool,
 									ToolID:  "call-other",
 									Content: "wrong-tool-result",
 								},
 							},
 							{
-								Message: model.Message{
-									Role:    model.RoleTool,
+								Message: compat.Message{
+									Role:    compat.RoleTool,
 									ToolID:  "call-anchor",
 									Content: "0123456789",
 								},
@@ -415,10 +415,10 @@ func TestLoadToolFallsBackToToolCallIDWhenEventIDIsStale(t *testing.T) {
 	sess.Events = []event.Event{
 		{
 			ID: "evt-tool-result",
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:     model.RoleTool,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:     compat.RoleTool,
 						ToolID:   "call-1",
 						ToolName: "lookup",
 						Content:  "fresh result",
@@ -536,10 +536,10 @@ func TestLoadToolKeepsStaleEventErrorWhenFallbackMatchesAnchor(t *testing.T) {
 	sess := session.NewSession("app", "user", "sess")
 	sess.Events = []event.Event{{
 		ID: "stale-event",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:   model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:   compat.RoleTool,
 					ToolID: "call-1",
 				},
 			}},
@@ -577,10 +577,10 @@ func TestLoadToolReturnsFallbackWindowError(t *testing.T) {
 	sess := session.NewSession("app", "user", "sess")
 	sess.Events = []event.Event{{
 		ID: "evt-tool-result",
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:   model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:   compat.RoleTool,
 					ToolID: "call-1",
 				},
 			}},
@@ -640,11 +640,11 @@ func TestToolCallIDLookupAndContentWindowBoundaries(t *testing.T) {
 	assert.Empty(t, toolResultEventIDByToolCallID([]event.Event{
 		{
 			ID: "evt-partial",
-			Response: &model.Response{
+			Response: &compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:   model.RoleTool,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:   compat.RoleTool,
 						ToolID: "call-1",
 					},
 				}},
@@ -679,8 +679,8 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 	loaded, ok := loadedMessageFromModelMessage(
 		"evt-parts",
 		time.Date(2025, 4, 7, 11, 0, 0, 0, time.UTC),
-		model.Message{
-			ContentParts: []model.ContentPart{
+		compat.Message{
+			ContentParts: []compat.ContentPart{
 				{},
 				{Text: &part1},
 				{Text: &part2},
@@ -690,13 +690,13 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 		loadContentWindow{},
 	)
 	require.True(t, ok)
-	assert.Equal(t, model.RoleAssistant, loaded.Role)
+	assert.Equal(t, compat.RoleAssistant, loaded.Role)
 	assert.Equal(t, "alpha\nbeta", loaded.Content)
 
 	_, ok = loadedMessageFromModelMessage(
 		"evt-empty",
 		time.Time{},
-		model.Message{ContentParts: []model.ContentPart{{Text: &part1}}},
+		compat.Message{ContentParts: []compat.ContentPart{{Text: &part1}}},
 		loadContentWindow{},
 	)
 	assert.False(t, ok)
@@ -704,7 +704,7 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 	_, ok = loadedMessageFromModelMessage(
 		"evt-system",
 		time.Time{},
-		model.Message{Role: model.RoleSystem, Content: "system"},
+		compat.Message{Role: compat.RoleSystem, Content: "system"},
 		loadContentWindow{},
 	)
 	assert.False(t, ok)
@@ -712,8 +712,8 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 	loaded, ok = loadedMessageFromModelMessage(
 		"evt-tool",
 		time.Time{},
-		model.Message{
-			Role:    model.RoleTool,
+		compat.Message{
+			Role:    compat.RoleTool,
 			ToolID:  "call-1",
 			Content: "short",
 		},
@@ -727,9 +727,9 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 	loaded, ok = loadedMessageFromModelMessage(
 		"evt-tool-parts",
 		time.Time{},
-		model.Message{
-			Role: model.RoleTool,
-			ContentParts: []model.ContentPart{
+		compat.Message{
+			Role: compat.RoleTool,
+			ContentParts: []compat.ContentPart{
 				{Text: &part2},
 				{Text: &part3},
 			},
@@ -745,8 +745,8 @@ func TestLoadedMessageFromModelMessageContentPartsAndSlicingEdges(t *testing.T) 
 	loaded, ok = loadedMessageFromModelMessage(
 		"evt-slice",
 		time.Time{},
-		model.Message{
-			Role:    model.RoleTool,
+		compat.Message{
+			Role:    compat.RoleTool,
 			ToolID:  "call-slice",
 			Content: "0123456789",
 		},
@@ -776,10 +776,10 @@ func TestToolResultSnippetTruncationFollowsVisibleSnippet(t *testing.T) {
 	result := session.EventSearchResult{
 		Event: event.Event{
 			ID: "evt-tool",
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call-1",
 						Content: content,
 					},
@@ -871,10 +871,10 @@ func TestSearchResultHelpers(t *testing.T) {
 			{
 				Event: event.Event{
 					ID: "evt-1",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								Role:    model.RoleUser,
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								Role:    compat.RoleUser,
 								Content: "first line",
 							},
 						}},
@@ -884,10 +884,10 @@ func TestSearchResultHelpers(t *testing.T) {
 			{
 				Event: event.Event{
 					ID: "evt-2",
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{
-								Role:    model.RoleAssistant,
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{
+								Role:    compat.RoleAssistant,
 								Content: "second line",
 							},
 						}},
@@ -902,10 +902,10 @@ func TestSearchResultHelpers(t *testing.T) {
 
 	result := session.EventSearchResult{
 		Event: event.Event{
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "fallback text",
 					},
 				}},
@@ -1039,10 +1039,10 @@ func TestLexicalScanSessionEvents_HonorsCutoffAndTopK(t *testing.T) {
 		{
 			ID:        "evt-1",
 			Timestamp: base,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Friday.",
 					},
 				}},
@@ -1051,10 +1051,10 @@ func TestLexicalScanSessionEvents_HonorsCutoffAndTopK(t *testing.T) {
 		{
 			ID:        "evt-2",
 			Timestamp: base.Add(time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Thursday.",
 					},
 				}},
@@ -1063,10 +1063,10 @@ func TestLexicalScanSessionEvents_HonorsCutoffAndTopK(t *testing.T) {
 		{
 			ID:        "evt-3",
 			Timestamp: base.Add(2 * time.Minute),
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Unrelated topic.",
 					},
 				}},
@@ -1099,10 +1099,10 @@ func TestLexicalScanSessionEvents_HonorsFilterKey(t *testing.T) {
 			Timestamp: base,
 			FilterKey: "branch/a",
 			Version:   event.CurrentVersion,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Friday.",
 					},
 				}},
@@ -1113,10 +1113,10 @@ func TestLexicalScanSessionEvents_HonorsFilterKey(t *testing.T) {
 			Timestamp: base.Add(time.Minute),
 			FilterKey: "branch/b",
 			Version:   event.CurrentVersion,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Monday.",
 					},
 				}},
@@ -1179,10 +1179,10 @@ func TestSearchCurrentSession_FallsBackToScan(t *testing.T) {
 		{
 			ID:        "evt-scan",
 			Timestamp: createdAt,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Friday.",
 					},
 				}},
@@ -1305,10 +1305,10 @@ func TestSearchCurrentSessionByScanAndAllSessions(t *testing.T) {
 		{
 			ID:        "evt-hidden",
 			Timestamp: hiddenCreatedAt,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "Budget planning moved to Friday.",
 					},
 				}},

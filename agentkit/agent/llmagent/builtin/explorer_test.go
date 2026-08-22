@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/awaitreply"
@@ -29,14 +29,14 @@ import (
 type mockModel struct{ name string }
 
 func (m *mockModel) GenerateContent(
-	context.Context, *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	context.Context, *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *mockModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *mockModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 type mockTool struct{ name string }
 

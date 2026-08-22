@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,15 +37,15 @@ func (e recoverableTestError) Recoverable() bool {
 func TestExecutionErrorSliceReducer_ClonesInputs(t *testing.T) {
 	existing := []ExecutionError{{
 		Severity: ExecutionErrorSeverityRecoverable,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "first",
 		},
 	}}
 	update := []ExecutionError{{
 		Severity: ExecutionErrorSeverityFatal,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "second",
 		},
 	}}
@@ -67,8 +67,8 @@ func TestExecutionErrorSliceReducer_ClonesInputs(t *testing.T) {
 func TestDecodeExecutionErrors_ClonesDecodedValues(t *testing.T) {
 	raw, err := json.Marshal([]ExecutionError{{
 		Severity: ExecutionErrorSeverityFatal,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "boom",
 		},
 	}})
@@ -386,8 +386,8 @@ func TestExecutionErrorCollector_SubgraphStateUpdate(t *testing.T) {
 	collector := NewExecutionErrorCollector()
 	raw, err := json.Marshal([]ExecutionError{{
 		Severity: ExecutionErrorSeverityFatal,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "child boom",
 		},
 	}})
@@ -411,8 +411,8 @@ func TestExecutionErrorCollector_SubgraphStateUpdate_Fallback(
 	collector := NewExecutionErrorCollector()
 	raw, err := json.Marshal([]ExecutionError{{
 		Severity: ExecutionErrorSeverityFatal,
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: "child fallback",
 		},
 	}})
@@ -575,8 +575,8 @@ func TestExecutionErrorCollector_CustomResponseError(t *testing.T) {
 		) ExecutionErrorPolicy {
 			return ExecutionErrorPolicy{
 				Recover: true,
-				ResponseError: &model.ResponseError{
-					Type:    model.ErrorTypeFlowError,
+				ResponseError: &compat.ResponseError{
+					Type:    compat.ErrorTypeFlowError,
 					Message: overrideMessage,
 					Code:    &code,
 				},
@@ -763,8 +763,8 @@ func TestCloneResponseError_ClonesOptionalFields(t *testing.T) {
 
 	code := codeValue
 	param := paramValue
-	cloned := cloneResponseError(&model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	cloned := cloneResponseError(&compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "boom",
 		Code:    &code,
 		Param:   &param,

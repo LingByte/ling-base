@@ -15,7 +15,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -41,7 +41,7 @@ type SessionSummarizer interface {
 	// This allows switching to different models at runtime based on different
 	// scenarios or requirements. If nil is provided, it will be ignored and
 	// the current model will remain unchanged.
-	SetModel(m model.Model)
+	SetModel(m compat.Model)
 
 	// Metadata returns metadata about the summarizer configuration.
 	Metadata() map[string]any

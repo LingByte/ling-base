@@ -14,7 +14,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -95,8 +95,8 @@ func (e *Extension) Register(r *extension.Registry) {
 
 func (e *Extension) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -132,14 +132,14 @@ func (e *Extension) beforeModel(
 	if msg == "" {
 		return nil, nil
 	}
-	args.Request.Messages = append(args.Request.Messages, model.NewUserMessage(msg))
+	args.Request.Messages = append(args.Request.Messages, compat.NewUserMessage(msg))
 	return nil, nil
 }
 
 func (e *Extension) afterModel(
 	ctx context.Context,
-	args *model.AfterModelArgs,
-) (*model.AfterModelResult, error) {
+	args *compat.AfterModelArgs,
+) (*compat.AfterModelResult, error) {
 	if args == nil || args.Response == nil {
 		return nil, nil
 	}
@@ -181,14 +181,14 @@ func (e *Extension) afterModel(
 		AttemptNumber: attempt,
 		MaxRetries:    e.opts.MaxRetries,
 	})
-	return &model.AfterModelResult{
+	return &compat.AfterModelResult{
 		CustomResponse: blockedControlResponse(args.Response),
 	}, nil
 }
 
-func blockedControlResponse(src *model.Response) *model.Response {
+func blockedControlResponse(src *compat.Response) *compat.Response {
 	if src == nil {
-		return &model.Response{Done: false}
+		return &compat.Response{Done: false}
 	}
 	rsp := src.Clone()
 	rsp.Done = false
@@ -198,7 +198,7 @@ func blockedControlResponse(src *model.Response) *model.Response {
 	return rsp
 }
 
-func (e *Extension) shouldConsiderResponse(rsp *model.Response) bool {
+func (e *Extension) shouldConsiderResponse(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}

@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type replyAccumulator struct {
@@ -33,14 +33,14 @@ func (a *replyAccumulator) consume(evt *event.Event) {
 		return
 	}
 	switch evt.Response.Object {
-	case model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletion:
 		a.consumeFull(evt.Response)
-	case model.ObjectTypeChatCompletionChunk:
+	case compat.ObjectTypeChatCompletionChunk:
 		a.consumeDelta(evt.Response)
 	}
 }
 
-func (a *replyAccumulator) consumeFull(rsp *model.Response) {
+func (a *replyAccumulator) consumeFull(rsp *compat.Response) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return
 	}
@@ -52,7 +52,7 @@ func (a *replyAccumulator) consumeFull(rsp *model.Response) {
 	a.seenFull = true
 }
 
-func (a *replyAccumulator) consumeDelta(rsp *model.Response) {
+func (a *replyAccumulator) consumeDelta(rsp *compat.Response) {
 	if rsp == nil || a.seenFull {
 		return
 	}

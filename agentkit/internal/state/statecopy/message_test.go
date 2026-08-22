@@ -12,34 +12,34 @@ package statecopy
 import (
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMessagesAreIsolated(t *testing.T) {
 	require.Nil(t, Messages(nil))
-	zero := Message(model.Message{})
+	zero := Message(compat.Message{})
 	require.Nil(t, zero.ContentParts)
 	require.Nil(t, zero.ToolCalls)
 
 	text := "text"
 	index := 1
-	original := []model.Message{{
-		ContentParts: []model.ContentPart{
+	original := []compat.Message{{
+		ContentParts: []compat.ContentPart{
 			{Text: &text},
 			{
-				Image: &model.Image{Data: []byte("image")},
-				ContentRef: &model.ContentRef{
+				Image: &compat.Image{Data: []byte("image")},
+				ContentRef: &compat.ContentRef{
 					ArtifactName: "original",
 				},
 			},
-			{Audio: &model.Audio{Data: []byte("audio")}},
-			{Video: &model.Video{Data: []byte("video")}},
-			{File: &model.File{Data: []byte("file")}},
+			{Audio: &compat.Audio{Data: []byte("audio")}},
+			{Video: &compat.Video{Data: []byte("video")}},
+			{File: &compat.File{Data: []byte("file")}},
 		},
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			Index: &index,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Arguments: []byte("arguments"),
 			},
 			ExtraFields: map[string]any{

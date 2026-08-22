@@ -27,7 +27,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -150,7 +150,7 @@ func (ga *GraphAgent) runWithoutBarrier(ctx context.Context, invocation *agent.I
 	innerChan, err := ga.executor.Execute(executeCtx, initialState, invocation)
 	if err != nil {
 		evt := event.NewErrorEvent(invocation.InvocationID, invocation.AgentName,
-			model.ErrorTypeFlowError, err.Error())
+			compat.ErrorTypeFlowError, err.Error())
 		defer close(out)
 		if emitErr := agent.EmitEvent(ctx, invocation, out, evt); emitErr != nil {
 			log.Errorf("graphagent: emit error event failed: %v", emitErr)
@@ -186,7 +186,7 @@ func (ga *GraphAgent) runWithBarrier(ctx context.Context, invocation *agent.Invo
 			invocation,
 			ga.description,
 			"",
-			&model.GenerationConfig{Stream: stream},
+			&compat.GenerationConfig{Stream: stream},
 		)
 	}
 	defer close(out)
@@ -202,7 +202,7 @@ func (ga *GraphAgent) runWithBarrier(ctx context.Context, invocation *agent.Invo
 				fullRespEvent,
 				tokenUsage,
 				tracker.FirstTokenTimeDuration(),
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 			)
 		}
 		tracker.SetResponseErrorType(resolveGraphAgentErrorType(fullRespEvent, operationErrorType))
@@ -215,12 +215,12 @@ func (ga *GraphAgent) runWithBarrier(ctx context.Context, invocation *agent.Invo
 	// events before GraphAgent reads history.
 	if err := ga.emitStartBarrierAndWait(ctx, invocation, out); err != nil {
 		evt := event.NewErrorEvent(invocation.InvocationID, invocation.AgentName,
-			model.ErrorTypeFlowError, err.Error())
+			compat.ErrorTypeFlowError, err.Error())
 		fullRespEvent = evt
-		operationErrorType = itelemetry.ToErrorType(err, model.ErrorTypeFlowError)
+		operationErrorType = itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)
 		if tracingEnabled {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeFlowError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)))
 		}
 		if emitErr := agent.EmitEvent(ctx, invocation, out, evt); emitErr != nil {
 			log.Errorf("graphagent: emit error event failed: %v", emitErr)
@@ -230,12 +230,12 @@ func (ga *GraphAgent) runWithBarrier(ctx context.Context, invocation *agent.Invo
 	innerChan, err := ga.runWithCallbacks(ctx, invocation)
 	if err != nil {
 		evt := event.NewErrorEvent(invocation.InvocationID, invocation.AgentName,
-			model.ErrorTypeFlowError, err.Error())
+			compat.ErrorTypeFlowError, err.Error())
 		fullRespEvent = evt
-		operationErrorType = itelemetry.ToErrorType(err, model.ErrorTypeFlowError)
+		operationErrorType = itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)
 		if tracingEnabled {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeFlowError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)))
 		}
 		if emitErr := agent.EmitEvent(ctx, invocation, out, evt); emitErr != nil {
 			log.Errorf("graphagent: emit error event failed: %v.", emitErr)
@@ -249,10 +249,10 @@ func (ga *GraphAgent) runWithBarrier(ctx context.Context, invocation *agent.Invo
 			continue
 		}
 		if err := event.EmitEvent(ctx, out, evt); err != nil {
-			operationErrorType = itelemetry.ToErrorType(err, model.ErrorTypeFlowError)
+			operationErrorType = itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)
 			if tracingEnabled {
 				span.SetStatus(codes.Error, err.Error())
-				span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeFlowError)))
+				span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeFlowError)))
 			}
 			log.Errorf("graphagent: emit event failed: %v.", err)
 			return
@@ -284,7 +284,7 @@ func resolveGraphAgentErrorType(fullRespEvent *event.Event, operationErrorType s
 	}
 	return itelemetry.FormatResponseErrorLabel(
 		fullRespEvent.Response.Error,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 }
 
@@ -415,7 +415,7 @@ func (ga *GraphAgent) createInitialState(ctx context.Context, invocation *agent.
 	// This mirrors ContentRequestProcessor behavior used by non-graph flows.
 	if invocation.Session != nil {
 		// Build a temporary request to reuse the processor logic.
-		req := &model.Request{}
+		req := &compat.Request{}
 
 		// Default processor: include (possibly overridden) + preserve same branch.
 		contentOpts := []processor.ContentOption{
@@ -473,7 +473,7 @@ func (ga *GraphAgent) createInitialState(ctx context.Context, invocation *agent.
 	isResuming := invocation.RunOptions.RuntimeState != nil &&
 		invocation.RunOptions.RuntimeState[graph.CfgKeyCheckpointID] != nil
 
-	if invocation.Message.Content != "" && invocation.Message.Role == model.RoleUser {
+	if invocation.Message.Content != "" && invocation.Message.Role == compat.RoleUser {
 		// If resuming and the message is just "resume", don't add it as input.
 		// This allows pure checkpoint resumption without input interference.
 		if isResuming && invocation.Message.Content == "resume" {
@@ -497,11 +497,11 @@ func (ga *GraphAgent) createInitialState(ctx context.Context, invocation *agent.
 	return initialState
 }
 
-func appendNonUserInvocationMessage(initialState graph.State, message model.Message) {
-	if message.Role == model.RoleUser || !model.HasPayload(message) {
+func appendNonUserInvocationMessage(initialState graph.State, message compat.Message) {
+	if message.Role == compat.RoleUser || !compat.HasPayload(message) {
 		return
 	}
-	messages, _ := graph.GetStateValue[[]model.Message](
+	messages, _ := graph.GetStateValue[[]compat.Message](
 		initialState,
 		graph.StateKeyMessages,
 	)

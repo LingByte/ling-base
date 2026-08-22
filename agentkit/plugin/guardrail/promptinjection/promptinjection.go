@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	promptreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/promptinjection/review"
 )
@@ -23,7 +23,7 @@ import (
 type Plugin struct {
 	name         string
 	reviewer     promptreview.Reviewer
-	tokenCounter model.TokenCounter
+	tokenCounter compat.TokenCounter
 }
 
 // New creates a new prompt injection plugin.
@@ -35,7 +35,7 @@ func New(options ...Option) (*Plugin, error) {
 	return &Plugin{
 		name:         opts.name,
 		reviewer:     opts.reviewer,
-		tokenCounter: model.NewSimpleTokenCounter(),
+		tokenCounter: compat.NewSimpleTokenCounter(),
 	}, nil
 }
 
@@ -52,8 +52,8 @@ func (p *Plugin) Register(r *plugin.Registry) {
 	r.BeforeModel(p.beforeModel())
 }
 
-func (p *Plugin) beforeModel() model.BeforeModelCallbackStructured {
-	return func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+func (p *Plugin) beforeModel() compat.BeforeModelCallbackStructured {
+	return func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		if p == nil || args == nil || args.Request == nil {
 			return nil, nil
 		}
@@ -64,32 +64,32 @@ func (p *Plugin) beforeModel() model.BeforeModelCallbackStructured {
 		decision, err := p.reviewer.Review(ctx, req)
 		if err != nil {
 			log.ErrorfContext(ctx, "Prompt injection review denied: %v", err)
-			return &model.BeforeModelResult{CustomResponse: p.blockedResponse("")}, nil
+			return &compat.BeforeModelResult{CustomResponse: p.blockedResponse("")}, nil
 		}
 		if decision == nil {
 			err = fmt.Errorf("prompt injection reviewer returned nil decision")
 			log.ErrorfContext(ctx, "Prompt injection review denied: %v", err)
-			return &model.BeforeModelResult{CustomResponse: p.blockedResponse("")}, nil
+			return &compat.BeforeModelResult{CustomResponse: p.blockedResponse("")}, nil
 		}
 		if !decision.Blocked {
 			return nil, nil
 		}
 		denyMessage := promptInjectionDenyMessage(decision)
 		log.WarnContext(ctx, denyMessage)
-		return &model.BeforeModelResult{CustomResponse: p.blockedResponse(denyMessage)}, nil
+		return &compat.BeforeModelResult{CustomResponse: p.blockedResponse(denyMessage)}, nil
 	}
 }
 
-func (p *Plugin) blockedResponse(content string) *model.Response {
+func (p *Plugin) blockedResponse(content string) *compat.Response {
 	if content == "" {
 		content = "The input was blocked by the prompt injection guardrail."
 	}
-	return &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	return &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(content),
+			Message: compat.NewAssistantMessage(content),
 		}},
 	}
 }

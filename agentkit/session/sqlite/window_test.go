@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -33,10 +33,10 @@ func TestService_GetEventWindow(t *testing.T) {
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
 	for _, evt := range []event.Event{
-		sqliteWindowEvent("u1", model.RoleUser, "one"),
-		sqliteWindowEvent("a1", model.RoleAssistant, "two"),
+		sqliteWindowEvent("u1", compat.RoleUser, "one"),
+		sqliteWindowEvent("a1", compat.RoleAssistant, "two"),
 		sqliteWindowToolEvent("t1", "calc", "three"),
-		sqliteWindowEvent("u2", model.RoleUser, "four"),
+		sqliteWindowEvent("u2", compat.RoleUser, "four"),
 	} {
 		evt := evt
 		require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
@@ -47,10 +47,10 @@ func TestService_GetEventWindow(t *testing.T) {
 		AnchorEventID: "t1",
 		Before:        2,
 		After:         1,
-		Roles: []model.Role{
-			model.RoleUser,
-			model.RoleAssistant,
-			model.RoleTool,
+		Roles: []compat.Role{
+			compat.RoleUser,
+			compat.RoleAssistant,
+			compat.RoleTool,
 		},
 	})
 	require.NoError(t, err)
@@ -115,13 +115,13 @@ func TestService_GetEventWindowAnchorFilteredByRole(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "filtered"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := sqliteWindowEvent("anchor", model.RoleAssistant, "answer")
+	evt := sqliteWindowEvent("anchor", compat.RoleAssistant, "answer")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "anchor",
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anchor event not found")
@@ -167,7 +167,7 @@ func TestService_GetEventWindowIgnoresMalformedRowOutsideWindow(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "bad-outside"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := sqliteWindowEvent("anchor", model.RoleUser, "one")
+	evt := sqliteWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	now := time.Now().UTC().Add(time.Hour).UnixNano()
@@ -186,13 +186,13 @@ func TestService_GetEventWindowIgnoresMalformedRowOutsideWindow(t *testing.T) {
 	require.Equal(t, []string{"anchor"}, sqliteWindowIDs(got))
 }
 
-func sqliteWindowEvent(id string, role model.Role, content string) event.Event {
+func sqliteWindowEvent(id string, role compat.Role, content string) event.Event {
 	return event.Event{
 		ID:        id,
 		Timestamp: time.Unix(int64(len(id)), 0).UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -202,7 +202,7 @@ func sqliteWindowEvent(id string, role model.Role, content string) event.Event {
 }
 
 func sqliteWindowToolEvent(id, name, content string) event.Event {
-	evt := sqliteWindowEvent(id, model.RoleTool, content)
+	evt := sqliteWindowEvent(id, compat.RoleTool, content)
 	evt.Response.Choices[0].Message.ToolID = "call-" + id
 	evt.Response.Choices[0].Message.ToolName = name
 	return evt

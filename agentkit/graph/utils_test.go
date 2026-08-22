@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type testMessageOp struct {
-	out []model.Message
+	out []compat.Message
 }
 
-func (o testMessageOp) Apply(_ []model.Message) []model.Message {
+func (o testMessageOp) Apply(_ []compat.Message) []compat.Message {
 	return o.out
 }
 
@@ -204,24 +204,24 @@ func TestDeepCopyAny(t *testing.T) {
 			name: "MessageOp (AppendMessages)",
 			input: func() any {
 				text := "hello"
-				msg := model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
-						{Type: model.ContentTypeText, Text: &text},
+				msg := compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
+						{Type: compat.ContentTypeText, Text: &text},
 					},
 				}
-				var op MessageOp = AppendMessages{Items: []model.Message{msg}}
+				var op MessageOp = AppendMessages{Items: []compat.Message{msg}}
 				return op
 			}(),
 			want: func() any {
 				text := "hello"
-				msg := model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
-						{Type: model.ContentTypeText, Text: &text},
+				msg := compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
+						{Type: compat.ContentTypeText, Text: &text},
 					},
 				}
-				var op MessageOp = AppendMessages{Items: []model.Message{msg}}
+				var op MessageOp = AppendMessages{Items: []compat.Message{msg}}
 				return op
 			}(),
 		},
@@ -229,28 +229,28 @@ func TestDeepCopyAny(t *testing.T) {
 			name: "[]MessageOp",
 			input: func() any {
 				text := "hello"
-				msg := model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
-						{Type: model.ContentTypeText, Text: &text},
+				msg := compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
+						{Type: compat.ContentTypeText, Text: &text},
 					},
 				}
 				return []MessageOp{
-					AppendMessages{Items: []model.Message{msg}},
+					AppendMessages{Items: []compat.Message{msg}},
 					ReplaceLastUser{Content: "world"},
 					RemoveAllMessages{},
 				}
 			}(),
 			want: func() any {
 				text := "hello"
-				msg := model.Message{
-					Role: model.RoleUser,
-					ContentParts: []model.ContentPart{
-						{Type: model.ContentTypeText, Text: &text},
+				msg := compat.Message{
+					Role: compat.RoleUser,
+					ContentParts: []compat.ContentPart{
+						{Type: compat.ContentTypeText, Text: &text},
 					},
 				}
 				return []MessageOp{
-					AppendMessages{Items: []model.Message{msg}},
+					AppendMessages{Items: []compat.Message{msg}},
 					ReplaceLastUser{Content: "world"},
 					RemoveAllMessages{},
 				}
@@ -270,11 +270,11 @@ func TestDeepCopyAny(t *testing.T) {
 
 func TestDeepCopyAny_MessageOpsDeepCopySlices(t *testing.T) {
 	text := "hello"
-	msgs := []model.Message{
+	msgs := []compat.Message{
 		{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{
-				{Type: model.ContentTypeText, Text: &text},
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{
+				{Type: compat.ContentTypeText, Text: &text},
 			},
 		},
 	}
@@ -315,7 +315,7 @@ func TestDeepCopyAny_MessageOpsDeepCopySlices(t *testing.T) {
 
 func TestDeepCopyAny_MessageOpsPreserveTopLevelSliceSharing(t *testing.T) {
 	ops := []MessageOp{
-		AppendMessages{Items: []model.Message{model.NewUserMessage("hello")}},
+		AppendMessages{Items: []compat.Message{compat.NewUserMessage("hello")}},
 	}
 	copiedAny := deepCopyAny(map[string]any{
 		"left":  ops,
@@ -346,7 +346,7 @@ func TestDeepCopyAny_MessageOpsPreserveTopLevelSliceSharing(t *testing.T) {
 
 func TestDeepCopyAny_CustomMessageOpsFallbackPreservesElements(t *testing.T) {
 	ops := []MessageOp{
-		testMessageOp{out: []model.Message{model.NewAssistantMessage("custom")}},
+		testMessageOp{out: []compat.Message{compat.NewAssistantMessage("custom")}},
 	}
 	copiedAny := deepCopyAny(map[string]any{
 		"left":  ops,
@@ -372,10 +372,10 @@ func TestDeepCopyAny_CustomMessageOpsFallbackPreservesElements(t *testing.T) {
 func TestDeepCopyAny_MessageOpsPreserveSelfReferences(t *testing.T) {
 	ops := make([]MessageOp, 1)
 	ops[0] = AppendMessages{
-		Items: []model.Message{
+		Items: []compat.Message{
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						Type: "function",
 						ID:   "call-1",
@@ -406,10 +406,10 @@ func TestDeepCopyAny_MessageOpsPreserveSelfReferences(t *testing.T) {
 func TestDeepCopyAny_MixedMessageOpsFallbackPreservesSelfReferences(t *testing.T) {
 	ops := make([]MessageOp, 2)
 	ops[0] = AppendMessages{
-		Items: []model.Message{
+		Items: []compat.Message{
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						Type: "function",
 						ID:   "call-1",
@@ -421,7 +421,7 @@ func TestDeepCopyAny_MixedMessageOpsFallbackPreservesSelfReferences(t *testing.T
 			},
 		},
 	}
-	ops[1] = testMessageOp{out: []model.Message{model.NewAssistantMessage("custom")}}
+	ops[1] = testMessageOp{out: []compat.Message{compat.NewAssistantMessage("custom")}}
 	copiedAny := deepCopyAny(ops)
 	copiedOps, ok := copiedAny.([]MessageOp)
 	require.True(t, ok)
@@ -450,10 +450,10 @@ func TestDeepCopyAny_MessageToolCallExtraFieldsPreserveGraphShape(t *testing.T) 
 	extra["self"] = extra
 	extra["left"] = shared
 	extra["right"] = shared
-	msgs := []model.Message{
+	msgs := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					Type:        "function",
 					ID:          "call-1",
@@ -463,7 +463,7 @@ func TestDeepCopyAny_MessageToolCallExtraFieldsPreserveGraphShape(t *testing.T) 
 		},
 	}
 	copiedAny := deepCopyAny(msgs)
-	copiedMsgs, ok := copiedAny.([]model.Message)
+	copiedMsgs, ok := copiedAny.([]compat.Message)
 	require.True(t, ok)
 	require.Len(t, copiedMsgs, 1)
 	copiedExtra := copiedMsgs[0].ToolCalls[0].ExtraFields
@@ -517,36 +517,36 @@ func TestDeepCopyAny_MessageNestedValuesPreserveSharing(t *testing.T) {
 	audioData := []byte("aud")
 	videoData := []byte("vid")
 	fileData := []byte("file")
-	parts := []model.ContentPart{
+	parts := []compat.ContentPart{
 		{
-			Type:  model.ContentTypeText,
+			Type:  compat.ContentTypeText,
 			Text:  &text,
-			Image: &model.Image{Data: imageData},
-			Audio: &model.Audio{Data: audioData, Format: "wav"},
-			Video: &model.Video{
+			Image: &compat.Image{Data: imageData},
+			Audio: &compat.Audio{Data: audioData, Format: "wav"},
+			Video: &compat.Video{
 				URL:    "https://example.com/video.mp4",
 				Data:   videoData,
 				Format: "mp4",
 			},
-			File: &model.File{Name: "f.txt", Data: fileData},
+			File: &compat.File{Name: "f.txt", Data: fileData},
 		},
 	}
-	calls := []model.ToolCall{
+	calls := []compat.ToolCall{
 		{
 			Type:  "function",
 			ID:    "call-1",
 			Index: &index,
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Arguments: args,
 			},
 		},
 	}
-	msgs := []model.Message{
-		{Role: model.RoleUser, ContentParts: parts, ToolCalls: calls},
-		{Role: model.RoleAssistant, ContentParts: parts, ToolCalls: calls},
+	msgs := []compat.Message{
+		{Role: compat.RoleUser, ContentParts: parts, ToolCalls: calls},
+		{Role: compat.RoleAssistant, ContentParts: parts, ToolCalls: calls},
 	}
 	copiedAny := deepCopyAny(msgs)
-	copiedMsgs, ok := copiedAny.([]model.Message)
+	copiedMsgs, ok := copiedAny.([]compat.Message)
 	require.True(t, ok)
 	require.Len(t, copiedMsgs, 2)
 	require.NotEqual(
@@ -683,10 +683,10 @@ func TestDeepCopyAny_PreservesNilFastPathValues(t *testing.T) {
 		assert.Empty(t, copied)
 	})
 
-	t.Run("nil []model.Message", func(t *testing.T) {
-		copied, ok := deepCopyAny([]model.Message(nil)).([]model.Message)
+	t.Run("nil []compat.Message", func(t *testing.T) {
+		copied, ok := deepCopyAny([]compat.Message(nil)).([]compat.Message)
 		if !ok {
-			t.Fatalf("expected []model.Message, got %T", deepCopyAny([]model.Message(nil)))
+			t.Fatalf("expected []compat.Message, got %T", deepCopyAny([]compat.Message(nil)))
 		}
 		if copied != nil {
 			t.Fatalf("expected nil message slice copy, got %#v", copied)
@@ -741,13 +741,13 @@ func TestDeepCopyFastPathHelperCoverage(t *testing.T) {
 
 	t.Run("content parts deep copy nested media", func(t *testing.T) {
 		text := "hello"
-		in := []model.ContentPart{
+		in := []compat.ContentPart{
 			{
-				Type:  model.ContentTypeText,
+				Type:  compat.ContentTypeText,
 				Text:  &text,
-				Image: &model.Image{Data: []byte("img")},
-				Audio: &model.Audio{Data: []byte("aud"), Format: "wav"},
-				File:  &model.File{Name: "f.txt", Data: []byte("file")},
+				Image: &compat.Image{Data: []byte("img")},
+				Audio: &compat.Audio{Data: []byte("aud"), Format: "wav"},
+				File:  &compat.File{Name: "f.txt", Data: []byte("file")},
 			},
 		}
 
@@ -772,23 +772,23 @@ func TestDeepCopyFastPathHelperCoverage(t *testing.T) {
 
 		require.True(t, canDeepCopyMessageOpFastPath(RemoveAllMessages{}))
 
-		_, ok = deepCopyFastPath(testMessageOp{out: []model.Message{model.NewAssistantMessage("x")}})
+		_, ok = deepCopyFastPath(testMessageOp{out: []compat.Message{compat.NewAssistantMessage("x")}})
 		require.False(t, ok)
 
-		_, ok = deepCopyFastPath([]MessageOp{testMessageOp{out: []model.Message{model.NewAssistantMessage("x")}}})
+		_, ok = deepCopyFastPath([]MessageOp{testMessageOp{out: []compat.Message{compat.NewAssistantMessage("x")}}})
 		require.False(t, ok)
 	})
 }
 
 func TestDeepCopyWrapperHelperCoverage(t *testing.T) {
 	t.Run("message op wrappers", func(t *testing.T) {
-		msgs := []model.Message{
+		msgs := []compat.Message{
 			{
-				Role: model.RoleAssistant,
-				ContentParts: []model.ContentPart{
+				Role: compat.RoleAssistant,
+				ContentParts: []compat.ContentPart{
 					{
-						Type:  model.ContentTypeText,
-						Image: &model.Image{Data: []byte("img")},
+						Type:  compat.ContentTypeText,
+						Image: &compat.Image{Data: []byte("img")},
 					},
 				},
 			},
@@ -814,7 +814,7 @@ func TestDeepCopyWrapperHelperCoverage(t *testing.T) {
 		_, ok = copiedOp.(RemoveAllMessages)
 		require.True(t, ok)
 
-		copiedOp, ok = deepCopyMessageOp(testMessageOp{out: []model.Message{model.NewAssistantMessage("custom")}})
+		copiedOp, ok = deepCopyMessageOp(testMessageOp{out: []compat.Message{compat.NewAssistantMessage("custom")}})
 		require.False(t, ok)
 		assert.Nil(t, copiedOp)
 
@@ -843,24 +843,24 @@ func TestDeepCopyWrapperHelperCoverage(t *testing.T) {
 		text := "hello"
 		index := 7
 		args := []byte("args")
-		image := &model.Image{Data: []byte("img")}
-		audio := &model.Audio{Data: []byte("aud"), Format: "wav"}
-		file := &model.File{Name: "f.txt", Data: []byte("file")}
-		parts := []model.ContentPart{
+		image := &compat.Image{Data: []byte("img")}
+		audio := &compat.Audio{Data: []byte("aud"), Format: "wav"}
+		file := &compat.File{Name: "f.txt", Data: []byte("file")}
+		parts := []compat.ContentPart{
 			{
-				Type:  model.ContentTypeText,
+				Type:  compat.ContentTypeText,
 				Text:  &text,
 				Image: image,
 				Audio: audio,
 				File:  file,
 			},
 		}
-		calls := []model.ToolCall{
+		calls := []compat.ToolCall{
 			{
 				Type:  "function",
 				ID:    "call-1",
 				Index: &index,
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Arguments: args,
 				},
 				ExtraFields: map[string]any{
@@ -868,9 +868,9 @@ func TestDeepCopyWrapperHelperCoverage(t *testing.T) {
 				},
 			},
 		}
-		msgs := []model.Message{
+		msgs := []compat.Message{
 			{
-				Role:         model.RoleAssistant,
+				Role:         compat.RoleAssistant,
 				ContentParts: parts,
 				ToolCalls:    calls,
 			},
@@ -926,20 +926,20 @@ func TestDeepCopyWrapperHelperCoverage(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "value", string(outMap["k"]))
 
-		copied, ok = deepCopyFastPath(AppendMessages{Items: []model.Message{model.NewAssistantMessage("x")}})
+		copied, ok = deepCopyFastPath(AppendMessages{Items: []compat.Message{compat.NewAssistantMessage("x")}})
 		require.True(t, ok)
 		_, ok = copied.(AppendMessages)
 		require.True(t, ok)
 
-		copied, ok = deepCopyFastPath([]MessageOp{AppendMessages{Items: []model.Message{model.NewAssistantMessage("x")}}})
+		copied, ok = deepCopyFastPath([]MessageOp{AppendMessages{Items: []compat.Message{compat.NewAssistantMessage("x")}}})
 		require.True(t, ok)
 		ops, ok := copied.([]MessageOp)
 		require.True(t, ok)
 		require.Len(t, ops, 1)
 
-		copied, ok = deepCopyFastPath([]model.Message{model.NewAssistantMessage("x")})
+		copied, ok = deepCopyFastPath([]compat.Message{compat.NewAssistantMessage("x")})
 		require.True(t, ok)
-		msgs, ok := copied.([]model.Message)
+		msgs, ok := copied.([]compat.Message)
 		require.True(t, ok)
 		require.Len(t, msgs, 1)
 	})
@@ -953,20 +953,20 @@ func TestDeepCopyVisitedHelperBranchCoverage(t *testing.T) {
 		visited[sliceVisitKey(reflect.ValueOf(sliceAny).Pointer(), len(sliceAny), sliceAnyType)] = cachedAny
 		assert.Equal(t, reflect.ValueOf(cachedAny).Pointer(), reflect.ValueOf(deepCopySliceAnyWithVisited(sliceAny, visited)).Pointer())
 
-		msgs := []model.Message{model.NewAssistantMessage("x")}
-		cachedMsgs := []model.Message{model.NewAssistantMessage("cached")}
+		msgs := []compat.Message{compat.NewAssistantMessage("x")}
+		cachedMsgs := []compat.Message{compat.NewAssistantMessage("cached")}
 		visited = newVisitedMap()
 		visited[sliceVisitKey(reflect.ValueOf(msgs).Pointer(), len(msgs), modelMessagesType)] = cachedMsgs
 		assert.Equal(t, reflect.ValueOf(cachedMsgs).Pointer(), reflect.ValueOf(deepCopyModelMessagesWithVisited(msgs, visited)).Pointer())
 
-		parts := []model.ContentPart{{Type: model.ContentTypeText}}
-		cachedParts := []model.ContentPart{{Type: model.ContentTypeImage}}
+		parts := []compat.ContentPart{{Type: compat.ContentTypeText}}
+		cachedParts := []compat.ContentPart{{Type: compat.ContentTypeImage}}
 		visited = newVisitedMap()
 		visited[sliceVisitKey(reflect.ValueOf(parts).Pointer(), len(parts), modelContentPartsType)] = cachedParts
 		assert.Equal(t, reflect.ValueOf(cachedParts).Pointer(), reflect.ValueOf(deepCopyModelContentPartsWithVisited(parts, visited)).Pointer())
 
-		calls := []model.ToolCall{{Type: "function", ID: "call-1"}}
-		cachedCalls := []model.ToolCall{{Type: "function", ID: "cached"}}
+		calls := []compat.ToolCall{{Type: "function", ID: "call-1"}}
+		cachedCalls := []compat.ToolCall{{Type: "function", ID: "cached"}}
 		visited = newVisitedMap()
 		visited[sliceVisitKey(reflect.ValueOf(calls).Pointer(), len(calls), modelToolCallsType)] = cachedCalls
 		assert.Equal(t, reflect.ValueOf(cachedCalls).Pointer(), reflect.ValueOf(deepCopyModelToolCallsWithVisited(calls, visited)).Pointer())
@@ -989,7 +989,7 @@ func TestDeepCopyVisitedHelperBranchCoverage(t *testing.T) {
 		visited[pointerVisitKey(reflect.ValueOf(&index).Pointer(), reflect.TypeOf(&index))] = &cachedIndex
 		assert.Same(t, &cachedIndex, deepCopyIntPointerWithVisited(&index, visited))
 
-		ops := []MessageOp{AppendMessages{Items: []model.Message{model.NewAssistantMessage("x")}}}
+		ops := []MessageOp{AppendMessages{Items: []compat.Message{compat.NewAssistantMessage("x")}}}
 		cachedOps := []MessageOp{RemoveAllMessages{}}
 		visited = newVisitedMap()
 		visited[sliceVisitKey(reflect.ValueOf(ops).Pointer(), len(ops), sliceMessageOpsType)] = cachedOps
@@ -1011,7 +1011,7 @@ func TestDeepCopyVisitedHelperBranchCoverage(t *testing.T) {
 	})
 
 	t.Run("message op failure removes cache entry", func(t *testing.T) {
-		ops := []MessageOp{testMessageOp{out: []model.Message{model.NewAssistantMessage("custom")}}}
+		ops := []MessageOp{testMessageOp{out: []compat.Message{compat.NewAssistantMessage("custom")}}}
 		visited := newVisitedMap()
 		key := sliceVisitKey(reflect.ValueOf(ops).Pointer(), len(ops), sliceMessageOpsType)
 
@@ -1024,29 +1024,29 @@ func TestDeepCopyVisitedHelperBranchCoverage(t *testing.T) {
 }
 
 func TestDeepCopyAny_MessageZeroLenSlicesDoNotAlias(t *testing.T) {
-	msgs := []model.Message{
+	msgs := []compat.Message{
 		{
-			Role:         model.RoleAssistant,
-			ContentParts: make([]model.ContentPart, 1)[:0],
-			ToolCalls:    make([]model.ToolCall, 1)[:0],
+			Role:         compat.RoleAssistant,
+			ContentParts: make([]compat.ContentPart, 1)[:0],
+			ToolCalls:    make([]compat.ToolCall, 1)[:0],
 		},
 	}
 
 	copiedAny := deepCopyAny(msgs)
-	copiedMsgs, ok := copiedAny.([]model.Message)
+	copiedMsgs, ok := copiedAny.([]compat.Message)
 	if !ok {
-		t.Fatalf("expected []model.Message, got %T", copiedAny)
+		t.Fatalf("expected []compat.Message, got %T", copiedAny)
 	}
 
-	msgs[0].ContentParts = append(msgs[0].ContentParts, model.ContentPart{Type: model.ContentTypeText})
-	copiedMsgs[0].ContentParts = append(copiedMsgs[0].ContentParts, model.ContentPart{Type: model.ContentTypeImage})
+	msgs[0].ContentParts = append(msgs[0].ContentParts, compat.ContentPart{Type: compat.ContentTypeText})
+	copiedMsgs[0].ContentParts = append(copiedMsgs[0].ContentParts, compat.ContentPart{Type: compat.ContentTypeImage})
 
-	if got := msgs[0].ContentParts[0].Type; got != model.ContentTypeText {
-		t.Fatalf("original content parts aliased copied slice: got=%q want=%q", got, model.ContentTypeText)
+	if got := msgs[0].ContentParts[0].Type; got != compat.ContentTypeText {
+		t.Fatalf("original content parts aliased copied slice: got=%q want=%q", got, compat.ContentTypeText)
 	}
 
-	msgs[0].ToolCalls = append(msgs[0].ToolCalls, model.ToolCall{Type: "function", ID: "orig"})
-	copiedMsgs[0].ToolCalls = append(copiedMsgs[0].ToolCalls, model.ToolCall{Type: "function", ID: "copy"})
+	msgs[0].ToolCalls = append(msgs[0].ToolCalls, compat.ToolCall{Type: "function", ID: "orig"})
+	copiedMsgs[0].ToolCalls = append(copiedMsgs[0].ToolCalls, compat.ToolCall{Type: "function", ID: "copy"})
 
 	if got := msgs[0].ToolCalls[0].ID; got != "orig" {
 		t.Fatalf("original tool calls aliased copied slice: got=%q want=%q", got, "orig")
@@ -1054,7 +1054,7 @@ func TestDeepCopyAny_MessageZeroLenSlicesDoNotAlias(t *testing.T) {
 }
 
 func TestDeepCopyAny_MessageOpZeroLenSlicesDoNotAlias(t *testing.T) {
-	op := AppendMessages{Items: make([]model.Message, 1)[:0]}
+	op := AppendMessages{Items: make([]compat.Message, 1)[:0]}
 
 	copiedAny := deepCopyAny(op)
 	copiedOp, ok := copiedAny.(AppendMessages)
@@ -1062,8 +1062,8 @@ func TestDeepCopyAny_MessageOpZeroLenSlicesDoNotAlias(t *testing.T) {
 		t.Fatalf("expected AppendMessages, got %T", copiedAny)
 	}
 
-	op.Items = append(op.Items, model.NewUserMessage("orig"))
-	copiedOp.Items = append(copiedOp.Items, model.NewUserMessage("copy"))
+	op.Items = append(op.Items, compat.NewUserMessage("orig"))
+	copiedOp.Items = append(copiedOp.Items, compat.NewUserMessage("copy"))
 
 	if got := op.Items[0].Content; got != "orig" {
 		t.Fatalf("original message op aliased copied slice: got=%q want=%q", got, "orig")
@@ -1073,7 +1073,7 @@ func TestDeepCopyAny_MessageOpZeroLenSlicesDoNotAlias(t *testing.T) {
 func TestDeepCopySliceAnyWithVisited_ZeroLenSkipsCache(t *testing.T) {
 	in := make([]any, 1)[:0]
 	visited := visitedMap{
-		sliceVisitKey(reflect.ValueOf(in).Pointer(), len(in), sliceAnyType): []model.Message{model.NewUserMessage("cached")},
+		sliceVisitKey(reflect.ValueOf(in).Pointer(), len(in), sliceAnyType): []compat.Message{compat.NewUserMessage("cached")},
 	}
 	copied := deepCopySliceAnyWithVisited(in, visited)
 	require.NotNil(t, copied)
@@ -1081,7 +1081,7 @@ func TestDeepCopySliceAnyWithVisited_ZeroLenSkipsCache(t *testing.T) {
 }
 
 func TestDeepCopyModelMessagesWithVisited_ZeroLenSkipsCache(t *testing.T) {
-	in := make([]model.Message, 1)[:0]
+	in := make([]compat.Message, 1)[:0]
 	visited := visitedMap{
 		sliceVisitKey(reflect.ValueOf(in).Pointer(), len(in), modelMessagesType): []any{"cached"},
 	}
@@ -1091,7 +1091,7 @@ func TestDeepCopyModelMessagesWithVisited_ZeroLenSkipsCache(t *testing.T) {
 }
 
 func TestDeepCopyModelToolCallsWithVisited_ZeroLenSkipsCache(t *testing.T) {
-	in := make([]model.ToolCall, 1)[:0]
+	in := make([]compat.ToolCall, 1)[:0]
 	visited := visitedMap{
 		sliceVisitKey(reflect.ValueOf(in).Pointer(), len(in), modelToolCallsType): []any{"cached"},
 	}
@@ -1145,9 +1145,9 @@ func TestDeepCopyMapStringBytesWithVisited_DistinctSliceHeadersDoNotTruncate(
 func TestDeepCopyModelMessagesWithVisited_DistinctSliceHeadersDoNotTruncate(
 	t *testing.T,
 ) {
-	backing := []model.Message{
-		model.NewAssistantMessage("a"),
-		model.NewAssistantMessage("b"),
+	backing := []compat.Message{
+		compat.NewAssistantMessage("a"),
+		compat.NewAssistantMessage("b"),
 	}
 	visited := newVisitedMap()
 	shortSlice := deepCopyModelMessagesWithVisited(backing[:1], visited)
@@ -1161,7 +1161,7 @@ func TestDeepCopyModelMessagesWithVisited_DistinctSliceHeadersDoNotTruncate(
 func TestDeepCopyModelToolCallsWithVisited_DistinctSliceHeadersDoNotTruncate(
 	t *testing.T,
 ) {
-	backing := []model.ToolCall{
+	backing := []compat.ToolCall{
 		{Type: "function", ID: "call-1"},
 		{Type: "function", ID: "call-2"},
 	}
@@ -1499,10 +1499,10 @@ func BenchmarkDeepCopyAny(b *testing.B) {
 	messageOps := func() []MessageOp {
 		ops := make([]MessageOp, 2)
 		ops[0] = AppendMessages{
-			Items: []model.Message{
+			Items: []compat.Message{
 				{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							Type: "function",
 							ID:   "call-1",
@@ -1514,7 +1514,7 @@ func BenchmarkDeepCopyAny(b *testing.B) {
 				},
 			},
 		}
-		ops[1] = testMessageOp{out: []model.Message{model.NewAssistantMessage("custom")}}
+		ops[1] = testMessageOp{out: []compat.Message{compat.NewAssistantMessage("custom")}}
 		return ops
 	}
 	bytesDistinctHeaders := func() []any {
@@ -1529,14 +1529,14 @@ func BenchmarkDeepCopyAny(b *testing.B) {
 		}
 	}
 	modelMessagesDistinctHeaders := func() []any {
-		backing := []model.Message{
-			model.NewAssistantMessage("a"),
-			model.NewAssistantMessage("b"),
+		backing := []compat.Message{
+			compat.NewAssistantMessage("a"),
+			compat.NewAssistantMessage("b"),
 		}
 		return []any{backing[:1], backing[:2]}
 	}
 	modelToolCallsDistinctHeaders := func() []any {
-		backing := []model.ToolCall{
+		backing := []compat.ToolCall{
 			{Type: "function", ID: "call-1"},
 			{Type: "function", ID: "call-2"},
 		}

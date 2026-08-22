@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -39,41 +39,41 @@ func newTestInvocation(t *testing.T, agentName string) (context.Context, *agent.
 	return ctx, inv, sess
 }
 
-func finalRsp(text string) *model.Response {
-	return &model.Response{
+func finalRsp(text string) *compat.Response {
+	return &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage(text),
+			Message: compat.NewAssistantMessage(text),
 		}},
 	}
 }
 
-func partialRsp(text string) *model.Response {
-	return &model.Response{
+func partialRsp(text string) *compat.Response {
+	return &compat.Response{
 		Done:      false,
 		IsPartial: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Delta: model.Message{
-				Role:    model.RoleAssistant,
+			Delta: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: text,
 			},
 		}},
 	}
 }
 
-func toolCallRsp(name string, args string) *model.Response {
-	return &model.Response{
+func toolCallRsp(name string, args string) *compat.Response {
+	return &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call_goal",
 					Type: "function",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      name,
 						Arguments: []byte(args),
 					},
@@ -184,7 +184,7 @@ func TestAfterModel_ActiveGoalBlocksAndBeforeModelInjectsNudge(t *testing.T) {
 	require.NoError(t, writeGoalToSession(sess, DefaultStateKey, g))
 
 	e := New()
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: finalRsp("done")})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: finalRsp("done")})
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.NotNil(t, res.CustomResponse)
@@ -193,30 +193,30 @@ func TestAfterModel_ActiveGoalBlocksAndBeforeModelInjectsNudge(t *testing.T) {
 	assert.True(t, reminderPending(inv))
 	assert.Equal(t, 1, retryCount(inv))
 
-	req := &model.Request{
-		Messages:         []model.Message{model.NewUserMessage("continue")},
-		GenerationConfig: model.GenerationConfig{Stream: true},
+	req := &compat.Request{
+		Messages:         []compat.Message{compat.NewUserMessage("continue")},
+		GenerationConfig: compat.GenerationConfig{Stream: true},
 	}
-	before, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	before, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Nil(t, before)
 	assert.True(t, req.GenerationConfig.Stream)
 	assert.False(t, reminderPending(inv))
 	require.Len(t, req.Messages, 3)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
-	assert.Equal(t, model.RoleUser, req.Messages[1].Role)
-	assert.Equal(t, model.RoleUser, req.Messages[2].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[2].Role)
 	assert.Contains(t, req.Messages[2].Content, "finish a migration plan")
 }
 
 func TestBeforeModel_InjectsConfiguredToolNames(t *testing.T) {
 	ctx, _, _ := newTestInvocation(t, "planner")
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("continue")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("continue")},
 	}
 	e := New(WithToolNames("goal_read", "goal_create", "goal_update"))
 
-	before, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	before, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Nil(t, before)
 	require.Len(t, req.Messages, 2)
@@ -238,21 +238,21 @@ func TestBeforeModel_ActiveGoalLeavesStreamingUntouched(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, writeGoalToSession(sess, DefaultStateKey, g))
 
-	streamReq := &model.Request{
-		Messages:         []model.Message{model.NewUserMessage("continue")},
-		GenerationConfig: model.GenerationConfig{Stream: true},
+	streamReq := &compat.Request{
+		Messages:         []compat.Message{compat.NewUserMessage("continue")},
+		GenerationConfig: compat.GenerationConfig{Stream: true},
 	}
 	e := New()
-	res, err := e.beforeModel(ctx, &model.BeforeModelArgs{Request: streamReq})
+	res, err := e.beforeModel(ctx, &compat.BeforeModelArgs{Request: streamReq})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.True(t, streamReq.GenerationConfig.Stream)
 
-	nonStreamReq := &model.Request{
-		Messages:         []model.Message{model.NewUserMessage("continue")},
-		GenerationConfig: model.GenerationConfig{Stream: false},
+	nonStreamReq := &compat.Request{
+		Messages:         []compat.Message{compat.NewUserMessage("continue")},
+		GenerationConfig: compat.GenerationConfig{Stream: false},
 	}
-	res, err = e.beforeModel(ctx, &model.BeforeModelArgs{Request: nonStreamReq})
+	res, err = e.beforeModel(ctx, &compat.BeforeModelArgs{Request: nonStreamReq})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.False(t, nonStreamReq.GenerationConfig.Stream)
@@ -268,7 +268,7 @@ func TestAfterModel_TerminalGoalPassesThrough(t *testing.T) {
 	require.NoError(t, writeGoalToSession(sess, DefaultStateKey, g))
 
 	e := New()
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: finalRsp("done")})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: finalRsp("done")})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.False(t, reminderPending(inv))
@@ -287,7 +287,7 @@ func TestAfterModel_RetryBudgetExhaustionPassesThrough(t *testing.T) {
 		WithMaxRetries(1),
 		WithOnEnforce(func(evt EnforceEvent) { got = evt }),
 	)
-	res, err := e.afterModel(ctx, &model.AfterModelArgs{Response: finalRsp("done")})
+	res, err := e.afterModel(ctx, &compat.AfterModelArgs{Response: finalRsp("done")})
 	require.NoError(t, err)
 	assert.Nil(t, res)
 	assert.Equal(t, ReasonExhausted, got.Reason)
@@ -296,8 +296,8 @@ func TestAfterModel_RetryBudgetExhaustionPassesThrough(t *testing.T) {
 
 type sequenceModel struct {
 	name      string
-	responses []*model.Response
-	batches   [][]*model.Response
+	responses []*compat.Response
+	batches   [][]*compat.Response
 
 	mu       sync.Mutex
 	requests []*capturedRequest
@@ -305,19 +305,19 @@ type sequenceModel struct {
 }
 
 type capturedRequest struct {
-	messages []model.Message
+	messages []compat.Message
 	stream   bool
 }
 
 func (m *sequenceModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if req != nil {
-		cp := make([]model.Message, len(req.Messages))
+		cp := make([]compat.Message, len(req.Messages))
 		copy(cp, req.Messages)
 		m.requests = append(m.requests, &capturedRequest{
 			messages: cp,
@@ -330,7 +330,7 @@ func (m *sequenceModel) GenerateContent(
 		}
 		batch := m.batches[m.nextIdx]
 		m.nextIdx++
-		ch := make(chan *model.Response, len(batch))
+		ch := make(chan *compat.Response, len(batch))
 		for _, rsp := range batch {
 			ch <- rsp
 		}
@@ -339,14 +339,14 @@ func (m *sequenceModel) GenerateContent(
 	}
 	rsp := m.responses[m.nextIdx]
 	m.nextIdx++
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- rsp
 	close(ch)
 	return ch, nil
 }
 
-func (m *sequenceModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *sequenceModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *sequenceModel) Requests() []*capturedRequest {
@@ -370,7 +370,7 @@ func TestRunnerRun_GoalExtensionContinuesWithinSingleCompletion(t *testing.T) {
 
 	modelStub := &sequenceModel{
 		name: "sequence",
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			finalRsp("premature done"),
 			toolCallRsp(DefaultUpdateGoalToolName, `{"status":"complete"}`),
 			finalRsp("final done"),
@@ -388,7 +388,7 @@ func TestRunnerRun_GoalExtensionContinuesWithinSingleCompletion(t *testing.T) {
 	)
 	defer r.Close()
 
-	ch, err := r.Run(ctx, key.UserID, key.SessionID, model.NewUserMessage("continue"), agent.WithStream(true))
+	ch, err := r.Run(ctx, key.UserID, key.SessionID, compat.NewUserMessage("continue"), agent.WithStream(true))
 	require.NoError(t, err)
 
 	var events []*event.Event
@@ -430,7 +430,7 @@ func TestRunnerRun_GoalExtensionAllowsStreamingProgress(t *testing.T) {
 
 	modelStub := &sequenceModel{
 		name: "sequence",
-		batches: [][]*model.Response{
+		batches: [][]*compat.Response{
 			{partialRsp("drafting..."), finalRsp("premature done")},
 			{toolCallRsp(DefaultUpdateGoalToolName, `{"status":"complete"}`)},
 			{finalRsp("final done")},
@@ -448,7 +448,7 @@ func TestRunnerRun_GoalExtensionAllowsStreamingProgress(t *testing.T) {
 	)
 	defer r.Close()
 
-	ch, err := r.Run(ctx, key.UserID, key.SessionID, model.NewUserMessage("continue"), agent.WithStream(true))
+	ch, err := r.Run(ctx, key.UserID, key.SessionID, compat.NewUserMessage("continue"), agent.WithStream(true))
 	require.NoError(t, err)
 
 	var (

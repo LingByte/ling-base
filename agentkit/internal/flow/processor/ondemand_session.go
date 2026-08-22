@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	sessionrecall "github.com/LingByte/ling-base/agentkit/internal/session/tool/recall"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const onDemandSessionSearchAndLoadOverview = "Progressive disclosure for session history is available.\n" +
@@ -49,7 +49,7 @@ func NewOnDemandSessionRequestProcessor() *OnDemandSessionRequestProcessor {
 func (p *OnDemandSessionRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil || inv == nil || !sessionrecall.SupportsOnDemandSession(inv) {
@@ -72,7 +72,7 @@ func (p *OnDemandSessionRequestProcessor) ProcessRequest(
 		}
 	} else {
 		req.Messages = append(
-			[]model.Message{model.NewSystemMessage(overview)},
+			[]compat.Message{compat.NewSystemMessage(overview)},
 			req.Messages...,
 		)
 	}
@@ -80,7 +80,7 @@ func (p *OnDemandSessionRequestProcessor) ProcessRequest(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingInstruction),
+		event.WithObject(compat.ObjectTypePreprocessingInstruction),
 	))
 }
 
@@ -97,7 +97,7 @@ func (p *OnDemandSessionRequestProcessor) SupportsContextCompactionRebuild(
 func (p *OnDemandSessionRequestProcessor) RebuildRequestForContextCompaction(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	p.ProcessRequest(ctx, inv, req, nil)
 }

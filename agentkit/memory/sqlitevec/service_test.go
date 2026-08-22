@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	imemory "github.com/LingByte/ling-base/agentkit/memory/internal/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -2121,7 +2121,7 @@ type fakeExtractor struct{}
 
 func (f *fakeExtractor) Extract(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	existing []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	_ = ctx
@@ -2139,7 +2139,7 @@ func (f *fakeExtractor) SetPrompt(prompt string) {
 	_ = prompt
 }
 
-func (f *fakeExtractor) SetModel(m model.Model) {
+func (f *fakeExtractor) SetModel(m compat.Model) {
 	_ = m
 }
 

@@ -30,7 +30,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/fileref"
 	"github.com/LingByte/ling-base/agentkit/internal/skillstage"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -117,7 +117,7 @@ func stageConversationFilesLocked(
 	ctx context.Context,
 	eng codeexecutor.Engine,
 	ws codeexecutor.Workspace,
-	files []model.File,
+	files []compat.File,
 ) ([]StagedInput, []string, error) {
 	inv, ok := agent.InvocationFromContext(ctx)
 	if !ok || inv == nil {
@@ -271,8 +271,8 @@ func UniqueFileName(
 // ResolveFileBytes resolves an uploaded file into bytes and a MIME type.
 func ResolveFileBytes(
 	ctx context.Context,
-	mdl model.Model,
-	f model.File,
+	mdl compat.Model,
+	f compat.File,
 ) ([]byte, string, string) {
 	if inv, ok := agent.InvocationFromContext(ctx); ok && inv != nil {
 		ctx = withArtifactContext(ctx, inv)
@@ -292,7 +292,7 @@ func ResolveFileBytes(
 		return hostBytes(hostPath, f)
 	}
 
-	dl, ok := mdl.(model.FileDownloader)
+	dl, ok := mdl.(compat.FileDownloader)
 	if !ok || dl == nil {
 		return nil, "", WarnNoDownloader
 	}
@@ -310,8 +310,8 @@ func ResolveFileBytes(
 
 func stageConversationFile(
 	ctx context.Context,
-	mdl model.Model,
-	f model.File,
+	mdl compat.Model,
+	f compat.File,
 	idx int,
 	usedNames map[string]struct{},
 	existingTo map[string]struct{},
@@ -375,7 +375,7 @@ func stageConversationFile(
 	}, ""
 }
 
-func fastKey(f model.File) (string, bool) {
+func fastKey(f compat.File) (string, bool) {
 	id := strings.TrimSpace(f.FileID)
 	if id != "" {
 		return keyFileIDPrefix + id, true
@@ -387,7 +387,7 @@ func fastKey(f model.File) (string, bool) {
 	return keySHA256Prefix + hex.EncodeToString(sum[:]), true
 }
 
-func reuseKey(f model.File, sanitizedName string) (string, bool) {
+func reuseKey(f compat.File, sanitizedName string) (string, bool) {
 	key, ok := fastKey(f)
 	if !ok {
 		return "", false
@@ -396,7 +396,7 @@ func reuseKey(f model.File, sanitizedName string) (string, bool) {
 	return key + "/name/" + name, true
 }
 
-func filesFromSession(sess *session.Session) []model.File {
+func filesFromSession(sess *session.Session) []compat.File {
 	if sess == nil {
 		return nil
 	}
@@ -404,17 +404,17 @@ func filesFromSession(sess *session.Session) []model.File {
 	events := append([]event.Event(nil), sess.Events...)
 	sess.EventMu.RUnlock()
 
-	var out []model.File
+	var out []compat.File
 	for _, ev := range events {
 		if ev.Response == nil {
 			continue
 		}
 		for _, choice := range ev.Response.Choices {
-			if choice.Message.Role != model.RoleUser {
+			if choice.Message.Role != compat.RoleUser {
 				continue
 			}
 			for _, part := range choice.Message.ContentParts {
-				if part.Type != model.ContentTypeFile || part.File == nil {
+				if part.Type != compat.ContentTypeFile || part.File == nil {
 					continue
 				}
 				out = append(out, *part.File)
@@ -424,13 +424,13 @@ func filesFromSession(sess *session.Session) []model.File {
 	return out
 }
 
-func filesFromMessage(msg model.Message) []model.File {
+func filesFromMessage(msg compat.Message) []compat.File {
 	if len(msg.ContentParts) == 0 {
 		return nil
 	}
-	var out []model.File
+	var out []compat.File
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeFile || part.File == nil {
+		if part.Type != compat.ContentTypeFile || part.File == nil {
 			continue
 		}
 		out = append(out, *part.File)
@@ -456,7 +456,7 @@ func hostPathFromID(fileID string) (string, bool) {
 	return "", false
 }
 
-func hostBytes(hostPath string, f model.File) ([]byte, string, string) {
+func hostBytes(hostPath string, f compat.File) ([]byte, string, string) {
 	data, err := os.ReadFile(hostPath)
 	if err != nil {
 		return nil, "", fmt.Sprintf(

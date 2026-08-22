@@ -15,7 +15,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // WithExecutionTraceEnabled toggles execution trace recording for this run.
@@ -204,7 +204,7 @@ func SetExecutionTraceStepNodeType(inv *Invocation, stepID string, nodeType stri
 }
 
 // SetExecutionTraceStepUsage records token usage for one execution trace step.
-func SetExecutionTraceStepUsage(inv *Invocation, stepID string, usage *model.Usage) {
+func SetExecutionTraceStepUsage(inv *Invocation, stepID string, usage *compat.Usage) {
 	if inv == nil || stepID == "" || usage == nil {
 		return
 	}

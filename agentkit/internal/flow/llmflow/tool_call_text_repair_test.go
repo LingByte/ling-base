@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 	gooteltrace "go.opentelemetry.io/otel/trace"
@@ -52,16 +52,16 @@ func TestToolCallTextRepairEnabled(t *testing.T) {
 func TestRepairResponseToolCallTextInPlace(t *testing.T) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "Let me inspect it." +
 					"<tool_call>exec_command" +
 					"<arg_key>command</arg_key>" +
@@ -98,16 +98,16 @@ func TestRepairResponseToolCallTextInPlace_PreservesIntegerPrecision(
 	t.Parallel()
 
 	const maxInt64 = "9223372036854775807"
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"lookup": textRepairTool{name: "lookup"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "<tool_call>lookup" +
 					"<arg_key>id</arg_key>" +
 					"<arg_value>" + maxInt64 + "</arg_value>" +
@@ -148,23 +148,23 @@ func TestToolCallTextRepair_BuffersPartialResponses(t *testing.T) {
 			agent.WithToolCallTextRepairEnabled(true),
 		)),
 	)
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	partial := &model.Response{
+	partial := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(
 				"<tool_call>exec_command<arg_key>",
 			),
 		}},
 	}
-	terminal := &model.Response{
+	terminal := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(
 				"<tool_call>exec_command" +
 					"<arg_key>command</arg_key>" +
 					"<arg_value>echo ok</arg_value>" +
@@ -172,7 +172,7 @@ func TestToolCallTextRepair_BuffersPartialResponses(t *testing.T) {
 			),
 		}},
 	}
-	seq := func(yield func(*model.Response) bool) {
+	seq := func(yield func(*compat.Response) bool) {
 		if yield(partial) {
 			yield(terminal)
 		}
@@ -217,16 +217,16 @@ func TestToolCallTextRepair_StreamsOrdinaryPartialResponses(t *testing.T) {
 			agent.WithToolCallTextRepairEnabled(true),
 		)),
 	)
-	req := &model.Request{Tools: map[string]tool.Tool{
+	req := &compat.Request{Tools: map[string]tool.Tool{
 		"exec_command": textRepairTool{name: "exec_command"},
 	}}
-	partial := &model.Response{
+	partial := &compat.Response{
 		IsPartial: true,
-		Choices:   []model.Choice{{Message: model.NewAssistantMessage("hello")}},
+		Choices:   []compat.Choice{{Message: compat.NewAssistantMessage("hello")}},
 	}
-	terminal := &model.Response{
+	terminal := &compat.Response{
 		Done:    true,
-		Choices: []model.Choice{{Message: model.NewAssistantMessage("hello world")}},
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage("hello world")}},
 	}
 	eventChan := make(chan *event.Event, 2)
 	tracer := gooteltrace.NewNoopTracerProvider().Tracer("test")
@@ -238,7 +238,7 @@ func TestToolCallTextRepair_StreamsOrdinaryPartialResponses(t *testing.T) {
 		inv,
 		nil,
 		req,
-		func(yield func(*model.Response) bool) {
+		func(yield func(*compat.Response) bool) {
 			if yield(partial) {
 				yield(terminal)
 			}
@@ -262,7 +262,7 @@ func TestToolCallTextRepair_BufferedPartialHonorsCancellation(t *testing.T) {
 			agent.WithToolCallTextRepairEnabled(true),
 		)),
 	)
-	req := &model.Request{Tools: map[string]tool.Tool{
+	req := &compat.Request{Tools: map[string]tool.Tool{
 		"exec_command": textRepairTool{name: "exec_command"},
 	}}
 	ctx, cancel := context.WithCancel(agent.NewInvocationContext(
@@ -280,10 +280,10 @@ func TestToolCallTextRepair_BufferedPartialHonorsCancellation(t *testing.T) {
 		inv,
 		nil,
 		req,
-		func(yield func(*model.Response) bool) {
-			for yield(&model.Response{
+		func(yield func(*compat.Response) bool) {
+			for yield(&compat.Response{
 				IsPartial: true,
-				Choices:   []model.Choice{{Message: model.NewAssistantMessage("<tool_call>")}},
+				Choices:   []compat.Choice{{Message: compat.NewAssistantMessage("<tool_call>")}},
 			}) {
 				yields++
 			}
@@ -300,17 +300,17 @@ func TestToolCallTextRepair_BufferedPartialHonorsCancellation(t *testing.T) {
 func TestRepairResponseToolCallTextInPlace_MultipleCalls(t *testing.T) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 			"current_time": textRepairTool{name: "current_time"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "Let me inspect it.\n" +
 					"<tool_call>exec_command" +
 					"<arg_key>command</arg_key>" +
@@ -353,16 +353,16 @@ func TestRepairResponseToolCallTextInPlace_MultipleCalls(t *testing.T) {
 func TestRepairResponseToolCallTextInPlace_NoArgs(t *testing.T) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"current_time": textRepairTool{name: "current_time"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "<tool_call>current_time</tool_call>",
 			},
 		}},
@@ -385,7 +385,7 @@ func TestRepairResponseToolCallTextInPlace_NoArgs(t *testing.T) {
 func TestRepairResponseToolCallTextInPlace_GuardsPreserveText(t *testing.T) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
@@ -395,15 +395,15 @@ func TestRepairResponseToolCallTextInPlace_GuardsPreserveText(t *testing.T) {
 		"</tool_call>"
 	tests := []struct {
 		name string
-		resp *model.Response
+		resp *compat.Response
 	}{
 		{
 			name: "partial",
-			resp: &model.Response{
+			resp: &compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: toolText,
 					},
 				}},
@@ -411,11 +411,11 @@ func TestRepairResponseToolCallTextInPlace_GuardsPreserveText(t *testing.T) {
 		},
 		{
 			name: "tool result",
-			resp: &model.Response{
+			resp: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call_1",
 						Content: toolText,
 					},
@@ -424,23 +424,23 @@ func TestRepairResponseToolCallTextInPlace_GuardsPreserveText(t *testing.T) {
 		},
 		{
 			name: "user message",
-			resp: &model.Response{
+			resp: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleUser,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: toolText,
 				}}},
 			},
 		},
 		{
 			name: "mixed non-text content",
-			resp: &model.Response{
+			resp: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: toolText,
-					ContentParts: []model.ContentPart{{
-						Type: model.ContentTypeImage,
+					ContentParts: []compat.ContentPart{{
+						Type: compat.ContentTypeImage,
 					}},
 				}}},
 			},
@@ -470,7 +470,7 @@ func TestRepairResponseToolCallTextInPlace_GuardsPreserveText(t *testing.T) {
 func TestRepairToolCallTextDisabledPaths(t *testing.T) {
 	t.Parallel()
 
-	resp := &model.Response{}
+	resp := &compat.Response{}
 	processor := &streamingResponseProcessor{ctx: context.Background()}
 
 	require.False(t, processor.repairToolCallText(resp))
@@ -486,16 +486,16 @@ func TestRepairToolCallTextDisabledPaths(t *testing.T) {
 func TestRepairToolCallTextAndStatsCountsRepairedToolResponse(t *testing.T) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "<tool_call>exec_command" +
 					"<arg_key>command</arg_key>" +
 					"<arg_value>echo ok</arg_value>" +
@@ -526,16 +526,16 @@ func TestRepairResponseToolCallTextInPlace_UnknownToolPreservesText(
 ) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"known": textRepairTool{name: "known"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "<tool_call>missing" +
 					"<arg_key>query</arg_key><arg_value>x</arg_value>" +
 					"</tool_call>",
@@ -555,12 +555,12 @@ func TestRepairResponseToolCallTextInPlace_NoVisibleToolsPreservesText(
 ) {
 	t.Parallel()
 
-	req := &model.Request{Tools: nil}
-	resp := &model.Response{
+	req := &compat.Request{Tools: nil}
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "<tool_call>exec_command" +
 					"<arg_key>command</arg_key><arg_value>echo x</arg_value>" +
 					"</tool_call>",
@@ -579,16 +579,16 @@ func TestRepairResponseToolCallTextInPlace_MalformedPreservesText(
 ) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "<tool_call>exec_command" +
 					"<arg_key>command</arg_key>" +
 					"<arg_value>echo x</tool_call>",
@@ -607,16 +607,16 @@ func TestRepairResponseToolCallTextInPlace_TrailingTextPreservesText(
 ) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 				Content: "Example: <tool_call>exec_command" +
 					"<arg_key>command</arg_key><arg_value>echo x</arg_value>" +
 					"</tool_call> means run a command.",
@@ -635,20 +635,20 @@ func TestRepairResponseToolCallTextInPlace_ExistingToolCallPreserved(
 ) {
 	t.Parallel()
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "<tool_call>exec_command</tool_call>",
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID: "structured",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name: "exec_command",
 					},
 				}},
@@ -673,18 +673,18 @@ func TestRepairResponseToolCallTextInPlace_TextContentParts(t *testing.T) {
 	text := "<tool_call>exec_command" +
 		"<arg_key>command</arg_key><arg_value>echo ok</arg_value>" +
 		"</tool_call>"
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: map[string]tool.Tool{
 			"exec_command": textRepairTool{name: "exec_command"},
 		},
 	}
-	resp := &model.Response{
+	resp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &text,
 				}},
 			},
@@ -704,23 +704,23 @@ func TestRepairableMessageTextSkipCases(t *testing.T) {
 	text := ""
 	tests := []struct {
 		name string
-		msg  *model.Message
+		msg  *compat.Message
 	}{
 		{name: "nil"},
-		{name: "blank", msg: &model.Message{Content: "   "}},
+		{name: "blank", msg: &compat.Message{Content: "   "}},
 		{
 			name: "non text content part",
-			msg: &model.Message{
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeImage,
+			msg: &compat.Message{
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeImage,
 				}},
 			},
 		},
 		{
 			name: "nil text content part",
-			msg: &model.Message{
-				ContentParts: []model.ContentPart{{
-					Type: model.ContentTypeText,
+			msg: &compat.Message{
+				ContentParts: []compat.ContentPart{{
+					Type: compat.ContentTypeText,
 					Text: &text,
 				}},
 			},

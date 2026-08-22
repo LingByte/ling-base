@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // MemoryExtractor defines the interface for extracting memories from
@@ -31,7 +31,7 @@ type MemoryExtractor interface {
 	// It does not modify the memory store directly.
 	// The messages parameter contains the conversation messages to analyze.
 	// The existing parameter contains current user memories for deduplication.
-	Extract(ctx context.Context, messages []model.Message,
+	Extract(ctx context.Context, messages []compat.Message,
 		existing []*memory.Entry) ([]*Operation, error)
 
 	// ShouldExtract checks if extraction should be triggered based on context.
@@ -49,7 +49,7 @@ type MemoryExtractor interface {
 	// This allows switching to different models at runtime based on different
 	// scenarios or requirements. If nil is provided, it will be ignored and
 	// the current model will remain unchanged.
-	SetModel(m model.Model)
+	SetModel(m compat.Model)
 
 	// Metadata returns metadata about the extractor configuration.
 	Metadata() map[string]any

@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/cloudernative/dify-sdk-go"
 )
@@ -95,8 +95,8 @@ func (r *DifyAgent) sendErrorEvent(ctx context.Context, eventChan chan<- *event.
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
-			Error: &model.ResponseError{
+		event.WithResponse(&compat.Response{
+			Error: &compat.ResponseError{
 				Message: errorMessage,
 			},
 		}),
@@ -270,24 +270,24 @@ func (r *DifyAgent) buildWorkflowStreamingRequest(
 		if content != "" {
 			aggregatedContentBuilder.WriteString(content)
 
-			message := model.Message{
-				Role:    model.RoleAssistant,
+			message := compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: content,
 			}
 
 			evt := event.New(
 				invocation.InvocationID,
 				r.name,
-				event.WithResponse(&model.Response{
+				event.WithResponse(&compat.Response{
 					ID:        workflowRunID,
-					Object:    model.ObjectTypeChatCompletionChunk,
-					Choices:   []model.Choice{{Delta: message}},
+					Object:    compat.ObjectTypeChatCompletionChunk,
+					Choices:   []compat.Choice{{Delta: message}},
 					Timestamp: time.Now(),
 					Created:   time.Now().Unix(),
 					IsPartial: true,
 					Done:      false,
 				}),
-				event.WithObject(model.ObjectTypeChatCompletionChunk),
+				event.WithObject(compat.ObjectTypeChatCompletionChunk),
 			)
 			agent.EmitEvent(ctx, invocation, eventChan, evt)
 		}
@@ -317,16 +317,16 @@ func (r *DifyAgent) sendFinalStreamingEvent(
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:        messageID,
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Done:      true,
 			IsPartial: false,
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: aggregatedContent,
 				},
 			}},
@@ -481,7 +481,7 @@ func (r *DifyAgent) convertAndEmitNonStreamingEvent(
 	result *dify.ChatMessageResponse,
 ) {
 	evt := r.eventConverter.ConvertToEvent(result, r.name, invocation)
-	evt.Object = model.ObjectTypeChatCompletion
+	evt.Object = compat.ObjectTypeChatCompletion
 	agent.EmitEvent(ctx, invocation, eventChan, evt)
 }
 

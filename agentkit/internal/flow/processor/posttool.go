@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const systemPromptSeparator = "\n\n"
@@ -110,7 +110,7 @@ func NewPostToolRequestProcessor(
 func (p *PostToolRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil || p.prompt == "" {
@@ -138,7 +138,7 @@ func (p *PostToolRequestProcessor) ProcessRequest(
 	}
 
 	req.Messages = append(
-		[]model.Message{model.NewSystemMessage(p.prompt)},
+		[]compat.Message{compat.NewSystemMessage(p.prompt)},
 		req.Messages...,
 	)
 }
@@ -157,12 +157,12 @@ func (p *PostToolRequestProcessor) SupportsContextCompactionRebuild(
 func (p *PostToolRequestProcessor) RebuildRequestForContextCompaction(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	p.ProcessRequest(ctx, invocation, req, nil)
 }
 
-func appendPostToolPrompt(msg *model.Message, prompt string) {
+func appendPostToolPrompt(msg *compat.Message, prompt string) {
 	if msg.Content == "" {
 		msg.Content = prompt
 		return
@@ -170,9 +170,9 @@ func appendPostToolPrompt(msg *model.Message, prompt string) {
 	msg.Content += systemPromptSeparator + prompt
 }
 
-func hasPostToolPrompt(msgs []model.Message, prompt string) bool {
+func hasPostToolPrompt(msgs []compat.Message, prompt string) bool {
 	for _, msg := range msgs {
-		if msg.Role == model.RoleSystem &&
+		if msg.Role == compat.RoleSystem &&
 			strings.Contains(msg.Content, prompt) {
 			return true
 		}
@@ -183,12 +183,12 @@ func hasPostToolPrompt(msgs []model.Message, prompt string) bool {
 // hasPendingToolResultMessages returns true when the latest non-system
 // message in the request is a tool result. Historical tool results that are
 // followed by assistant or user messages do not count as pending.
-func hasPendingToolResultMessages(msgs []model.Message) bool {
+func hasPendingToolResultMessages(msgs []compat.Message) bool {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		switch msgs[i].Role {
-		case model.RoleSystem:
+		case compat.RoleSystem:
 			continue
-		case model.RoleTool:
+		case compat.RoleTool:
 			return true
 		default:
 			return false

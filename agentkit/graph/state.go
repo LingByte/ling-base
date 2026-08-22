@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/LingByte/ling-base/agentkit/internal/util"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	// It is consumed once and then cleared after successful LLM execution.
 	StateKeyUserInput = "user_input"
 	// StateKeyAgentInputMessage is the key of the AgentNode input message.
-	// It lets an AgentNode pass a typed *model.Message, such as a tool result,
+	// It lets an AgentNode pass a typed *compat.Message, such as a tool result,
 	// to the child agent invocation. It is consumed once and then cleared after
 	// successful AgentNode execution.
 	StateKeyAgentInputMessage = "agent_input_message"
@@ -32,7 +32,7 @@ const (
 	// the current round input completely. It is consumed once and then cleared.
 	StateKeyOneShotMessages = "one_shot_messages"
 	// StateKeyOneShotMessagesByNode stores one-shot messages scoped to a target
-	// node ID. The value is a map[nodeID][]model.Message, allowing parallel
+	// node ID. The value is a map[nodeID][]compat.Message, allowing parallel
 	// branches to prepare one-shot inputs for different LLM nodes without
 	// clobbering a shared global key.
 	StateKeyOneShotMessagesByNode = "one_shot_messages_by_node"
@@ -79,7 +79,7 @@ type State map[string]any
 //
 // Example:
 //
-//	if messages, ok := GetStateValue[[]model.Message](state, StateKeyMessages); ok {
+//	if messages, ok := GetStateValue[[]compat.Message](state, StateKeyMessages); ok {
 //	    // use messages
 //	}
 //	if userInput, ok := GetStateValue[string](state, StateKeyUserInput); ok {
@@ -93,13 +93,13 @@ func GetStateValue[T any](s State, key string) (T, bool) {
 // It writes an incremental update to StateKeyOneShotMessagesByNode.
 func SetOneShotMessagesForNode(
 	nodeID string,
-	msgs []model.Message,
+	msgs []compat.Message,
 ) State {
 	if nodeID == "" || len(msgs) == 0 {
 		return ClearOneShotMessagesForNode(nodeID)
 	}
-	update := map[string][]model.Message{
-		nodeID: append([]model.Message(nil), msgs...),
+	update := map[string][]compat.Message{
+		nodeID: append([]compat.Message(nil), msgs...),
 	}
 	return State{
 		StateKeyOneShotMessagesByNode: update,
@@ -117,12 +117,12 @@ func SetOneShotMessagesForNode(
 // This is useful when a single upstream node needs to prepare one-shot inputs
 // for many downstream LLM nodes in one return value.
 func SetOneShotMessagesByNode(
-	byNode map[string][]model.Message,
+	byNode map[string][]compat.Message,
 ) State {
 	if len(byNode) == 0 {
 		return nil
 	}
-	update := make(map[string][]model.Message, len(byNode))
+	update := make(map[string][]compat.Message, len(byNode))
 	for nodeID, msgs := range byNode {
 		if nodeID == "" {
 			continue
@@ -131,7 +131,7 @@ func SetOneShotMessagesByNode(
 			update[nodeID] = nil
 			continue
 		}
-		update[nodeID] = append([]model.Message(nil), msgs...)
+		update[nodeID] = append([]compat.Message(nil), msgs...)
 	}
 	if len(update) == 0 {
 		return nil
@@ -154,7 +154,7 @@ func ClearOneShotMessagesForNode(nodeID string) State {
 	if nodeID == "" {
 		return nil
 	}
-	update := map[string][]model.Message{
+	update := map[string][]compat.Message{
 		nodeID: nil,
 	}
 	return State{
@@ -167,7 +167,7 @@ func ClearOneShotMessagesForNode(nodeID string) State {
 func GetOneShotMessagesForNode(
 	state State,
 	nodeID string,
-) ([]model.Message, bool) {
+) ([]compat.Message, bool) {
 	if state == nil || nodeID == "" {
 		return nil, false
 	}
@@ -177,12 +177,12 @@ func GetOneShotMessagesForNode(
 	}
 
 	switch m := raw.(type) {
-	case map[string][]model.Message:
+	case map[string][]compat.Message:
 		msgs := m[nodeID]
 		if len(msgs) == 0 {
 			return nil, false
 		}
-		return append([]model.Message(nil), msgs...), true
+		return append([]compat.Message(nil), msgs...), true
 	case map[string]any:
 		entry, ok := m[nodeID]
 		if !ok || entry == nil {
@@ -484,22 +484,22 @@ func MergeReducer(existing, update any) any {
 }
 
 // OneShotMessagesByNodeReducer merges targeted one-shot inputs scoped by node
-// ID. It treats the update as a partial map[nodeID][]model.Message and applies
+// ID. It treats the update as a partial map[nodeID][]compat.Message and applies
 // per-entry overrides. A nil update clears the entire map. For entries:
 //   - nil / empty message slice: delete the node entry
 //   - non-empty message slice: replace the node entry
 func OneShotMessagesByNodeReducer(existing, update any) any {
-	base := make(map[string][]model.Message)
+	base := make(map[string][]compat.Message)
 	for nodeID, msgs := range decodeOneShotMessagesByNodeExisting(existing) {
 		base[nodeID] = msgs
 	}
 
 	if update == nil {
-		return map[string][]model.Message(nil)
+		return map[string][]compat.Message(nil)
 	}
 
 	switch u := update.(type) {
-	case map[string][]model.Message:
+	case map[string][]compat.Message:
 		applyOneShotMessagesByNodeUpdate(base, u)
 		return normalizeOneShotMessagesByNode(base)
 	case map[string]any:
@@ -516,20 +516,20 @@ func OneShotMessagesByNodeReducer(existing, update any) any {
 }
 
 func applyOneShotMessagesByNodeUpdate(
-	base map[string][]model.Message,
-	update map[string][]model.Message,
+	base map[string][]compat.Message,
+	update map[string][]compat.Message,
 ) {
 	for nodeID, msgs := range update {
 		if len(msgs) == 0 {
 			delete(base, nodeID)
 			continue
 		}
-		base[nodeID] = append([]model.Message(nil), msgs...)
+		base[nodeID] = append([]compat.Message(nil), msgs...)
 	}
 }
 
 func applyOneShotMessagesByNodeAnyUpdate(
-	base map[string][]model.Message,
+	base map[string][]compat.Message,
 	update map[string]any,
 ) {
 	for nodeID, raw := range update {
@@ -547,30 +547,30 @@ func applyOneShotMessagesByNodeAnyUpdate(
 }
 
 func normalizeOneShotMessagesByNode(
-	m map[string][]model.Message,
-) map[string][]model.Message {
+	m map[string][]compat.Message,
+) map[string][]compat.Message {
 	if len(m) == 0 {
-		return map[string][]model.Message(nil)
+		return map[string][]compat.Message(nil)
 	}
 	return m
 }
 
-func decodeOneShotMessagesByNodeExisting(v any) map[string][]model.Message {
+func decodeOneShotMessagesByNodeExisting(v any) map[string][]compat.Message {
 	if v == nil {
 		return nil
 	}
 	switch m := v.(type) {
-	case map[string][]model.Message:
-		out := make(map[string][]model.Message, len(m))
+	case map[string][]compat.Message:
+		out := make(map[string][]compat.Message, len(m))
 		for nodeID, msgs := range m {
 			if len(msgs) == 0 {
 				continue
 			}
-			out[nodeID] = append([]model.Message(nil), msgs...)
+			out[nodeID] = append([]compat.Message(nil), msgs...)
 		}
 		return out
 	case map[string]any:
-		out := make(map[string][]model.Message, len(m))
+		out := make(map[string][]compat.Message, len(m))
 		for nodeID, raw := range m {
 			msgs, err := decodeMessages(raw)
 			if err != nil || len(msgs) == 0 {
@@ -600,18 +600,18 @@ func decodeMapStringAny(v any) (map[string]any, bool) {
 	return out, true
 }
 
-func decodeMessages(v any) ([]model.Message, error) {
+func decodeMessages(v any) ([]compat.Message, error) {
 	if v == nil {
 		return nil, nil
 	}
-	if msgs, ok := v.([]model.Message); ok {
-		return append([]model.Message(nil), msgs...), nil
+	if msgs, ok := v.([]compat.Message); ok {
+		return append([]compat.Message(nil), msgs...), nil
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-	var msgs []model.Message
+	var msgs []compat.Message
 	if err := json.Unmarshal(b, &msgs); err != nil {
 		return nil, err
 	}
@@ -621,9 +621,9 @@ func decodeMessages(v any) ([]model.Message, error) {
 // MessageReducer handles message arrays with ID-based updates and MessageOp support.
 func MessageReducer(existing, update any) any {
 	if existing == nil {
-		existing = []model.Message{}
+		existing = []compat.Message{}
 	}
-	existingMsgs, ok1 := existing.([]model.Message)
+	existingMsgs, ok1 := existing.([]compat.Message)
 	if !ok1 {
 		return update
 	}
@@ -631,9 +631,9 @@ func MessageReducer(existing, update any) any {
 	case nil:
 		// no-op
 		return existingMsgs
-	case model.Message:
+	case compat.Message:
 		return append(existingMsgs, x)
-	case []model.Message:
+	case []compat.Message:
 		return append(existingMsgs, x...)
 	case MessageOp:
 		return x.Apply(existingMsgs)

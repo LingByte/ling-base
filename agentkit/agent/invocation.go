@@ -31,7 +31,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -153,9 +153,9 @@ type Invocation struct {
 	// SessionService is the session service used by this invocation.
 	SessionService session.Service
 	// Model is the model that is being used for the invocation.
-	Model model.Model
+	Model compat.Model
 	// Message is the message that is being sent to the agent.
-	Message model.Message
+	Message compat.Message
 	// RunOptions is the options for the Run method.
 	RunOptions RunOptions
 	// TransferInfo contains information about a pending agent transfer.
@@ -165,7 +165,7 @@ type Invocation struct {
 	Plugins PluginManager
 
 	// StructuredOutput defines how the model should produce structured output for this invocation.
-	StructuredOutput *model.StructuredOutput
+	StructuredOutput *compat.StructuredOutput
 	// StructuredOutputType is the Go type to unmarshal the final JSON into.
 	StructuredOutputType reflect.Type
 
@@ -222,7 +222,7 @@ type Invocation struct {
 	MaxToolIterations int
 
 	// timingInfo stores timing information for the first LLM call in this invocation.
-	timingInfo *model.TimingInfo
+	timingInfo *compat.TimingInfo
 
 	// llmCallCount tracks how many LLM calls have been made in this invocation.
 	// This is used together with MaxLLMCalls to enforce a per-invocation limit.
@@ -272,7 +272,7 @@ type RunOption func(*RunOptions)
 // error fails the current call before the request is built. A selector may be
 // called concurrently by different runs and must protect any shared state it
 // owns.
-type ModelSelector func(ctx context.Context, inv *Invocation) (model.Model, error)
+type ModelSelector func(ctx context.Context, inv *Invocation) (compat.Model, error)
 
 // AvailableSkillsRenderRequest contains inputs for rendering the request-scoped
 // Available skills section.
@@ -443,7 +443,7 @@ func WithKnowledgeConditionedFilter(filter *searchfilter.UniversalFilterConditio
 // content processor itself does not read this field; it derives messages from
 // Session events and may fall back to a single `invocation.Message` when the
 // Session is empty.
-func WithMessages(messages []model.Message) RunOption {
+func WithMessages(messages []compat.Message) RunOption {
 	return func(opts *RunOptions) {
 		opts.Messages = messages
 	}
@@ -451,7 +451,7 @@ func WithMessages(messages []model.Message) RunOption {
 
 // WithInjectedContextMessages appends per-run messages that are injected into the
 // model request context but are not persisted into the session transcript.
-func WithInjectedContextMessages(messages []model.Message) RunOption {
+func WithInjectedContextMessages(messages []compat.Message) RunOption {
 	return func(opts *RunOptions) {
 		opts.InjectedContextMessages = append(opts.InjectedContextMessages, messages...)
 	}
@@ -460,7 +460,7 @@ func WithInjectedContextMessages(messages []model.Message) RunOption {
 // WithLateContextMessages appends per-run messages that are injected into the
 // model request near the latest user turn but are not persisted into the session
 // transcript.
-func WithLateContextMessages(messages []model.Message) RunOption {
+func WithLateContextMessages(messages []compat.Message) RunOption {
 	return func(opts *RunOptions) {
 		opts.LateContextMessages = append(opts.LateContextMessages, messages...)
 	}
@@ -472,7 +472,7 @@ type UserMessageRewriteArgs struct {
 	UserID          string
 	SessionID       string
 	RequestID       string
-	OriginalMessage model.Message
+	OriginalMessage compat.Message
 }
 
 // UserMessageRewriter rewrites one current-turn user input into an ordered
@@ -481,7 +481,7 @@ type UserMessageRewriteArgs struct {
 type UserMessageRewriter func(
 	ctx context.Context,
 	args *UserMessageRewriteArgs,
-) ([]model.Message, error)
+) ([]compat.Message, error)
 
 // WithUserMessageRewriter rewrites the current-turn input into an ordered
 // message sequence before runner persists it into the session transcript.
@@ -730,7 +730,7 @@ func WithTraceStartedCallback(
 //	runner.Run(ctx, userID, sessionID, message,
 //	    agent.WithModel(customModel),
 //	)
-func WithModel(m model.Model) RunOption {
+func WithModel(m compat.Model) RunOption {
 	return func(opts *RunOptions) {
 		opts.Model = m
 	}
@@ -863,13 +863,13 @@ func WithStructuredOutputJSON(examplePtr any, strict bool, description string) R
 	}
 }
 
-func newStructuredOutput(name string, schema map[string]any, strict bool, description string) *model.StructuredOutput {
+func newStructuredOutput(name string, schema map[string]any, strict bool, description string) *compat.StructuredOutput {
 	if schema == nil {
 		return nil
 	}
-	return &model.StructuredOutput{
-		Type: model.StructuredOutputJSONSchema,
-		JSONSchema: &model.JSONSchemaConfig{
+	return &compat.StructuredOutput{
+		Type: compat.StructuredOutputJSONSchema,
+		JSONSchema: &compat.JSONSchemaConfig{
 			Name:        name,
 			Schema:      schema,
 			Strict:      strict,
@@ -939,7 +939,7 @@ func WithAdditionalTools(tools []tool.Tool) RunOption {
 // External tools are visible to the model like additional tools, but the
 // framework will not execute them. When the model calls one, the run stops
 // after the assistant tool_call response. The caller should execute the tool
-// externally and continue with model.NewToolMessage.
+// externally and continue with compat.NewToolMessage.
 func WithExternalTools(tools []tool.Tool) RunOption {
 	return func(opts *RunOptions) {
 		if opts == nil {
@@ -1169,17 +1169,17 @@ type RunOptions struct {
 	// then rely on Session events for subsequent turns. The content processor
 	// ignores this field and reads only from Session events (or falls back to
 	// `invocation.Message` when no events exist).
-	Messages []model.Message
+	Messages []compat.Message
 
 	// InjectedContextMessages allows callers to inject additional context messages
 	// into the model request for this run. These messages are not persisted into
 	// session events and therefore must be provided on every run if needed.
-	InjectedContextMessages []model.Message
+	InjectedContextMessages []compat.Message
 
 	// LateContextMessages allows callers to inject additional context messages
 	// near the latest user turn for this run. These messages are not persisted
 	// into session events and therefore must be provided on every run if needed.
-	LateContextMessages []model.Message
+	LateContextMessages []compat.Message
 
 	// UserMessageRewriter rewrites the current-turn input into an ordered
 	// message sequence before runner persists it into the session transcript.
@@ -1304,7 +1304,7 @@ type RunOptions struct {
 	// Model is the model to use for this specific run.
 	// If set, it temporarily overrides the agent's default model for this request only.
 	// This allows per-request model switching without affecting other concurrent requests.
-	Model model.Model
+	Model compat.Model
 
 	// ModelName is the name of the model to use for this specific run.
 	// The agent will look up the model by name from its registered models.
@@ -1363,7 +1363,7 @@ type RunOptions struct {
 	AvailableSkillsRenderer AvailableSkillsRenderer
 
 	// StructuredOutput defines how the model should produce structured output for this run.
-	StructuredOutput *model.StructuredOutput
+	StructuredOutput *compat.StructuredOutput
 
 	// StructuredOutputType is the Go type to unmarshal the final JSON into for this run.
 	StructuredOutputType reflect.Type
@@ -1536,11 +1536,11 @@ func NewInvocation(invocationOpts ...InvocationOptions) *Invocation {
 		opt(inv)
 	}
 
-	if inv.Message.Role == "" && model.HasPayload(inv.Message) {
+	if inv.Message.Role == "" && compat.HasPayload(inv.Message) {
 		log.Warnf(
 			"agent.NewInvocation received a message with empty role; defaulting to user",
 		)
-		inv.Message.Role = model.RoleUser
+		inv.Message.Role = compat.RoleUser
 	}
 
 	if inv.Branch == "" {
@@ -2185,12 +2185,12 @@ func GetStateValue[T any](inv *Invocation, key string) (T, bool) {
 // GetOrCreateTimingInfo gets or creates timing info for this invocation.
 // Only the first LLM call will create and populate timing info; subsequent calls reuse it.
 // This ensures timing metrics only reflect the first LLM call in scenarios with multiple calls (e.g., tool calls).
-func (inv *Invocation) GetOrCreateTimingInfo() *model.TimingInfo {
+func (inv *Invocation) GetOrCreateTimingInfo() *compat.TimingInfo {
 	if inv == nil {
 		return nil
 	}
 	if inv.timingInfo == nil {
-		inv.timingInfo = &model.TimingInfo{}
+		inv.timingInfo = &compat.TimingInfo{}
 	}
 	return inv.timingInfo
 }

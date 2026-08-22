@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/google/uuid"
@@ -147,20 +147,20 @@ func (a *claudeCodeAgent) runInvocation(ctx context.Context, invocation *agent.I
 		if len(combined) == 0 {
 			msg = runErr.Error()
 		}
-		rsp := &model.Response{
-			Object: model.ObjectTypeError,
+		rsp := &compat.Response{
+			Object: compat.ObjectTypeError,
 			Done:   true,
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: msg,
 					},
 				},
 			},
-			Error: &model.ResponseError{
-				Type:    model.ErrorTypeRunError,
+			Error: &compat.ResponseError{
+				Type:    compat.ErrorTypeRunError,
 				Message: msg,
 			},
 		}
@@ -184,14 +184,14 @@ func (a *claudeCodeAgent) runInvocation(ctx context.Context, invocation *agent.I
 	if finalResult != "" {
 		finalContent = finalResult
 	}
-	rsp := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: finalContent,
 				},
 			},
@@ -233,20 +233,20 @@ func (a *claudeCodeAgent) emitFlowError(
 	combined []byte,
 	flowErr error,
 ) {
-	rsp := &model.Response{
-		Object: model.ObjectTypeError,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeError,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: string(combined),
 				},
 			},
 		},
-		Error: &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		Error: &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: flowErr.Error(),
 		},
 	}

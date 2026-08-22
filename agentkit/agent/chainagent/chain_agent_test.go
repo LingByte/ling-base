@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -79,14 +79,14 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 			evt.Object = "test.completion"
 
 			// Add some content to simulate real events.
-			choice := model.Choice{
+			choice := compat.Choice{
 				Index: i,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: m.eventContent,
 				},
 			}
-			evt.Choices = []model.Choice{choice}
+			evt.Choices = []compat.Choice{choice}
 			evt.Done = i == m.eventCount-1 // Mark last event as done.
 
 			select {
@@ -119,7 +119,7 @@ func (m *mockErrorEventAgent) Run(ctx context.Context, inv *agent.Invocation) (<
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		evt := event.NewErrorEvent(inv.InvocationID, m.name, model.ErrorTypeFlowError, "boom")
+		evt := event.NewErrorEvent(inv.InvocationID, m.name, compat.ErrorTypeFlowError, "boom")
 		_ = agent.EmitEvent(ctx, inv, ch, evt)
 	}()
 	return ch, nil
@@ -235,12 +235,12 @@ func (m *manualCompletionAgent) Run(
 	go func() {
 		defer close(ch)
 		evt := &event.Event{
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID:     "manual-graph-completion",
 				Object: graph.ObjectTypeGraphExecution,
 				Done:   true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("manual-final"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("manual-final"),
 				}},
 			},
 			StateDelta: map[string][]byte{
@@ -380,7 +380,7 @@ func TestChainAgent_SubAgentError(t *testing.T) {
 	// Last event should be an error event.
 	lastEvent := events[len(events)-1]
 	require.NotNil(t, lastEvent.Error)
-	require.Equal(t, model.ErrorTypeFlowError, lastEvent.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, lastEvent.Error.Type)
 }
 
 func TestChainAgent_ErrorEventStopsSubsequentAgents(t *testing.T) {
@@ -409,7 +409,7 @@ func TestChainAgent_ErrorEventStopsSubsequentAgents(t *testing.T) {
 	require.Equal(t, int32(0), atomic.LoadInt32(&downstreamRuns))
 	require.NotEmpty(t, events)
 	require.NotNil(t, events[len(events)-1].Error)
-	require.Equal(t, model.ErrorTypeFlowError, events[len(events)-1].Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, events[len(events)-1].Error.Type)
 }
 
 func TestChainAgent_EmptySubAgents(t *testing.T) {
@@ -492,7 +492,7 @@ func TestChainAgent_WithCallbacks(t *testing.T) {
 	callbacks := agent.NewCallbacks()
 
 	// Test before agent callback that skips execution
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*compat.Response, error) {
 		if invocation.Message.Content == "skip" {
 			return nil, nil
 		}
@@ -510,8 +510,8 @@ func TestChainAgent_WithCallbacks(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation-skip",
 		AgentName:    "test-chain-agent",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "skip",
 		},
 	}
@@ -556,7 +556,7 @@ func TestCreateSubAgentInvocation(t *testing.T) {
 	base := agent.NewInvocation(
 		agent.WithInvocationAgent(parent),
 		agent.WithInvocationEventFilterKey("root"),
-		agent.WithInvocationMessage(model.Message{Role: model.RoleUser, Content: "hi"}),
+		agent.WithInvocationMessage(compat.Message{Role: compat.RoleUser, Content: "hi"}),
 	)
 	require.Equal(t, "parent", base.AgentName)
 	require.Equal(t, "parent", base.Branch)
@@ -615,14 +615,14 @@ func TestChainAgent_AfterCallback(t *testing.T) {
 
 	// Prepare callbacks with after agent producing custom response.
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, _ error) (*model.Response, error) {
-		return &model.Response{
+	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, _ error) (*compat.Response, error) {
+		return &compat.Response{
 			Object: "test.response",
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "done",
 				},
 			}},
@@ -661,7 +661,7 @@ func TestChainAgent_AfterCallbackError(t *testing.T) {
 
 	// Prepare callbacks with after agent returning error.
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, _ error) (*model.Response, error) {
+	callbacks.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, _ error) (*compat.Response, error) {
 		return nil, errors.New("after callback failed")
 	})
 
@@ -723,14 +723,14 @@ func TestChainAgent_BeforeCallbackResp(t *testing.T) {
 	sub := &mockNoEventAgent{name: "child"}
 
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{
 			Object: "test.before",
 			Done:   true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "skipped",
 				},
 			}},
@@ -762,7 +762,7 @@ func TestChainAgent_BeforeCallbackError(t *testing.T) {
 	sub := &mockNoEventAgent{name: "child"}
 
 	callbacks := agent.NewCallbacks()
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, errors.New("failure in before")
 	})
 
@@ -926,7 +926,7 @@ func TestChainAgent_DisableGraphCompletionEvent_PreservesVisibleChildResponse(t 
 		}
 	}
 	require.NotNil(t, visibleEvent)
-	require.Equal(t, model.ObjectTypeChatCompletion, visibleEvent.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visibleEvent.Object)
 	require.Len(t, visibleEvent.Response.Choices, 1)
 	require.Equal(t, "child-final", visibleEvent.Response.Choices[0].Message.Content)
 	require.Equal(t, []byte(`"child-final"`), visibleEvent.StateDelta[graph.StateKeyLastResponse])
@@ -988,7 +988,7 @@ func TestChainAgent_DisableGraphCompletionEvent_PreservesStateOnlyChildCompletio
 	var visibleEvent *event.Event
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -1053,7 +1053,7 @@ func TestChainAgent_Run_RecordsStreamTraceAttribute(t *testing.T) {
 	stream := true
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 		RunOptions: agent.RunOptions{
 			Stream: &stream,
 		},
@@ -1125,7 +1125,7 @@ func TestChainAgent_Run_PreservesFinalResponseWhenAfterCallbackReturnsNil(t *tes
 
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	events, err := chainAgent.Run(context.Background(), invocation)

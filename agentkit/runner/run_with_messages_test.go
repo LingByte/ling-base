@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,11 +23,11 @@ import (
 type capturingRunner struct {
 	lastUserID    string
 	lastSessionID string
-	lastMessage   model.Message
+	lastMessage   compat.Message
 	lastRunOpts   agent.RunOptions
 }
 
-func (c *capturingRunner) Run(ctx context.Context, userID, sessionID string, message model.Message, runOpts ...agent.RunOption) (<-chan *event.Event, error) {
+func (c *capturingRunner) Run(ctx context.Context, userID, sessionID string, message compat.Message, runOpts ...agent.RunOption) (<-chan *event.Event, error) {
 	c.lastUserID = userID
 	c.lastSessionID = sessionID
 	c.lastMessage = message
@@ -49,19 +49,19 @@ func (c *capturingRunner) Close() error {
 
 func TestRunWithMessages_PassesHistoryAndLatestUser(t *testing.T) {
 	r := &capturingRunner{}
-	msgs := []model.Message{
-		model.NewSystemMessage("sys"),
-		model.NewAssistantMessage("a1"),
-		model.NewUserMessage("u1"),
-		model.NewAssistantMessage("a2"),
-		model.NewUserMessage("latest-user"),
+	msgs := []compat.Message{
+		compat.NewSystemMessage("sys"),
+		compat.NewAssistantMessage("a1"),
+		compat.NewUserMessage("u1"),
+		compat.NewAssistantMessage("a2"),
+		compat.NewUserMessage("latest-user"),
 	}
 
 	_, err := RunWithMessages(context.Background(), r, "u", "s", msgs)
 	require.NoError(t, err)
 
 	// Latest user message should be passed as the invocation message.
-	require.Equal(t, model.RoleUser, r.lastMessage.Role)
+	require.Equal(t, compat.RoleUser, r.lastMessage.Role)
 	require.Equal(t, "latest-user", r.lastMessage.Content)
 
 	// The run option should carry the full message history.
@@ -74,9 +74,9 @@ func TestRunWithMessages_PassesHistoryAndLatestUser(t *testing.T) {
 
 func TestRunWithMessages_NoUserFallback(t *testing.T) {
 	r := &capturingRunner{}
-	msgs := []model.Message{
-		model.NewSystemMessage("sys"),
-		model.NewAssistantMessage("only-assistant"),
+	msgs := []compat.Message{
+		compat.NewSystemMessage("sys"),
+		compat.NewAssistantMessage("only-assistant"),
 	}
 
 	_, err := RunWithMessages(context.Background(), r, "u", "s", msgs)
@@ -84,7 +84,7 @@ func TestRunWithMessages_NoUserFallback(t *testing.T) {
 
 	// No user message found -> zero-value message is passed.
 	require.Equal(t, "", r.lastMessage.Content)
-	require.Equal(t, model.Role(""), r.lastMessage.Role)
+	require.Equal(t, compat.Role(""), r.lastMessage.Role)
 
 	// Still carries the full history in run options.
 	require.Equal(t, len(msgs), len(r.lastRunOpts.Messages))

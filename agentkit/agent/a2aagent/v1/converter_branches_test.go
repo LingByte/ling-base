@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 )
@@ -26,31 +26,31 @@ func TestDefaultInvocationConverterContentPartsAndMetadata(t *testing.T) {
 	text := "text part"
 	invocation := &agent.Invocation{
 		InvocationID: "invocation",
-		Message: model.Message{
+		Message: compat.Message{
 			Content: "content",
-			ContentParts: []model.ContentPart{
-				{Type: model.ContentTypeText, Text: &text},
-				{Type: model.ContentTypeText},
-				{Type: model.ContentTypeImage, Image: &model.Image{
+			ContentParts: []compat.ContentPart{
+				{Type: compat.ContentTypeText, Text: &text},
+				{Type: compat.ContentTypeText},
+				{Type: compat.ContentTypeImage, Image: &compat.Image{
 					Data: []byte("image"), Format: "image/png",
 				}},
-				{Type: model.ContentTypeImage, Image: &model.Image{
+				{Type: compat.ContentTypeImage, Image: &compat.Image{
 					URL: "https://example.com/image", Format: "image/png",
 				}},
-				{Type: model.ContentTypeImage},
-				{Type: model.ContentTypeAudio, Audio: &model.Audio{
+				{Type: compat.ContentTypeImage},
+				{Type: compat.ContentTypeAudio, Audio: &compat.Audio{
 					Data: []byte("audio"), Format: "audio/wav",
 				}},
-				{Type: model.ContentTypeAudio},
-				{Type: model.ContentTypeFile, File: &model.File{
+				{Type: compat.ContentTypeAudio},
+				{Type: compat.ContentTypeFile, File: &compat.File{
 					Name: "report.pdf", Data: []byte("file"), MimeType: "application/pdf",
 				}},
-				{Type: model.ContentTypeFile, File: &model.File{
+				{Type: compat.ContentTypeFile, File: &compat.File{
 					URL: "https://example.com/file", FileID: "ignored-file-id", MimeType: "application/pdf",
 				}},
-				{Type: model.ContentTypeFile, File: &model.File{FileID: "provider-file-id"}},
-				{Type: model.ContentTypeFile},
-				{Type: model.ContentType("unknown")},
+				{Type: compat.ContentTypeFile, File: &compat.File{FileID: "provider-file-id"}},
+				{Type: compat.ContentTypeFile},
+				{Type: compat.ContentType("unknown")},
 			},
 		},
 		Session: &session.Session{ID: "context", UserID: "user"},
@@ -281,7 +281,7 @@ func TestParseA2AMessagePartsBuiltInsAndMappers(t *testing.T) {
 		custom,
 	})
 	message.Metadata = map[string]any{
-		ia2a.MessageMetadataObjectTypeKey: model.ObjectTypeChatCompletion,
+		ia2a.MessageMetadataObjectTypeKey: compat.ObjectTypeChatCompletion,
 		ia2a.MessageMetadataTagKey:        "tag",
 		ia2a.MessageMetadataResponseIDKey: "response",
 		ia2a.MessageMetadataStateDeltaKey: ia2a.EncodeStateDeltaMetadata(
@@ -310,7 +310,7 @@ func TestParseA2AMessagePartsBuiltInsAndMappers(t *testing.T) {
 			mapperCalls++
 			mapped.SetTextContent(mapped.GetTextContent() + "mapped")
 			mapped.SetReasoningContent(mapped.GetReasoningContent() + " mapped reasoning")
-			mapped.AppendToolCall(model.ToolCall{ID: "mapped-call"})
+			mapped.AppendToolCall(compat.ToolCall{ID: "mapped-call"})
 			mapped.AppendToolResponse(A2ADataPartToolResponse{
 				ID: "mapped", Name: "mapped", Content: "mapped",
 			})
@@ -417,14 +417,14 @@ func TestDataPartAndTextHelperBranches(t *testing.T) {
 
 func TestResponseBuildersErrorsObjectsAndCompletion(t *testing.T) {
 	now := time.Now()
-	responseErr := &model.ResponseError{Type: model.ErrorTypeFlowError, Message: "failed"}
+	responseErr := &compat.ResponseError{Type: compat.ErrorTypeFlowError, Message: "failed"}
 	failed := &parseResult{taskState: protocol.TaskStateFailed, responseError: responseErr}
 	if got := buildStreamingResponse("response", failed, protocol.MessageRoleAgent); !got.Done ||
-		got.Object != model.ObjectTypeError || got.Error != responseErr {
+		got.Object != compat.ObjectTypeError || got.Error != responseErr {
 		t.Fatalf("stream failure response = %#v", got)
 	}
 	if got := buildNonStreamingResponse("response", failed, protocol.MessageRoleAgent); !got.Done ||
-		got.Object != model.ObjectTypeError || got.Error != responseErr {
+		got.Object != compat.ObjectTypeError || got.Error != responseErr {
 		t.Fatalf("unary failure response = %#v", got)
 	}
 
@@ -432,10 +432,10 @@ func TestResponseBuildersErrorsObjectsAndCompletion(t *testing.T) {
 		textContent:   "retry",
 		responseError: responseErr,
 		taskState:     protocol.TaskStateInputRequired,
-		objectType:    model.ObjectTypeError,
+		objectType:    compat.ObjectTypeError,
 	}
 	if got := buildStreamingResponse("response", recoverable, protocol.MessageRoleUser); got.Done ||
-		got.Object != model.ObjectTypeChatCompletion ||
+		got.Object != compat.ObjectTypeChatCompletion ||
 		got.Choices[0].Message.Content != "retry" {
 		t.Fatalf("recoverable stream response = %#v", got)
 	}
@@ -444,7 +444,7 @@ func TestResponseBuildersErrorsObjectsAndCompletion(t *testing.T) {
 		recoverable,
 		protocol.MessageRoleUser,
 		now,
-	); got.Choices[0].Message.Role != model.RoleUser {
+	); got.Choices[0].Message.Role != compat.RoleUser {
 		t.Fatalf("recoverable response = %#v", got)
 	}
 
@@ -469,21 +469,21 @@ func TestResponseBuildersErrorsObjectsAndCompletion(t *testing.T) {
 
 	if got := extractObjectType(&parseResult{
 		codeExecution: "print(1)",
-	}); got != model.ObjectTypePostprocessingCodeExecution {
+	}); got != compat.ObjectTypePostprocessingCodeExecution {
 		t.Fatalf("code object type = %q", got)
 	}
 	if got := extractObjectType(&parseResult{
 		toolResponses: []toolResponseData{{content: "result"}},
-	}); got != model.ObjectTypeToolResponse {
+	}); got != compat.ObjectTypeToolResponse {
 		t.Fatalf("tool response object type = %q", got)
 	}
 	if got := extractObjectType(&parseResult{
-		toolCalls: []model.ToolCall{{ID: "call"}},
-	}); got != model.ObjectTypeChatCompletion {
+		toolCalls: []compat.ToolCall{{ID: "call"}},
+	}); got != compat.ObjectTypeChatCompletion {
 		t.Fatalf("tool call object type = %q", got)
 	}
 
-	evt := event.New("inv", "agent", event.WithResponse(&model.Response{}))
+	evt := event.New("inv", "agent", event.WithResponse(&compat.Response{}))
 	markGraphCompletionEvent(evt, &parseResult{objectType: graph.ObjectTypeGraphExecution})
 	if !evt.Response.Done || evt.Response.IsPartial {
 		t.Fatalf("graph completion event = %#v", evt)
@@ -500,8 +500,8 @@ func TestResponseBuildersErrorsObjectsAndCompletion(t *testing.T) {
 
 func TestTerminalStructuredErrorMarking(t *testing.T) {
 	newErrorEvent := func() *event.Event {
-		return event.New("inv", "agent", event.WithResponse(&model.Response{
-			Error:     &model.ResponseError{Message: "failed"},
+		return event.New("inv", "agent", event.WithResponse(&compat.Response{
+			Error:     &compat.ResponseError{Message: "failed"},
 			IsPartial: true,
 		}))
 	}
@@ -513,7 +513,7 @@ func TestTerminalStructuredErrorMarking(t *testing.T) {
 	)
 	evt := newErrorEvent()
 	markTerminalStructuredErrorEvent(evt, &failed)
-	if !evt.Response.Done || evt.Response.Object != model.ObjectTypeError {
+	if !evt.Response.Done || evt.Response.Object != compat.ObjectTypeError {
 		t.Fatalf("failed status event = %#v", evt)
 	}
 

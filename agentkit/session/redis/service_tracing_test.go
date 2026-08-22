@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	atrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/stretchr/testify/assert"
@@ -319,8 +319,8 @@ func TestCreateSessionSummary_WithTracing(t *testing.T) {
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{
-		{Message: model.Message{Role: model.RoleUser, Content: "hello"}},
+	e.Response = &compat.Response{Choices: []compat.Choice{
+		{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}},
 	}}
 	require.NoError(t, svc.AppendEvent(context.Background(), sess, e))
 

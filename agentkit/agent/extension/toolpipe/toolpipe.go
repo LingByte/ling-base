@@ -40,7 +40,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -93,8 +93,8 @@ func (p *ToolPipe) Register(r *extension.Registry) {
 // to BeforeTool via context.
 func (p *ToolPipe) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -115,7 +115,7 @@ func (p *ToolPipe) beforeModel(
 	// which tools were augmented this round — no re-derivation needed.
 	if len(augmentedSet) > 0 {
 		newCtx := context.WithValue(ctx, augmentedSetCtxKey{}, augmentedSet)
-		return &model.BeforeModelResult{Context: newCtx}, nil
+		return &compat.BeforeModelResult{Context: newCtx}, nil
 	}
 	return nil, nil
 }
@@ -127,9 +127,9 @@ const toolpipeMarker = "\u200B<!-- toolpipe -->"
 
 // promptInjected checks whether toolpipe's prompt has already been
 // injected, preventing duplicate injection in multi-turn conversations.
-func (p *ToolPipe) promptInjected(req *model.Request) bool {
+func (p *ToolPipe) promptInjected(req *compat.Request) bool {
 	for _, msg := range req.Messages {
-		if msg.Role == model.RoleSystem && strings.Contains(msg.Content, toolpipeMarker) {
+		if msg.Role == compat.RoleSystem && strings.Contains(msg.Content, toolpipeMarker) {
 			return true
 		}
 	}
@@ -138,7 +138,7 @@ func (p *ToolPipe) promptInjected(req *model.Request) bool {
 
 // augmentToolSchemas adds the result_filter field to eligible tools' schemas.
 // Returns the set of tool names that were actually augmented.
-func (p *ToolPipe) augmentToolSchemas(req *model.Request) map[string]bool {
+func (p *ToolPipe) augmentToolSchemas(req *compat.Request) map[string]bool {
 	if len(req.Tools) == 0 {
 		return nil
 	}
@@ -189,20 +189,20 @@ func toolHasField(t tool.Tool, field string) bool {
 }
 
 // injectSystemPrompt appends a guidance fragment to the system message.
-func (p *ToolPipe) injectSystemPrompt(req *model.Request, prompt string) {
+func (p *ToolPipe) injectSystemPrompt(req *compat.Request, prompt string) {
 	// Embed the marker so we can detect re-injection in multi-turn.
 	tagged := prompt + toolpipeMarker
 
 	// Find existing system message and append; or prepend a new one.
 	for i, msg := range req.Messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			req.Messages[i].Content += "\n\n" + tagged
 			return
 		}
 	}
 	// No system message found — prepend one.
 	req.Messages = append(
-		[]model.Message{model.NewSystemMessage(tagged)},
+		[]compat.Message{compat.NewSystemMessage(tagged)},
 		req.Messages...,
 	)
 }

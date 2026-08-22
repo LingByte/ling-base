@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/agent/structure"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,15 +65,15 @@ type structureMockModel struct {
 
 func (m *structureMockModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	close(ch)
 	return ch, nil
 }
 
-func (m *structureMockModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *structureMockModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestExport_GraphAgent_HasRootAgentNodeAndEntryEdge(t *testing.T) {

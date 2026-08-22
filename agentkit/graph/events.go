@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph/internal/channel"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Event authors for graph-related events.
@@ -210,7 +210,7 @@ type NodeExecutionMetadata struct {
 	// Error is the error message if execution failed.
 	Error string `json:"error,omitempty"`
 	// ToolCalls contains tool call information for tool nodes.
-	ToolCalls []model.ToolCall `json:"toolCalls,omitempty"`
+	ToolCalls []compat.ToolCall `json:"toolCalls,omitempty"`
 	// ModelName contains the model name for LLM nodes.
 	ModelName string `json:"modelName,omitempty"`
 	// ModelInput contains the input sent to LLM nodes.
@@ -574,11 +574,11 @@ type NodeEventOptions struct {
 	EndTime       time.Time
 	InputKeys     []string
 	OutputKeys    []string
-	ToolCalls     []model.ToolCall
+	ToolCalls     []compat.ToolCall
 	ModelName     string
 	ModelInput    string
 	Error         string
-	ResponseError *model.ResponseError
+	ResponseError *compat.ResponseError
 	// Retry metadata (optional)
 	Attempt     int
 	MaxAttempts int
@@ -700,7 +700,7 @@ func WithNodeEventOutputKeys(outputKeys []string) NodeEventOption {
 }
 
 // WithNodeEventToolCalls sets the tool calls for node events.
-func WithNodeEventToolCalls(toolCalls []model.ToolCall) NodeEventOption {
+func WithNodeEventToolCalls(toolCalls []compat.ToolCall) NodeEventOption {
 	return func(opts *NodeEventOptions) {
 		opts.ToolCalls = toolCalls
 	}
@@ -728,7 +728,7 @@ func WithNodeEventError(errMsg string) NodeEventOption {
 }
 
 // WithNodeEventResponseError sets ResponseError for node events.
-func WithNodeEventResponseError(err *model.ResponseError) NodeEventOption {
+func WithNodeEventResponseError(err *compat.ResponseError) NodeEventOption {
 	return func(opts *NodeEventOptions) {
 		opts.ResponseError = err
 	}
@@ -932,7 +932,7 @@ type PregelEventOptions struct {
 	StartTime       time.Time
 	EndTime         time.Time
 	Error           string
-	ResponseError   *model.ResponseError
+	ResponseError   *compat.ResponseError
 	NodeID          string
 	InterruptKey    string
 	InterruptValue  any
@@ -1009,7 +1009,7 @@ func WithPregelEventError(errMsg string) PregelEventOption {
 
 // WithPregelEventResponseError sets the structured ResponseError for Pregel
 // events.
-func WithPregelEventResponseError(err *model.ResponseError) PregelEventOption {
+func WithPregelEventResponseError(err *compat.ResponseError) PregelEventOption {
 	return func(opts *PregelEventOptions) {
 		opts.ResponseError = err
 	}
@@ -1293,8 +1293,8 @@ func NewNodeErrorEvent(opts ...NodeEventOption) *event.Event {
 
 	respErr := options.ResponseError
 	if respErr == nil && options.Error != "" {
-		respErr = &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		respErr = &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: options.Error,
 		}
 	}
@@ -1308,7 +1308,7 @@ func NewNodeErrorEvent(opts ...NodeEventOption) *event.Event {
 			respErr.Message = options.Error
 		}
 		if respErr.Type == "" {
-			respErr.Type = model.ErrorTypeFlowError
+			respErr.Type = compat.ErrorTypeFlowError
 		}
 		graphEvent.Response.Error = respErr
 	}
@@ -1346,17 +1346,17 @@ func NewToolExecutionEvent(opts ...ToolEventOption) *event.Event {
 		WithToolMetadata(metadata))
 
 	if options.IncludeResponse {
-		toolMessage := model.NewToolMessage(options.ToolID, options.ToolName, options.Output)
-		resp := &model.Response{
-			Object:    model.ObjectTypeToolResponse,
+		toolMessage := compat.NewToolMessage(options.ToolID, options.ToolName, options.Output)
+		resp := &compat.Response{
+			Object:    compat.ObjectTypeToolResponse,
 			Created:   options.EndTime.Unix(),
-			Choices:   []model.Choice{{Index: 0, Message: toolMessage}},
+			Choices:   []compat.Choice{{Index: 0, Message: toolMessage}},
 			Timestamp: options.EndTime,
 			Done:      true,
 		}
 		if options.Error != nil {
-			resp.Error = &model.ResponseError{
-				Type:    model.ErrorTypeFlowError,
+			resp.Error = &compat.ResponseError{
+				Type:    compat.ErrorTypeFlowError,
 				Message: options.Error.Error(),
 			}
 		}
@@ -1446,8 +1446,8 @@ func NewPregelErrorEvent(opts ...PregelEventOption) *event.Event {
 	// for compatibility with existing consumers.
 	respErr := options.ResponseError
 	if respErr == nil && options.Error != "" {
-		respErr = &model.ResponseError{
-			Type:    model.ErrorTypeFlowError,
+		respErr = &compat.ResponseError{
+			Type:    compat.ErrorTypeFlowError,
 			Message: options.Error,
 		}
 	}
@@ -1461,7 +1461,7 @@ func NewPregelErrorEvent(opts ...PregelEventOption) *event.Event {
 			respErr.Message = options.Error
 		}
 		if respErr.Type == "" {
-			respErr.Type = model.ErrorTypeFlowError
+			respErr.Type = compat.ErrorTypeFlowError
 		}
 		ge.Response.Error = respErr
 	}
@@ -1569,11 +1569,11 @@ func extractFinalResponse(state State) string {
 }
 
 // buildFinalChoices constructs the terminal assistant message choice.
-func buildFinalChoices(text string) []model.Choice {
-	return []model.Choice{{
+func buildFinalChoices(text string) []compat.Choice {
+	return []compat.Choice{{
 		Index: 0,
-		Message: model.Message{
-			Role:    model.RoleAssistant,
+		Message: compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: text,
 		},
 	}}

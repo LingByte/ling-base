@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestToResponseError_Nil(t *testing.T) {
@@ -25,9 +25,9 @@ func TestToResponseError_Nil(t *testing.T) {
 
 func TestToResponseError_PreservesOuterMessageAndStructuredFields(t *testing.T) {
 	code := "429"
-	err := fmt.Errorf("request failed: %w", &model.ResponseError{
+	err := fmt.Errorf("request failed: %w", &compat.ResponseError{
 		Message: "rate limit",
-		Type:    model.ErrorTypeAPIError,
+		Type:    compat.ErrorTypeAPIError,
 		Code:    &code,
 	})
 
@@ -38,8 +38,8 @@ func TestToResponseError_PreservesOuterMessageAndStructuredFields(t *testing.T) 
 	if got.Message != err.Error() {
 		t.Fatalf("Message = %q, want %q", got.Message, err.Error())
 	}
-	if got.Type != model.ErrorTypeAPIError {
-		t.Fatalf("Type = %q, want %q", got.Type, model.ErrorTypeAPIError)
+	if got.Type != compat.ErrorTypeAPIError {
+		t.Fatalf("Type = %q, want %q", got.Type, compat.ErrorTypeAPIError)
 	}
 	if got.Code == nil || *got.Code != code {
 		t.Fatalf("Code = %v, want %q", got.Code, code)

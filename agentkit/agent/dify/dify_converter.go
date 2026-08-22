@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // DifyEventConverter defines an interface for converting Dify response to Event.
@@ -72,11 +72,11 @@ func (d *defaultDifyEventConverter) ConvertToEvent(
 	invocation *agent.Invocation,
 ) (evt *event.Event) {
 	if resp == nil {
-		defaultMessage := model.Message{Role: model.RoleAssistant, Content: ""}
+		defaultMessage := compat.Message{Role: compat.RoleAssistant, Content: ""}
 		evt = event.NewResponseEvent(
 			invocation.InvocationID,
 			agentName,
-			&model.Response{Choices: []model.Choice{{Message: defaultMessage, Delta: defaultMessage}}},
+			&compat.Response{Choices: []compat.Choice{{Message: defaultMessage, Delta: defaultMessage}}},
 		)
 		return
 	}
@@ -87,18 +87,18 @@ func (d *defaultDifyEventConverter) ConvertToEvent(
 		responseID = resp.ConversationID
 	}
 
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: resp.Answer,
 	}
 
 	evt = event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:        responseID,
-			Object:    model.ObjectTypeChatCompletion,
-			Choices:   []model.Choice{{Message: message, Delta: message}},
+			Object:    compat.ObjectTypeChatCompletion,
+			Choices:   []compat.Choice{{Message: message, Delta: message}},
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
 			IsPartial: false,
@@ -129,24 +129,24 @@ func (d *defaultDifyEventConverter) ConvertStreamingToEvent(
 		responseID = resp.ID
 	}
 
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: resp.Answer,
 	}
 
 	evt = event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:        responseID,
-			Object:    model.ObjectTypeChatCompletionChunk,
-			Choices:   []model.Choice{{Delta: message}},
+			Object:    compat.ObjectTypeChatCompletionChunk,
+			Choices:   []compat.Choice{{Delta: message}},
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
 			IsPartial: true,
 			Done:      false,
 		}),
-		event.WithObject(model.ObjectTypeChatCompletionChunk),
+		event.WithObject(compat.ObjectTypeChatCompletionChunk),
 	)
 	return
 }
@@ -182,7 +182,7 @@ func (d *defaultEventDifyConverter) ConvertToDifyRequest(
 	// Handle content parts if available
 	for _, contentPart := range invocation.Message.ContentParts {
 		switch contentPart.Type {
-		case model.ContentTypeText:
+		case compat.ContentTypeText:
 			if contentPart.Text != nil {
 				// Append text content to query
 				if req.Query != "" {
@@ -191,13 +191,13 @@ func (d *defaultEventDifyConverter) ConvertToDifyRequest(
 					req.Query = *contentPart.Text
 				}
 			}
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			// For now, we can't directly handle images in Dify requests
 			// This would need to be handled based on specific Dify capabilities
 			if contentPart.Image != nil && contentPart.Image.URL != "" {
 				req.Inputs["image_url"] = contentPart.Image.URL
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			// Similar to images, file handling depends on Dify capabilities
 			if contentPart.File != nil && contentPart.File.Name != "" {
 				req.Inputs["file_name"] = contentPart.File.Name
@@ -227,15 +227,15 @@ func (d *defaultWorkflowRequestConverter) ConvertToWorkflowRequest(
 	// Handle content parts if available
 	for _, contentPart := range invocation.Message.ContentParts {
 		switch contentPart.Type {
-		case model.ContentTypeText:
+		case compat.ContentTypeText:
 			if contentPart.Text != nil {
 				inputs["query"] = *contentPart.Text
 			}
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if contentPart.Image != nil && contentPart.Image.URL != "" {
 				inputs["image_url"] = contentPart.Image.URL
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if contentPart.File != nil && contentPart.File.Name != "" {
 				inputs["file_name"] = contentPart.File.Name
 			}
@@ -273,15 +273,15 @@ func extractTextFromParts(parts []protocol.Part) string {
 }
 
 // buildResponseForEvent creates a Response object based on streaming mode
-func buildResponseForEvent(isStreaming bool, content string) *model.Response {
-	message := model.Message{
-		Role:    model.RoleAssistant,
+func buildResponseForEvent(isStreaming bool, content string) *compat.Response {
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: content,
 	}
 
 	if isStreaming {
-		return &model.Response{
-			Choices:   []model.Choice{{Delta: message}},
+		return &compat.Response{
+			Choices:   []compat.Choice{{Delta: message}},
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
 			IsPartial: true,
@@ -289,8 +289,8 @@ func buildResponseForEvent(isStreaming bool, content string) *model.Response {
 		}
 	}
 
-	return &model.Response{
-		Choices:   []model.Choice{{Message: message}},
+	return &compat.Response{
+		Choices:   []compat.Choice{{Message: message}},
 		Timestamp: time.Now(),
 		Created:   time.Now().Unix(),
 		IsPartial: false,

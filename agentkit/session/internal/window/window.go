@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -88,13 +88,13 @@ func EventWindowFromOrderedEntries(
 }
 
 // MakeRoleFilter normalizes optional role filters.
-func MakeRoleFilter(roles []model.Role) map[model.Role]struct{} {
+func MakeRoleFilter(roles []compat.Role) map[compat.Role]struct{} {
 	if len(roles) == 0 {
 		return nil
 	}
-	filter := make(map[model.Role]struct{}, len(roles))
+	filter := make(map[compat.Role]struct{}, len(roles))
 	for _, role := range roles {
-		role = model.Role(strings.TrimSpace(string(role)))
+		role = compat.Role(strings.TrimSpace(string(role)))
 		if role == "" {
 			continue
 		}
@@ -109,7 +109,7 @@ func MakeRoleFilter(roles []model.Role) map[model.Role]struct{} {
 // EventAllowed reports whether an event is meaningful history for a window.
 func EventAllowed(
 	evt *event.Event,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) bool {
 	_, role, ok := ExtractEventText(evt)
 	if !ok {
@@ -126,7 +126,7 @@ func EventAllowed(
 // by search and exact window loading.
 func ExtractEventText(
 	evt *event.Event,
-) (string, model.Role, bool) {
+) (string, compat.Role, bool) {
 	if evt == nil || evt.Response == nil || evt.Response.IsPartial ||
 		len(evt.Response.Choices) == 0 {
 		return "", "", false
@@ -139,12 +139,12 @@ func ExtractEventText(
 
 	role := msg.Role
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	if msg.ToolID != "" || role == model.RoleTool {
-		role = model.RoleTool
+	if msg.ToolID != "" || role == compat.RoleTool {
+		role = compat.RoleTool
 	}
-	if role != model.RoleUser && role != model.RoleAssistant && role != model.RoleTool {
+	if role != compat.RoleUser && role != compat.RoleAssistant && role != compat.RoleTool {
 		return "", "", false
 	}
 
@@ -166,7 +166,7 @@ func ExtractEventText(
 	if text == "" {
 		return "", "", false
 	}
-	if role == model.RoleTool {
+	if role == compat.RoleTool {
 		toolName := strings.TrimSpace(msg.ToolName)
 		if toolName != "" {
 			text = toolName + ": " + text
@@ -179,7 +179,7 @@ func collectBefore(
 	entries []session.EventWindowEntry,
 	anchorIndex int,
 	limit int,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) []session.EventWindowEntry {
 	if limit <= 0 {
 		return nil
@@ -199,7 +199,7 @@ func collectAfter(
 	entries []session.EventWindowEntry,
 	anchorIndex int,
 	limit int,
-	roleFilter map[model.Role]struct{},
+	roleFilter map[compat.Role]struct{},
 ) []session.EventWindowEntry {
 	if limit <= 0 {
 		return nil

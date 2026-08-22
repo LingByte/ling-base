@@ -11,7 +11,7 @@
 package a2a
 
 import (
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -188,7 +188,7 @@ func GetDataPartType(metadata map[string]any) string {
 // message metadata.
 func WithResponseErrorMetadata(
 	metadata map[string]any,
-	err *model.ResponseError,
+	err *compat.ResponseError,
 ) map[string]any {
 	if err == nil {
 		return metadata
@@ -196,7 +196,7 @@ func WithResponseErrorMetadata(
 	if metadata == nil {
 		metadata = make(map[string]any)
 	}
-	metadata[MessageMetadataObjectTypeKey] = model.ObjectTypeError
+	metadata[MessageMetadataObjectTypeKey] = compat.ObjectTypeError
 	if err.Type != "" {
 		metadata[MessageMetadataErrorTypeKey] = err.Type
 	}
@@ -217,7 +217,7 @@ func ResponseErrorFromMetadata(
 	metadata map[string]any,
 	fallbackMessage string,
 	fallbackType string,
-) *model.ResponseError {
+) *compat.ResponseError {
 	if metadata == nil && fallbackMessage == "" {
 		return nil
 	}
@@ -234,7 +234,7 @@ func ResponseErrorFromMetadata(
 		metadata,
 		MessageMetadataErrorMessageKey,
 	)
-	hasStructuredError := objectType == model.ObjectTypeError ||
+	hasStructuredError := objectType == compat.ObjectTypeError ||
 		errorType != "" ||
 		message != "" ||
 		metadataStringValue(metadata, MessageMetadataErrorCodeKey) != "" ||
@@ -249,7 +249,7 @@ func ResponseErrorFromMetadata(
 	if errorType == "" {
 		errorType = fallbackType
 	}
-	respErr := &model.ResponseError{
+	respErr := &compat.ResponseError{
 		Type:    errorType,
 		Message: message,
 	}

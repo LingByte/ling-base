@@ -13,24 +13,24 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type messageCollector struct {
-	messages    []model.Message
+	messages    []compat.Message
 	streams     map[string]*messageStream
 	streamOrder []string
 }
 
 type messageStream struct {
 	prefix       string
-	message      model.Message
+	message      compat.Message
 	toolCallKeys map[string]int
 }
 
-func newMessageCollector(input model.Message) *messageCollector {
+func newMessageCollector(input compat.Message) *messageCollector {
 	return &messageCollector{
-		messages: []model.Message{input},
+		messages: []compat.Message{input},
 	}
 }
 
@@ -47,7 +47,7 @@ func (c *messageCollector) addEvent(evt *event.Event) {
 	}
 }
 
-func (c *messageCollector) messagesList() []model.Message {
+func (c *messageCollector) messagesList() []compat.Message {
 	return c.messages
 }
 
@@ -93,7 +93,7 @@ func (c *messageCollector) removeStreamKey(key string) {
 	}
 }
 
-func (c *messageCollector) addChoice(key string, prefix string, choice model.Choice) {
+func (c *messageCollector) addChoice(key string, prefix string, choice compat.Choice) {
 	if messageHasPayload(choice.Delta) {
 		if messageHasStreamingMetadata(choice.Message) {
 			c.addDelta(key, prefix, choice.Message)
@@ -108,14 +108,14 @@ func (c *messageCollector) addChoice(key string, prefix string, choice model.Cho
 	}
 }
 
-func (c *messageCollector) appendMessage(message model.Message) {
-	if len(c.messages) > 0 && model.MessagesEqual(c.messages[len(c.messages)-1], message) {
+func (c *messageCollector) appendMessage(message compat.Message) {
+	if len(c.messages) > 0 && compat.MessagesEqual(c.messages[len(c.messages)-1], message) {
 		return
 	}
 	c.messages = append(c.messages, message)
 }
 
-func (c *messageCollector) addDelta(key string, prefix string, delta model.Message) {
+func (c *messageCollector) addDelta(key string, prefix string, delta compat.Message) {
 	stream := c.stream(key, prefix)
 	if delta.Role != "" {
 		stream.message.Role = delta.Role
@@ -153,14 +153,14 @@ func (c *messageCollector) stream(key string, prefix string) *messageStream {
 	}
 	stream = &messageStream{
 		prefix:  prefix,
-		message: model.Message{Role: model.RoleAssistant},
+		message: compat.Message{Role: compat.RoleAssistant},
 	}
 	c.streams[key] = stream
 	c.streamOrder = append(c.streamOrder, key)
 	return stream
 }
 
-func (c *messageCollector) mergeToolCallDeltas(stream *messageStream, toolCalls []model.ToolCall) {
+func (c *messageCollector) mergeToolCallDeltas(stream *messageStream, toolCalls []compat.ToolCall) {
 	if stream.toolCallKeys == nil {
 		stream.toolCallKeys = make(map[string]int, len(toolCalls))
 	}
@@ -208,7 +208,7 @@ func streamChoiceKey(prefix string, choiceIndex int) string {
 	return fmt.Sprintf("%s|choice:%d", prefix, choiceIndex)
 }
 
-func (s *messageStream) toolCallDeltaKey(delta model.ToolCall, position int) string {
+func (s *messageStream) toolCallDeltaKey(delta compat.ToolCall, position int) string {
 	if delta.Index != nil {
 		return fmt.Sprintf("index:%d", *delta.Index)
 	}
@@ -228,7 +228,7 @@ func (s *messageStream) toolCallDeltaKey(delta model.ToolCall, position int) str
 	return fmt.Sprintf("position:%d", position)
 }
 
-func (s *messageStream) indexToolCall(position int, idx int, call model.ToolCall) {
+func (s *messageStream) indexToolCall(position int, idx int, call compat.ToolCall) {
 	s.toolCallKeys[fmt.Sprintf("position:%d", position)] = idx
 	if call.Index != nil {
 		s.toolCallKeys[fmt.Sprintf("index:%d", *call.Index)] = idx
@@ -238,7 +238,7 @@ func (s *messageStream) indexToolCall(position int, idx int, call model.ToolCall
 	}
 }
 
-func mergeToolCall(base model.ToolCall, delta model.ToolCall) model.ToolCall {
+func mergeToolCall(base compat.ToolCall, delta compat.ToolCall) compat.ToolCall {
 	if delta.Type != "" {
 		base.Type = delta.Type
 	}
@@ -271,15 +271,15 @@ func mergeToolCall(base model.ToolCall, delta model.ToolCall) model.ToolCall {
 	return base
 }
 
-func messageHasPayload(message model.Message) bool {
-	return model.HasPayload(message) ||
+func messageHasPayload(message compat.Message) bool {
+	return compat.HasPayload(message) ||
 		message.ReasoningSignature != "" ||
 		len(message.ToolCalls) > 0 ||
 		message.ToolID != "" ||
 		message.ToolName != ""
 }
 
-func messageHasStreamingMetadata(message model.Message) bool {
+func messageHasStreamingMetadata(message compat.Message) bool {
 	return message.Role != "" ||
 		message.ReasoningSignature != "" ||
 		len(message.ToolCalls) > 0 ||

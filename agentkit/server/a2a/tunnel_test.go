@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -710,15 +710,15 @@ func TestEventTunnel_Run_NilEvents(t *testing.T) {
 // Helper functions for testing
 func createTestEvent(content string, done bool) *event.Event {
 	return &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:      "test-response",
 			Object:  "chat.completion",
 			Created: time.Now().Unix(),
 			Model:   "test-model",
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: content,
 					},
 				},

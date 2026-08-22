@@ -10,13 +10,13 @@
 // Package message provides shared helpers for model messages.
 package message
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 // IsEmptyAssistantMessage reports whether an assistant message has no visible
 // content and no tool calls. Reasoning content is metadata for provider replay;
 // by itself it is not a valid assistant history payload for strict chat APIs.
-func IsEmptyAssistantMessage(msg model.Message) bool {
-	if msg.Role != model.RoleAssistant {
+func IsEmptyAssistantMessage(msg compat.Message) bool {
+	if msg.Role != compat.RoleAssistant {
 		return false
 	}
 	return msg.Content == "" &&

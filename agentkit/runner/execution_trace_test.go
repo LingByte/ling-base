@@ -24,7 +24,7 @@ import (
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +33,7 @@ import (
 
 func TestRunnerCompletion_ExecutionTraceDisabledByDefault(t *testing.T) {
 	r := NewRunner("app", &noOpAgent{name: "assistant"}, WithSessionService(sessioninmemory.NewSessionService()))
-	eventCh, err := r.Run(context.Background(), "user-1", "session-1", model.NewUserMessage("hello"))
+	eventCh, err := r.Run(context.Background(), "user-1", "session-1", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 	var completion *event.Event
 	for evt := range eventCh {
@@ -51,7 +51,7 @@ func TestRunnerCompletion_AttachesExecutionTraceWhenEnabled(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestRunnerCompletion_AttachesExecutionTraceWhenEnabled(t *testing.T) {
 
 func TestResolveExecutionTraceStatus_TreatsStopAgentAsCompleted(t *testing.T) {
 	status := resolveExecutionTraceStatus(&eventLoopContext{
-		finalError: &model.ResponseError{Type: agent.ErrorTypeStopAgentError},
+		finalError: &compat.ResponseError{Type: agent.ErrorTypeStopAgentError},
 	}, nil)
 	assert.Equal(t, atrace.TraceStatusCompleted, status)
 }
@@ -83,7 +83,7 @@ func TestRunnerCompletion_DoesNotPersistExecutionTraceIntoSessionEvents(t *testi
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -106,13 +106,13 @@ func TestRunnerCompletion_LLMRunProducesOneRealExecutionStep(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello trace"),
+		compat.NewUserMessage("hello trace"),
 		agent.WithExecutionTraceEnabled(true),
 		agent.WithUserMessageRewriter(func(
 			context.Context,
 			*agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
-			return []model.Message{model.NewUserMessage("rewritten trace")}, nil
+		) ([]compat.Message, error) {
+			return []compat.Message{compat.NewUserMessage("rewritten trace")}, nil
 		}),
 	)
 	require.NoError(t, err)
@@ -126,12 +126,12 @@ func TestRunnerCompletion_LLMRunProducesOneRealExecutionStep(t *testing.T) {
 	require.NotNil(t, completion.ExecutionTrace)
 	assert.Equal(
 		t,
-		model.NewUserMessage("hello trace"),
+		compat.NewUserMessage("hello trace"),
 		executionTraceSnapshotMessage(t, completion.ExecutionTrace.Input),
 	)
 	assert.Equal(
 		t,
-		model.NewAssistantMessage("done"),
+		compat.NewAssistantMessage("done"),
 		executionTraceSnapshotMessage(t, completion.ExecutionTrace.Output),
 	)
 	require.Len(t, completion.ExecutionTrace.Steps, 1)
@@ -151,11 +151,11 @@ func TestRunnerCompletion_LLMRunProducesOneRealExecutionStep(t *testing.T) {
 func TestRunnerCompletion_RunWithMessagesCapturesHistoryInput(t *testing.T) {
 	ag := llmagent.New("assistant", llmagent.WithModel(&staticModel{name: "trace-model", content: "done"}))
 	r := NewRunner("app", ag, WithSessionService(sessioninmemory.NewSessionService()))
-	messages := []model.Message{
-		model.NewSystemMessage("system seed"),
-		model.NewUserMessage("first user"),
-		model.NewAssistantMessage("first assistant"),
-		model.NewUserMessage("latest user"),
+	messages := []compat.Message{
+		compat.NewSystemMessage("system seed"),
+		compat.NewUserMessage("first user"),
+		compat.NewAssistantMessage("first assistant"),
+		compat.NewUserMessage("latest user"),
 	}
 	eventCh, err := RunWithMessages(
 		context.Background(),
@@ -178,11 +178,11 @@ func TestRunnerCompletion_RunWithMessagesCapturesHistoryInput(t *testing.T) {
 func TestExecutionTraceOutputSnapshot_UsesOnlyCompletedRootOutput(t *testing.T) {
 	loop := &eventLoopContext{
 		graphCompletionSeen: true,
-		finalChoices: []model.Choice{{
-			Message: model.NewAssistantMessage("graph final"),
+		finalChoices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("graph final"),
 		}},
-		fallbackChoices: []model.Choice{{
-			Message: model.NewAssistantMessage("intermediate"),
+		fallbackChoices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("intermediate"),
 		}},
 	}
 	completed := executionTraceOutputSnapshot(
@@ -193,7 +193,7 @@ func TestExecutionTraceOutputSnapshot_UsesOnlyCompletedRootOutput(t *testing.T) 
 	)
 	assert.Equal(
 		t,
-		model.NewAssistantMessage("graph final"),
+		compat.NewAssistantMessage("graph final"),
 		executionTraceSnapshotMessage(t, completed),
 	)
 	assert.Nil(t, executionTraceOutputSnapshot(
@@ -213,8 +213,8 @@ func TestExecutionTraceOutputSnapshot_UsesOnlyCompletedRootOutput(t *testing.T) 
 func TestExecutionTraceOutputSnapshot_GraphWithoutFinalAnswerOmitsIntermediate(t *testing.T) {
 	loop := &eventLoopContext{
 		graphCompletionSeen: true,
-		fallbackChoices: []model.Choice{{
-			Message: model.NewAssistantMessage("intermediate"),
+		fallbackChoices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("intermediate"),
 		}},
 	}
 	assert.Nil(t, executionTraceOutputSnapshot(
@@ -231,15 +231,15 @@ func TestCaptureCompletionFallback_CompleteResponseInvalidatesGraphResult(t *tes
 		finalStateDelta: map[string][]byte{
 			graph.StateKeyLastResponse: []byte(`"graph final"`),
 		},
-		finalChoices: []model.Choice{{
-			Message: model.NewAssistantMessage("graph final"),
+		finalChoices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("graph final"),
 		}},
 	}
 	r := &runner{}
 	r.captureCompletionFallback(loop, event.NewResponseEvent(
 		"inv-1",
 		"root",
-		&model.Response{Done: true},
+		&compat.Response{Done: true},
 	))
 	assert.True(t, loop.graphCompletionSeen)
 	assert.Nil(t, loop.finalStateDelta)
@@ -248,11 +248,11 @@ func TestCaptureCompletionFallback_CompleteResponseInvalidatesGraphResult(t *tes
 	r.captureCompletionFallback(loop, event.NewResponseEvent(
 		"inv-1",
 		"root",
-		&model.Response{
+		&compat.Response{
 			Done:      true,
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("partial"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("partial"),
 			}},
 		},
 	))
@@ -261,10 +261,10 @@ func TestCaptureCompletionFallback_CompleteResponseInvalidatesGraphResult(t *tes
 	r.captureCompletionFallback(loop, event.NewResponseEvent(
 		"inv-1",
 		"root",
-		&model.Response{
+		&compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("root final"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("root final"),
 			}},
 		},
 	))
@@ -279,7 +279,7 @@ func TestCaptureCompletionFallback_CompleteResponseInvalidatesGraphResult(t *tes
 	)
 	assert.Equal(
 		t,
-		model.NewAssistantMessage("root final"),
+		compat.NewAssistantMessage("root final"),
 		executionTraceSnapshotMessage(t, snapshot),
 	)
 }
@@ -298,8 +298,8 @@ func TestExecutionTraceOutputSnapshot_ResumeSnapshotOnlyUsesAuthoritativeChoices
 		priorAssistantResponseIDs: map[string]struct{}{
 			"resp-1": {},
 		},
-		finalChoices: []model.Choice{{
-			Message: model.NewAssistantMessage("historical"),
+		finalChoices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("historical"),
 		}},
 	}
 	finalStateDelta := map[string][]byte{
@@ -327,12 +327,12 @@ func TestExecutionTraceOutputSnapshot_ResumeSnapshotOnlyUsesAuthoritativeChoices
 
 func TestCaptureGraphCompletionClonesChoices(t *testing.T) {
 	text := "original"
-	contentRef := &model.ContentRef{ArtifactRef: "artifact://trace@1"}
-	evt := event.NewResponseEvent("inv-1", "graph", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ContentParts: []model.ContentPart{{
-				Type:       model.ContentTypeText,
+	contentRef := &compat.ContentRef{ArtifactRef: "artifact://trace@1"}
+	evt := event.NewResponseEvent("inv-1", "graph", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ContentParts: []compat.ContentPart{{
+				Type:       compat.ContentTypeText,
 				Text:       &text,
 				ContentRef: contentRef,
 			}},
@@ -349,12 +349,12 @@ func TestCaptureGraphCompletionClonesChoices(t *testing.T) {
 
 func TestCaptureCompletionFallbackAcceptsContentParts(t *testing.T) {
 	text := "rich output"
-	evt := event.NewResponseEvent("inv-1", "assistant", &model.Response{
+	evt := event.NewResponseEvent("inv-1", "assistant", &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{Message: model.Message{
-			Role: model.RoleAssistant,
-			ContentParts: []model.ContentPart{{
-				Type: model.ContentTypeText,
+		Choices: []compat.Choice{{Message: compat.Message{
+			Role: compat.RoleAssistant,
+			ContentParts: []compat.ContentPart{{
+				Type: compat.ContentTypeText,
 				Text: &text,
 			}},
 		}}},
@@ -374,10 +374,10 @@ func TestCaptureCompletionFallbackAcceptsContentParts(t *testing.T) {
 func executionTraceSnapshotMessage(
 	t *testing.T,
 	snapshot *atrace.Snapshot,
-) model.Message {
+) compat.Message {
 	t.Helper()
 	require.NotNil(t, snapshot)
-	var message model.Message
+	var message compat.Message
 	require.NoError(t, json.Unmarshal([]byte(snapshot.Text), &message))
 	return message
 }
@@ -385,23 +385,23 @@ func executionTraceSnapshotMessage(
 func executionTraceSnapshotMessages(
 	t *testing.T,
 	snapshot *atrace.Snapshot,
-) []model.Message {
+) []compat.Message {
 	t.Helper()
 	require.NotNil(t, snapshot)
-	var messages []model.Message
+	var messages []compat.Message
 	require.NoError(t, json.Unmarshal([]byte(snapshot.Text), &messages))
 	return messages
 }
 
 func TestRunnerCompletion_ExecutionTraceCarriesUsage(t *testing.T) {
-	usage := &model.Usage{
+	usage := &compat.Usage{
 		PromptTokens:     11,
 		CompletionTokens: 7,
 		TotalTokens:      18,
-		PromptTokensDetails: model.PromptTokensDetails{
+		PromptTokensDetails: compat.PromptTokensDetails{
 			CachedTokens: 3,
 		},
-		CompletionTokensDetails: model.CompletionTokensDetails{
+		CompletionTokensDetails: compat.CompletionTokensDetails{
 			ReasoningTokens: 2,
 		},
 	}
@@ -415,7 +415,7 @@ func TestRunnerCompletion_ExecutionTraceCarriesUsage(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello trace"),
+		compat.NewUserMessage("hello trace"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -434,14 +434,14 @@ func TestRunnerCompletion_ExecutionTraceOmitsTimingOnlyUsage(t *testing.T) {
 	ag := llmagent.New("assistant", llmagent.WithModel(&staticModel{
 		name:    "trace-model",
 		content: "done",
-		usage:   &model.Usage{TimingInfo: &model.TimingInfo{}},
+		usage:   &compat.Usage{TimingInfo: &compat.TimingInfo{}},
 	}))
 	r := NewRunner("app", ag, WithSessionService(sessioninmemory.NewSessionService()))
 	eventCh, err := r.Run(
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello trace"),
+		compat.NewUserMessage("hello trace"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -466,7 +466,7 @@ func TestRunnerCompletion_ChainAndParallelPropagatePredecessorsToRealChildSteps(
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello fanout"),
+		compat.NewUserMessage("hello fanout"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -509,7 +509,7 @@ func TestRunnerCompletion_ChainAfterParallelUsesParallelTerminalsAsPredecessors(
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello fanout"),
+		compat.NewUserMessage("hello fanout"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -550,7 +550,7 @@ func TestRunnerCompletion_CycleCarriesPredecessorsAcrossIterations(t *testing.T)
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello cycle"),
+		compat.NewUserMessage("hello cycle"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -640,7 +640,7 @@ func TestRunnerCompletion_GraphRunCapturesComplexExecutionPredecessors(t *testin
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello graph trace"),
+		compat.NewUserMessage("hello graph trace"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -720,7 +720,7 @@ func TestRunnerCompletion_GraphRunCapturesNodeFailure(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello graph failure"),
+		compat.NewUserMessage("hello graph failure"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -755,7 +755,7 @@ func TestRunnerCompletion_GraphRunPropagatesGoToPredecessor(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello goto"),
+		compat.NewUserMessage("hello goto"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -797,7 +797,7 @@ func TestRunnerCompletion_GraphRunPropagatesFanOutCommandPredecessors(t *testing
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello fanout commands"),
+		compat.NewUserMessage("hello fanout commands"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)
@@ -835,7 +835,7 @@ func TestRunnerCompletion_GraphAgentNodePropagatesTraceMetadataToChildAgent(t *t
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello delegated graph"),
+		compat.NewUserMessage("hello delegated graph"),
 		agent.WithExecutionTraceEnabled(true),
 	)
 	require.NoError(t, err)

@@ -38,7 +38,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -1484,13 +1484,13 @@ func (r *A2AAgent) sendErrorEvent(
 	invocation *agent.Invocation,
 	err error,
 	_ ...*anonymousCookieState,
-) *model.ResponseError {
-	respErr := model.ResponseErrorFromError(err, model.ErrorTypeRunError)
+) *compat.ResponseError {
+	respErr := compat.ResponseErrorFromError(err, compat.ErrorTypeRunError)
 	evt := event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
-			Object: model.ObjectTypeError,
+		event.WithResponse(&compat.Response{
+			Object: compat.ObjectTypeError,
 			Error:  respErr,
 		}),
 	)
@@ -1535,7 +1535,7 @@ func (r *A2AAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-cha
 			invocation,
 			r.description,
 			"",
-			&model.GenerationConfig{Stream: useStreaming},
+			&compat.GenerationConfig{Stream: useStreaming},
 		)
 	}
 	tracker := itelemetry.NewInvokeAgentTracker(ctx, invocation, useStreaming, &err)
@@ -1543,7 +1543,7 @@ func (r *A2AAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-cha
 	if err := r.validateA2ARequestOptions(invocation); err != nil {
 		if startedSpan {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeRunError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeRunError)))
 			span.End()
 		}
 		return nil, err
@@ -1552,7 +1552,7 @@ func (r *A2AAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-cha
 	if err != nil {
 		if startedSpan {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeRunError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeRunError)))
 			span.End()
 		}
 		return nil, err
@@ -1561,7 +1561,7 @@ func (r *A2AAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-cha
 		err = errors.New("A2A client is nil")
 		if startedSpan {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeRunError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeRunError)))
 			span.End()
 		}
 		return nil, err
@@ -1587,7 +1587,7 @@ func (r *A2AAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-cha
 	if err != nil {
 		if startedSpan {
 			span.SetStatus(codes.Error, err.Error())
-			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, model.ErrorTypeRunError)))
+			span.SetAttributes(attribute.String(semconvtrace.KeyErrorType, itelemetry.ToErrorType(err, compat.ErrorTypeRunError)))
 			span.End()
 		}
 		return nil, err
@@ -1830,8 +1830,8 @@ func (r *A2AAgent) buildRequestOptions(ctx context.Context, invocation *agent.In
 type streamingEventResult struct {
 	responseID             string
 	aggregatedContent      string
-	aggregatedContentParts []model.ContentPart
-	terminalError          *model.ResponseError
+	aggregatedContentParts []compat.ContentPart
+	terminalError          *compat.ResponseError
 }
 
 // processStreamingEvents processes streaming events and aggregates content.
@@ -1884,7 +1884,7 @@ func (r *A2AAgent) processStreamingEvents(
 					anonymousCookie,
 				)
 			}
-			var terminalError *model.ResponseError
+			var terminalError *compat.ResponseError
 			result.responseID, terminalError = r.aggregateEventContent(
 				ctx,
 				invocation,
@@ -1941,16 +1941,16 @@ func (r *A2AAgent) flushBufferedContent(
 	evt := event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:        responseID,
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Done:      false,
 			IsPartial: false,
 			Timestamp: flushTime,
 			Created:   flushTime.Unix(),
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: content,
 				},
 			}},
@@ -1970,8 +1970,8 @@ func (r *A2AAgent) aggregateEventContent(
 	responseID string,
 	contentBuilder *strings.Builder,
 	anonymousCookie *anonymousCookieState,
-	contentParts *[]model.ContentPart,
-) (string, *model.ResponseError) {
+	contentParts *[]compat.ContentPart,
+) (string, *compat.ResponseError) {
 	if evt.Response == nil || evt.Response.Error != nil {
 		return responseID, nil
 	}
@@ -2025,21 +2025,21 @@ func (r *A2AAgent) emitFinalEvent(
 	responseID string,
 	aggregatedContent string,
 	anonymousCookie *anonymousCookieState,
-	aggregatedContentParts []model.ContentPart,
+	aggregatedContentParts []compat.ContentPart,
 ) {
 	evt := event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			ID:        responseID,
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Done:      true,
 			IsPartial: false,
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:         model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:         compat.RoleAssistant,
 					Content:      aggregatedContent,
 					ContentParts: aggregatedContentParts,
 				},
@@ -2140,7 +2140,7 @@ func (r *A2AAgent) wrapEventChannelWithTelemetry(
 				if fullRespEvent.Response.Error != nil {
 					responseErrorType = itelemetry.FormatResponseErrorLabel(
 						fullRespEvent.Response.Error,
-						model.ErrorTypeRunError,
+						compat.ErrorTypeRunError,
 					)
 				}
 			}
@@ -2151,7 +2151,7 @@ func (r *A2AAgent) wrapEventChannelWithTelemetry(
 					fullRespEvent,
 					tokenUsage,
 					tracker.FirstTokenTimeDuration(),
-					model.ErrorTypeRunError,
+					compat.ErrorTypeRunError,
 				)
 			}
 			tracker.SetResponseErrorType(responseErrorType)
@@ -2176,7 +2176,7 @@ func (r *A2AAgent) wrapEventChannelWithTelemetry(
 			if evt != nil && evt.Error != nil {
 				responseErrorType = itelemetry.FormatResponseErrorLabel(
 					evt.Error,
-					model.ErrorTypeRunError,
+					compat.ErrorTypeRunError,
 				)
 			}
 			if err := event.EmitEvent(ctx, wrappedChan, evt); err != nil {

@@ -20,7 +20,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,11 +101,11 @@ func TestAppendEvent_WithEventLimit(t *testing.T) {
 	}
 
 	evt := event.New("test-invocation", "test-author")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "response",
 				},
 			},
@@ -163,9 +163,9 @@ func TestAppendEvent_ToExpiredSession(t *testing.T) {
 	}
 
 	evt := event.New("test-invocation", "test-author")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: "response"}},
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: "response"}},
 		},
 	}
 
@@ -273,14 +273,14 @@ func TestAddEvent_MarshalEventError(t *testing.T) {
 	_, _ = json.Marshal(stateData)
 
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{
 							{
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "demo",
 									Arguments: []byte("{}"),
 								},
@@ -755,31 +755,31 @@ func TestGetEventsList(t *testing.T) {
 			{AppName: "app1", UserID: "user1", SessionID: "sess1"},
 		}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message",
 					},
 				},
 			},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message - 1",
 					},
 				},
 			},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-1 message",
 					},
 				},
@@ -818,14 +818,14 @@ func TestGetEventsList(t *testing.T) {
 			{AppName: "app1", UserID: "user1", SessionID: "sess1"},
 		}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user message"}}},
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user message"}}},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-1"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-1"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 		})
 
 		evt1Bytes, _ := json.Marshal(evt1)
@@ -861,11 +861,11 @@ func TestGetEventsList(t *testing.T) {
 			{AppName: "app1", UserID: "user1", SessionID: "sess1"},
 		}
 
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user-2"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user-2"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-3"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-3"}}},
 		})
 		evt2Bytes, _ := json.Marshal(evt2)
 		evt3Bytes, _ := json.Marshal(evt3)
@@ -941,31 +941,31 @@ func TestGetEventsList(t *testing.T) {
 			{AppName: "app1", UserID: "user1", SessionID: "sess1"},
 		}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message",
 					},
 				},
 			},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-1 message",
 					},
 				},
 			},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-2 message",
 					},
 				},

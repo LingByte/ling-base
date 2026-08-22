@@ -18,7 +18,7 @@ import (
 
 	artifactinmemory "github.com/LingByte/ling-base/agentkit/artifact/inmemory"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -43,10 +43,10 @@ func TestWrapEnabledExternalizesEvents(t *testing.T) {
 
 	sess, err := wrapped.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	msg := model.NewUserMessage("image")
+	msg := compat.NewUserMessage("image")
 	msg.AddImageData([]byte("image-bytes"), "high", "png")
-	evt := event.NewResponseEvent("invocation", "user", &model.Response{
-		Choices: []model.Choice{{Message: msg}},
+	evt := event.NewResponseEvent("invocation", "user", &compat.Response{
+		Choices: []compat.Choice{{Message: msg}},
 	})
 
 	require.NoError(t, wrapped.AppendEvent(ctx, sess, evt))

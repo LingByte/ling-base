@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestRegexBlocklistPolicy(t *testing.T) {
@@ -51,32 +51,21 @@ func TestRegexBlocklistPolicy(t *testing.T) {
 	}
 }
 
-// mockSafetyModel implements gomodel.Agent for testing
+// mockSafetyModel implements compat.Model for testing
 type mockSafetyModel struct {
 	lastPrompt string
 	response   string
 	err        error
 }
 
-func (m *mockSafetyModel) Generate(ctx context.Context, prompt string) (any, error) {
-	m.lastPrompt = prompt
-	return m.response, m.err
-}
+func (m *mockSafetyModel) Info() compat.Info { return compat.Info{Name: "mock-safety"} }
 
-func (m *mockSafetyModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	return m.response, m.err
-}
-
-func (m *mockSafetyModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{
-		Delta:    m.response,
-		Done:     true,
-		FullText: m.response,
-		Err:      m.err,
+func (m *mockSafetyModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	m.lastPrompt = promptFromRequest(req)
+	if m.err != nil {
+		return nil, m.err
 	}
-	close(ch)
-	return ch, nil
+	return singleTextResponse(m.response), nil
 }
 
 func TestLLMEvaluatorPolicy(t *testing.T) {

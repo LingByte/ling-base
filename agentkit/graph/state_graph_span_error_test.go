@@ -24,7 +24,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 )
 
@@ -33,11 +33,11 @@ type errorModel struct {
 	err  error
 }
 
-func (m *errorModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *errorModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	return nil, m.err
 }
 
-func (m *errorModel) Info() model.Info { return model.Info{Name: m.name} }
+func (m *errorModel) Info() compat.Info { return compat.Info{Name: m.name} }
 
 // recordingSpan is a minimal Span implementation that records calls relevant to our tests.
 type recordingSpan struct {
@@ -133,7 +133,7 @@ func TestExecuteModelWithEvents_RunModelError_RecordsSpanAndWrapsError(t *testin
 
 	_, err := executeModelWithEvents(context.Background(), modelExecutionConfig{
 		LLMModel: llm,
-		Request:  &model.Request{},
+		Request:  &compat.Request{},
 		Span:     sp,
 	})
 	require.Error(t, err)
@@ -158,7 +158,7 @@ func TestRunModelStream_NilIterSequence_RecordsSpanError(t *testing.T) {
 		nil,
 		nil,
 		&nilIterModel{},
-		&model.Request{},
+		&compat.Request{},
 		nil,
 	)
 	require.NoError(t, err)

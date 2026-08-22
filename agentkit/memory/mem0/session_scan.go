@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -51,12 +51,12 @@ func writeLastExtractAt(sess *session.Session, ts time.Time) {
 	sess.SetState(memory.SessionStateKeyAutoMemoryLastExtractAt, []byte(ts.UTC().Format(time.RFC3339Nano)))
 }
 
-func scanDeltaSince(sess *session.Session, since time.Time) (time.Time, []model.Message) {
+func scanDeltaSince(sess *session.Session, since time.Time) (time.Time, []compat.Message) {
 	if sess == nil {
 		return time.Time{}, nil
 	}
 	var latestTs time.Time
-	var messages []model.Message
+	var messages []compat.Message
 
 	sess.EventMu.RLock()
 	defer sess.EventMu.RUnlock()
@@ -73,10 +73,10 @@ func scanDeltaSince(sess *session.Session, since time.Time) (time.Time, []model.
 		}
 		for _, choice := range e.Response.Choices {
 			msg := choice.Message
-			if msg.Role == model.RoleTool || msg.ToolID != "" || len(msg.ToolCalls) > 0 {
+			if msg.Role == compat.RoleTool || msg.ToolID != "" || len(msg.ToolCalls) > 0 {
 				continue
 			}
-			if msg.Role != model.RoleUser && msg.Role != model.RoleAssistant {
+			if msg.Role != compat.RoleUser && msg.Role != compat.RoleAssistant {
 				continue
 			}
 			if msg.Content == "" && len(msg.ContentParts) == 0 {
@@ -88,7 +88,7 @@ func scanDeltaSince(sess *session.Session, since time.Time) (time.Time, []model.
 	return latestTs, messages
 }
 
-func hasIngestibleMessages(messages []model.Message) bool {
+func hasIngestibleMessages(messages []compat.Message) bool {
 	for _, msg := range messages {
 		if messageText(msg) != "" {
 			return true

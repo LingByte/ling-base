@@ -26,7 +26,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -150,8 +150,8 @@ func TestIngestSession_NoIngestibleTextSkipsOptionsAndAdvancesWatermark(t *testi
 		ID:      "session",
 		Events: []event.Event{{
 			Timestamp: eventTime,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: " \n\t "},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: " \n\t "},
 			}}},
 		}},
 	}
@@ -254,8 +254,8 @@ func TestIngestSession_ForwardsMessagesToBackend(t *testing.T) {
 	sess := &session.Session{AppName: "app", UserID: "user", ID: "s"}
 	sess.Events = []event.Event{{
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "hello"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}}},
 	}}
 
@@ -573,8 +573,8 @@ func TestIngestSession_SyncFallbackWhenQueueFull(t *testing.T) {
 	sess := &session.Session{AppName: "app", UserID: "user", ID: "s1"}
 	sess.Events = []event.Event{{
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "hello"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 		}}},
 	}}
 
@@ -741,8 +741,8 @@ func newIngestTestSession() *session.Session {
 		ID:      "session",
 		Events: []event.Event{{
 			Timestamp: time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "hello"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "hello"},
 			}}},
 		}},
 	}

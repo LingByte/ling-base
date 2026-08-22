@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -65,8 +65,8 @@ func (r *WeKnoraAgent) sendErrorEvent(ctx context.Context, eventChan chan<- *eve
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
-			Error: &model.ResponseError{
+		event.WithResponse(&compat.Response{
+			Error: &compat.ResponseError{
 				Message: errorMessage,
 			},
 		}),
@@ -165,8 +165,8 @@ func (r *WeKnoraAgent) runStreaming(ctx context.Context, invocation *agent.Invoc
 
 			if resp.ResponseType == client.AgentResponseTypeAnswer || resp.ResponseType == client.AgentResponseTypeThinking {
 				if resp.Content != "" {
-					message := model.Message{
-						Role: model.RoleAssistant,
+					message := compat.Message{
+						Role: compat.RoleAssistant,
 					}
 
 					if resp.ResponseType == client.AgentResponseTypeAnswer {
@@ -180,15 +180,15 @@ func (r *WeKnoraAgent) runStreaming(ctx context.Context, invocation *agent.Invoc
 					evt := event.New(
 						invocation.InvocationID,
 						r.name,
-						event.WithResponse(&model.Response{
-							Object:    model.ObjectTypeChatCompletionChunk,
-							Choices:   []model.Choice{{Delta: message}},
+						event.WithResponse(&compat.Response{
+							Object:    compat.ObjectTypeChatCompletionChunk,
+							Choices:   []compat.Choice{{Delta: message}},
 							Timestamp: time.Now(),
 							Created:   time.Now().Unix(),
 							IsPartial: true,
 							Done:      false,
 						}),
-						event.WithObject(model.ObjectTypeChatCompletionChunk),
+						event.WithObject(compat.ObjectTypeChatCompletionChunk),
 					)
 					agent.EmitEvent(ctx, invocation, eventChan, evt)
 				}
@@ -222,14 +222,14 @@ func (r *WeKnoraAgent) sendFinalStreamingEvent(
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		r.name,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			Done:      true,
 			IsPartial: false,
 			Timestamp: time.Now(),
 			Created:   time.Now().Unix(),
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:             model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:             compat.RoleAssistant,
 					Content:          aggregatedContent,
 					ReasoningContent: aggregatedReasoning,
 				},

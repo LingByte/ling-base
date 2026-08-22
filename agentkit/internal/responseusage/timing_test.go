@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAttachTimingForCallback_CreatesUsageAndRestores(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	response := &model.Response{}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	response := &compat.Response{}
 
 	attachment := AttachTimingForCallback(response, timing, nil)
 	require.NotNil(t, response.Usage)
@@ -30,10 +30,10 @@ func TestAttachTimingForCallback_CreatesUsageAndRestores(t *testing.T) {
 }
 
 func TestAttachTimingForCallback_RestoresExistingTimingInfo(t *testing.T) {
-	oldTiming := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	newTiming := &model.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
-	usage := &model.Usage{PromptTokens: 1, TimingInfo: oldTiming}
-	response := &model.Response{Usage: usage}
+	oldTiming := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	newTiming := &compat.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
+	usage := &compat.Usage{PromptTokens: 1, TimingInfo: oldTiming}
+	response := &compat.Response{Usage: usage}
 
 	attachment := AttachTimingForCallback(response, newTiming, nil)
 	require.Same(t, usage, response.Usage)
@@ -45,9 +45,9 @@ func TestAttachTimingForCallback_RestoresExistingTimingInfo(t *testing.T) {
 }
 
 func TestTimingAttachment_RestoreIfTimingInfoChanged(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	updatedTiming := &model.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
-	response := &model.Response{}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	updatedTiming := &compat.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
+	response := &compat.Response{}
 
 	attachment := AttachTimingForCallback(response, timing, nil)
 	attachment.RestoreIfTimingInfoChanged(timing)
@@ -59,10 +59,10 @@ func TestTimingAttachment_RestoreIfTimingInfoChanged(t *testing.T) {
 }
 
 func TestTimingAttachment_RestoreDetachesReusedPartialUsage(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
 	var state PartialState
-	first := &model.Response{IsPartial: true}
-	second := &model.Response{IsPartial: true}
+	first := &compat.Response{IsPartial: true}
+	second := &compat.Response{IsPartial: true}
 
 	AttachTiming(first, timing, &state)
 	first.Usage.PromptTokens = 10
@@ -78,8 +78,8 @@ func TestTimingAttachment_RestoreDetachesReusedPartialUsage(t *testing.T) {
 }
 
 func TestTimingAttachment_RestoreKeepsCallbackMutatedUsage(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	response := &model.Response{}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	response := &compat.Response{}
 
 	attachment := AttachTimingForCallback(response, timing, nil)
 	response.Usage.PromptTokensDetails.CachedTokens = 10
@@ -91,11 +91,11 @@ func TestTimingAttachment_RestoreKeepsCallbackMutatedUsage(t *testing.T) {
 }
 
 func TestTimingAttachment_RestoreIgnoresReplacedUsage(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	response := &model.Response{}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	response := &compat.Response{}
 
 	attachment := AttachTimingForCallback(response, timing, nil)
-	replacedUsage := &model.Usage{PromptTokens: 10}
+	replacedUsage := &compat.Usage{PromptTokens: 10}
 	response.Usage = replacedUsage
 	attachment.Restore()
 
@@ -104,10 +104,10 @@ func TestTimingAttachment_RestoreIgnoresReplacedUsage(t *testing.T) {
 }
 
 func TestAttachTiming_ReusesPartialUsageForSameTimingInfo(t *testing.T) {
-	timing := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
+	timing := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
 	var state PartialState
-	first := &model.Response{IsPartial: true}
-	second := &model.Response{IsPartial: true}
+	first := &compat.Response{IsPartial: true}
+	second := &compat.Response{IsPartial: true}
 
 	AttachTiming(first, timing, &state)
 	AttachTiming(second, timing, &state)
@@ -118,11 +118,11 @@ func TestAttachTiming_ReusesPartialUsageForSameTimingInfo(t *testing.T) {
 }
 
 func TestAttachTiming_UsesNewPartialUsageForDifferentTimingInfo(t *testing.T) {
-	firstTiming := &model.TimingInfo{FirstTokenDuration: time.Millisecond}
-	secondTiming := &model.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
+	firstTiming := &compat.TimingInfo{FirstTokenDuration: time.Millisecond}
+	secondTiming := &compat.TimingInfo{FirstTokenDuration: 2 * time.Millisecond}
 	var state PartialState
-	first := &model.Response{IsPartial: true}
-	second := &model.Response{IsPartial: true}
+	first := &compat.Response{IsPartial: true}
+	second := &compat.Response{IsPartial: true}
 
 	AttachTiming(first, firstTiming, &state)
 	AttachTiming(second, secondTiming, &state)
@@ -135,9 +135,9 @@ func TestAttachTiming_UsesNewPartialUsageForDifferentTimingInfo(t *testing.T) {
 }
 
 func TestAttachTiming_NoopsOnNilResponseOrTimingInfo(t *testing.T) {
-	AttachTiming(nil, &model.TimingInfo{}, nil)
+	AttachTiming(nil, &compat.TimingInfo{}, nil)
 
-	response := &model.Response{}
+	response := &compat.Response{}
 	AttachTiming(response, nil, nil)
 	require.Nil(t, response.Usage)
 }

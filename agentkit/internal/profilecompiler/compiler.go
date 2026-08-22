@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	astructure "github.com/LingByte/ling-base/agentkit/agent/structure"
 	isurfacepatch "github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -261,16 +261,16 @@ func ProfileFromRunOptions(options agent.RunOptions) *Profile {
 
 func convertFewShotExamples(
 	examples []astructure.FewShotExample,
-) ([][]model.Message, error) {
-	converted := make([][]model.Message, 0, len(examples))
+) ([][]compat.Message, error) {
+	converted := make([][]compat.Message, 0, len(examples))
 	for i, example := range examples {
-		messages := make([]model.Message, 0, len(example.Messages))
+		messages := make([]compat.Message, 0, len(example.Messages))
 		for j, message := range example.Messages {
-			role := model.Role(message.Role)
+			role := compat.Role(message.Role)
 			if !role.IsValid() {
 				return nil, fmt.Errorf("example %d message %d role %q is invalid", i, j, message.Role)
 			}
-			messages = append(messages, model.Message{
+			messages = append(messages, compat.Message{
 				Role:    role,
 				Content: message.Content,
 			})

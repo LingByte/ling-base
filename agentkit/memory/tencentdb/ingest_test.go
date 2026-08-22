@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -57,17 +57,17 @@ func TestIngestSessionCapturesTimestampedMessagesAndCursor(t *testing.T) {
 			{
 				ID:        "u1",
 				Timestamp: ts1,
-				Response: &model.Response{Choices: []model.Choice{{
+				Response: &compat.Response{Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewUserMessage("remember this"),
+					Message: compat.NewUserMessage("remember this"),
 				}}},
 			},
 			{
 				ID:        "a1",
 				Timestamp: ts2,
-				Response: &model.Response{Choices: []model.Choice{{
+				Response: &compat.Response{Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("stored"),
+					Message: compat.NewAssistantMessage("stored"),
 				}}},
 			},
 		},

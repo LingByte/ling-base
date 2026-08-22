@@ -17,7 +17,7 @@ import (
 	"time"
 
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -50,7 +50,7 @@ type ExecutionError struct {
 	NodeType   NodeType               `json:"nodeType,omitempty"`
 	StepNumber int                    `json:"stepNumber,omitempty"`
 	Timestamp  time.Time              `json:"timestamp"`
-	Error      *model.ResponseError   `json:"error,omitempty"`
+	Error      *compat.ResponseError   `json:"error,omitempty"`
 }
 
 // ExecutionErrorPolicy describes how a node error should be handled.
@@ -64,7 +64,7 @@ type ExecutionErrorPolicy struct {
 
 	// ResponseError optionally overrides the structured error fields written
 	// into the collected record.
-	ResponseError *model.ResponseError
+	ResponseError *compat.ResponseError
 }
 
 // RecoverableExecutionError marks an error as recoverable for the default
@@ -305,7 +305,7 @@ func NewExecutionError(
 	err error,
 	severity ExecutionErrorSeverity,
 ) ExecutionError {
-	respErr := model.ResponseErrorFromError(err, model.ErrorTypeFlowError)
+	respErr := compat.ResponseErrorFromError(err, compat.ErrorTypeFlowError)
 	record := ExecutionError{
 		Severity:  severity,
 		Timestamp: time.Now(),
@@ -481,8 +481,8 @@ func cloneExecutionErrors(
 }
 
 func cloneResponseError(
-	err *model.ResponseError,
-) *model.ResponseError {
+	err *compat.ResponseError,
+) *compat.ResponseError {
 	if err == nil {
 		return nil
 	}

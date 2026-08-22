@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/client"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/server"
@@ -47,7 +47,7 @@ type A2ADataPartToolResponse struct {
 type A2ADataPartMappingResult struct {
 	textContent            string
 	reasoningContent       string
-	toolCalls              []model.ToolCall
+	toolCalls              []compat.ToolCall
 	toolResponses          []A2ADataPartToolResponse
 	codeExecution          string
 	codeExecutionResult    string
@@ -93,7 +93,7 @@ func (r *A2ADataPartMappingResult) SetReasoningContent(text string) {
 }
 
 // AppendToolCall appends a tool call when the mapper matches.
-func (r *A2ADataPartMappingResult) AppendToolCall(call model.ToolCall) {
+func (r *A2ADataPartMappingResult) AppendToolCall(call compat.ToolCall) {
 	if r == nil {
 		return
 	}

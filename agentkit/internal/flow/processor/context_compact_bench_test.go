@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var (
@@ -77,10 +77,10 @@ func contextCompactionBenchmarkEvents(count int, resultBytes int) []event.Event 
 			ID:           fmt.Sprintf("event-%d", i),
 			RequestID:    requestID,
 			InvocationID: invocationID,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						fmt.Sprintf("tool-call-%d", i),
 						"benchmark_tool",
 						content,

@@ -17,7 +17,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,15 +69,15 @@ func TestGetEventWindow_Success(t *testing.T) {
 
 	makeEventBytes := func(
 		id string,
-		role model.Role,
+		role compat.Role,
 		content string,
 	) []byte {
 		evt := event.Event{
 			ID: id,
-			Response: &model.Response{
-				Choices: []model.Choice{
+			Response: &compat.Response{
+				Choices: []compat.Choice{
 					{
-						Message: model.Message{
+						Message: compat.Message{
 							Role:    role,
 							Content: content,
 						},
@@ -95,19 +95,19 @@ func TestGetEventWindow_Success(t *testing.T) {
 		[]string{"id", "event", "created_at"},
 	).AddRow(
 		int64(22),
-		makeEventBytes("evt-2", model.RoleAssistant, "second"),
+		makeEventBytes("evt-2", compat.RoleAssistant, "second"),
 		base.Add(2*time.Minute),
 	)
 	beforeRows := sqlmock.NewRows(
 		[]string{"event", "created_at"},
 	).AddRow(
-		makeEventBytes("evt-1", model.RoleUser, "first"),
+		makeEventBytes("evt-1", compat.RoleUser, "first"),
 		base,
 	)
 	afterRows := sqlmock.NewRows(
 		[]string{"event", "created_at"},
 	).AddRow(
-		makeEventBytes("evt-3", model.RoleUser, "third"),
+		makeEventBytes("evt-3", compat.RoleUser, "third"),
 		base.Add(3*time.Minute),
 	)
 
@@ -132,9 +132,9 @@ func TestGetEventWindow_Success(t *testing.T) {
 			AnchorEventID: "evt-2",
 			Before:        1,
 			After:         1,
-			Roles: []model.Role{
-				model.RoleUser,
-				model.RoleAssistant,
+			Roles: []compat.Role{
+				compat.RoleUser,
+				compat.RoleAssistant,
 			},
 		},
 	)
@@ -171,9 +171,9 @@ func TestGetEventWindow_AnchorNotFound(t *testing.T) {
 			AnchorEventID: "evt-tool",
 			Before:        1,
 			After:         1,
-			Roles: []model.Role{
-				model.RoleUser,
-				model.RoleAssistant,
+			Roles: []compat.Role{
+				compat.RoleUser,
+				compat.RoleAssistant,
 			},
 		},
 	)
@@ -186,12 +186,12 @@ func TestGetEventWindow_IncludesToolResultsWhenRequested(t *testing.T) {
 	s, mock, db := newTestServiceWithSliceSupport(t, nil)
 	defer db.Close()
 
-	makeEventBytes := func(id string, role model.Role, content string) []byte {
+	makeEventBytes := func(id string, role compat.Role, content string) []byte {
 		evt := event.Event{
 			ID: id,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
 						Role:    role,
 						Content: content,
 					},
@@ -206,10 +206,10 @@ func TestGetEventWindow_IncludesToolResultsWhenRequested(t *testing.T) {
 	makeToolEventBytes := func(id string) []byte {
 		evt := event.Event{
 			ID: id,
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:     model.RoleTool,
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:     compat.RoleTool,
 						ToolID:   "call-1",
 						ToolName: "db_query",
 						Content:  "row_count=42",
@@ -233,13 +233,13 @@ func TestGetEventWindow_IncludesToolResultsWhenRequested(t *testing.T) {
 	beforeRows := sqlmock.NewRows(
 		[]string{"event", "created_at"},
 	).AddRow(
-		makeEventBytes("evt-1", model.RoleUser, "first"),
+		makeEventBytes("evt-1", compat.RoleUser, "first"),
 		base,
 	)
 	afterRows := sqlmock.NewRows(
 		[]string{"event", "created_at"},
 	).AddRow(
-		makeEventBytes("evt-2", model.RoleAssistant, "second"),
+		makeEventBytes("evt-2", compat.RoleAssistant, "second"),
 		base.Add(2*time.Minute),
 	)
 
@@ -264,10 +264,10 @@ func TestGetEventWindow_IncludesToolResultsWhenRequested(t *testing.T) {
 			AnchorEventID: "evt-tool",
 			Before:        1,
 			After:         1,
-			Roles: []model.Role{
-				model.RoleUser,
-				model.RoleAssistant,
-				model.RoleTool,
+			Roles: []compat.Role{
+				compat.RoleUser,
+				compat.RoleAssistant,
+				compat.RoleTool,
 			},
 		},
 	)
@@ -305,11 +305,11 @@ func TestExtractWindowEventText_UsesContentParts(t *testing.T) {
 	text1 := "first"
 	text2 := "second"
 	text, role, ok := extractWindowEventText(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{Text: &text1},
 						{Text: &text2},
 					},
@@ -318,17 +318,17 @@ func TestExtractWindowEventText_UsesContentParts(t *testing.T) {
 		},
 	})
 	require.True(t, ok)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 	assert.Equal(t, "first\nsecond", text)
 }
 
 func TestExtractWindowEventText_RejectsPartialResponses(t *testing.T) {
 	_, _, ok := extractWindowEventText(&event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial",
 				},
 			}},
@@ -338,10 +338,10 @@ func TestExtractWindowEventText_RejectsPartialResponses(t *testing.T) {
 }
 
 func TestWindowHelpers(t *testing.T) {
-	filter := makeRoleFilter([]model.Role{"", " user ", model.RoleAssistant})
+	filter := makeRoleFilter([]compat.Role{"", " user ", compat.RoleAssistant})
 	require.Len(t, filter, 2)
 	assert.Nil(t, makeRoleFilter(nil))
-	assert.Nil(t, makeRoleFilter([]model.Role{""}))
+	assert.Nil(t, makeRoleFilter([]compat.Role{""}))
 
 	assert.True(t, eventAllowedInWindow(nil, nil))
 	assert.False(t, eventAllowedInWindow(&event.Event{}, filter))
@@ -365,10 +365,10 @@ func TestDecodeWindowEntry_AndExtractWindowEventText_EdgeBranches(t *testing.T) 
 	assert.False(t, ok)
 
 	toolCallEvent := event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{{ID: "call-1", Type: "function"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{{ID: "call-1", Type: "function"}},
 				},
 			}},
 		},
@@ -376,30 +376,30 @@ func TestDecodeWindowEntry_AndExtractWindowEventText_EdgeBranches(t *testing.T) 
 	bytes, err := json.Marshal(toolCallEvent)
 	require.NoError(t, err)
 
-	_, ok, err = decodeWindowEntry(bytes, time.Now(), map[model.Role]struct{}{
-		model.RoleAssistant: {},
+	_, ok, err = decodeWindowEntry(bytes, time.Now(), map[compat.Role]struct{}{
+		compat.RoleAssistant: {},
 	})
 	require.NoError(t, err)
 	assert.False(t, ok)
 
 	text, role, ok := extractWindowEventText(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Content: "assistant default role",
 				},
 			}},
 		},
 	})
 	require.True(t, ok)
-	assert.Equal(t, model.RoleAssistant, role)
+	assert.Equal(t, compat.RoleAssistant, role)
 	assert.Equal(t, "assistant default role", text)
 
 	text, role, ok = extractWindowEventText(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "call-1",
 					ToolName: "db_query",
 					Content:  "row_count=42",
@@ -408,14 +408,14 @@ func TestDecodeWindowEntry_AndExtractWindowEventText_EdgeBranches(t *testing.T) 
 		},
 	})
 	require.True(t, ok)
-	assert.Equal(t, model.RoleTool, role)
+	assert.Equal(t, compat.RoleTool, role)
 	assert.Equal(t, "db_query: row_count=42", text)
 
 	_, _, ok = extractWindowEventText(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleSystem,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleSystem,
 					Content: "system message",
 				},
 			}},
@@ -424,10 +424,10 @@ func TestDecodeWindowEntry_AndExtractWindowEventText_EdgeBranches(t *testing.T) 
 	assert.False(t, ok)
 
 	_, _, ok = extractWindowEventText(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
 				},
 			}},
 		},

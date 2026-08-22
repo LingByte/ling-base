@@ -7,29 +7,18 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	memorystore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type mockModel struct {
 	lastPrompt string
 }
 
-func (m *mockModel) Generate(ctx context.Context, prompt string) (any, error) {
-	m.lastPrompt = prompt
-	return "mock response", nil
-}
+func (m *mockModel) Info() compat.Info { return compat.Info{Name: "mock"} }
 
-func (m *mockModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	m.lastPrompt = prompt
-	return "mock response", nil
-}
-
-func (m *mockModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	m.lastPrompt = prompt
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: "mock response", FullText: "mock response", Done: true}
-	close(ch)
-	return ch, nil
+func (m *mockModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	m.lastPrompt = promptFromRequest(req)
+	return singleTextResponse("mock response"), nil
 }
 
 func TestPromptInjectionPrevention(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/graphagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -38,7 +38,7 @@ func TestRunnerWithNoopSessionService_GraphSeesCurrentUserMessage(t *testing.T) 
 	r := runner.NewRunner("app", ag, runner.WithSessionService(svc))
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-	events, err := r.Run(ctx, "user", "session", model.NewUserMessage(userMessage))
+	events, err := r.Run(ctx, "user", "session", compat.NewUserMessage(userMessage))
 	require.NoError(t, err)
 	requireNoRunError(t, events)
 
@@ -68,7 +68,7 @@ func TestRunnerWithNoopSessionService_ChainGraphSeesUpstreamHistory(t *testing.T
 	r := runner.NewRunner("app", chain, runner.WithSessionService(NewService()))
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-	events, err := r.Run(ctx, "user", "session", model.NewUserMessage("start"))
+	events, err := r.Run(ctx, "user", "session", compat.NewUserMessage("start"))
 	require.NoError(t, err)
 	requireNoRunError(t, events)
 }
@@ -81,7 +81,7 @@ func newGraphHistoryCheckAgent(t *testing.T, name string, want string) agent.Age
 			if !ok {
 				return nil, fmt.Errorf("messages not found")
 			}
-			messages, ok := raw.([]model.Message)
+			messages, ok := raw.([]compat.Message)
 			if !ok {
 				return nil, fmt.Errorf("messages has type %T", raw)
 			}
@@ -129,9 +129,9 @@ func (a *staticResponseAgent) Run(ctx context.Context, inv *agent.Invocation) (<
 	events := make(chan *event.Event, 1)
 	go func() {
 		defer close(events)
-		resp := &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage(a.content),
+		resp := &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage(a.content),
 			}},
 		}
 		_ = agent.EmitEvent(ctx, inv, events, event.NewResponseEvent(inv.InvocationID, a.name, resp))

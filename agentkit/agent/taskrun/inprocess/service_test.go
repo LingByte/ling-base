@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -49,7 +49,7 @@ type captureRunner struct {
 	ctx       context.Context
 	userID    string
 	sessionID string
-	message   model.Message
+	message   compat.Message
 	runOpts   agent.RunOptions
 	reply     string
 	events    []*event.Event
@@ -60,7 +60,7 @@ func (r *captureRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.mu.Lock()
@@ -84,10 +84,10 @@ func (r *captureRunner) Run(
 
 	if len(events) == 0 {
 		events = []*event.Event{{
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage(reply),
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage(reply),
 				}},
 			},
 		}}
@@ -114,7 +114,7 @@ func (r *blockingRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.once.Do(func() {
@@ -145,7 +145,7 @@ func (r *controlledCancelRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.once.Do(func() {
@@ -180,7 +180,7 @@ func (r *exitGateRunner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	opts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	r.once.Do(func() {
@@ -191,10 +191,10 @@ func (r *exitGateRunner) Run(
 		defer close(ch)
 		<-r.unblock
 		ch <- &event.Event{
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("done"),
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("done"),
 				}},
 			},
 		}
@@ -406,8 +406,8 @@ func TestServiceSpawnCompletesRun(t *testing.T) {
 				testRunContextValue,
 			)
 		},
-		InjectedContextMessages: []model.Message{
-			model.NewSystemMessage("stay focused"),
+		InjectedContextMessages: []compat.Message{
+			compat.NewSystemMessage("stay focused"),
 		},
 		Metadata: map[string]string{
 			"kind": "review",
@@ -478,19 +478,19 @@ func TestServiceRecordsRunProgress(t *testing.T) {
 	runner := &captureRunner{events: []*event.Event{
 		{
 			Timestamp: startedAt.Add(time.Second),
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
-				Usage: &model.Usage{
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
+				Usage: &compat.Usage{
 					PromptTokens:     2,
 					CompletionTokens: 1,
 					TotalTokens:      3,
 				},
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID: toolCallID,
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name: "lookup",
 							},
 						}},
@@ -500,11 +500,11 @@ func TestServiceRecordsRunProgress(t *testing.T) {
 		},
 		{
 			Timestamp: startedAt.Add(2 * time.Second),
-			Response: &model.Response{
-				Object: model.ObjectTypeToolResponse,
-				Choices: []model.Choice{{
-					Message: model.Message{
-						Role:    model.RoleTool,
+			Response: &compat.Response{
+				Object: compat.ObjectTypeToolResponse,
+				Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  toolCallID,
 						Content: "tool output",
 					},
@@ -513,15 +513,15 @@ func TestServiceRecordsRunProgress(t *testing.T) {
 		},
 		{
 			Timestamp: startedAt.Add(3 * time.Second),
-			Response: &model.Response{
-				Object: model.ObjectTypeChatCompletion,
-				Usage: &model.Usage{
+			Response: &compat.Response{
+				Object: compat.ObjectTypeChatCompletion,
+				Usage: &compat.Usage{
 					PromptTokens:     4,
 					CompletionTokens: 3,
 					TotalTokens:      7,
 				},
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("done"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("done"),
 				}},
 			},
 		},
@@ -566,18 +566,18 @@ func TestProgressAccumulatorHandlesSparseEvents(t *testing.T) {
 
 	require.True(t, acc.consume(&event.Event{}, now))
 	require.True(t, acc.consume(&event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			IsPartial: true,
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens:     100,
 				CompletionTokens: 100,
 				TotalTokens:      200,
 			},
-			Choices: []model.Choice{{
-				Delta: model.Message{
-					ToolCalls: []model.ToolCall{{
+			Choices: []compat.Choice{{
+				Delta: compat.Message{
+					ToolCalls: []compat.ToolCall{{
 						ID: "partial-call",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name: "lookup",
 						},
 					}},

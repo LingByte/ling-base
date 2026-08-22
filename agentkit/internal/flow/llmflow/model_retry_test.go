@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/calllimit"
 	imodelrequest "github.com/LingByte/ling-base/agentkit/internal/modelrequest"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -25,12 +25,12 @@ type modelRetryTestContextKey struct{}
 type modelRetryTestCallbacksKey struct{}
 
 type modelRetryTestCallbacks struct {
-	before func(context.Context, *model.Request) (
+	before func(context.Context, *compat.Request) (
 		context.Context,
-		*model.Response,
+		*compat.Response,
 		error,
 	)
-	after func(context.Context, *model.Request, *model.Response) (
+	after func(context.Context, *compat.Request, *compat.Response) (
 		context.Context,
 		error,
 	)
@@ -40,23 +40,23 @@ type modelRetryTestBinder struct{}
 
 func (modelRetryTestBinder) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
+	*compat.Request,
+) (<-chan *compat.Response, error) {
 	return nil, nil
 }
 
-func (modelRetryTestBinder) Info() model.Info {
-	return model.Info{Name: "retry-test-binder"}
+func (modelRetryTestBinder) Info() compat.Info {
+	return compat.Info{Name: "retry-test-binder"}
 }
 
 func (modelRetryTestBinder) WithModelRetryCallbacks(
 	ctx context.Context,
-	before func(context.Context, *model.Request) (
+	before func(context.Context, *compat.Request) (
 		context.Context,
-		*model.Response,
+		*compat.Response,
 		error,
 	),
-	after func(context.Context, *model.Request, *model.Response) (
+	after func(context.Context, *compat.Request, *compat.Response) (
 		context.Context,
 		error,
 	),
@@ -69,14 +69,14 @@ func TestModelRetryCallbacks_RunNormalCallbackChain(t *testing.T) {
 	const contextValue = "retry-callback-context"
 	var beforeCalls int
 	var afterCalls int
-	callbacks := model.NewCallbacks().
+	callbacks := compat.NewCallbacks().
 		RegisterBeforeModel(func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			beforeCalls++
 			require.Equal(t, "retry", args.Request.Messages[0].Content)
-			return &model.BeforeModelResult{Context: context.WithValue(
+			return &compat.BeforeModelResult{Context: context.WithValue(
 				ctx,
 				modelRetryTestContextKey{},
 				contextValue,
@@ -84,8 +84,8 @@ func TestModelRetryCallbacks_RunNormalCallbackChain(t *testing.T) {
 		}).
 		RegisterAfterModel(func(
 			ctx context.Context,
-			args *model.AfterModelArgs,
-		) (*model.AfterModelResult, error) {
+			args *compat.AfterModelArgs,
+		) (*compat.AfterModelResult, error) {
 			afterCalls++
 			require.Equal(t, contextValue, ctx.Value(modelRetryTestContextKey{}))
 			require.Equal(t, "retry", args.Request.Messages[0].Content)
@@ -101,14 +101,14 @@ func TestModelRetryCallbacks_RunNormalCallbackChain(t *testing.T) {
 	)
 	bound, ok := ctx.Value(modelRetryTestCallbacksKey{}).(modelRetryTestCallbacks)
 	require.True(t, ok)
-	req := &model.Request{Messages: []model.Message{
-		model.NewUserMessage("retry"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage("retry"),
 	}}
 
 	ctx, customResponse, err := bound.before(ctx, req)
 	require.NoError(t, err)
 	require.Nil(t, customResponse)
-	ctx, err = bound.after(ctx, req, &model.Response{ID: "response"})
+	ctx, err = bound.after(ctx, req, &compat.Response{ID: "response"})
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 	require.Equal(t, 1, beforeCalls)
@@ -117,18 +117,18 @@ func TestModelRetryCallbacks_RunNormalCallbackChain(t *testing.T) {
 
 func TestModelRetryCallbacks_FinalizationRemainsToolFree(t *testing.T) {
 	const instruction = "finish with available results"
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			require.True(t, imodelrequest.ToolsDisabled(ctx))
 			require.Nil(t, args.Request.Tools)
 			require.NotContains(t, args.Request.ExtraFields, "tool_choice")
 
 			args.Request.Tools = map[string]tool.Tool{"lookup": nil}
 			args.Request.ExtraFields["tool_choice"] = "required"
-			return &model.BeforeModelResult{
+			return &compat.BeforeModelResult{
 				Context: context.Background(),
 			}, nil
 		},
@@ -149,10 +149,10 @@ func TestModelRetryCallbacks_FinalizationRemainsToolFree(t *testing.T) {
 	)
 	bound, ok := ctx.Value(modelRetryTestCallbacksKey{}).(modelRetryTestCallbacks)
 	require.True(t, ok)
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("question"),
-			model.NewUserMessage(instruction),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("question"),
+			compat.NewUserMessage(instruction),
 		},
 		Tools: map[string]tool.Tool{"lookup": nil},
 		ExtraFields: map[string]any{

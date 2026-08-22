@@ -15,25 +15,25 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRunInputFromMessages_UserMessage(t *testing.T) {
-	messages := []model.Message{
-		{Role: model.RoleSystem, Content: "sys"},
-		{Role: model.RoleUser, Content: "hello"},
+	messages := []compat.Message{
+		{Role: compat.RoleSystem, Content: "sys"},
+		{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	got, err := runInputFromMessages(messages)
 
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, model.RoleUser, got.inputMessage.Role)
+	assert.Equal(t, compat.RoleUser, got.inputMessage.Role)
 	assert.Equal(t, "hello", got.inputMessage.Content)
 	require.Len(t, got.history, 1)
-	assert.Equal(t, model.RoleSystem, got.history[0].Role)
+	assert.Equal(t, compat.RoleSystem, got.history[0].Role)
 	assert.Empty(t, got.toolMessages)
 }
 
@@ -46,30 +46,30 @@ func TestRunInputFromMessages_RejectsEmptyMessages(t *testing.T) {
 }
 
 func TestRunInputFromMessages_AllowsAssistantLast(t *testing.T) {
-	messages := []model.Message{
-		{Role: model.RoleUser, Content: "hi"},
-		{Role: model.RoleAssistant, Content: "reply"},
+	messages := []compat.Message{
+		{Role: compat.RoleUser, Content: "hi"},
+		{Role: compat.RoleAssistant, Content: "reply"},
 	}
 
 	got, err := runInputFromMessages(messages)
 
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, model.RoleAssistant, got.inputMessage.Role)
+	assert.Equal(t, compat.RoleAssistant, got.inputMessage.Role)
 	assert.Equal(t, "reply", got.inputMessage.Content)
 	require.Len(t, got.history, 1)
-	assert.Equal(t, model.RoleUser, got.history[0].Role)
+	assert.Equal(t, compat.RoleUser, got.history[0].Role)
 }
 
 func TestRunInputFromMessages_SingleToolResult(t *testing.T) {
-	messages := []model.Message{
-		{Role: model.RoleUser, Content: "search"},
+	messages := []compat.Message{
+		{Role: compat.RoleUser, Content: "search"},
 		{
-			Role:      model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{ID: "call-1", Function: model.FunctionDefinitionParam{Name: "search"}}},
+			Role:      compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{ID: "call-1", Function: compat.FunctionDefinitionParam{Name: "search"}}},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call-1",
 			ToolName: "search",
 			Content:  "result",
@@ -80,7 +80,7 @@ func TestRunInputFromMessages_SingleToolResult(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, model.RoleTool, got.inputMessage.Role)
+	assert.Equal(t, compat.RoleTool, got.inputMessage.Role)
 	assert.Equal(t, "call-1", got.inputMessage.ToolID)
 	assert.Equal(t, "result", got.inputMessage.Content)
 	require.Len(t, got.history, 2)
@@ -88,11 +88,11 @@ func TestRunInputFromMessages_SingleToolResult(t *testing.T) {
 }
 
 func TestRunInputFromMessages_CollectsTailToolMessages(t *testing.T) {
-	messages := []model.Message{
-		{Role: model.RoleTool, ToolID: "old-call", Content: "old"},
-		{Role: model.RoleAssistant, Content: "calling tools"},
-		{Role: model.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
-		{Role: model.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
+	messages := []compat.Message{
+		{Role: compat.RoleTool, ToolID: "old-call", Content: "old"},
+		{Role: compat.RoleAssistant, Content: "calling tools"},
+		{Role: compat.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
+		{Role: compat.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
 	}
 
 	got, err := runInputFromMessages(messages)
@@ -103,16 +103,16 @@ func TestRunInputFromMessages_CollectsTailToolMessages(t *testing.T) {
 	assert.Equal(t, "result 2", got.inputMessage.Content)
 	require.Len(t, got.history, 2)
 	assert.Equal(t, "old-call", got.history[0].ToolID)
-	assert.Equal(t, model.RoleAssistant, got.history[1].Role)
+	assert.Equal(t, compat.RoleAssistant, got.history[1].Role)
 	require.Len(t, got.toolMessages, 2)
 	assert.Equal(t, "call-1", got.toolMessages[0].ToolID)
 	assert.Equal(t, "call-2", got.toolMessages[1].ToolID)
 }
 
 func TestRunInputFromMessages_RejectsToolMessageMissingID(t *testing.T) {
-	messages := []model.Message{
-		{Role: model.RoleAssistant, Content: "calling tools"},
-		{Role: model.RoleTool, Content: "result"},
+	messages := []compat.Message{
+		{Role: compat.RoleAssistant, Content: "calling tools"},
+		{Role: compat.RoleTool, Content: "result"},
 	}
 
 	got, err := runInputFromMessages(messages)
@@ -124,13 +124,13 @@ func TestRunInputFromMessages_RejectsToolMessageMissingID(t *testing.T) {
 
 func TestRunInputFromMessages_RejectsMultimodalToolResult(t *testing.T) {
 	text := "result"
-	messages := []model.Message{
-		{Role: model.RoleAssistant, Content: "calling tools"},
+	messages := []compat.Message{
+		{Role: compat.RoleAssistant, Content: "calling tools"},
 		{
-			Role:   model.RoleTool,
+			Role:   compat.RoleTool,
 			ToolID: "call-1",
-			ContentParts: []model.ContentPart{
-				{Type: model.ContentTypeText, Text: &text},
+			ContentParts: []compat.ContentPart{
+				{Type: compat.ContentTypeText, Text: &text},
 			},
 		},
 	}
@@ -144,15 +144,15 @@ func TestRunInputFromMessages_RejectsMultimodalToolResult(t *testing.T) {
 
 func TestRunInputFromMessages_RejectsMixedTextAndContentPartsToolResult(t *testing.T) {
 	text := "image caption"
-	messages := []model.Message{
-		{Role: model.RoleAssistant, Content: "calling tools"},
+	messages := []compat.Message{
+		{Role: compat.RoleAssistant, Content: "calling tools"},
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call-1",
 			Content: "result text",
-			ContentParts: []model.ContentPart{
-				{Type: model.ContentTypeImage, Image: &model.Image{URL: "https://example.com/a.png"}},
-				{Type: model.ContentTypeText, Text: &text},
+			ContentParts: []compat.ContentPart{
+				{Type: compat.ContentTypeImage, Image: &compat.Image{URL: "https://example.com/a.png"}},
+				{Type: compat.ContentTypeText, Text: &text},
 			},
 		},
 	}
@@ -165,9 +165,9 @@ func TestRunInputFromMessages_RejectsMixedTextAndContentPartsToolResult(t *testi
 }
 
 func TestWithToolResultMessageRewriter_MergesParallelResults(t *testing.T) {
-	toolMessages := []model.Message{
-		{Role: model.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
-		{Role: model.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
+	toolMessages := []compat.Message{
+		{Role: compat.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
+		{Role: compat.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
 	}
 	opts := agent.NewRunOptions(withToolResultMessageRewriter(toolMessages))
 
@@ -187,8 +187,8 @@ func TestWithToolResultMessageRewriter_MergesParallelResults(t *testing.T) {
 }
 
 func TestWithToolResultMessageRewriter_SkipsSingleToolResult(t *testing.T) {
-	toolMessages := []model.Message{
-		{Role: model.RoleTool, ToolID: "call-1", Content: "result"},
+	toolMessages := []compat.Message{
+		{Role: compat.RoleTool, ToolID: "call-1", Content: "result"},
 	}
 	opts := agent.NewRunOptions(withToolResultMessageRewriter(toolMessages))
 
@@ -196,20 +196,20 @@ func TestWithToolResultMessageRewriter_SkipsSingleToolResult(t *testing.T) {
 }
 
 func TestWithToolResultMessageRewriter_WrapsExistingRewriter(t *testing.T) {
-	toolMessages := []model.Message{
-		{Role: model.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
-		{Role: model.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
+	toolMessages := []compat.Message{
+		{Role: compat.RoleTool, ToolID: "call-1", ToolName: "search", Content: "result 1"},
+		{Role: compat.RoleTool, ToolID: "call-2", ToolName: "lookup", Content: "result 2"},
 	}
 	var customRewriterCalled bool
 	opts := agent.NewRunOptions(
 		agent.WithUserMessageRewriter(func(
 			context.Context,
 			*agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			customRewriterCalled = true
-			return []model.Message{
-				model.NewUserMessage("custom"),
-				model.NewToolMessage("call-2", "lookup", "rewritten duplicate"),
+			return []compat.Message{
+				compat.NewUserMessage("custom"),
+				compat.NewToolMessage("call-2", "lookup", "rewritten duplicate"),
 			}, nil
 		}),
 		withToolResultMessageRewriter(toolMessages),
@@ -224,7 +224,7 @@ func TestWithToolResultMessageRewriter_WrapsExistingRewriter(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, currentTurn, 3)
-	assert.Equal(t, model.RoleUser, currentTurn[0].Role)
+	assert.Equal(t, compat.RoleUser, currentTurn[0].Role)
 	assert.Equal(t, "custom", currentTurn[0].Content)
 	assert.Equal(t, "call-1", currentTurn[1].ToolID)
 	assert.Equal(t, "result 1", currentTurn[1].Content)
@@ -234,15 +234,15 @@ func TestWithToolResultMessageRewriter_WrapsExistingRewriter(t *testing.T) {
 }
 
 func TestWithToolResultMessageRewriter_PropagatesRewriterError(t *testing.T) {
-	toolMessages := []model.Message{
-		{Role: model.RoleTool, ToolID: "call-1", Content: "result 1"},
-		{Role: model.RoleTool, ToolID: "call-2", Content: "result 2"},
+	toolMessages := []compat.Message{
+		{Role: compat.RoleTool, ToolID: "call-1", Content: "result 1"},
+		{Role: compat.RoleTool, ToolID: "call-2", Content: "result 2"},
 	}
 	opts := agent.NewRunOptions(
 		agent.WithUserMessageRewriter(func(
 			context.Context,
 			*agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			return nil, errors.New("rewrite failed")
 		}),
 		withToolResultMessageRewriter(toolMessages),
@@ -257,32 +257,32 @@ func TestWithToolResultMessageRewriter_PropagatesRewriterError(t *testing.T) {
 }
 
 func TestMergeToolResultRewriteMessages_KeepsNonToolMessagesWithToolID(t *testing.T) {
-	rewritten := []model.Message{
-		{Role: model.RoleUser, Content: "context", ToolID: "call-1"},
-		model.NewToolMessage("call-1", "search", "rewritten duplicate"),
+	rewritten := []compat.Message{
+		{Role: compat.RoleUser, Content: "context", ToolID: "call-1"},
+		compat.NewToolMessage("call-1", "search", "rewritten duplicate"),
 	}
-	toolResults := []model.Message{
-		model.NewToolMessage("call-1", "search", "authoritative result"),
+	toolResults := []compat.Message{
+		compat.NewToolMessage("call-1", "search", "authoritative result"),
 	}
 
 	got := mergeToolResultRewriteMessages(rewritten, toolResults)
 
 	require.Len(t, got, 2)
-	assert.Equal(t, model.RoleUser, got[0].Role)
+	assert.Equal(t, compat.RoleUser, got[0].Role)
 	assert.Equal(t, "context", got[0].Content)
 	assert.Equal(t, "call-1", got[0].ToolID)
-	assert.Equal(t, model.RoleTool, got[1].Role)
+	assert.Equal(t, compat.RoleTool, got[1].Role)
 	assert.Equal(t, "rewritten duplicate", got[1].Content)
 	assert.Equal(t, "call-1", got[1].ToolID)
 }
 
 func TestMergeToolResultRewriteMessages_AppendsUnmatchedToolResults(t *testing.T) {
-	rewritten := []model.Message{
-		model.NewUserMessage("context"),
+	rewritten := []compat.Message{
+		compat.NewUserMessage("context"),
 	}
-	toolResults := []model.Message{
-		model.NewToolMessage("call-1", "search", "result 1"),
-		model.NewToolMessage("call-2", "lookup", "result 2"),
+	toolResults := []compat.Message{
+		compat.NewToolMessage("call-1", "search", "result 1"),
+		compat.NewToolMessage("call-2", "lookup", "result 2"),
 	}
 
 	got := mergeToolResultRewriteMessages(rewritten, toolResults)
@@ -297,13 +297,13 @@ func TestMergeToolResultRewriteMessages_AppendsUnmatchedToolResults(t *testing.T
 
 func TestBuildRunOptions_IncludesToolResultRewriter(t *testing.T) {
 	input := &runInputMessages{
-		inputMessage: model.Message{Role: model.RoleTool, ToolID: "call-2", Content: "result 2"},
-		history: []model.Message{
-			{Role: model.RoleAssistant, Content: "calling tools"},
+		inputMessage: compat.Message{Role: compat.RoleTool, ToolID: "call-2", Content: "result 2"},
+		history: []compat.Message{
+			{Role: compat.RoleAssistant, Content: "calling tools"},
 		},
-		toolMessages: []model.Message{
-			{Role: model.RoleTool, ToolID: "call-1", Content: "result 1"},
-			{Role: model.RoleTool, ToolID: "call-2", Content: "result 2"},
+		toolMessages: []compat.Message{
+			{Role: compat.RoleTool, ToolID: "call-1", Content: "result 1"},
+			{Role: compat.RoleTool, ToolID: "call-2", Content: "result 2"},
 		},
 	}
 
@@ -313,12 +313,12 @@ func TestBuildRunOptions_IncludesToolResultRewriter(t *testing.T) {
 	opts := agent.NewRunOptions(runOpts...)
 	require.NotNil(t, opts.UserMessageRewriter)
 	require.Len(t, opts.Messages, 1)
-	assert.Equal(t, model.RoleAssistant, opts.Messages[0].Role)
+	assert.Equal(t, compat.RoleAssistant, opts.Messages[0].Role)
 }
 
 func TestBuildRunOptions_IncludesExternalTools(t *testing.T) {
 	input := &runInputMessages{
-		inputMessage: model.Message{Role: model.RoleUser, Content: "search"},
+		inputMessage: compat.Message{Role: compat.RoleUser, Content: "search"},
 	}
 	req := &openAIRequest{
 		Tools: []openAITool{
@@ -341,7 +341,7 @@ func TestBuildRunOptions_IncludesExternalTools(t *testing.T) {
 
 func TestBuildRunOptions_SkipsExternalToolsWhenToolChoiceNone(t *testing.T) {
 	input := &runInputMessages{
-		inputMessage: model.Message{Role: model.RoleUser, Content: "search"},
+		inputMessage: compat.Message{Role: compat.RoleUser, Content: "search"},
 	}
 	req := &openAIRequest{
 		ToolChoice: openAIToolChoiceNone,

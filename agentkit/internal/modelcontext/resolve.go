@@ -13,16 +13,16 @@ package modelcontext
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type inputTokenBudgeter interface {
-	InputTokenBudget(context.Context, *model.Request) int
+	InputTokenBudget(context.Context, *compat.Request) int
 }
 
 // ResolveContextWindow resolves a model's context window from Info first,
 // then from the process-wide model-name registry.
-func ResolveContextWindow(m model.Model) (int, bool) {
+func ResolveContextWindow(m compat.Model) (int, bool) {
 	if m == nil {
 		return 0, false
 	}
@@ -30,7 +30,7 @@ func ResolveContextWindow(m model.Model) (int, bool) {
 	if info.ContextWindow > 0 {
 		return info.ContextWindow, true
 	}
-	return model.LookupModelContextWindow(info.Name)
+	return compat.LookupModelContextWindow(info.Name)
 }
 
 // ResolveInputTokenBudget returns the effective input budget used by a model
@@ -39,8 +39,8 @@ func ResolveContextWindow(m model.Model) (int, bool) {
 // extending the core Model interface.
 func ResolveInputTokenBudget(
 	ctx context.Context,
-	m model.Model,
-	request *model.Request,
+	m compat.Model,
+	request *compat.Request,
 ) (int, bool) {
 	if m == nil {
 		return 0, false

@@ -14,7 +14,7 @@ package messagemerger
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 )
 
@@ -55,8 +55,8 @@ func (p *messageMergerPlugin) Register(r *plugin.Registry) {
 
 func (p *messageMergerPlugin) beforeModel(
 	_ context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if p == nil || args == nil || args.Request == nil {
 		return nil, nil
 	}

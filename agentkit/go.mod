@@ -1,9 +1,11 @@
 module github.com/LingByte/ling-base/agentkit
 
-go 1.26.0
+go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/agentkit/relaymodel v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/logger v0.1.0
+	github.com/LingByte/ling-base/relay/compat v0.0.0-00010101000000-000000000000
 	github.com/OpenRouterTeam/go-sdk v0.7.64
 	github.com/alpkeskin/gotoon v0.1.1
 	github.com/anthropics/anthropic-sdk-go v1.66.0
@@ -42,11 +44,10 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
 	go.opentelemetry.io/proto/otlp v1.3.1
-	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.46.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.37.0
-	golang.org/x/text v0.30.0
+	golang.org/x/text v0.41.0
 	golang.org/x/time v0.15.0
 	google.golang.org/api v0.197.0
 	google.golang.org/genai v1.69.0
@@ -64,6 +65,11 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
+	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0 // indirect
+	github.com/LingByte/ling-base/common/constants v0.1.1 // indirect
+	github.com/LingByte/ling-base/common/retry v0.1.0 // indirect
+	github.com/LingByte/ling-base/relay v0.0.0-00010101000000-000000000000 // indirect
+	github.com/LingByte/ling-base/relay/relaykit v0.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -87,6 +93,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
+	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
 	github.com/openconfig/gnmi v0.14.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
@@ -107,6 +114,7 @@ require (
 	github.com/pion/webrtc/v3 v3.3.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/samber/lo v1.47.0 // indirect
 	github.com/schollz/progressbar/v2 v2.15.0 // indirect
 	github.com/schollz/progressbar/v3 v3.14.1 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
@@ -126,6 +134,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
+	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/term v0.36.0 // indirect
@@ -141,7 +150,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.8 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/glog v1.2.5 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
@@ -167,7 +176,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/vcaesar/cedar v0.20.2 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
@@ -176,6 +185,10 @@ require (
 )
 
 replace (
-	github.com/LingByte/ling-base/common/logger => ../common/logger
+	github.com/LingByte/ling-base/agentkit/relaymodel => ./relaymodel
 	github.com/LingByte/ling-base/common/constants => ../common/constants
+	github.com/LingByte/ling-base/common/logger => ../common/logger
+	github.com/LingByte/ling-base/relay => ../relay
+	github.com/LingByte/ling-base/relay/compat => ../relay/compat
+	github.com/LingByte/ling-base/relay/relaykit => ../relay/relaykit
 )

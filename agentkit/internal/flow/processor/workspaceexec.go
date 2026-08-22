@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	toolworkspaceexec "github.com/LingByte/ling-base/agentkit/tool/workspaceexec"
 )
@@ -117,7 +117,7 @@ func NewWorkspaceExecRequestProcessor(
 func (p *WorkspaceExecRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil {
@@ -140,8 +140,8 @@ func (p *WorkspaceExecRequestProcessor) ProcessRequest(
 			}
 		}
 	} else {
-		req.Messages = append([]model.Message{
-			model.NewSystemMessage(guidance),
+		req.Messages = append([]compat.Message{
+			compat.NewSystemMessage(guidance),
 		}, req.Messages...)
 	}
 
@@ -151,7 +151,7 @@ func (p *WorkspaceExecRequestProcessor) ProcessRequest(
 	agent.EmitEvent(ctx, inv, ch, event.New(
 		inv.InvocationID,
 		inv.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingInstruction),
+		event.WithObject(compat.ObjectTypePreprocessingInstruction),
 	))
 }
 

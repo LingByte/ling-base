@@ -13,7 +13,7 @@ import (
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/profilecompiler"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type session struct {
@@ -29,7 +29,7 @@ type runOptions struct {
 
 type runRequest struct {
 	Session session       `json:"session"`
-	Input   model.Message `json:"input"`
+	Input   compat.Message `json:"input"`
 	// Profile must be runtime-normalized and include nodeID and type.
 	Profile    *profilecompiler.Profile `json:"profile,omitempty"`
 	RunOptions runOptions               `json:"runOptions,omitempty"`

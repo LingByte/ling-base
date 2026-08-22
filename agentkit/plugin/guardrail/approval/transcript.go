@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval/review"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -103,7 +103,7 @@ func (p *Plugin) collectTranscriptEntries(invocation *agent.Invocation) []transc
 }
 
 func (p *Plugin) countTranscriptTokens(ctx context.Context, entry guardtranscript.Entry) int {
-	tokens, err := p.tokenCounter.CountTokens(ctx, model.Message{
+	tokens, err := p.tokenCounter.CountTokens(ctx, compat.Message{
 		Role:    entry.Role,
 		Content: entry.Content,
 	})
@@ -120,7 +120,7 @@ func declarationDescription(declaration *tool.Declaration) string {
 	return declaration.Description
 }
 
-func messageToTranscriptEntries(msg model.Message) []struct {
+func messageToTranscriptEntries(msg compat.Message) []struct {
 	entry    guardtranscript.Entry
 	category guardtranscript.Category
 } {
@@ -130,9 +130,9 @@ func messageToTranscriptEntries(msg model.Message) []struct {
 	}, 0)
 	if content := transcriptContent(msg); content != "" {
 		switch msg.Role {
-		case model.RoleUser, model.RoleAssistant, model.RoleTool:
+		case compat.RoleUser, compat.RoleAssistant, compat.RoleTool:
 			category := guardtranscript.CategoryMessage
-			if msg.Role == model.RoleTool {
+			if msg.Role == compat.RoleTool {
 				category = guardtranscript.CategoryTool
 			}
 			entries = append(entries, struct {
@@ -160,7 +160,7 @@ func messageToTranscriptEntries(msg model.Message) []struct {
 			category guardtranscript.Category
 		}{
 			entry: guardtranscript.Entry{
-				Role:    model.RoleAssistant,
+				Role:    compat.RoleAssistant,
 				Content: summary,
 			},
 			category: guardtranscript.CategoryMessage,
@@ -169,16 +169,16 @@ func messageToTranscriptEntries(msg model.Message) []struct {
 	return entries
 }
 
-func transcriptContent(msg model.Message) string {
+func transcriptContent(msg compat.Message) string {
 	switch msg.Role {
-	case model.RoleUser, model.RoleAssistant:
+	case compat.RoleUser, compat.RoleAssistant:
 		if strings.TrimSpace(msg.Content) != "" && msg.Content != " " {
 			return msg.Content
 		}
 		if len(msg.ContentParts) > 0 {
 			var builder strings.Builder
 			for _, part := range msg.ContentParts {
-				if part.Type != model.ContentTypeText || part.Text == nil {
+				if part.Type != compat.ContentTypeText || part.Text == nil {
 					continue
 				}
 				builder.WriteString(*part.Text)
@@ -188,7 +188,7 @@ func transcriptContent(msg model.Message) string {
 			}
 			return "[non-text content omitted]"
 		}
-	case model.RoleTool:
+	case compat.RoleTool:
 		content := msg.Content
 		if content == "" || content == " " {
 			content = "[empty tool result]"
@@ -201,7 +201,7 @@ func transcriptContent(msg model.Message) string {
 	return ""
 }
 
-func toolCallSummary(toolCall model.ToolCall) string {
+func toolCallSummary(toolCall compat.ToolCall) string {
 	toolName := toolCall.Function.Name
 	if toolName == "" {
 		toolName = "unknown"

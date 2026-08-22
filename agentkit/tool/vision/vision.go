@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -52,7 +52,7 @@ type config struct {
 	name             string
 	description      string
 	instruction      string
-	generationConfig model.GenerationConfig
+	generationConfig compat.GenerationConfig
 }
 
 // WithName overrides the name exposed to the main model.
@@ -79,7 +79,7 @@ func WithInstruction(instruction string) Option {
 
 // WithGenerationConfig replaces the generation configuration used for the
 // vision model.
-func WithGenerationConfig(generationConfig model.GenerationConfig) Option {
+func WithGenerationConfig(generationConfig compat.GenerationConfig) Option {
 	return func(cfg *config) {
 		cfg.generationConfig = generationConfig
 	}
@@ -87,16 +87,16 @@ func WithGenerationConfig(generationConfig model.GenerationConfig) Option {
 
 // Tool analyzes images with a caller-provided multimodal model.
 type Tool struct {
-	model  model.Model
+	model  compat.Model
 	config config
 }
 
 // New creates an image analysis tool backed by visionModel.
 //
-// visionModel may be any model.Model implementation that accepts image
+// visionModel may be any compat.Model implementation that accepts image
 // content parts. Provider authentication and endpoint configuration remain the
 // responsibility of that model implementation.
-func New(visionModel model.Model, opts ...Option) (*Tool, error) {
+func New(visionModel compat.Model, opts ...Option) (*Tool, error) {
 	if visionModel == nil {
 		return nil, fmt.Errorf("vision model is required")
 	}
@@ -104,7 +104,7 @@ func New(visionModel model.Model, opts ...Option) (*Tool, error) {
 		name:        ToolName,
 		description: defaultDescription,
 		instruction: defaultInstruction,
-		generationConfig: model.GenerationConfig{
+		generationConfig: compat.GenerationConfig{
 			Stream: false,
 		},
 	}
@@ -167,38 +167,38 @@ func (t *Tool) Call(ctx context.Context, jsonArgs []byte) (any, error) {
 		return nil, err
 	}
 
-	messages := make([]model.Message, 0, 2)
+	messages := make([]compat.Message, 0, 2)
 	if instruction := strings.TrimSpace(t.config.instruction); instruction != "" {
-		messages = append(messages, model.NewSystemMessage(instruction))
+		messages = append(messages, compat.NewSystemMessage(instruction))
 	}
 	prompt := req.Prompt
-	userMessage := model.NewUserMessage("")
-	userMessage.ContentParts = make([]model.ContentPart, 0, len(images)+1)
-	userMessage.ContentParts = append(userMessage.ContentParts, model.ContentPart{
-		Type: model.ContentTypeText,
+	userMessage := compat.NewUserMessage("")
+	userMessage.ContentParts = make([]compat.ContentPart, 0, len(images)+1)
+	userMessage.ContentParts = append(userMessage.ContentParts, compat.ContentPart{
+		Type: compat.ContentTypeText,
 		Text: &prompt,
 	})
 	userMessage.ContentParts = append(userMessage.ContentParts, images...)
 	messages = append(messages, userMessage)
 
-	modelReq := &model.Request{
+	modelReq := &compat.Request{
 		Messages:         messages,
 		GenerationConfig: t.config.generationConfig,
 	}
 	return generateAnalysis(ctx, t.model, modelReq)
 }
 
-func resolveImages(ctx context.Context, explicitURLs []string) ([]model.ContentPart, error) {
+func resolveImages(ctx context.Context, explicitURLs []string) ([]compat.ContentPart, error) {
 	if len(explicitURLs) > 0 {
-		images := make([]model.ContentPart, 0, len(explicitURLs))
+		images := make([]compat.ContentPart, 0, len(explicitURLs))
 		for i, rawURL := range explicitURLs {
 			imageURL, err := normalizeImageURL(rawURL)
 			if err != nil {
 				return nil, fmt.Errorf("image_urls[%d]: %w", i, err)
 			}
-			images = append(images, model.ContentPart{
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+			images = append(images, compat.ContentPart{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					URL:    imageURL,
 					Detail: "auto",
 				},
@@ -233,10 +233,10 @@ func normalizeImageURL(rawURL string) (string, error) {
 	return imageURL, nil
 }
 
-func imageParts(parts []model.ContentPart) []model.ContentPart {
-	images := make([]model.ContentPart, 0, len(parts))
+func imageParts(parts []compat.ContentPart) []compat.ContentPart {
+	images := make([]compat.ContentPart, 0, len(parts))
 	for _, part := range parts {
-		if part.Type != model.ContentTypeImage || part.Image == nil {
+		if part.Type != compat.ContentTypeImage || part.Image == nil {
 			continue
 		}
 		if strings.TrimSpace(part.Image.URL) == "" && len(part.Image.Data) == 0 {
@@ -244,8 +244,8 @@ func imageParts(parts []model.ContentPart) []model.ContentPart {
 		}
 		image := *part.Image
 		image.Data = bytes.Clone(part.Image.Data)
-		images = append(images, model.ContentPart{
-			Type:  model.ContentTypeImage,
+		images = append(images, compat.ContentPart{
+			Type:  compat.ContentTypeImage,
 			Image: &image,
 		})
 	}
@@ -254,8 +254,8 @@ func imageParts(parts []model.ContentPart) []model.ContentPart {
 
 func generateAnalysis(
 	ctx context.Context,
-	visionModel model.Model,
-	req *model.Request,
+	visionModel compat.Model,
+	req *compat.Request,
 ) (string, error) {
 	modelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

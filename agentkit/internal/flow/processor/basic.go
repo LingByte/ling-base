@@ -16,19 +16,19 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // BasicRequestProcessor implements the basic request processing logic.
 type BasicRequestProcessor struct {
 	// GenerationConfig contains the default generation configuration.
-	GenerationConfig model.GenerationConfig
+	GenerationConfig compat.GenerationConfig
 }
 
 // NewBasicRequestProcessor creates a new basic request processor with default settings.
 func NewBasicRequestProcessor(opts ...BasicOption) *BasicRequestProcessor {
 	processor := &BasicRequestProcessor{
-		GenerationConfig: model.GenerationConfig{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
@@ -45,7 +45,7 @@ func NewBasicRequestProcessor(opts ...BasicOption) *BasicRequestProcessor {
 type BasicOption func(*BasicRequestProcessor)
 
 // WithGenerationConfig sets the default generation configuration.
-func WithGenerationConfig(config model.GenerationConfig) BasicOption {
+func WithGenerationConfig(config compat.GenerationConfig) BasicOption {
 	return func(p *BasicRequestProcessor) {
 		p.GenerationConfig = config
 	}
@@ -56,7 +56,7 @@ func WithGenerationConfig(config model.GenerationConfig) BasicOption {
 func (p *BasicRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if req == nil {
@@ -115,7 +115,7 @@ func (p *BasicRequestProcessor) ProcessRequest(
 	if err := agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingBasic),
+		event.WithObject(compat.ObjectTypePreprocessingBasic),
 	)); err != nil {
 		log.DebugContext(ctx, "Basic request processor: context cancelled")
 	}

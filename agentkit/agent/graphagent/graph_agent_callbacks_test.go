@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,13 +40,13 @@ func buildTrivialGraph(t *testing.T) *graph.Graph {
 func TestGraphAgent_BeforeCallback_CustomResponse(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-			return &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("short-circuit")}}}, nil
+		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+			return &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("short-circuit")}}}, nil
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks))
 	require.NoError(t, err)
 
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	ch, err := ga.Run(context.Background(), inv)
 	require.NoError(t, err)
 	// Should receive exactly one response event from before-callback and close.
@@ -55,20 +55,20 @@ func TestGraphAgent_BeforeCallback_CustomResponse(t *testing.T) {
 		events = append(events, e)
 	}
 	require.Len(t, events, 1)
-	require.Equal(t, model.RoleAssistant, events[0].Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, events[0].Response.Choices[0].Message.Role)
 	require.Equal(t, "short-circuit", events[0].Response.Choices[0].Message.Content)
 }
 
 func TestGraphAgent_BeforeCallback_CustomResponseUsesInvocationBufferSize(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-			return &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("short-circuit")}}}, nil
+		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+			return &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("short-circuit")}}}, nil
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks), WithChannelBufferSize(1))
 	require.NoError(t, err)
 	inv := &agent.Invocation{
-		Message: model.NewUserMessage("hi"),
+		Message: compat.NewUserMessage("hi"),
 		RunOptions: agent.NewRunOptions(
 			agent.WithEventChannelBufferSize(7),
 		),
@@ -84,12 +84,12 @@ func TestGraphAgent_BeforeCallback_CustomResponseUsesInvocationBufferSize(t *tes
 func TestGraphAgent_BeforeCallback_CustomResponseKeepsSingleBuffer(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-			return &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("short-circuit")}}}, nil
+		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+			return &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("short-circuit")}}}, nil
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks), WithChannelBufferSize(0))
 	require.NoError(t, err)
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	ga.setupInvocation(inv)
 
 	type result struct {
@@ -119,12 +119,12 @@ func TestGraphAgent_BeforeCallback_CustomResponseKeepsSingleBuffer(t *testing.T)
 func TestGraphAgent_BeforeCallback_Error(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+		RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 			return nil, errTest
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks))
 	require.NoError(t, err)
-	inv := &agent.Invocation{Message: model.NewUserMessage("hi")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("hi")}
 	ch, err := ga.Run(context.Background(), inv)
 	require.NoError(t, err)
 	// Expect an error event on the stream (plus the barrier).
@@ -133,21 +133,21 @@ func TestGraphAgent_BeforeCallback_Error(t *testing.T) {
 		events = append(events, e)
 	}
 	require.Equal(t, len(events), 1)
-	require.Equal(t, model.ObjectTypeError, events[0].Object)
-	require.Equal(t, model.ErrorTypeFlowError, events[0].Error.Type)
+	require.Equal(t, compat.ObjectTypeError, events[0].Object)
+	require.Equal(t, compat.ErrorTypeFlowError, events[0].Error.Type)
 	require.NotNil(t, events[0].Error.Message)
 }
 
 func TestGraphAgent_AfterCallback_CustomResponseAppended(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
-			return &model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("tail")}}}, nil
+		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
+			return &compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("tail")}}}, nil
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks))
 	require.NoError(t, err)
 
-	inv := &agent.Invocation{Message: model.NewUserMessage("go")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("go")}
 	ch, err := ga.Run(context.Background(), inv)
 	require.NoError(t, err)
 	var last *event.Event
@@ -157,20 +157,20 @@ func TestGraphAgent_AfterCallback_CustomResponseAppended(t *testing.T) {
 	}
 	require.Greater(t, count, 1)
 	require.NotNil(t, last)
-	require.Equal(t, model.RoleAssistant, last.Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleAssistant, last.Response.Choices[0].Message.Role)
 	require.Equal(t, "tail", last.Response.Choices[0].Message.Content)
 }
 
 func TestGraphAgent_AfterCallbackWrapUsesInvocationBufferSize(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
+		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
 			return nil, nil
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks), WithChannelBufferSize(1))
 	require.NoError(t, err)
 	inv := &agent.Invocation{
-		Message: model.NewUserMessage("go"),
+		Message: compat.NewUserMessage("go"),
 		RunOptions: agent.NewRunOptions(
 			agent.WithEventChannelBufferSize(7),
 		),
@@ -186,13 +186,13 @@ func TestGraphAgent_AfterCallbackWrapUsesInvocationBufferSize(t *testing.T) {
 func TestGraphAgent_AfterCallback_ErrorEmitsErrorEvent(t *testing.T) {
 	g := buildTrivialGraph(t)
 	callbacks := agent.NewCallbacks().
-		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*model.Response, error) {
+		RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, runErr error) (*compat.Response, error) {
 			return nil, errTest
 		})
 	ga, err := New("ga", g, WithAgentCallbacks(callbacks))
 	require.NoError(t, err)
 
-	inv := &agent.Invocation{Message: model.NewUserMessage("go")}
+	inv := &agent.Invocation{Message: compat.NewUserMessage("go")}
 	ch, err := ga.Run(context.Background(), inv)
 	require.NoError(t, err)
 	// Expect final error event
@@ -201,7 +201,7 @@ func TestGraphAgent_AfterCallback_ErrorEmitsErrorEvent(t *testing.T) {
 		last = e
 	}
 	require.NotNil(t, last)
-	require.Equal(t, model.ObjectTypeError, last.Object)
+	require.Equal(t, compat.ObjectTypeError, last.Object)
 	require.Equal(t, agent.ErrorTypeAgentCallbackError, last.Error.Type)
 }
 
@@ -242,7 +242,7 @@ func TestGraphAgent_CallbackContextPropagation(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
 		AgentName:    "test-graph",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 	}
 
 	events, err := graphAgent.Run(ctx, invocation)
@@ -279,7 +279,7 @@ func TestGraphAgent_BeforeCallbackContextOverride_PreservesCompletionCapture(t *
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
 		AgentName:    "test-graph",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 		RunOptions: agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		),
@@ -296,7 +296,7 @@ func TestGraphAgent_BeforeCallbackContextOverride_PreservesCompletionCapture(t *
 		if evt.Done && evt.Object == graph.ObjectTypeGraphExecution {
 			sawRawCompletion = true
 		}
-		if evt.Done && evt.Object == model.ObjectTypeChatCompletion {
+		if evt.Done && evt.Object == compat.ObjectTypeChatCompletion {
 			sawVisibleCompletion = true
 		}
 	}
@@ -327,7 +327,7 @@ func TestGraphAgent_BeforeCallbackExplicitWithoutCapture_CanClearCompletionCaptu
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
 		AgentName:    "test-graph",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 		RunOptions: agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		),
@@ -344,7 +344,7 @@ func TestGraphAgent_BeforeCallbackExplicitWithoutCapture_CanClearCompletionCaptu
 		if evt.Done && evt.Object == graph.ObjectTypeGraphExecution {
 			sawRawCompletion = true
 		}
-		if evt.Done && evt.Object == model.ObjectTypeChatCompletion {
+		if evt.Done && evt.Object == compat.ObjectTypeChatCompletion {
 			sawVisibleCompletion = true
 		}
 	}
@@ -374,7 +374,7 @@ func TestGraphAgent_BeforeCallbackContextOverride_CanForceCompletionCapture(t *t
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation",
 		AgentName:    "test-graph",
-		Message:      model.NewUserMessage("test"),
+		Message:      compat.NewUserMessage("test"),
 		RunOptions: agent.NewRunOptions(
 			agent.WithDisableGraphCompletionEvent(true),
 		),

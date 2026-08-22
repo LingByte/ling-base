@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/session/hook"
 	"github.com/LingByte/ling-base/agentkit/internal/session/sqldb"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummary "github.com/LingByte/ling-base/agentkit/session/internal/summary"
 	storage "github.com/LingByte/ling-base/agentkit/storage/postgres"
@@ -1080,7 +1080,7 @@ func shouldPersistEvent(evt *event.Event) bool {
 // not be indexed (tool calls, partials, empty content).
 func extractEventText(
 	evt *event.Event,
-) (string, model.Role) {
+) (string, compat.Role) {
 	if !shouldPersistEvent(evt) {
 		return "", ""
 	}
@@ -1107,12 +1107,12 @@ func extractEventText(
 	}
 	role := msg.Role
 	if role == "" {
-		role = model.RoleAssistant
+		role = compat.RoleAssistant
 	}
-	if msg.ToolID != "" || role == model.RoleTool {
-		role = model.RoleTool
+	if msg.ToolID != "" || role == compat.RoleTool {
+		role = compat.RoleTool
 	}
-	if role == model.RoleTool {
+	if role == compat.RoleTool {
 		toolName := strings.TrimSpace(msg.ToolName)
 		if toolName != "" {
 			content = toolName + ": " + content
@@ -1124,7 +1124,7 @@ func extractEventText(
 func (s *Service) buildIndexText(
 	sess *session.Session,
 	evt *event.Event,
-) (string, model.Role) {
+) (string, compat.Role) {
 	text, role := extractEventText(evt)
 	if text == "" {
 		return "", ""

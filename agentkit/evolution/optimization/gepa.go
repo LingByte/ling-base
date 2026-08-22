@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const gepaAlgorithm = "gepa"
@@ -28,7 +28,7 @@ type gepaOptions struct {
 // evaluator. Each Optimize call owns its search state. Concurrent calls require
 // the supplied model and evaluator to support concurrent use.
 func NewGEPA(
-	reflectionModel model.Model,
+	reflectionModel compat.Model,
 	evaluator Evaluator,
 	opts ...Option,
 ) (Optimizer, error) {

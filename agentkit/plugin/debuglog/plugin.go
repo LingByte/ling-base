@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -95,8 +95,8 @@ func (p *debugLogPlugin) afterAgent(
 
 func (p *debugLogPlugin) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil {
 		return nil, nil
 	}
@@ -110,8 +110,8 @@ func (p *debugLogPlugin) beforeModel(
 
 func (p *debugLogPlugin) afterModel(
 	ctx context.Context,
-	args *model.AfterModelArgs,
-) (*model.AfterModelResult, error) {
+	args *compat.AfterModelArgs,
+) (*compat.AfterModelResult, error) {
 	if args == nil {
 		return nil, nil
 	}

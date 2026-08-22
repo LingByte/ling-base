@@ -16,14 +16,14 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/agent/trace"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEvent_Clone_DeepCopy(t *testing.T) {
 	e := &Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 		InvocationID:       "inv-1",
@@ -63,8 +63,8 @@ func TestEvent_Clone_DeepCopy(t *testing.T) {
 
 func TestEvent_Clone_LegacyVersionMigratesFilterKey(t *testing.T) {
 	e := &Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 		InvocationID: "inv-legacy",
@@ -83,8 +83,8 @@ func TestEvent_Clone_LegacyVersionMigratesFilterKey(t *testing.T) {
 
 func TestEvent_Clone_DeepCopiesExecutionTrace(t *testing.T) {
 	e := &Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 		ExecutionTrace: &trace.Trace{
@@ -92,9 +92,9 @@ func TestEvent_Clone_DeepCopiesExecutionTrace(t *testing.T) {
 			RootInvocationID: "inv-1",
 			Input:            &trace.Snapshot{Text: "run input"},
 			Output:           &trace.Snapshot{Text: "run output"},
-			Usage: &model.Usage{
+			Usage: &compat.Usage{
 				PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3,
-				TimingInfo: &model.TimingInfo{FirstTokenDuration: time.Second},
+				TimingInfo: &compat.TimingInfo{FirstTokenDuration: time.Second},
 			},
 			Steps: []trace.Step{
 				{
@@ -104,9 +104,9 @@ func TestEvent_Clone_DeepCopiesExecutionTrace(t *testing.T) {
 					PredecessorStepIDs: []string{"s0"},
 					Input:              &trace.Snapshot{Text: "input"},
 					Output:             &trace.Snapshot{Text: "output"},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3,
-						TimingInfo: &model.TimingInfo{ReasoningDuration: time.Second},
+						TimingInfo: &compat.TimingInfo{ReasoningDuration: time.Second},
 					},
 					Tools: []trace.Tool{{
 						ID:        "call-1",
@@ -161,8 +161,8 @@ func TestEvent_Clone_DeepCopiesExecutionTrace(t *testing.T) {
 
 func TestEvent_Clone_ExecutionTraceKeepsNilUsage(t *testing.T) {
 	e := &Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 		ExecutionTrace: &trace.Trace{

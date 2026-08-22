@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/profilecompiler"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
@@ -40,9 +40,9 @@ type fakeStructureAgent struct {
 	exportErr  error
 	userID     string
 	sessionID  string
-	message    model.Message
+	message    compat.Message
 	runOptions agent.RunOptions
-	traceUsage *model.Usage
+	traceUsage *compat.Usage
 }
 
 func (f *fakeStructureAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *event.Event, error) {
@@ -106,7 +106,7 @@ func (r *scriptedRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	return r.events, r.err
@@ -139,11 +139,11 @@ func TestServerRunCompilesProfileAndReturnsTrace(t *testing.T) {
 	completion := event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		&compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("patched reply"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("patched reply"),
 			}},
 		},
 	)
@@ -154,26 +154,26 @@ func TestServerRunCompilesProfileAndReturnsTrace(t *testing.T) {
 		StartedAt:        time.Unix(1, 0),
 		EndedAt:          time.Unix(2, 0),
 		Status:           atrace.TraceStatusCompleted,
-		Usage:            &model.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7},
+		Usage:            &compat.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7},
 		Steps: []atrace.Step{
 			{
 				StepID:            "s1",
 				NodeID:            "writer",
 				NodeType:          "llm",
 				AppliedSurfaceIDs: []string{"writer#instruction"},
-				Usage:             &model.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7},
+				Usage:             &compat.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7},
 			},
 		},
 	}
 	ag := newFakeAgent()
 	ag.events = []*event.Event{completion}
 	ag.exportErr = errors.New("must not export structure for run")
-	ag.traceUsage = &model.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7}
+	ag.traceUsage = &compat.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7}
 	srv, ag := newTestServer(t, ag)
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:   model.NewUserMessage("match_001"),
+		Input:   compat.NewUserMessage("match_001"),
 		Profile: &profilecompiler.Profile{
 			StructureID: "structure",
 			Overrides: []profilecompiler.SurfaceOverride{
@@ -209,7 +209,7 @@ func TestServerRunCompilesProfileAndReturnsTrace(t *testing.T) {
 	assert.Equal(t, "llm", response.ExecutionTrace.Steps[0].NodeType)
 	assert.Equal(t, "prompt-engine", ag.userID)
 	assert.Equal(t, "session-1", ag.sessionID)
-	assert.Equal(t, model.NewUserMessage("match_001"), ag.message)
+	assert.Equal(t, compat.NewUserMessage("match_001"), ag.message)
 	assert.Equal(t, "sports-agent", ag.runOptions.AppName)
 	assert.Equal(t, "req-1", ag.runOptions.RequestID)
 	assert.True(t, ag.runOptions.ExecutionTraceEnabled)
@@ -228,7 +228,7 @@ func TestServerRunRejectsIncompleteProfile(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:   model.NewUserMessage("match_001"),
+		Input:   compat.NewUserMessage("match_001"),
 		Profile: &profilecompiler.Profile{
 			StructureID: "structure",
 			Overrides: []profilecompiler.SurfaceOverride{
@@ -253,7 +253,7 @@ func TestServerRunRejectsModelSurfaceOverride(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:   model.NewUserMessage("match_001"),
+		Input:   compat.NewUserMessage("match_001"),
 		Profile: &profilecompiler.Profile{
 			StructureID: "structure",
 			Overrides: []profilecompiler.SurfaceOverride{
@@ -283,10 +283,10 @@ func TestServerRunReturnsFailedAgentResultAsHTTP200(t *testing.T) {
 	completion := event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		&compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error:  &model.ResponseError{Message: "agent failed", Type: model.ErrorTypeRunError},
+			Error:  &compat.ResponseError{Message: "agent failed", Type: compat.ErrorTypeRunError},
 		},
 	)
 	completion.ExecutionTrace = &atrace.Trace{
@@ -301,7 +301,7 @@ func TestServerRunReturnsFailedAgentResultAsHTTP200(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session:    session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:      model.NewUserMessage("match_001"),
+		Input:      compat.NewUserMessage("match_001"),
 		RunOptions: runOptions{ExecutionTraceEnabled: true},
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
@@ -320,10 +320,10 @@ func TestServerRunPreservesCompletedTraceWithStopAgentError(t *testing.T) {
 	completion := event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		&compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error:  &model.ResponseError{Message: "stop requested", Type: agent.ErrorTypeStopAgentError},
+			Error:  &compat.ResponseError{Message: "stop requested", Type: agent.ErrorTypeStopAgentError},
 		},
 	)
 	completion.ExecutionTrace = &atrace.Trace{
@@ -338,7 +338,7 @@ func TestServerRunPreservesCompletedTraceWithStopAgentError(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:   model.NewUserMessage("match_001"),
+		Input:   compat.NewUserMessage("match_001"),
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
 	rec := httptest.NewRecorder()
@@ -355,7 +355,7 @@ func TestServerRunReturnsFailedRunResponseWhenRunnerReturnsError(t *testing.T) {
 	ag.runErr = errors.New("agent run failed directly")
 	srv, _ := newTestServer(t, ag)
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
-	input := model.NewUserMessage("match_001")
+	input := compat.NewUserMessage("match_001")
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
 		Input:   input,
@@ -368,7 +368,7 @@ func TestServerRunReturnsFailedRunResponseWhenRunnerReturnsError(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	assert.Equal(t, atrace.TraceStatusFailed, response.Status)
 	assert.Equal(t, "agent run failed directly", response.ErrorMessage)
-	assert.Equal(t, []model.Message{input}, response.Messages)
+	assert.Equal(t, []compat.Message{input}, response.Messages)
 	require.Len(t, response.Events, 2)
 	assert.True(t, response.Events[0].IsTerminalError())
 	assert.True(t, response.Events[1].IsRunnerCompletion())
@@ -381,7 +381,7 @@ func TestServerRunReturnsIncompleteRunResponseForContextError(t *testing.T) {
 	ag.runErr = context.Canceled
 	srv, _ := newTestServer(t, ag)
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
-	input := model.NewUserMessage("match_001")
+	input := compat.NewUserMessage("match_001")
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
 		Input:   input,
@@ -394,7 +394,7 @@ func TestServerRunReturnsIncompleteRunResponseForContextError(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	assert.Equal(t, atrace.TraceStatusIncomplete, response.Status)
 	assert.Equal(t, context.Canceled.Error(), response.ErrorMessage)
-	assert.Equal(t, []model.Message{input}, response.Messages)
+	assert.Equal(t, []compat.Message{input}, response.Messages)
 	require.Len(t, response.Events, 2)
 	assert.True(t, response.Events[0].IsTerminalError())
 	assert.True(t, response.Events[1].IsRunnerCompletion())
@@ -407,7 +407,7 @@ func TestServerRunReturnsFailedRunResponseForNilEventChannel(t *testing.T) {
 	srv, err := New(WithAppName("sports-agent"), WithAgent(ag), WithRunner(&scriptedRunner{}))
 	require.NoError(t, err)
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
-	input := model.NewUserMessage("match_001")
+	input := compat.NewUserMessage("match_001")
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
 		Input:   input,
@@ -420,7 +420,7 @@ func TestServerRunReturnsFailedRunResponseForNilEventChannel(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	assert.Equal(t, atrace.TraceStatusFailed, response.Status)
 	assert.Equal(t, "runner returned nil event channel", response.ErrorMessage)
-	assert.Equal(t, []model.Message{input}, response.Messages)
+	assert.Equal(t, []compat.Message{input}, response.Messages)
 	require.Len(t, response.Events, 2)
 	assert.True(t, response.Events[0].IsTerminalError())
 	assert.True(t, response.Events[1].IsRunnerCompletion())
@@ -430,11 +430,11 @@ func TestServerRunReturnsFailedRunResponseForNilEventChannel(t *testing.T) {
 
 func TestServerRunRejectsClosedStreamWithoutRunnerCompletion(t *testing.T) {
 	eventCh := make(chan *event.Event, 1)
-	partial := event.NewResponseEvent("inv-1", "writer", &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	partial := event.NewResponseEvent("inv-1", "writer", &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("partial"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("partial"),
 		}},
 	})
 	partial.RequestID = "req-1"
@@ -445,7 +445,7 @@ func TestServerRunRejectsClosedStreamWithoutRunnerCompletion(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session:    session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:      model.NewUserMessage("match_001"),
+		Input:      compat.NewUserMessage("match_001"),
 		RunOptions: runOptions{RequestID: "req-1"},
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
@@ -459,8 +459,8 @@ func TestServerRunRejectsClosedStreamWithoutRunnerCompletion(t *testing.T) {
 
 func TestServerRunRejectsMissingEventRequestID(t *testing.T) {
 	eventCh := make(chan *event.Event, 1)
-	eventCh <- event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-		Object: model.ObjectTypeRunnerCompletion,
+	eventCh <- event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
 	close(eventCh)
@@ -469,7 +469,7 @@ func TestServerRunRejectsMissingEventRequestID(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session:    session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:      model.NewUserMessage("match_001"),
+		Input:      compat.NewUserMessage("match_001"),
 		RunOptions: runOptions{RequestID: "req-1"},
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
@@ -483,8 +483,8 @@ func TestServerRunRejectsMissingEventRequestID(t *testing.T) {
 
 func TestServerRunRejectsMismatchedEventRequestID(t *testing.T) {
 	eventCh := make(chan *event.Event, 1)
-	completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-		Object: model.ObjectTypeRunnerCompletion,
+	completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
 	completion.RequestID = "other-req"
@@ -495,7 +495,7 @@ func TestServerRunRejectsMismatchedEventRequestID(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session:    session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:      model.NewUserMessage("match_001"),
+		Input:      compat.NewUserMessage("match_001"),
 		RunOptions: runOptions{RequestID: "req-1"},
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
@@ -508,12 +508,12 @@ func TestServerRunRejectsMismatchedEventRequestID(t *testing.T) {
 }
 
 func TestServerRunStopsAtRunnerCompletion(t *testing.T) {
-	completion := event.NewResponseEvent("inv-1", "sports-agent", &model.Response{
-		Object: model.ObjectTypeRunnerCompletion,
+	completion := event.NewResponseEvent("inv-1", "sports-agent", &compat.Response{
+		Object: compat.ObjectTypeRunnerCompletion,
 		Done:   true,
 	})
-	late := event.NewResponseEvent("inv-1", "writer", &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	late := event.NewResponseEvent("inv-1", "writer", &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
 	})
 	ag := newFakeAgent()
@@ -522,7 +522,7 @@ func TestServerRunStopsAtRunnerCompletion(t *testing.T) {
 	path := "/trpc-agent/v1/apps/sports-agent/runs"
 	body := encodeJSON(t, runRequest{
 		Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-		Input:   model.NewUserMessage("match_001"),
+		Input:   compat.NewUserMessage("match_001"),
 	})
 	req := httptest.NewRequest(http.MethodPost, path, body)
 	rec := httptest.NewRecorder()
@@ -544,7 +544,7 @@ func TestServerRoutesOnlyConfiguredCapabilities(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 		body := encodeJSON(t, runRequest{
 			Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-			Input:   model.NewUserMessage("match_001"),
+			Input:   compat.NewUserMessage("match_001"),
 		})
 		req = httptest.NewRequest(http.MethodPost, "/trpc-agent/v1/apps/sports-agent/runs", body)
 		rec = httptest.NewRecorder()
@@ -565,7 +565,7 @@ func TestServerRoutesOnlyConfiguredCapabilities(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, rec.Code)
 		body := encodeJSON(t, runRequest{
 			Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-			Input:   model.NewUserMessage("match_001"),
+			Input:   compat.NewUserMessage("match_001"),
 		})
 		req = httptest.NewRequest(http.MethodPost, "/trpc-agent/v1/apps/sports-agent/runs", body)
 		rec = httptest.NewRecorder()
@@ -573,7 +573,7 @@ func TestServerRoutesOnlyConfiguredCapabilities(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 		body = encodeJSON(t, runRequest{
 			Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-			Input:   model.NewUserMessage("match_001"),
+			Input:   compat.NewUserMessage("match_001"),
 			Profile: &profilecompiler.Profile{
 				StructureID: "structure",
 				Overrides: []profilecompiler.SurfaceOverride{{
@@ -663,7 +663,7 @@ func TestServerErrors(t *testing.T) {
 		srv, _ := newTestServer(t, nil)
 		body := encodeJSON(t, runRequest{
 			Session: session{UserID: "prompt-engine", SessionID: "session-1"},
-			Input:   model.NewAssistantMessage("not a user input"),
+			Input:   compat.NewAssistantMessage("not a user input"),
 		})
 		req := httptest.NewRequest(http.MethodPost, "/trpc-agent/v1/apps/sports-agent/runs", body)
 		rec := httptest.NewRecorder()
@@ -693,12 +693,12 @@ func TestValidateRunRequestErrors(t *testing.T) {
 		{name: "nil request", req: nil, want: "request is nil"},
 		{
 			name: "missing user id",
-			req:  &runRequest{Session: session{SessionID: "session-1"}, Input: model.NewUserMessage("input")},
+			req:  &runRequest{Session: session{SessionID: "session-1"}, Input: compat.NewUserMessage("input")},
 			want: "session.userId is required",
 		},
 		{
 			name: "missing session id",
-			req:  &runRequest{Session: session{UserID: "user-1"}, Input: model.NewUserMessage("input")},
+			req:  &runRequest{Session: session{UserID: "user-1"}, Input: compat.NewUserMessage("input")},
 			want: "session.sessionId is required",
 		},
 		{
@@ -708,7 +708,7 @@ func TestValidateRunRequestErrors(t *testing.T) {
 		},
 		{
 			name: "empty payload",
-			req:  &runRequest{Session: session{UserID: "user-1", SessionID: "session-1"}, Input: model.Message{Role: model.RoleUser}},
+			req:  &runRequest{Session: session{UserID: "user-1", SessionID: "session-1"}, Input: compat.Message{Role: compat.RoleUser}},
 			want: "input payload is required",
 		},
 	}
@@ -744,19 +744,19 @@ func TestNewExecutionContextUsesParentDeadlineWhenShorter(t *testing.T) {
 }
 
 func TestMessageCollectorMergesToolMessageMetadataAndDelta(t *testing.T) {
-	collector := newMessageCollector(model.NewUserMessage("match_001"))
+	collector := newMessageCollector(compat.NewUserMessage("match_001"))
 	collector.addEvent(event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Choices: []model.Choice{
+		&compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:     model.RoleTool,
+					Message: compat.Message{
+						Role:     compat.RoleTool,
 						ToolID:   "tool-call-1",
 						ToolName: "lookup",
 					},
-					Delta:        model.Message{Content: `{"score":102}`},
+					Delta:        compat.Message{Content: `{"score":102}`},
 					FinishReason: stringPtr("stop"),
 				},
 			},
@@ -764,24 +764,24 @@ func TestMessageCollectorMergesToolMessageMetadataAndDelta(t *testing.T) {
 	))
 	messages := collector.messagesList()
 	require.Len(t, messages, 2)
-	assert.Equal(t, model.RoleTool, messages[1].Role)
+	assert.Equal(t, compat.RoleTool, messages[1].Role)
 	assert.Equal(t, "tool-call-1", messages[1].ToolID)
 	assert.Equal(t, "lookup", messages[1].ToolName)
 	assert.Equal(t, `{"score":102}`, messages[1].Content)
 }
 
 func TestMessageCollectorMergesToolCallDeltaWithoutIndexOrID(t *testing.T) {
-	collector := newMessageCollector(model.NewUserMessage("match_001"))
+	collector := newMessageCollector(compat.NewUserMessage("match_001"))
 	collector.addEvent(event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Choices: []model.Choice{
+		&compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						ToolCalls: []model.ToolCall{{
+					Delta: compat.Message{
+						ToolCalls: []compat.ToolCall{{
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "lookup",
 								Arguments: []byte(`{"match`),
 							},
@@ -794,12 +794,12 @@ func TestMessageCollectorMergesToolCallDeltaWithoutIndexOrID(t *testing.T) {
 	collector.addEvent(event.NewResponseEvent(
 		"inv-1",
 		"sports-agent",
-		&model.Response{
-			Choices: []model.Choice{
+		&compat.Response{
+			Choices: []compat.Choice{
 				{
-					Delta: model.Message{
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{
+					Delta: compat.Message{
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{
 								Arguments: []byte(`Id":"match_001"}`),
 							},
 						}},
@@ -817,22 +817,22 @@ func TestMessageCollectorMergesToolCallDeltaWithoutIndexOrID(t *testing.T) {
 }
 
 func TestMessageCollectorKeepsInterleavedSubAgentStreamsSeparate(t *testing.T) {
-	collector := newMessageCollector(model.NewUserMessage("match_001"))
+	collector := newMessageCollector(compat.NewUserMessage("match_001"))
 	collector.addEvent(event.NewResponseEvent(
 		"child-a",
 		"writer-a",
-		&model.Response{
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "alpha "},
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "alpha "},
 			}},
 		},
 	))
 	collector.addEvent(event.NewResponseEvent(
 		"child-b",
 		"writer-b",
-		&model.Response{
-			Choices: []model.Choice{{
-				Delta:        model.Message{Content: "beta"},
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Delta:        compat.Message{Content: "beta"},
 				FinishReason: stringPtr("stop"),
 			}},
 		},
@@ -840,19 +840,19 @@ func TestMessageCollectorKeepsInterleavedSubAgentStreamsSeparate(t *testing.T) {
 	collector.addEvent(event.NewResponseEvent(
 		"child-a",
 		"writer-a",
-		&model.Response{
-			Choices: []model.Choice{{
-				Delta:        model.Message{Content: "omega"},
+		&compat.Response{
+			Choices: []compat.Choice{{
+				Delta:        compat.Message{Content: "omega"},
 				FinishReason: stringPtr("stop"),
 			}},
 		},
 	))
 	messages := collector.messagesList()
 	require.Len(t, messages, 3)
-	assert.Equal(t, model.NewUserMessage("match_001"), messages[0])
-	assert.Equal(t, model.RoleAssistant, messages[1].Role)
+	assert.Equal(t, compat.NewUserMessage("match_001"), messages[0])
+	assert.Equal(t, compat.RoleAssistant, messages[1].Role)
 	assert.Equal(t, "beta", messages[1].Content)
-	assert.Equal(t, model.RoleAssistant, messages[2].Role)
+	assert.Equal(t, compat.RoleAssistant, messages[2].Role)
 	assert.Equal(t, "alpha omega", messages[2].Content)
 }
 

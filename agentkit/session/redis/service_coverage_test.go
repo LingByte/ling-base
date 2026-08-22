@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/zset"
@@ -46,7 +46,7 @@ func TestCreateSessionSummary_SlowPath_ZsetSession(t *testing.T) {
 	// Append event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, svcT.AppendEvent(context.Background(), sess, e))
 	svcT.Close()
 
@@ -92,7 +92,7 @@ func TestCreateSessionSummary_SlowPath_HashidxSession(t *testing.T) {
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, svc.AppendEvent(context.Background(), sess, e))
 
 	sessGet, err := svc.GetSession(context.Background(), key)
@@ -125,8 +125,8 @@ func TestCreateSessionSummary_SessionNotFound_NoError(t *testing.T) {
 	// Session with events but not in Redis
 	sess := &session.Session{
 		ID: "nosid", AppName: "app1", UserID: "u1",
-		Events: []event.Event{{ID: "e1", Response: &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "x"}}},
+		Events: []event.Event{{ID: "e1", Response: &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "x"}}},
 		}}},
 	}
 	// No ServiceMeta -> slow path, session not found -> should return nil
@@ -266,7 +266,7 @@ func TestCreateSessionSummary_VersionTag_ZsetPath(t *testing.T) {
 	require.NoError(t, err)
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, svcT.AppendEvent(context.Background(), sess, e))
 	svcT.Close()
 
@@ -1536,7 +1536,7 @@ func TestCreateSessionSummary_LegacyMode(t *testing.T) {
 	// Add an event
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, svcT.AppendEvent(ctx, sess, e))
 	svcT.Close()
 

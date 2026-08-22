@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // OutputFormat is the Claude Code CLI transcript output format.
@@ -39,7 +39,7 @@ type MessageBuilderArgs struct {
 	// SessionID is the framework session identifier from the invocation session.
 	SessionID string
 	// Message is the current invocation message.
-	Message model.Message
+	Message compat.Message
 	// Events is a shallow snapshot of session events and must not be mutated.
 	Events []event.Event
 }

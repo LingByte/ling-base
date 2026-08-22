@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -181,14 +181,14 @@ func parseTaskSubagentType(input json.RawMessage) string {
 
 // newTransferEvent creates an agent.transfer event announcing a sub-agent handoff.
 func newTransferEvent(invocationID, author, targetAgent string) *event.Event {
-	rsp := &model.Response{
-		Object: model.ObjectTypeTransfer,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeTransfer,
 		Done:   false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Transferring control to agent: " + targetAgent,
 				},
 			},
@@ -198,7 +198,7 @@ func newTransferEvent(invocationID, author, targetAgent string) *event.Event {
 		invocationID,
 		author,
 		rsp,
-		event.WithObject(model.ObjectTypeTransfer),
+		event.WithObject(compat.ObjectTypeTransfer),
 		event.WithTag(event.TransferTag),
 	)
 }
@@ -206,23 +206,23 @@ func newTransferEvent(invocationID, author, targetAgent string) *event.Event {
 // newToolCallEvent creates a tool-call event for one transcript tool_use block.
 func newToolCallEvent(invocationID, author, toolID, toolName string, input json.RawMessage) *event.Event {
 	args := normalizeToolArguments(toolName, input)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		Type: "function",
 		ID:   toolID,
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      toolName,
 			Arguments: args,
 		},
 	}
-	rsp := &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:      model.RoleAssistant,
-					ToolCalls: []model.ToolCall{toolCall},
+				Message: compat.Message{
+					Role:      compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{toolCall},
 				},
 			},
 		},
@@ -232,14 +232,14 @@ func newToolCallEvent(invocationID, author, toolID, toolName string, input json.
 
 // newToolResultEvent creates a tool-result event for one transcript tool_result block.
 func newToolResultEvent(invocationID, author, toolID, toolName, result string) *event.Event {
-	rsp := &model.Response{
-		Object: model.ObjectTypeToolResponse,
+	rsp := &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
 		Done:   false,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
 				Index: 0,
-				Message: model.Message{
-					Role:     model.RoleTool,
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   toolID,
 					ToolName: toolName,
 					Content:  result,

@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/artifact/inmemory"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -35,7 +35,7 @@ func newHarness(t *testing.T) (*Workspace, context.Context, *agent.Invocation, *
 	reg := codeexecutor.NewWorkspaceRegistry()
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess-wsio",
 			AppName: "app",
@@ -177,7 +177,7 @@ func TestSaveArtifact_RequiresArtifactService(t *testing.T) {
 	exec := localexec.New()
 	ws := New(exec, nil)
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "sess", AppName: "app", UserID: "user",
 		}),
@@ -390,7 +390,7 @@ func TestRunProgram_RunnerNil(t *testing.T) {
 
 	ws := New(exec, codeexecutor.NewWorkspaceRegistry())
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "sess", AppName: "app", UserID: "user",
 		}),
@@ -622,7 +622,7 @@ func TestSaveArtifact_PartialCommitStillReturnsRef(t *testing.T) {
 	ws := New(exec, codeexecutor.NewWorkspaceRegistry())
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "sess-partial", AppName: "app", UserID: "user",
 		}),
@@ -657,7 +657,7 @@ func TestSaveArtifact_PartialStaleInvalidatesWorkspace(t *testing.T) {
 	ws := New(exec, codeexecutor.NewWorkspaceRegistry())
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "sess-partial-stale", AppName: "app", UserID: "user",
 		}),
@@ -713,7 +713,7 @@ func TestStageInputs_ForwardsArtifactContext(t *testing.T) {
 	ws := New(exec, codeexecutor.NewWorkspaceRegistry())
 	svc := inmemory.NewService()
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "sess-stage", AppName: "app", UserID: "user",
 		}),

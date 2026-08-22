@@ -23,7 +23,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -218,8 +218,8 @@ func (a *N8nAgent) sendErrorEvent(
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		a.name,
-		event.WithResponse(&model.Response{
-			Error: &model.ResponseError{
+		event.WithResponse(&compat.Response{
+			Error: &compat.ResponseError{
 				Message: errorMessage,
 			},
 		}),
@@ -233,19 +233,19 @@ func (a *N8nAgent) sendFinalStreamingEvent(
 	aggregatedContent string,
 ) {
 	now := time.Now()
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: aggregatedContent,
 	}
 	agent.EmitEvent(ctx, invocation, eventChan, event.New(
 		invocation.InvocationID,
 		a.name,
-		event.WithResponse(&model.Response{
+		event.WithResponse(&compat.Response{
 			Done:      true,
 			IsPartial: false,
 			Timestamp: now,
 			Created:   now.Unix(),
-			Choices:   []model.Choice{{Message: message, Delta: message}},
+			Choices:   []compat.Choice{{Message: message, Delta: message}},
 		}),
 	))
 }

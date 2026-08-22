@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -33,9 +33,9 @@ func BenchmarkContentRequestProcessorProcessRequest(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				request := &model.Request{
-					Messages: []model.Message{
-						model.NewSystemMessage("benchmark system prompt"),
+				request := &compat.Request{
+					Messages: []compat.Message{
+						compat.NewSystemMessage("benchmark system prompt"),
 					},
 				}
 				processor.ProcessRequest(ctx, invocation, request, events)
@@ -50,9 +50,9 @@ func contentRequestBenchmarkInvocation(historySize int) *agent.Invocation {
 	const agentName = "benchmark-agent"
 	events := make([]event.Event, historySize)
 	for i := range events {
-		role := model.RoleAssistant
+		role := compat.RoleAssistant
 		if i%2 == 0 {
-			role = model.RoleUser
+			role = compat.RoleUser
 		}
 		events[i] = event.Event{
 			ID:           fmt.Sprintf("event-%d", i),
@@ -60,10 +60,10 @@ func contentRequestBenchmarkInvocation(historySize int) *agent.Invocation {
 			InvocationID: fmt.Sprintf("history-invocation-%d", i/2),
 			Author:       agentName,
 			Branch:       agentName,
-			Response: &model.Response{
+			Response: &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.Message{
+				Choices: []compat.Choice{{
+					Message: compat.Message{
 						Role:    role,
 						Content: fmt.Sprintf("history message %d", i),
 					},
@@ -76,7 +76,7 @@ func contentRequestBenchmarkInvocation(historySize int) *agent.Invocation {
 		agent.WithInvocationBranch(agentName),
 		agent.WithInvocationEventFilterKey(agentName),
 		agent.WithInvocationSession(&session.Session{Events: events}),
-		agent.WithInvocationMessage(model.NewUserMessage("current request")),
+		agent.WithInvocationMessage(compat.NewUserMessage("current request")),
 	)
 	invocation.AgentName = agentName
 	return invocation

@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // AuthType defines the type of authentication to use for n8n webhook requests.
@@ -43,7 +43,7 @@ type AuthConfig struct {
 
 // StreamingRespHandler processes streaming response chunks.
 // The returned string is appended to the aggregated content used in the final event.
-type StreamingRespHandler func(resp *model.Response) (string, error)
+type StreamingRespHandler func(resp *compat.Response) (string, error)
 
 // RequestConverter defines an interface for converting invocations to n8n request payloads.
 type RequestConverter interface {
@@ -93,7 +93,7 @@ func (d *defaultRequestConverter) ConvertToN8nRequest(
 	// Users needing multi-file support should implement a custom RequestConverter.
 	for _, contentPart := range invocation.Message.ContentParts {
 		switch contentPart.Type {
-		case model.ContentTypeText:
+		case compat.ContentTypeText:
 			if contentPart.Text != nil {
 				if query, ok := req["query"].(string); ok && query != "" {
 					req["query"] = query + "\n" + *contentPart.Text
@@ -101,11 +101,11 @@ func (d *defaultRequestConverter) ConvertToN8nRequest(
 					req["query"] = *contentPart.Text
 				}
 			}
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if contentPart.Image != nil && contentPart.Image.URL != "" {
 				req["image_url"] = contentPart.Image.URL
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if contentPart.File != nil && contentPart.File.Name != "" {
 				req["file_name"] = contentPart.File.Name
 			}
@@ -126,16 +126,16 @@ func (d *defaultResponseConverter) ConvertToEvent(
 	content := extractContentFromBody(body)
 	now := time.Now()
 
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: content,
 	}
 
 	return event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
-			Choices:   []model.Choice{{Message: message, Delta: message}},
+		event.WithResponse(&compat.Response{
+			Choices:   []compat.Choice{{Message: message, Delta: message}},
 			Timestamp: now,
 			Created:   now.Unix(),
 			IsPartial: false,
@@ -155,23 +155,23 @@ func (d *defaultResponseConverter) ConvertStreamingToEvent(
 	}
 
 	now := time.Now()
-	message := model.Message{
-		Role:    model.RoleAssistant,
+	message := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: content,
 	}
 
 	return event.New(
 		invocation.InvocationID,
 		agentName,
-		event.WithResponse(&model.Response{
-			Object:    model.ObjectTypeChatCompletionChunk,
-			Choices:   []model.Choice{{Delta: message}},
+		event.WithResponse(&compat.Response{
+			Object:    compat.ObjectTypeChatCompletionChunk,
+			Choices:   []compat.Choice{{Delta: message}},
 			Timestamp: now,
 			Created:   now.Unix(),
 			IsPartial: true,
 			Done:      false,
 		}),
-		event.WithObject(model.ObjectTypeChatCompletionChunk),
+		event.WithObject(compat.ObjectTypeChatCompletionChunk),
 	)
 }
 

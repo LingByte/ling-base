@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 )
@@ -108,10 +108,10 @@ func TestMCPToolbox_SearchByQueryAndLoad(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, bt, "loaded MCP tool must pass through")
 
-	req := &model.Request{}
-	_, err = p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err = p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["mcp__billing__create_invoice"]
+	_, ok := req.Tools.(map[string]tool.Tool)["mcp__billing__create_invoice"]
 	assert.True(t, ok, "loaded MCP tool schema must be injected")
 }
 
@@ -187,10 +187,10 @@ func TestMCPToolbox_CatalogRendersWithToolNames(t *testing.T) {
 	}))
 	ctx, _ := ctxWithInvocation()
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 
 	// Catalog must include the namespace, its description, and its tools
@@ -215,10 +215,10 @@ func TestMCPToolbox_LoadedToolSchemaInjectedAfterRestart(t *testing.T) {
 	ctx, inv := ctxWithInvocation()
 	p.saveDiscoveredTools(ctx, inv, []string{"mcp__billing__create_invoice"})
 
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, ok := req.Tools["mcp__billing__create_invoice"]
+	_, ok := req.Tools.(map[string]tool.Tool)["mcp__billing__create_invoice"]
 	assert.True(t, ok, "loaded MCP tool schema must be injected after a restart-style reload")
 }
 
@@ -242,10 +242,10 @@ func TestMCPToolbox_ConcurrentSearchesAreRaceFree(t *testing.T) {
 			ctx, _ := ctxWithInvocation()
 			_, err := p.searchTools(ctx, toolSearchInput{Namespace: "weather"})
 			assert.NoError(t, err)
-			req := &model.Request{
-				Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+			req := &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 			}
-			_, err = p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+			_, err = p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 			assert.NoError(t, err)
 		}()
 	}
@@ -315,10 +315,10 @@ func TestMCPToolbox_RefreshesChangedAndRemovedTools(t *testing.T) {
 	assert.Contains(t, bt.CustomResult.(string), "not loaded yet")
 
 	// The catalog rendered for the model reflects only the current snapshot.
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 	}
-	_, err = p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err = p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Contains(t, req.Messages[0].Content, "mcp__weather__get_forecast")
 	assert.NotContains(t, req.Messages[0].Content, "mcp__weather__get_alerts")
@@ -353,10 +353,10 @@ func TestMCPToolbox_EmptyListingPreservesSnapshot(t *testing.T) {
 	_, stillIndexed := p.toolsByName["mcp__weather__get_forecast"]
 	assert.True(t, stillIndexed, "empty listing must not evict tools from toolsByName")
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleSystem, Content: Placeholder}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleSystem, Content: Placeholder}},
 	}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Contains(t, req.Messages[0].Content, "mcp__weather__get_forecast",
 		"catalog must retain the last known snapshot across a transient empty listing")
@@ -618,10 +618,10 @@ func TestMCPToolbox_LoadedToolPrunedMidTurnIsBlocked(t *testing.T) {
 	require.Equal(t, []string{"mcp__billing__create_invoice"}, toolNames(res.Tools))
 
 	// Turn N+1: beforeModel injects the loaded tool's schema into req.Tools.
-	req := &model.Request{}
-	_, err := p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req := &compat.Request{}
+	_, err := p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, injected := req.Tools["mcp__billing__create_invoice"]
+	_, injected := req.Tools.(map[string]tool.Tool)["mcp__billing__create_invoice"]
 	require.True(t, injected, "loaded MCP tool schema must be injected before the server prunes it")
 
 	// Server prunes this tool but still lists something else, so the empty-
@@ -648,10 +648,10 @@ func TestMCPToolbox_LoadedToolPrunedMidTurnIsBlocked(t *testing.T) {
 	// And a fresh beforeModel this turn must not re-inject the stale wrapper
 	// (single materialize + single schema-injection pass keeps the request
 	// consistent with the current snapshot).
-	req = &model.Request{}
-	_, err = p.beforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	req = &compat.Request{}
+	_, err = p.beforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
-	_, stillInjected := req.Tools["mcp__billing__create_invoice"]
+	_, stillInjected := req.Tools.(map[string]tool.Tool)["mcp__billing__create_invoice"]
 	assert.False(t, stillInjected,
 		"beforeModel must not inject a schema for a tool absent from the current snapshot")
 
@@ -854,7 +854,7 @@ func TestMCPToolbox_StaleSnapshotUpsertIsRejected(t *testing.T) {
 
 			// Search A's upsert on the stale snapshot must not re-embed T.
 			embedsBefore := counter.docCount()
-			usage := &model.Usage{}
+			usage := &compat.Usage{}
 			require.NoError(t, k.upsert(ctx, snapshot, p.verifyCandidate, usage))
 			assert.Equal(t, embedsBefore, counter.docCount(),
 				"stale-snapshot upsert must not re-embed T")

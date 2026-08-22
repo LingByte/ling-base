@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	localexec "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor/workspaceio"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -68,7 +68,7 @@ func TestLLMAgent_Run_InstallsWorkspaceInContext(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-wsio-ctx"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "s1", AppName: "app", UserID: "user",
 		}),
@@ -107,7 +107,7 @@ func TestLLMAgent_Run_PreservesExistingWorkspaceInContext(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-preserve-ws"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "s1", AppName: "app", UserID: "user",
 		}),
@@ -148,7 +148,7 @@ func TestLLMAgent_Run_InstallsWorkspaceWhenRunnerNil(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-norunner"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "s1", AppName: "app", UserID: "user",
 		}),
@@ -186,7 +186,7 @@ func TestLLMAgent_Run_HonorsRunOptionsCodeExecutorForWorkspace(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-runopts"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "s1", AppName: "app", UserID: "user",
 		}),
@@ -225,7 +225,7 @@ func TestLLMAgent_Run_WithoutCodeExecutor_NoWorkspaceInContext(t *testing.T) {
 
 	inv := agent.NewInvocation(
 		agent.WithInvocationID("inv-noexec"),
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID: "s1", AppName: "app", UserID: "user",
 		}),

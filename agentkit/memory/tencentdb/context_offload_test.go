@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginpkg "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -43,14 +43,14 @@ type fixedOffloadTokenCounter struct {
 
 func (c fixedOffloadTokenCounter) CountTokens(
 	context.Context,
-	model.Message,
+	compat.Message,
 ) (int, error) {
 	return c.tokens, c.err
 }
 
 func (c fixedOffloadTokenCounter) CountTokensRange(
 	_ context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 	start int,
 	end int,
 ) (int, error) {
@@ -124,19 +124,19 @@ func TestContextOffloadPlugin_UsesV2IngestAndCompact(t *testing.T) {
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	call := model.ToolCall{
+	call := compat.ToolCall{
 		ID:   "call-1",
 		Type: "function",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "grep",
 			Arguments: []byte(`{"pattern":"needle"}`),
 		},
 	}
-	assistant := model.NewAssistantMessage("")
-	assistant.ToolCalls = []model.ToolCall{call}
-	result := model.NewToolMessage("call-1", "grep", "large tool result")
-	messages := []model.Message{
-		model.NewUserMessage("find the deployment failure"),
+	assistant := compat.NewAssistantMessage("")
+	assistant.ToolCalls = []compat.ToolCall{call}
+	result := compat.NewToolMessage("call-1", "grep", "large tool result")
+	messages := []compat.Message{
+		compat.NewUserMessage("find the deployment failure"),
 		assistant,
 		result,
 	}
@@ -146,17 +146,17 @@ func TestContextOffloadPlugin_UsesV2IngestAndCompact(t *testing.T) {
 		&pluginpkg.AfterToolMessagesArgs{
 			Invocation:         inv,
 			Messages:           messages,
-			ToolCalls:          []model.ToolCall{call},
-			ToolResultMessages: []model.Message{result},
+			ToolCalls:          []compat.ToolCall{call},
+			ToolResultMessages: []compat.Message{result},
 		},
 	)
 	require.NoError(t, err)
 	assert.Nil(t, afterResult, "ingest must not rewrite tool results")
 
-	req := &model.Request{Messages: messages}
+	req := &compat.Request{Messages: messages}
 	_, err = mgr.ModelCallbacks().RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 4)
@@ -223,36 +223,36 @@ func TestContextOffloadPlugin_SkipsBelowThresholdAndDeduplicatesPrompt(t *testin
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("same user prompt")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("same user prompt")},
 	}
 
 	for i := 0; i < 2; i++ {
 		_, err = mgr.ModelCallbacks().RunBeforeModel(
 			ctx,
-			&model.BeforeModelArgs{Request: req},
+			&compat.BeforeModelArgs{Request: req},
 		)
 		require.NoError(t, err)
 	}
 	assert.Equal(t, 1, ingestCount)
 	assert.Zero(t, compactCount)
 
-	req.Messages = []model.Message{model.NewUserMessage(
+	req.Messages = []compat.Message{compat.NewUserMessage(
 		"debug the heartbeat timeout",
 	)}
 	_, err = mgr.ModelCallbacks().RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, 2, ingestCount, "user heartbeat requests must trigger L1.5")
 
-	req.Messages = []model.Message{model.NewUserMessage(
+	req.Messages = []compat.Message{compat.NewUserMessage(
 		"Read HEARTBEAT.md if it exists (workspace context).",
 	)}
 	_, err = mgr.ModelCallbacks().RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, 2, ingestCount, "internal prompts must not trigger L1.5")
@@ -287,14 +287,14 @@ func TestContextOffloadPlugin_RetriesPromptAfterIngestFailure(t *testing.T) {
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("retry this prompt")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("retry this prompt")},
 	}
 
 	for i := 0; i < 3; i++ {
 		_, err = mgr.ModelCallbacks().RunBeforeModel(
 			ctx,
-			&model.BeforeModelArgs{Request: req},
+			&compat.BeforeModelArgs{Request: req},
 		)
 		require.NoError(t, err)
 	}
@@ -332,15 +332,15 @@ func TestContextOffloadPlugin_DeduplicatesPromptWhileInFlight(t *testing.T) {
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("same in-flight prompt")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("same in-flight prompt")},
 	}
 	callbacks := mgr.ModelCallbacks()
 	firstDone := make(chan error, 1)
 	go func() {
 		_, err := callbacks.RunBeforeModel(
 			ctx,
-			&model.BeforeModelArgs{Request: req},
+			&compat.BeforeModelArgs{Request: req},
 		)
 		firstDone <- err
 	}()
@@ -352,7 +352,7 @@ func TestContextOffloadPlugin_DeduplicatesPromptWhileInFlight(t *testing.T) {
 
 	_, err = callbacks.RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, ingestCount.Load())
@@ -392,15 +392,15 @@ func TestContextOffloadPlugin_PreservesUserHeartbeatRequests(t *testing.T) {
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	req := &model.Request{Messages: []model.Message{
-		model.NewUserMessage("debug the heartbeat timeout"),
-		model.NewAssistantMessage("the heartbeat logs show repeated timeouts"),
-		model.NewUserMessage("what should I check next?"),
+	req := &compat.Request{Messages: []compat.Message{
+		compat.NewUserMessage("debug the heartbeat timeout"),
+		compat.NewAssistantMessage("the heartbeat logs show repeated timeouts"),
+		compat.NewUserMessage("what should I check next?"),
 	}}
 
 	_, err = mgr.ModelCallbacks().RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 
@@ -471,13 +471,13 @@ func TestContextOffloadPlugin_CompactionFailuresLeaveContextUnchanged(t *testing
 				},
 			}
 			ctx := agent.NewInvocationContext(context.Background(), inv).Context
-			req := &model.Request{
-				Messages: []model.Message{model.NewUserMessage("original prompt")},
+			req := &compat.Request{
+				Messages: []compat.Message{compat.NewUserMessage("original prompt")},
 			}
 
 			_, err = mgr.ModelCallbacks().RunBeforeModel(
 				ctx,
-				&model.BeforeModelArgs{Request: req},
+				&compat.BeforeModelArgs{Request: req},
 			)
 			require.NoError(t, err)
 			require.Len(t, req.Messages, 1)
@@ -538,13 +538,13 @@ func TestContextOffloadPlugin_HTTPAndEnvelopeFailuresAreBestEffort(t *testing.T)
 				},
 			}
 			ctx := agent.NewInvocationContext(context.Background(), inv).Context
-			req := &model.Request{
-				Messages: []model.Message{model.NewUserMessage("original prompt")},
+			req := &compat.Request{
+				Messages: []compat.Message{compat.NewUserMessage("original prompt")},
 			}
 
 			_, err = mgr.ModelCallbacks().RunBeforeModel(
 				ctx,
-				&model.BeforeModelArgs{Request: req},
+				&compat.BeforeModelArgs{Request: req},
 			)
 			require.NoError(t, err)
 			require.Len(t, req.Messages, 1)
@@ -635,8 +635,8 @@ func TestContextOffloadConfigurationValidationAndOverride(t *testing.T) {
 	}
 	_, err = mgr.AfterToolMessages(context.Background(), &pluginpkg.AfterToolMessagesArgs{
 		Invocation: inv,
-		ToolResultMessages: []model.Message{
-			model.NewToolMessage("call", "tool", "payload"),
+		ToolResultMessages: []compat.Message{
+			compat.NewToolMessage("call", "tool", "payload"),
 		},
 	})
 	require.NoError(t, err)
@@ -772,34 +772,34 @@ func TestContextOffloadHelpers(t *testing.T) {
 	assert.Equal(t, "not-json", offloadToolParams([]byte("not-json")))
 
 	part := "part result"
-	assert.Equal(t, []model.ContentPart{{
-		Type: model.ContentTypeText,
+	assert.Equal(t, []compat.ContentPart{{
+		Type: compat.ContentTypeText,
 		Text: &part,
-	}}, offloadToolResult(model.Message{
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+	}}, offloadToolResult(compat.Message{
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &part,
 		}},
 	}))
 
-	results := newOffloadToolPairs(nil, []model.Message{
-		model.NewToolMessage("call", "fallback-tool", "result"),
-		{Role: model.RoleTool},
+	results := newOffloadToolPairs(nil, []compat.Message{
+		compat.NewToolMessage("call", "fallback-tool", "result"),
+		{Role: compat.RoleTool},
 	})
 	require.Len(t, results, 1)
 	assert.Equal(t, "fallback-tool", results[0].ToolName)
 
 	longPrompt := strings.Repeat("界", maxOffloadPromptRunes+10)
-	messages := []model.Message{
-		model.NewUserMessage("earlier user context"),
-		model.NewAssistantMessage("an assistant response long enough"),
-		model.NewUserMessage(longPrompt),
+	messages := []compat.Message{
+		compat.NewUserMessage("earlier user context"),
+		compat.NewAssistantMessage("an assistant response long enough"),
+		compat.NewUserMessage(longPrompt),
 	}
 	prompt, recent := offloadPromptContext(messages)
 	assert.Equal(t, maxOffloadPromptRunes, len([]rune(prompt)))
 	require.Len(t, recent, 2)
-	assert.Equal(t, model.RoleUser, recent[0].Role)
-	assert.Equal(t, model.RoleAssistant, recent[1].Role)
+	assert.Equal(t, compat.RoleUser, recent[0].Role)
+	assert.Equal(t, compat.RoleAssistant, recent[1].Role)
 
 	total, perMessage, err := countOffloadTokens(
 		context.Background(),
@@ -810,7 +810,7 @@ func TestContextOffloadHelpers(t *testing.T) {
 	assert.Zero(t, total)
 	assert.Nil(t, perMessage)
 
-	message := model.NewToolMessage("call", "tool", "content")
+	message := compat.NewToolMessage("call", "tool", "content")
 	wire := newOffloadMessage(message)
 	encoded, err := json.Marshal(wire)
 	require.NoError(t, err)
@@ -874,15 +874,15 @@ func TestContextOffloadPlugin_SkipsInvalidInputsAndFallsBackTokenCounter(t *test
 	callbacks := mgr.ModelCallbacks()
 	_, err = callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: nil},
+		&compat.BeforeModelArgs{Request: nil},
 	)
 	require.NoError(t, err)
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("original prompt")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("original prompt")},
 	}
 	_, err = callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "original prompt", req.Messages[0].Content)
@@ -894,7 +894,7 @@ func TestContextOffloadPlugin_SkipsInvalidInputsAndFallsBackTokenCounter(t *test
 		},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), inv).Context
-	_, err = callbacks.RunBeforeModel(ctx, &model.BeforeModelArgs{Request: req})
+	_, err = callbacks.RunBeforeModel(ctx, &compat.BeforeModelArgs{Request: req})
 	require.NoError(t, err)
 	assert.Positive(t, compact.TotalTokens)
 	assert.Equal(t, "compacted", req.Messages[0].Content)

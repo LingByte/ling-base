@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	imemory "github.com/LingByte/ling-base/agentkit/memory/internal/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	storage "github.com/LingByte/ling-base/agentkit/storage/mysql"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -73,12 +73,12 @@ func newMockEmbedderWithError(err error) *mockEmbedder {
 
 type mockMemoryExtractor struct{}
 
-func (m *mockMemoryExtractor) Extract(_ context.Context, _ []model.Message, _ []*memory.Entry) ([]*extractor.Operation, error) {
+func (m *mockMemoryExtractor) Extract(_ context.Context, _ []compat.Message, _ []*memory.Entry) ([]*extractor.Operation, error) {
 	return []*extractor.Operation{{Type: extractor.OperationAdd, Memory: "test", Topics: []string{"t"}}}, nil
 }
 func (m *mockMemoryExtractor) ShouldExtract(_ *extractor.ExtractionContext) bool { return true }
 func (m *mockMemoryExtractor) SetPrompt(_ string)                                {}
-func (m *mockMemoryExtractor) SetModel(_ model.Model)                            {}
+func (m *mockMemoryExtractor) SetModel(_ compat.Model)                            {}
 func (m *mockMemoryExtractor) SetEnabledTools(_ map[string]struct{})             {}
 func (m *mockMemoryExtractor) Metadata() map[string]any                          { return nil }
 

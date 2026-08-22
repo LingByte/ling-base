@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
@@ -32,7 +32,7 @@ func TestTokenThresholdUsesModelVisibleRequestTokens(t *testing.T) {
 			modelVisibleTestEvent(
 				"raw",
 				"user",
-				model.NewUserMessage(strings.Repeat("raw ", 1000)),
+				compat.NewUserMessage(strings.Repeat("raw ", 1000)),
 				time.Now(),
 			),
 		},
@@ -44,7 +44,7 @@ func TestTokenThresholdUsesModelVisibleRequestTokens(t *testing.T) {
 			EffectiveEvent: modelVisibleTestEvent(
 				"raw",
 				"user",
-				model.NewUserMessage("projected"),
+				compat.NewUserMessage("projected"),
 				time.Now(),
 			),
 		}},
@@ -66,7 +66,7 @@ func TestSummaryDoesNotAdvanceWithoutStoredBoundary(t *testing.T) {
 			modelVisibleTestEvent(
 				"raw-event",
 				"user",
-				model.NewUserMessage("raw history"),
+				compat.NewUserMessage("raw history"),
 				time.Now(),
 			),
 		},
@@ -78,7 +78,7 @@ func TestSummaryDoesNotAdvanceWithoutStoredBoundary(t *testing.T) {
 			EffectiveEvent: modelVisibleTestEvent(
 				"",
 				"user",
-				model.NewUserMessage("unpersisted request"),
+				compat.NewUserMessage("unpersisted request"),
 				time.Now(),
 			),
 		}},
@@ -99,18 +99,18 @@ func TestUnboundModelVisibleViewDoesNotSummarize(t *testing.T) {
 	raw := modelVisibleTestEvent(
 		"event-1",
 		"user",
-		model.NewUserMessage("stored history"),
+		compat.NewUserMessage("stored history"),
 		now,
 	)
 	ctx := summaryview.ContextWithView(context.Background(), &summaryview.View{
 		SessionID:     "session",
 		RequestTokens: 130_000,
 		Items: []summaryview.Item{{
-			Message: model.NewUserMessage("stale projected history"),
+			Message: compat.NewUserMessage("stale projected history"),
 			EffectiveEvent: modelVisibleTestEvent(
 				"event-1",
 				"user",
-				model.NewUserMessage("stale projected history"),
+				compat.NewUserMessage("stale projected history"),
 				now,
 			),
 			Boundary: summaryview.Boundary{
@@ -151,14 +151,14 @@ func TestPreSummaryHookSeparatesModelVisibleAndSourceEvents(t *testing.T) {
 	raw := modelVisibleTestEvent(
 		"event-1",
 		"tool",
-		model.NewToolMessage(
+		compat.NewToolMessage(
 			"call-1",
 			"lookup",
 			"raw tool payload",
 		),
 		now,
 	)
-	effectiveMessage := model.NewToolMessage(
+	effectiveMessage := compat.NewToolMessage(
 		"call-1",
 		"lookup",
 		"projected tool result",
@@ -216,13 +216,13 @@ func TestSummarizeUsesModelVisiblePrefix(t *testing.T) {
 		modelVisibleTestEvent(
 			"event-1",
 			"user",
-			model.NewUserMessage("original goal"),
+			compat.NewUserMessage("original goal"),
 			baseTime,
 		),
 		modelVisibleTestEvent(
 			"event-2",
 			"tool",
-			model.NewToolMessage(
+			compat.NewToolMessage(
 				"call-1",
 				"lookup",
 				strings.Repeat("raw tool payload ", 1000),
@@ -232,18 +232,18 @@ func TestSummarizeUsesModelVisiblePrefix(t *testing.T) {
 		modelVisibleTestEvent(
 			"event-3",
 			"user",
-			model.NewUserMessage("recent request"),
+			compat.NewUserMessage("recent request"),
 			baseTime.Add(2*time.Second),
 		),
 	}
-	effectiveMessages := []model.Message{
-		model.NewUserMessage("original goal"),
-		model.NewToolMessage(
+	effectiveMessages := []compat.Message{
+		compat.NewUserMessage("original goal"),
+		compat.NewToolMessage(
 			"call-1",
 			"lookup",
 			"tool result omitted from model-visible history",
 		),
-		model.NewUserMessage("recent request"),
+		compat.NewUserMessage("recent request"),
 	}
 	items := make([]summaryview.Item, len(effectiveMessages))
 	for i := range effectiveMessages {
@@ -267,12 +267,12 @@ func TestSummarizeUsesModelVisiblePrefix(t *testing.T) {
 		Items:     items,
 		Bound:     true,
 	}
-	parent := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system prompt"),
+	parent := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system prompt"),
 		effectiveMessages[0],
 		effectiveMessages[1],
 		effectiveMessages[2],
-		model.NewAssistantMessage("response appended after the request"),
+		compat.NewAssistantMessage("response appended after the request"),
 	}}
 
 	var skipInput []event.Event
@@ -330,21 +330,21 @@ func TestSummarizeScopesModelVisibleItemsBeforeSkipping(t *testing.T) {
 	root := modelVisibleTestEvent(
 		"event-root",
 		"user",
-		model.NewUserMessage("ancestor context"),
+		compat.NewUserMessage("ancestor context"),
 		now,
 	)
 	root.FilterKey = "app"
 	branch := modelVisibleTestEvent(
 		"event-branch",
 		"user",
-		model.NewUserMessage("branch goal"),
+		compat.NewUserMessage("branch goal"),
 		now.Add(time.Second),
 	)
 	branch.FilterKey = "app/sub"
 	recent := modelVisibleTestEvent(
 		"event-recent",
 		"assistant",
-		model.NewAssistantMessage("branch recent"),
+		compat.NewAssistantMessage("branch recent"),
 		now.Add(2*time.Second),
 	)
 	recent.FilterKey = "app/sub"
@@ -367,8 +367,8 @@ func TestSummarizeScopesModelVisibleItemsBeforeSkipping(t *testing.T) {
 		Items:     items,
 		Bound:     true,
 	}
-	parent := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable"),
+	parent := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable"),
 		items[0].Message,
 		items[1].Message,
 		items[2].Message,
@@ -471,7 +471,7 @@ func TestSelectSummaryEventsPrependsPreviousSummary(t *testing.T) {
 	raw := modelVisibleTestEvent(
 		"event-1",
 		"user",
-		model.NewUserMessage("visible"),
+		compat.NewUserMessage("visible"),
 		now,
 	)
 	view := &summaryview.View{
@@ -495,7 +495,7 @@ func TestSelectSummaryEventsPrependsPreviousSummary(t *testing.T) {
 
 	require.True(t, selection.effective)
 	require.Len(t, selection.events, 2)
-	require.Equal(t, model.RoleSystem, selection.events[0].Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleSystem, selection.events[0].Response.Choices[0].Message.Role)
 	require.Equal(
 		t,
 		"previous summary",
@@ -566,7 +566,7 @@ func TestSummaryBoundaryAndEffectiveCheckSession(t *testing.T) {
 	effective := modelVisibleTestEvent(
 		"event-1",
 		"user",
-		model.NewUserMessage("effective"),
+		compat.NewUserMessage("effective"),
 		now,
 	)
 	check := summarizer.buildCheckSessionWithSelection(
@@ -587,14 +587,14 @@ func TestSummaryBoundaryAndEffectiveCheckSession(t *testing.T) {
 func modelVisibleTestEvent(
 	id string,
 	author string,
-	message model.Message,
+	message compat.Message,
 	timestamp time.Time,
 ) event.Event {
 	return event.Event{
 		ID:        id,
 		Author:    author,
 		Timestamp: timestamp,
-		Response: &model.Response{Choices: []model.Choice{{
+		Response: &compat.Response{Choices: []compat.Choice{{
 			Message: message,
 		}}},
 	}

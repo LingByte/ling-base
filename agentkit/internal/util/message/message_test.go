@@ -14,33 +14,33 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestIsEmptyAssistantMessage(t *testing.T) {
-	assert.True(t, IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
+	assert.True(t, IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
 	}))
-	assert.True(t, IsEmptyAssistantMessage(model.Message{
-		Role:             model.RoleAssistant,
+	assert.True(t, IsEmptyAssistantMessage(compat.Message{
+		Role:             compat.RoleAssistant,
 		ReasoningContent: "reasoning without visible payload",
 	}))
-	assert.False(t, IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleUser,
+	assert.False(t, IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleUser,
 	}))
-	assert.False(t, IsEmptyAssistantMessage(model.Message{
-		Role:    model.RoleAssistant,
+	assert.False(t, IsEmptyAssistantMessage(compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "visible content",
 	}))
-	assert.False(t, IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeText},
+	assert.False(t, IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeText},
 		},
 	}))
-	assert.False(t, IsEmptyAssistantMessage(model.Message{
-		Role: model.RoleAssistant,
-		ToolCalls: []model.ToolCall{
+	assert.False(t, IsEmptyAssistantMessage(compat.Message{
+		Role: compat.RoleAssistant,
+		ToolCalls: []compat.ToolCall{
 			{ID: "call_1"},
 		},
 	}))

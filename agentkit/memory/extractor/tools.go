@@ -14,7 +14,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory"
 	memorytool "github.com/LingByte/ling-base/agentkit/memory/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -106,7 +106,7 @@ func assistantEpisodeOrdinaryTools(
 }
 
 func assistantEpisodeOperationSourceIndex(
-	call model.ToolCall,
+	call compat.ToolCall,
 	userCount int,
 ) (int, bool) {
 	var args struct {
@@ -122,7 +122,7 @@ func assistantEpisodeOperationSourceIndex(
 }
 
 func assistantEpisodeDeleteSourceIndexes(
-	call model.ToolCall,
+	call compat.ToolCall,
 	userCount int,
 ) ([]int, bool) {
 	var args map[string]json.RawMessage

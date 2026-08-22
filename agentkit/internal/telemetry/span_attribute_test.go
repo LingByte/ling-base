@@ -15,7 +15,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -30,8 +30,8 @@ func TestBuildRequestAttributes_DropSkipsMarshal(t *testing.T) {
 		Action:    AttributeDrop,
 	}))
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "hello"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	}
 	_ = buildRequestAttributes(req)
 
@@ -56,8 +56,8 @@ func TestBuildRequestAttributes_DropSkipsAttribute(t *testing.T) {
 		Action:    AttributeDrop,
 	}))
 
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "hello"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	}
 	attrs := buildRequestAttributes(req)
 	if _, ok := attrStringValue(attrs, semconvtrace.KeyGenAIInputMessagesOTel); ok {
@@ -245,8 +245,8 @@ func TestBuildResponseAttributes_DropSkipsAttribute(t *testing.T) {
 		Action:    AttributeDrop,
 	}))
 
-	rsp := &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "hi"}}},
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "hi"}}},
 	}
 	attrs := buildResponseAttributes(rsp, semconvtrace.ValueDefaultErrorType)
 	if _, ok := attrStringValue(attrs, semconvtrace.KeyGenAIOutputMessagesOTel); ok {
@@ -266,8 +266,8 @@ func TestBuildRequestAttributes_TruncateEnvelope(t *testing.T) {
 		Action:    AttributeTruncate,
 		MaxBytes:  32,
 	}))
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: strings.Repeat("x", 256)}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: strings.Repeat("x", 256)}},
 	}
 	attrs := buildRequestAttributes(req)
 	got, ok := attrStringValue(attrs, semconvtrace.KeyGenAIInputMessages)
@@ -352,7 +352,7 @@ func TestSetInvokeAgentInputMessageAttributes_DropOTel(t *testing.T) {
 	}))
 
 	span := newRecordingSpan()
-	setInvokeAgentInputMessageAttributes(span, model.Message{Role: model.RoleUser, Content: "hi"})
+	setInvokeAgentInputMessageAttributes(span, compat.Message{Role: compat.RoleUser, Content: "hi"})
 	if _, ok := attrStringValue(span.attrs, semconvtrace.KeyGenAIInputMessagesOTel); ok {
 		t.Fatal("expected invoke otel input to be dropped")
 	}

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // ExtractionContext contains all context information for extraction decision.
@@ -24,7 +24,7 @@ type ExtractionContext struct {
 
 	// Messages contains the actual messages extracted from session events.
 	// Only includes user/assistant messages with content, excluding tool calls.
-	Messages []model.Message
+	Messages []compat.Message
 
 	// LastExtractAt is the last extraction timestamp, nil if never extracted.
 	LastExtractAt *time.Time

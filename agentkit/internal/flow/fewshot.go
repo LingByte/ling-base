@@ -8,29 +8,29 @@
 
 package flow
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 // InsertFewShotMessages inserts few-shot examples after the leading system message block.
 func InsertFewShotMessages(
-	messages []model.Message,
-	examples [][]model.Message,
-) []model.Message {
+	messages []compat.Message,
+	examples [][]compat.Message,
+) []compat.Message {
 	fewShot := flattenFewShotMessages(examples)
 	if len(fewShot) == 0 {
 		return messages
 	}
 	insertAt := 0
-	for insertAt < len(messages) && messages[insertAt].Role == model.RoleSystem {
+	for insertAt < len(messages) && messages[insertAt].Role == compat.RoleSystem {
 		insertAt++
 	}
-	out := make([]model.Message, 0, len(messages)+len(fewShot))
+	out := make([]compat.Message, 0, len(messages)+len(fewShot))
 	out = append(out, messages[:insertAt]...)
 	out = append(out, fewShot...)
 	out = append(out, messages[insertAt:]...)
 	return out
 }
 
-func flattenFewShotMessages(examples [][]model.Message) []model.Message {
+func flattenFewShotMessages(examples [][]compat.Message) []compat.Message {
 	if len(examples) == 0 {
 		return nil
 	}
@@ -41,7 +41,7 @@ func flattenFewShotMessages(examples [][]model.Message) []model.Message {
 	if total == 0 {
 		return nil
 	}
-	out := make([]model.Message, 0, total)
+	out := make([]compat.Message, 0, total)
 	for _, group := range examples {
 		out = append(out, group...)
 	}

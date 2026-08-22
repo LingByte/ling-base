@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -49,7 +49,7 @@ func (m *mockSummarizer) FilterEventsForSummary(events []event.Event) []event.Ev
 
 func (m *mockSummarizer) SetPrompt(prompt string) {}
 
-func (m *mockSummarizer) SetModel(mdl model.Model) {}
+func (m *mockSummarizer) SetModel(mdl compat.Model) {}
 
 func (m *mockSummarizer) Metadata() map[string]any { return nil }
 
@@ -551,9 +551,9 @@ func TestAsyncSummaryWorker_EnqueueJob(t *testing.T) {
 		// Set Version to CurrentVersion so Filter() uses FilterKey instead of Branch.
 		sess.Events = []event.Event{
 			{FilterKey: "branch1", Timestamp: now.Add(-2 * time.Minute), Version: event.CurrentVersion,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "e1"}}}}},
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "e1"}}}}},
 			{FilterKey: "branch2", Timestamp: now.Add(-1 * time.Minute), Version: event.CurrentVersion,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "e2"}}}}},
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "e2"}}}}},
 		}
 
 		err := worker.EnqueueJob(context.Background(), sess, "branch1", false)

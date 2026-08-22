@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/statecopy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const stateKey = "trpc_agent.summary.model_visible_view"
@@ -49,7 +49,7 @@ func (b Boundary) IsZero() bool {
 
 // Item maps one model-visible history message to its stored-event boundary.
 type Item struct {
-	Message        model.Message
+	Message        compat.Message
 	EffectiveEvent event.Event
 	Boundary       Boundary
 	RequestIndex   int
@@ -90,7 +90,7 @@ func Clear(inv *agent.Invocation) {
 // request and records the request token count. RequestTokens remains useful
 // when binding is unavailable, but unbound items must not be treated as content
 // proven to be visible to the model.
-func Finalize(inv *agent.Invocation, req *model.Request, requestTokens int) {
+func Finalize(inv *agent.Invocation, req *compat.Request, requestTokens int) {
 	if inv == nil || req == nil {
 		return
 	}
@@ -115,8 +115,8 @@ func Finalize(inv *agent.Invocation, req *model.Request, requestTokens int) {
 // every projected history item.
 func RebaseAfterTransform(
 	inv *agent.Invocation,
-	before []model.Message,
-	after []model.Message,
+	before []compat.Message,
+	after []compat.Message,
 	sourceIndexes []int,
 ) bool {
 	if inv == nil {
@@ -163,7 +163,7 @@ func RebaseAfterTransform(
 	return true
 }
 
-func bindItemsForTransform(view *View, messages []model.Message) ([]Item, bool) {
+func bindItemsForTransform(view *View, messages []compat.Message) ([]Item, bool) {
 	if view == nil || len(view.Items) == 0 || len(messages) == 0 {
 		return nil, false
 	}
@@ -190,7 +190,7 @@ func bindItemsForTransform(view *View, messages []model.Message) ([]Item, bool) 
 
 func rebaseItems(
 	items []Item,
-	after []model.Message,
+	after []compat.Message,
 	sourceIndexes []int,
 	beforeLength int,
 ) ([]Item, bool) {
@@ -413,7 +413,7 @@ func (v *View) BoundaryForItems(indexes []int) (Boundary, bool) {
 // PrefixMessages returns the parent request prefix containing fixed messages
 // followed by exactly the first count model-visible history items. It returns
 // false when the projection could not be bound safely to the parent request.
-func (v *View) PrefixMessages(parent []model.Message, count int) ([]model.Message, bool) {
+func (v *View) PrefixMessages(parent []compat.Message, count int) ([]compat.Message, bool) {
 	if v == nil || !v.Bound || count <= 0 || count > len(v.Items) {
 		return nil, false
 	}
@@ -427,9 +427,9 @@ func (v *View) PrefixMessages(parent []model.Message, count int) ([]model.Messag
 // MessagesForItems returns the fixed request prefix followed by the selected
 // model-visible history items in their original order.
 func (v *View) MessagesForItems(
-	parent []model.Message,
+	parent []compat.Message,
 	indexes []int,
-) ([]model.Message, bool) {
+) ([]compat.Message, bool) {
 	if v == nil || !v.Bound || len(v.Items) == 0 || len(indexes) == 0 {
 		return nil, false
 	}
@@ -437,7 +437,7 @@ func (v *View) MessagesForItems(
 	if first < 0 || first > len(parent) {
 		return nil, false
 	}
-	messages := make([]model.Message, 0, first+len(indexes))
+	messages := make([]compat.Message, 0, first+len(indexes))
 	messages = append(messages, parent[:first]...)
 	previous := first - 1
 	previousItem := -1
@@ -456,7 +456,7 @@ func (v *View) MessagesForItems(
 	return messages, true
 }
 
-func bindItems(view *View, messages []model.Message) bool {
+func bindItems(view *View, messages []compat.Message) bool {
 	if view == nil || len(view.Items) == 0 || len(messages) == 0 {
 		return false
 	}
@@ -477,8 +477,8 @@ func bindItems(view *View, messages []model.Message) bool {
 }
 
 func findItem(
-	messages []model.Message,
-	want model.Message,
+	messages []compat.Message,
+	want compat.Message,
 	original int,
 	shift int,
 	start int,
@@ -497,7 +497,7 @@ func findItem(
 	return -1
 }
 
-func messageIdentityMatches(got, want model.Message) bool {
+func messageIdentityMatches(got, want compat.Message) bool {
 	if reflect.DeepEqual(got, want) {
 		return true
 	}
@@ -517,7 +517,7 @@ func messageIdentityMatches(got, want model.Message) bool {
 		reflect.DeepEqual(got.ContentParts, want.ContentParts)
 }
 
-func toolCallIDs(calls []model.ToolCall) []string {
+func toolCallIDs(calls []compat.ToolCall) []string {
 	if len(calls) == 0 {
 		return nil
 	}
@@ -595,14 +595,14 @@ func cloneEvent(evt event.Event) event.Event {
 	return cloned
 }
 
-func setEffectiveMessage(evt *event.Event, message model.Message) {
+func setEffectiveMessage(evt *event.Event, message compat.Message) {
 	if evt == nil {
 		return
 	}
 	if evt.Response == nil {
-		evt.Response = &model.Response{}
+		evt.Response = &compat.Response{}
 	} else {
 		evt.Response = evt.Response.Clone()
 	}
-	evt.Response.Choices = []model.Choice{{Message: statecopy.Message(message)}}
+	evt.Response.Choices = []compat.Choice{{Message: statecopy.Message(message)}}
 }

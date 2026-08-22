@@ -10,7 +10,7 @@
 package surfacepatch
 
 import (
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -28,12 +28,12 @@ type textSlot struct {
 
 type fewShotSlot struct {
 	set   bool
-	value [][]model.Message
+	value [][]compat.Message
 }
 
 type modelSlot struct {
 	set   bool
-	value model.Model
+	value compat.Model
 }
 
 type toolsSlot struct {
@@ -83,13 +83,13 @@ func (p *Patch) SetGlobalInstruction(text string) {
 }
 
 // SetFewShot sets the few-shot surface override.
-func (p *Patch) SetFewShot(examples [][]model.Message) {
+func (p *Patch) SetFewShot(examples [][]compat.Message) {
 	p.fewShot.set = true
 	p.fewShot.value = cloneFewShot(examples)
 }
 
 // SetModel sets the model surface override.
-func (p *Patch) SetModel(m model.Model) {
+func (p *Patch) SetModel(m compat.Model) {
 	if m == nil {
 		return
 	}
@@ -143,12 +143,12 @@ func (p Patch) GlobalInstruction() (string, bool) {
 }
 
 // FewShot returns the few-shot surface override.
-func (p Patch) FewShot() ([][]model.Message, bool) {
+func (p Patch) FewShot() ([][]compat.Message, bool) {
 	return cloneFewShot(p.fewShot.value), p.fewShot.set
 }
 
 // Model returns the model surface override.
-func (p Patch) Model() (model.Model, bool) {
+func (p Patch) Model() (compat.Model, bool) {
 	if !p.model.set || p.model.value == nil {
 		return nil, false
 	}
@@ -394,13 +394,13 @@ func copyConfigs(in map[string]any) map[string]any {
 	return out
 }
 
-func cloneFewShot(in [][]model.Message) [][]model.Message {
+func cloneFewShot(in [][]compat.Message) [][]compat.Message {
 	if in == nil {
 		return nil
 	}
-	out := make([][]model.Message, len(in))
+	out := make([][]compat.Message, len(in))
 	for i := range in {
-		out[i] = append([]model.Message(nil), in[i]...)
+		out[i] = append([]compat.Message(nil), in[i]...)
 	}
 	return out
 }

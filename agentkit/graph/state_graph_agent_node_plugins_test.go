@@ -41,7 +41,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -86,11 +86,11 @@ func (a *recordingAgent) Run(
 			a.emit(ctx, inv, ch)
 			return
 		}
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("orig"),
+				Message: compat.NewAssistantMessage("orig"),
 			}},
 		}
 		_ = agent.EmitEvent(
@@ -211,7 +211,7 @@ func TestAgentNode_Stage2_PluginsWithoutAgentCallbacks_CallsRunDirectly(t *testi
 		// Intentionally register no agent callbacks; a model callback is
 		// registered instead to ensure the manager is non-empty but
 		// AgentCallbacks() returns nil.
-		r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+		r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			return nil, nil
 		})
 	})
@@ -341,7 +341,7 @@ func TestAgentNode_RunOptions_MergeRuntimeStateStandalone(t *testing.T) {
 
 func TestAgentNode_InputMapperSuppliesInvocationMessage(t *testing.T) {
 	sub := &recordingAgent{name: "child"}
-	toolMsg := model.NewToolMessage("call-1", "handoff_task", "done")
+	toolMsg := compat.NewToolMessage("call-1", "handoff_task", "done")
 	out, err, _ := invokeAgentNode(
 		t,
 		sub,
@@ -354,7 +354,7 @@ func TestAgentNode_InputMapperSuppliesInvocationMessage(t *testing.T) {
 	require.NotNil(t, out)
 	childInv := sub.capturedInvocation()
 	require.NotNil(t, childInv)
-	require.Equal(t, model.RoleTool, childInv.Message.Role)
+	require.Equal(t, compat.RoleTool, childInv.Message.Role)
 	require.Equal(t, "call-1", childInv.Message.ToolID)
 	require.Equal(t, "handoff_task", childInv.Message.ToolName)
 	require.Equal(t, "done", childInv.Message.Content)
@@ -363,7 +363,7 @@ func TestAgentNode_InputMapperSuppliesInvocationMessage(t *testing.T) {
 func TestAgentNode_InputMessageStateTakesPrecedenceAndClears(t *testing.T) {
 	sub := &recordingAgent{name: "child"}
 	state, _ := buildAgentNodeState(sub)
-	toolMsg := model.NewToolMessage("call-1", "handoff_task", "done")
+	toolMsg := compat.NewToolMessage("call-1", "handoff_task", "done")
 	state[StateKeyAgentInputMessage] = &toolMsg
 	parentInv := agent.NewInvocation(agent.WithInvocationID("parent-inv"))
 	ctx := agent.NewInvocationContext(context.Background(), parentInv)
@@ -387,7 +387,7 @@ func TestAgentNode_InputMessageStateTakesPrecedenceAndClears(t *testing.T) {
 func TestAgentNode_InputMessageClearsWhenOutputMapperEmpty(t *testing.T) {
 	sub := &recordingAgent{name: "child"}
 	state, _ := buildAgentNodeState(sub)
-	toolMsg := model.NewToolMessage("call-1", "handoff_task", "done")
+	toolMsg := compat.NewToolMessage("call-1", "handoff_task", "done")
 	state[StateKeyAgentInputMessage] = &toolMsg
 	parentInv := agent.NewInvocation(agent.WithInvocationID("parent-inv"))
 	ctx := agent.NewInvocationContext(context.Background(), parentInv)
@@ -422,7 +422,7 @@ func TestAgentNode_InputMapperFallsBackToUserInput(t *testing.T) {
 	require.NotNil(t, out)
 	childInv := sub.capturedInvocation()
 	require.NotNil(t, childInv)
-	require.Equal(t, model.RoleUser, childInv.Message.Role)
+	require.Equal(t, compat.RoleUser, childInv.Message.Role)
 	require.Equal(t, "hi", childInv.Message.Content)
 }
 
@@ -449,7 +449,7 @@ func TestAgentNode_MessagesSchemaNilInputMessageFallsBackToUserInput(t *testing.
 	}
 	childInv := sub.capturedInvocation()
 	require.NotNil(t, childInv)
-	require.Equal(t, model.RoleUser, childInv.Message.Role)
+	require.Equal(t, compat.RoleUser, childInv.Message.Role)
 	require.Equal(t, "hi", childInv.Message.Content)
 }
 
@@ -520,11 +520,11 @@ func TestAgentNode_Stage2_BeforeAgent_CustomResponse_ShortCircuits(t *testing.T)
 	pm := newPluginManagerWithRegister(func(r *plugin.Registry) {
 		r.BeforeAgent(func(ctx context.Context, args *agent.BeforeAgentArgs) (*agent.BeforeAgentResult, error) {
 			return &agent.BeforeAgentResult{
-				CustomResponse: &model.Response{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("early"),
+						Message: compat.NewAssistantMessage("early"),
 					}},
 				},
 			}, nil
@@ -573,11 +573,11 @@ func TestAgentNode_Stage2_AfterAgent_CustomResponse_AppendedAndOverrides(t *test
 	pm := newPluginManagerWithRegister(func(r *plugin.Registry) {
 		r.AfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 			return &agent.AfterAgentResult{
-				CustomResponse: &model.Response{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("after"),
+						Message: compat.NewAssistantMessage("after"),
 					}},
 				},
 			}, nil
@@ -624,9 +624,9 @@ func TestAgentNode_Stage2_AfterAgent_ReceivesSubAgentResponseError(t *testing.T)
 	sub := &recordingAgent{
 		name: "child",
 		emit: func(ctx context.Context, inv *agent.Invocation, out chan<- *event.Event) {
-			rsp := &model.Response{
+			rsp := &compat.Response{
 				Done: true,
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Type:    "boom-type",
 					Message: "boom-msg",
 				},
@@ -660,11 +660,11 @@ func TestAgentNode_Stage2_AfterAgent_CoExistsWithGraphCompletion(t *testing.T) {
 		name: "child",
 		emit: func(ctx context.Context, inv *agent.Invocation, out chan<- *event.Event) {
 			// Emit a full response event first.
-			rsp := &model.Response{
+			rsp := &compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
-					Message: model.NewAssistantMessage("orig"),
+					Message: compat.NewAssistantMessage("orig"),
 				}},
 			}
 			_ = agent.EmitEvent(ctx, inv, out,
@@ -709,11 +709,11 @@ func TestAgentNode_Stage2_NodeCallbacks_ObserveAppendedAfterAgentEvent(t *testin
 	pm := newPluginManagerWithRegister(func(r *plugin.Registry) {
 		r.AfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 			return &agent.AfterAgentResult{
-				CustomResponse: &model.Response{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("after"),
+						Message: compat.NewAssistantMessage("after"),
 					}},
 				},
 			}, nil

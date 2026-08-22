@@ -12,7 +12,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval"
 	approvalreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval/review"
@@ -84,10 +84,10 @@ func TestRegister_ForwardsPromptInjectionRegistration(t *testing.T) {
 	require.NoError(t, err)
 	manager, err := plugin.NewManager(p)
 	require.NoError(t, err)
-	result, runErr := manager.ModelCallbacks().RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{{
-				Role:    model.RoleUser,
+	result, runErr := manager.ModelCallbacks().RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{{
+				Role:    compat.RoleUser,
 				Content: "Summarize this page.",
 			}},
 		},
@@ -111,10 +111,10 @@ func TestRegister_ForwardsUnsafeIntentRegistration(t *testing.T) {
 	require.NoError(t, err)
 	manager, err := plugin.NewManager(p)
 	require.NoError(t, err)
-	result, runErr := manager.ModelCallbacks().RunBeforeModel(context.Background(), &model.BeforeModelArgs{
-		Request: &model.Request{
-			Messages: []model.Message{{
-				Role:    model.RoleUser,
+	result, runErr := manager.ModelCallbacks().RunBeforeModel(context.Background(), &compat.BeforeModelArgs{
+		Request: &compat.Request{
+			Messages: []compat.Message{{
+				Role:    compat.RoleUser,
 				Content: "Summarize this page.",
 			}},
 		},

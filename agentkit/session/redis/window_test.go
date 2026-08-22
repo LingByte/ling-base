@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionwindow "github.com/LingByte/ling-base/agentkit/session/internal/window"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
@@ -39,11 +39,11 @@ func TestService_GetEventWindow(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, evt := range []event.Event{
-		redisWindowEvent("u1", model.RoleUser, "one"),
-		redisWindowEvent("a1", model.RoleAssistant, "two"),
-		redisWindowEvent("u2", model.RoleUser, "three"),
+		redisWindowEvent("u1", compat.RoleUser, "one"),
+		redisWindowEvent("a1", compat.RoleAssistant, "two"),
+		redisWindowEvent("u2", compat.RoleUser, "three"),
 		redisWindowToolEvent("t1", "calc", "four"),
-		redisWindowEvent("u3", model.RoleUser, "five"),
+		redisWindowEvent("u3", compat.RoleUser, "five"),
 	} {
 		evt := evt
 		require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
@@ -54,7 +54,7 @@ func TestService_GetEventWindow(t *testing.T) {
 		AnchorEventID: "u2",
 		Before:        1,
 		After:         1,
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"u1", "u2", "u3"}, redisWindowIDs(got))
@@ -78,10 +78,10 @@ func TestService_GetEventWindowZSetStorage(t *testing.T) {
 
 	base := time.Date(2025, 4, 7, 9, 0, 0, 0, time.UTC)
 	for idx, evt := range []event.Event{
-		redisWindowEvent("u1", model.RoleUser, "one"),
-		redisWindowEvent("a1", model.RoleAssistant, "two"),
-		redisWindowEvent("u2", model.RoleUser, "three"),
-		redisWindowEvent("u3", model.RoleUser, "four"),
+		redisWindowEvent("u1", compat.RoleUser, "one"),
+		redisWindowEvent("a1", compat.RoleAssistant, "two"),
+		redisWindowEvent("u2", compat.RoleUser, "three"),
+		redisWindowEvent("u3", compat.RoleUser, "four"),
 	} {
 		evt := evt
 		evt.Timestamp = base.Add(time.Duration(idx) * time.Minute)
@@ -93,7 +93,7 @@ func TestService_GetEventWindowZSetStorage(t *testing.T) {
 		AnchorEventID: "u2",
 		Before:        1,
 		After:         1,
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"u1", "u2", "u3"}, redisWindowIDs(got))
@@ -114,13 +114,13 @@ func TestService_GetEventWindowZSetAnchorFilteredByRole(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-zset-filtered"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleAssistant, "answer")
+	evt := redisWindowEvent("anchor", compat.RoleAssistant, "answer")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "anchor",
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anchor event not found")
@@ -141,7 +141,7 @@ func TestService_GetEventWindowZSetAnchorNotFound(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-zset-missing"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("u1", model.RoleUser, "one")
+	evt := redisWindowEvent("u1", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
@@ -164,7 +164,7 @@ func TestService_GetEventWindowAnchorNotFound(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("u1", model.RoleUser, "one")
+	evt := redisWindowEvent("u1", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
@@ -187,13 +187,13 @@ func TestService_GetEventWindowAnchorFilteredByRole(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-filtered"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleAssistant, "answer")
+	evt := redisWindowEvent("anchor", compat.RoleAssistant, "answer")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	_, err = svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "anchor",
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anchor event not found")
@@ -211,7 +211,7 @@ func TestService_GetEventWindowHashIdxAnchorIndexMissing(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-missing-index"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	eventTimeIndexKey := hashidx.GetEventTimeIndexKey(svc.opts.keyPrefix, key)
@@ -237,7 +237,7 @@ func TestService_GetEventWindowMalformedHashIdxAnchor(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-bad-anchor"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	eventDataKey := hashidx.GetEventDataKey(svc.opts.keyPrefix, key)
@@ -361,7 +361,7 @@ func TestService_GetEventWindowTrimsAnchorID(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-trim"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	got, err := svc.GetEventWindow(ctx, session.EventWindowRequest{
@@ -385,7 +385,7 @@ func TestService_GetEventWindowIgnoresMalformedHashIdxRowOutsideWindow(t *testin
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-bad-row"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	eventDataKey := hashidx.GetEventDataKey(svc.opts.keyPrefix, key)
@@ -416,7 +416,7 @@ func TestService_GetEventWindowMalformedHashIdxNeighbor(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-bad-neighbor"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	eventDataKey := hashidx.GetEventDataKey(svc.opts.keyPrefix, key)
@@ -448,8 +448,8 @@ func TestService_GetEventWindowMalformedHashIdxBeforeNeighbor(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-bad-before"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	bad := redisWindowEvent("bad", model.RoleUser, "bad")
-	anchor := redisWindowEvent("anchor", model.RoleUser, "one")
+	bad := redisWindowEvent("bad", compat.RoleUser, "bad")
+	anchor := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &bad))
 	require.NoError(t, svc.AppendEvent(ctx, sess, &anchor))
 
@@ -485,7 +485,7 @@ func TestService_GetEventWindowMalformedZSetNeighbor(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-zset-bad-neighbor"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	evt := redisWindowEvent("anchor", model.RoleUser, "one")
+	evt := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &evt))
 
 	require.NoError(t, svc.redisClient.ZAdd(ctx, redisZSetEventKey(svc.opts.keyPrefix, key), goredis.Z{
@@ -517,7 +517,7 @@ func TestService_GetEventWindowMalformedZSetBeforeNeighbor(t *testing.T) {
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess-zset-bad-before"}
 	sess, err := svc.CreateSession(ctx, key, nil)
 	require.NoError(t, err)
-	anchor := redisWindowEvent("anchor", model.RoleUser, "one")
+	anchor := redisWindowEvent("anchor", compat.RoleUser, "one")
 	require.NoError(t, svc.AppendEvent(ctx, sess, &anchor))
 
 	require.NoError(t, svc.redisClient.ZAdd(ctx, redisZSetEventKey(svc.opts.keyPrefix, key), goredis.Z{
@@ -544,7 +544,7 @@ func TestRedisWindowHelpers(t *testing.T) {
 	require.False(t, ok)
 	require.Nil(t, entry)
 
-	raw := redisWindowJSON(t, redisWindowEvent("evt", model.RoleUser, "one"))
+	raw := redisWindowJSON(t, redisWindowEvent("evt", compat.RoleUser, "one"))
 	entry, ok, err = redisWindowEntryFromValue([]byte(raw), 2)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -566,13 +566,13 @@ func TestRedisWindowHelpers(t *testing.T) {
 	require.Equal(t, "first", entries[1].Event.ID)
 }
 
-func redisWindowEvent(id string, role model.Role, content string) event.Event {
+func redisWindowEvent(id string, role compat.Role, content string) event.Event {
 	return event.Event{
 		ID:        id,
 		Timestamp: time.Now().UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -582,7 +582,7 @@ func redisWindowEvent(id string, role model.Role, content string) event.Event {
 }
 
 func redisWindowToolEvent(id, toolName, content string) event.Event {
-	evt := redisWindowEvent(id, model.RoleTool, content)
+	evt := redisWindowEvent(id, compat.RoleTool, content)
 	evt.Response.Choices[0].Message.ToolID = "call-" + id
 	evt.Response.Choices[0].Message.ToolName = toolName
 	return evt

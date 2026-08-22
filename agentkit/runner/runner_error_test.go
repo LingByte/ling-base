@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -61,7 +61,7 @@ func TestRunner_FixesStreamingErrorEvent(t *testing.T) {
 	sessionID := "session-1"
 
 	// Run the agent.
-	ch, err := r.Run(ctx, userID, sessionID, model.NewUserMessage("start"))
+	ch, err := r.Run(ctx, userID, sessionID, compat.NewUserMessage("start"))
 	require.NoError(t, err)
 
 	// Drain channel and collect events.
@@ -75,7 +75,7 @@ func TestRunner_FixesStreamingErrorEvent(t *testing.T) {
 	// The runner output channel contains events emitted by agent + runner completion.
 	// So we expect 2 events here: Agent Error, Runner Completion.
 	require.Len(t, eventsFromCh, 2, "Channel should output agent error and runner completion")
-	assert.Equal(t, model.ObjectTypeError, eventsFromCh[0].Response.Object)
+	assert.Equal(t, compat.ObjectTypeError, eventsFromCh[0].Response.Object)
 	assert.True(t, eventsFromCh[1].IsRunnerCompletion(), "Last event should be runner completion")
 
 	// Verify session.
@@ -90,7 +90,7 @@ func TestRunner_FixesStreamingErrorEvent(t *testing.T) {
 	// Check the agent error event.
 	errorEvent := sess.Events[1]
 	assert.Equal(t, "stream-error-agent", errorEvent.Author)
-	assert.Equal(t, model.ObjectTypeError, errorEvent.Response.Object)
+	assert.Equal(t, compat.ObjectTypeError, errorEvent.Response.Object)
 
 	// Crucial assertion: Runner should have populated Choices and Content.
 	require.NotEmpty(t, errorEvent.Response.Choices)
@@ -104,11 +104,11 @@ func TestRunner_DoesNotMutateStreamingErrorEventWhenAddingContent(t *testing.T) 
 	ag := &streamingErrorAgent{
 		name:      "stream-error-agent",
 		errorMsg:  "stream failed",
-		errorType: model.ErrorTypeStreamError,
+		errorType: compat.ErrorTypeStreamError,
 	}
 	r := NewRunner("test-app", ag, WithSessionService(svc))
 
-	ch, err := r.Run(context.Background(), "user-race", "session-race", model.NewUserMessage("start"))
+	ch, err := r.Run(context.Background(), "user-race", "session-race", compat.NewUserMessage("start"))
 	require.NoError(t, err)
 
 	var eventsFromCh []*event.Event
@@ -156,7 +156,7 @@ func TestRunner_FixesDirectRunError(t *testing.T) {
 	sessionID := "session-2"
 
 	// Run the agent. Should return error.
-	ch, err := r.Run(ctx, userID, sessionID, model.NewUserMessage("start"))
+	ch, err := r.Run(ctx, userID, sessionID, compat.NewUserMessage("start"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), runErrorMsg)
 	assert.Nil(t, ch)
@@ -173,7 +173,7 @@ func TestRunner_FixesDirectRunError(t *testing.T) {
 	// Check the error event.
 	errorEvent := sess.Events[1]
 	assert.Equal(t, "fail-agent", errorEvent.Author)
-	assert.Equal(t, model.ObjectTypeError, errorEvent.Response.Object) // NewErrorEvent uses ObjectTypeError
+	assert.Equal(t, compat.ObjectTypeError, errorEvent.Response.Object) // NewErrorEvent uses ObjectTypeError
 
 	// Crucial assertion: Runner should have populated Choices and Content.
 	require.NotEmpty(t, errorEvent.Response.Choices)
@@ -198,12 +198,12 @@ func (m *streamingSuccessThenErrorAgent) Run(ctx context.Context, inv *agent.Inv
 	ch := make(chan *event.Event, 2)
 
 	// 1. Emit a normal success response
-	respEv := event.NewResponseEvent(inv.InvocationID, m.name, &model.Response{
+	respEv := event.NewResponseEvent(inv.InvocationID, m.name, &compat.Response{
 		Done: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: m.content,
 			},
 		}},
@@ -236,7 +236,7 @@ func TestRunner_StreamingSuccessThenError(t *testing.T) {
 	sessionID := "session-mixed"
 
 	// Run the agent.
-	ch, err := r.Run(ctx, userID, sessionID, model.NewUserMessage("start"))
+	ch, err := r.Run(ctx, userID, sessionID, compat.NewUserMessage("start"))
 	require.NoError(t, err)
 
 	// Drain channel.
@@ -261,7 +261,7 @@ func TestRunner_StreamingSuccessThenError(t *testing.T) {
 	// Check error event
 	errorEvent := sess.Events[2]
 	assert.Equal(t, "mixed-agent", errorEvent.Author)
-	assert.Equal(t, model.ObjectTypeError, errorEvent.Response.Object)
+	assert.Equal(t, compat.ObjectTypeError, errorEvent.Response.Object)
 
 	// Crucial assertion: Runner should have populated Choices and Content.
 	require.NotEmpty(t, errorEvent.Response.Choices)

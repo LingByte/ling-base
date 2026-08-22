@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/mongodb"
 )
@@ -37,7 +37,7 @@ func (s *stubSummarizer) Summarize(_ context.Context, _ *session.Session) (strin
 	return s.text, nil
 }
 func (s *stubSummarizer) SetPrompt(_ string)       {}
-func (s *stubSummarizer) SetModel(_ model.Model)   {}
+func (s *stubSummarizer) SetModel(_ compat.Model)   {}
 func (s *stubSummarizer) Metadata() map[string]any { return nil }
 
 type configurableSummarizer struct {
@@ -51,7 +51,7 @@ func (s *configurableSummarizer) Summarize(_ context.Context, _ *session.Session
 	return s.text, s.err
 }
 func (s *configurableSummarizer) SetPrompt(_ string)       {}
-func (s *configurableSummarizer) SetModel(_ model.Model)   {}
+func (s *configurableSummarizer) SetModel(_ compat.Model)   {}
 func (s *configurableSummarizer) Metadata() map[string]any { return nil }
 
 func TestCreateSessionSummary_PersistsViaUpsert(t *testing.T) {
@@ -296,7 +296,7 @@ func TestEnqueueSummaryJob_FallsBackWithoutWorker(t *testing.T) {
 
 	sess := newSessionForTest("app", "u", "s")
 	sess.Events = []event.Event{
-		windowEventForTest("u1", model.RoleUser, "hello", time.Now()),
+		windowEventForTest("u1", compat.RoleUser, "hello", time.Now()),
 	}
 	require.NoError(t, s.EnqueueSummaryJob(context.Background(), sess, "", true))
 

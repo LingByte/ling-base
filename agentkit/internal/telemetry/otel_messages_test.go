@@ -16,41 +16,41 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestOTelPartsFromContentParts_Multimodal(t *testing.T) {
 	text := "hello"
-	parts := otelPartsFromContentParts([]model.ContentPart{
-		{Type: model.ContentTypeText},
-		{Type: model.ContentTypeText, Text: &text},
-		{Type: model.ContentTypeImage},
-		{Type: model.ContentTypeImage, Image: &model.Image{
+	parts := otelPartsFromContentParts([]compat.ContentPart{
+		{Type: compat.ContentTypeText},
+		{Type: compat.ContentTypeText, Text: &text},
+		{Type: compat.ContentTypeImage},
+		{Type: compat.ContentTypeImage, Image: &compat.Image{
 			URL:    "https://example.com/picture.jpeg?size=large",
 			Format: "jpg",
 			Detail: " high ",
 		}},
-		{Type: model.ContentTypeImage, Image: &model.Image{
+		{Type: compat.ContentTypeImage, Image: &compat.Image{
 			Data:   []byte("image-bytes"),
 			Format: ".png",
 			Detail: "low",
 		}},
-		{Type: model.ContentTypeAudio},
-		{Type: model.ContentTypeAudio, Audio: &model.Audio{
+		{Type: compat.ContentTypeAudio},
+		{Type: compat.ContentTypeAudio, Audio: &compat.Audio{
 			Data:   []byte("audio-bytes"),
 			Format: "m4a",
 		}},
-		{Type: model.ContentTypeFile},
-		{Type: model.ContentTypeFile, File: &model.File{
+		{Type: compat.ContentTypeFile},
+		{Type: compat.ContentTypeFile, File: &compat.File{
 			FileID:   " file-123 ",
 			Name:     " photo.jpg ",
 			MimeType: " IMAGE/PNG ",
 		}},
-		{Type: model.ContentTypeFile, File: &model.File{
+		{Type: compat.ContentTypeFile, File: &compat.File{
 			Name: "clip.mp4",
 			Data: []byte("video-bytes"),
 		}},
-		{Type: model.ContentType("unknown")},
+		{Type: compat.ContentType("unknown")},
 	})
 
 	require.Len(t, parts, 6)
@@ -82,9 +82,9 @@ func TestOTelPartsFromContentParts_Multimodal(t *testing.T) {
 }
 
 func TestOTelToolCallAndResponseParts(t *testing.T) {
-	jsonCall := otelPartFromToolCall(model.ToolCall{
+	jsonCall := otelPartFromToolCall(compat.ToolCall{
 		ID: " call-1 ",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      " search ",
 			Arguments: []byte(`{"q":"otel"}`),
 		},
@@ -94,13 +94,13 @@ func TestOTelToolCallAndResponseParts(t *testing.T) {
 	require.Equal(t, "search", jsonCall.Name)
 	require.JSONEq(t, `{"q":"otel"}`, string(jsonCall.Arguments))
 
-	stringCall := otelPartFromToolCall(model.ToolCall{
-		Function: model.FunctionDefinitionParam{Arguments: []byte("not-json")},
+	stringCall := otelPartFromToolCall(compat.ToolCall{
+		Function: compat.FunctionDefinitionParam{Arguments: []byte("not-json")},
 	})
 	require.JSONEq(t, `"not-json"`, string(stringCall.Arguments))
 
-	jsonResponse, ok := otelPartFromToolCallResponse(model.Message{
-		Role:    model.RoleTool,
+	jsonResponse, ok := otelPartFromToolCallResponse(compat.Message{
+		Role:    compat.RoleTool,
 		ToolID:  " call-2 ",
 		Content: `{"ok":true}`,
 	})
@@ -110,14 +110,14 @@ func TestOTelToolCallAndResponseParts(t *testing.T) {
 	require.JSONEq(t, `{"ok":true}`, string(jsonResponse.Response))
 
 	text := "part text"
-	richResponse, ok := otelPartFromToolCallResponse(model.Message{
-		Role:             model.RoleTool,
+	richResponse, ok := otelPartFromToolCallResponse(compat.Message{
+		Role:             compat.RoleTool,
 		Content:          `{"content":true}`,
-		ContentParts:     []model.ContentPart{{Type: model.ContentTypeText, Text: &text}},
+		ContentParts:     []compat.ContentPart{{Type: compat.ContentTypeText, Text: &text}},
 		ReasoningContent: "because",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			ID:       "nested",
-			Function: model.FunctionDefinitionParam{Name: "nested_tool"},
+			Function: compat.FunctionDefinitionParam{Name: "nested_tool"},
 		}},
 	})
 	require.True(t, ok)
@@ -128,9 +128,9 @@ func TestOTelToolCallAndResponseParts(t *testing.T) {
 	require.Contains(t, payload, "parts")
 	require.Contains(t, payload, "tool_calls")
 
-	_, ok = otelPartFromToolCallResponse(model.Message{Role: model.RoleAssistant, Content: "not a tool"})
+	_, ok = otelPartFromToolCallResponse(compat.Message{Role: compat.RoleAssistant, Content: "not a tool"})
 	require.False(t, ok)
-	_, ok = otelPartFromToolCallResponse(model.Message{Role: model.RoleTool})
+	_, ok = otelPartFromToolCallResponse(compat.Message{Role: compat.RoleTool})
 	require.False(t, ok)
 }
 
@@ -150,7 +150,7 @@ func TestOTelMessageHelpers(t *testing.T) {
 	require.Equal(t, otelModalityFile, modalityFromMIMEType("application/pdf"))
 
 	require.Equal(t, "", imageMIMEType(nil))
-	require.Equal(t, "image/webp", imageMIMEType(&model.Image{URL: "https://example.com/a.webp"}))
+	require.Equal(t, "image/webp", imageMIMEType(&compat.Image{URL: "https://example.com/a.webp"}))
 	require.Equal(t, "", fileMetadataMIME(nil))
 	require.Equal(t, "application/pdf", mimeTypeFromURL("https://example.com/doc.pdf?download=1"))
 	require.Equal(t, "image/svg+xml", normalizeFormatAsMIME("svg", "image"))
@@ -161,16 +161,16 @@ func TestOTelMessageHelpers(t *testing.T) {
 	require.Equal(t, "", mimeTypeFromName("no-extension"))
 }
 
-func fileMetadataMIME(file *model.File) string {
+func fileMetadataMIME(file *compat.File) string {
 	_, mimeType := fileMetadata(file)
 	return mimeType
 }
 
 func TestMarshalOTelTelemetryChoices_UsesDeltaWhenMessageEmpty(t *testing.T) {
 	finishReason := "tool_calls"
-	bts, err := marshalOTelTelemetryChoices([]model.Choice{{
-		Delta: model.Message{
-			Role:    model.RoleAssistant,
+	bts, err := marshalOTelTelemetryChoices([]compat.Choice{{
+		Delta: compat.Message{
+			Role:    compat.RoleAssistant,
 			Content: "delta text",
 		},
 		FinishReason: &finishReason,
@@ -180,7 +180,7 @@ func TestMarshalOTelTelemetryChoices_UsesDeltaWhenMessageEmpty(t *testing.T) {
 	var messages []OTelOutputMessage
 	require.NoError(t, json.Unmarshal(bts, &messages))
 	require.Len(t, messages, 1)
-	require.Equal(t, model.RoleAssistant, messages[0].Role)
+	require.Equal(t, compat.RoleAssistant, messages[0].Role)
 	require.Equal(t, finishReason, messages[0].FinishReason)
 	require.Len(t, messages[0].Parts, 1)
 	require.Equal(t, otelPartTypeText, messages[0].Parts[0].Type)

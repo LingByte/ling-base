@@ -23,7 +23,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/postgres"
 	"github.com/stretchr/testify/assert"
@@ -109,7 +109,7 @@ type mockSummarizer interface {
 	ShouldSummarize(sess *session.Session) bool
 	Summarize(ctx context.Context, sess *session.Session) (string, error)
 	SetPrompt(prompt string)
-	SetModel(m model.Model)
+	SetModel(m compat.Model)
 	Metadata() map[string]any
 }
 
@@ -668,12 +668,12 @@ func TestGetSession_Success(t *testing.T) {
 
 		// Prepare mock event
 	evt := event.New("inv-1", "author")
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Hello, world!",
 				},
 			},
@@ -1029,12 +1029,12 @@ func TestListSessions_Success(t *testing.T) {
 			AddRow("session-1", stateBytes, time.Now(), time.Now()))
 
 	// Mock: Batch load events (empty)
-	evt := event.NewResponseEvent("inv-1", "author", &model.Response{
-		Object: model.ObjectTypeChatCompletion,
-		Choices: []model.Choice{
+	evt := event.NewResponseEvent("inv-1", "author", &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleUser,
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				},
 			},
@@ -1752,11 +1752,11 @@ func TestAppendEvent_SyncMode(t *testing.T) {
 
 	evt := event.New("test-invocation", "test-author")
 	evt.Timestamp = time.Now()
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "test response",
 				},
 			},
@@ -1813,11 +1813,11 @@ func TestAppendEvent_SyncMode_ExpiredSession(t *testing.T) {
 
 	evt := event.New("test-invocation", "test-author")
 	evt.Timestamp = time.Now()
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "test response",
 				},
 			},
@@ -2132,13 +2132,13 @@ func TestStartAsyncPersistWorker_ProcessesEvents(t *testing.T) {
 	evt.StateDelta = map[string][]byte{
 		"key1": []byte(`"value1"`),
 	}
-	evt.Response = &model.Response{
-		Object: model.ObjectTypeChatCompletion,
+	evt.Response = &compat.Response{
+		Object: compat.ObjectTypeChatCompletion,
 		Done:   true,
-		Choices: []model.Choice{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "ok",
 				},
 			},
@@ -2563,11 +2563,11 @@ func TestAppendEvent_PartialEvent(t *testing.T) {
 	// Create a partial event (IsPartial = true)
 	evt := event.New("test-invocation", "test-author")
 	evt.IsPartial = true
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "partial response",
 				},
 			},
@@ -2813,9 +2813,9 @@ func TestAppendEvent_Async_Success(t *testing.T) {
 	}
 
 	evt := event.New("test", "test")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: "test"}},
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: "test"}},
 		},
 	}
 
@@ -2848,9 +2848,9 @@ func TestAppendEvent_Async_Panic(t *testing.T) {
 	}
 
 	evt := event.New("test", "test")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: "test"}},
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: "test"}},
 		},
 	}
 
@@ -2920,9 +2920,9 @@ func TestAppendEvent_InvalidEvent_EmptyContent(t *testing.T) {
 
 	// Event with response but empty content
 	evt := event.New("test", "test")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: ""}}, // Empty content
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: ""}}, // Empty content
 		},
 	}
 
@@ -2969,9 +2969,9 @@ func TestAppendEvent_SessionNotFound(t *testing.T) {
 	}
 
 	evt := event.New("test", "test")
-	evt.Response = &model.Response{
-		Choices: []model.Choice{
-			{Message: model.Message{Role: model.RoleAssistant, Content: "test"}},
+	evt.Response = &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.Message{Role: compat.RoleAssistant, Content: "test"}},
 		},
 	}
 
@@ -3269,8 +3269,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = s.AppendEvent(ctx, sess, evt)
@@ -3295,8 +3295,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		// No DB expectations - hook aborts before DB call
@@ -3330,8 +3330,8 @@ func TestAppendEventHook(t *testing.T) {
 		sess := session.NewSession(key.AppName, key.UserID, key.SessionID)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		// Hook2 aborts, so no DB call

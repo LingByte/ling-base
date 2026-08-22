@@ -22,7 +22,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/metric/histogram"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
@@ -198,22 +198,22 @@ func TestNewInvokeAgentTracker_NilInvocation(t *testing.T) {
 func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 	tests := []struct {
 		name                    string
-		responses               []*model.Response
+		responses               []*compat.Response
 		waitBeforeFirstResponse bool
 		checkFunc               func(*testing.T, *InvokeAgentTracker)
 	}{
 		{
 			name: "normal response with valid content",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
 					},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 					},
@@ -238,23 +238,23 @@ func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 		},
 		{
 			name: "multiple responses",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
 					},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 					},
 					IsPartial: false,
 				},
 				{
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     0,
 						CompletionTokens: 3,
 					},
@@ -280,7 +280,7 @@ func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 		},
 		{
 			name:      "nil response",
-			responses: []*model.Response{nil},
+			responses: []*compat.Response{nil},
 			checkFunc: func(t *testing.T, tracker *InvokeAgentTracker) {
 				if !tracker.isFirstToken {
 					t.Error("isFirstToken should remain true for nil response")
@@ -295,16 +295,16 @@ func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 		},
 		{
 			name: "response without valid content",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "",
 							},
 						},
 					},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 					},
@@ -329,16 +329,16 @@ func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 		},
 		{
 			name: "partial response",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
 					},
-					Usage: &model.Usage{
+					Usage: &compat.Usage{
 						PromptTokens:     10,
 						CompletionTokens: 5,
 					},
@@ -360,11 +360,11 @@ func TestInvokeAgentTracker_TrackResponse(t *testing.T) {
 		},
 		{
 			name: "response with nil usage",
-			responses: []*model.Response{
+			responses: []*compat.Response{
 				{
-					Choices: []model.Choice{
+					Choices: []compat.Choice{
 						{
-							Delta: model.Message{
+							Delta: compat.Message{
 								Content: "Hello",
 							},
 						},
@@ -435,10 +435,10 @@ func TestInvokeAgentTracker_FirstTokenTimeDuration(t *testing.T) {
 	}
 
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
@@ -506,15 +506,15 @@ func TestInvokeAgentTracker_RecordMetrics(t *testing.T) {
 
 	// Simulate some responses
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
 		},
-		Usage: &model.Usage{
+		Usage: &compat.Usage{
 			PromptTokens:     10,
 			CompletionTokens: 2,
 		},
@@ -522,8 +522,8 @@ func TestInvokeAgentTracker_RecordMetrics(t *testing.T) {
 	})
 
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Usage: &model.Usage{
+	tracker.TrackResponse(&compat.Response{
+		Usage: &compat.Usage{
 			CompletionTokens: 3,
 		},
 		IsPartial: false,

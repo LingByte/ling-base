@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -48,8 +48,8 @@ func TestWithCallOptions_MergesCustomAgentConfigs(t *testing.T) {
 		},
 	}
 	WithCallOptions(
-		WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-			Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+		WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+			Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 		}),
 	)(&runOpts)
 
@@ -67,8 +67,8 @@ func TestWithCallOptions_MergesCustomAgentConfigs(t *testing.T) {
 	WithCallOptions(
 		DesignateNode(
 			callOptsTestNodeLLM,
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				MaxTokens: model.IntPtr(callOptsTestMaxTokens),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				MaxTokens: compat.IntPtr(callOptsTestMaxTokens),
 			}),
 		),
 	)(&runOpts)
@@ -85,8 +85,8 @@ func TestWithCallOptions_MergesCustomAgentConfigs(t *testing.T) {
 func TestWithCallOptions_ThinkingLevelOnlyPatchIsPreserved(t *testing.T) {
 	runOpts := agent.RunOptions{}
 	WithCallOptions(
-		WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-			ThinkingLevel: model.StringPtr(callOptsTestThinkLevel),
+		WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+			ThinkingLevel: compat.StringPtr(callOptsTestThinkLevel),
 		}),
 	)(&runOpts)
 
@@ -98,21 +98,21 @@ func TestWithCallOptions_ThinkingLevelOnlyPatchIsPreserved(t *testing.T) {
 }
 
 func TestMergeGenPatch_AllFields(t *testing.T) {
-	base := model.GenerationConfigPatch{
+	base := compat.GenerationConfigPatch{
 		Stop: []string{callOptsTestStopA},
 	}
-	override := model.GenerationConfigPatch{
-		MaxTokens:        model.IntPtr(callOptsTestMaxTokens),
-		Temperature:      model.Float64Ptr(callOptsTestTempNode),
-		TopP:             model.Float64Ptr(callOptsTestTopP),
-		Stream:           model.BoolPtr(true),
+	override := compat.GenerationConfigPatch{
+		MaxTokens:        compat.IntPtr(callOptsTestMaxTokens),
+		Temperature:      compat.Float64Ptr(callOptsTestTempNode),
+		TopP:             compat.Float64Ptr(callOptsTestTopP),
+		Stream:           compat.BoolPtr(true),
 		Stop:             []string{callOptsTestStopB},
-		PresencePenalty:  model.Float64Ptr(callOptsTestPresence),
-		FrequencyPenalty: model.Float64Ptr(callOptsTestFrequency),
-		ReasoningEffort:  model.StringPtr(callOptsTestEffort),
-		ThinkingEnabled:  model.BoolPtr(true),
-		ThinkingTokens:   model.IntPtr(callOptsTestThinkTok),
-		ThinkingLevel:    model.StringPtr(callOptsTestThinkLevel),
+		PresencePenalty:  compat.Float64Ptr(callOptsTestPresence),
+		FrequencyPenalty: compat.Float64Ptr(callOptsTestFrequency),
+		ReasoningEffort:  compat.StringPtr(callOptsTestEffort),
+		ThinkingEnabled:  compat.BoolPtr(true),
+		ThinkingTokens:   compat.IntPtr(callOptsTestThinkTok),
+		ThinkingLevel:    compat.StringPtr(callOptsTestThinkLevel),
 	}
 	got := mergeGenPatch(base, override)
 	require.NotNil(t, got.MaxTokens)
@@ -142,32 +142,32 @@ func TestMergeGenPatch_AllFields(t *testing.T) {
 }
 
 func TestMergeGenPatch_ThinkingLevelOnlyIsNotEmpty(t *testing.T) {
-	patch := model.GenerationConfigPatch{
-		ThinkingLevel: model.StringPtr(callOptsTestThinkLevel),
+	patch := compat.GenerationConfigPatch{
+		ThinkingLevel: compat.StringPtr(callOptsTestThinkLevel),
 	}
 
 	require.False(t, isEmptyGenPatch(patch))
 
-	got := mergeGenPatch(model.GenerationConfigPatch{}, patch)
+	got := mergeGenPatch(compat.GenerationConfigPatch{}, patch)
 	require.NotNil(t, got.ThinkingLevel)
 	require.Equal(t, callOptsTestThinkLevel, *got.ThinkingLevel)
 }
 
 func TestGraphCallOptionsFromConfigs_ClonesValueType(t *testing.T) {
 	original := callOptions{
-		generation: model.GenerationConfigPatch{
+		generation: compat.GenerationConfigPatch{
 			Stop: []string{callOptsTestStopA},
 		},
 		nodes: map[string]*callNodeOptions{
 			callOptsTestNodeLLM: &callNodeOptions{
-				generation: model.GenerationConfigPatch{
+				generation: compat.GenerationConfigPatch{
 					Stop: []string{callOptsTestStopB},
 				},
 				child: &callOptions{
 					nodes: map[string]*callNodeOptions{
 						callOptsTestNodeDeep: &callNodeOptions{
-							generation: model.GenerationConfigPatch{
-								Temperature: model.Float64Ptr(
+							generation: compat.GenerationConfigPatch{
+								Temperature: compat.Float64Ptr(
 									callOptsTestTempGlobal,
 								),
 							},
@@ -229,13 +229,13 @@ func TestDesignateNode_SetsChildNodes(t *testing.T) {
 	opts := newCallOptions(
 		DesignateNode(
 			callOptsTestNodeChild,
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				MaxTokens: model.IntPtr(callOptsTestMaxTokens),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				MaxTokens: compat.IntPtr(callOptsTestMaxTokens),
 			}),
 			DesignateNode(
 				callOptsTestNodeLLM,
-				WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-					Temperature: model.Float64Ptr(callOptsTestTempNode),
+				WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+					Temperature: compat.Float64Ptr(callOptsTestTempNode),
 				}),
 			),
 		),
@@ -255,30 +255,30 @@ func TestDesignateNode_SetsChildNodes(t *testing.T) {
 func TestMergeCallNodes_MergesExistingKey(t *testing.T) {
 	a := map[string]*callNodeOptions{
 		callOptsTestNodeLLM: &callNodeOptions{
-			generation: model.GenerationConfigPatch{
-				MaxTokens: model.IntPtr(callOptsTestMaxTokens),
+			generation: compat.GenerationConfigPatch{
+				MaxTokens: compat.IntPtr(callOptsTestMaxTokens),
 				Stop:      []string{callOptsTestStopA},
 			},
 			child: &callOptions{
-				generation: model.GenerationConfigPatch{
-					Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+				generation: compat.GenerationConfigPatch{
+					Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 				},
 			},
 		},
 		"skip-nil": nil,
 		"skip-empty": &callNodeOptions{
-			generation: model.GenerationConfigPatch{},
+			generation: compat.GenerationConfigPatch{},
 		},
 	}
 	b := map[string]*callNodeOptions{
 		callOptsTestNodeLLM: &callNodeOptions{
-			generation: model.GenerationConfigPatch{
-				Temperature: model.Float64Ptr(callOptsTestTempNode),
+			generation: compat.GenerationConfigPatch{
+				Temperature: compat.Float64Ptr(callOptsTestTempNode),
 				Stop:        []string{callOptsTestStopB},
 			},
 			child: &callOptions{
-				generation: model.GenerationConfigPatch{
-					ThinkingEnabled: model.BoolPtr(true),
+				generation: compat.GenerationConfigPatch{
+					ThinkingEnabled: compat.BoolPtr(true),
 				},
 			},
 		},
@@ -307,12 +307,12 @@ func TestMergeCallOptions_NilSidesAndEmpty(t *testing.T) {
 	require.Nil(t, mergeCallOptions(&callOptions{}, &callOptions{}))
 
 	a := &callOptions{
-		generation: model.GenerationConfigPatch{
+		generation: compat.GenerationConfigPatch{
 			Stop: []string{callOptsTestStopA},
 		},
 	}
 	b := &callOptions{
-		generation: model.GenerationConfigPatch{
+		generation: compat.GenerationConfigPatch{
 			Stop: []string{callOptsTestStopB},
 		},
 	}
@@ -322,8 +322,8 @@ func TestMergeCallOptions_NilSidesAndEmpty(t *testing.T) {
 }
 
 func TestWithCallGenerationConfigPatch_NilReceiver(t *testing.T) {
-	WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-		Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+	WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+		Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 	})(nil)
 }
 
@@ -333,14 +333,14 @@ func TestCallOptions_EarlyReturnPaths(t *testing.T) {
 
 	require.Equal(
 		t,
-		model.GenerationConfigPatch{},
+		compat.GenerationConfigPatch{},
 		generationPatchForNode(nil, callOptsTestNodeLLM),
 	)
 
 	empty := &callOptions{}
 	require.Equal(
 		t,
-		model.GenerationConfigPatch{},
+		compat.GenerationConfigPatch{},
 		generationPatchForNode(empty, callOptsTestNodeLLM),
 	)
 
@@ -351,7 +351,7 @@ func TestCallOptions_EarlyReturnPaths(t *testing.T) {
 	}
 	require.Equal(
 		t,
-		model.GenerationConfigPatch{},
+		compat.GenerationConfigPatch{},
 		generationPatchForNode(noMatch, callOptsTestNodeLLM),
 	)
 
@@ -362,8 +362,8 @@ func TestCallOptions_EarlyReturnPaths(t *testing.T) {
 
 	WithCallOptions()(&agent.RunOptions{})
 	WithCallOptions(
-		WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-			Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+		WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+			Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 		}),
 	)(nil)
 }
@@ -385,7 +385,7 @@ func TestCallOptions_CloneHelpers_EdgeCases(t *testing.T) {
 	}))
 
 	parent := &callOptions{
-		generation: model.GenerationConfigPatch{
+		generation: compat.GenerationConfigPatch{
 			Stop: []string{callOptsTestStopA},
 		},
 	}
@@ -460,19 +460,19 @@ func TestStringSetHelpers_EdgeCases(t *testing.T) {
 func TestScopeCallOptionsForSubgraph(t *testing.T) {
 	runOpts := agent.RunOptions{}
 	WithCallOptions(
-		WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-			Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+		WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+			Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 		}),
 		DesignateNode(
 			callOptsTestNodeChild,
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				MaxTokens: model.IntPtr(callOptsTestMaxTokens),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				MaxTokens: compat.IntPtr(callOptsTestMaxTokens),
 			}),
 		),
 		DesignateNodeWithPath(
 			NodePath{callOptsTestNodeChild, callOptsTestNodeLLM},
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				Temperature: model.Float64Ptr(callOptsTestTempNode),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				Temperature: compat.Float64Ptr(callOptsTestTempNode),
 			}),
 		),
 	)(&runOpts)
@@ -542,19 +542,19 @@ func TestCallOptions_AppliedToNestedSubgraph(t *testing.T) {
 
 	runOpts := agent.RunOptions{}
 	WithCallOptions(
-		WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-			Temperature: model.Float64Ptr(callOptsTestTempGlobal),
+		WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+			Temperature: compat.Float64Ptr(callOptsTestTempGlobal),
 		}),
 		DesignateNode(
 			callOptsTestNodeChild,
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				MaxTokens: model.IntPtr(callOptsTestMaxTokens),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				MaxTokens: compat.IntPtr(callOptsTestMaxTokens),
 			}),
 		),
 		DesignateNodeWithPath(
 			NodePath{callOptsTestNodeChild, callOptsTestNodeLLM},
-			WithCallGenerationConfigPatch(model.GenerationConfigPatch{
-				Temperature: model.Float64Ptr(callOptsTestTempNode),
+			WithCallGenerationConfigPatch(compat.GenerationConfigPatch{
+				Temperature: compat.Float64Ptr(callOptsTestTempNode),
 			}),
 		),
 	)(&runOpts)
@@ -569,7 +569,7 @@ func TestCallOptions_AppliedToNestedSubgraph(t *testing.T) {
 	inv := agent.NewInvocation(
 		agent.WithInvocationID(callOptsTestInvID),
 		agent.WithInvocationRunOptions(runOpts),
-		agent.WithInvocationMessage(model.NewUserMessage(callOptsTestUserInput)),
+		agent.WithInvocationMessage(compat.NewUserMessage(callOptsTestUserInput)),
 	)
 
 	ch, err := parentExec.Execute(context.Background(), initial, inv)

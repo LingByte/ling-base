@@ -36,7 +36,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	semconvmetrics "github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
@@ -46,18 +46,18 @@ import (
 )
 
 // captureModel captures the last request passed to GenerateContent.
-type captureModel struct{ lastReq *model.Request }
+type captureModel struct{ lastReq *compat.Request }
 
-func (c *captureModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (c *captureModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	c.lastReq = req
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	// Mark Done=true to avoid emitting streaming response events and keep focus on model start/complete events.
-	ch <- &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}}
+	ch <- &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}}
 	close(ch)
 	return ch, nil
 }
 
-func (c *captureModel) Info() model.Info { return model.Info{Name: "capture"} }
+func (c *captureModel) Info() compat.Info { return compat.Info{Name: "capture"} }
 
 type namedGraphModel struct {
 	name   string
@@ -65,24 +65,24 @@ type namedGraphModel struct {
 	mu     sync.Mutex
 }
 
-func (m *namedGraphModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *namedGraphModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.called = true
 	m.mu.Unlock()
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("ok"),
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *namedGraphModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *namedGraphModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *namedGraphModel) Called() bool {
@@ -176,55 +176,55 @@ type iterErrorModel struct {
 	err error
 }
 
-func (m *iterErrorModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *iterErrorModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *iterErrorModel) GenerateContentIter(ctx context.Context, req *model.Request) (model.Seq[*model.Response], error) {
+func (m *iterErrorModel) GenerateContentIter(ctx context.Context, req *compat.Request) (compat.Seq[*compat.Response], error) {
 	return nil, m.err
 }
 
-func (m *iterErrorModel) Info() model.Info {
-	return model.Info{Name: "iter-error-model"}
+func (m *iterErrorModel) Info() compat.Info {
+	return compat.Info{Name: "iter-error-model"}
 }
 
 type nilIterModel struct{}
 
-func (m *nilIterModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *nilIterModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *nilIterModel) GenerateContentIter(ctx context.Context, req *model.Request) (model.Seq[*model.Response], error) {
+func (m *nilIterModel) GenerateContentIter(ctx context.Context, req *compat.Request) (compat.Seq[*compat.Response], error) {
 	return nil, nil
 }
 
-func (m *nilIterModel) Info() model.Info {
-	return model.Info{Name: "nil-iter-model"}
+func (m *nilIterModel) Info() compat.Info {
+	return compat.Info{Name: "nil-iter-model"}
 }
 
 type noResponseModel struct{}
 
-func (m *noResponseModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (m *noResponseModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *noResponseModel) Info() model.Info {
-	return model.Info{Name: "no-response-model"}
+func (m *noResponseModel) Info() compat.Info {
+	return compat.Info{Name: "no-response-model"}
 }
 
 type multiResponseModel struct {
-	responses []*model.Response
+	responses []*compat.Response
 	delay     time.Duration
 }
 
-func (m *multiResponseModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, len(m.responses))
+func (m *multiResponseModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, len(m.responses))
 	for _, response := range m.responses {
 		if m.delay > 0 {
 			time.Sleep(m.delay)
@@ -235,8 +235,8 @@ func (m *multiResponseModel) GenerateContent(ctx context.Context, req *model.Req
 	return ch, nil
 }
 
-func (m *multiResponseModel) Info() model.Info {
-	return model.Info{Name: "multi-response-model"}
+func (m *multiResponseModel) Info() compat.Info {
+	return compat.Info{Name: "multi-response-model"}
 }
 
 // graphRecordingSpan captures trace attributes for assertions.
@@ -483,7 +483,7 @@ func TestAddLLMNode_GenerationConfigOption(t *testing.T) {
 	temp := 0.2
 	maxTok := 128
 
-	cfg := model.GenerationConfig{
+	cfg := compat.GenerationConfig{
 		Stream:      false,
 		Temperature: &temp,
 		MaxTokens:   &maxTok,
@@ -525,8 +525,8 @@ func TestAddLLMNode_NoModelSelectorKeepsCallbackInvocation(t *testing.T) {
 		agent.WithInvocationID("graph-no-selector-state-inv"),
 	)
 	var callbackInvocation *agent.Invocation
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			callbackInvocation, _ = agent.InvocationFromContext(ctx)
 			callbackInvocation.SetState("callback-state", "visible")
 			return nil, nil
@@ -563,7 +563,7 @@ func TestAddLLMNode_RunLevelModelSelectorUsesSelectedModelAndNodeID(t *testing.T
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("graph-selector-inv"),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
-			agent.WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (model.Model, error) {
+			agent.WithModelSelector(func(ctx context.Context, inv *agent.Invocation) (compat.Model, error) {
 				selectorBaseModel = inv.Model.Info().Name
 				rawNodeID, ok := inv.GetState(StateKeyCurrentNodeID)
 				require.True(t, ok)
@@ -575,8 +575,8 @@ func TestAddLLMNode_RunLevelModelSelectorUsesSelectedModelAndNodeID(t *testing.T
 		)),
 	)
 	var callbackNodeID string
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			inv, ok := agent.InvocationFromContext(ctx)
 			require.True(t, ok)
 			rawNodeID, ok := inv.GetState(StateKeyCurrentNodeID)
@@ -620,7 +620,7 @@ func TestRunModelStream_IterModelError(t *testing.T) {
 		nil,
 		nil,
 		&iterErrorModel{err: iterErr},
-		&model.Request{},
+		&compat.Request{},
 		nil,
 	)
 	require.ErrorIs(t, err, iterErr)
@@ -632,7 +632,7 @@ func TestRunModel_NilIterSequence(t *testing.T) {
 		context.Background(),
 		nil,
 		&nilIterModel{},
-		&model.Request{},
+		&compat.Request{},
 	)
 	require.ErrorContains(t, err, errMsgNoModelResponse)
 	require.Nil(t, ch)
@@ -644,7 +644,7 @@ func TestExecuteModelAndProcessResponses_NilIterSequence(t *testing.T) {
 		context.Background(),
 		modelExecutionConfig{
 			LLMModel:     &nilIterModel{},
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: "inv-nil-iter",
 			Span:         noop.Span{},
 			NodeID:       "llm",
@@ -658,11 +658,11 @@ func TestEmitFastModelResponseEvent_DisablesPartialMetadata(t *testing.T) {
 	t.Run("partial response omits generated ID and timestamp", func(t *testing.T) {
 		ch := make(chan *event.Event, 1)
 		respTimestamp := time.Unix(1, 0).UTC()
-		resp := &model.Response{
+		resp := &compat.Response{
 			IsPartial: true,
 			Timestamp: respTimestamp,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		}
 
@@ -688,8 +688,8 @@ func TestEmitFastModelResponseEvent_DisablesPartialMetadata(t *testing.T) {
 	})
 
 	t.Run("response error is surfaced", func(t *testing.T) {
-		resp := &model.Response{
-			Error: &model.ResponseError{Message: "api boom"},
+		resp := &compat.Response{
+			Error: &compat.ResponseError{Message: "api boom"},
 		}
 
 		ev, err := emitFastModelResponseEvent(
@@ -713,11 +713,11 @@ func TestEmitFastModelResponseEvent_DisablesPartialMetadata(t *testing.T) {
 	t.Run("partial response uses event creation time by default", func(t *testing.T) {
 		ch := make(chan *event.Event, 1)
 		respTimestamp := time.Unix(1, 0).UTC()
-		resp := &model.Response{
+		resp := &compat.Response{
 			IsPartial: true,
 			Timestamp: respTimestamp,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		}
 		ev, err := emitFastModelResponseEvent(
@@ -743,10 +743,10 @@ func TestEmitFastModelResponseEvent_DisablesPartialMetadata(t *testing.T) {
 
 	t.Run("done response still keeps trace metadata without emitting", func(t *testing.T) {
 		ch := make(chan *event.Event, 1)
-		resp := &model.Response{
+		resp := &compat.Response{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("final")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("final")},
 			},
 		}
 
@@ -793,7 +793,7 @@ func TestModelResponseProcessorConsume_FastPathSeq(t *testing.T) {
 			Invocation:   invocation,
 			InvocationID: invocation.InvocationID,
 			EventChan:    ch,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			Span:         noop.Span{},
 			NodeID:       "llm",
 		},
@@ -803,14 +803,14 @@ func TestModelResponseProcessorConsume_FastPathSeq(t *testing.T) {
 	require.True(t, processor.fastResponsePath)
 
 	err := processor.consume(modelResponseStream{
-		Seq: func(yield func(*model.Response) bool) {
+		Seq: func(yield func(*compat.Response) bool) {
 			if !yield(nil) {
 				return
 			}
-			yield(&model.Response{
+			yield(&compat.Response{
 				IsPartial: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("partial")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("partial")},
 				},
 				Timestamp: time.Now(),
 			})
@@ -838,7 +838,7 @@ func TestModelResponseProcessorConsume_FastPathDoneResponse_TracesEventID(t *tes
 			Invocation:   invocation,
 			InvocationID: invocation.InvocationID,
 			EventChan:    ch,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			Span:         span,
 			NodeID:       "llm",
 		},
@@ -847,11 +847,11 @@ func TestModelResponseProcessorConsume_FastPathDoneResponse_TracesEventID(t *tes
 	)
 	require.True(t, processor.fastResponsePath)
 	err := processor.consume(modelResponseStream{
-		Seq: func(yield func(*model.Response) bool) {
-			yield(&model.Response{
+		Seq: func(yield func(*compat.Response) bool) {
+			yield(&compat.Response{
 				Done: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("final")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("final")},
 				},
 			})
 		},
@@ -898,7 +898,7 @@ func TestNewModelResponseProcessor_FastPathWhenOnlyOnePartialToggleIsDisabled(t 
 					Invocation:   invocation,
 					InvocationID: invocation.InvocationID,
 					EventChan:    make(chan *event.Event, 1),
-					Request:      &model.Request{},
+					Request:      &compat.Request{},
 					Span:         noop.Span{},
 					NodeID:       "llm",
 				},
@@ -914,16 +914,16 @@ func TestNewModelResponseProcessor_FastPathWithBeforeModelCallbacksOnly(t *testi
 	tests := []struct {
 		name           string
 		invocation     *agent.Invocation
-		modelCallbacks *model.Callbacks
+		modelCallbacks *compat.Callbacks
 	}{
 		{
 			name: "local before model callbacks only",
 			invocation: agent.NewInvocation(
 				agent.WithInvocationID("inv-local-before-only"),
 			),
-			modelCallbacks: model.NewCallbacks().RegisterBeforeModel(
-				func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-					return &model.BeforeModelResult{}, nil
+			modelCallbacks: compat.NewCallbacks().RegisterBeforeModel(
+				func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+					return &compat.BeforeModelResult{}, nil
 				},
 			),
 		},
@@ -934,8 +934,8 @@ func TestNewModelResponseProcessor_FastPathWithBeforeModelCallbacksOnly(t *testi
 				agent.WithInvocationPlugins(plugin.MustNewManager(&hookPlugin{
 					name: "before-only",
 					reg: func(r *plugin.Registry) {
-						r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-							return &model.BeforeModelResult{}, nil
+						r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+							return &compat.BeforeModelResult{}, nil
 						})
 					},
 				})),
@@ -952,7 +952,7 @@ func TestNewModelResponseProcessor_FastPathWithBeforeModelCallbacksOnly(t *testi
 					InvocationID:   tt.invocation.InvocationID,
 					ModelCallbacks: tt.modelCallbacks,
 					EventChan:      make(chan *event.Event, 1),
-					Request:        &model.Request{},
+					Request:        &compat.Request{},
 					Span:           noop.Span{},
 					NodeID:         "llm",
 				},
@@ -974,17 +974,17 @@ func TestProcessModelResponse_DisablesPartialMetadataOnSlowPath(t *testing.T) {
 		}),
 	)
 	var ctx context.Context = agent.NewInvocationContext(context.Background(), invocation)
-	resp := &model.Response{
+	resp := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
 	ctx, ev, err := processModelResponse(ctx, modelResponseConfig{
 		Response:     resp,
 		EventChan:    ch,
 		InvocationID: invocation.InvocationID,
-		Request:      &model.Request{},
+		Request:      &compat.Request{},
 		Span:         noop.Span{},
 		NodeID:       "llm",
 	})
@@ -1007,10 +1007,10 @@ func TestProcessModelResponse_UsesFallbackInvocationFromConfig(t *testing.T) {
 			DisablePartialEventTimestamps: true,
 		}),
 	)
-	resp := &model.Response{
+	resp := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
 	ctx, ev, err := processModelResponse(context.Background(), modelResponseConfig{
@@ -1018,7 +1018,7 @@ func TestProcessModelResponse_UsesFallbackInvocationFromConfig(t *testing.T) {
 		Invocation:   invocation,
 		EventChan:    ch,
 		InvocationID: "inv-config-only",
-		Request:      &model.Request{},
+		Request:      &compat.Request{},
 		Span:         noop.Span{},
 		NodeID:       "llm",
 	})
@@ -1049,10 +1049,10 @@ func TestProcessModelResponse_PreservesStableEventMetadataWhenContextInvocationI
 			DisablePartialEventTimestamps: true,
 		}),
 	)
-	resp := &model.Response{
+	resp := &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("partial")},
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("partial")},
 		},
 	}
 	ctx, ev, err := processModelResponse(
@@ -1063,7 +1063,7 @@ func TestProcessModelResponse_PreservesStableEventMetadataWhenContextInvocationI
 			StableInvocation: baseInvocation,
 			EventChan:        ch,
 			InvocationID:     baseInvocation.InvocationID,
-			Request:          &model.Request{},
+			Request:          &compat.Request{},
 			Span:             noop.Span{},
 			NodeID:           "llm",
 		},
@@ -1090,9 +1090,9 @@ func TestExecuteModelAndProcessResponses_UsesInvocationFromCallbackContext(t *te
 			DisableResponseUsageTracking: true,
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1103,14 +1103,14 @@ func TestExecuteModelAndProcessResponses_UsesInvocationFromCallbackContext(t *te
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       &captureModel{},
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			Span:           noop.Span{},
 			NodeID:         "llm",
 		},
 	)
 	require.NoError(t, err)
-	finalResponse, ok := resp.(*model.Response)
+	finalResponse, ok := resp.(*compat.Response)
 	require.True(t, ok)
 	require.Nil(t, finalResponse.Usage)
 }
@@ -1162,7 +1162,7 @@ func TestExecuteModelAndProcessResponses_DisableResponseUsageTrackingStillRecord
 		modelExecutionConfig{
 			Invocation:   invocation,
 			LLMModel:     invocation.Model,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: invocation.InvocationID,
 			SessionID:    invocation.Session.ID,
 			Span:         noop.Span{},
@@ -1170,7 +1170,7 @@ func TestExecuteModelAndProcessResponses_DisableResponseUsageTrackingStillRecord
 		},
 	)
 	require.NoError(t, err)
-	finalResponse, ok := resp.(*model.Response)
+	finalResponse, ok := resp.(*compat.Response)
 	require.True(t, ok)
 	require.Nil(t, finalResponse.Usage)
 	var rm metricdata.ResourceMetrics
@@ -1231,9 +1231,9 @@ func TestExecuteModelAndProcessResponses_UsesStableInvocationForMetricsMetadata(
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-metrics"
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1244,7 +1244,7 @@ func TestExecuteModelAndProcessResponses_UsesStableInvocationForMetricsMetadata(
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       baseModel,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			SessionID:      baseInvocation.Session.ID,
 			Span:           noop.Span{},
@@ -1316,9 +1316,9 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForMetricsMetadata
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-full-metrics"
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1329,7 +1329,7 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForMetricsMetadata
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       updatedModel,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			SessionID:      updatedInvocation.Session.ID,
 			Span:           noop.Span{},
@@ -1396,9 +1396,9 @@ func TestExecuteModelAndProcessResponses_AnchorsMetricsRequestModelToLLMModel(t 
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-with-model"
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1409,7 +1409,7 @@ func TestExecuteModelAndProcessResponses_AnchorsMetricsRequestModelToLLMModel(t 
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       requestModel,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			SessionID:      updatedInvocation.Session.ID,
 			Span:           noop.Span{},
@@ -1472,7 +1472,7 @@ func TestExecuteModelAndProcessResponses_UsesConfigFallbackForSparseStableMetric
 		modelExecutionConfig{
 			Invocation:   invocation,
 			LLMModel:     requestModel,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: invocation.InvocationID,
 			SessionID:    "sess-config-fallback",
 			UserID:       "user-config-fallback",
@@ -1540,9 +1540,9 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForMetricsMetadata
 		}),
 	)
 	updatedInvocation.AgentName = "agent-updated-after-metrics"
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1553,7 +1553,7 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForMetricsMetadata
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       baseModel,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			SessionID:      updatedInvocation.Session.ID,
 			Span:           noop.Span{},
@@ -1575,20 +1575,20 @@ func TestExecuteModelAndProcessResponses_AttachesTimingInfoBeforeAfterModelCallb
 	baseInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-callback-timing"),
 	)
-	response := &model.Response{
-		Choices: []model.Choice{
-			{Message: model.NewAssistantMessage("done")},
+	response := &compat.Response{
+		Choices: []compat.Choice{
+			{Message: compat.NewAssistantMessage("done")},
 		},
 	}
-	var callbackTimingInfo *model.TimingInfo
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	var callbackTimingInfo *compat.TimingInfo
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			require.NotNil(t, args.Response)
 			require.NotNil(t, args.Response.Usage)
 			require.NotNil(t, args.Response.Usage.TimingInfo)
 			require.NotZero(t, args.Response.Usage.TimingInfo.FirstTokenDuration)
 			callbackTimingInfo = args.Response.Usage.TimingInfo
-			return &model.AfterModelResult{}, nil
+			return &compat.AfterModelResult{}, nil
 		},
 	)
 	resp, err := executeModelAndProcessResponses(
@@ -1597,10 +1597,10 @@ func TestExecuteModelAndProcessResponses_AttachesTimingInfoBeforeAfterModelCallb
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel: &multiResponseModel{
-				responses: []*model.Response{response},
+				responses: []*compat.Response{response},
 				delay:     time.Millisecond,
 			},
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: baseInvocation.InvocationID,
 			Span:         noop.Span{},
 			NodeID:       "llm",
@@ -1622,9 +1622,9 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForResponseUsageTi
 			DisableResponseUsageTracking: true,
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1635,14 +1635,14 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForResponseUsageTi
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       &mockModel{name: "single-usage-model"},
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			Span:           noop.Span{},
 			NodeID:         "llm",
 		},
 	)
 	require.NoError(t, err)
-	finalResponse, ok := resp.(*model.Response)
+	finalResponse, ok := resp.(*compat.Response)
 	require.True(t, ok)
 	require.Nil(t, finalResponse.Usage)
 }
@@ -1657,36 +1657,36 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForResponseUsageTi
 			DisableResponseUsageTracking: true,
 		}),
 	)
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		},
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial-updated")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial-updated")},
 			},
 		},
 		{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		},
 	}
 	var callbackCount int
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			callbackCount++
 			if callbackCount == 2 {
-				return &model.AfterModelResult{
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			}
-			return &model.AfterModelResult{}, nil
+			return &compat.AfterModelResult{}, nil
 		},
 	)
 	resp, err := executeModelAndProcessResponses(
@@ -1697,7 +1697,7 @@ func TestExecuteModelAndProcessResponses_UsesUpdatedInvocationForResponseUsageTi
 			LLMModel: &multiResponseModel{
 				responses: responses,
 			},
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: baseInvocation.InvocationID,
 			Span:         noop.Span{},
 			NodeID:       "llm",
@@ -1716,36 +1716,36 @@ func TestExecuteModelAndProcessResponses_PreservesTimingInfoWhenInvocationChange
 	updatedInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-usage-updated"),
 	)
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		},
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial-updated")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial-updated")},
 			},
 		},
 		{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		},
 	}
 	var callbackCount int
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			callbackCount++
 			if callbackCount == 2 {
-				return &model.AfterModelResult{
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			}
-			return &model.AfterModelResult{}, nil
+			return &compat.AfterModelResult{}, nil
 		},
 	)
 	resp, err := executeModelAndProcessResponses(
@@ -1757,7 +1757,7 @@ func TestExecuteModelAndProcessResponses_PreservesTimingInfoWhenInvocationChange
 				responses: responses,
 				delay:     time.Millisecond,
 			},
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: baseInvocation.InvocationID,
 			Span:         noop.Span{},
 			NodeID:       "llm",
@@ -1785,36 +1785,36 @@ func TestExecuteModelAndProcessResponses_PreservesReasoningTimingWhenInvocationC
 	updatedInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-reasoning-updated"),
 	)
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{ReasoningContent: "thinking"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{ReasoningContent: "thinking"}},
 			},
 		},
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{ReasoningContent: "thinking-more"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{ReasoningContent: "thinking-more"}},
 			},
 		},
 		{
 			Done: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{Content: "done"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{Content: "done"}},
 			},
 		},
 	}
 	var callbackCount int
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			callbackCount++
 			if callbackCount == 1 {
-				return &model.AfterModelResult{
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			}
-			return &model.AfterModelResult{}, nil
+			return &compat.AfterModelResult{}, nil
 		},
 	)
 	resp, err := executeModelAndProcessResponses(
@@ -1826,8 +1826,8 @@ func TestExecuteModelAndProcessResponses_PreservesReasoningTimingWhenInvocationC
 				responses: responses,
 				delay:     time.Millisecond,
 			},
-			Request: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			Request: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					Stream: true,
 				},
 			},
@@ -1852,36 +1852,36 @@ func TestExecuteModelAndProcessResponses_PreservesReasoningTimingWhenTrackingDis
 			DisableResponseUsageTracking: true,
 		}),
 	)
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{ReasoningContent: "thinking"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{ReasoningContent: "thinking"}},
 			},
 		},
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{ReasoningContent: "thinking-more"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{ReasoningContent: "thinking-more"}},
 			},
 		},
 		{
 			Done: true,
-			Choices: []model.Choice{
-				{Delta: model.Message{Content: "done"}},
+			Choices: []compat.Choice{
+				{Delta: compat.Message{Content: "done"}},
 			},
 		},
 	}
 	var callbackCount int
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			callbackCount++
 			if callbackCount == 1 {
-				return &model.AfterModelResult{
+				return &compat.AfterModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
 				}, nil
 			}
-			return &model.AfterModelResult{}, nil
+			return &compat.AfterModelResult{}, nil
 		},
 	)
 	resp, err := executeModelAndProcessResponses(
@@ -1893,8 +1893,8 @@ func TestExecuteModelAndProcessResponses_PreservesReasoningTimingWhenTrackingDis
 				responses: responses,
 				delay:     time.Millisecond,
 			},
-			Request: &model.Request{
-				GenerationConfig: model.GenerationConfig{
+			Request: &compat.Request{
+				GenerationConfig: compat.GenerationConfig{
 					Stream: true,
 				},
 			},
@@ -1925,23 +1925,23 @@ func TestExecuteModelAndProcessResponses_PreservesStableEventMetadataOnFastPath(
 			DisablePartialEventTimestamps: true,
 		}),
 	)
-	responses := []*model.Response{
+	responses := []*compat.Response{
 		{
 			IsPartial: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("partial")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("partial")},
 			},
 		},
 		{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.NewAssistantMessage("done")},
+			Choices: []compat.Choice{
+				{Message: compat.NewAssistantMessage("done")},
 			},
 		},
 	}
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -1955,7 +1955,7 @@ func TestExecuteModelAndProcessResponses_PreservesStableEventMetadataOnFastPath(
 			LLMModel: &multiResponseModel{
 				responses: responses,
 			},
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			EventChan:    ch,
 			InvocationID: baseInvocation.InvocationID,
 			Span:         noop.Span{},
@@ -1986,9 +1986,9 @@ func TestExecuteModelAndProcessResponses_UsesStableInvocationForTraceMetadata(t 
 	updatedInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-trace-updated"),
 	)
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2000,7 +2000,7 @@ func TestExecuteModelAndProcessResponses_UsesStableInvocationForTraceMetadata(t 
 			Invocation:     baseInvocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       modelImpl,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   baseInvocation.InvocationID,
 			SessionID:      baseInvocation.Session.ID,
 			Span:           span,
@@ -2026,7 +2026,7 @@ func TestExecuteModelAndProcessResponses_UsesConfigFallbackForSparseStableTraceM
 		modelExecutionConfig{
 			Invocation:   invocation,
 			LLMModel:     modelImpl,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: invocation.InvocationID,
 			SessionID:    "sess-trace-fallback",
 			UserID:       "user-trace-fallback",
@@ -2045,23 +2045,23 @@ func TestExecuteModelAndProcessResponses_UsesConfigFallbackForSparseStableTraceM
 
 func TestExecuteModelAndProcessResponses_ProgressivelyCompletesInvocationTraceMetadataOnRecordingSpan(t *testing.T) {
 	modelImpl := &multiResponseModel{
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				IsPartial: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("partial-1")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("partial-1")},
 				},
 			},
 			{
 				IsPartial: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("partial-2")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("partial-2")},
 				},
 			},
 			{
 				Done: true,
-				Choices: []model.Choice{
-					{Message: model.NewAssistantMessage("done")},
+				Choices: []compat.Choice{
+					{Message: compat.NewAssistantMessage("done")},
 				},
 			},
 		},
@@ -2070,8 +2070,8 @@ func TestExecuteModelAndProcessResponses_ProgressivelyCompletesInvocationTraceMe
 		agent.WithInvocationID("inv-trace-progressive"),
 	)
 	var callbackCount int
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			callbackCount++
 			if callbackCount == 2 {
 				invocation.Session = &session.Session{
@@ -2089,8 +2089,8 @@ func TestExecuteModelAndProcessResponses_ProgressivelyCompletesInvocationTraceMe
 			Invocation:     invocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       modelImpl,
-			Request: &model.Request{
-				Messages: []model.Message{model.NewUserMessage("hi")},
+			Request: &compat.Request{
+				Messages: []compat.Message{compat.NewUserMessage("hi")},
 			},
 			InvocationID: invocation.InvocationID,
 			Span:         span,
@@ -2122,8 +2122,8 @@ func TestExecuteModelAndProcessResponses_RefreshesStableTraceMetadataAfterInPlac
 	invocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-trace-in-place"),
 	)
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 			invocation.Session = &session.Session{
 				ID:     "sess-trace-in-place",
 				UserID: "user-trace-in-place",
@@ -2138,7 +2138,7 @@ func TestExecuteModelAndProcessResponses_RefreshesStableTraceMetadataAfterInPlac
 			Invocation:     invocation,
 			ModelCallbacks: callbacks,
 			LLMModel:       modelImpl,
-			Request:        &model.Request{},
+			Request:        &compat.Request{},
 			InvocationID:   invocation.InvocationID,
 			Span:           span,
 			NodeID:         "llm",
@@ -2194,9 +2194,9 @@ func TestAddLLMNode_SkipsModelExecutionEventsWhenCallbackDisablesModelExecutionE
 			DisableModelExecutionEvents: true,
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2232,9 +2232,9 @@ func TestAddLLMNode_EmitsCompleteWhenAfterModelDisablesModelExecutionEvents(t *t
 			DisableModelExecutionEvents: true,
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterAfterModel(
-		func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
+		func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2270,9 +2270,9 @@ func TestAddLLMNode_UsesUpdatedInvocationIDInModelExecutionEvents(t *testing.T) 
 	updatedInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-updated"),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2315,9 +2315,9 @@ func TestAddLLMNode_PreservesStableRequestMetadataInModelExecutionEvents(t *test
 	updatedInvocation := agent.NewInvocation(
 		agent.WithInvocationID("inv-updated-stable"),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2368,9 +2368,9 @@ func TestAddLLMNode_UsesUpdatedInvocationLineageInModelExecutionEvents(t *testin
 			RequestID: "req-updated-lineage",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2424,9 +2424,9 @@ func TestAddLLMNode_MergesSparseUpdatedInvocationLineageInModelExecutionEvents(t
 			RequestID: "req-updated-lineage",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2482,9 +2482,9 @@ func TestAddLLMNode_DoesNotFallbackParentForUpdatedRootInvocationInModelExecutio
 			RequestID: "req-root-updated",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
 			}, nil
 		},
@@ -2527,13 +2527,13 @@ func TestAddLLMNode_EmitsModelExecutionEventsForPluginBeforeModelCustomResponse(
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
-				return &model.BeforeModelResult{
-					CustomResponse: &model.Response{
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
+				return &compat.BeforeModelResult{
+					CustomResponse: &compat.Response{
 						Done: true,
-						Choices: []model.Choice{
-							{Message: model.NewAssistantMessage("plugin-custom")},
+						Choices: []compat.Choice{
+							{Message: compat.NewAssistantMessage("plugin-custom")},
 						},
 					},
 				}, nil
@@ -2606,14 +2606,14 @@ func TestAddLLMNode_MergesSparseExecutionMetadataForBeforeModelCustomResponseCon
 			RequestID: "req-before-custom-context-updated",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
 				Context: agent.NewInvocationContext(ctx, updatedInvocation),
-				CustomResponse: &model.Response{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
-						{Message: model.NewAssistantMessage("custom")},
+					Choices: []compat.Choice{
+						{Message: compat.NewAssistantMessage("custom")},
 					},
 				},
 			}, nil
@@ -2666,13 +2666,13 @@ func TestAddLLMNode_EmitsModelExecutionEventsForBeforeModelCustomResponse(t *tes
 			RequestID: "req-before-custom",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-			return &model.BeforeModelResult{
-				CustomResponse: &model.Response{
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+			return &compat.BeforeModelResult{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{
-						{Message: model.NewAssistantMessage("custom")},
+					Choices: []compat.Choice{
+						{Message: compat.NewAssistantMessage("custom")},
 					},
 				},
 			}, nil
@@ -2720,8 +2720,8 @@ func TestAddLLMNode_UsesRootExecutionMetadataForPluginBeforeModelCustomResponseC
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				updatedInvocation := agent.NewInvocation(
 					agent.WithInvocationID("inv-plugin-custom-context-updated"),
 					agent.WithInvocationBranch("graph/plugin-custom-context-updated"),
@@ -2730,12 +2730,12 @@ func TestAddLLMNode_UsesRootExecutionMetadataForPluginBeforeModelCustomResponseC
 						RequestID: "req-plugin-custom-context-updated",
 					}),
 				)
-				return &model.BeforeModelResult{
+				return &compat.BeforeModelResult{
 					Context: agent.NewInvocationContext(ctx, updatedInvocation),
-					CustomResponse: &model.Response{
+					CustomResponse: &compat.Response{
 						Done: true,
-						Choices: []model.Choice{
-							{Message: model.NewAssistantMessage("plugin-custom")},
+						Choices: []compat.Choice{
+							{Message: compat.NewAssistantMessage("plugin-custom")},
 						},
 					},
 				}, nil
@@ -2803,8 +2803,8 @@ func TestAddLLMNode_EmitsModelExecutionEventsForBeforeModelError(t *testing.T) {
 			RequestID: "req-before-error",
 		}),
 	)
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
+		func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 			return nil, errors.New("before failed")
 		},
 	)
@@ -2850,8 +2850,8 @@ func TestAddLLMNode_EmitsModelExecutionEventsForPluginBeforeModelError(t *testin
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				return nil, errors.New("plugin before failed")
 			})
 		},
@@ -2926,7 +2926,7 @@ func TestExecuteModelAndProcessResponses_TracksFinalizeErrors(t *testing.T) {
 		modelExecutionConfig{
 			Invocation:   invocation,
 			LLMModel:     invocation.Model,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: invocation.InvocationID,
 			SessionID:    invocation.Session.ID,
 			Span:         noop.Span{},
@@ -2965,7 +2965,7 @@ func TestExecuteModelAndProcessResponses_TracksFinalizeErrorsForNilIterSequence(
 		modelExecutionConfig{
 			Invocation:   invocation,
 			LLMModel:     invocation.Model,
-			Request:      &model.Request{},
+			Request:      &compat.Request{},
 			InvocationID: invocation.InvocationID,
 			SessionID:    invocation.Session.ID,
 			Span:         noop.Span{},
@@ -3127,7 +3127,7 @@ func TestLLMNode_PlaceholdersInjected_FromSessionState(t *testing.T) {
 	require.NotNil(t, cm.lastReq)
 	require.GreaterOrEqual(t, len(cm.lastReq.Messages), 1)
 	sys := cm.lastReq.Messages[0]
-	require.Equal(t, model.RoleSystem, sys.Role)
+	require.Equal(t, compat.RoleSystem, sys.Role)
 	require.Contains(t, sys.Content, "AI")
 	require.Contains(t, sys.Content, "DL")
 	require.Contains(t, sys.Content, "Banner")
@@ -3187,7 +3187,7 @@ func TestLLMNode_PlaceholdersOptionalMissing(t *testing.T) {
 	require.NotNil(t, cm.lastReq)
 	require.GreaterOrEqual(t, len(cm.lastReq.Messages), 1)
 	sys := cm.lastReq.Messages[0]
-	require.Equal(t, model.RoleSystem, sys.Role)
+	require.Equal(t, compat.RoleSystem, sys.Role)
 	// research_topics is injected; optional ones are blanked out (no braces remain)
 	require.Contains(t, sys.Content, "AI")
 	require.NotContains(t, sys.Content, "{user:topics?")
@@ -3210,7 +3210,7 @@ func TestLLMNode_DisableTracingUsesCurrentSpan(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cm.lastReq)
 
-	_, ch, err := runModel(ctx, nil, cm, &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}})
+	_, ch, err := runModel(ctx, nil, cm, &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}})
 	require.NoError(t, err)
 	for range ch {
 	}
@@ -3256,14 +3256,14 @@ func TestStartNodeSpan_DisableTracingUsesNoopSpan(t *testing.T) {
 		event.NewResponseEvent(
 			"invocation-id",
 			"agent-name",
-			&model.Response{
+			&compat.Response{
 				ID:      "response-id",
-				Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}},
+				Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}},
 			},
 		),
 		nil,
 		0,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 
 	require.Empty(t, parentSpan.attributes)
@@ -3278,7 +3278,7 @@ func TestTraceProcessedModelResponse_DisableTracing(t *testing.T) {
 	tracker := itelemetry.NewChatMetricsTracker(
 		context.Background(),
 		invocation,
-		&model.Request{},
+		&compat.Request{},
 		nil,
 		nil,
 		nil,
@@ -3289,8 +3289,8 @@ func TestTraceProcessedModelResponse_DisableTracing(t *testing.T) {
 		&itelemetry.ChatTraceState{},
 		tracker,
 		invocation,
-		&model.Request{},
-		&model.Response{Choices: []model.Choice{{Message: model.NewAssistantMessage("ok")}}},
+		&compat.Request{},
+		&compat.Response{Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok")}}},
 		&event.Event{ID: "evt-1"},
 	)
 }
@@ -3305,14 +3305,14 @@ func TestToolsNode_DisableTracingSkipsSpanCreation(t *testing.T) {
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	node := sg.graph.nodes["tools"]
 	state := State{
-		StateKeyMessages: []model.Message{
-			model.NewUserMessage("hi"),
+		StateKeyMessages: []compat.Message{
+			compat.NewUserMessage("hi"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`{}`),
 					},
@@ -3332,14 +3332,14 @@ func TestAddToolsNode_WorkflowSpanIncludesToolType(t *testing.T) {
 
 	node := sg.graph.nodes["tools"]
 	state := State{
-		StateKeyMessages: []model.Message{
-			model.NewUserMessage("hi"),
+		StateKeyMessages: []compat.Message{
+			compat.NewUserMessage("hi"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`{}`),
 					},
@@ -4227,9 +4227,9 @@ func countTraceStepsByAgentAndNode(trace *atrace.Trace, agentName string, nodeID
 
 func TestTerminalAgentErrorHelpers(t *testing.T) {
 	pregelErr := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Object: ObjectTypeGraphPregelStep,
-			Error:  &model.ResponseError{Message: "boom"},
+			Error:  &compat.ResponseError{Message: "boom"},
 		},
 		StateDelta: map[string][]byte{
 			MetadataKeyPregel: []byte(`{`),
@@ -4241,16 +4241,16 @@ func TestTerminalAgentErrorHelpers(t *testing.T) {
 	pregelErr.StateDelta[MetadataKeyPregel] = []byte(`{"stepNumber":1}`)
 	require.False(t, isTerminalAgentErrorEvent(pregelErr))
 	rootErr := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeError,
-			Error:  &model.ResponseError{Message: "root"},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeError,
+			Error:  &compat.ResponseError{Message: "root"},
 		},
 	}
 	require.True(t, isTerminalAgentErrorEvent(rootErr))
 	nodeErr := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeError,
-			Error:  &model.ResponseError{Message: "node"},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeError,
+			Error:  &compat.ResponseError{Message: "node"},
 		},
 		StateDelta: map[string][]byte{
 			MetadataKeyNode: []byte(`"child"`),
@@ -4261,9 +4261,9 @@ func TestTerminalAgentErrorHelpers(t *testing.T) {
 
 func TestAgentTerminalErrorLifecycleHelpers(t *testing.T) {
 	stopEvent := &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeError,
-			Error: &model.ResponseError{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeError,
+			Error: &compat.ResponseError{
 				Message: "stop",
 				Type:    agent.ErrorTypeStopAgentError,
 			},
@@ -4283,31 +4283,31 @@ func TestAgentTerminalErrorLifecycleHelpers(t *testing.T) {
 	clearAgentTerminalErrorOnContinuedOutput(res, &event.Event{
 		InvocationID: "other",
 		FilterKey:    "root/child",
-		Response:     &model.Response{Done: true},
+		Response:     &compat.Response{Done: true},
 	})
 	require.Error(t, res.terminalErr)
 	clearAgentTerminalErrorOnContinuedOutput(res, &event.Event{
 		InvocationID: "inv-stop",
 		FilterKey:    "root/child",
-		Response:     &model.Response{Done: true},
+		Response:     &compat.Response{Done: true},
 	})
 	require.NoError(t, res.terminalErr)
 	require.Equal(t, agentTerminalErrorMeta{}, res.terminalErrMeta)
 	res = &agentEventStreamResult{}
 	updateAgentTerminalError(res, &event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeError,
-			Error:  &model.ResponseError{Message: "boom"},
+		Response: &compat.Response{
+			Object: compat.ObjectTypeError,
+			Error:  &compat.ResponseError{Message: "boom"},
 		},
 		FilterKey: "root/child",
 	})
 	require.EqualError(t, res.terminalErr, "boom")
 	clearAgentTerminalErrorOnContinuedOutput(res, &event.Event{
 		FilterKey: "root/child",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "assistant delta"},
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "assistant delta"},
 			}},
 		},
 	})
@@ -4317,12 +4317,12 @@ func TestAgentTerminalErrorLifecycleHelpers(t *testing.T) {
 
 func TestIsAgentRecoveryEvent(t *testing.T) {
 	require.True(t, isAgentRecoveryEvent(&event.Event{
-		Response: &model.Response{Done: true},
+		Response: &compat.Response{Done: true},
 	}))
 	require.True(t, isAgentRecoveryEvent(NewGraphCompletionEvent()))
 	require.True(t, isAgentRecoveryEvent(&event.Event{
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
 			Done:   true,
 		},
 		StateDelta: map[string][]byte{
@@ -4330,25 +4330,25 @@ func TestIsAgentRecoveryEvent(t *testing.T) {
 		},
 	}))
 	require.False(t, isAgentRecoveryEvent(&event.Event{
-		Response: &model.Response{
-			Error: &model.ResponseError{Message: "boom"},
+		Response: &compat.Response{
+			Error: &compat.ResponseError{Message: "boom"},
 		},
 	}))
 	require.True(t, isAgentRecoveryEvent(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Delta: model.Message{Content: "delta"},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Delta: compat.Message{Content: "delta"},
 			}},
 		},
 	}))
 	require.True(t, isAgentRecoveryEvent(&event.Event{
-		Response:         &model.Response{},
+		Response:         &compat.Response{},
 		StructuredOutput: map[string]any{"ok": true},
 	}))
 	require.True(t, isAgentRecoveryEvent(&event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}))

@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // --- addOrgProjectQuery ---
@@ -248,20 +248,20 @@ func TestReadLocationFromMetadata(t *testing.T) {
 
 func TestMessageText(t *testing.T) {
 	t.Run("content only", func(t *testing.T) {
-		assert.Equal(t, "hello", messageText(model.Message{Content: "  hello  "}))
+		assert.Equal(t, "hello", messageText(compat.Message{Content: "  hello  "}))
 	})
 	t.Run("empty content and no parts", func(t *testing.T) {
-		assert.Empty(t, messageText(model.Message{}))
+		assert.Empty(t, messageText(compat.Message{}))
 	})
 	t.Run("content parts", func(t *testing.T) {
 		s1, s2, empty := "a", "b", "  "
-		msg := model.Message{
-			ContentParts: []model.ContentPart{
-				{Type: model.ContentTypeText, Text: &s1},
-				{Type: model.ContentTypeImage}, // ignored
-				{Type: model.ContentTypeText, Text: nil},
-				{Type: model.ContentTypeText, Text: &empty},
-				{Type: model.ContentTypeText, Text: &s2},
+		msg := compat.Message{
+			ContentParts: []compat.ContentPart{
+				{Type: compat.ContentTypeText, Text: &s1},
+				{Type: compat.ContentTypeImage}, // ignored
+				{Type: compat.ContentTypeText, Text: nil},
+				{Type: compat.ContentTypeText, Text: &empty},
+				{Type: compat.ContentTypeText, Text: &s2},
 			},
 		}
 		assert.Equal(t, "a\nb", messageText(msg))

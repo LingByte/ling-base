@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph/internal/channel"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -122,7 +122,7 @@ type Node struct {
 	// instruction stores the static instruction for LLM nodes.
 	instruction string
 	// llmModel stores the static model for LLM nodes.
-	llmModel model.Model
+	llmModel compat.Model
 	// baseTools stores the static tools configured directly on the node.
 	baseTools map[string]tool.Tool
 
@@ -161,7 +161,7 @@ type Node struct {
 	ends map[string]string
 
 	// It's effect just for LLM node
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 	// just for tool node.
 	toolCallbacks *tool.Callbacks
 	// toolCallRetryPolicy configures single tool-call retry for tools nodes.
@@ -176,7 +176,7 @@ type Node struct {
 
 	// llmGenerationConfig stores per-node generation configuration for LLM nodes.
 	// If set, AddLLMNode forwards it to the underlying LLM runner.
-	llmGenerationConfig *model.GenerationConfig
+	llmGenerationConfig *compat.GenerationConfig
 
 	// streamOutputName enables node-to-node streaming via agent.StreamHub.
 	// For LLM and Agent nodes, it forwards streaming deltas to this stream.
@@ -309,7 +309,7 @@ func (n *Node) Instruction() string {
 }
 
 // Model returns the static model for an LLM node.
-func (n *Node) Model() model.Model {
+func (n *Node) Model() compat.Model {
 	return n.llmModel
 }
 

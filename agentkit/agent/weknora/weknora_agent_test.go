@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -166,7 +166,7 @@ func TestWeKnoraAgent_BuildWeKnoraRequest(t *testing.T) {
 		}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -199,7 +199,7 @@ func TestWeKnoraAgent_BuildWeKnoraRequest(t *testing.T) {
 		weknoraAgent := &WeKnoraAgent{}
 
 		invocation := &agent.Invocation{
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "",
 			},
 		}
@@ -315,7 +315,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -410,7 +410,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 			InvocationID:   "test-inv",
 			Session:        sess,
 			SessionService: inmemory.NewSessionService(),
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -482,7 +482,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 			InvocationID:   "test-inv",
 			Session:        sess,
 			SessionService: sessionService,
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -521,7 +521,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -559,7 +559,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -607,7 +607,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "test query",
 			},
 		}
@@ -664,7 +664,7 @@ func TestWeKnoraAgent_Run(t *testing.T) {
 
 		invocation := &agent.Invocation{
 			InvocationID: "test-inv",
-			Message: model.Message{
+			Message: compat.Message{
 				Content: "",
 			},
 		}

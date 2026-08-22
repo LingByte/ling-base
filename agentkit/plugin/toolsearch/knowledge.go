@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore"
 	"github.com/LingByte/ling-base/agentkit/knowledge/vectorstore/inmemory"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -36,7 +36,7 @@ import (
 // updates are guarded by mu.
 type usageAccumulator struct {
 	mu    sync.Mutex
-	usage model.Usage
+	usage compat.Usage
 }
 
 // usageContextKey is the context key for the per-turn usageAccumulator.
@@ -59,7 +59,7 @@ func withUsageAccumulator(ctx context.Context) context.Context {
 // accumulated by tool_search this turn. ok is true only when
 // WithSemanticToolIndex is configured (which seeds the accumulator at
 // BeforeModel time).
-func ToolSearchUsageFromContext(ctx context.Context) (*model.Usage, bool) {
+func ToolSearchUsageFromContext(ctx context.Context) (*compat.Usage, bool) {
 	acc, ok := ctx.Value(usageContextKey{}).(*usageAccumulator)
 	if !ok {
 		return nil, false
@@ -72,7 +72,7 @@ func ToolSearchUsageFromContext(ctx context.Context) (*model.Usage, bool) {
 
 // recordUsage folds u into the accumulator seeded on ctx at BeforeModel time.
 // It is a no-op when no accumulator is present.
-func (p *Plugin) recordUsage(ctx context.Context, u *model.Usage) {
+func (p *Plugin) recordUsage(ctx context.Context, u *compat.Usage) {
 	if u == nil {
 		return
 	}
@@ -83,7 +83,7 @@ func (p *Plugin) recordUsage(ctx context.Context, u *model.Usage) {
 
 // addEmbedderUsage folds an embedder's usage map into usage. Token counts may be
 // int, int64, or float64 depending on the backend, so all are accepted.
-func addEmbedderUsage(usage *model.Usage, m map[string]any) {
+func addEmbedderUsage(usage *compat.Usage, m map[string]any) {
 	usage.PromptTokens += usageTokens(m["prompt_tokens"])
 	usage.TotalTokens += usageTokens(m["total_tokens"])
 }
@@ -170,7 +170,7 @@ func (k *SemanticToolIndex) upsert(
 	ctx context.Context,
 	tools map[string]candidateTool,
 	verify candidateVerifier,
-	usage *model.Usage,
+	usage *compat.Usage,
 ) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -240,7 +240,7 @@ func (k *SemanticToolIndex) searchNames(
 	query string,
 	candidateIDs []string,
 	limit int,
-	usage *model.Usage,
+	usage *compat.Usage,
 ) ([]string, error) {
 	embedding, u, err := k.embedder.GetEmbeddingWithUsage(ctx, query)
 	if err != nil {
@@ -333,7 +333,7 @@ func (p *Plugin) searchToolsByEmbedding(
 	}
 
 	// Record accumulated embedding usage even if we return early on error.
-	usage := &model.Usage{}
+	usage := &compat.Usage{}
 	defer p.recordUsage(ctx, usage)
 
 	if err := p.semanticIndex.upsert(ctx, candidateTools, p.verifyCandidate, usage); err != nil {

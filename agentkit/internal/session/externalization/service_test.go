@@ -18,7 +18,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/artifact"
 	artifactmem "github.com/LingByte/ling-base/agentkit/artifact/inmemory"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessionmem "github.com/LingByte/ling-base/agentkit/session/inmemory"
 )
@@ -137,7 +137,7 @@ func TestAppendEventExternalizesAndHydratesAudioAndFile(t *testing.T) {
 
 	audioData := []byte("audio-bytes")
 	fileData := []byte("file-bytes")
-	msg := model.NewUserMessage("content")
+	msg := compat.NewUserMessage("content")
 	msg.AddAudioData(audioData, "mp3")
 	msg.AddFileData("report.pdf", fileData, "application/pdf")
 	evt := responseEvent(msg)
@@ -197,7 +197,7 @@ func TestAppendEventExternalizesDataURLs(t *testing.T) {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
-	msg := model.NewUserMessage("data URLs")
+	msg := compat.NewUserMessage("data URLs")
 	msg.AddImageURL("data:image/png;base64,aW1hZ2UtZGF0YQ==", "high")
 	msg.AddFileURL("note.txt", "data:text/plain,note%20data", "")
 	if err := svc.AppendEvent(ctx, sess, responseEvent(msg)); err != nil {
@@ -351,7 +351,7 @@ func TestHydrateFailsClosedWithoutArtifactService(t *testing.T) {
 			*imageEvent(nil),
 		},
 	}
-	sess.Events[0].Response.Choices[0].Message.ContentParts[0].ContentRef = &model.ContentRef{
+	sess.Events[0].Response.Choices[0].Message.ContentParts[0].ContentRef = &compat.ContentRef{
 		ArtifactName:    "sessionpart_ref.png",
 		ArtifactVersion: 0,
 	}
@@ -364,7 +364,7 @@ func TestHydrateFailsClosedWithoutArtifactService(t *testing.T) {
 
 func TestHydrateEventFailsClosedWithoutArtifactService(t *testing.T) {
 	evt := imageEvent(nil)
-	evt.Response.Choices[0].Message.ContentParts[0].ContentRef = &model.ContentRef{
+	evt.Response.Choices[0].Message.ContentParts[0].ContentRef = &compat.ContentRef{
 		ArtifactName:    "sessionpart_ref.png",
 		ArtifactVersion: 0,
 	}
@@ -380,12 +380,12 @@ func TestHydrateValidatesArtifactIntegrity(t *testing.T) {
 	info := artifact.SessionInfo{AppName: "app", UserID: "user", SessionID: "sess"}
 	tests := []struct {
 		name      string
-		ref       *model.ContentRef
+		ref       *compat.ContentRef
 		wantError string
 	}{
 		{
 			name: "size mismatch",
-			ref: &model.ContentRef{
+			ref: &compat.ContentRef{
 				ArtifactName:    "sessionpart_ref.png",
 				ArtifactVersion: 0,
 				SizeBytes:       99,
@@ -395,7 +395,7 @@ func TestHydrateValidatesArtifactIntegrity(t *testing.T) {
 		},
 		{
 			name: "sha mismatch",
-			ref: &model.ContentRef{
+			ref: &compat.ContentRef{
 				ArtifactName:    "sessionpart_ref.png",
 				ArtifactVersion: 0,
 				SizeBytes:       int64(len("image-bytes")),
@@ -658,7 +658,7 @@ func TestWrapPreservesOptionalInterfaces(t *testing.T) {
 		t.Fatalf("SaveArtifact() error = %v", err)
 	}
 	searchEvent := imageEvent(nil)
-	searchEvent.Response.Choices[0].Message.ContentParts[0].ContentRef = &model.ContentRef{
+	searchEvent.Response.Choices[0].Message.ContentParts[0].ContentRef = &compat.ContentRef{
 		ArtifactName:    artifactName,
 		ArtifactVersion: 0,
 		MimeType:        "image/png",
@@ -702,7 +702,7 @@ func TestWrapPreservesOptionalInterfaces(t *testing.T) {
 }
 
 func TestArtifactNameVersionInvalidRefIsSentinel(t *testing.T) {
-	tests := []*model.ContentRef{
+	tests := []*compat.ContentRef{
 		nil,
 		{ArtifactRef: "bad-ref"},
 		{ArtifactRef: "artifact://name"},
@@ -897,41 +897,41 @@ func TestWrapOptionalInterfaceCombinationMethods(t *testing.T) {
 func TestExternalizeTargetForPartEdgeCases(t *testing.T) {
 	tests := []struct {
 		name    string
-		part    *model.ContentPart
+		part    *compat.ContentPart
 		wantOK  bool
 		wantErr string
-		check   func(*testing.T, externalizeTarget, *model.ContentPart)
+		check   func(*testing.T, externalizeTarget, *compat.ContentPart)
 	}{
 		{name: "nil part"},
 		{
 			name: "existing ref",
-			part: &model.ContentPart{
-				Type:       model.ContentTypeImage,
-				Image:      &model.Image{Data: []byte("image")},
-				ContentRef: &model.ContentRef{ArtifactName: "already"},
+			part: &compat.ContentPart{
+				Type:       compat.ContentTypeImage,
+				Image:      &compat.Image{Data: []byte("image")},
+				ContentRef: &compat.ContentRef{ArtifactName: "already"},
 			},
 		},
-		{name: "nil image", part: &model.ContentPart{Type: model.ContentTypeImage}},
+		{name: "nil image", part: &compat.ContentPart{Type: compat.ContentTypeImage}},
 		{
 			name: "ordinary image url",
-			part: &model.ContentPart{Type: model.ContentTypeImage, Image: &model.Image{URL: "https://example.com/a.png"}},
+			part: &compat.ContentPart{Type: compat.ContentTypeImage, Image: &compat.Image{URL: "https://example.com/a.png"}},
 		},
 		{
 			name:    "invalid image data url",
-			part:    &model.ContentPart{Type: model.ContentTypeImage, Image: &model.Image{URL: "data:image/png;base64,%%"}},
+			part:    &compat.ContentPart{Type: compat.ContentTypeImage, Image: &compat.Image{URL: "data:image/png;base64,%%"}},
 			wantErr: "decode data URL",
 		},
-		{name: "nil audio", part: &model.ContentPart{Type: model.ContentTypeAudio}},
-		{name: "nil file", part: &model.ContentPart{Type: model.ContentTypeFile}},
+		{name: "nil audio", part: &compat.ContentPart{Type: compat.ContentTypeAudio}},
+		{name: "nil file", part: &compat.ContentPart{Type: compat.ContentTypeFile}},
 		{
 			name:   "file data default mime",
-			part:   &model.ContentPart{Type: model.ContentTypeFile, File: &model.File{Name: "blob", Data: []byte("file")}},
+			part:   &compat.ContentPart{Type: compat.ContentTypeFile, File: &compat.File{Name: "blob", Data: []byte("file")}},
 			wantOK: true,
-			check: func(t *testing.T, target externalizeTarget, part *model.ContentPart) {
+			check: func(t *testing.T, target externalizeTarget, part *compat.ContentPart) {
 				if target.mimeType != defaultMime {
 					t.Fatalf("target MIME = %q, want %q", target.mimeType, defaultMime)
 				}
-				target.apply(part, &model.ContentRef{ArtifactName: "ref"})
+				target.apply(part, &compat.ContentRef{ArtifactName: "ref"})
 				if len(part.File.Data) != 0 || part.ContentRef == nil {
 					t.Fatalf("file data/ref after apply = %q/%#v, want cleared/ref", part.File.Data, part.ContentRef)
 				}
@@ -939,13 +939,13 @@ func TestExternalizeTargetForPartEdgeCases(t *testing.T) {
 		},
 		{
 			name:   "file data url default mime",
-			part:   &model.ContentPart{Type: model.ContentTypeFile, File: &model.File{Name: "blob", URL: "data:,hello%20file"}},
+			part:   &compat.ContentPart{Type: compat.ContentTypeFile, File: &compat.File{Name: "blob", URL: "data:,hello%20file"}},
 			wantOK: true,
-			check: func(t *testing.T, target externalizeTarget, part *model.ContentPart) {
+			check: func(t *testing.T, target externalizeTarget, part *compat.ContentPart) {
 				if string(target.data) != "hello file" || target.mimeType != defaultMime || !target.fromDataURL {
 					t.Fatalf("target = data %q MIME %q fromDataURL %v, want decoded default data URL", target.data, target.mimeType, target.fromDataURL)
 				}
-				target.apply(part, &model.ContentRef{ArtifactName: "ref"})
+				target.apply(part, &compat.ContentRef{ArtifactName: "ref"})
 				if part.File.URL != "" || part.ContentRef == nil {
 					t.Fatalf("file URL/ref after apply = %q/%#v, want cleared/ref", part.File.URL, part.ContentRef)
 				}
@@ -977,8 +977,8 @@ func TestExternalizeTargetForPartEdgeCases(t *testing.T) {
 func TestHydrateMessageEdgeCases(t *testing.T) {
 	ctx := context.Background()
 	info := artifact.SessionInfo{AppName: "app", UserID: "user", SessionID: "sess"}
-	refFor := func(name, mimeType string, data []byte) *model.ContentRef {
-		return &model.ContentRef{
+	refFor := func(name, mimeType string, data []byte) *compat.ContentRef {
+		return &compat.ContentRef{
 			ArtifactName:    name,
 			ArtifactVersion: 0,
 			MimeType:        mimeType,
@@ -988,8 +988,8 @@ func TestHydrateMessageEdgeCases(t *testing.T) {
 		}
 	}
 	t.Run("load error", func(t *testing.T) {
-		msg := model.Message{ContentParts: []model.ContentPart{{
-			Type:       model.ContentTypeImage,
+		msg := compat.Message{ContentParts: []compat.ContentPart{{
+			Type:       compat.ContentTypeImage,
 			ContentRef: refFor("missing.png", "image/png", []byte("image")),
 		}}}
 		err := hydrateMessage(ctx, &msg, info, &loadArtifactService{
@@ -1001,8 +1001,8 @@ func TestHydrateMessageEdgeCases(t *testing.T) {
 		}
 	})
 	t.Run("not found", func(t *testing.T) {
-		msg := model.Message{ContentParts: []model.ContentPart{{
-			Type:       model.ContentTypeImage,
+		msg := compat.Message{ContentParts: []compat.ContentPart{{
+			Type:       compat.ContentTypeImage,
 			ContentRef: refFor("missing.png", "image/png", []byte("image")),
 		}}}
 		err := hydrateMessage(ctx, &msg, info, &loadArtifactService{Service: artifactmem.NewService()})
@@ -1037,11 +1037,11 @@ func TestHydrateMessageEdgeCases(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("SaveArtifact(text.bin) error = %v", err)
 		}
-		msg := model.Message{ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeImage, ContentRef: refFor("image.jpg", "image/jpeg", []byte("image"))},
-			{Type: model.ContentTypeAudio, ContentRef: refFor("audio.wav", "audio/wav", []byte("audio"))},
-			{Type: model.ContentTypeFile, ContentRef: refFor("file.txt", "text/plain", []byte("file"))},
-			{Type: model.ContentTypeText, ContentRef: refFor("text.bin", defaultMime, []byte("ignored"))},
+		msg := compat.Message{ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeImage, ContentRef: refFor("image.jpg", "image/jpeg", []byte("image"))},
+			{Type: compat.ContentTypeAudio, ContentRef: refFor("audio.wav", "audio/wav", []byte("audio"))},
+			{Type: compat.ContentTypeFile, ContentRef: refFor("file.txt", "text/plain", []byte("file"))},
+			{Type: compat.ContentTypeText, ContentRef: refFor("text.bin", defaultMime, []byte("ignored"))},
 		}}
 		if err := hydrateMessage(ctx, &msg, info, artifacts); err != nil {
 			t.Fatalf("hydrateMessage() error = %v", err)
@@ -1094,7 +1094,7 @@ func TestExternalizationHelperEdgeCases(t *testing.T) {
 	if ext := artifactExt("", "blob"); ext != ".bin" {
 		t.Fatalf("artifactExt(default) = %q, want .bin", ext)
 	}
-	if name, version, err := artifactNameVersion(&model.ContentRef{ArtifactName: "name", ArtifactVersion: 7}); err != nil ||
+	if name, version, err := artifactNameVersion(&compat.ContentRef{ArtifactName: "name", ArtifactVersion: 7}); err != nil ||
 		name != "name" || version != 7 {
 		t.Fatalf("artifactNameVersion(name) = %q %d %v, want name 7 nil", name, version, err)
 	}
@@ -1608,20 +1608,20 @@ func (s *loadArtifactService) LoadArtifact(
 }
 
 func imageEvent(data []byte) *event.Event {
-	msg := model.NewUserMessage("image")
+	msg := compat.NewUserMessage("image")
 	msg.AddImageData(data, "high", "png")
 	return responseEvent(msg)
 }
 
 func assistantImageEvent(data []byte) *event.Event {
-	msg := model.NewAssistantMessage("image")
+	msg := compat.NewAssistantMessage("image")
 	msg.AddImageData(data, "high", "png")
 	return responseEvent(msg)
 }
 
-func responseEvent(msg model.Message) *event.Event {
-	return event.NewResponseEvent("invocation", "user", &model.Response{
-		Choices: []model.Choice{
+func responseEvent(msg compat.Message) *event.Event {
+	return event.NewResponseEvent("invocation", "user", &compat.Response{
+		Choices: []compat.Choice{
 			{
 				Index:   0,
 				Message: msg,

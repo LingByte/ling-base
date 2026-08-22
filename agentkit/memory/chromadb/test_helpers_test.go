@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type blockingExtractor struct {
@@ -31,7 +31,7 @@ type blockingExtractor struct {
 
 func (e *blockingExtractor) Extract(
 	_ context.Context,
-	_ []model.Message,
+	_ []compat.Message,
 	_ []*memory.Entry,
 ) ([]*extractor.Operation, error) {
 	e.once.Do(func() { close(e.entered) })
@@ -47,7 +47,7 @@ func (e *blockingExtractor) ShouldExtract(_ *extractor.ExtractionContext) bool {
 
 func (e *blockingExtractor) SetPrompt(_ string) {}
 
-func (e *blockingExtractor) SetModel(_ model.Model) {}
+func (e *blockingExtractor) SetModel(_ compat.Model) {}
 
 func (e *blockingExtractor) Metadata() map[string]any { return nil }
 

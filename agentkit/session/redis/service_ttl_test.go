@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/hashidx"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/zset"
@@ -40,8 +40,8 @@ func TestService_SessionTTL(t *testing.T) {
 				require.NoError(t, err)
 
 				testEvent := event.New("test-invocation", "test-author")
-				testEvent.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Test message for TTL test"}}},
+				testEvent.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Test message for TTL test"}}},
 				}
 				err = service.AppendEvent(context.Background(), sess, testEvent)
 				require.NoError(t, err)
@@ -67,8 +67,8 @@ func TestService_SessionTTL(t *testing.T) {
 				require.NoError(t, err)
 
 				testEvent := event.New("test-invocation", "test-author")
-				testEvent.Response = &model.Response{
-					Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Test message for TTL test"}}},
+				testEvent.Response = &compat.Response{
+					Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Test message for TTL test"}}},
 				}
 				err = service.AppendEvent(context.Background(), sess, testEvent)
 				require.NoError(t, err)
@@ -394,8 +394,8 @@ func TestService_TrimConversations_TTLRefresh(t *testing.T) {
 	require.NoError(t, err)
 
 	events := []*event.Event{
-		{ID: "e1", RequestID: "req1", Timestamp: time.Now().Add(-1 * time.Hour), Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "test1"}}}}},
-		{ID: "e2", RequestID: "req2", Timestamp: time.Now(), Response: &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "test2"}}}}},
+		{ID: "e1", RequestID: "req1", Timestamp: time.Now().Add(-1 * time.Hour), Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "test1"}}}}},
+		{ID: "e2", RequestID: "req2", Timestamp: time.Now(), Response: &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "test2"}}}}},
 	}
 	for _, evt := range events {
 		require.NoError(t, service.AppendEvent(ctx, sess, evt))

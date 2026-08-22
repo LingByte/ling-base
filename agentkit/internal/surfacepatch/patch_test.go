@@ -12,7 +12,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
@@ -50,15 +50,15 @@ type stubModel struct {
 
 func (m *stubModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *stubModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *stubModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestWithPatch_MergesBySurfaceTypePerNode(t *testing.T) {
@@ -251,9 +251,9 @@ func TestPatch_ClonesMutableValues(t *testing.T) {
 	modelValue := &stubModel{name: "patched"}
 	repo := stubRepo{}
 	tools := []tool.Tool{dummyTool{name: "first"}}
-	examples := [][]model.Message{{
-		model.NewUserMessage("u1"),
-		model.NewAssistantMessage("a1"),
+	examples := [][]compat.Message{{
+		compat.NewUserMessage("u1"),
+		compat.NewAssistantMessage("a1"),
 	}}
 	declarations := []tool.Declaration{
 		{

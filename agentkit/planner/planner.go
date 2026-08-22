@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // Planner is the interface that all planners must implement.
@@ -29,7 +29,7 @@ type Planner interface {
 	BuildPlanningInstruction(
 		ctx context.Context,
 		invocation *agent.Invocation,
-		llmRequest *model.Request,
+		llmRequest *compat.Request,
 	) string
 
 	// ProcessPlanningResponse processes the LLM response for planning.
@@ -37,6 +37,6 @@ type Planner interface {
 	ProcessPlanningResponse(
 		ctx context.Context,
 		invocation *agent.Invocation,
-		response *model.Response,
-	) *model.Response
+		response *compat.Response,
+	) *compat.Response
 }

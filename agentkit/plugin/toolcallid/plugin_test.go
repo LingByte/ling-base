@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginbase "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -58,7 +58,7 @@ func TestPlugin_AfterModelNoOpsOnNilInputs(t *testing.T) {
 	result, err := plugin.afterModel(context.Background(), nil)
 	require.NoError(t, err)
 	require.Nil(t, result)
-	result, err = plugin.afterModel(context.Background(), &model.AfterModelArgs{})
+	result, err = plugin.afterModel(context.Background(), &compat.AfterModelArgs{})
 	require.NoError(t, err)
 	require.Nil(t, result)
 }
@@ -66,22 +66,22 @@ func TestPlugin_AfterModelNoOpsOnNilInputs(t *testing.T) {
 func TestPlugin_AfterModelBestEffortWithoutInvocation(t *testing.T) {
 	t.Parallel()
 	plugin := newPlugin()
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-1",
 					Type: "function",
 				}},
 			},
 		}},
 	}
-	_, err := plugin.afterModel(context.Background(), &model.AfterModelArgs{Response: rsp})
+	_, err := plugin.afterModel(context.Background(), &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.Equal(t, canonicalToolCallID("", "rsp-1", "call-1", 0, 0), rsp.Choices[0].Message.ToolCalls[0].ID)
 }
@@ -89,15 +89,15 @@ func TestPlugin_AfterModelBestEffortWithoutInvocation(t *testing.T) {
 func TestPlugin_AfterModelCanonicalizesWithInvocationFromContext(t *testing.T) {
 	t.Parallel()
 	plugin := newPlugin()
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:        "rsp-1",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 2,
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID:   "call-9",
 					Type: "function",
 				}},
@@ -105,7 +105,7 @@ func TestPlugin_AfterModelCanonicalizesWithInvocationFromContext(t *testing.T) {
 		}},
 	}
 	ctx := agent.NewInvocationContext(context.Background(), agent.NewInvocation(agent.WithInvocationID("inv-ctx")))
-	_, err := plugin.afterModel(ctx, &model.AfterModelArgs{Response: rsp})
+	_, err := plugin.afterModel(ctx, &compat.AfterModelArgs{Response: rsp})
 	require.NoError(t, err)
 	require.Equal(t, canonicalToolCallID("inv-ctx", "rsp-1", "call-9", 2, 0), rsp.Choices[0].Message.ToolCalls[0].ID)
 }
@@ -113,10 +113,10 @@ func TestPlugin_AfterModelCanonicalizesWithInvocationFromContext(t *testing.T) {
 func TestPlugin_Integration_CanonicalIDPropagatesAcrossCallbacksToolExecutionAndNextRequest(t *testing.T) {
 	modelStub := &capturingToolLoopModel{}
 	var localAfterModelSeenID string
-	localModelCallbacks := model.NewCallbacks().RegisterAfterModel(func(
+	localModelCallbacks := compat.NewCallbacks().RegisterAfterModel(func(
 		ctx context.Context,
-		args *model.AfterModelArgs,
-	) (*model.AfterModelResult, error) {
+		args *compat.AfterModelArgs,
+	) (*compat.AfterModelResult, error) {
 		if args == nil || args.Response == nil {
 			return nil, nil
 		}
@@ -154,7 +154,7 @@ func TestPlugin_Integration_CanonicalIDPropagatesAcrossCallbacksToolExecutionAnd
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	events := collectEvents(eventCh)
@@ -179,16 +179,16 @@ func TestPlugin_Integration_StreamingFinalToolCallResponseCanonicalizesOnlyFinal
 		name: "streaming-final-tool-call-model",
 		calls: []scriptedResponseCall{
 			{
-				responses: []*model.Response{
+				responses: []*compat.Response{
 					{
 						ID:        "rsp-stream",
-						Object:    model.ObjectTypeChatCompletionChunk,
+						Object:    compat.ObjectTypeChatCompletionChunk,
 						IsPartial: true,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Index: 0,
-							Delta: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{{
+							Delta: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{{
 									ID:    "call-1",
 									Type:  "function",
 									Index: intPtr(0),
@@ -198,17 +198,17 @@ func TestPlugin_Integration_StreamingFinalToolCallResponseCanonicalizesOnlyFinal
 					},
 					{
 						ID:        "rsp-stream",
-						Object:    model.ObjectTypeChatCompletion,
+						Object:    compat.ObjectTypeChatCompletion,
 						Done:      true,
 						IsPartial: false,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Index: 0,
-							Message: model.Message{
-								Role: model.RoleAssistant,
-								ToolCalls: []model.ToolCall{{
+							Message: compat.Message{
+								Role: compat.RoleAssistant,
+								ToolCalls: []compat.ToolCall{{
 									ID:   "call-1",
 									Type: "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      "echo",
 										Arguments: []byte(`{"value":"ok"}`),
 									},
@@ -219,14 +219,14 @@ func TestPlugin_Integration_StreamingFinalToolCallResponseCanonicalizesOnlyFinal
 				},
 			},
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-finish",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("done"),
+						Message: compat.NewAssistantMessage("done"),
 					}},
 				}},
 			},
@@ -234,13 +234,13 @@ func TestPlugin_Integration_StreamingFinalToolCallResponseCanonicalizesOnlyFinal
 	}
 	var (
 		mu             sync.Mutex
-		seenResponses  []*model.Response
+		seenResponses  []*compat.Response
 		toolContextIDs []string
 	)
-	localModelCallbacks := model.NewCallbacks().RegisterAfterModel(func(
+	localModelCallbacks := compat.NewCallbacks().RegisterAfterModel(func(
 		ctx context.Context,
-		args *model.AfterModelArgs,
-	) (*model.AfterModelResult, error) {
+		args *compat.AfterModelArgs,
+	) (*compat.AfterModelResult, error) {
 		if args == nil || args.Response == nil {
 			return nil, nil
 		}
@@ -276,7 +276,7 @@ func TestPlugin_Integration_StreamingFinalToolCallResponseCanonicalizesOnlyFinal
 		context.Background(),
 		"user-stream",
 		"session-stream",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	events := collectEvents(eventCh)
@@ -308,30 +308,30 @@ func TestPlugin_Integration_FinalResponseWithDeltaToolCallsCanonicalizesAndRunsT
 		name: "final-delta-tool-call-model",
 		calls: []scriptedResponseCall{
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-delta",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index: 0,
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "echo",
 									Arguments: []byte(`{"value":"ok"}`),
 								},
 							}},
 						},
-						Delta: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+						Delta: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "echo",
 									Arguments: []byte(`{"value":"ok"}`),
 								},
@@ -341,14 +341,14 @@ func TestPlugin_Integration_FinalResponseWithDeltaToolCallsCanonicalizesAndRunsT
 				}},
 			},
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-finish",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("done"),
+						Message: compat.NewAssistantMessage("done"),
 					}},
 				}},
 			},
@@ -356,13 +356,13 @@ func TestPlugin_Integration_FinalResponseWithDeltaToolCallsCanonicalizesAndRunsT
 	}
 	var (
 		mu             sync.Mutex
-		seenResponses  []*model.Response
+		seenResponses  []*compat.Response
 		toolContextIDs []string
 	)
-	localModelCallbacks := model.NewCallbacks().RegisterAfterModel(func(
+	localModelCallbacks := compat.NewCallbacks().RegisterAfterModel(func(
 		ctx context.Context,
-		args *model.AfterModelArgs,
-	) (*model.AfterModelResult, error) {
+		args *compat.AfterModelArgs,
+	) (*compat.AfterModelResult, error) {
 		if args == nil || args.Response == nil {
 			return nil, nil
 		}
@@ -398,7 +398,7 @@ func TestPlugin_Integration_FinalResponseWithDeltaToolCallsCanonicalizesAndRunsT
 		context.Background(),
 		"user-final-delta",
 		"session-final-delta",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	events := collectEvents(eventCh)
@@ -425,19 +425,19 @@ func TestPlugin_Integration_RepeatedRawToolCallIDAcrossLLMCallsProducesDistinctC
 		name: "repeated-tool-call-id-model",
 		calls: []scriptedResponseCall{
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-1",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index: 0,
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "echo",
 									Arguments: []byte(`{"value":"first"}`),
 								},
@@ -447,19 +447,19 @@ func TestPlugin_Integration_RepeatedRawToolCallIDAcrossLLMCallsProducesDistinctC
 				}},
 			},
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-2",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index: 0,
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call-1",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "echo",
 									Arguments: []byte(`{"value":"second"}`),
 								},
@@ -469,14 +469,14 @@ func TestPlugin_Integration_RepeatedRawToolCallIDAcrossLLMCallsProducesDistinctC
 				}},
 			},
 			{
-				responses: []*model.Response{{
+				responses: []*compat.Response{{
 					ID:        "rsp-3",
-					Object:    model.ObjectTypeChatCompletion,
+					Object:    compat.ObjectTypeChatCompletion,
 					Done:      true,
 					IsPartial: false,
-					Choices: []model.Choice{{
+					Choices: []compat.Choice{{
 						Index:   0,
-						Message: model.NewAssistantMessage("done"),
+						Message: compat.NewAssistantMessage("done"),
 					}},
 				}},
 			},
@@ -512,7 +512,7 @@ func TestPlugin_Integration_RepeatedRawToolCallIDAcrossLLMCallsProducesDistinctC
 		context.Background(),
 		"user-repeat",
 		"session-repeat",
-		model.NewUserMessage("hello"),
+		compat.NewUserMessage("hello"),
 	)
 	require.NoError(t, err)
 	events := collectEvents(eventCh)
@@ -543,32 +543,32 @@ type capturingToolLoopModel struct {
 	requests []*capturedRequest
 }
 
-func (m *capturingToolLoopModel) Info() model.Info {
-	return model.Info{Name: "capturing-tool-loop-model"}
+func (m *capturingToolLoopModel) Info() compat.Info {
+	return compat.Info{Name: "capturing-tool-loop-model"}
 }
 
 func (m *capturingToolLoopModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.requests = append(m.requests, cloneCapturedRequest(req))
 	callIndex := len(m.requests) - 1
 	m.mu.Unlock()
-	var rsp *model.Response
+	var rsp *compat.Response
 	if callIndex == 0 {
-		rsp = &model.Response{
+		rsp = &compat.Response{
 			ID:        "rsp-1",
 			Done:      true,
 			IsPartial: false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call-1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "echo",
 							Arguments: []byte(`{"value":"ok"}`),
 						},
@@ -577,17 +577,17 @@ func (m *capturingToolLoopModel) GenerateContent(
 			}},
 		}
 	} else {
-		rsp = &model.Response{
+		rsp = &compat.Response{
 			ID:        "rsp-2",
 			Done:      true,
 			IsPartial: false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("done"),
+				Message: compat.NewAssistantMessage("done"),
 			}},
 		}
 	}
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- rsp
 	close(ch)
 	return ch, nil
@@ -604,7 +604,7 @@ func (m *capturingToolLoopModel) Requests() []*capturedRequest {
 }
 
 type scriptedResponseCall struct {
-	responses []*model.Response
+	responses []*compat.Response
 }
 
 type scriptedResponseModel struct {
@@ -614,23 +614,23 @@ type scriptedResponseModel struct {
 	requests []*capturedRequest
 }
 
-func (m *scriptedResponseModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *scriptedResponseModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func (m *scriptedResponseModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.requests = append(m.requests, cloneCapturedRequest(req))
 	callIndex := len(m.requests) - 1
-	var responses []*model.Response
+	var responses []*compat.Response
 	if callIndex < len(m.calls) {
 		responses = m.calls[callIndex].responses
 	}
 	m.mu.Unlock()
-	ch := make(chan *model.Response, len(responses))
+	ch := make(chan *compat.Response, len(responses))
 	for _, rsp := range responses {
 		ch <- cloneToolCallTestResponse(rsp)
 	}
@@ -649,14 +649,14 @@ func (m *scriptedResponseModel) Requests() []*capturedRequest {
 }
 
 type capturedRequest struct {
-	messages []model.Message
+	messages []compat.Message
 }
 
-func cloneCapturedRequest(req *model.Request) *capturedRequest {
+func cloneCapturedRequest(req *compat.Request) *capturedRequest {
 	if req == nil {
 		return nil
 	}
-	messages := make([]model.Message, len(req.Messages))
+	messages := make([]compat.Message, len(req.Messages))
 	for i, msg := range req.Messages {
 		messages[i] = cloneMessage(msg)
 	}
@@ -667,19 +667,19 @@ func cloneCapturedRequestValue(req *capturedRequest) *capturedRequest {
 	if req == nil {
 		return nil
 	}
-	messages := make([]model.Message, len(req.messages))
+	messages := make([]compat.Message, len(req.messages))
 	for i, msg := range req.messages {
 		messages[i] = cloneMessage(msg)
 	}
 	return &capturedRequest{messages: messages}
 }
 
-func cloneToolCallTestResponse(rsp *model.Response) *model.Response {
+func cloneToolCallTestResponse(rsp *compat.Response) *compat.Response {
 	if rsp == nil {
 		return nil
 	}
 	cloned := rsp.Clone()
-	choices := make([]model.Choice, len(rsp.Choices))
+	choices := make([]compat.Choice, len(rsp.Choices))
 	for i, choice := range rsp.Choices {
 		choices[i] = choice
 		choices[i].Message = cloneMessage(choice.Message)
@@ -689,13 +689,13 @@ func cloneToolCallTestResponse(rsp *model.Response) *model.Response {
 	return cloned
 }
 
-func cloneMessage(message model.Message) model.Message {
+func cloneMessage(message compat.Message) compat.Message {
 	cloned := message
 	if len(message.ToolCalls) > 0 {
-		cloned.ToolCalls = append([]model.ToolCall(nil), message.ToolCalls...)
+		cloned.ToolCalls = append([]compat.ToolCall(nil), message.ToolCalls...)
 	}
 	if len(message.ContentParts) > 0 {
-		cloned.ContentParts = append([]model.ContentPart(nil), message.ContentParts...)
+		cloned.ContentParts = append([]compat.ContentPart(nil), message.ContentParts...)
 	}
 	return cloned
 }
@@ -718,30 +718,30 @@ func firstInvocationID(events []*event.Event) string {
 	return ""
 }
 
-func firstAssistantToolCall(messages []model.Message) (model.ToolCall, bool) {
+func firstAssistantToolCall(messages []compat.Message) (compat.ToolCall, bool) {
 	for _, msg := range messages {
-		if msg.Role != model.RoleAssistant || len(msg.ToolCalls) == 0 {
+		if msg.Role != compat.RoleAssistant || len(msg.ToolCalls) == 0 {
 			continue
 		}
 		return msg.ToolCalls[0], true
 	}
-	return model.ToolCall{}, false
+	return compat.ToolCall{}, false
 }
 
-func firstToolResultMessage(messages []model.Message) (model.Message, bool) {
+func firstToolResultMessage(messages []compat.Message) (compat.Message, bool) {
 	for _, msg := range messages {
-		if msg.Role != model.RoleTool || msg.ToolID == "" {
+		if msg.Role != compat.RoleTool || msg.ToolID == "" {
 			continue
 		}
 		return msg, true
 	}
-	return model.Message{}, false
+	return compat.Message{}, false
 }
 
-func collectAssistantToolCallIDs(messages []model.Message) []string {
+func collectAssistantToolCallIDs(messages []compat.Message) []string {
 	var ids []string
 	for _, msg := range messages {
-		if msg.Role != model.RoleAssistant {
+		if msg.Role != compat.RoleAssistant {
 			continue
 		}
 		for _, toolCall := range msg.ToolCalls {
@@ -751,10 +751,10 @@ func collectAssistantToolCallIDs(messages []model.Message) []string {
 	return ids
 }
 
-func collectToolResultIDs(messages []model.Message) []string {
+func collectToolResultIDs(messages []compat.Message) []string {
 	var ids []string
 	for _, msg := range messages {
-		if msg.Role != model.RoleTool || msg.ToolID == "" {
+		if msg.Role != compat.RoleTool || msg.ToolID == "" {
 			continue
 		}
 		ids = append(ids, msg.ToolID)

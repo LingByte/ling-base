@@ -24,7 +24,7 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -1721,34 +1721,34 @@ func TestBuildLLMObservationOutput_PrefersLegacyOverLLMResponse(t *testing.T) {
 }
 
 func TestSanitizeSingleMessageForObservation_AndTruncateBytesHeadTail(t *testing.T) {
-	msg := model.Message{
+	msg := compat.Message{
 		Content:          strings.Repeat("content", 20),
 		ReasoningContent: strings.Repeat("reason", 20),
 		ToolID:           strings.Repeat("id", 30),
 		ToolName:         strings.Repeat("tool", 20),
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			ID: strings.Repeat("call", 20),
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:        strings.Repeat("name", 20),
 				Description: strings.Repeat("desc", 20),
 				Arguments:   []byte(strings.Repeat("arg", 40)),
 			},
 		}},
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeText, Text: strPtr(strings.Repeat("text", 30))},
-			{Type: model.ContentTypeFile, File: &model.File{
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeText, Text: strPtr(strings.Repeat("text", 30))},
+			{Type: compat.ContentTypeFile, File: &compat.File{
 				Name:     strings.Repeat("file", 20),
 				FileID:   strings.Repeat("id", 20),
 				MimeType: strings.Repeat("mime", 20),
 				Data:     []byte(strings.Repeat("f", 200)),
 			}},
-			{Type: model.ContentTypeImage, Image: &model.Image{
+			{Type: compat.ContentTypeImage, Image: &compat.Image{
 				URL:    strings.Repeat("url", 20),
 				Detail: strings.Repeat("detail", 20),
 				Format: strings.Repeat("format", 20),
 				Data:   []byte(strings.Repeat("i", 200)),
 			}},
-			{Type: model.ContentTypeAudio, Audio: &model.Audio{
+			{Type: compat.ContentTypeAudio, Audio: &compat.Audio{
 				Format: strings.Repeat("audio", 20),
 				Data:   []byte(strings.Repeat("a", 200)),
 			}},

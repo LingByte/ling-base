@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -138,7 +138,7 @@ func TestContributions_AccessorsReturnCopies(t *testing.T) {
 			name: "ext",
 			register: func(r *Registry) {
 				r.Tools(fakeTool{name: "alpha"})
-				r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+				r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 					return nil, nil
 				})
 			},
@@ -204,11 +204,11 @@ func TestCollect_MergesCallbacksAcrossExtensions_InInstallOrder(t *testing.T) {
 					order = append(order, "after-agent:a")
 					return nil, nil
 				})
-				r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+				r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 					order = append(order, "before-model:a")
 					return nil, nil
 				})
-				r.AfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+				r.AfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 					order = append(order, "after-model:a")
 					return nil, nil
 				})
@@ -263,10 +263,10 @@ func TestRegistry_Callbacks_WrapErrorsWithExtensionName(t *testing.T) {
 				r.AfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 					return nil, sentinel
 				})
-				r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+				r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 					return nil, sentinel
 				})
-				r.AfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+				r.AfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 					return nil, sentinel
 				})
 				r.BeforeTool(func(ctx context.Context, args *tool.BeforeToolArgs) (*tool.BeforeToolResult, error) {
@@ -292,9 +292,9 @@ func TestRegistry_Callbacks_WrapErrorsWithExtensionName(t *testing.T) {
 	results = append(results, runResult{"before-agent", rErr})
 	_, rErr = contrib.AgentCallbacks().RunAfterAgent(ctx, &agent.AfterAgentArgs{})
 	results = append(results, runResult{"after-agent", rErr})
-	_, rErr = contrib.ModelCallbacks().RunBeforeModel(ctx, &model.BeforeModelArgs{})
+	_, rErr = contrib.ModelCallbacks().RunBeforeModel(ctx, &compat.BeforeModelArgs{})
 	results = append(results, runResult{"before-model", rErr})
-	_, rErr = contrib.ModelCallbacks().RunAfterModel(ctx, &model.AfterModelArgs{})
+	_, rErr = contrib.ModelCallbacks().RunAfterModel(ctx, &compat.AfterModelArgs{})
 	results = append(results, runResult{"after-model", rErr})
 	_, rErr = contrib.ToolCallbacks().RunBeforeTool(ctx, &tool.BeforeToolArgs{ToolName: "x"})
 	results = append(results, runResult{"before-tool", rErr})
@@ -327,11 +327,11 @@ func TestRegistry_Callbacks_PassThroughOnSuccess(t *testing.T) {
 				r.AfterAgent(func(ctx context.Context, args *agent.AfterAgentArgs) (*agent.AfterAgentResult, error) {
 					return &agent.AfterAgentResult{}, nil
 				})
-				r.BeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
-					return &model.BeforeModelResult{}, nil
+				r.BeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
+					return &compat.BeforeModelResult{}, nil
 				})
-				r.AfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
-					return &model.AfterModelResult{}, nil
+				r.AfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
+					return &compat.AfterModelResult{}, nil
 				})
 				r.BeforeTool(func(ctx context.Context, args *tool.BeforeToolArgs) (*tool.BeforeToolResult, error) {
 					return &tool.BeforeToolResult{}, nil
@@ -350,9 +350,9 @@ func TestRegistry_Callbacks_PassThroughOnSuccess(t *testing.T) {
 	assert.NoError(t, rErr, "BeforeAgent success must surface as nil error through the wrapper")
 	_, rErr = contrib.AgentCallbacks().RunAfterAgent(ctx, &agent.AfterAgentArgs{})
 	assert.NoError(t, rErr, "AfterAgent success must surface as nil error through the wrapper")
-	_, rErr = contrib.ModelCallbacks().RunBeforeModel(ctx, &model.BeforeModelArgs{})
+	_, rErr = contrib.ModelCallbacks().RunBeforeModel(ctx, &compat.BeforeModelArgs{})
 	assert.NoError(t, rErr, "BeforeModel success must surface as nil error through the wrapper")
-	_, rErr = contrib.ModelCallbacks().RunAfterModel(ctx, &model.AfterModelArgs{})
+	_, rErr = contrib.ModelCallbacks().RunAfterModel(ctx, &compat.AfterModelArgs{})
 	assert.NoError(t, rErr, "AfterModel success must surface as nil error through the wrapper")
 	_, rErr = contrib.ToolCallbacks().RunBeforeTool(ctx, &tool.BeforeToolArgs{ToolName: "x"})
 	assert.NoError(t, rErr, "BeforeTool success must surface as nil error through the wrapper")
@@ -393,8 +393,8 @@ func TestContributions_IsEmpty(t *testing.T) {
 	assert.False(t, withTool.IsEmpty(),
 		"a Contributions that carries any tool is non-empty even if no callbacks were registered")
 
-	withModelCB := &Contributions{modelCallbacks: model.NewCallbacks()}
-	withModelCB.modelCallbacks.RegisterBeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	withModelCB := &Contributions{modelCallbacks: compat.NewCallbacks()}
+	withModelCB.modelCallbacks.RegisterBeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		return nil, nil
 	})
 	assert.False(t, withModelCB.IsEmpty(),

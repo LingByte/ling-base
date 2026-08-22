@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	storage "github.com/LingByte/ling-base/agentkit/storage/clickhouse"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +26,7 @@ type mockSummarizer struct {
 }
 
 // SetModel implements summary.SessionSummarizer.
-func (*mockSummarizer) SetModel(m model.Model) {
+func (*mockSummarizer) SetModel(m compat.Model) {
 	panic("unimplemented")
 }
 

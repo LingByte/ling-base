@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	promptstate "github.com/LingByte/ling-base/agentkit/internal/prompt/adapter/state"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // InstructionRequestProcessor implements instruction processing logic.
@@ -158,7 +158,7 @@ func NewInstructionRequestProcessor(
 func (p *InstructionRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if invocation == nil {
@@ -317,7 +317,7 @@ func (p *InstructionRequestProcessor) injectStateIntoContent(
 }
 
 // updateRequestMessages updates the request messages with processed instructions.
-func (p *InstructionRequestProcessor) updateRequestMessages(req *model.Request, processedInstruction, processedSystemPrompt string) {
+func (p *InstructionRequestProcessor) updateRequestMessages(req *compat.Request, processedInstruction, processedSystemPrompt string) {
 	systemMsgIndex := findSystemMessageIndex(req.Messages)
 
 	if systemMsgIndex >= 0 {
@@ -329,7 +329,7 @@ func (p *InstructionRequestProcessor) updateRequestMessages(req *model.Request, 
 
 // updateExistingSystemMessage updates an existing system message with new instructions.
 func (p *InstructionRequestProcessor) updateExistingSystemMessage(
-	req *model.Request, systemMsgIndex int, processedInstruction, processedSystemPrompt string,
+	req *compat.Request, systemMsgIndex int, processedInstruction, processedSystemPrompt string,
 ) {
 	systemMsg := &req.Messages[systemMsgIndex]
 
@@ -352,13 +352,13 @@ func (p *InstructionRequestProcessor) updateExistingSystemMessage(
 
 // createNewSystemMessage creates a new system message with combined instructions.
 func (p *InstructionRequestProcessor) createNewSystemMessage(
-	req *model.Request, processedInstruction, processedSystemPrompt string,
+	req *compat.Request, processedInstruction, processedSystemPrompt string,
 ) {
 	systemContent := p.buildSystemContent(processedInstruction, processedSystemPrompt)
 
 	if systemContent != "" {
-		systemMsg := model.NewSystemMessage(systemContent)
-		req.Messages = append([]model.Message{systemMsg}, req.Messages...)
+		systemMsg := compat.NewSystemMessage(systemContent)
+		req.Messages = append([]compat.Message{systemMsg}, req.Messages...)
 		log.Debugf(
 			"Instruction request processor: added combined system message",
 		)
@@ -402,7 +402,7 @@ func (p *InstructionRequestProcessor) sendPreprocessingEvent(
 	if err := agent.EmitEvent(ctx, invocation, ch, event.New(
 		invocation.InvocationID,
 		invocation.AgentName,
-		event.WithObject(model.ObjectTypePreprocessingInstruction),
+		event.WithObject(compat.ObjectTypePreprocessingInstruction),
 	)); err != nil {
 		log.DebugfContext(
 			ctx,
@@ -413,18 +413,18 @@ func (p *InstructionRequestProcessor) sendPreprocessingEvent(
 
 // findSystemMessageIndex finds the index of the first system message in the messages slice.
 // Returns -1 if no system message is found.
-func findSystemMessageIndex(messages []model.Message) int {
+func findSystemMessageIndex(messages []compat.Message) int {
 	for i, msg := range messages {
-		if msg.Role == model.RoleSystem {
+		if msg.Role == compat.RoleSystem {
 			return i
 		}
 	}
 	return -1
 }
 
-func findLastSystemMessageIndex(messages []model.Message) int {
+func findLastSystemMessageIndex(messages []compat.Message) int {
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == model.RoleSystem {
+		if messages[i].Role == compat.RoleSystem {
 			return i
 		}
 	}

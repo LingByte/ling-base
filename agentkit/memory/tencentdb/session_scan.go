@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -47,7 +47,7 @@ func scanTranscript(sess *session.Session, since time.Time) scanResult {
 		}
 		for _, choice := range e.Response.Choices {
 			msg := choice.Message
-			if msg.Role != model.RoleUser && msg.Role != model.RoleAssistant {
+			if msg.Role != compat.RoleUser && msg.Role != compat.RoleAssistant {
 				continue
 			}
 			content := messageText(msg)
@@ -113,9 +113,9 @@ func lastUserAssistantPair(messages []tdaiMessage) (string, string) {
 	var lastAssistant string
 	for _, msg := range messages {
 		switch msg.Role {
-		case string(model.RoleUser):
+		case string(compat.RoleUser):
 			pendingUser = strings.TrimSpace(msg.Content)
-		case string(model.RoleAssistant):
+		case string(compat.RoleAssistant):
 			assistant := strings.TrimSpace(msg.Content)
 			if pendingUser != "" && assistant != "" {
 				lastUser = pendingUser
@@ -126,7 +126,7 @@ func lastUserAssistantPair(messages []tdaiMessage) (string, string) {
 	return lastUser, lastAssistant
 }
 
-func messageText(msg model.Message) string {
+func messageText(msg compat.Message) string {
 	if strings.TrimSpace(msg.Content) != "" {
 		return strings.TrimSpace(msg.Content)
 	}
@@ -135,7 +135,7 @@ func messageText(msg model.Message) string {
 	}
 	parts := make([]string, 0, len(msg.ContentParts))
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		text := strings.TrimSpace(*part.Text)

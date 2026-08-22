@@ -14,45 +14,45 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestMergeConsecutiveMessages_EmptyInput(t *testing.T) {
-	var messages []model.Message
+	var messages []compat.Message
 	require.Nil(t, mergeConsecutiveMessages(messages, "\n\n"))
 }
 
 func TestCanMergeConsecutiveMessage(t *testing.T) {
 	testCases := []struct {
 		name string
-		msg  model.Message
+		msg  compat.Message
 		want bool
 	}{
 		{
 			name: "supported user role",
-			msg:  model.NewUserMessage("hello"),
+			msg:  compat.NewUserMessage("hello"),
 			want: true,
 		},
 		{
 			name: "tool id prevents merge",
-			msg: model.Message{
-				Role:   model.RoleUser,
+			msg: compat.Message{
+				Role:   compat.RoleUser,
 				ToolID: "call_1",
 			},
 			want: false,
 		},
 		{
 			name: "tool name prevents merge",
-			msg: model.Message{
-				Role:     model.RoleAssistant,
+			msg: compat.Message{
+				Role:     compat.RoleAssistant,
 				ToolName: "search",
 			},
 			want: false,
 		},
 		{
 			name: "unsupported role is skipped",
-			msg: model.Message{
-				Role: model.RoleTool,
+			msg: compat.Message{
+				Role: compat.RoleTool,
 			},
 			want: false,
 		},
@@ -72,19 +72,19 @@ func TestJoinMessageText(t *testing.T) {
 
 func TestCloneMessage_ClonesTopLevelSlices(t *testing.T) {
 	text := "before"
-	original := model.Message{
-		Role: model.RoleAssistant,
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+	original := compat.Message{
+		Role: compat.RoleAssistant,
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &text,
 		}},
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			ID: "call_1",
 		}},
 	}
 	cloned := cloneMessage(original)
 	original.ContentParts[0] = textContentPart("after")
-	original.ToolCalls[0] = model.ToolCall{ID: "call_2"}
+	original.ToolCalls[0] = compat.ToolCall{ID: "call_2"}
 	require.NotNil(t, cloned.ContentParts[0].Text)
 	require.Equal(t, "before", *cloned.ContentParts[0].Text)
 	require.Equal(t, "call_1", cloned.ToolCalls[0].ID)
@@ -92,44 +92,44 @@ func TestCloneMessage_ClonesTopLevelSlices(t *testing.T) {
 
 func TestMessageTextBoundaries(t *testing.T) {
 	empty := ""
-	imageOnly := model.Message{
-		ContentParts: []model.ContentPart{{
-			Type:  model.ContentTypeImage,
-			Image: &model.Image{URL: "https://example.com/image.png"},
+	imageOnly := compat.Message{
+		ContentParts: []compat.ContentPart{{
+			Type:  compat.ContentTypeImage,
+			Image: &compat.Image{URL: "https://example.com/image.png"},
 		}},
 	}
-	emptyTextPart := model.Message{
-		ContentParts: []model.ContentPart{{
-			Type: model.ContentTypeText,
+	emptyTextPart := compat.Message{
+		ContentParts: []compat.ContentPart{{
+			Type: compat.ContentTypeText,
 			Text: &empty,
 		}},
 	}
-	require.False(t, messageStartsWithText(model.Message{}))
-	require.True(t, messageStartsWithText(model.NewUserMessage("hello")))
+	require.False(t, messageStartsWithText(compat.Message{}))
+	require.True(t, messageStartsWithText(compat.NewUserMessage("hello")))
 	require.False(t, messageStartsWithText(imageOnly))
 	require.False(t, messageStartsWithText(emptyTextPart))
-	require.False(t, messageEndsWithText(model.Message{}))
-	require.True(t, messageEndsWithText(model.NewAssistantMessage("world")))
+	require.False(t, messageEndsWithText(compat.Message{}))
+	require.True(t, messageEndsWithText(compat.NewAssistantMessage("world")))
 	require.False(t, messageEndsWithText(imageOnly))
 	require.False(t, messageEndsWithText(emptyTextPart))
 }
 
 func TestShouldInsertMessageSeparator(t *testing.T) {
-	dst := model.NewUserMessage("alpha")
-	src := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
+	dst := compat.NewUserMessage("alpha")
+	src := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
 			textContentPart("beta"),
 		},
 	}
 	require.True(t, shouldInsertMessageSeparator(dst, src, "\n\n"))
 	require.False(t, shouldInsertMessageSeparator(dst, src, ""))
 	require.False(t, shouldInsertMessageSeparator(
-		model.Message{
-			Role: model.RoleUser,
-			ContentParts: []model.ContentPart{{
-				Type:  model.ContentTypeImage,
-				Image: &model.Image{URL: "https://example.com/last.png"},
+		compat.Message{
+			Role: compat.RoleUser,
+			ContentParts: []compat.ContentPart{{
+				Type:  compat.ContentTypeImage,
+				Image: &compat.Image{URL: "https://example.com/last.png"},
 			}},
 		},
 		src,
@@ -138,17 +138,17 @@ func TestShouldInsertMessageSeparator(t *testing.T) {
 }
 
 func TestMergeMessage_AppendsSourceToolCalls(t *testing.T) {
-	dst := model.Message{
-		Role:    model.RoleAssistant,
+	dst := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "first",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			ID: "call_1",
 		}},
 	}
-	src := model.Message{
-		Role:    model.RoleAssistant,
+	src := compat.Message{
+		Role:    compat.RoleAssistant,
 		Content: "second",
-		ToolCalls: []model.ToolCall{{
+		ToolCalls: []compat.ToolCall{{
 			ID: "call_2",
 		}},
 	}

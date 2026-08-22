@@ -43,7 +43,7 @@ import (
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/summary"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -87,7 +87,7 @@ func InvocationFilteredTraceableUserToolNames(invocation *agent.Invocation) ([]s
 // Options contains configuration options for creating a Flow.
 type Options struct {
 	ChannelBufferSize               int // Buffer size for event channels (default: 256).
-	ModelCallbacks                  *model.Callbacks
+	ModelCallbacks                  *compat.Callbacks
 	BaseModelResolver               BaseModelResolver
 	ModelSelector                   agent.ModelSelector
 	SyncSummaryIntraRun             bool
@@ -107,7 +107,7 @@ type ToolActivationApplier func(
 
 // ModelBaseResolution describes the base model for one LLM call.
 type ModelBaseResolution struct {
-	Model              model.Model
+	Model              compat.Model
 	AllowAgentSelector bool
 }
 
@@ -119,7 +119,7 @@ type Flow struct {
 	requestProcessors               []flow.RequestProcessor
 	responseProcessors              []flow.ResponseProcessor
 	channelBufferSize               int
-	modelCallbacks                  *model.Callbacks
+	modelCallbacks                  *compat.Callbacks
 	baseModelResolver               BaseModelResolver
 	modelSelector                   agent.ModelSelector
 	syncSummaryIntraRun             bool
@@ -135,15 +135,15 @@ type contextCompactionTailProcessor interface {
 	RebuildRequestForContextCompaction(
 		ctx context.Context,
 		invocation *agent.Invocation,
-		req *model.Request,
+		req *compat.Request,
 	)
 }
 
 type contextCompactionRebuildPlan struct {
-	beforeContent                *model.Request
+	beforeContent                *compat.Request
 	contentProcessor             *processor.ContentRequestProcessor
 	tailProcessors               []contextCompactionTailProcessor
-	callLimitFinalizationMessage *model.Message
+	callLimitFinalizationMessage *compat.Message
 }
 
 type summarySnapshot struct {
@@ -268,7 +268,7 @@ func (f *Flow) Run(ctx context.Context, invocation *agent.Invocation) (<-chan *e
 					errorEvent = event.NewErrorEvent(
 						invocation.InvocationID,
 						invocation.AgentName,
-						model.ErrorTypeFlowError,
+						compat.ErrorTypeFlowError,
 						err.Error(),
 					)
 					log.ErrorfContext(
@@ -319,7 +319,7 @@ func recoverFlowRunPanic(
 	errorEvent := event.NewErrorEvent(
 		flowInvocationID(invocation),
 		flowAgentName(invocation),
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 		fmt.Sprintf(flowRunPanicErrFmt, recovered),
 	)
 	agent.EmitEvent(ctx, invocation, eventChan, errorEvent)
@@ -339,7 +339,7 @@ func flowAgentName(invocation *agent.Invocation) string {
 	return invocation.AgentName
 }
 
-func traceSnapshotFromMessages(messages []model.Message) *atrace.Snapshot {
+func traceSnapshotFromMessages(messages []compat.Message) *atrace.Snapshot {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -396,9 +396,9 @@ func (f *Flow) maybeConsumeQueuedUserMessages(
 		evt := event.NewResponseEvent(
 			invocation.InvocationID,
 			queuedUserAuthor,
-			&model.Response{
+			&compat.Response{
 				Done: false,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index:   0,
 					Message: message,
 				}},
@@ -481,7 +481,7 @@ func (f *Flow) maybeResumePendingToolCalls(
 
 	invocation.Session.EventMu.RLock()
 	events := invocation.Session.Events
-	var lastResp *model.Response
+	var lastResp *compat.Response
 	if len(events) > 0 {
 		last := events[len(events)-1]
 		if last.Response != nil && !last.IsPartial &&
@@ -496,7 +496,7 @@ func (f *Flow) maybeResumePendingToolCalls(
 	}
 	resumed = true
 
-	req := &model.Request{
+	req := &compat.Request{
 		Tools: make(map[string]tool.Tool),
 	}
 	f.populateRequestTools(ctx, invocation, req)
@@ -588,7 +588,7 @@ func (f *Flow) emitStartEventAndWait(ctx context.Context, invocation *agent.Invo
 func (f *Flow) selectModelForStep(
 	ctx context.Context,
 	invocation *agent.Invocation,
-) (selectedModel model.Model, err error) {
+) (selectedModel compat.Model, err error) {
 	ctx, span, started := startLatencySpan(
 		ctx,
 		invocation,
@@ -641,7 +641,7 @@ func runModelSelector(
 	ctx context.Context,
 	selector agent.ModelSelector,
 	invocation *agent.Invocation,
-) (selected model.Model, err error) {
+) (selected compat.Model, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf(log.PanicPrefix+" model selector panic: %v\n%s", r, debug.Stack())
@@ -682,7 +682,7 @@ func (f *Flow) runOneStep(
 		}
 	}()
 	// Initialize empty LLM request.
-	llmRequest := &model.Request{
+	llmRequest := &compat.Request{
 		Tools: make(map[string]tool.Tool), // Initialize tools map
 	}
 	callModel, err := f.selectModelForStep(ctx, invocation)
@@ -705,7 +705,7 @@ func (f *Flow) runOneStep(
 		invocation,
 		invocation.MaxLLMCalls,
 	); ok && rebuildPlan != nil {
-		message := model.NewUserMessage(instruction)
+		message := compat.NewUserMessage(instruction)
 		rebuildPlan.callLimitFinalizationMessage = &message
 	}
 	llmRequest = f.maybeCompactContextBeforeLLM(
@@ -733,11 +733,11 @@ func (f *Flow) runOneStep(
 	if err != nil {
 		return nil, err
 	}
-	var lastCompleteUsage *model.Usage
+	var lastCompleteUsage *compat.Usage
 	if modelCalled && invocation != nil && invocation.RunOptions.ExecutionTraceEnabled {
 		modelResponseSeq := responseSeq
-		responseSeq = func(yield func(*model.Response) bool) {
-			modelResponseSeq(func(response *model.Response) bool {
+		responseSeq = func(yield func(*compat.Response) bool) {
+			modelResponseSeq(func(response *compat.Response) bool {
 				if response != nil && !response.IsPartial && response.Usage != nil {
 					usage := *response.Usage
 					lastCompleteUsage = &usage
@@ -771,8 +771,8 @@ func (f *Flow) processStreamingResponses(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	observabilityInvocation *agent.Invocation,
-	llmRequest *model.Request,
-	responseSeq model.Seq[*model.Response],
+	llmRequest *compat.Request,
+	responseSeq compat.Seq[*compat.Response],
 	eventChan chan<- *event.Event,
 	span oteltrace.Span,
 	startedSpan bool,
@@ -828,7 +828,7 @@ func (f *Flow) processStreamingResponses(
 	if processor.tracker != nil {
 		defer processor.tracker.RecordMetrics()()
 	}
-	responseSeq(func(response *model.Response) bool {
+	responseSeq(func(response *compat.Response) bool {
 		return processor.process(response)
 	})
 	if err != nil {
@@ -843,13 +843,13 @@ type streamingResponseProcessor struct {
 	invocation              *agent.Invocation
 	observabilityInvocation *agent.Invocation
 	currentInvocation       *agent.Invocation
-	llmRequest              *model.Request
+	llmRequest              *compat.Request
 	eventChan               chan<- *event.Event
 	span                    oteltrace.Span
 	startedSpan             bool
 	chatTraceState          itelemetry.ChatTraceState
 	tracker                 *itelemetry.ChatMetricsTracker
-	timingInfo              *model.TimingInfo
+	timingInfo              *compat.TimingInfo
 	partialUsageState       responseusage.PartialState
 	lastEvent               *event.Event
 	err                     *error
@@ -866,7 +866,7 @@ func newStreamingResponseProcessor(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	observabilityInvocation *agent.Invocation,
-	llmRequest *model.Request,
+	llmRequest *compat.Request,
 	eventChan chan<- *event.Event,
 	span oteltrace.Span,
 	startedSpan bool,
@@ -907,7 +907,7 @@ func newStreamingResponseProcessor(
 }
 
 func (p *streamingResponseProcessor) process(
-	response *model.Response,
+	response *compat.Response,
 ) bool {
 	p.recordResponseStats(response)
 	traceDetails := latencyTraceResponseDetails(response)
@@ -1016,14 +1016,14 @@ func (p *streamingResponseProcessor) process(
 	return true
 }
 
-func validateCompletedToolCallNames(response *model.Response) error {
+func validateCompletedToolCallNames(response *compat.Response) error {
 	if response == nil || response.IsPartial {
 		return nil
 	}
 	for choiceIndex, choice := range response.Choices {
 		messages := []struct {
 			location  string
-			toolCalls []model.ToolCall
+			toolCalls []compat.ToolCall
 		}{
 			{location: "message", toolCalls: choice.Message.ToolCalls},
 			{location: "delta", toolCalls: choice.Delta.ToolCalls},
@@ -1047,7 +1047,7 @@ func validateCompletedToolCallNames(response *model.Response) error {
 	return nil
 }
 
-func (p *streamingResponseProcessor) recordResponseStats(response *model.Response) {
+func (p *streamingResponseProcessor) recordResponseStats(response *compat.Response) {
 	p.responseCount++
 	if response == nil {
 		return
@@ -1085,10 +1085,10 @@ func (p *streamingResponseProcessor) eventInvocation() *agent.Invocation {
 }
 
 func (p *streamingResponseProcessor) applyCallbackResponse(
-	response *model.Response,
-	customResp *model.Response,
+	response *compat.Response,
+	customResp *compat.Response,
 	callbackTimingAttachment responseusage.TimingAttachment,
-) *model.Response {
+) *compat.Response {
 	if customResp != nil {
 		callbackTimingAttachment.Restore()
 		return customResp
@@ -1098,7 +1098,7 @@ func (p *streamingResponseProcessor) applyCallbackResponse(
 }
 
 func (p *streamingResponseProcessor) repairToolCallArguments(
-	response *model.Response,
+	response *compat.Response,
 ) {
 	if p.currentInvocation == nil {
 		return
@@ -1110,7 +1110,7 @@ func (p *streamingResponseProcessor) repairToolCallArguments(
 }
 
 func (p *streamingResponseProcessor) repairToolCallTextAndStats(
-	response *model.Response,
+	response *compat.Response,
 ) {
 	wasToolResponse := response != nil &&
 		(response.IsToolCallResponse() || response.IsToolResultResponse())
@@ -1121,7 +1121,7 @@ func (p *streamingResponseProcessor) repairToolCallTextAndStats(
 }
 
 func (p *streamingResponseProcessor) repairToolCallText(
-	response *model.Response,
+	response *compat.Response,
 ) bool {
 	if p.currentInvocation == nil {
 		return false
@@ -1133,22 +1133,22 @@ func (p *streamingResponseProcessor) repairToolCallText(
 }
 
 func (p *streamingResponseProcessor) shouldBufferToolCallTextPartial(
-	response *model.Response,
+	response *compat.Response,
 ) bool {
 	return response != nil && response.IsPartial &&
 		p.currentInvocation != nil &&
 		isToolCallTextRepairEnabled(p.currentInvocation) &&
-		p.llmRequest != nil && len(p.llmRequest.Tools) > 0 &&
+		p.llmRequest != nil && toolsLen(p.llmRequest.Tools) > 0 &&
 		responseMayContainTextToolCall(response)
 }
 
-func responseMayContainTextToolCall(response *model.Response) bool {
+func responseMayContainTextToolCall(response *compat.Response) bool {
 	if response == nil {
 		return false
 	}
 	for i := range response.Choices {
 		msg := &response.Choices[i].Message
-		if msg.Role != model.RoleAssistant {
+		if msg.Role != compat.RoleAssistant {
 			continue
 		}
 		text, ok := repairableMessageText(msg)
@@ -1169,7 +1169,7 @@ func responseMayContainTextToolCall(response *model.Response) bool {
 
 func (p *streamingResponseProcessor) emitLLMResponse(
 	eventInvocation *agent.Invocation,
-	response *model.Response,
+	response *compat.Response,
 	traceDetails bool,
 ) *event.Event {
 	llmResponseEvent := p.flow.createLLMResponseEvent(
@@ -1196,7 +1196,7 @@ func (p *streamingResponseProcessor) emitLLMResponse(
 
 func (p *streamingResponseProcessor) traceChat(
 	eventInvocation *agent.Invocation,
-	response *model.Response,
+	response *compat.Response,
 	llmResponseEvent *event.Event,
 ) {
 	if !p.startedSpan {
@@ -1223,11 +1223,11 @@ func (f *Flow) handleAfterModelCallbacks(
 	ctx context.Context,
 	eventInvocation *agent.Invocation,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	response *model.Response,
+	llmRequest *compat.Request,
+	response *compat.Response,
 	eventChan chan<- *event.Event,
 	traceDetails bool,
-) (context.Context, *model.Response, error) {
+) (context.Context, *compat.Response, error) {
 	if !traceDetails {
 		updatedCtx, customResp, err := f.runAfterModelCallbacks(
 			ctx,
@@ -1250,7 +1250,7 @@ func (f *Flow) handleAfterModelCallbacks(
 		latencyResponseAttrs(response)...,
 	)
 	var err error
-	var customResp *model.Response
+	var customResp *compat.Response
 	defer func() {
 		if started {
 			span.SetAttributes(
@@ -1278,9 +1278,9 @@ func (f *Flow) handleAfterModelCallbackResult(
 	ctx context.Context,
 	eventInvocation *agent.Invocation,
 	eventChan chan<- *event.Event,
-	customResp *model.Response,
+	customResp *compat.Response,
 	err error,
-) (context.Context, *model.Response, error) {
+) (context.Context, *compat.Response, error) {
 	if err != nil {
 		if _, ok := agent.AsStopError(err); ok {
 			return ctx, nil, err
@@ -1294,7 +1294,7 @@ func (f *Flow) handleAfterModelCallbackResult(
 		agent.EmitEvent(ctx, eventInvocation, eventChan, event.NewErrorEvent(
 			flowInvocationID(eventInvocation),
 			flowAgentName(eventInvocation),
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 			err.Error(),
 		))
 		return ctx, nil, err
@@ -1306,8 +1306,8 @@ func (f *Flow) handleAfterModelCallbackResult(
 func (f *Flow) createLLMResponseEvent(
 	eventInvocation *agent.Invocation,
 	optionsInvocation *agent.Invocation,
-	response *model.Response,
-	llmRequest *model.Request,
+	response *compat.Response,
+	llmRequest *compat.Request,
 ) *event.Event {
 	invocationID, agentName := "", ""
 	if eventInvocation != nil {
@@ -1325,7 +1325,8 @@ func (f *Flow) createLLMResponseEvent(
 		optionsInvocation,
 	)
 	if len(response.Choices) > 0 && len(response.Choices[0].Message.ToolCalls) > 0 {
-		llmResponseEvent.LongRunningToolIDs = collectLongRunningToolIDs(response.Choices[0].Message.ToolCalls, llmRequest.Tools)
+		reqTools, _ := llmRequest.Tools.(map[string]tool.Tool)
+		llmResponseEvent.LongRunningToolIDs = collectLongRunningToolIDs(response.Choices[0].Message.ToolCalls, reqTools)
 	}
 	return llmResponseEvent
 }
@@ -1343,7 +1344,7 @@ func invocationFromContextOrDefault(
 
 func observabilityInvocationForModel(
 	invocation *agent.Invocation,
-	callModel model.Model,
+	callModel compat.Model,
 ) *agent.Invocation {
 	if invocation == nil {
 		return nil
@@ -1375,7 +1376,7 @@ func observabilityInvocationForCurrent(
 func newObservabilityInvocation(
 	base *agent.Invocation,
 	sess *session.Session,
-	callModel model.Model,
+	callModel compat.Model,
 ) *agent.Invocation {
 	return &agent.Invocation{
 		AgentName:    base.AgentName,
@@ -1386,7 +1387,7 @@ func newObservabilityInvocation(
 }
 
 func trackModelResponseTelemetry(
-	response *model.Response,
+	response *compat.Response,
 	tracker *itelemetry.ChatMetricsTracker,
 ) {
 	if tracker == nil || response == nil {
@@ -1395,7 +1396,7 @@ func trackModelResponseTelemetry(
 	tracker.TrackResponse(response)
 }
 
-func responseUsageTimingInfo(invocation *agent.Invocation) *model.TimingInfo {
+func responseUsageTimingInfo(invocation *agent.Invocation) *compat.TimingInfo {
 	if invocation == nil || invocation.RunOptions.DisableResponseUsageTracking {
 		return nil
 	}
@@ -1404,7 +1405,7 @@ func responseUsageTimingInfo(invocation *agent.Invocation) *model.TimingInfo {
 
 func applyPartialEventMetadataOverrides(
 	ev *event.Event,
-	response *model.Response,
+	response *compat.Response,
 	invocation *agent.Invocation,
 ) {
 	if ev == nil || response == nil || !response.IsPartial || invocation == nil {
@@ -1418,7 +1419,7 @@ func applyPartialEventMetadataOverrides(
 	}
 }
 
-func collectLongRunningToolIDs(ToolCalls []model.ToolCall, tools map[string]tool.Tool) map[string]struct{} {
+func collectLongRunningToolIDs(ToolCalls []compat.ToolCall, tools map[string]tool.Tool) map[string]struct{} {
 	longRunningToolIDs := make(map[string]struct{})
 	for _, toolCall := range ToolCalls {
 		t, ok := tools[toolCall.Function.Name]
@@ -1439,9 +1440,9 @@ func collectLongRunningToolIDs(ToolCalls []model.ToolCall, tools map[string]tool
 func (f *Flow) runAfterModelCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	response *model.Response,
-) (context.Context, *model.Response, error) {
+	req *compat.Request,
+	response *compat.Response,
+) (context.Context, *compat.Response, error) {
 	var (
 		override bool
 		err      error
@@ -1473,10 +1474,10 @@ func (f *Flow) runAfterModelCallbacks(
 
 func runAfterModelCallbackSet(
 	ctx context.Context,
-	callbacks *model.Callbacks,
-	req *model.Request,
-	response *model.Response,
-) (context.Context, *model.Response, bool, error) {
+	callbacks *compat.Callbacks,
+	req *compat.Request,
+	response *compat.Response,
+) (context.Context, *compat.Response, bool, error) {
 	if callbacks == nil {
 		return ctx, response, false, nil
 	}
@@ -1490,7 +1491,7 @@ func runAfterModelCallbackSet(
 		)
 	}
 
-	result, err := callbacks.RunAfterModel(ctx, &model.AfterModelArgs{
+	result, err := callbacks.RunAfterModel(ctx, &compat.AfterModelArgs{
 		Request:  req,
 		Response: response,
 		Error:    modelErr,
@@ -1511,7 +1512,7 @@ func runAfterModelCallbackSet(
 func (f *Flow) preprocess(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
+	llmRequest *compat.Request,
 	eventChan chan<- *event.Event,
 ) *contextCompactionRebuildPlan {
 	var rebuildPlan *contextCompactionRebuildPlan
@@ -1581,16 +1582,17 @@ func (f *Flow) preprocess(
 func sanitizeRequestMessages(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if req == nil {
 		return
 	}
 	before := req.Messages
+	reqTools, _ := req.Tools.(map[string]tool.Tool)
 	result := toolcall.SanitizeMessagesWithToolsResult(
 		ctx,
 		before,
-		req.Tools,
+		reqTools,
 	)
 	req.Messages = result.Messages
 	summaryview.RebaseAfterTransform(
@@ -1612,9 +1614,9 @@ func (f *Flow) maybeCompactContextBeforeLLM(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	eventChan chan<- *event.Event,
-	req *model.Request,
+	req *compat.Request,
 	rebuildPlan *contextCompactionRebuildPlan,
-) *model.Request {
+) *compat.Request {
 	ctx, span, started := startLatencySpan(
 		ctx,
 		invocation,
@@ -1678,10 +1680,10 @@ func (f *Flow) runContextCompaction(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	eventChan chan<- *event.Event,
-	req *model.Request,
+	req *compat.Request,
 	rebuildPlan *contextCompactionRebuildPlan,
 	decision contextCompactionDecision,
-) *model.Request {
+) *compat.Request {
 	decisionRequest := requestWithCallLimitFinalizationMessage(
 		req,
 		rebuildPlan.callLimitFinalizationMessage,
@@ -1700,7 +1702,7 @@ func (f *Flow) runContextCompaction(
 			Threshold:     decision.threshold,
 			ContextWindow: decision.contextWindow,
 			MessageCount:  len(decisionRequest.Messages),
-			ToolCount:     len(decisionRequest.Tools),
+			ToolCount:     toolsLen(decisionRequest.Tools),
 			FilterKey:     filterKey,
 		},
 	)
@@ -1742,7 +1744,7 @@ func (f *Flow) runContextCompaction(
 			Threshold:     decision.threshold,
 			ContextWindow: decision.contextWindow,
 			MessageCount:  len(decisionRequest.Messages),
-			ToolCount:     len(decisionRequest.Tools),
+			ToolCount:     toolsLen(decisionRequest.Tools),
 			FilterKey:     filterKey,
 			Updated:       &updated,
 		},
@@ -1829,7 +1831,7 @@ func (f *Flow) rebuildRequestForContextCompaction(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	rebuildPlan *contextCompactionRebuildPlan,
-) *model.Request {
+) *compat.Request {
 	if rebuildPlan == nil || rebuildPlan.beforeContent == nil ||
 		rebuildPlan.contentProcessor == nil {
 		return nil
@@ -1868,7 +1870,7 @@ func (f *Flow) supportsSyncSummaryRetry() bool {
 	return false
 }
 
-func cloneRequestForContextCompaction(req *model.Request) *model.Request {
+func cloneRequestForContextCompaction(req *compat.Request) *compat.Request {
 	if req == nil {
 		return nil
 	}
@@ -1882,43 +1884,44 @@ func cloneRequestForContextCompaction(req *model.Request) *model.Request {
 		req.StructuredOutput,
 	)
 	cloned.ExtraFields = cloneJSONMapForContextCompaction(req.ExtraFields)
-	if req.Tools != nil {
-		cloned.Tools = make(map[string]tool.Tool, len(req.Tools))
-		for name, t := range req.Tools {
-			cloned.Tools[name] = t
+	if reqTools, ok := req.Tools.(map[string]tool.Tool); ok && reqTools != nil {
+		clonedTools := make(map[string]tool.Tool, len(reqTools))
+		for name, t := range reqTools {
+			clonedTools[name] = t
 		}
+		cloned.Tools = clonedTools
 	}
 	return &cloned
 }
 
 func requestWithCallLimitFinalizationMessage(
-	req *model.Request,
-	message *model.Message,
-) *model.Request {
+	req *compat.Request,
+	message *compat.Message,
+) *compat.Request {
 	if req == nil || message == nil {
 		return req
 	}
 	cloned := *req
 	cloned.Messages = append(
-		append([]model.Message(nil), req.Messages...),
+		append([]compat.Message(nil), req.Messages...),
 		*message,
 	)
 	return &cloned
 }
 
-func cloneMessagesForContextCompaction(msgs []model.Message) []model.Message {
+func cloneMessagesForContextCompaction(msgs []compat.Message) []compat.Message {
 	if msgs == nil {
 		return nil
 	}
 
-	cloned := make([]model.Message, len(msgs))
+	cloned := make([]compat.Message, len(msgs))
 	for i := range msgs {
 		cloned[i] = cloneMessageForContextCompaction(msgs[i])
 	}
 	return cloned
 }
 
-func cloneMessageForContextCompaction(msg model.Message) model.Message {
+func cloneMessageForContextCompaction(msg compat.Message) compat.Message {
 	cloned := msg
 	cloned.ContentParts = cloneContentPartsForContextCompaction(
 		msg.ContentParts,
@@ -1928,13 +1931,13 @@ func cloneMessageForContextCompaction(msg model.Message) model.Message {
 }
 
 func cloneContentPartsForContextCompaction(
-	parts []model.ContentPart,
-) []model.ContentPart {
+	parts []compat.ContentPart,
+) []compat.ContentPart {
 	if parts == nil {
 		return nil
 	}
 
-	cloned := make([]model.ContentPart, len(parts))
+	cloned := make([]compat.ContentPart, len(parts))
 	for i := range parts {
 		cloned[i] = cloneContentPartForContextCompaction(parts[i])
 	}
@@ -1942,8 +1945,8 @@ func cloneContentPartsForContextCompaction(
 }
 
 func cloneContentPartForContextCompaction(
-	part model.ContentPart,
-) model.ContentPart {
+	part compat.ContentPart,
+) compat.ContentPart {
 	cloned := part
 	if part.Text != nil {
 		text := *part.Text
@@ -1981,13 +1984,13 @@ func cloneContentPartForContextCompaction(
 }
 
 func cloneToolCallsForContextCompaction(
-	toolCalls []model.ToolCall,
-) []model.ToolCall {
+	toolCalls []compat.ToolCall,
+) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
 
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i := range toolCalls {
 		cloned[i] = toolCalls[i]
 		if toolCalls[i].Function.Arguments != nil {
@@ -2008,8 +2011,8 @@ func cloneToolCallsForContextCompaction(
 }
 
 func cloneGenerationConfigForContextCompaction(
-	cfg model.GenerationConfig,
-) model.GenerationConfig {
+	cfg compat.GenerationConfig,
+) compat.GenerationConfig {
 	cloned := cfg
 	if cfg.Stop != nil {
 		cloned.Stop = append([]string(nil), cfg.Stop...)
@@ -2018,8 +2021,8 @@ func cloneGenerationConfigForContextCompaction(
 }
 
 func cloneStructuredOutputForContextCompaction(
-	out *model.StructuredOutput,
-) *model.StructuredOutput {
+	out *compat.StructuredOutput,
+) *compat.StructuredOutput {
 	if out == nil {
 		return nil
 	}
@@ -2090,9 +2093,9 @@ func (s summarySnapshot) advanced(next summarySnapshot) bool {
 func shouldSyncCompactContext(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ratio float64,
-	counter model.TokenCounter,
+	counter compat.TokenCounter,
 ) bool {
 	return syncCompactContextDecision(
 		ctx,
@@ -2106,9 +2109,9 @@ func shouldSyncCompactContext(
 func syncCompactContextDecision(
 	ctx context.Context,
 	inv *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ratio float64,
-	counter model.TokenCounter,
+	counter compat.TokenCounter,
 ) contextCompactionDecision {
 	decision := contextCompactionDecision{}
 	if inv == nil || inv.Model == nil || req == nil || len(req.Messages) == 0 {
@@ -2121,7 +2124,7 @@ func syncCompactContextDecision(
 		ratio,
 	)
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 	tokens, err := counter.CountTokensRange(ctx, req.Messages, 0, len(req.Messages))
 	decision.tokenCount = tokens
@@ -2287,20 +2290,22 @@ func (f *Flow) getFilteredTools(
 func (f *Flow) populateRequestTools(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	if req == nil || invocation == nil || invocation.Agent == nil {
 		return
 	}
-	if req.Tools == nil {
-		req.Tools = make(map[string]tool.Tool)
+	toolsMap, _ := req.Tools.(map[string]tool.Tool)
+	if toolsMap == nil {
+		toolsMap = make(map[string]tool.Tool)
+		req.Tools = toolsMap
 	}
 	for _, tl := range f.getFilteredTools(ctx, invocation) {
 		name := toolName(tl)
 		if name == "" {
 			continue
 		}
-		req.Tools[name] = tl
+		toolsMap[name] = tl
 	}
 }
 
@@ -2420,9 +2425,9 @@ func filteredTraceableToolNames(
 func (f *Flow) callLLM(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	callModel model.Model,
-) (context.Context, model.Seq[*model.Response], bool, error) {
+	llmRequest *compat.Request,
+	callModel compat.Model,
+) (context.Context, compat.Seq[*compat.Response], bool, error) {
 	ctx, span, started := startLatencySpan(
 		ctx,
 		invocation,
@@ -2480,7 +2485,7 @@ func (f *Flow) callLLM(
 		return ctx, nil, false, err
 	}
 	if customResp != nil {
-		return ctx, func(yield func(*model.Response) bool) {
+		return ctx, func(yield func(*compat.Response) bool) {
 			yield(customResp)
 		}, false, nil
 	}
@@ -2546,11 +2551,11 @@ func (f *Flow) callLLM(
 }
 
 func withResponseSeqFinalizer(
-	seq model.Seq[*model.Response],
+	seq compat.Seq[*compat.Response],
 	finalize func(),
-) model.Seq[*model.Response] {
+) compat.Seq[*compat.Response] {
 	var once sync.Once
-	return func(yield func(*model.Response) bool) {
+	return func(yield func(*compat.Response) bool) {
 		defer once.Do(finalize)
 		seq(yield)
 	}
@@ -2568,7 +2573,7 @@ type callLimitFinalizationMessage struct {
 // request is not the session event history, so this does not create or persist
 // a user event.
 func appendCallLimitFinalizationMessage(
-	req *model.Request,
+	req *compat.Request,
 	instruction string,
 ) *callLimitFinalizationMessage {
 	if req == nil {
@@ -2586,7 +2591,7 @@ func appendCallLimitFinalizationMessage(
 	}
 	req.Messages = append(
 		req.Messages,
-		model.NewUserMessage(instruction),
+		compat.NewUserMessage(instruction),
 	)
 	return marker
 }
@@ -2595,9 +2600,9 @@ func appendCallLimitFinalizationMessage(
 // cache-safe summarization without the transient finalization instruction.
 // The provider request remains unchanged.
 func requestWithoutCallLimitFinalizationMessage(
-	req *model.Request,
+	req *compat.Request,
 	marker *callLimitFinalizationMessage,
-) *model.Request {
+) *compat.Request {
 	if req == nil || marker == nil {
 		return req
 	}
@@ -2631,17 +2636,17 @@ func requestWithoutCallLimitFinalizationMessage(
 		return req
 	}
 	cloned := *req
-	cloned.Messages = make([]model.Message, 0, len(req.Messages)-1)
+	cloned.Messages = make([]compat.Message, 0, len(req.Messages)-1)
 	cloned.Messages = append(cloned.Messages, req.Messages[:index]...)
 	cloned.Messages = append(cloned.Messages, req.Messages[index+1:]...)
 	return &cloned
 }
 
 func isCallLimitFinalizationMessage(
-	message model.Message,
+	message compat.Message,
 	instruction string,
 ) bool {
-	return message.Role == model.RoleUser &&
+	return message.Role == compat.RoleUser &&
 		message.Content == instruction &&
 		len(message.ContentParts) == 0 &&
 		message.ToolID == "" &&
@@ -2656,7 +2661,7 @@ func isCallLimitFinalizationMessage(
 func enforceCallLimitFinalizationToolFree(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) context.Context {
 	if !calllimit.Active(invocation) {
 		return ctx
@@ -2672,14 +2677,14 @@ func enforceCallLimitFinalizationToolFree(
 func finalizeSummaryView(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	counter model.TokenCounter,
+	req *compat.Request,
+	counter compat.TokenCounter,
 ) {
 	if invocation == nil || req == nil || len(req.Messages) == 0 {
 		return
 	}
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 	tokens, err := counter.CountTokensRange(
 		ctx,
@@ -2694,7 +2699,7 @@ func finalizeSummaryView(
 	summaryview.Finalize(invocation, req, tokens)
 }
 
-func (f *Flow) summaryViewTokenCounter() model.TokenCounter {
+func (f *Flow) summaryViewTokenCounter() compat.TokenCounter {
 	for i := len(f.requestProcessors) - 1; i >= 0; i-- {
 		contentProcessor, ok := f.requestProcessors[i].(*processor.ContentRequestProcessor)
 		if ok {
@@ -2707,8 +2712,8 @@ func (f *Flow) summaryViewTokenCounter() model.TokenCounter {
 func (f *Flow) runBeforeModelCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-) (context.Context, *model.Response, error) {
+	llmRequest *compat.Request,
+) (context.Context, *compat.Response, error) {
 	ctx = enforceCallLimitFinalizationToolFree(
 		ctx,
 		invocation,
@@ -2721,7 +2726,7 @@ func (f *Flow) runBeforeModelCallbacks(
 		latencyRequestAttrs(llmRequest)...,
 	)
 	var err error
-	var resp *model.Response
+	var resp *compat.Response
 	defer func() {
 		if started {
 			span.SetAttributes(
@@ -2730,7 +2735,7 @@ func (f *Flow) runBeforeModelCallbacks(
 		}
 		finishLatencySpan(span, started, err)
 	}()
-	var pluginCallbacks *model.Callbacks
+	var pluginCallbacks *compat.Callbacks
 	if invocation != nil && invocation.Plugins != nil {
 		pluginCallbacks = invocation.Plugins.ModelCallbacks()
 	}
@@ -2777,14 +2782,14 @@ func invocationFromContextOrFallback(ctx context.Context, fallback *agent.Invoca
 func runBeforeModelCallbacksWith(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	callbacks *model.Callbacks,
-) (context.Context, *model.Response, error) {
+	llmRequest *compat.Request,
+	callbacks *compat.Callbacks,
+) (context.Context, *compat.Response, error) {
 	if callbacks == nil {
 		return ctx, nil, nil
 	}
 	result, err := wrapBeforeModelCallbacksWithInvocation(callbacks, invocation).
-		RunBeforeModel(ctx, &model.BeforeModelArgs{Request: llmRequest})
+		RunBeforeModel(ctx, &compat.BeforeModelArgs{Request: llmRequest})
 	if err != nil {
 		return ctx, nil, err
 	}
@@ -2798,20 +2803,20 @@ func runBeforeModelCallbacksWith(
 }
 
 func wrapBeforeModelCallbacksWithInvocation(
-	callbacks *model.Callbacks,
+	callbacks *compat.Callbacks,
 	invocation *agent.Invocation,
-) *model.Callbacks {
+) *compat.Callbacks {
 	if callbacks == nil || invocation == nil || len(callbacks.BeforeModel) == 0 {
 		return callbacks
 	}
 	wrapped := *callbacks
-	wrapped.BeforeModel = make([]model.BeforeModelCallbackStructured, len(callbacks.BeforeModel))
+	wrapped.BeforeModel = make([]compat.BeforeModelCallbackStructured, len(callbacks.BeforeModel))
 	for i, cb := range callbacks.BeforeModel {
 		callback := cb
 		wrapped.BeforeModel[i] = func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			ctx = withInvocationContextIfMissing(ctx, invocation)
 			ctx = enforceCallLimitFinalizationToolFree(
 				ctx,
@@ -2846,9 +2851,9 @@ func wrapBeforeModelCallbacksWithInvocation(
 func (f *Flow) generateContentSeq(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	callModel model.Model,
-) (model.Seq[*model.Response], error) {
+	llmRequest *compat.Request,
+	callModel compat.Model,
+) (compat.Seq[*compat.Response], error) {
 	if llmRequest == nil || len(llmRequest.Messages) == 0 {
 		return nil, errors.New(errMsgNoLLMMessages)
 	}
@@ -2867,7 +2872,7 @@ func (f *Flow) generateContentSeq(
 		}
 		finishLatencySpan(span, started, err)
 	}()
-	if iterModel, ok := callModel.(model.IterModel); ok {
+	if iterModel, ok := callModel.(compat.IterModel); ok {
 		seq, genErr := iterModel.GenerateContentIter(ctx, llmRequest)
 		err = genErr
 		if err != nil {
@@ -2897,7 +2902,7 @@ func (f *Flow) generateContentSeq(
 		return nil, err
 	}
 
-	return normalizeResponseIDs(func(yield func(*model.Response) bool) {
+	return normalizeResponseIDs(func(yield func(*compat.Response) bool) {
 		for resp := range responseChan {
 			if !yield(resp) {
 				return
@@ -2906,13 +2911,13 @@ func (f *Flow) generateContentSeq(
 	}), nil
 }
 
-func normalizeResponseIDs(seq model.Seq[*model.Response]) model.Seq[*model.Response] {
+func normalizeResponseIDs(seq compat.Seq[*compat.Response]) compat.Seq[*compat.Response] {
 	if seq == nil {
 		return nil
 	}
-	return func(yield func(*model.Response) bool) {
+	return func(yield func(*compat.Response) bool) {
 		currentID := ""
-		seq(func(resp *model.Response) bool {
+		seq(func(resp *compat.Response) bool {
 			normalized := normalizeResponseID(resp, &currentID)
 			keepGoing := yield(normalized)
 			if normalized != nil && normalized.Done && !normalized.IsPartial {
@@ -2923,7 +2928,7 @@ func normalizeResponseIDs(seq model.Seq[*model.Response]) model.Seq[*model.Respo
 	}
 }
 
-func normalizeResponseID(resp *model.Response, currentID *string) *model.Response {
+func normalizeResponseID(resp *compat.Response, currentID *string) *compat.Response {
 	if resp == nil {
 		return nil
 	}
@@ -2950,8 +2955,8 @@ func normalizeResponseID(resp *model.Response, currentID *string) *model.Respons
 func (f *Flow) postprocess(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	llmResponse *model.Response,
+	llmRequest *compat.Request,
+	llmResponse *compat.Response,
 	eventChan chan<- *event.Event,
 ) {
 	f.postprocessWithLatencySpans(
@@ -2967,8 +2972,8 @@ func (f *Flow) postprocess(
 func (f *Flow) postprocessWithLatencySpans(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	llmRequest *model.Request,
-	llmResponse *model.Response,
+	llmRequest *compat.Request,
+	llmResponse *compat.Response,
 	eventChan chan<- *event.Event,
 	traceDetails bool,
 ) {

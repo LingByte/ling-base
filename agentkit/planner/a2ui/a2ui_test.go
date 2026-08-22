@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/planner"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +26,7 @@ func TestPlanner_New(t *testing.T) {
 
 func TestPlanner_BuildPlanningInstruction_Default(t *testing.T) {
 	p := New()
-	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &model.Request{})
+	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &compat.Request{})
 	assert.NotEmpty(t, instruction)
 	assert.Contains(t, instruction, `"title": "A2UI (Agent to UI) Client-to-Server Event Schema"`)
 	assert.Contains(t, instruction, `"title": "A2UI Message Schema"`)
@@ -57,7 +57,7 @@ func TestPlanner_BuildPlanningInstruction_WithOptions(t *testing.T) {
 		WithServerToClientWithStandardCatalogSchema("stc-std"),
 		WithStandardCatalogDefinition("std"),
 	)
-	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &model.Request{})
+	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &compat.Request{})
 	assert.Contains(t, instruction, "Client capabilities schema: cap")
 	assert.Contains(t, instruction, "Catalog description schema: catalog")
 	assert.Contains(t, instruction, "Client-to-server payload schema: cts")
@@ -69,7 +69,7 @@ func TestPlanner_BuildPlanningInstruction_WithOptions(t *testing.T) {
 func TestPlanner_BuildPlanningInstruction_WithInstruction(t *testing.T) {
 	customInstruction := "CUSTOM INSTRUCTION: emit strict JSON objects only."
 	p := New(WithInstruction(customInstruction))
-	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &model.Request{})
+	instruction := p.BuildPlanningInstruction(context.Background(), &agent.Invocation{}, &compat.Request{})
 	assert.Contains(t, instruction, customInstruction)
 	assert.NotContains(t, instruction, "A2UI server-to-client output MUST be JSONL-compatible.")
 }

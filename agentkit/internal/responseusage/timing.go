@@ -10,29 +10,29 @@
 // Package responseusage provides helpers for attaching response usage metadata.
 package responseusage
 
-import "github.com/LingByte/ling-base/agentkit/model"
+import compat "github.com/LingByte/ling-base/relay/compat"
 
 // PartialState stores reusable usage state for partial responses.
 type PartialState struct {
-	usage      *model.Usage
-	timingInfo *model.TimingInfo
+	usage      *compat.Usage
+	timingInfo *compat.TimingInfo
 }
 
 // TimingAttachment records a temporary TimingInfo attachment.
 type TimingAttachment struct {
-	response           *model.Response
-	usage              *model.Usage
-	timingInfo         *model.TimingInfo
-	attachedUsage      *model.Usage
-	attachedTimingInfo *model.TimingInfo
+	response           *compat.Response
+	usage              *compat.Usage
+	timingInfo         *compat.TimingInfo
+	attachedUsage      *compat.Usage
+	attachedTimingInfo *compat.TimingInfo
 	createdUsage       bool
 	reusedUsage        bool
 }
 
 // AttachTimingForCallback attaches TimingInfo before callbacks and returns a restorer.
 func AttachTimingForCallback(
-	response *model.Response,
-	timingInfo *model.TimingInfo,
+	response *compat.Response,
+	timingInfo *compat.TimingInfo,
 	partialState *PartialState,
 ) TimingAttachment {
 	attachment := TimingAttachment{response: response}
@@ -61,7 +61,7 @@ func AttachTimingForCallback(
 }
 
 // RestoreIfTimingInfoChanged restores the temporary attachment if the target TimingInfo changed.
-func (a TimingAttachment) RestoreIfTimingInfoChanged(timingInfo *model.TimingInfo) {
+func (a TimingAttachment) RestoreIfTimingInfoChanged(timingInfo *compat.TimingInfo) {
 	if timingInfo != a.attachedTimingInfo {
 		a.Restore()
 	}
@@ -97,19 +97,19 @@ func (a TimingAttachment) Restore() {
 	}
 }
 
-func usageOnlyHasTimingInfo(usage *model.Usage) bool {
+func usageOnlyHasTimingInfo(usage *compat.Usage) bool {
 	if usage == nil {
 		return true
 	}
 	withoutTiming := *usage
 	withoutTiming.TimingInfo = nil
-	return withoutTiming == model.Usage{}
+	return withoutTiming == compat.Usage{}
 }
 
 // AttachTiming attaches TimingInfo to response usage.
 func AttachTiming(
-	response *model.Response,
-	timingInfo *model.TimingInfo,
+	response *compat.Response,
+	timingInfo *compat.TimingInfo,
 	partialState *PartialState,
 ) {
 	if response == nil || timingInfo == nil {
@@ -118,17 +118,17 @@ func AttachTiming(
 	if response.Usage == nil {
 		if response.IsPartial {
 			if partialState == nil {
-				response.Usage = &model.Usage{}
+				response.Usage = &compat.Usage{}
 			} else {
 				if partialState.usage == nil ||
 					partialState.timingInfo != timingInfo {
-					partialState.usage = &model.Usage{}
+					partialState.usage = &compat.Usage{}
 					partialState.timingInfo = timingInfo
 				}
 				response.Usage = partialState.usage
 			}
 		} else {
-			response.Usage = &model.Usage{}
+			response.Usage = &compat.Usage{}
 		}
 	}
 	response.Usage.TimingInfo = timingInfo

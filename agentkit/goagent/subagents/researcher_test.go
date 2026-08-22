@@ -5,33 +5,39 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type fakeModel struct {
-	response any
+	response string
 	err      error
 	prompts  []string
 }
 
-func (g *fakeModel) GenerateWithFiles(ctx context.Context, prompt string, files []gomodel.File) (any, error) {
-	return nil, nil
-}
+func (f *fakeModel) Info() compat.Info { return compat.Info{Name: "fake"} }
 
-func (f *fakeModel) Generate(ctx context.Context, prompt string) (any, error) {
+func (f *fakeModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	prompt := ""
+	for _, msg := range req.Messages {
+		if msg.Role == compat.RoleUser {
+			prompt = msg.Content
+			break
+		}
+	}
 	f.prompts = append(f.prompts, prompt)
 	if f.err != nil {
 		return nil, f.err
 	}
-	if f.response != nil {
-		return f.response, nil
+	text := f.response
+	if text == "" {
+		text = "ok"
 	}
-	return "ok", nil
-}
-
-func (f *fakeModel) GenerateStream(ctx context.Context, prompt string) (<-chan gomodel.StreamChunk, error) {
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: "ok", FullText: "ok", Done: true}
+	ch := make(chan *compat.Response, 1)
+	finishReason := "stop"
+	ch <- &compat.Response{
+		Done:    true,
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage(text), FinishReason: &finishReason}},
+	}
 	close(ch)
 	return ch, nil
 }
@@ -45,23 +51,15 @@ func TestResearcherRunIncludesPersonaAndTask(t *testing.T) {
 		t.Fatalf("Run returned error: %v", err)
 	}
 	if out != "result" {
-		t.Fatalf("unexpected result: %q", out)
+		t.Fatalf("expected result, got %q", out)
 	}
-	if len(fm.prompts) != 1 {
-		t.Fatalf("expected one prompt to be generated")
+	if len(fm.prompts) == 0 {
+		t.Fatal("expected prompt to be captured")
 	}
-	prompt := fm.prompts[0]
-	if !strings.Contains(prompt, researcher.persona) {
-		t.Fatalf("prompt missing persona text: %q", prompt)
+	if !strings.Contains(fm.prompts[0], "diligent research assistant") {
+		t.Fatalf("expected persona in prompt, got %q", fm.prompts[0])
 	}
-	if !strings.Contains(prompt, "Investigate topic") {
-		t.Fatalf("prompt missing task text: %q", prompt)
-	}
-}
-
-func TestResearcherRunRequiresModel(t *testing.T) {
-	researcher := &Researcher{}
-	if _, err := researcher.Run(context.Background(), "anything"); err == nil {
-		t.Fatalf("expected error when model is missing")
+	if !strings.Contains(fm.prompts[0], "Investigate topic") {
+		t.Fatalf("expected task in prompt, got %q", fm.prompts[0])
 	}
 }

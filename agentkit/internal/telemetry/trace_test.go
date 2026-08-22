@@ -24,7 +24,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -51,19 +51,19 @@ func (s *stubSpan) SetAttributes(kv ...attribute.KeyValue) {
 	s.Span.SetAttributes(kv...)
 }
 
-// dummyModel is a lightweight implementation of model.Model used for tracing
+// dummyModel is a lightweight implementation of compat.Model used for tracing
 // LL M calls.
 
 type dummyModel struct{}
 
-func (d dummyModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (d dummyModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (d dummyModel) Info() model.Info {
-	return model.Info{Name: "dummy"}
+func (d dummyModel) Info() compat.Info {
+	return compat.Info{Name: "dummy"}
 }
 
 func newStubSpan() *stubSpan {
@@ -255,8 +255,8 @@ func TestTraceFunctions_NoPanics(t *testing.T) {
 		Session:      &session.Session{ID: "sess1"},
 		Model:        dummyModel{},
 	}
-	req := &model.Request{}
-	resp := &model.Response{}
+	req := &compat.Request{}
+	resp := &compat.Response{}
 	TraceChat(span, &TraceChatAttributes{
 		Invocation:       inv,
 		Request:          req,
@@ -273,14 +273,14 @@ func TestTraceFunctions_NonRecordingSpan_ReturnsEarly(t *testing.T) {
 
 	TraceWorkflow(span, &Workflow{Name: "wf", ID: "wf-1"})
 	TraceBeforeInvokeAgent(span, nil, "", "", nil)
-	TraceAfterInvokeAgent(span, nil, nil, 0, model.ErrorTypeRunError)
+	TraceAfterInvokeAgent(span, nil, nil, 0, compat.ErrorTypeRunError)
 	TraceChat(span, nil)
 }
 
 func TestTraceBeforeAfter_Tool_Merged_Chat_Embedding(t *testing.T) {
 	// Before invoke
 	fp, mt, pp, tp, topP := 0.5, 128, 0.25, 0.7, 0.9
-	gc := &model.GenerationConfig{Stop: []string{"END"}, FrequencyPenalty: &fp, MaxTokens: &mt, PresencePenalty: &pp, Temperature: &tp, TopP: &topP, Stream: true}
+	gc := &compat.GenerationConfig{Stop: []string{"END"}, FrequencyPenalty: &fp, MaxTokens: &mt, PresencePenalty: &pp, Temperature: &tp, TopP: &topP, Stream: true}
 	inv := &agent.Invocation{AgentName: "alpha", InvocationID: "inv-1", Session: &session.Session{ID: "sess-1", UserID: "u-1"}}
 	s := newRecordingSpan()
 	TraceBeforeInvokeAgent(s, inv, "desc", "inst", gc)
@@ -297,16 +297,16 @@ func TestTraceBeforeAfter_Tool_Merged_Chat_Embedding(t *testing.T) {
 	// After invoke with error and choices
 	stop := "stop"
 	code := "70002"
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:      "rid",
 		Model:   "m-1",
-		Usage:   &model.Usage{PromptTokens: 1, CompletionTokens: 2},
-		Choices: []model.Choice{{FinishReason: &stop}, {}},
-		Error:   &model.ResponseError{Message: "oops", Type: "api_error", Code: &code},
+		Usage:   &compat.Usage{PromptTokens: 1, CompletionTokens: 2},
+		Choices: []compat.Choice{{FinishReason: &stop}, {}},
+		Error:   &compat.ResponseError{Message: "oops", Type: "api_error", Code: &code},
 	}
 	evt := event.New("eid", "alpha", event.WithResponse(rsp))
 	s2 := newRecordingSpan()
-	TraceAfterInvokeAgent(s2, evt, nil, 0, model.ErrorTypeRunError)
+	TraceAfterInvokeAgent(s2, evt, nil, 0, compat.ErrorTypeRunError)
 	if s2.status != codes.Error {
 		t.Fatalf("expected error status")
 	}
@@ -317,7 +317,7 @@ func TestTraceBeforeAfter_Tool_Merged_Chat_Embedding(t *testing.T) {
 	// Tool call and merged
 	decl := &tool.Declaration{Name: "read", Description: "desc"}
 	args, _ := json.Marshal(map[string]any{"x": 1})
-	rsp2 := &model.Response{Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{{ID: "c1"}}}}}}
+	rsp2 := &compat.Response{Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{{ID: "c1"}}}}}}
 	evt2 := event.New("eid2", "a", event.WithResponse(rsp2))
 	s3 := newRecordingSpan()
 	TraceToolCall(s3, nil, decl, args, evt2, nil)
@@ -332,12 +332,12 @@ func TestTraceBeforeAfter_Tool_Merged_Chat_Embedding(t *testing.T) {
 
 	// Chat
 	inv2 := &agent.Invocation{InvocationID: "i1", Session: &session.Session{ID: "s1"}}
-	req := &model.Request{GenerationConfig: model.GenerationConfig{Stop: []string{"END"}}, Messages: []model.Message{{Role: model.RoleUser, Content: "hi"}}}
+	req := &compat.Request{GenerationConfig: compat.GenerationConfig{Stop: []string{"END"}}, Messages: []compat.Message{{Role: compat.RoleUser, Content: "hi"}}}
 	s5 := newRecordingSpan()
 	TraceChat(s5, &TraceChatAttributes{
 		Invocation:       inv2,
 		Request:          req,
-		Response:         &model.Response{ID: "rid"},
+		Response:         &compat.Response{ID: "rid"},
 		EventID:          "e1",
 		TimeToFirstToken: 0,
 	})
@@ -639,7 +639,7 @@ func TestTraceBeforeInvokeAgent_NilPaths(t *testing.T) {
 	tests := []struct {
 		name      string
 		invoke    *agent.Invocation
-		genConfig *model.GenerationConfig
+		genConfig *compat.GenerationConfig
 	}{
 		{
 			name: "nil generation config",
@@ -657,7 +657,7 @@ func TestTraceBeforeInvokeAgent_NilPaths(t *testing.T) {
 				InvocationID: "inv1",
 				Session:      nil,
 			},
-			genConfig: &model.GenerationConfig{},
+			genConfig: &compat.GenerationConfig{},
 		},
 	}
 
@@ -677,7 +677,7 @@ func TestTraceBeforeInvokeAgent_UsesInvocationAgentNameOnly(t *testing.T) {
 	span := newRecordingSpan()
 	inv := &agent.Invocation{
 		InvocationID: "inv-fallback",
-		Message:      model.Message{Role: model.RoleUser, Content: "hello"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "hello"},
 	}
 
 	TraceBeforeInvokeAgent(span, inv, "desc", "instructions", nil)
@@ -712,10 +712,10 @@ func TestTraceAfterInvokeAgent_NilPaths(t *testing.T) {
 		},
 		{
 			name: "with token usage",
-			rspEvent: event.New("evt1", "author", event.WithResponse(&model.Response{
+			rspEvent: event.New("evt1", "author", event.WithResponse(&compat.Response{
 				ID:      "resp1",
 				Model:   "gpt-4",
-				Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "test"}}},
+				Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "test"}}},
 			})),
 			tokenUsage: &TokenUsage{
 				PromptTokens:     10,
@@ -734,7 +734,7 @@ func TestTraceAfterInvokeAgent_NilPaths(t *testing.T) {
 				tt.rspEvent,
 				tt.tokenUsage,
 				tt.timeToFirstToken,
-				model.ErrorTypeRunError,
+				compat.ErrorTypeRunError,
 			)
 
 			if tt.tokenUsage != nil {
@@ -753,15 +753,15 @@ func TestTraceAfterInvokeAgent_UsesFallbackForCodeOnlyErrors(t *testing.T) {
 	span := newRecordingSpan()
 	TraceAfterInvokeAgent(
 		span,
-		event.New("evt-code", "author", event.WithResponse(&model.Response{
-			Error: &model.ResponseError{
+		event.New("evt-code", "author", event.WithResponse(&compat.Response{
+			Error: &compat.ResponseError{
 				Message: "failed",
 				Code:    &code,
 			},
 		})),
 		nil,
 		0,
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 
 	require.True(
@@ -769,7 +769,7 @@ func TestTraceAfterInvokeAgent_UsesFallbackForCodeOnlyErrors(t *testing.T) {
 		hasAttr(
 			span.attrs,
 			semconvtrace.KeyErrorType,
-			model.ErrorTypeFlowError+"_70002",
+			compat.ErrorTypeFlowError+"_70002",
 		),
 	)
 }
@@ -780,13 +780,13 @@ func TestTraceChat_WithTimeToFirstToken(t *testing.T) {
 		Session:      &session.Session{ID: "sess1", UserID: "user1"},
 		Model:        dummyModel{},
 	}
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "hello"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	}
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:    "resp1",
 		Model: "dummy",
-		Usage: &model.Usage{PromptTokens: 5, CompletionTokens: 10},
+		Usage: &compat.Usage{PromptTokens: 5, CompletionTokens: 10},
 	}
 
 	span := newRecordingSpan()
@@ -803,8 +803,8 @@ func TestTraceChat_WithTimeToFirstToken(t *testing.T) {
 
 func TestTraceChat_WithTaskType(t *testing.T) {
 	inv := &agent.Invocation{InvocationID: "inv-task", Session: &session.Session{ID: "sess-task"}}
-	req := &model.Request{Messages: []model.Message{{Role: model.RoleUser, Content: "hello"}}}
-	rsp := &model.Response{ID: "resp-task"}
+	req := &compat.Request{Messages: []compat.Message{{Role: compat.RoleUser, Content: "hello"}}}
+	rsp := &compat.Response{ID: "resp-task"}
 
 	span := newRecordingSpan()
 	TraceChat(span, &TraceChatAttributes{
@@ -866,7 +866,7 @@ func TestBuildInvocationAttributes(t *testing.T) {
 func TestBuildRequestAttributes(t *testing.T) {
 	tests := []struct {
 		name string
-		req  *model.Request
+		req  *compat.Request
 	}{
 		{
 			name: "nil request",
@@ -874,9 +874,9 @@ func TestBuildRequestAttributes(t *testing.T) {
 		},
 		{
 			name: "request with all generation config",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
-				GenerationConfig: model.GenerationConfig{
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
+				GenerationConfig: compat.GenerationConfig{
 					Stop:             []string{"STOP"},
 					FrequencyPenalty: func() *float64 { v := 0.5; return &v }(),
 					MaxTokens:        func() *int { v := 100; return &v }(),
@@ -888,24 +888,24 @@ func TestBuildRequestAttributes(t *testing.T) {
 		},
 		{
 			name: "request with empty generation config",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
 			},
 		},
 		{
 			name: "request with stream enabled",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
-				GenerationConfig: model.GenerationConfig{
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
+				GenerationConfig: compat.GenerationConfig{
 					Stream: true,
 				},
 			},
 		},
 		{
 			name: "request with stream disabled",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
-				GenerationConfig: model.GenerationConfig{
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
+				GenerationConfig: compat.GenerationConfig{
 					Stream: false,
 				},
 			},
@@ -925,8 +925,8 @@ func TestBuildRequestAttributes(t *testing.T) {
 }
 
 func TestBuildRequestAttributes_ToolDefinitions(t *testing.T) {
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
 		Tools: map[string]tool.Tool{
 			"alpha": testTool{decl: &tool.Declaration{Name: "alpha", Description: "first"}},
 			"beta":  testTool{decl: &tool.Declaration{Name: "beta", Description: "second"}},
@@ -955,8 +955,8 @@ func TestBuildRequestAttributes_ToolDefinitions(t *testing.T) {
 }
 
 func TestBuildRequestAttributes_ToolDefinitionsStableAcrossCalls(t *testing.T) {
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
 		Tools: map[string]tool.Tool{
 			"gamma": testTool{decl: &tool.Declaration{Name: "gamma", Description: "third"}},
 			"alpha": testTool{decl: &tool.Declaration{Name: "alpha", Description: "first"}},
@@ -989,7 +989,7 @@ func (t testTool) Declaration() *tool.Declaration { return t.decl }
 func TestBuildResponseAttributes(t *testing.T) {
 	tests := []struct {
 		name string
-		rsp  *model.Response
+		rsp  *compat.Response
 	}{
 		{
 			name: "nil response",
@@ -997,10 +997,10 @@ func TestBuildResponseAttributes(t *testing.T) {
 		},
 		{
 			name: "response with error",
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:    "resp1",
 				Model: "gpt-4",
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Type:    "api_error",
 					Message: "rate limit exceeded",
 				},
@@ -1008,16 +1008,16 @@ func TestBuildResponseAttributes(t *testing.T) {
 		},
 		{
 			name: "response with usage",
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:    "resp1",
 				Model: "gpt-4",
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     10,
 					CompletionTokens: 20,
 					// Reported total intentionally differs from prompt+completion
 					// so tests assert provider total is preferred over the sum.
 					TotalTokens: 42,
-					PromptTokensDetails: model.PromptTokensDetails{
+					PromptTokensDetails: compat.PromptTokensDetails{
 						CachedTokens:        7,
 						CacheReadTokens:     11,
 						CacheCreationTokens: 13,
@@ -1027,10 +1027,10 @@ func TestBuildResponseAttributes(t *testing.T) {
 		},
 		{
 			name: "response with usage without total omits total attribute",
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:    "resp2",
 				Model: "gpt-4",
-				Usage: &model.Usage{
+				Usage: &compat.Usage{
 					PromptTokens:     4,
 					CompletionTokens: 6,
 				},
@@ -1038,16 +1038,16 @@ func TestBuildResponseAttributes(t *testing.T) {
 		},
 		{
 			name: "response with choices",
-			rsp: &model.Response{
+			rsp: &compat.Response{
 				ID:    "resp1",
 				Model: "gpt-4",
-				Choices: []model.Choice{
+				Choices: []compat.Choice{
 					{
-						Message:      model.Message{Role: model.RoleAssistant, Content: "response"},
+						Message:      compat.Message{Role: compat.RoleAssistant, Content: "response"},
 						FinishReason: func() *string { s := "stop"; return &s }(),
 					},
 					{
-						Message: model.Message{Role: model.RoleAssistant, Content: "response2"},
+						Message: compat.Message{Role: compat.RoleAssistant, Content: "response2"},
 					},
 				},
 			},
@@ -1144,8 +1144,8 @@ func TestTraceToolCall_EmptyToolCallIDs(t *testing.T) {
 	args, _ := json.Marshal(map[string]string{"key": "value"})
 
 	// Response with empty tool call IDs
-	rsp := &model.Response{
-		Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{}}}},
+	rsp := &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{}}}},
 	}
 	evt := event.New("evt1", "author", event.WithResponse(rsp))
 
@@ -1159,8 +1159,8 @@ func TestTraceToolCall_UsesFormattedErrorType(t *testing.T) {
 	decl := &tool.Declaration{Name: "test_tool", Description: "test description"}
 	args, _ := json.Marshal(map[string]string{"key": "value"})
 	code := "42"
-	evt := event.New("evt1", "author", event.WithResponse(&model.Response{
-		Error: &model.ResponseError{
+	evt := event.New("evt1", "author", event.WithResponse(&compat.Response{
+		Error: &compat.ResponseError{
 			Type:    "api_error",
 			Code:    &code,
 			Message: "test error",
@@ -1177,13 +1177,13 @@ func TestTraceMergedToolCalls_WithError(t *testing.T) {
 	span := newRecordingSpan()
 
 	// Response with error
-	rsp := &model.Response{
-		Error: &model.ResponseError{
+	rsp := &compat.Response{
+		Error: &compat.ResponseError{
 			Type:    "api_error",
 			Code:    func() *string { s := "42"; return &s }(),
 			Message: "test error",
 		},
-		Choices: []model.Choice{{Message: model.Message{ToolCalls: []model.ToolCall{{ID: "call1"}}}}},
+		Choices: []compat.Choice{{Message: compat.Message{ToolCalls: []compat.ToolCall{{ID: "call1"}}}}},
 	}
 	evt := event.New("evt1", "author", event.WithResponse(rsp))
 
@@ -1201,7 +1201,7 @@ func TestTraceBeforeInvokeAgent_JSONMarshalError(t *testing.T) {
 	inv := &agent.Invocation{
 		AgentName:    "test-agent",
 		InvocationID: "inv1",
-		Message:      model.Message{Role: model.RoleUser, Content: "test"},
+		Message:      compat.Message{Role: compat.RoleUser, Content: "test"},
 	}
 
 	TraceBeforeInvokeAgent(span, inv, "desc", "instructions", nil)
@@ -1215,8 +1215,8 @@ func TestTraceBeforeAfterInvokeAgent_NormalizesToolResponseMessageFields(t *test
 	inv := &agent.Invocation{
 		AgentName:    "test-agent",
 		InvocationID: "inv1",
-		Message: model.Message{
-			Role:     model.RoleTool,
+		Message: compat.Message{
+			Role:     compat.RoleTool,
 			Content:  "ok",
 			ToolID:   "call-before",
 			ToolName: "search",
@@ -1235,27 +1235,27 @@ func TestTraceBeforeAfterInvokeAgent_NormalizesToolResponseMessageFields(t *test
 	var beforeOTel []OTelInputMessage
 	require.NoError(t, json.Unmarshal([]byte(beforeOTelJSON), &beforeOTel))
 	require.Len(t, beforeOTel, 1)
-	require.Equal(t, model.RoleTool, beforeOTel[0].Role)
+	require.Equal(t, compat.RoleTool, beforeOTel[0].Role)
 	require.Len(t, beforeOTel[0].Parts, 1)
 	require.Equal(t, otelPartTypeToolCallResponse, beforeOTel[0].Parts[0].Type)
 	require.Equal(t, "call-before", beforeOTel[0].Parts[0].ID)
 	require.JSONEq(t, `"ok"`, string(beforeOTel[0].Parts[0].Response))
 
 	afterSpan := newRecordingSpan()
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:    "resp1",
 		Model: "gpt-4",
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role:     model.RoleTool,
+			Message: compat.Message{
+				Role:     compat.RoleTool,
 				Content:  "ok",
 				ToolID:   "call-after",
 				ToolName: "search",
 			},
 		}},
 	}
-	TraceAfterInvokeAgent(afterSpan, event.New("evt1", "author", event.WithResponse(rsp)), nil, 0, model.ErrorTypeRunError)
+	TraceAfterInvokeAgent(afterSpan, event.New("evt1", "author", event.WithResponse(rsp)), nil, 0, compat.ErrorTypeRunError)
 	afterJSON, ok := attrStringValue(afterSpan.attrs, semconvtrace.KeyGenAIOutputMessages)
 	require.True(t, ok)
 	require.Contains(t, afterJSON, `"tool_call_id":"call-after"`)
@@ -1267,7 +1267,7 @@ func TestTraceBeforeAfterInvokeAgent_NormalizesToolResponseMessageFields(t *test
 	var afterOTel []OTelOutputMessage
 	require.NoError(t, json.Unmarshal([]byte(afterOTelJSON), &afterOTel))
 	require.Len(t, afterOTel, 1)
-	require.Equal(t, model.RoleTool, afterOTel[0].Role)
+	require.Equal(t, compat.RoleTool, afterOTel[0].Role)
 	require.Len(t, afterOTel[0].Parts, 1)
 	require.Equal(t, otelPartTypeToolCallResponse, afterOTel[0].Parts[0].Type)
 	require.Equal(t, "call-after", afterOTel[0].Parts[0].ID)
@@ -1276,8 +1276,8 @@ func TestTraceBeforeAfterInvokeAgent_NormalizesToolResponseMessageFields(t *test
 
 func TestBuildRequestAttributes_JSONMarshalPaths(t *testing.T) {
 	// Test with valid request
-	req := &model.Request{
-		Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
+	req := &compat.Request{
+		Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
 	}
 	attrs := buildRequestAttributes(req)
 	require.NotNil(t, attrs)
@@ -1303,10 +1303,10 @@ func TestBuildRequestAttributes_JSONMarshalPaths(t *testing.T) {
 
 func TestBuildResponseAttributes_JSONMarshalPaths(t *testing.T) {
 	// Test with valid response
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:      "resp1",
 		Model:   "gpt-4",
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "test"}}},
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "test"}}},
 	}
 	attrs := buildResponseAttributes(rsp, semconvtrace.ValueDefaultErrorType)
 	require.NotNil(t, attrs)
@@ -1355,15 +1355,15 @@ func TestTrace_AdditionalBranches(t *testing.T) {
 
 func TestTraceChat_WithChoicesAndError(t *testing.T) {
 	inv := &agent.Invocation{InvocationID: "i2"}
-	req := &model.Request{GenerationConfig: model.GenerationConfig{Stop: []string{"Z"}}, Messages: []model.Message{{Role: model.RoleUser, Content: "hello"}}}
+	req := &compat.Request{GenerationConfig: compat.GenerationConfig{Stop: []string{"Z"}}, Messages: []compat.Message{{Role: compat.RoleUser, Content: "hello"}}}
 	stop := "stop"
 	code := "500"
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		ID:      "rid3",
 		Model:   "m3",
-		Usage:   &model.Usage{PromptTokens: 2, CompletionTokens: 3},
-		Choices: []model.Choice{{FinishReason: &stop}},
-		Error:   &model.ResponseError{Message: "bad", Type: "api_error", Code: &code},
+		Usage:   &compat.Usage{PromptTokens: 2, CompletionTokens: 3},
+		Choices: []compat.Choice{{FinishReason: &stop}},
+		Error:   &compat.ResponseError{Message: "bad", Type: "api_error", Code: &code},
 	}
 	s := newRecordingSpan()
 	TraceChat(s, &TraceChatAttributes{
@@ -1410,15 +1410,15 @@ func TestNewConn_InvalidEndpoint(t *testing.T) {
 func TestBuildRequestAttributes_StreamAttribute(t *testing.T) {
 	tests := []struct {
 		name          string
-		req           *model.Request
+		req           *compat.Request
 		expectStream  bool
 		streamPresent bool
 	}{
 		{
 			name: "stream enabled",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
-				GenerationConfig: model.GenerationConfig{
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
+				GenerationConfig: compat.GenerationConfig{
 					Stream: true,
 				},
 			},
@@ -1427,9 +1427,9 @@ func TestBuildRequestAttributes_StreamAttribute(t *testing.T) {
 		},
 		{
 			name: "stream disabled",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
-				GenerationConfig: model.GenerationConfig{
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
+				GenerationConfig: compat.GenerationConfig{
 					Stream: false,
 				},
 			},
@@ -1438,8 +1438,8 @@ func TestBuildRequestAttributes_StreamAttribute(t *testing.T) {
 		},
 		{
 			name: "stream not set",
-			req: &model.Request{
-				Messages: []model.Message{{Role: model.RoleUser, Content: "test"}},
+			req: &compat.Request{
+				Messages: []compat.Message{{Role: compat.RoleUser, Content: "test"}},
 			},
 			expectStream:  false,
 			streamPresent: false,

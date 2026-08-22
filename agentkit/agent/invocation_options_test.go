@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/artifact"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
@@ -365,7 +365,7 @@ func TestWithInvocationTransferInfo(t *testing.T) {
 }
 
 func TestWithInvocationStructuredOutput(t *testing.T) {
-	structuredOutput := &model.StructuredOutput{
+	structuredOutput := &compat.StructuredOutput{
 		Type: "object",
 	}
 
@@ -454,16 +454,16 @@ type mockModel struct {
 	name string
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
-func (m *mockModel) GenerateContent(ctx context.Context, request *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+func (m *mockModel) GenerateContent(ctx context.Context, request *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "mock response",
 			},
 		}},

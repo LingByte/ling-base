@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
@@ -136,8 +136,8 @@ func (p *contextOffloadPlugin) afterToolMessages(
 
 func (p *contextOffloadPlugin) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if p == nil || args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -191,7 +191,7 @@ func (p *contextOffloadPlugin) beforeModel(
 	if rsp == nil || len(rsp.Messages) == 0 {
 		return nil, nil
 	}
-	compacted := make([]model.Message, 0, len(rsp.Messages))
+	compacted := make([]compat.Message, 0, len(rsp.Messages))
 	for _, message := range rsp.Messages {
 		if !message.Role.IsValid() {
 			log.WarnfContext(
@@ -281,11 +281,11 @@ func (p *contextOffloadPlugin) finishPrompt(
 
 func (p *contextOffloadPlugin) countTokens(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 ) (int, []int) {
 	counter := p.opts.ContextOffload.TokenCounter
 	if counter == nil {
-		counter = model.NewSimpleTokenCounter()
+		counter = compat.NewSimpleTokenCounter()
 	}
 	total, perMessage, err := countOffloadTokens(ctx, counter, messages)
 	if err == nil {
@@ -294,7 +294,7 @@ func (p *contextOffloadPlugin) countTokens(
 	log.WarnfContext(ctx, "tencentdb context offload: token counter failed, using simple estimate: %v", err)
 	total, perMessage, _ = countOffloadTokens(
 		ctx,
-		model.NewSimpleTokenCounter(),
+		compat.NewSimpleTokenCounter(),
 		messages,
 	)
 	return total, perMessage
@@ -302,8 +302,8 @@ func (p *contextOffloadPlugin) countTokens(
 
 func countOffloadTokens(
 	ctx context.Context,
-	counter model.TokenCounter,
-	messages []model.Message,
+	counter compat.TokenCounter,
+	messages []compat.Message,
 ) (int, []int, error) {
 	perMessage := make([]int, 0, len(messages))
 	total := 0
@@ -342,10 +342,10 @@ func (p *contextOffloadPlugin) sessionID(sess *session.Session) string {
 }
 
 func newOffloadToolPairs(
-	calls []model.ToolCall,
-	results []model.Message,
+	calls []compat.ToolCall,
+	results []compat.Message,
 ) []offloadToolPair {
-	callsByID := make(map[string]model.ToolCall, len(calls))
+	callsByID := make(map[string]compat.ToolCall, len(calls))
 	for _, call := range calls {
 		if call.ID != "" {
 			callsByID[call.ID] = call
@@ -385,7 +385,7 @@ func offloadToolParams(arguments []byte) any {
 	return string(arguments)
 }
 
-func offloadToolResult(message model.Message) any {
+func offloadToolResult(message compat.Message) any {
 	if message.Content != "" {
 		return message.Content
 	}
@@ -396,11 +396,11 @@ func offloadToolResult(message model.Message) any {
 }
 
 func offloadPromptContext(
-	messages []model.Message,
+	messages []compat.Message,
 ) (string, []offloadRecentMessage) {
 	var prompt string
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == model.RoleUser {
+		if messages[i].Role == compat.RoleUser {
 			prompt = strings.TrimSpace(messageText(messages[i]))
 			if prompt != "" {
 				break
@@ -431,23 +431,23 @@ func offloadPromptContext(
 }
 
 func newOffloadRecentMessage(
-	message model.Message,
+	message compat.Message,
 	normalizedPrompt string,
 ) (offloadRecentMessage, bool) {
-	if message.Role != model.RoleUser && message.Role != model.RoleAssistant {
+	if message.Role != compat.RoleUser && message.Role != compat.RoleAssistant {
 		return offloadRecentMessage{}, false
 	}
-	if message.Role == model.RoleAssistant && len(message.ToolCalls) > 0 {
+	if message.Role == compat.RoleAssistant && len(message.ToolCalls) > 0 {
 		return offloadRecentMessage{}, false
 	}
 	content := strings.TrimSpace(messageText(message))
 	if content == "" || isInternalHeartbeatMessage(content) {
 		return offloadRecentMessage{}, false
 	}
-	if message.Role == model.RoleUser && utf8.RuneCountInString(content) <= 5 {
+	if message.Role == compat.RoleUser && utf8.RuneCountInString(content) <= 5 {
 		return offloadRecentMessage{}, false
 	}
-	if message.Role == model.RoleAssistant &&
+	if message.Role == compat.RoleAssistant &&
 		utf8.RuneCountInString(content) <= 10 {
 		return offloadRecentMessage{}, false
 	}
@@ -499,16 +499,16 @@ func offloadContextWindow(inv *agent.Invocation) int {
 	if info.ContextWindow > 0 {
 		return info.ContextWindow
 	}
-	if window, ok := model.LookupModelContextWindow(info.Name); ok {
+	if window, ok := compat.LookupModelContextWindow(info.Name); ok {
 		return window
 	}
 	return defaultModelContextWindow
 }
 
-func hasOrphanToolResults(messages []model.Message) bool {
+func hasOrphanToolResults(messages []compat.Message) bool {
 	pending := make(map[string]int)
 	for _, msg := range messages {
-		if msg.Role == model.RoleAssistant {
+		if msg.Role == compat.RoleAssistant {
 			for _, call := range msg.ToolCalls {
 				if call.ID != "" {
 					pending[call.ID]++
@@ -516,7 +516,7 @@ func hasOrphanToolResults(messages []model.Message) bool {
 			}
 			continue
 		}
-		if msg.Role != model.RoleTool || msg.ToolID == "" {
+		if msg.Role != compat.RoleTool || msg.ToolID == "" {
 			continue
 		}
 		if pending[msg.ToolID] == 0 {

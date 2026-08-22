@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 )
 
@@ -26,8 +26,8 @@ type Request[T any] struct {
 // Build extracts the latest user input and supporting transcript for content reviewers.
 func Build[T any](
 	ctx context.Context,
-	messages []model.Message,
-	tokenCounter model.TokenCounter,
+	messages []compat.Message,
+	tokenCounter compat.TokenCounter,
 	mapEntry func(guardtranscript.Entry) T,
 ) *Request[T] {
 	lastUserInput, lastUserIndex := extractLastUserInput(messages)
@@ -44,7 +44,7 @@ func Build[T any](
 func buildTranscript[T any](
 	ctx context.Context,
 	rawEntries []guardtranscript.Record,
-	tokenCounter model.TokenCounter,
+	tokenCounter compat.TokenCounter,
 	mapEntry func(guardtranscript.Entry) T,
 ) []T {
 	if len(rawEntries) == 0 {
@@ -70,13 +70,13 @@ func buildTranscript[T any](
 
 func countTranscriptTokens(
 	ctx context.Context,
-	tokenCounter model.TokenCounter,
+	tokenCounter compat.TokenCounter,
 	entry guardtranscript.Entry,
 ) int {
 	if tokenCounter == nil {
 		return guardtranscript.DefaultMessageTranscriptBudget + 1
 	}
-	tokens, err := tokenCounter.CountTokens(ctx, model.Message{
+	tokens, err := tokenCounter.CountTokens(ctx, compat.Message{
 		Role:    entry.Role,
 		Content: entry.Content,
 	})
@@ -86,12 +86,12 @@ func countTranscriptTokens(
 	return tokens
 }
 
-func collectTranscriptEntries(messages []model.Message, excludedUserIndex int) []guardtranscript.Record {
+func collectTranscriptEntries(messages []compat.Message, excludedUserIndex int) []guardtranscript.Record {
 	entries := make([]guardtranscript.Record, 0, len(messages))
 	nextIndex := 0
 	for i := range messages {
 		message := messages[i]
-		if message.Role == model.RoleSystem || i == excludedUserIndex {
+		if message.Role == compat.RoleSystem || i == excludedUserIndex {
 			continue
 		}
 		text := extractMessageText(message)
@@ -99,7 +99,7 @@ func collectTranscriptEntries(messages []model.Message, excludedUserIndex int) [
 			continue
 		}
 		category := guardtranscript.CategoryMessage
-		if message.Role == model.RoleTool {
+		if message.Role == compat.RoleTool {
 			category = guardtranscript.CategoryTool
 		}
 		entries = append(entries, guardtranscript.Record{
@@ -115,9 +115,9 @@ func collectTranscriptEntries(messages []model.Message, excludedUserIndex int) [
 	return entries
 }
 
-func extractLastUserInput(messages []model.Message) (string, int) {
+func extractLastUserInput(messages []compat.Message) (string, int) {
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role != model.RoleUser {
+		if messages[i].Role != compat.RoleUser {
 			continue
 		}
 		return extractMessageText(messages[i]), i
@@ -125,13 +125,13 @@ func extractLastUserInput(messages []model.Message) (string, int) {
 	return "", -1
 }
 
-func extractMessageText(message model.Message) string {
+func extractMessageText(message compat.Message) string {
 	parts := make([]string, 0, 1+len(message.ContentParts))
 	if message.Content != "" {
 		parts = append(parts, message.Content)
 	}
 	for i := range message.ContentParts {
-		if message.ContentParts[i].Type != model.ContentTypeText || message.ContentParts[i].Text == nil {
+		if message.ContentParts[i].Type != compat.ContentTypeText || message.ContentParts[i].Text == nil {
 			continue
 		}
 		if *message.ContentParts[i].Text != "" {

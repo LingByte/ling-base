@@ -15,7 +15,7 @@ import (
 	"time"
 
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/multimodal"
 	"github.com/LingByte/ling-base/agentkit/session"
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
@@ -62,7 +62,7 @@ func TestFromEventHandlesNilAndMissingOverride(t *testing.T) {
 	ev := agentevent.NewResponseEvent(
 		testInvocationID,
 		testAuthor,
-		&model.Response{},
+		&compat.Response{},
 	)
 	ev.ID = "evt-1"
 	ev.ParentInvocationID = testParentInvocationID
@@ -99,7 +99,7 @@ func TestFromEventUsesEventFields(t *testing.T) {
 }
 
 func TestFromEventOverrideSuppressesFallback(t *testing.T) {
-	ev := agentevent.NewResponseEvent("inv-1", "agui.runner", &model.Response{})
+	ev := agentevent.NewResponseEvent("inv-1", "agui.runner", &compat.Response{})
 	ev.ID = "evt-1"
 
 	require.NoError(t, SetEventOverride(ev, Metadata{}))
@@ -110,7 +110,7 @@ func TestFromEventOverrideSuppressesFallback(t *testing.T) {
 }
 
 func TestFromEventMalformedOverrideFallsBackToFields(t *testing.T) {
-	ev := agentevent.NewResponseEvent("inv-1", "member-a", &model.Response{})
+	ev := agentevent.NewResponseEvent("inv-1", "member-a", &compat.Response{})
 	ev.ID = "evt-1"
 	ev.ParentInvocationID = "parent-1"
 	ev.Branch = "root.member-a"

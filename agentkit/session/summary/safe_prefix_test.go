@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	"github.com/stretchr/testify/assert"
@@ -54,9 +54,9 @@ func TestSessionSummarizer_UsesLargestCompletePrefix(t *testing.T) {
 
 			ctx := context.Background()
 			if test.cacheSafeFork {
-				parent := &model.Request{Messages: []model.Message{
-					model.NewSystemMessage("stable system instruction"),
-					model.NewUserMessage(strings.Repeat("parent history ", 2_000)),
+				parent := &compat.Request{Messages: []compat.Message{
+					compat.NewSystemMessage("stable system instruction"),
+					compat.NewUserMessage(strings.Repeat("parent history ", 2_000)),
 				}}
 				ctx = ContextWithCacheSafeForkRequest(ctx, parent)
 			}
@@ -155,8 +155,8 @@ func TestSessionSummarizer_SafePrefixRollsPreviousSummary(t *testing.T) {
 		Events: append([]event.Event{{
 			Author:    authorSystem,
 			Timestamp: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: previous},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: previous},
 			}}},
 		}}, conversation...),
 	}
@@ -213,7 +213,7 @@ func TestSessionSummarizer_SafePrefixPreservesToolRounds(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	events := []event.Event{
 		newSummaryPrefixEvent(
-			"user-event", "user-response", authorUser, model.RoleUser,
+			"user-event", "user-response", authorUser, compat.RoleUser,
 			"request", now,
 		),
 		{
@@ -222,11 +222,11 @@ func TestSessionSummarizer_SafePrefixPreservesToolRounds(t *testing.T) {
 			InvocationID: "invocation-1",
 			Author:       "agent",
 			Timestamp:    now.Add(time.Second),
-			Response: &model.Response{
+			Response: &compat.Response{
 				ID: "tool-call-response",
-				Choices: []model.Choice{{Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{ID: "call-1"},
 						{ID: "call-2"},
 					},
@@ -239,8 +239,8 @@ func TestSessionSummarizer_SafePrefixPreservesToolRounds(t *testing.T) {
 			InvocationID: "invocation-1",
 			Author:       "agent",
 			Timestamp:    now.Add(2 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "first"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "first"),
 			}}},
 		},
 		{
@@ -249,13 +249,13 @@ func TestSessionSummarizer_SafePrefixPreservesToolRounds(t *testing.T) {
 			InvocationID: "invocation-1",
 			Author:       "agent",
 			Timestamp:    now.Add(3 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-2", "lookup", "second"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-2", "lookup", "second"),
 			}}},
 		},
 		newSummaryPrefixEvent(
 			"assistant-event", "assistant-response", "agent",
-			model.RoleAssistant, "complete", now.Add(4*time.Second),
+			compat.RoleAssistant, "complete", now.Add(4*time.Second),
 		),
 	}
 
@@ -272,11 +272,11 @@ func TestSessionSummarizer_SafePrefixFormatsEachToolPayloadOnce(t *testing.T) {
 	s := NewSummarizer(
 		capture,
 		WithPrompt("Conversation:\n{conversation_text}\n\nSummary:"),
-		WithToolCallFormatter(func(model.ToolCall) string {
+		WithToolCallFormatter(func(compat.ToolCall) string {
 			callFormats++
 			return "[tool call]"
 		}),
-		WithToolResultFormatter(func(model.Message) string {
+		WithToolResultFormatter(func(compat.Message) string {
 			resultFormats++
 			return "[tool result]"
 		}),
@@ -284,16 +284,16 @@ func TestSessionSummarizer_SafePrefixFormatsEachToolPayloadOnce(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	events := []event.Event{
 		newSummaryPrefixEvent(
-			"user-event-1", "user-response-1", authorUser, model.RoleUser,
+			"user-event-1", "user-response-1", authorUser, compat.RoleUser,
 			"request", now,
 		),
 		{
 			ID:        "tool-call-event",
 			Author:    "agent",
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+			Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
 				}},
 			}}}},
@@ -302,21 +302,21 @@ func TestSessionSummarizer_SafePrefixFormatsEachToolPayloadOnce(t *testing.T) {
 			ID:        "tool-result-event",
 			Author:    "agent",
 			Timestamp: now.Add(2 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "result"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "result"),
 			}}},
 		},
 		newSummaryPrefixEvent(
 			"assistant-event-1", "assistant-response-1", "agent",
-			model.RoleAssistant, "complete", now.Add(3*time.Second),
+			compat.RoleAssistant, "complete", now.Add(3*time.Second),
 		),
 		newSummaryPrefixEvent(
-			"user-event-2", "user-response-2", authorUser, model.RoleUser,
+			"user-event-2", "user-response-2", authorUser, compat.RoleUser,
 			strings.Repeat("later request ", 96), now.Add(4*time.Second),
 		),
 		newSummaryPrefixEvent(
 			"assistant-event-2", "assistant-response-2", "agent",
-			model.RoleAssistant, strings.Repeat("later response ", 96),
+			compat.RoleAssistant, strings.Repeat("later response ", 96),
 			now.Add(5*time.Second),
 		),
 	}
@@ -347,8 +347,8 @@ func TestSessionSummarizer_SafePrefixSkipsEmptyBoundaries(t *testing.T) {
 	s := NewSummarizer(
 		capture,
 		WithPrompt("Conversation:\n{conversation_text}\n\nSummary:"),
-		WithToolCallFormatter(func(model.ToolCall) string { return "" }),
-		WithToolResultFormatter(func(model.Message) string { return "" }),
+		WithToolCallFormatter(func(compat.ToolCall) string { return "" }),
+		WithToolResultFormatter(func(compat.Message) string { return "" }),
 	).(*sessionSummarizer)
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	events := []event.Event{
@@ -356,35 +356,35 @@ func TestSessionSummarizer_SafePrefixSkipsEmptyBoundaries(t *testing.T) {
 			ID:        "tool-call-event",
 			Author:    "agent",
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{ID: "call-1"}},
+			Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{ID: "call-1"}},
 			}}}},
 		},
 		{
 			ID:        "tool-result-event",
 			Author:    "agent",
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "result"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "result"),
 			}}},
 		},
 		newSummaryPrefixEvent(
-			"user-event", "user-response", authorUser, model.RoleUser,
+			"user-event", "user-response", authorUser, compat.RoleUser,
 			"small request", now.Add(2*time.Second),
 		),
 		newSummaryPrefixEvent(
 			"assistant-event", "assistant-response", "agent",
-			model.RoleAssistant, "small response", now.Add(3*time.Second),
+			compat.RoleAssistant, "small response", now.Add(3*time.Second),
 		),
 		newSummaryPrefixEvent(
 			"large-user-event", "large-user-response", authorUser,
-			model.RoleUser, strings.Repeat("later request ", 96),
+			compat.RoleUser, strings.Repeat("later request ", 96),
 			now.Add(4*time.Second),
 		),
 		newSummaryPrefixEvent(
 			"large-assistant-event", "large-assistant-response", "agent",
-			model.RoleAssistant, strings.Repeat("later response ", 96),
+			compat.RoleAssistant, strings.Repeat("later response ", 96),
 			now.Add(5*time.Second),
 		),
 	}
@@ -414,44 +414,44 @@ func TestSessionSummarizer_SafePrefixDoesNotEndAfterEmptyBoundary(t *testing.T) 
 	s := NewSummarizer(
 		capture,
 		WithPrompt("Conversation:\n{conversation_text}\n\nSummary:"),
-		WithToolCallFormatter(func(model.ToolCall) string { return "" }),
-		WithToolResultFormatter(func(model.Message) string { return "" }),
+		WithToolCallFormatter(func(compat.ToolCall) string { return "" }),
+		WithToolResultFormatter(func(compat.Message) string { return "" }),
 	).(*sessionSummarizer)
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	events := []event.Event{
 		newSummaryPrefixEvent(
-			"user-event", "user-response", authorUser, model.RoleUser,
+			"user-event", "user-response", authorUser, compat.RoleUser,
 			"small request", now,
 		),
 		newSummaryPrefixEvent(
 			"assistant-event", "assistant-response", "agent",
-			model.RoleAssistant, "small response", now.Add(time.Second),
+			compat.RoleAssistant, "small response", now.Add(time.Second),
 		),
 		{
 			ID:        "tool-call-event",
 			Author:    "agent",
 			Timestamp: now.Add(2 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-				Role:      model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{ID: "call-1"}},
+			Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+				Role:      compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{ID: "call-1"}},
 			}}}},
 		},
 		{
 			ID:        "tool-result-event",
 			Author:    "agent",
 			Timestamp: now.Add(3 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "result"),
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "result"),
 			}}},
 		},
 		newSummaryPrefixEvent(
 			"large-user-event", "large-user-response", authorUser,
-			model.RoleUser, strings.Repeat("later request ", 96),
+			compat.RoleUser, strings.Repeat("later request ", 96),
 			now.Add(4*time.Second),
 		),
 		newSummaryPrefixEvent(
 			"large-assistant-event", "large-assistant-response", "agent",
-			model.RoleAssistant, strings.Repeat("later response ", 96),
+			compat.RoleAssistant, strings.Repeat("later response ", 96),
 			now.Add(5*time.Second),
 		),
 	}
@@ -479,16 +479,16 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 	t.Run("response chunks stay together", func(t *testing.T) {
 		events := []event.Event{
 			newSummaryPrefixEvent(
-				"user-event", "user-response", authorUser, model.RoleUser,
+				"user-event", "user-response", authorUser, compat.RoleUser,
 				"request", now,
 			),
 			newSummaryPrefixEvent(
 				"assistant-chunk-1", "shared-response", "agent",
-				model.RoleAssistant, "first", now.Add(time.Second),
+				compat.RoleAssistant, "first", now.Add(time.Second),
 			),
 			newSummaryPrefixEvent(
 				"assistant-chunk-2", "shared-response", "agent",
-				model.RoleAssistant, "second", now.Add(2*time.Second),
+				compat.RoleAssistant, "second", now.Add(2*time.Second),
 			),
 		}
 		events[1].Response.IsPartial = true
@@ -502,10 +502,10 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 				ID:        "delta-call",
 				Author:    "agent",
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Delta: model.Message{
-						Role:      model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{ID: "call-1"}},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Delta: compat.Message{
+						Role:      compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{ID: "call-1"}},
 					},
 				}}},
 			},
@@ -513,9 +513,9 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 				ID:        "delta-result",
 				Author:    "agent",
 				Timestamp: now.Add(time.Second),
-				Response: &model.Response{Choices: []model.Choice{{
-					Delta: model.Message{
-						Role:    model.RoleTool,
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Delta: compat.Message{
+						Role:    compat.RoleTool,
 						ToolID:  "call-1",
 						Content: "result",
 					},
@@ -530,22 +530,22 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 		events := []event.Event{
 			newSummaryPrefixEvent(
 				"assistant-event-1", "assistant-response-1", "agent",
-				model.RoleAssistant, "complete", now,
+				compat.RoleAssistant, "complete", now,
 			),
 			{
 				ID:        "anonymous-call",
 				Author:    "agent",
 				Timestamp: now.Add(time.Second),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role:      model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{}},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role:      compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{}},
 					},
 				}}},
 			},
 			newSummaryPrefixEvent(
 				"assistant-event-2", "assistant-response-2", "agent",
-				model.RoleAssistant, "later", now.Add(2*time.Second),
+				compat.RoleAssistant, "later", now.Add(2*time.Second),
 			),
 		}
 
@@ -558,10 +558,10 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 				ID:        id,
 				Author:    "agent",
 				Timestamp: timestamp,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
 							ID: "reused-call",
 						}},
 					},
@@ -573,8 +573,8 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 				ID:        id,
 				Author:    "agent",
 				Timestamp: timestamp,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.NewToolMessage(
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewToolMessage(
 						"reused-call", "lookup", "result",
 					),
 				}}},
@@ -587,7 +587,7 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 			toolResult("result-event-2", now.Add(3*time.Second)),
 			newSummaryPrefixEvent(
 				"assistant-event", "assistant-response", "agent",
-				model.RoleAssistant, "later", now.Add(4*time.Second),
+				compat.RoleAssistant, "later", now.Add(4*time.Second),
 			),
 		}
 
@@ -596,12 +596,12 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 
 	t.Run("unstable events are not cut points", func(t *testing.T) {
 		missingID := newSummaryPrefixEvent(
-			"", "assistant-response-1", "agent", model.RoleAssistant,
+			"", "assistant-response-1", "agent", compat.RoleAssistant,
 			"first", now,
 		)
 		missingTimestamp := newSummaryPrefixEvent(
 			"assistant-event-2", "assistant-response-2", "agent",
-			model.RoleAssistant, "second", time.Time{},
+			compat.RoleAssistant, "second", time.Time{},
 		)
 
 		require.Empty(
@@ -612,7 +612,7 @@ func TestSafeSummaryPrefixEnds_RejectsIncompleteBoundaries(t *testing.T) {
 
 	t.Run("system event is not a cut point", func(t *testing.T) {
 		evt := newSummaryPrefixEvent(
-			"system-event", "system-response", "agent", model.RoleSystem,
+			"system-event", "system-response", "agent", compat.RoleSystem,
 			"instruction", now,
 		)
 
@@ -674,18 +674,18 @@ func TestSessionSummarizer_RetryShrinksSafePrefix(t *testing.T) {
 	code := "context_length_exceeded"
 	capture := &retrySummaryModel{
 		contextWindow: 100_000,
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{
 				Done: true,
-				Error: &model.ResponseError{
+				Error: &compat.ResponseError{
 					Message: "maximum context length exceeded",
 					Code:    &code,
 				},
 			},
 			{
 				Done: true,
-				Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "smaller prefix summary",
 				}}},
 			},
@@ -757,7 +757,7 @@ func TestSessionSummarizer_SafePrefixRequiresStrictProgress(t *testing.T) {
 func TestSessionSummarizer_CommitsBoundaryAfterPostHook(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	evt := newSummaryPrefixEvent(
-		"event-1", "response-1", authorUser, model.RoleUser, "request", now,
+		"event-1", "response-1", authorUser, compat.RoleUser, "request", now,
 	)
 
 	t.Run("aborting hook leaves boundary unchanged", func(t *testing.T) {
@@ -848,7 +848,7 @@ func newSummaryPrefixRounds(rounds int, repeatedWords int) []event.Event {
 				fmt.Sprintf("user-event-%d", i),
 				fmt.Sprintf("user-response-%d", i),
 				authorUser,
-				model.RoleUser,
+				compat.RoleUser,
 				fmt.Sprintf("user-marker-%d %s", i,
 					strings.Repeat("request ", repeatedWords)),
 				now.Add(time.Duration(len(events))*time.Second),
@@ -857,7 +857,7 @@ func newSummaryPrefixRounds(rounds int, repeatedWords int) []event.Event {
 				fmt.Sprintf("assistant-event-%d", i),
 				fmt.Sprintf("assistant-response-%d", i),
 				"agent",
-				model.RoleAssistant,
+				compat.RoleAssistant,
 				fmt.Sprintf("assistant-marker-%d %s", i,
 					strings.Repeat("response ", repeatedWords)),
 				now.Add(time.Duration(len(events)+1)*time.Second),
@@ -871,7 +871,7 @@ func newSummaryPrefixEvent(
 	eventID string,
 	responseID string,
 	author string,
-	role model.Role,
+	role compat.Role,
 	content string,
 	timestamp time.Time,
 ) event.Event {
@@ -881,9 +881,9 @@ func newSummaryPrefixEvent(
 		InvocationID: "invocation-1",
 		Author:       author,
 		Timestamp:    timestamp,
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID: responseID,
-			Choices: []model.Choice{{Message: model.Message{
+			Choices: []compat.Choice{{Message: compat.Message{
 				Role:    role,
 				Content: content,
 			}}},

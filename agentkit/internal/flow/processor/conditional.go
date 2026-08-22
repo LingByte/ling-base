@@ -15,7 +15,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // InvocationPredicate decides whether one processor should run for the current invocation.
@@ -42,7 +42,7 @@ func NewConditionalRequestProcessor(
 func (p *ConditionalRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if p == nil || p.delegate == nil {
@@ -75,8 +75,8 @@ func NewConditionalResponseProcessor(
 func (p *ConditionalResponseProcessor) ProcessResponse(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
-	rsp *model.Response,
+	req *compat.Request,
+	rsp *compat.Response,
 	ch chan<- *event.Event,
 ) {
 	if p == nil || p.delegate == nil {

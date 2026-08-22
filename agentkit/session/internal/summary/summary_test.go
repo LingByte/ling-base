@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
@@ -58,7 +58,7 @@ func (m *mockSummarizerWithTs) FilterEventsForSummary(
 
 func (m *mockSummarizerWithTs) SetPrompt(prompt string) {}
 
-func (m *mockSummarizerWithTs) SetModel(mdl model.Model) {}
+func (m *mockSummarizerWithTs) SetModel(mdl compat.Model) {}
 
 func (m *mockSummarizerWithTs) Metadata() map[string]any { return nil }
 
@@ -68,8 +68,8 @@ func TestSummarizeSession_UsesLastIncludedTimestamp(t *testing.T) {
 	sess := &session.Session{
 		ID: "s1",
 		Events: []event.Event{
-			{Author: "user", Timestamp: t1, Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "e1"}}}}},
-			{Author: "user", Timestamp: t2, Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "e2"}}}}},
+			{Author: "user", Timestamp: t1, Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "e1"}}}}},
+			{Author: "user", Timestamp: t2, Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "e2"}}}}},
 		},
 	}
 
@@ -163,9 +163,9 @@ func TestSummarizeSession_RequestGapTriggersLegacyChecksAny(t *testing.T) {
 					ID:        "req-1-assistant",
 					RequestID: "req-1",
 					Timestamp: t0,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "previous response",
 						},
 					}}},
@@ -174,9 +174,9 @@ func TestSummarizeSession_RequestGapTriggersLegacyChecksAny(t *testing.T) {
 					ID:        "req-2-user",
 					RequestID: "req-2",
 					Timestamp: requestStartedAt.Add(time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleUser,
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleUser,
 							Content: "next request",
 						},
 					}}},
@@ -185,9 +185,9 @@ func TestSummarizeSession_RequestGapTriggersLegacyChecksAny(t *testing.T) {
 					ID:        "req-2-assistant",
 					RequestID: "req-2",
 					Timestamp: requestStartedAt.Add(2 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							Role:    model.RoleAssistant,
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role:    compat.RoleAssistant,
 							Content: "next response",
 						},
 					}}},
@@ -265,9 +265,9 @@ func TestSummarizeSession_RequestGapTriggersLegacyChecksAny(t *testing.T) {
 			ID:        "req-2-final",
 			RequestID: "req-2",
 			Timestamp: requestStartedAt.Add(3 * time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "final response",
 				},
 			}}},
@@ -291,8 +291,8 @@ func TestSummarizeSession_WritesSummaryBoundary(t *testing.T) {
 				ID:        "event-1",
 				FilterKey: "branch",
 				Timestamp: t1,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleUser,
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "first",
 				}}}},
 			},
@@ -300,8 +300,8 @@ func TestSummarizeSession_WritesSummaryBoundary(t *testing.T) {
 				ID:        "event-2",
 				FilterKey: "branch",
 				Timestamp: t2,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleAssistant,
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "second",
 				}}}},
 			},
@@ -309,8 +309,8 @@ func TestSummarizeSession_WritesSummaryBoundary(t *testing.T) {
 				ID:        "event-3",
 				FilterKey: "branch",
 				Timestamp: t3,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleUser,
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "recent",
 				}}}},
 			},
@@ -348,16 +348,16 @@ func TestSummarizeSession_UsesPreviousBoundaryCutoff(t *testing.T) {
 			{
 				ID:        "event-1",
 				Timestamp: t1,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleUser,
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "covered",
 				}}}},
 			},
 			{
 				ID:        "event-2",
 				Timestamp: t2,
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{
-					Role:    model.RoleUser,
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "new delta",
 				}}}},
 			},
@@ -445,24 +445,24 @@ func (f *fakeSummarizer) Summarize(ctx context.Context, sess *session.Session) (
 	return f.out, nil
 }
 func (f *fakeSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeSummarizer) SetModel(m model.Model)   {}
+func (f *fakeSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 type reportModel struct{}
 
-func (m *reportModel) Info() model.Info {
-	return model.Info{Name: "report"}
+func (m *reportModel) Info() compat.Info {
+	return compat.Info{Name: "report"}
 }
 
 func (m *reportModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Content: "sum"},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Content: "sum"},
 		}},
 	}
 	close(ch)
@@ -493,7 +493,7 @@ func (b *blockingSummarizer) Summarize(context.Context, *session.Session) (strin
 }
 
 func (b *blockingSummarizer) SetPrompt(string)         {}
-func (b *blockingSummarizer) SetModel(model.Model)     {}
+func (b *blockingSummarizer) SetModel(compat.Model)     {}
 func (b *blockingSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func (b *blockingSummarizer) callCount() int {
@@ -524,7 +524,7 @@ func (f *fakeSummarizerWithTs) Summarize(ctx context.Context, sess *session.Sess
 	return f.out, nil
 }
 func (f *fakeSummarizerWithTs) SetPrompt(prompt string)  {}
-func (f *fakeSummarizerWithTs) SetModel(m model.Model)   {}
+func (f *fakeSummarizerWithTs) SetModel(m compat.Model)   {}
 func (f *fakeSummarizerWithTs) Metadata() map[string]any { return map[string]any{} }
 
 type thresholdSummarizer struct {
@@ -541,7 +541,7 @@ func (t *thresholdSummarizer) Summarize(context.Context, *session.Session) (stri
 }
 
 func (t *thresholdSummarizer) SetPrompt(string)         {}
-func (t *thresholdSummarizer) SetModel(model.Model)     {}
+func (t *thresholdSummarizer) SetModel(compat.Model)     {}
 func (t *thresholdSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 type recordingThresholdSummarizer struct {
@@ -565,7 +565,7 @@ func (r *recordingThresholdSummarizer) Summarize(
 }
 
 func (r *recordingThresholdSummarizer) SetPrompt(string)         {}
-func (r *recordingThresholdSummarizer) SetModel(model.Model)     {}
+func (r *recordingThresholdSummarizer) SetModel(compat.Model)     {}
 func (r *recordingThresholdSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func makeEvent(content string, ts time.Time, filterKey string) event.Event {
@@ -574,7 +574,7 @@ func makeEvent(content string, ts time.Time, filterKey string) event.Event {
 		Branch:    filterKey,
 		FilterKey: filterKey,
 		Timestamp: ts,
-		Response:  &model.Response{Choices: []model.Choice{{Message: model.Message{Content: content}}}},
+		Response:  &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: content}}}},
 	}
 }
 
@@ -598,7 +598,7 @@ func (s *previousSummaryCaptureSummarizer) Summarize(
 }
 
 func (s *previousSummaryCaptureSummarizer) SetPrompt(string)         {}
-func (s *previousSummaryCaptureSummarizer) SetModel(model.Model)     {}
+func (s *previousSummaryCaptureSummarizer) SetModel(compat.Model)     {}
 func (s *previousSummaryCaptureSummarizer) Metadata() map[string]any { return nil }
 
 func TestSummarizeSession_AttachesPreviousSummaryContext(t *testing.T) {
@@ -1047,9 +1047,9 @@ func TestComputeDeltaAfterBoundary_UsesEventIDTieBreaker(t *testing.T) {
 	ts := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 	base := &session.Session{ID: "s1"}
 	base.Events = []event.Event{
-		{ID: "covered", Timestamp: ts, Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "covered"}}}}},
-		{ID: "same-time", Timestamp: ts, Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "same time"}}}}},
-		{ID: "later", Timestamp: ts.Add(time.Second), Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "later"}}}}},
+		{ID: "covered", Timestamp: ts, Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "covered"}}}}},
+		{ID: "same-time", Timestamp: ts, Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "same time"}}}}},
+		{ID: "later", Timestamp: ts.Add(time.Second), Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "later"}}}}},
 	}
 
 	delta, latest := computeDeltaAfterBoundary(
@@ -1951,8 +1951,8 @@ func TestCreateSessionSummaryWithCascade_SkipsFullTargetForCacheSafeFork(t *test
 			makeEvent("other", now.Add(-time.Minute), "tool-calls"),
 		},
 	}
-	parent := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("parent request")},
+	parent := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("parent request")},
 	}
 	ctx := summary.ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -1990,8 +1990,8 @@ func TestCreateSessionSummaryWithCascade_SkipsForcedFullTargetForCacheSafeFork(t
 			makeEvent("other", now.Add(-time.Minute), "tool-calls"),
 		},
 	}
-	parent := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("parent request")},
+	parent := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("parent request")},
 	}
 	ctx := summary.ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -2029,8 +2029,8 @@ func TestCreateSessionSummaryWithCascade_SkipsFullTargetForDynamicCacheSafeFork(
 			makeEvent("other", now.Add(-time.Minute), "tool-calls"),
 		},
 	}
-	parent := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("parent request")},
+	parent := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("parent request")},
 	}
 	ctx := summary.ContextWithCacheSafeForkRequest(context.Background(), parent)
 	resolved := summary.NewSummarizer(
@@ -2073,8 +2073,8 @@ func TestCreateSessionSummaryWithCascade_PreservesFullOnlyTargetForCacheSafeFork
 			makeEvent("other", now.Add(-time.Minute), "tool-calls"),
 		},
 	}
-	parent := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("parent request")},
+	parent := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("parent request")},
 	}
 	ctx := summary.ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -2112,8 +2112,8 @@ func TestCreateSessionSummaryWithCascade_PreservesFullTargetWithoutCacheSafeFork
 			makeEvent("other", now.Add(-time.Minute), "tool-calls"),
 		},
 	}
-	parent := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("parent request")},
+	parent := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("parent request")},
 	}
 	ctx := summary.ContextWithCacheSafeForkRequest(context.Background(), parent)
 

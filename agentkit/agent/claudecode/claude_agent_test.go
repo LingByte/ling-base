@@ -20,7 +20,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -73,8 +73,8 @@ func newTestInvocation(invocationID string, sess *session.Session, prompt string
 	return &agent.Invocation{
 		InvocationID: invocationID,
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: prompt,
 		},
 	}
@@ -87,8 +87,8 @@ func TestClaudeCodeAgent_Run_ResumeThenCreate(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-1",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Calculate the sum of 1 and 2.",
 		},
 	}
@@ -171,8 +171,8 @@ func TestClaudeCodeAgent_Run_ResumeSuccess(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-2",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -331,8 +331,8 @@ func TestClaudeCodeAgent_Run_CommandError(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-4",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -365,8 +365,8 @@ func TestClaudeCodeAgent_Run_RawOutputHook(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-hook-1",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -413,8 +413,8 @@ func TestClaudeCodeAgent_Run_RawOutputHookError(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-hook-2",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -445,9 +445,9 @@ func TestClaudeCodeAgent_Run_RawOutputHookError(t *testing.T) {
 	require.True(t, called)
 	require.Len(t, events, 1)
 	require.True(t, events[0].IsFinalResponse())
-	require.Equal(t, model.ObjectTypeError, events[0].Object)
+	require.Equal(t, compat.ObjectTypeError, events[0].Object)
 	require.NotNil(t, events[0].Error)
-	require.Equal(t, model.ErrorTypeFlowError, events[0].Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, events[0].Error.Type)
 	require.Contains(t, events[0].Error.Message, "raw output hook")
 	require.Contains(t, events[0].Error.Message, "hook failed")
 	require.Contains(t, events[0].Choices[0].Message.Content, transcript)
@@ -460,8 +460,8 @@ func TestClaudeCodeAgent_InfoAndRunnerArgs(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-info-1",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -608,8 +608,8 @@ func TestClaudeCodeAgent_Run_OutputFormatOverride(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-output-format-1",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "Hi.",
 		},
 	}
@@ -687,7 +687,7 @@ func TestParseTranscriptToolEvents_TaskTransfer(t *testing.T) {
 	require.Equal(t, "ok", result)
 	require.Len(t, events, 3)
 	require.True(t, events[0].IsToolCallResponse())
-	require.Equal(t, model.ObjectTypeTransfer, events[1].Object)
+	require.Equal(t, compat.ObjectTypeTransfer, events[1].Object)
 	require.True(t, events[1].ContainsTag(event.TransferTag))
 	require.Contains(t, events[1].Choices[0].Message.Content, "Bash")
 	require.True(t, events[2].IsToolResultResponse())
@@ -700,8 +700,8 @@ func TestClaudeCodeAgent_Run_TranscriptFixture(t *testing.T) {
 	inv := &agent.Invocation{
 		InvocationID: "inv-fixture-1",
 		Session:      sess,
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "fixture",
 		},
 	}
@@ -753,7 +753,7 @@ func TestClaudeCodeAgent_Run_TranscriptFixture(t *testing.T) {
 	var sawTransfer bool
 
 	for _, evt := range events {
-		if evt.Object == model.ObjectTypeTransfer && evt.ContainsTag(event.TransferTag) {
+		if evt.Object == compat.ObjectTypeTransfer && evt.ContainsTag(event.TransferTag) {
 			sawTransfer = true
 			require.Contains(t, evt.Choices[0].Message.Content, "general-purpose")
 			continue

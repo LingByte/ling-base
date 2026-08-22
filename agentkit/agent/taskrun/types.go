@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -144,7 +144,7 @@ type SpawnRequest struct {
 	RuntimeStateKeys RuntimeStateKeys
 	// InjectedContextMessages are local runner context messages for
 	// implementations that call runner.Run directly.
-	InjectedContextMessages []model.Message
+	InjectedContextMessages []compat.Message
 	Metadata                map[string]string
 }
 

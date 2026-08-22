@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestIdentityProc_Request(t *testing.T) {
@@ -29,7 +29,7 @@ func TestIdentityProc_Request(t *testing.T) {
 		name         string
 		agentName    string
 		description  string
-		messages     []model.Message
+		messages     []compat.Message
 		wantMessages int
 		wantContent  string
 	}{
@@ -37,7 +37,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "adds identity with name and description",
 			agentName:    "TestBot",
 			description:  "A helpful testing assistant",
-			messages:     []model.Message{},
+			messages:     []compat.Message{},
 			wantMessages: 1,
 			wantContent:  "You are TestBot. A helpful testing assistant",
 		},
@@ -45,7 +45,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "adds identity with name only",
 			agentName:    "TestBot",
 			description:  "",
-			messages:     []model.Message{},
+			messages:     []compat.Message{},
 			wantMessages: 1,
 			wantContent:  "You are TestBot.",
 		},
@@ -53,7 +53,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "adds identity with description only",
 			agentName:    "",
 			description:  "A helpful assistant",
-			messages:     []model.Message{},
+			messages:     []compat.Message{},
 			wantMessages: 1,
 			wantContent:  "A helpful assistant",
 		},
@@ -61,7 +61,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "no identity information",
 			agentName:    "",
 			description:  "",
-			messages:     []model.Message{},
+			messages:     []compat.Message{},
 			wantMessages: 0,
 			wantContent:  "",
 		},
@@ -69,7 +69,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "prepends identity to existing system message",
 			agentName:    "TestBot",
 			description:  "A helpful assistant",
-			messages:     []model.Message{model.NewSystemMessage("You have access to tools.")},
+			messages:     []compat.Message{compat.NewSystemMessage("You have access to tools.")},
 			wantMessages: 1,
 			wantContent:  "You are TestBot. A helpful assistant",
 		},
@@ -77,7 +77,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			name:         "doesn't duplicate identity when already exists",
 			agentName:    "TestBot",
 			description:  "",
-			messages:     []model.Message{model.NewSystemMessage("You are TestBot. You have access to tools.")},
+			messages:     []compat.Message{compat.NewSystemMessage("You are TestBot. You have access to tools.")},
 			wantMessages: 1,
 			wantContent:  "You are TestBot.",
 		},
@@ -93,7 +93,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			eventCh := make(chan *event.Event, 10)
 			ctx := context.Background()
 
-			request := &model.Request{Messages: tt.messages}
+			request := &compat.Request{Messages: tt.messages}
 			processor.ProcessRequest(ctx, invocation, request, eventCh)
 
 			if len(request.Messages) != tt.wantMessages {
@@ -104,7 +104,7 @@ func TestIdentityProc_Request(t *testing.T) {
 			if tt.wantContent != "" && tt.wantMessages > 0 {
 				found := false
 				for _, msg := range request.Messages {
-					if msg.Role == model.RoleSystem && strings.Contains(msg.Content, tt.wantContent) {
+					if msg.Role == compat.RoleSystem && strings.Contains(msg.Content, tt.wantContent) {
 						found = true
 						break
 					}

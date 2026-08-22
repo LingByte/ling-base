@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
 	"github.com/LingByte/ling-base/agentkit/knowledge/searchfilter"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -86,7 +86,7 @@ func TestLLMAgent_SurfacePatch_OverridesInstructionAndSystemPrompt(t *testing.T)
 	}
 	require.NotNil(t, instrProc)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 1)
 	instrProc.(*processor.InstructionRequestProcessor).ProcessRequest(
 		context.Background(),
@@ -263,7 +263,7 @@ func TestLLMAgent_SurfaceRuntimeHelpers_CoverPatchAndFallbackBranches(t *testing
 	require.NotEmpty(t, dynamicTools)
 	require.NotEmpty(t, dynamicUserToolNames)
 	var patch agent.SurfacePatch
-	patch.SetFewShot([][]model.Message{{model.NewUserMessage("few-shot user")}})
+	patch.SetFewShot([][]compat.Message{{compat.NewUserMessage("few-shot user")}})
 	patch.SetTools([]tool.Tool{
 		dummyTool{decl: &tool.Declaration{Name: "patched_user_tool"}},
 	})
@@ -487,7 +487,7 @@ func TestLLMAgent_RunOptions_OverrideStaticInstructionAndSystemPrompt(
 	}
 	require.NotNil(t, instrProc)
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	ch := make(chan *event.Event, 1)
 	instrProc.(*processor.InstructionRequestProcessor).ProcessRequest(
 		context.Background(),
@@ -509,13 +509,13 @@ func TestLLMAgent_Run_SurfacePatch_InsertsFewShotBeforeUserMessage(t *testing.T)
 	agt := New("test-agent", WithModel(m))
 
 	var patch agent.SurfacePatch
-	patch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("few-shot user"),
-		model.NewAssistantMessage("few-shot assistant"),
+	patch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("few-shot user"),
+		compat.NewAssistantMessage("few-shot assistant"),
 	}})
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("actual user")),
+		agent.WithInvocationMessage(compat.NewUserMessage("actual user")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
 		)),
@@ -544,13 +544,13 @@ func TestLLMAgent_Run_SurfacePatch_InsertsFewShotAfterSystemBlock(
 	)
 
 	var patch agent.SurfacePatch
-	patch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("few-shot user"),
-		model.NewAssistantMessage("few-shot assistant"),
+	patch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("few-shot user"),
+		compat.NewAssistantMessage("few-shot assistant"),
 	}})
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("actual user")),
+		agent.WithInvocationMessage(compat.NewUserMessage("actual user")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
 		)),
@@ -563,7 +563,7 @@ func TestLLMAgent_Run_SurfacePatch_InsertsFewShotAfterSystemBlock(
 
 	require.NotNil(t, m.got)
 	require.Len(t, m.got.Messages, 4)
-	require.Equal(t, model.RoleSystem, m.got.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, m.got.Messages[0].Role)
 	require.Contains(t, m.got.Messages[0].Content, "static instruction")
 	require.Equal(t, "few-shot user", m.got.Messages[1].Content)
 	require.Equal(t, "few-shot assistant", m.got.Messages[2].Content)
@@ -587,7 +587,7 @@ func TestLLMAgent_Run_SurfacePatch_ReplacesUserToolsAndPreservesFrameworkTools(t
 	})
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
 		)),
@@ -621,7 +621,7 @@ func TestLLMAgent_Run_SurfacePatch_AppendsUserTools(t *testing.T) {
 	})
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
 		)),
@@ -656,7 +656,7 @@ func TestLLMAgent_Run_AgentToolFilterStillAppliesWithInvocationToolSurface(
 	)
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 
 	ch, err := agt.Run(context.Background(), inv)
@@ -705,7 +705,7 @@ func TestLLMAgent_Run_SurfacePatch_OverridesToolDeclarations(t *testing.T) {
 		},
 	}})
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			withSurfacePatchForNode("test-agent", patch),
 		)),
@@ -715,7 +715,7 @@ func TestLLMAgent_Run_SurfacePatch_OverridesToolDeclarations(t *testing.T) {
 	for range ch {
 	}
 	require.NotNil(t, m.got)
-	gotTool, ok := m.got.Tools["allowed_user_tool"]
+	gotTool, ok := m.got.Tools.(map[string]tool.Tool)["allowed_user_tool"]
 	require.True(t, ok)
 	require.Equal(t, "patched description", gotTool.Declaration().Description)
 	require.Equal(t, "patched query", gotTool.Declaration().InputSchema.Properties["query"].Description)
@@ -742,7 +742,7 @@ func TestLLMAgent_Run_SurfacePatchToolDeclarationTraceUsesStaticSurfaces(t *test
 		InputSchema: &tool.Schema{Type: "object"},
 	}})
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 		agent.WithInvocationTraceNodeID("test-agent"),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithExecutionTraceEnabled(true),
@@ -760,7 +760,7 @@ func TestLLMAgent_Run_SurfacePatchToolDeclarationTraceUsesStaticSurfaces(t *test
 	require.NotNil(t, m.got)
 	require.Contains(t, m.got.Tools, "allowed_user_tool")
 	require.Contains(t, m.got.Tools, "run_option_tool")
-	require.Equal(t, "patched description", m.got.Tools["allowed_user_tool"].Declaration().Description)
+	require.Equal(t, "patched description", m.got.Tools.(map[string]tool.Tool)["allowed_user_tool"].Declaration().Description)
 	trace := agent.BuildExecutionTrace(inv, atrace.TraceStatusCompleted)
 	require.NotNil(t, trace)
 	require.Len(t, trace.Steps, 1)
@@ -785,7 +785,7 @@ func TestLLMAgent_Run_SurfacePatch_DisablesStaticSkills(t *testing.T) {
 	patch.SetSkillRepository(nil)
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
@@ -833,7 +833,7 @@ func TestLLMAgent_Run_SurfacePatch_AddsSkillsWithoutStaticRepository(t *testing.
 	patch.SetSkillRepository(repo)
 
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{}),
 		agent.WithInvocationRunOptions(agent.NewRunOptions(
 			agent.WithSurfacePatchForNode("test-agent", patch),
@@ -854,7 +854,7 @@ func TestLLMAgent_Run_SurfacePatch_AddsSkillsWithoutStaticRepository(t *testing.
 	require.NotNil(t, m.got)
 	var sawSkills bool
 	for _, msg := range m.got.Messages {
-		if msg.Role == model.RoleSystem &&
+		if msg.Role == compat.RoleSystem &&
 			strings.Contains(msg.Content, skillsOverviewHeader) {
 			sawSkills = true
 		}
@@ -883,7 +883,7 @@ func TestLLMAgent_InvocationToolSurface_HidesWorkspaceExecWhenDisabled(
 	tools, _ := agt.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 			agent.WithInvocationSession(&session.Session{}),
 		),
 	)

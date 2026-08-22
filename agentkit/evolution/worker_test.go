@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -133,12 +133,12 @@ func newTestSession() *session.Session {
 	return session.NewSession("test-app", "user-1", "sess-1")
 }
 
-func addEvents(sess *session.Session, msgs ...model.Message) {
+func addEvents(sess *session.Session, msgs ...compat.Message) {
 	now := time.Now()
 	for i, msg := range msgs {
 		sess.Events = append(sess.Events, event.Event{
 			Timestamp: now.Add(time.Duration(i) * time.Second),
-			Response:  &model.Response{Choices: []model.Choice{{Message: msg}}},
+			Response:  &compat.Response{Choices: []compat.Choice{{Message: msg}}},
 		})
 	}
 }
@@ -163,8 +163,8 @@ func TestWorker_ProcessJob_ReviewPolicyRejects(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "hi"},
-		model.Message{Role: model.RoleAssistant, Content: "hello"},
+		compat.Message{Role: compat.RoleUser, Content: "hi"},
+		compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -187,14 +187,14 @@ func TestWorker_ProcessJob_ReviewPolicyReceivesContext(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "hi"},
-		model.Message{Role: model.RoleAssistant, Content: "checking", ToolCalls: []model.ToolCall{{
+		compat.Message{Role: compat.RoleUser, Content: "hi"},
+		compat.Message{Role: compat.RoleAssistant, Content: "checking", ToolCalls: []compat.ToolCall{{
 			ID: "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name: "lookup",
 			},
 		}}},
-		model.Message{Role: model.RoleTool, ToolID: "call-1", Content: "ok"},
+		compat.Message{Role: compat.RoleTool, ToolID: "call-1", Content: "ok"},
 	)
 	outcome := &Outcome{Status: OutcomeSuccess}
 
@@ -226,8 +226,8 @@ func TestWorker_ProcessJob_ReviewPolicyErrorDoesNotAdvanceCursor(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "hi"},
-		model.Message{Role: model.RoleAssistant, Content: "hello"},
+		compat.Message{Role: compat.RoleUser, Content: "hi"},
+		compat.Message{Role: compat.RoleAssistant, Content: "hello"},
 	)
 
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
@@ -257,8 +257,8 @@ func TestWorker_ProcessJob_SkillWrittenAndRefreshed(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "help me"},
-		model.Message{Role: model.RoleAssistant, Content: "sure"},
+		compat.Message{Role: compat.RoleUser, Content: "help me"},
+		compat.Message{Role: compat.RoleAssistant, Content: "sure"},
 	)
 
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
@@ -303,7 +303,7 @@ func TestWorker_ProcessJob_AppScopedFileBackends(t *testing.T) {
 		SafetyGate:        NewDefaultSafetyGate(),
 	})
 	sess := newTestSession()
-	addEvents(sess, model.NewUserMessage("learn this workflow"), model.NewAssistantMessage("done"))
+	addEvents(sess, compat.NewUserMessage("learn this workflow"), compat.NewAssistantMessage("done"))
 
 	require.NoError(t, w.Enqueue(context.Background(), LearningJob{Session: sess}))
 
@@ -507,8 +507,8 @@ func TestWorker_ProcessJob_SkipReason(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "hello"},
-		model.Message{Role: model.RoleAssistant, Content: "hi"},
+		compat.Message{Role: compat.RoleUser, Content: "hello"},
+		compat.Message{Role: compat.RoleAssistant, Content: "hi"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -526,8 +526,8 @@ func TestWorker_ProcessJob_SkipsWhenSkillWritesDetected(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "create a skill"},
-		model.Message{Role: model.RoleAssistant, Content: "I wrote SKILL.md for you"},
+		compat.Message{Role: compat.RoleUser, Content: "create a skill"},
+		compat.Message{Role: compat.RoleAssistant, Content: "I wrote SKILL.md for you"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -545,12 +545,12 @@ func TestWorker_ProcessJob_SkipsWhenStructuredSkillWriteDetected(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "create a reusable release skill"},
-		model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+		compat.Message{Role: compat.RoleUser, Content: "create a reusable release skill"},
+		compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "workspace_exec",
 					Arguments: []byte(`{"command":"cat > skills/release/SKILL.md <<'EOF'"}`),
 				},
@@ -581,8 +581,8 @@ func TestWorker_AsyncEnqueue(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "do it"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "do it"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	err := w.Enqueue(context.Background(), LearningJob{Session: sess})
 	require.NoError(t, err)
@@ -612,8 +612,8 @@ func TestWorker_DeltaScan_Incremental(t *testing.T) {
 	base := time.Now()
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: base,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "old"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "old"},
 		}}},
 	})
 	// Simulate a previous review.
@@ -621,8 +621,8 @@ func TestWorker_DeltaScan_Incremental(t *testing.T) {
 
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: base.Add(time.Minute),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleUser, Content: "new"},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleUser, Content: "new"},
 		}}},
 	})
 
@@ -639,10 +639,10 @@ func TestScanDelta_CountsToolCalls(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{Type: "function"}, {Type: "function"}, {Type: "function"}, {Type: "function"},
 					},
 				},
@@ -650,8 +650,8 @@ func TestScanDelta_CountsToolCalls(t *testing.T) {
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "ok"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "ok"},
 			}}},
 		},
 	)
@@ -666,14 +666,14 @@ func TestScanDelta_DetectsCorrection(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "here is the result"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "here is the result"},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "No, that's wrong, try again"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "No, that's wrong, try again"},
 			}}},
 		},
 	)
@@ -688,14 +688,14 @@ func TestScanDelta_DetectsChineseCorrection(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "这里是结果"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "这里是结果"},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "不是这样，应该按一手来源和发布日期整理"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "不是这样，应该按一手来源和发布日期整理"},
 			}}},
 		},
 	)
@@ -710,14 +710,14 @@ func TestScanDelta_PositiveChineseFeedbackIsNotCorrection(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "这里是结果"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "这里是结果"},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleUser, Content: "这个清单挺好，谢谢"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleUser, Content: "这个清单挺好，谢谢"},
 			}}},
 		},
 	)
@@ -732,15 +732,15 @@ func TestScanDelta_DetectsChineseFutureWorkflowFeedback(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "这里是结果"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "这里是结果"},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "以后遇到 AI Agent 官方资讯整理，默认按这套工作流输出；每条必须有一手来源、发布日期、影响维度、低置信度风险。",
 				},
 			}}},
@@ -757,15 +757,15 @@ func TestScanDelta_DetectsEnglishFutureWorkflowFeedback(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "Here is the report."},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "Here is the report."},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "Going forward, use this workflow and keep the same output fields by default.",
 				},
 			}}},
@@ -782,14 +782,14 @@ func TestScanDelta_DetectsRecoveredError(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleTool, Content: "Error: file not found"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleTool, Content: "Error: file not found"},
 			}}},
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "I found the file at another path"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "I found the file at another path"},
 			}}},
 		},
 	)
@@ -804,14 +804,14 @@ func TestScanDelta_TranscriptIncludesToolMessagesAndCalls(t *testing.T) {
 	sess.Events = append(sess.Events,
 		event.Event{
 			Timestamp: now,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "I will create a skill.",
-					ToolCalls: []model.ToolCall{{
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "workspace_exec",
 							Arguments: []byte(`{"command":"cat > skills/new/SKILL.md <<'EOF'"}`),
 						},
@@ -821,9 +821,9 @@ func TestScanDelta_TranscriptIncludesToolMessagesAndCalls(t *testing.T) {
 		},
 		event.Event{
 			Timestamp: now.Add(time.Second),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolName: "workspace_exec",
 					ToolID:   "call-1",
 					Content:  "wrote skills/new/SKILL.md",
@@ -834,11 +834,11 @@ func TestScanDelta_TranscriptIncludesToolMessagesAndCalls(t *testing.T) {
 
 	_, ctx := scanDelta(sess, time.Time{})
 	require.Len(t, ctx.Transcript, 2)
-	assert.Equal(t, model.RoleAssistant, ctx.Transcript[0].Role)
+	assert.Equal(t, compat.RoleAssistant, ctx.Transcript[0].Role)
 	require.Len(t, ctx.Transcript[0].ToolCalls, 1)
 	assert.Equal(t, "workspace_exec", ctx.Transcript[0].ToolCalls[0].Name)
 	assert.Contains(t, ctx.Transcript[0].ToolCalls[0].Arguments, "SKILL.md")
-	assert.Equal(t, model.RoleTool, ctx.Transcript[1].Role)
+	assert.Equal(t, compat.RoleTool, ctx.Transcript[1].Role)
 	assert.Equal(t, "workspace_exec", ctx.Transcript[1].ToolName)
 }
 
@@ -870,8 +870,8 @@ func TestWorker_ApplyDecision_UpdateExistingSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "improve"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "improve"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -911,8 +911,8 @@ func TestWorker_ApplyDecision_UpdateUnknownSkillIsDropped(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -942,8 +942,8 @@ func TestWorker_ApplyDecision_DeleteExistingSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "drop"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -970,8 +970,8 @@ func TestWorker_ApplyDecision_DeleteUnknownIsIdempotent(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "drop"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -992,8 +992,8 @@ func TestWorker_ProcessJob_ForwardsOutcomeToReviewer(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 
 	score := 0.0
@@ -1025,8 +1025,8 @@ func TestWorker_Enqueue_ForwardsOutcomeViaAsyncQueue(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 
 	want := &Outcome{Status: OutcomePartial, Notes: "wrong indicator code"}
@@ -1054,22 +1054,22 @@ func TestWorker_ProcessJob_RedactsSecretsBeforeReviewer(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{
-			Role:    model.RoleUser,
+		compat.Message{
+			Role:    compat.RoleUser,
 			Content: "OPENAI_API_KEY=sk-test-REDACT-ME-333",
 		},
-		model.Message{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+		compat.Message{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "workspace_exec",
 					Arguments: []byte(`{"token":"tok-FAKE-0000000"}`),
 				},
 			}},
 		},
-		model.Message{
-			Role:     model.RoleTool,
+		compat.Message{
+			Role:     compat.RoleTool,
 			ToolName: "workspace_exec",
 			Content:  "Authorization: Bearer tok-FAKE-0000000",
 		},
@@ -1109,8 +1109,8 @@ func TestWorker_ProcessJob_ForwardsExistingSkillsWithBodyExcerpt(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1140,8 +1140,8 @@ func TestWorker_ProcessJob_TruncatesBodyExcerptToConfiguredBudget(t *testing.T) 
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1172,8 +1172,8 @@ func TestWorker_ProcessJob_OmitsBodyWhenBudgetIsNegative(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1213,8 +1213,8 @@ func TestWorker_ProcessJob_ReconcilerRewritesSupersetCandidate(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1287,8 +1287,8 @@ func TestWorker_ApprovalGate_PromotesCleanCandidate(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1350,8 +1350,8 @@ func TestWorker_ApprovalGate_PromoteArchivesPreviousActive(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: ctx, job: LearningJob{Session: sess}})
 
@@ -1395,8 +1395,8 @@ func TestWorker_ApprovalGate_SpecGateRejects(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1443,8 +1443,8 @@ func TestWorker_ApprovalGate_ShadowModePublishesAnyway(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1486,8 +1486,8 @@ func TestWorker_ApplyDeletionsWithGate_DeletesExistingSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop it"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "drop it"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1523,8 +1523,8 @@ func TestWorker_ApplyDeletionsWithGate_NilPublisherSkips(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop it"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "drop it"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1555,8 +1555,8 @@ func TestWorker_ApplyDeletionsWithGate_NonexistentSkillSkipped(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop it"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "drop it"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1604,8 +1604,8 @@ func TestWorker_ApplyUpdatesWithGate_PassesGates(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "improve"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "improve"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1654,8 +1654,8 @@ func TestWorker_ApplyUpdatesWithGate_SpecGateRejects(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "improve"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "improve"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1707,8 +1707,8 @@ func TestWorker_ApplyUpdatesWithGate_SkipsNonEvolutionSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "improve"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "improve"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1756,8 +1756,8 @@ func TestWorker_Enqueue_SynchronousFallbackWhenNotStarted(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	err := w.Enqueue(context.Background(), LearningJob{Session: sess})
 	require.NoError(t, err)
@@ -1812,8 +1812,8 @@ func TestWorker_SafetyGate_PassesCleanRevision(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1853,8 +1853,8 @@ func TestWorker_SafetyGate_RejectsDangerousContent(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1888,8 +1888,8 @@ func TestWorker_ApplySkills_WithPublisher(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1920,8 +1920,8 @@ func TestWorker_ApplySkills_NilPublisher(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1947,8 +1947,8 @@ func TestWorker_ApplySkills_NilSpecInSlice(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -1977,8 +1977,8 @@ func TestWorker_ApplySkills_PublisherError(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "go"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "go"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -2017,8 +2017,8 @@ func TestWorker_ApprovalGate_EffectivenessGateHoldsOnFail(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "work"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	// Attach a failure outcome
 	w.processJob(&pendingJob{
@@ -2079,8 +2079,8 @@ func TestWorker_HumanGate_HoldsRevision(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "do work"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "do work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{
 		ctx: context.Background(),
@@ -2134,8 +2134,8 @@ func TestWorker_HumanGate_HoldsDeleteRevision(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "drop stale skill"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "drop stale skill"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 	w.processJob(&pendingJob{
 		ctx: context.Background(),
@@ -2202,8 +2202,8 @@ func TestWorker_HumanGate_PassesUpdate(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "update work"},
-		model.Message{Role: model.RoleAssistant, Content: "updated"},
+		compat.Message{Role: compat.RoleUser, Content: "update work"},
+		compat.Message{Role: compat.RoleAssistant, Content: "updated"},
 	)
 	w.processJob(&pendingJob{
 		ctx: context.Background(),
@@ -2255,8 +2255,8 @@ func TestWorker_HumanGate_ErrorFailsClosed(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "x"},
-		model.Message{Role: model.RoleAssistant, Content: "y"},
+		compat.Message{Role: compat.RoleUser, Content: "x"},
+		compat.Message{Role: compat.RoleAssistant, Content: "y"},
 	)
 	w.processJob(&pendingJob{
 		ctx: context.Background(),
@@ -2314,8 +2314,8 @@ func TestWorker_ApplyUpdates_SkipsNonEvolutionSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "update weather"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "update weather"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -2359,8 +2359,8 @@ func TestWorker_ApplyUpdates_AllowsEvolutionSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "update analysis"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "update analysis"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -2398,8 +2398,8 @@ func TestWorker_ApplyDeletions_SkipsNonEvolutionSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "delete user skill"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "delete user skill"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -2439,8 +2439,8 @@ func TestWorker_ApplyDeletions_AllowsEvolutionSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "delete learned skill"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "delete learned skill"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 
@@ -2486,8 +2486,8 @@ func TestWorker_ApplyUpdates_NoIsolationWhenManagedDirEmpty(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "update"},
-		model.Message{Role: model.RoleAssistant, Content: "ok"},
+		compat.Message{Role: compat.RoleUser, Content: "update"},
+		compat.Message{Role: compat.RoleAssistant, Content: "ok"},
 	)
 	w.processJob(&pendingJob{ctx: context.Background(), job: LearningJob{Session: sess}})
 

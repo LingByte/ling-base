@@ -28,7 +28,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/llmagent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginbase "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -657,32 +657,32 @@ func TestAfterToolMessagesNormalizesUnknownToolFailure(t *testing.T) {
 	t.Parallel()
 	manager := newManager(t)
 	args := &pluginbase.AfterToolMessagesArgs{
-		Request: &model.Request{Tools: map[string]tool.Tool{
+		Request: &compat.Request{Tools: map[string]tool.Tool{
 			"known": &declaredTool{declaration: &tool.Declaration{Name: "known"}},
 		}},
-		ToolCalls: []model.ToolCall{
+		ToolCalls: []compat.ToolCall{
 			{
 				ID: "call-known",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "known",
 				},
 			},
 			{
 				ID: "call-missing",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "missing",
 				},
 			},
 		},
-		ToolResultMessages: []model.Message{
+		ToolResultMessages: []compat.Message{
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolID:   "call-known",
 				ToolName: "known",
 				Content:  `{"result":"ok"}`,
 			},
 			{
-				Role:    model.RoleTool,
+				Role:    compat.RoleTool,
 				ToolID:  "call-missing",
 				Content: `executeToolCall: Error: tool not found: missing; did you mean "known"?`,
 			},
@@ -720,19 +720,19 @@ func TestAfterToolMessagesSkipsCompatibilityMappedOrKnownResults(t *testing.T) {
 		{
 			name: "unknown tool with successful result",
 			args: &pluginbase.AfterToolMessagesArgs{
-				Request: &model.Request{Tools: map[string]tool.Tool{
+				Request: &compat.Request{Tools: map[string]tool.Tool{
 					"known": &declaredTool{
 						declaration: &tool.Declaration{Name: "known"},
 					},
 				}},
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name: "dynamic",
 					},
 				}},
-				ToolResultMessages: []model.Message{{
-					Role:    model.RoleTool,
+				ToolResultMessages: []compat.Message{{
+					Role:    compat.RoleTool,
 					ToolID:  "call-1",
 					Content: `{"result":"ok"}`,
 				}},
@@ -747,21 +747,21 @@ func TestAfterToolMessagesSkipsCompatibilityMappedOrKnownResults(t *testing.T) {
 						&stubAgent{name: "subagent"},
 					},
 				}},
-				Request: &model.Request{Tools: map[string]tool.Tool{
+				Request: &compat.Request{Tools: map[string]tool.Tool{
 					transfer.TransferToolName: &declaredTool{
 						declaration: &tool.Declaration{
 							Name: transfer.TransferToolName,
 						},
 					},
 				}},
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name: "subagent",
 					},
 				}},
-				ToolResultMessages: []model.Message{{
-					Role:    model.RoleTool,
+				ToolResultMessages: []compat.Message{{
+					Role:    compat.RoleTool,
 					ToolID:  "call-1",
 					Content: `{"result":"transferred"}`,
 				}},
@@ -770,17 +770,17 @@ func TestAfterToolMessagesSkipsCompatibilityMappedOrKnownResults(t *testing.T) {
 		{
 			name: "known tool error text",
 			args: &pluginbase.AfterToolMessagesArgs{
-				Request: &model.Request{Tools: map[string]tool.Tool{
+				Request: &compat.Request{Tools: map[string]tool.Tool{
 					"known": &declaredTool{declaration: &tool.Declaration{Name: "known"}},
 				}},
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name: "known",
 					},
 				}},
-				ToolResultMessages: []model.Message{{
-					Role:    model.RoleTool,
+				ToolResultMessages: []compat.Message{{
+					Role:    compat.RoleTool,
 					ToolID:  "call-1",
 					Content: "Error: tool not found",
 				}},
@@ -827,33 +827,33 @@ type requiredInput struct {
 
 type invalidArgumentLoopModel struct {
 	mu        sync.Mutex
-	requests  [][]model.Message
+	requests  [][]compat.Message
 	arguments []byte
-	toolCalls []model.ToolCall
+	toolCalls []compat.ToolCall
 }
 
-func (m *invalidArgumentLoopModel) Info() model.Info {
-	return model.Info{Name: "invalid-argument-loop-model"}
+func (m *invalidArgumentLoopModel) Info() compat.Info {
+	return compat.Info{Name: "invalid-argument-loop-model"}
 }
 
 func (m *invalidArgumentLoopModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.mu.Lock()
 	m.requests = append(
 		m.requests,
-		append([]model.Message(nil), req.Messages...),
+		append([]compat.Message(nil), req.Messages...),
 	)
 	callIndex := len(m.requests) - 1
 	m.mu.Unlock()
-	response := &model.Response{
+	response := &compat.Response{
 		ID:        "rsp-final",
 		Done:      true,
 		IsPartial: false,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index:   0,
-			Message: model.NewAssistantMessage("done"),
+			Message: compat.NewAssistantMessage("done"),
 		}},
 	}
 	if callIndex == 0 {
@@ -863,40 +863,40 @@ func (m *invalidArgumentLoopModel) GenerateContent(
 			if arguments == nil {
 				arguments = []byte(`{}`)
 			}
-			toolCalls = []model.ToolCall{{
+			toolCalls = []compat.ToolCall{{
 				ID:   "call-invalid",
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: arguments,
 				},
 			}}
 		}
-		response = &model.Response{
+		response = &compat.Response{
 			ID:        "rsp-tool",
 			Done:      true,
 			IsPartial: false,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:      model.RoleAssistant,
+				Message: compat.Message{
+					Role:      compat.RoleAssistant,
 					ToolCalls: toolCalls,
 				},
 			}},
 		}
 	}
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- response
 	close(ch)
 	return ch, nil
 }
 
-func (m *invalidArgumentLoopModel) Requests() [][]model.Message {
+func (m *invalidArgumentLoopModel) Requests() [][]compat.Message {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	requests := make([][]model.Message, len(m.requests))
+	requests := make([][]compat.Message, len(m.requests))
 	for i := range m.requests {
-		requests[i] = append([]model.Message(nil), m.requests[i]...)
+		requests[i] = append([]compat.Message(nil), m.requests[i]...)
 	}
 	return requests
 }
@@ -929,7 +929,7 @@ func TestPluginIntegrationInvalidArgumentsSkipToolAndReachModel(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("look this up"),
+		compat.NewUserMessage("look this up"),
 	)
 	require.NoError(t, err)
 	for range events {
@@ -937,9 +937,9 @@ func TestPluginIntegrationInvalidArgumentsSkipToolAndReachModel(t *testing.T) {
 	require.Zero(t, callCount.Load())
 	requests := modelStub.Requests()
 	require.Len(t, requests, 2)
-	var toolMessage *model.Message
+	var toolMessage *compat.Message
 	for i := range requests[1] {
-		if requests[1][i].Role == model.RoleTool {
+		if requests[1][i].Role == compat.RoleTool {
 			toolMessage = &requests[1][i]
 			break
 		}
@@ -992,7 +992,7 @@ func TestPluginIntegrationExecutionErrorReachesModel(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("look this up"),
+		compat.NewUserMessage("look this up"),
 	)
 	require.NoError(t, err)
 	for range events {
@@ -1003,7 +1003,7 @@ func TestPluginIntegrationExecutionErrorReachesModel(t *testing.T) {
 	require.Len(t, requests, 2)
 	var failure Failure
 	for _, message := range requests[1] {
-		if message.Role != model.RoleTool {
+		if message.Role != compat.RoleTool {
 			continue
 		}
 		require.NoError(t, json.Unmarshal([]byte(message.Content), &failure))
@@ -1063,7 +1063,7 @@ func TestPluginIntegrationFailuresSkipToolStateDelta(t *testing.T) {
 				context.Background(),
 				"user-1",
 				"session-"+test.name,
-				model.NewUserMessage("look this up"),
+				compat.NewUserMessage("look this up"),
 			)
 			require.NoError(t, err)
 			for range events {
@@ -1080,11 +1080,11 @@ func TestPluginIntegrationFailuresSkipToolStateDelta(t *testing.T) {
 
 func TestPluginIntegrationParallelUnknownToolReachesModel(t *testing.T) {
 	modelStub := &invalidArgumentLoopModel{
-		toolCalls: []model.ToolCall{
+		toolCalls: []compat.ToolCall{
 			{
 				ID:   "call-known",
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "known",
 					Arguments: []byte(`{}`),
 				},
@@ -1092,7 +1092,7 @@ func TestPluginIntegrationParallelUnknownToolReachesModel(t *testing.T) {
 			{
 				ID:   "call-missing",
 				Type: "function",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "missing",
 					Arguments: []byte(`{}`),
 				},
@@ -1124,16 +1124,16 @@ func TestPluginIntegrationParallelUnknownToolReachesModel(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("run both tools"),
+		compat.NewUserMessage("run both tools"),
 	)
 	require.NoError(t, err)
 	for range events {
 	}
 	requests := modelStub.Requests()
 	require.Len(t, requests, 2)
-	results := make(map[string]model.Message)
+	results := make(map[string]compat.Message)
 	for _, message := range requests[1] {
-		if message.Role == model.RoleTool {
+		if message.Role == compat.RoleTool {
 			results[message.ToolID] = message
 		}
 	}
@@ -1178,7 +1178,7 @@ func TestPluginIntegrationValidatesArgumentsAfterJSONRepair(t *testing.T) {
 		context.Background(),
 		"user-1",
 		"session-1",
-		model.NewUserMessage("look this up"),
+		compat.NewUserMessage("look this up"),
 		agent.WithToolCallArgumentsJSONRepairEnabled(true),
 	)
 	require.NoError(t, err)
@@ -1188,7 +1188,7 @@ func TestPluginIntegrationValidatesArgumentsAfterJSONRepair(t *testing.T) {
 	requests := modelStub.Requests()
 	require.Len(t, requests, 2)
 	for _, message := range requests[1] {
-		if message.Role == model.RoleTool {
+		if message.Role == compat.RoleTool {
 			require.JSONEq(t, `"weather"`, message.Content)
 			return
 		}

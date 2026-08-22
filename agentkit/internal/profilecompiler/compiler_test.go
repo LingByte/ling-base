@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	astructure "github.com/LingByte/ling-base/agentkit/agent/structure"
 	isurfacepatch "github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -36,8 +36,8 @@ func TestCompileProfilePatchesCompilesSupportedSurfaces(t *testing.T) {
 				Value: astructure.SurfaceValue{FewShot: []astructure.FewShotExample{
 					{
 						Messages: []astructure.FewShotMessage{
-							{Role: string(model.RoleUser), Content: "question"},
-							{Role: string(model.RoleAssistant), Content: "answer"},
+							{Role: string(compat.RoleUser), Content: "question"},
+							{Role: string(compat.RoleAssistant), Content: "answer"},
 						},
 					},
 				}},
@@ -62,9 +62,9 @@ func TestCompileProfilePatchesCompilesSupportedSurfaces(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, examples, 1)
 	require.Len(t, examples[0], 2)
-	assert.Equal(t, model.RoleUser, examples[0][0].Role)
+	assert.Equal(t, compat.RoleUser, examples[0][0].Role)
 	assert.Equal(t, "question", examples[0][0].Content)
-	assert.Equal(t, model.RoleAssistant, examples[0][1].Role)
+	assert.Equal(t, compat.RoleAssistant, examples[0][1].Role)
 	declarations, ok := patch.ToolDeclarations()
 	require.True(t, ok)
 	require.Len(t, declarations, 1)

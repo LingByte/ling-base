@@ -23,7 +23,7 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 	"github.com/LingByte/ling-base/agentkit/telemetry/tracetransform"
 )
@@ -501,12 +501,12 @@ type truncateMessagesPlan struct {
 }
 
 type observationTelemetryMessage struct {
-	Role             model.Role          `json:"role"`
+	Role             compat.Role          `json:"role"`
 	Content          string              `json:"content,omitempty"`
-	ContentParts     []model.ContentPart `json:"content_parts,omitempty"`
+	ContentParts     []compat.ContentPart `json:"content_parts,omitempty"`
 	ToolCallID       string              `json:"tool_call_id,omitempty"`
 	Name             string              `json:"name,omitempty"`
-	ToolCalls        []model.ToolCall    `json:"tool_calls,omitempty"`
+	ToolCalls        []compat.ToolCall    `json:"tool_calls,omitempty"`
 	ReasoningContent string              `json:"reasoning_content,omitempty"`
 }
 
@@ -522,7 +522,7 @@ func sanitizeSingleTelemetryMessageForObservation(msg *observationTelemetryMessa
 	msg.ToolCallID = truncateStringBytes(msg.ToolCallID, plan.textLimit)
 	msg.Name = truncateStringBytes(msg.Name, plan.textLimit)
 
-	compat := model.Message{
+	compat := compat.Message{
 		ContentParts: msg.ContentParts,
 		ToolCalls:    msg.ToolCalls,
 	}
@@ -531,7 +531,7 @@ func sanitizeSingleTelemetryMessageForObservation(msg *observationTelemetryMessa
 	msg.ToolCalls = compat.ToolCalls
 }
 
-func sanitizeSingleMessageForObservation(msg *model.Message, plan truncateMessagesPlan) {
+func sanitizeSingleMessageForObservation(msg *compat.Message, plan truncateMessagesPlan) {
 	msg.Content = truncateStringBytes(msg.Content, plan.textLimit)
 	msg.ReasoningContent = truncateStringBytes(msg.ReasoningContent, plan.textLimit)
 	msg.ToolID = truncateStringBytes(msg.ToolID, plan.textLimit)

@@ -15,7 +15,7 @@ import (
 
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -108,13 +108,13 @@ func TestInvocationStepUpdatesCurrentCaptureStep(t *testing.T) {
 	tracecapture.AddInvocationStepSkill(ctx, atrace.Skill{Name: "weather"})
 	tracecapture.AddStepSkill(ctx, stepID, atrace.Skill{Name: "weather"})
 	tracecapture.AddStepSkill(ctx, stepID, atrace.Skill{Name: "reasoning"})
-	tracecapture.AddInvocationStepUsage(ctx, &model.Usage{
+	tracecapture.AddInvocationStepUsage(ctx, &compat.Usage{
 		PromptTokens:     2,
 		CompletionTokens: 3,
 		TotalTokens:      5,
-		TimingInfo:       &model.TimingInfo{},
+		TimingInfo:       &compat.TimingInfo{},
 	})
-	tracecapture.AddInvocationStepUsage(ctx, &model.Usage{
+	tracecapture.AddInvocationStepUsage(ctx, &compat.Usage{
 		PromptTokens:     7,
 		CompletionTokens: 11,
 		TotalTokens:      18,
@@ -142,7 +142,7 @@ func TestInvocationStepUpdatesCurrentCaptureStep(t *testing.T) {
 		},
 	}, step.Tools)
 	require.Equal(t, []atrace.Skill{{Name: "weather"}, {Name: "reasoning"}}, step.Skills)
-	require.Equal(t, &model.Usage{
+	require.Equal(t, &compat.Usage{
 		PromptTokens:     9,
 		CompletionTokens: 14,
 		TotalTokens:      23,
@@ -186,7 +186,7 @@ func TestInvocationStepHelpersIgnoreMissingRuntimeAndStep(t *testing.T) {
 	tracecapture.AddStepTools(plainCtx, "missing", []atrace.Tool{{Name: "ignored"}})
 	tracecapture.AddInvocationStepSkill(plainCtx, atrace.Skill{Name: "ignored"})
 	tracecapture.AddStepSkill(plainCtx, "missing", atrace.Skill{Name: "ignored"})
-	tracecapture.AddInvocationStepUsage(plainCtx, &model.Usage{TotalTokens: 1})
+	tracecapture.AddInvocationStepUsage(plainCtx, &compat.Usage{TotalTokens: 1})
 	capture := tracecapture.New("root", "inv", "session", time.Now())
 	ctxWithoutBinding := tracecapture.AttachInvocationRuntime(context.Background(), nil, capture)
 	tracecapture.BindInvocationStep(ctxWithoutBinding, "missing")

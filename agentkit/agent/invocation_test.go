@@ -21,7 +21,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ const (
 func TestNewInvocation(t *testing.T) {
 	inv := NewInvocation(
 		WithInvocationID("test-invocation"),
-		WithInvocationMessage(model.Message{Role: model.RoleUser, Content: "Hello"}),
+		WithInvocationMessage(compat.Message{Role: compat.RoleUser, Content: "Hello"}),
 	)
 	require.NotNil(t, inv)
 	require.Equal(t, "test-invocation", inv.InvocationID)
@@ -51,12 +51,12 @@ func TestNewInvocation_WarnsOnMessageWithEmptyRole(t *testing.T) {
 	}()
 
 	inv := NewInvocation(
-		WithInvocationMessage(model.Message{Content: "Hello"}),
+		WithInvocationMessage(compat.Message{Content: "Hello"}),
 	)
 
 	require.NotNil(t, inv)
 	require.Equal(t, 1, logger.warnfCalls)
-	require.Equal(t, model.RoleUser, inv.Message.Role)
+	require.Equal(t, compat.RoleUser, inv.Message.Role)
 }
 
 type mockAgent struct {
@@ -106,21 +106,21 @@ type invocationSyncTestModel struct {
 
 func (m *invocationSyncTestModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *invocationSyncTestModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *invocationSyncTestModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestInvocation_Clone(t *testing.T) {
 	inv := NewInvocation(
 		WithInvocationID("test-invocation"),
-		WithInvocationMessage(model.Message{Role: model.RoleUser, Content: "Hello"}),
+		WithInvocationMessage(compat.Message{Role: compat.RoleUser, Content: "Hello"}),
 	)
 
 	subAgent := &mockAgent{name: "test-agent"}
@@ -217,7 +217,7 @@ func TestInvocation_View_PreservesIdentityWithoutMutatingSource(t *testing.T) {
 			CustomAgentConfigs: sourceConfigs,
 		}),
 		WithInvocationTraceNodeID("root/node"),
-		WithInvocationMessage(model.Message{Role: model.RoleUser, Content: "Hello"}),
+		WithInvocationMessage(compat.Message{Role: compat.RoleUser, Content: "Hello"}),
 	)
 	viewConfigs := map[string]any{"view": "config"}
 	view := inv.View(
@@ -249,7 +249,7 @@ func TestInvocation_SyncView_CopiesExecutionVisibleState(t *testing.T) {
 			RequestID:          "request-id",
 			CustomAgentConfigs: sourceConfigs,
 		}),
-		WithInvocationMessage(model.Message{Role: model.RoleUser, Content: "Hello"}),
+		WithInvocationMessage(compat.Message{Role: compat.RoleUser, Content: "Hello"}),
 	)
 	source.state = map[string]any{flusherStateKey: "source-holder"}
 	viewAgent := &mockAgent{name: "view-agent"}
@@ -261,12 +261,12 @@ func TestInvocation_SyncView_CopiesExecutionVisibleState(t *testing.T) {
 	view.Branch = "view-branch"
 	view.EndInvocation = true
 	view.Model = viewModel
-	view.Message = model.Message{Role: model.RoleAssistant, Content: "View"}
+	view.Message = compat.Message{Role: compat.RoleAssistant, Content: "View"}
 	view.TransferInfo = &TransferInfo{
 		TargetAgentName: "target-agent",
 		Message:         "transfer-message",
 	}
-	view.StructuredOutput = &model.StructuredOutput{}
+	view.StructuredOutput = &compat.StructuredOutput{}
 	view.StructuredOutputType = reflect.TypeOf(struct{}{})
 	view.eventFilterKey = "view-filter-key"
 	view.parent = NewInvocation(WithInvocationID("parent-invocation"))
@@ -274,7 +274,7 @@ func TestInvocation_SyncView_CopiesExecutionVisibleState(t *testing.T) {
 	view.traceNodeID = "view/node"
 	view.MaxLLMCalls = 3
 	view.MaxToolIterations = 4
-	view.timingInfo = &model.TimingInfo{FirstTokenDuration: time.Second}
+	view.timingInfo = &compat.TimingInfo{FirstTokenDuration: time.Second}
 	view.llmCallCount = 1
 	view.toolIterationCount = 2
 	view.state = map[string]any{flusherStateKey: "view-holder"}
@@ -1357,7 +1357,7 @@ func TestWithModelContextWindow(t *testing.T) {
 }
 
 func TestWithModelSelector(t *testing.T) {
-	selector := func(ctx context.Context, inv *Invocation) (model.Model, error) {
+	selector := func(ctx context.Context, inv *Invocation) (compat.Model, error) {
 		return inv.Model, nil
 	}
 	opts := &RunOptions{}
@@ -1413,7 +1413,7 @@ func TestWithStructuredOutputJSON(t *testing.T) {
 	WithStructuredOutputJSON(new(MyStruct), true, "test description")(opts)
 
 	require.NotNil(t, opts.StructuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
 	require.NotNil(t, opts.StructuredOutput.JSONSchema)
 	require.Equal(t, "MyStruct", opts.StructuredOutput.JSONSchema.Name)
 	require.True(t, opts.StructuredOutput.JSONSchema.Strict)
@@ -1455,7 +1455,7 @@ func TestWithStructuredOutputJSONSchema(t *testing.T) {
 	WithStructuredOutputJSONSchema("", schema, true, "test description")(opts)
 
 	require.NotNil(t, opts.StructuredOutput)
-	require.Equal(t, model.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
+	require.Equal(t, compat.StructuredOutputJSONSchema, opts.StructuredOutput.Type)
 	require.NotNil(t, opts.StructuredOutput.JSONSchema)
 	require.Equal(t, "output", opts.StructuredOutput.JSONSchema.Name)
 	require.True(t, opts.StructuredOutput.JSONSchema.Strict)
@@ -1517,9 +1517,9 @@ func TestInvocationClonePreservesRunStructuredOutputButDropsInvocationStructured
 		Field string `json:"field"`
 	}
 
-	structuredOutput := &model.StructuredOutput{
-		Type: model.StructuredOutputJSONSchema,
-		JSONSchema: &model.JSONSchemaConfig{
+	structuredOutput := &compat.StructuredOutput{
+		Type: compat.StructuredOutputJSONSchema,
+		JSONSchema: &compat.JSONSchemaConfig{
 			Name:   "MyStruct",
 			Schema: map[string]any{"type": "object"},
 		},
@@ -1623,29 +1623,29 @@ func TestInvocation_ToolIterationCount_CloneAndView(t *testing.T) {
 
 func TestWithInjectedContextMessages(t *testing.T) {
 	opts := &RunOptions{}
-	WithInjectedContextMessages([]model.Message{
-		{Role: model.RoleUser, Content: "Hello"},
-		{Role: model.RoleAssistant, Content: "Hello"},
+	WithInjectedContextMessages([]compat.Message{
+		{Role: compat.RoleUser, Content: "Hello"},
+		{Role: compat.RoleAssistant, Content: "Hello"},
 	})(opts)
 
-	require.Equal(t, []model.Message{
-		{Role: model.RoleUser, Content: "Hello"},
-		{Role: model.RoleAssistant, Content: "Hello"},
+	require.Equal(t, []compat.Message{
+		{Role: compat.RoleUser, Content: "Hello"},
+		{Role: compat.RoleAssistant, Content: "Hello"},
 	}, opts.InjectedContextMessages)
 }
 
 func TestWithLateContextMessages(t *testing.T) {
 	opts := &RunOptions{}
-	WithLateContextMessages([]model.Message{
-		{Role: model.RoleUser, Content: "Rules A"},
+	WithLateContextMessages([]compat.Message{
+		{Role: compat.RoleUser, Content: "Rules A"},
 	})(opts)
-	WithLateContextMessages([]model.Message{
-		{Role: model.RoleUser, Content: "Rules B"},
+	WithLateContextMessages([]compat.Message{
+		{Role: compat.RoleUser, Content: "Rules B"},
 	})(opts)
 
-	require.Equal(t, []model.Message{
-		{Role: model.RoleUser, Content: "Rules A"},
-		{Role: model.RoleUser, Content: "Rules B"},
+	require.Equal(t, []compat.Message{
+		{Role: compat.RoleUser, Content: "Rules A"},
+		{Role: compat.RoleUser, Content: "Rules B"},
 	}, opts.LateContextMessages)
 }
 
@@ -1654,22 +1654,22 @@ func TestWithUserMessageRewriter(t *testing.T) {
 	rewriter := func(
 		ctx context.Context,
 		args *UserMessageRewriteArgs,
-	) ([]model.Message, error) {
+	) ([]compat.Message, error) {
 		require.Equal(t, "raw", args.OriginalMessage.Content)
-		return []model.Message{
-			model.NewUserMessage("ctx"),
-			model.NewUserMessage("rewritten"),
+		return []compat.Message{
+			compat.NewUserMessage("ctx"),
+			compat.NewUserMessage("rewritten"),
 		}, nil
 	}
 	WithUserMessageRewriter(rewriter)(opts)
 	require.NotNil(t, opts.UserMessageRewriter)
 	msgs, err := opts.UserMessageRewriter(
 		context.Background(),
-		&UserMessageRewriteArgs{OriginalMessage: model.NewUserMessage("raw")},
+		&UserMessageRewriteArgs{OriginalMessage: compat.NewUserMessage("raw")},
 	)
 	require.NoError(t, err)
-	require.Equal(t, []model.Message{
-		model.NewUserMessage("ctx"),
-		model.NewUserMessage("rewritten"),
+	require.Equal(t, []compat.Message{
+		compat.NewUserMessage("ctx"),
+		compat.NewUserMessage("rewritten"),
 	}, msgs)
 }

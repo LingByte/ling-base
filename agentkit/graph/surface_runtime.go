@@ -13,7 +13,7 @@ import (
 	iflow "github.com/LingByte/ling-base/agentkit/internal/flow"
 	istructure "github.com/LingByte/ling-base/agentkit/internal/structure"
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -47,8 +47,8 @@ func graphSurfacePatch(
 func graphPatchedModel(
 	invocation *agent.Invocation,
 	localNodeID string,
-	fallback model.Model,
-) model.Model {
+	fallback compat.Model,
+) compat.Model {
 	patch, ok := graphSurfacePatch(invocation, localNodeID)
 	if !ok {
 		return fallback
@@ -105,8 +105,8 @@ func (r *llmRunner) currentNodeID(state State) string {
 
 func (r *llmRunner) insertFewShot(
 	state State,
-	messages []model.Message,
-) []model.Message {
+	messages []compat.Message,
+) []compat.Message {
 	invocation := graphInvocationFromState(state)
 	if invocation == nil {
 		return messages

@@ -28,7 +28,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/artifact"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -609,12 +609,12 @@ type externalizeTarget struct {
 	mimeType     string
 	originalName string
 	fromDataURL  bool
-	apply        func(*model.ContentPart, *model.ContentRef)
+	apply        func(*compat.ContentPart, *compat.ContentRef)
 }
 
-var choiceMessageTargets = []func(*model.Choice) *model.Message{
-	func(choice *model.Choice) *model.Message { return &choice.Message },
-	func(choice *model.Choice) *model.Message { return &choice.Delta },
+var choiceMessageTargets = []func(*compat.Choice) *compat.Message{
+	func(choice *compat.Choice) *compat.Message { return &choice.Message },
+	func(choice *compat.Choice) *compat.Message { return &choice.Delta },
 }
 
 func externalizeEvent(
@@ -666,7 +666,7 @@ func externalizeChoiceMessage(
 	evt *event.Event,
 	cloned **event.Event,
 	choiceIndex int,
-	target func(*model.Choice) *model.Message,
+	target func(*compat.Choice) *compat.Message,
 	info artifact.SessionInfo,
 	svc artifact.Service,
 ) ([]string, bool, error) {
@@ -695,7 +695,7 @@ func externalizeChoiceMessage(
 
 func externalizeMessage(
 	ctx context.Context,
-	msg *model.Message,
+	msg *compat.Message,
 	info artifact.SessionInfo,
 	svc artifact.Service,
 	eventID string,
@@ -721,7 +721,7 @@ func externalizeMessage(
 			return saved, fmt.Errorf("session content externalization: save artifact %s: %w", filename, err)
 		}
 		saved = append(saved, filename)
-		ref := &model.ContentRef{
+		ref := &compat.ContentRef{
 			ArtifactRef:     fmt.Sprintf("%s%s@%d", artifactScheme, filename, version),
 			ArtifactName:    filename,
 			ArtifactVersion: version,
@@ -737,12 +737,12 @@ func externalizeMessage(
 	return saved, nil
 }
 
-func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool, error) {
+func externalizeTargetForPart(part *compat.ContentPart) (externalizeTarget, bool, error) {
 	if part == nil || part.ContentRef != nil {
 		return externalizeTarget{}, false, nil
 	}
 	switch part.Type {
-	case model.ContentTypeImage:
+	case compat.ContentTypeImage:
 		if part.Image == nil {
 			return externalizeTarget{}, false, nil
 		}
@@ -752,7 +752,7 @@ func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool,
 			return externalizeTarget{
 				data:     data,
 				mimeType: mimeType,
-				apply: func(p *model.ContentPart, ref *model.ContentRef) {
+				apply: func(p *compat.ContentPart, ref *compat.ContentRef) {
 					p.Image.Data = nil
 					p.ContentRef = ref
 				},
@@ -766,13 +766,13 @@ func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool,
 				data:        data,
 				mimeType:    chooseNonEmpty(mimeType, imageMimeType(part.Image.Format)),
 				fromDataURL: true,
-				apply: func(p *model.ContentPart, ref *model.ContentRef) {
+				apply: func(p *compat.ContentPart, ref *compat.ContentRef) {
 					p.Image.URL = ""
 					p.ContentRef = ref
 				},
 			}, true, nil
 		}
-	case model.ContentTypeAudio:
+	case compat.ContentTypeAudio:
 		if part.Audio == nil || len(part.Audio.Data) == 0 {
 			return externalizeTarget{}, false, nil
 		}
@@ -780,12 +780,12 @@ func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool,
 		return externalizeTarget{
 			data:     data,
 			mimeType: audioMimeType(part.Audio.Format),
-			apply: func(p *model.ContentPart, ref *model.ContentRef) {
+			apply: func(p *compat.ContentPart, ref *compat.ContentRef) {
 				p.Audio.Data = nil
 				p.ContentRef = ref
 			},
 		}, true, nil
-	case model.ContentTypeFile:
+	case compat.ContentTypeFile:
 		if part.File == nil {
 			return externalizeTarget{}, false, nil
 		}
@@ -796,7 +796,7 @@ func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool,
 				data:         data,
 				mimeType:     normalizeMime(mimeType),
 				originalName: part.File.Name,
-				apply: func(p *model.ContentPart, ref *model.ContentRef) {
+				apply: func(p *compat.ContentPart, ref *compat.ContentRef) {
 					p.File.Data = nil
 					p.ContentRef = ref
 				},
@@ -811,7 +811,7 @@ func externalizeTargetForPart(part *model.ContentPart) (externalizeTarget, bool,
 				mimeType:     chooseNonEmpty(mimeType, part.File.MimeType, mimeFromName(part.File.Name)),
 				originalName: part.File.Name,
 				fromDataURL:  true,
-				apply: func(p *model.ContentPart, ref *model.ContentRef) {
+				apply: func(p *compat.ContentPart, ref *compat.ContentRef) {
 					p.File.URL = ""
 					p.ContentRef = ref
 				},
@@ -882,7 +882,7 @@ func hydrateEvent(
 
 func hydrateMessage(
 	ctx context.Context,
-	msg *model.Message,
+	msg *compat.Message,
 	info artifact.SessionInfo,
 	svc artifact.Service,
 ) error {
@@ -909,23 +909,23 @@ func hydrateMessage(
 		}
 		hydrated := false
 		switch part.Type {
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if part.Image == nil {
-				part.Image = &model.Image{}
+				part.Image = &compat.Image{}
 			}
 			part.Image.Data = data
 			part.Image.Format = chooseNonEmpty(part.Image.Format, imageFormat(ref.MimeType, art.MimeType))
 			hydrated = true
-		case model.ContentTypeAudio:
+		case compat.ContentTypeAudio:
 			if part.Audio == nil {
-				part.Audio = &model.Audio{}
+				part.Audio = &compat.Audio{}
 			}
 			part.Audio.Data = data
 			part.Audio.Format = chooseNonEmpty(part.Audio.Format, audioFormat(ref.MimeType, art.MimeType))
 			hydrated = true
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if part.File == nil {
-				part.File = &model.File{}
+				part.File = &compat.File{}
 			}
 			part.File.Data = data
 			part.File.Name = chooseNonEmpty(part.File.Name, ref.OriginalName, art.Name)
@@ -940,7 +940,7 @@ func hydrateMessage(
 }
 
 func validateHydratedArtifact(
-	ref *model.ContentRef,
+	ref *compat.ContentRef,
 	data []byte,
 	name string,
 	version int,
@@ -962,22 +962,22 @@ func validateHydratedArtifact(
 	return nil
 }
 
-func hasExternalizableContent(msg model.Message) bool {
+func hasExternalizableContent(msg compat.Message) bool {
 	for _, part := range msg.ContentParts {
 		if part.ContentRef != nil {
 			continue
 		}
 		switch part.Type {
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if part.Image != nil &&
 				(len(part.Image.Data) > 0 || isDataURL(part.Image.URL)) {
 				return true
 			}
-		case model.ContentTypeAudio:
+		case compat.ContentTypeAudio:
 			if part.Audio != nil && len(part.Audio.Data) > 0 {
 				return true
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if part.File != nil &&
 				(len(part.File.Data) > 0 || isDataURL(part.File.URL)) {
 				return true
@@ -1059,21 +1059,21 @@ func eventNeedsHydrate(evt *event.Event) bool {
 	return false
 }
 
-func messageNeedsHydrate(msg model.Message) bool {
+func messageNeedsHydrate(msg compat.Message) bool {
 	for _, part := range msg.ContentParts {
 		if part.ContentRef == nil {
 			continue
 		}
 		switch part.Type {
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if part.Image == nil || len(part.Image.Data) == 0 {
 				return true
 			}
-		case model.ContentTypeAudio:
+		case compat.ContentTypeAudio:
 			if part.Audio == nil || len(part.Audio.Data) == 0 {
 				return true
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if part.File == nil || len(part.File.Data) == 0 {
 				return true
 			}
@@ -1093,7 +1093,7 @@ func cloneEventForMutation(evt *event.Event) *event.Event {
 	return clone
 }
 
-func cloneResponseForMutation(rsp *model.Response) *model.Response {
+func cloneResponseForMutation(rsp *compat.Response) *compat.Response {
 	if rsp == nil {
 		return nil
 	}
@@ -1105,21 +1105,21 @@ func cloneResponseForMutation(rsp *model.Response) *model.Response {
 	return clone
 }
 
-func cloneMessage(msg model.Message) model.Message {
+func cloneMessage(msg compat.Message) compat.Message {
 	clone := msg
 	if msg.ContentParts != nil {
-		clone.ContentParts = make([]model.ContentPart, len(msg.ContentParts))
+		clone.ContentParts = make([]compat.ContentPart, len(msg.ContentParts))
 		for i, part := range msg.ContentParts {
 			clone.ContentParts[i] = cloneContentPart(part)
 		}
 	}
 	if msg.ToolCalls != nil {
-		clone.ToolCalls = append([]model.ToolCall(nil), msg.ToolCalls...)
+		clone.ToolCalls = append([]compat.ToolCall(nil), msg.ToolCalls...)
 	}
 	return clone
 }
 
-func cloneContentPart(part model.ContentPart) model.ContentPart {
+func cloneContentPart(part compat.ContentPart) compat.ContentPart {
 	clone := part
 	if part.Text != nil {
 		text := *part.Text
@@ -1226,7 +1226,7 @@ func artifactExt(mimeType, originalName string) string {
 	return ext
 }
 
-func artifactNameVersion(ref *model.ContentRef) (string, int, error) {
+func artifactNameVersion(ref *compat.ContentRef) (string, int, error) {
 	if ref == nil {
 		return "", 0, fmt.Errorf("%w: content ref is nil", ErrInvalidArtifactRef)
 	}

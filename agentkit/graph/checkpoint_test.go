@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	toolerrorplugin "github.com/LingByte/ling-base/agentkit/plugin/toolerror"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -492,7 +492,7 @@ func TestToolEvents_And_ExecuteSingleToolCall(t *testing.T) {
 	// tool call
 	args := []byte(`{"a":1}`)
 	msg, err := executeSingleToolCall(ctx, singleToolCallConfig{
-		ToolCall:      model.ToolCall{ID: "tid", Function: model.FunctionDefinitionParam{Name: "echo", Arguments: args}},
+		ToolCall:      compat.ToolCall{ID: "tid", Function: compat.FunctionDefinitionParam{Name: "echo", Arguments: args}},
 		Tools:         map[string]tool.Tool{"echo": &dummyTool{name: "echo"}},
 		InvocationID:  "inv",
 		EventChan:     ch,
@@ -501,12 +501,12 @@ func TestToolEvents_And_ExecuteSingleToolCall(t *testing.T) {
 		State:         State{StateKeyCurrentNodeID: "nodeA"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Equal(t, "tid", msg.ToolID)
 	require.Equal(t, "echo", msg.ToolName)
 
 	// executeSingleToolCall error - tool not found
-	_, err = executeSingleToolCall(ctx, singleToolCallConfig{ToolCall: model.ToolCall{ID: "tid2", Function: model.FunctionDefinitionParam{Name: "notfound"}}, Tools: map[string]tool.Tool{}, InvocationID: "inv2", EventChan: ch, Span: span, State: State{}})
+	_, err = executeSingleToolCall(ctx, singleToolCallConfig{ToolCall: compat.ToolCall{ID: "tid2", Function: compat.FunctionDefinitionParam{Name: "notfound"}}, Tools: map[string]tool.Tool{}, InvocationID: "inv2", EventChan: ch, Span: span, State: State{}})
 	require.Error(t, err)
 }
 
@@ -533,8 +533,8 @@ func TestExecuteSingleToolCall_Interrupt_NoErrorInEvent(t *testing.T) {
 	// Configure a tool call that yields an interrupt.
 	args := []byte(`{"x":1}`)
 	cfg := singleToolCallConfig{
-		ToolCall: model.ToolCall{ID: "tid",
-			Function: model.FunctionDefinitionParam{
+		ToolCall: compat.ToolCall{ID: "tid",
+			Function: compat.FunctionDefinitionParam{
 				Name:      "interrupt",
 				Arguments: args,
 			}},
@@ -602,9 +602,9 @@ func TestExecuteSingleToolCall_ToolErrorPluginPreservesWrappedInterrupt(
 	}
 
 	_, err := executeSingleToolCall(ctx, singleToolCallConfig{
-		ToolCall: model.ToolCall{
+		ToolCall: compat.ToolCall{
 			ID: "tid",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "interrupt",
 				Arguments: []byte(`{}`),
 			},
@@ -645,8 +645,8 @@ func TestExecuteSingleToolCall_Error_ErrorInEvent(t *testing.T) {
 
 	args := []byte(`{"x":1}`)
 	cfg := singleToolCallConfig{
-		ToolCall: model.ToolCall{ID: "tid2",
-			Function: model.FunctionDefinitionParam{
+		ToolCall: compat.ToolCall{ID: "tid2",
+			Function: compat.FunctionDefinitionParam{
 				Name:      "errtool",
 				Arguments: args,
 			}},
@@ -759,7 +759,7 @@ func (n *notCallableTool) Declaration() *tool.Declaration {
 func TestRunTool_CallbackShortCircuitAndErrors(t *testing.T) {
 	ctx := context.Background()
 	tdecl := &dummyTool{name: "echo"}
-	call := model.ToolCall{ID: "id", Function: model.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}
+	call := compat.ToolCall{ID: "id", Function: compat.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}
 	state := State{}
 
 	// Before callback returns custom result
@@ -806,9 +806,9 @@ func TestRunTool_RepairsToolCallArgumentsWhenEnabled(t *testing.T) {
 		function.WithName("echo"),
 		function.WithDescription("Echo tool."),
 	)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte("{a:2}"),
 		},
@@ -853,7 +853,7 @@ func TestBuildAgentInvocation(t *testing.T) {
 		agent.WithInvocationAgent(d),
 		agent.WithInvocationID("inv-x"),
 		agent.WithInvocationSession(s),
-		agent.WithInvocationMessage(model.NewUserMessage("hello")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hello")),
 	)
 	ctx := agent.NewInvocationContext(context.Background(), inv)
 	exec := &ExecutionContext{InvocationID: "inv-x"}
@@ -1041,8 +1041,8 @@ func TestExtractToolCallsFromState_SuccessAndErrors(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
 	_, span := tracer.Start(context.Background(), "s")
 	// success: assistant with tool calls at end
-	calls := []model.ToolCall{{ID: "tid", Function: model.FunctionDefinitionParam{Name: "echo"}}}
-	msgs := []model.Message{model.NewUserMessage("hi"), {Role: model.RoleAssistant, ToolCalls: calls}}
+	calls := []compat.ToolCall{{ID: "tid", Function: compat.FunctionDefinitionParam{Name: "echo"}}}
+	msgs := []compat.Message{compat.NewUserMessage("hi"), {Role: compat.RoleAssistant, ToolCalls: calls}}
 	tc, err := extractToolCallsFromState(State{StateKeyMessages: msgs}, span)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tc))
@@ -1050,7 +1050,7 @@ func TestExtractToolCallsFromState_SuccessAndErrors(t *testing.T) {
 	_, err = extractToolCallsFromState(State{}, span)
 	require.Error(t, err)
 	// error: user encountered before assistant with tool calls
-	msgs2 := []model.Message{model.NewUserMessage("hi")}
+	msgs2 := []compat.Message{compat.NewUserMessage("hi")}
 	_, err = extractToolCallsFromState(State{StateKeyMessages: msgs2}, span)
 	require.Error(t, err)
 }
@@ -1060,7 +1060,7 @@ func TestProcessToolCalls(t *testing.T) {
 	_, span := tracer.Start(context.Background(), "s")
 	dt := &dummyTool{name: "echo"}
 	msgs, err := processToolCalls(context.Background(), toolCallsConfig{
-		ToolCalls:    []model.ToolCall{{ID: "id", Function: model.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}},
+		ToolCalls:    []compat.ToolCall{{ID: "id", Function: compat.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}},
 		Tools:        map[string]tool.Tool{"echo": dt},
 		InvocationID: "inv",
 		EventChan:    make(chan *event.Event, 10),
@@ -1069,7 +1069,7 @@ func TestProcessToolCalls(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(msgs))
-	require.Equal(t, model.RoleTool, msgs[0].Role)
+	require.Equal(t, compat.RoleTool, msgs[0].Role)
 }
 
 func TestEmitToolCompleteEvent_WithError(t *testing.T) {
@@ -1081,12 +1081,12 @@ func TestEmitToolCompleteEvent_WithError(t *testing.T) {
 
 func TestMessageReducer(t *testing.T) {
 	// nil existing, append message
-	out := MessageReducer(nil, model.NewAssistantMessage("x"))
-	msgs, _ := out.([]model.Message)
+	out := MessageReducer(nil, compat.NewAssistantMessage("x"))
+	msgs, _ := out.([]compat.Message)
 	require.Equal(t, 1, len(msgs))
 	// ops
-	out2 := MessageReducer([]model.Message{}, []MessageOp{AppendMessages{Items: []model.Message{model.NewUserMessage("u")}}})
-	msgs2, _ := out2.([]model.Message)
+	out2 := MessageReducer([]compat.Message{}, []MessageOp{AppendMessages{Items: []compat.Message{compat.NewUserMessage("u")}}})
+	msgs2, _ := out2.([]compat.Message)
 	require.Equal(t, 1, len(msgs2))
 }
 
@@ -1097,8 +1097,8 @@ func TestNewToolsNodeFunc_SuccessAndError(t *testing.T) {
 	_, span := tracer.Start(context.Background(), "s")
 	_ = span // span used implicitly in functions called
 
-	calls := []model.ToolCall{{ID: "tid", Function: model.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}}
-	msgs := []model.Message{model.NewUserMessage("hi"), {Role: model.RoleAssistant, ToolCalls: calls}}
+	calls := []compat.ToolCall{{ID: "tid", Function: compat.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)}}}
+	msgs := []compat.Message{compat.NewUserMessage("hi"), {Role: compat.RoleAssistant, ToolCalls: calls}}
 	exec := &ExecutionContext{InvocationID: "inv", EventChan: make(chan *event.Event, 2)}
 	state := State{StateKeyMessages: msgs, StateKeyExecContext: exec, StateKeyCurrentNodeID: "N"}
 
@@ -1180,13 +1180,13 @@ func TestNewAgentNodeFunc_RunError(t *testing.T) {
 // Dummy model to test one-shot stage
 type dummyModel struct{}
 
-func (d *dummyModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}}
+func (d *dummyModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}}
 	close(ch)
 	return ch, nil
 }
-func (d *dummyModel) Info() model.Info { return model.Info{Name: "dummy"} }
+func (d *dummyModel) Info() compat.Info { return compat.Info{Name: "dummy"} }
 
 func TestLLMRunner_ExecuteOneShotStage(t *testing.T) {
 	r := &llmRunner{llmModel: &dummyModel{}, instruction: "inst", tools: nil, nodeID: "node1"}
@@ -1195,7 +1195,7 @@ func TestLLMRunner_ExecuteOneShotStage(t *testing.T) {
 	st, err := r.executeOneShotStage(
 		context.Background(),
 		State{},
-		[]model.Message{model.NewUserMessage("hi")},
+		[]compat.Message{compat.NewUserMessage("hi")},
 		span,
 		nil,
 	)
@@ -1213,7 +1213,7 @@ func TestLLMRunner_ExecuteUserInputAndHistoryStages(t *testing.T) {
 	st1, err := r.executeUserInputStage(
 		context.Background(),
 		State{
-			StateKeyMessages:  []model.Message{},
+			StateKeyMessages:  []compat.Message{},
 			StateKeyUserInput: "hello",
 		},
 		StateKeyUserInput,
@@ -1224,7 +1224,7 @@ func TestLLMRunner_ExecuteUserInputAndHistoryStages(t *testing.T) {
 	s1, _ := st1.(State)
 	require.NotNil(t, s1[StateKeyLastResponse])
 	// history stage (no user input, has history)
-	st2, err := r.executeHistoryStage(context.Background(), State{StateKeyMessages: []model.Message{model.NewUserMessage("a")}}, span)
+	st2, err := r.executeHistoryStage(context.Background(), State{StateKeyMessages: []compat.Message{compat.NewUserMessage("a")}}, span)
 	require.NoError(t, err)
 	s2, _ := st2.(State)
 	require.NotNil(t, s2[StateKeyLastResponse])
@@ -1233,27 +1233,27 @@ func TestLLMRunner_ExecuteUserInputAndHistoryStages(t *testing.T) {
 // dummy model returning no responses
 type emptyModel struct{}
 
-func (e *emptyModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+func (e *emptyModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
-func (e *emptyModel) Info() model.Info { return model.Info{Name: "empty"} }
+func (e *emptyModel) Info() compat.Info { return compat.Info{Name: "empty"} }
 
 type emptyChoicesModel struct{}
 
 func (e *emptyChoicesModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{}
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{}
 	close(ch)
 	return ch, nil
 }
 
-func (e *emptyChoicesModel) Info() model.Info {
-	return model.Info{Name: "empty_choices"}
+func (e *emptyChoicesModel) Info() compat.Info {
+	return compat.Info{Name: "empty_choices"}
 }
 
 func TestExecuteModelWithEvents_NoResponseError(t *testing.T) {
@@ -1262,7 +1262,7 @@ func TestExecuteModelWithEvents_NoResponseError(t *testing.T) {
 	_, err := executeModelWithEvents(context.Background(), modelExecutionConfig{
 		ModelCallbacks: nil,
 		LLMModel:       &emptyModel{},
-		Request:        &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:        &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		EventChan:      make(chan *event.Event, 1),
 		InvocationID:   "inv",
 		SessionID:      "sid",
@@ -1281,9 +1281,9 @@ func TestExecuteModelWithEvents_NoChoicesError(t *testing.T) {
 		modelExecutionConfig{
 			ModelCallbacks: nil,
 			LLMModel:       &emptyChoicesModel{},
-			Request: &model.Request{
-				Messages: []model.Message{
-					model.NewUserMessage("hi"),
+			Request: &compat.Request{
+				Messages: []compat.Message{
+					compat.NewUserMessage("hi"),
 				},
 			},
 			EventChan:    make(chan *event.Event, 1),
@@ -1299,10 +1299,10 @@ func TestExecuteModelWithEvents_NoChoicesError(t *testing.T) {
 
 func TestRunModel_BeforeModelCustomResponse(t *testing.T) {
 	// Callbacks return custom response, dummy model should not be called
-	cbs := model.NewCallbacks().RegisterBeforeModel(func(ctx context.Context, req *model.Request) (*model.Response, error) {
-		return &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("custom")}}}, nil
+	cbs := compat.NewCallbacks().RegisterBeforeModel(func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
+		return &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("custom")}}}, nil
 	})
-	_, ch, err := runModel(context.Background(), cbs, &dummyModel{}, &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}})
+	_, ch, err := runModel(context.Background(), cbs, &dummyModel{}, &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}})
 	require.NoError(t, err)
 	rsp := <-ch
 	require.NotNil(t, rsp)
@@ -1314,7 +1314,7 @@ func TestProcessModelResponse_EventAndErrors(t *testing.T) {
 	_, span := tracer.Start(context.Background(), "s")
 	// Event emission path
 	evch := make(chan *event.Event, 1)
-	rsp := &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}}
+	rsp := &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}}
 	_, _, err := processModelResponse(context.Background(), modelResponseConfig{
 		Response:       rsp,
 		ModelCallbacks: nil,
@@ -1322,7 +1322,7 @@ func TestProcessModelResponse_EventAndErrors(t *testing.T) {
 		InvocationID:   "inv",
 		SessionID:      "sid",
 		LLMModel:       &dummyModel{},
-		Request:        &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:        &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:           span,
 		NodeID:         "nodeX",
 	})
@@ -1330,14 +1330,14 @@ func TestProcessModelResponse_EventAndErrors(t *testing.T) {
 	require.NotNil(t, <-evch)
 
 	// Model API error path
-	errRsp := &model.Response{Error: &model.ResponseError{Message: "boom"}}
+	errRsp := &compat.Response{Error: &compat.ResponseError{Message: "boom"}}
 	_, _, err = processModelResponse(context.Background(), modelResponseConfig{
 		Response:     errRsp,
 		EventChan:    make(chan *event.Event, 1),
 		InvocationID: "inv",
 		SessionID:    "sid",
 		LLMModel:     &dummyModel{},
-		Request:      &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:      &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:         span,
 	})
 	require.Error(t, err)
@@ -1352,7 +1352,7 @@ func TestProcessModelResponse_EventAndErrors(t *testing.T) {
 		InvocationID: "inv",
 		SessionID:    "sid",
 		LLMModel:     &dummyModel{},
-		Request:      &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:      &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:         span,
 	})
 	require.Error(t, err)
@@ -1369,15 +1369,15 @@ func TestProcessModelResponse_RepairsToolCallArgumentsWhenEnabled(t *testing.T) 
 		ToolCallArgumentsJSONRepairEnabled: &repairEnabled,
 	}))
 	ctx = agent.NewInvocationContext(ctx, inv)
-	rsp := &model.Response{
-		Choices: []model.Choice{
+	rsp := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Message: model.Message{
-					ToolCalls: []model.ToolCall{
+				Message: compat.Message{
+					ToolCalls: []compat.ToolCall{
 						{
 							ID:   "call-1",
 							Type: "function",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "tool",
 								Arguments: []byte("{a:2}"),
 							},
@@ -1394,7 +1394,7 @@ func TestProcessModelResponse_RepairsToolCallArgumentsWhenEnabled(t *testing.T) 
 		InvocationID: "inv",
 		SessionID:    "sid",
 		LLMModel:     &dummyModel{},
-		Request:      &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:      &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:         span,
 	})
 	require.NoError(t, err)
@@ -1405,7 +1405,7 @@ func TestProcessModelResponse_DoneWithContentEmitsEvent(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
 	_, span := tracer.Start(context.Background(), "s")
 	evch := make(chan *event.Event, 1)
-	rsp := &model.Response{Done: true, Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}}
+	rsp := &compat.Response{Done: true, Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}}
 	inv := agent.NewInvocation(agent.WithInvocationRunOptions(agent.RunOptions{
 		GraphEmitFinalModelResponses: true,
 	}))
@@ -1416,7 +1416,7 @@ func TestProcessModelResponse_DoneWithContentEmitsEvent(t *testing.T) {
 		InvocationID: "inv",
 		SessionID:    "sid",
 		LLMModel:     &dummyModel{},
-		Request:      &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:      &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:         span,
 	})
 	require.NoError(t, err)
@@ -1432,12 +1432,12 @@ func TestProcessModelResponse_DoneWithoutContentSkipsEvent(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
 	_, span := tracer.Start(context.Background(), "s")
 	evch := make(chan *event.Event, 1)
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 			},
 		}},
 	}
@@ -1451,7 +1451,7 @@ func TestProcessModelResponse_DoneWithoutContentSkipsEvent(t *testing.T) {
 		InvocationID: "inv",
 		SessionID:    "sid",
 		LLMModel:     &dummyModel{},
-		Request:      &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:      &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:         span,
 	})
 	require.NoError(t, err)
@@ -1475,8 +1475,8 @@ func TestShouldEmitModelResponse_Cases(t *testing.T) {
 	})
 
 	t.Run("error response", func(t *testing.T) {
-		rsp := &model.Response{
-			Error: &model.ResponseError{
+		rsp := &compat.Response{
+			Error: &compat.ResponseError{
 				Type:    errType,
 				Message: errMsg,
 			},
@@ -1485,21 +1485,21 @@ func TestShouldEmitModelResponse_Cases(t *testing.T) {
 	})
 
 	t.Run("valid content", func(t *testing.T) {
-		rsp := &model.Response{
-			Choices: []model.Choice{{
+		rsp := &compat.Response{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage(content),
+				Message: compat.NewAssistantMessage(content),
 			}},
 		}
 		require.True(t, shouldEmitModelResponse(rsp))
 	})
 
 	t.Run("reasoning content in message", func(t *testing.T) {
-		rsp := &model.Response{
-			Choices: []model.Choice{{
+		rsp := &compat.Response{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Message: model.Message{
-					Role:             model.RoleAssistant,
+				Message: compat.Message{
+					Role:             compat.RoleAssistant,
 					ReasoningContent: reasoning,
 				},
 			}},
@@ -1508,11 +1508,11 @@ func TestShouldEmitModelResponse_Cases(t *testing.T) {
 	})
 
 	t.Run("reasoning content in delta", func(t *testing.T) {
-		rsp := &model.Response{
-			Choices: []model.Choice{{
+		rsp := &compat.Response{
+			Choices: []compat.Choice{{
 				Index: 0,
-				Delta: model.Message{
-					Role:             model.RoleAssistant,
+				Delta: compat.Message{
+					Role:             compat.RoleAssistant,
 					ReasoningContent: reasoning,
 				},
 			}},
@@ -1530,11 +1530,11 @@ func TestShouldEmitModelResponseEvent_NilResponse(t *testing.T) {
 
 func TestShouldEmitModelResponseEvent_DoneWithReasoningContent(t *testing.T) {
 	t.Run("done response without reasoning is not emitted", func(t *testing.T) {
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "answer",
 				},
 			}},
@@ -1543,11 +1543,11 @@ func TestShouldEmitModelResponseEvent_DoneWithReasoningContent(t *testing.T) {
 	})
 
 	t.Run("done response with reasoning IS emitted", func(t *testing.T) {
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:             model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:             compat.RoleAssistant,
 					Content:          "answer",
 					ReasoningContent: "thinking step by step",
 				},
@@ -1558,10 +1558,10 @@ func TestShouldEmitModelResponseEvent_DoneWithReasoningContent(t *testing.T) {
 	})
 
 	t.Run("non-done response is always emitted", func(t *testing.T) {
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: false,
-			Choices: []model.Choice{{
-				Message: model.Message{Role: model.RoleAssistant, Content: "partial"},
+			Choices: []compat.Choice{{
+				Message: compat.Message{Role: compat.RoleAssistant, Content: "partial"},
 			}},
 		}
 		require.True(t, shouldEmitModelResponseEvent(rsp, nil))
@@ -1570,12 +1570,12 @@ func TestShouldEmitModelResponseEvent_DoneWithReasoningContent(t *testing.T) {
 
 func TestResponseHasReasoningContent(t *testing.T) {
 	require.False(t, responseHasReasoningContent(nil))
-	require.False(t, responseHasReasoningContent(&model.Response{}))
-	require.False(t, responseHasReasoningContent(&model.Response{
-		Choices: []model.Choice{{Message: model.Message{Content: "text"}}},
+	require.False(t, responseHasReasoningContent(&compat.Response{}))
+	require.False(t, responseHasReasoningContent(&compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Content: "text"}}},
 	}))
-	require.True(t, responseHasReasoningContent(&model.Response{
-		Choices: []model.Choice{{Message: model.Message{ReasoningContent: "think"}}},
+	require.True(t, responseHasReasoningContent(&compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{ReasoningContent: "think"}}},
 	}))
 }
 
@@ -1583,18 +1583,18 @@ func TestProcessModelResponse_AfterModelCustomResponse(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
 	_, span := tracer.Start(context.Background(), "s")
 	// AfterModel returns custom response
-	cbs := model.NewCallbacks().RegisterAfterModel(func(ctx context.Context, req *model.Request, rsp *model.Response, modelErr error) (*model.Response, error) {
-		return &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("after")}}}, nil
+	cbs := compat.NewCallbacks().RegisterAfterModel(func(ctx context.Context, req *compat.Request, rsp *compat.Response, modelErr error) (*compat.Response, error) {
+		return &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("after")}}}, nil
 	})
 	evch := make(chan *event.Event, 1)
 	_, _, err := processModelResponse(context.Background(), modelResponseConfig{
-		Response:       &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}},
+		Response:       &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}},
 		ModelCallbacks: cbs,
 		EventChan:      evch,
 		InvocationID:   "inv",
 		SessionID:      "sid",
 		LLMModel:       &dummyModel{},
-		Request:        &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:        &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:           span,
 	})
 	require.NoError(t, err)
@@ -1603,14 +1603,14 @@ func TestProcessModelResponse_AfterModelCustomResponse(t *testing.T) {
 // Model that streams tool calls then final
 type toolCallStreamModel struct{}
 
-func (m *toolCallStreamModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 2)
-	ch <- &model.Response{Choices: []model.Choice{{Index: 0, Message: model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{{ID: "t1", Function: model.FunctionDefinitionParam{Name: "echo"}}}}}}}
-	ch <- &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("done")}}}
+func (m *toolCallStreamModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 2)
+	ch <- &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.Message{Role: compat.RoleAssistant, ToolCalls: []compat.ToolCall{{ID: "t1", Function: compat.FunctionDefinitionParam{Name: "echo"}}}}}}}
+	ch <- &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("done")}}}
 	close(ch)
 	return ch, nil
 }
-func (m *toolCallStreamModel) Info() model.Info { return model.Info{Name: "toolcall"} }
+func (m *toolCallStreamModel) Info() compat.Info { return compat.Info{Name: "toolcall"} }
 
 func TestExecuteModelWithEvents_ToolCallsMerged(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
@@ -1618,7 +1618,7 @@ func TestExecuteModelWithEvents_ToolCallsMerged(t *testing.T) {
 	res, err := executeModelWithEvents(context.Background(), modelExecutionConfig{
 		ModelCallbacks: nil,
 		LLMModel:       &toolCallStreamModel{},
-		Request:        &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:        &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		EventChan:      make(chan *event.Event, 2),
 		InvocationID:   "inv",
 		SessionID:      "sid",
@@ -1628,7 +1628,7 @@ func TestExecuteModelWithEvents_ToolCallsMerged(t *testing.T) {
 		NodeID:         "node",
 	})
 	require.NoError(t, err)
-	r := res.(*model.Response)
+	r := res.(*compat.Response)
 	require.GreaterOrEqual(t, len(r.Choices[0].Message.ToolCalls), 1)
 }
 
@@ -1673,10 +1673,10 @@ func TestExtractToolCallbacks_Found(t *testing.T) {
 }
 
 func TestMessageReducer_NilUpdateAndFallback(t *testing.T) {
-	existing := []model.Message{model.NewUserMessage("u")}
+	existing := []compat.Message{compat.NewUserMessage("u")}
 	// nil update returns existing
 	out := MessageReducer(existing, nil)
-	msgs, _ := out.([]model.Message)
+	msgs, _ := out.([]compat.Message)
 	require.Equal(t, 1, len(msgs))
 	// fallback: unsupported type returns update as-is
 	out2 := MessageReducer(existing, 123)
@@ -1684,25 +1684,25 @@ func TestMessageReducer_NilUpdateAndFallback(t *testing.T) {
 }
 
 func TestMessageReducer_AppendDirectAndSlice(t *testing.T) {
-	msgs := []model.Message{}
+	msgs := []compat.Message{}
 	// append single message
-	out1 := MessageReducer(msgs, model.NewAssistantMessage("a"))
-	list1, _ := out1.([]model.Message)
+	out1 := MessageReducer(msgs, compat.NewAssistantMessage("a"))
+	list1, _ := out1.([]compat.Message)
 	require.Equal(t, 1, len(list1))
 	// append slice
-	out2 := MessageReducer(list1, []model.Message{model.NewUserMessage("u")})
-	list2, _ := out2.([]model.Message)
+	out2 := MessageReducer(list1, []compat.Message{compat.NewUserMessage("u")})
+	list2, _ := out2.([]compat.Message)
 	require.Equal(t, 2, len(list2))
 }
 
 func TestEnsureSystemHead_And_ExtractExecutionContext(t *testing.T) {
 	// ensureSystemHead: empty sys
-	in := []model.Message{model.NewUserMessage("u")}
+	in := []compat.Message{compat.NewUserMessage("u")}
 	out := ensureSystemHead(in, "")
 	require.Equal(t, in, out)
 	// ensureSystemHead: with sys when first not system
 	out2 := ensureSystemHead(in, "sys")
-	require.Equal(t, model.RoleSystem, out2[0].Role)
+	require.Equal(t, compat.RoleSystem, out2[0].Role)
 	// extractExecutionContext: only execctx
 	exec := &ExecutionContext{InvocationID: "inv", EventChan: make(chan *event.Event, 1)}
 	inv, sess, appName, userID, ch := extractExecutionContext(State{StateKeyExecContext: exec})
@@ -1777,9 +1777,9 @@ func TestCheckpointManager_Put_NilSaverError(t *testing.T) {
 }
 
 func TestMessageReducer_MessageOpSingle(t *testing.T) {
-	msgs := []model.Message{model.NewUserMessage("u")}
-	out := MessageReducer(msgs, AppendMessages{Items: []model.Message{model.NewAssistantMessage("a")}})
-	res, _ := out.([]model.Message)
+	msgs := []compat.Message{compat.NewUserMessage("u")}
+	out := MessageReducer(msgs, AppendMessages{Items: []compat.Message{compat.NewAssistantMessage("a")}})
+	res, _ := out.([]compat.Message)
 	require.Equal(t, 2, len(res))
 }
 
@@ -1789,7 +1789,7 @@ func TestExtractAssistantMessage(t *testing.T) {
 	// wrong type
 	require.Nil(t, extractAssistantMessage("not a response"))
 	// response with choices
-	rsp := &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("hello")}}}
+	rsp := &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("hello")}}}
 	msg := extractAssistantMessage(rsp)
 	require.NotNil(t, msg)
 	require.Equal(t, "hello", msg.Content)
@@ -1798,17 +1798,17 @@ func TestExtractAssistantMessage(t *testing.T) {
 func TestProcessModelResponse_AfterModelError(t *testing.T) {
 	tracer := oteltrace.NewNoopTracerProvider().Tracer("t")
 	_, span := tracer.Start(context.Background(), "s")
-	cbs := model.NewCallbacks().RegisterAfterModel(func(ctx context.Context, req *model.Request, rsp *model.Response, modelErr error) (*model.Response, error) {
+	cbs := compat.NewCallbacks().RegisterAfterModel(func(ctx context.Context, req *compat.Request, rsp *compat.Response, modelErr error) (*compat.Response, error) {
 		return nil, assert.AnError
 	})
 	_, _, err := processModelResponse(context.Background(), modelResponseConfig{
-		Response:       &model.Response{Choices: []model.Choice{{Index: 0, Message: model.NewAssistantMessage("ok")}}},
+		Response:       &compat.Response{Choices: []compat.Choice{{Index: 0, Message: compat.NewAssistantMessage("ok")}}},
 		ModelCallbacks: cbs,
 		EventChan:      make(chan *event.Event, 1),
 		InvocationID:   "inv",
 		SessionID:      "sid",
 		LLMModel:       &dummyModel{},
-		Request:        &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}},
+		Request:        &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}},
 		Span:           span,
 	})
 	require.Error(t, err)
@@ -1816,13 +1816,13 @@ func TestProcessModelResponse_AfterModelError(t *testing.T) {
 
 type errModel struct{}
 
-func (e *errModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (e *errModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	return nil, assert.AnError
 }
-func (e *errModel) Info() model.Info { return model.Info{Name: "err"} }
+func (e *errModel) Info() compat.Info { return compat.Info{Name: "err"} }
 
 func TestRunModel_GenerateContentError(t *testing.T) {
-	_, _, err := runModel(context.Background(), nil, &errModel{}, &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}})
+	_, _, err := runModel(context.Background(), nil, &errModel{}, &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}})
 	require.Error(t, err)
 }
 
@@ -1834,19 +1834,19 @@ func TestRunModel_CallbackContextPropagation(t *testing.T) {
 	const testValue = "test-value-from-before"
 
 	// Create callbacks that set and read context values.
-	callbacks := model.NewCallbacks()
+	callbacks := compat.NewCallbacks()
 	var capturedValue any
 
 	// BeforeModel callback sets a context value.
-	callbacks.RegisterBeforeModel(func(ctx context.Context, args *model.BeforeModelArgs) (*model.BeforeModelResult, error) {
+	callbacks.RegisterBeforeModel(func(ctx context.Context, args *compat.BeforeModelArgs) (*compat.BeforeModelResult, error) {
 		ctxWithValue := context.WithValue(ctx, testKey, testValue)
-		return &model.BeforeModelResult{
+		return &compat.BeforeModelResult{
 			Context: ctxWithValue,
 		}, nil
 	})
 
 	// AfterModel callback reads the context value.
-	callbacks.RegisterAfterModel(func(ctx context.Context, args *model.AfterModelArgs) (*model.AfterModelResult, error) {
+	callbacks.RegisterAfterModel(func(ctx context.Context, args *compat.AfterModelArgs) (*compat.AfterModelResult, error) {
 		capturedValue = ctx.Value(testKey)
 		return nil, nil
 	})
@@ -1856,8 +1856,8 @@ func TestRunModel_CallbackContextPropagation(t *testing.T) {
 
 	// Run the model.
 	ctx := context.Background()
-	request := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("test")},
+	request := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("test")},
 	}
 
 	ctx, responseChan, err := runModel(ctx, callbacks, dummyModel, request)
@@ -1915,9 +1915,9 @@ func TestRunTool_CallbackContextPropagation(t *testing.T) {
 
 	// Create a dummy tool that returns a result.
 	dummyTool := &dummyTool{name: "echo"}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID:       "id",
-		Function: model.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)},
+		Function: compat.FunctionDefinitionParam{Name: "echo", Arguments: []byte(`{"x":1}`)},
 	}
 	state := State{}
 

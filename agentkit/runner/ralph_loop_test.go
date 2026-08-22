@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/steer"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -44,7 +44,7 @@ func TestNewInnerInvocation_ReattachesSteerQueue(t *testing.T) {
 		"ralph must re-attach the steer queue to its inner (lead) invocation")
 
 	// The re-attached queue is the SAME object the runner enqueues onto.
-	require.True(t, queue.Enqueue(model.NewUserMessage("steer")))
+	require.True(t, queue.Enqueue(compat.NewUserMessage("steer")))
 	drained := steer.Drain(inner)
 	require.Len(t, drained, 1)
 	require.Equal(t, "steer", drained[0].Content)
@@ -53,7 +53,7 @@ func TestNewInnerInvocation_ReattachesSteerQueue(t *testing.T) {
 	// must NOT close the run-level queue: the runner keeps accepting steers
 	// across iterations. The attachment is borrowed, so Close is a no-op here.
 	steer.Close(inner)
-	require.True(t, queue.Enqueue(model.NewUserMessage("next iteration")),
+	require.True(t, queue.Enqueue(compat.NewUserMessage("next iteration")),
 		"closing a borrowed inner invocation must leave the run-level queue open")
 
 	// A delegated sub-agent (agent_tool clones the inner invocation) must NOT
@@ -94,12 +94,12 @@ func (a *scriptedAgent) Run(
 		evt := event.NewResponseEvent(
 			inv.InvocationID,
 			a.name,
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: content,
 					},
 				}},
@@ -175,7 +175,7 @@ func TestRalphLoop_PromiseStopsLoop(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 
@@ -190,7 +190,7 @@ func TestRalphLoop_PromiseStopsLoop(t *testing.T) {
 			continue
 		}
 		if len(e.Choices) > 0 &&
-			e.Choices[0].Message.Role == model.RoleAssistant {
+			e.Choices[0].Message.Role == compat.RoleAssistant {
 			assistant++
 		}
 	}
@@ -226,7 +226,7 @@ func TestRalphLoop_MaxIterationsEmitsStopError(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 
@@ -277,7 +277,7 @@ func TestRalphLoop_VerifyCommandBlocksCompletion(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 
@@ -325,7 +325,7 @@ func TestRalphLoop_VerifierStopsLoop(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 
@@ -364,7 +364,7 @@ func TestRalphLoop_VerifierErrorStops(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 
@@ -471,12 +471,12 @@ func (a *infoAgent) Run(
 		evt := event.NewResponseEvent(
 			inv.InvocationID,
 			a.info.Name,
-			&model.Response{
+			&compat.Response{
 				Done: true,
-				Choices: []model.Choice{{
+				Choices: []compat.Choice{{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: a.runContent,
 					},
 				}},
@@ -575,13 +575,13 @@ func TestFirstTagTextInString_EdgeCases(t *testing.T) {
 func TestFirstTagText_ContentParts(t *testing.T) {
 	partText := "<promise>DONE</promise>"
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ContentParts: []model.ContentPart{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ContentParts: []compat.ContentPart{
 						{
-							Type: model.ContentTypeText,
+							Type: compat.ContentTypeText,
 							Text: &partText,
 						},
 					},
@@ -596,12 +596,12 @@ func TestFirstTagText_ContentParts(t *testing.T) {
 
 func TestFirstTagText_SkipsNonAssistant(t *testing.T) {
 	evt := &event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleUser, Content: "x"}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleUser, Content: "x"}},
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "<promise>DONE</promise>",
 					},
 				},
@@ -616,11 +616,11 @@ func TestFirstTagText_SkipsNonAssistant(t *testing.T) {
 func TestTextFromContentParts_IgnoresNonText(t *testing.T) {
 	a := "a"
 	b := "b"
-	out := textFromContentParts([]model.ContentPart{
-		{Type: model.ContentTypeText},
-		{Type: model.ContentTypeImage},
-		{Type: model.ContentTypeText, Text: &a},
-		{Type: model.ContentTypeText, Text: &b},
+	out := textFromContentParts([]compat.ContentPart{
+		{Type: compat.ContentTypeText},
+		{Type: compat.ContentTypeImage},
+		{Type: compat.ContentTypeText, Text: &a},
+		{Type: compat.ContentTypeText, Text: &b},
 	})
 	require.Equal(t, "a\nb", out)
 }
@@ -726,7 +726,7 @@ func TestRalphLoop_InnerRunErrorStops(t *testing.T) {
 		ctx,
 		"u",
 		"s",
-		model.Message{Role: model.RoleUser, Content: "task"},
+		compat.Message{Role: compat.RoleUser, Content: "task"},
 	)
 	require.NoError(t, err)
 

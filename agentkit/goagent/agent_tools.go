@@ -66,12 +66,12 @@ Respond ONLY in JSON:
 { "needs": true } or { "needs": false }
 `, query, tools)
 
-	raw, err := a.model.Generate(ctx, prompt)
+	raw, err := a.generate(ctx, prompt)
 	if err != nil {
 		return false, err
 	}
 
-	jsonStr := extractJSON(fmt.Sprint(raw))
+	jsonStr := extractJSON(raw)
 	if jsonStr == "" {
 		return false, nil
 	}
@@ -113,12 +113,12 @@ Rules:
 - If multiple tools apply, include all.
 `, query, tools)
 
-	raw, err := a.model.Generate(ctx, prompt)
+	raw, err := a.generate(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	jsonStr := extractJSON(fmt.Sprint(raw))
+	jsonStr := extractJSON(raw)
 	if jsonStr == "" {
 		return nil, nil
 	}

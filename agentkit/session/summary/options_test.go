@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,8 +24,8 @@ import (
 func optionTestMessageEvent(content string, ts time.Time) event.Event {
 	return event.Event{
 		Timestamp: ts,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.Message{Content: content},
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.Message{Content: content},
 		}}},
 	}
 }
@@ -64,15 +64,15 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", 40)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", 40)},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("b", 40)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("b", 40)},
 				}}},
 			},
 		}}
@@ -96,8 +96,8 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "a"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "a"},
 				}}},
 			},
 		}}
@@ -121,29 +121,29 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "short"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "short"},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "reply"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "reply"},
 				}}},
 			},
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", 800)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", 800)},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("b", 800)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("b", 800)},
 				}}},
 			},
 		}}
@@ -153,15 +153,15 @@ func TestOptions(t *testing.T) {
 	t.Run("WithTokenThreshold ignores summarizer tool result formatter", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolResultFormatter(func(model.Message) string { return "[tool result]" }),
+			WithToolResultFormatter(func(compat.Message) string { return "[tool result]" }),
 			WithTokenThreshold(100),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "tool",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "read_file",
 						Content:  strings.Repeat("x", 2000),
@@ -175,17 +175,17 @@ func TestOptions(t *testing.T) {
 	t.Run("WithTokenThreshold ignores summarizer tool call formatter", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolCallFormatter(func(model.ToolCall) string { return "[tool call]" }),
+			WithToolCallFormatter(func(compat.ToolCall) string { return "[tool call]" }),
 			WithTokenThreshold(100),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "read_file",
 								Arguments: []byte(`{"content":"` + strings.Repeat("x", 2000) + `"}`),
 							},
@@ -200,15 +200,15 @@ func TestOptions(t *testing.T) {
 	t.Run("WithTokenThreshold skips empty summary input", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolResultFormatter(func(model.Message) string { return "" }),
+			WithToolResultFormatter(func(compat.Message) string { return "" }),
 			WithTokenThreshold(100),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "tool",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "read_file",
 						Content:  strings.Repeat("x", 2000),
@@ -229,29 +229,29 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "short"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "short"},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "reply"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "reply"},
 				}}},
 			},
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", 800)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", 800)},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("b", 800)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("b", 800)},
 				}}},
 			},
 		}}
@@ -261,15 +261,15 @@ func TestOptions(t *testing.T) {
 	t.Run("WithChecksAny token checker ignores summarizer tool result formatter", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolResultFormatter(func(model.Message) string { return "[tool result]" }),
+			WithToolResultFormatter(func(compat.Message) string { return "[tool result]" }),
 			WithChecksAny(CheckTokenThreshold(100)),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "tool",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "read_file",
 						Content:  strings.Repeat("x", 2000),
@@ -283,17 +283,17 @@ func TestOptions(t *testing.T) {
 	t.Run("WithChecksAny token checker ignores summarizer tool call formatter", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolCallFormatter(func(model.ToolCall) string { return "[tool call]" }),
+			WithToolCallFormatter(func(compat.ToolCall) string { return "[tool call]" }),
 			WithChecksAny(CheckTokenThreshold(100)),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "read_file",
 								Arguments: []byte(`{"content":"` + strings.Repeat("x", 2000) + `"}`),
 							},
@@ -315,8 +315,8 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "hello"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "hello"},
 				}}},
 			},
 		}}
@@ -326,15 +326,15 @@ func TestOptions(t *testing.T) {
 	t.Run("formatter-empty input suppresses event threshold", func(t *testing.T) {
 		s := NewSummarizer(
 			&testModel{},
-			WithToolResultFormatter(func(model.Message) string { return "" }),
+			WithToolResultFormatter(func(compat.Message) string { return "" }),
 			WithEventThreshold(0),
 		)
 		sess := &session.Session{Events: []event.Event{
 			{
 				Author:    "tool",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "read_file",
 						Content:  "excluded",
@@ -379,15 +379,15 @@ func TestOptions(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("a", 40)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("a", 40)},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: strings.Repeat("b", 40)},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: strings.Repeat("b", 40)},
 				}}},
 			},
 		}}
@@ -430,8 +430,8 @@ func TestOptions(t *testing.T) {
 		assert.Equal(t, 50, md[metadataKeyMaxSummaryWords])
 
 		sess := &session.Session{ID: "sess-ml", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent"}}}}, Timestamp: time.Now()},
 		}}
 		originalEventCount := len(sess.Events)
 		text, err := s.Summarize(context.Background(), sess)
@@ -454,10 +454,10 @@ func TestOptions(t *testing.T) {
 
 type testModel struct{}
 
-func (t *testModel) Info() model.Info { return model.Info{Name: "test"} }
-func (t *testModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Content: "ok"}}}}
+func (t *testModel) Info() compat.Info { return compat.Info{Name: "test"} }
+func (t *testModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Content: "ok"}}}}
 	close(ch)
 	return ch, nil
 }

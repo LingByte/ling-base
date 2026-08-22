@@ -15,34 +15,34 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
 
 type namedCaptureModel struct {
 	name    string
-	lastReq *model.Request
+	lastReq *compat.Request
 }
 
 func (c *namedCaptureModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	c.lastReq = req
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage("ok"),
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage("ok"),
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (c *namedCaptureModel) Info() model.Info {
-	return model.Info{Name: c.name}
+func (c *namedCaptureModel) Info() compat.Info {
+	return compat.Info{Name: c.name}
 }
 
 func TestLLMNode_SurfacePatch_OverridesInstructionFewShotModelAndTools(t *testing.T) {
@@ -59,9 +59,9 @@ func TestLLMNode_SurfacePatch_OverridesInstructionFewShotModelAndTools(t *testin
 
 	var patch agent.SurfacePatch
 	patch.SetInstruction("patched instruction")
-	patch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("few-shot user"),
-		model.NewAssistantMessage("few-shot assistant"),
+	patch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("few-shot user"),
+		compat.NewAssistantMessage("few-shot assistant"),
 	}})
 	patch.SetModel(patchedModel)
 	patch.SetTools([]tool.Tool{&echoTool{name: "new_tool"}})
@@ -86,7 +86,7 @@ func TestLLMNode_SurfacePatch_OverridesInstructionFewShotModelAndTools(t *testin
 	require.Nil(t, staticModel.lastReq)
 	require.NotNil(t, patchedModel.lastReq)
 	require.Len(t, patchedModel.lastReq.Messages, 4)
-	require.Equal(t, model.RoleSystem, patchedModel.lastReq.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, patchedModel.lastReq.Messages[0].Role)
 	require.Contains(t, patchedModel.lastReq.Messages[0].Content, "patched instruction")
 	require.NotContains(t, patchedModel.lastReq.Messages[0].Content, "static instruction")
 	require.Equal(t, "few-shot user", patchedModel.lastReq.Messages[1].Content)
@@ -153,14 +153,14 @@ func TestToolsNode_SurfacePatch_OverridesExplicitTools(t *testing.T) {
 	result, err := node.Function(ctx, State{
 		StateKeyExecContext:   exec,
 		StateKeyCurrentNodeID: "tools",
-		StateKeyMessages: []model.Message{
-			model.NewUserMessage("hi"),
+		StateKeyMessages: []compat.Message{
+			compat.NewUserMessage("hi"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{{
 					Type: "function",
 					ID:   "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "new_tool",
 						Arguments: []byte(`{}`),
 					},
@@ -197,15 +197,15 @@ func TestToolsNode_SurfacePatch_AppendsTools(t *testing.T) {
 	result, err := node.Function(ctx, State{
 		StateKeyExecContext:   exec,
 		StateKeyCurrentNodeID: "tools",
-		StateKeyMessages: []model.Message{
-			model.NewUserMessage("hi"),
+		StateKeyMessages: []compat.Message{
+			compat.NewUserMessage("hi"),
 			{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{
 						Type: "function",
 						ID:   "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "frontend_tool",
 							Arguments: []byte(`{}`),
 						},
@@ -213,7 +213,7 @@ func TestToolsNode_SurfacePatch_AppendsTools(t *testing.T) {
 					{
 						Type: "function",
 						ID:   "call-2",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "old_tool",
 							Arguments: []byte(`{}`),
 						},
@@ -226,7 +226,7 @@ func TestToolsNode_SurfacePatch_AppendsTools(t *testing.T) {
 
 	state, ok := result.(State)
 	require.True(t, ok)
-	messages, ok := state[StateKeyMessages].([]model.Message)
+	messages, ok := state[StateKeyMessages].([]compat.Message)
 	require.True(t, ok)
 	require.Len(t, messages, 2)
 	require.Equal(t, "frontend_tool", messages[0].ToolName)

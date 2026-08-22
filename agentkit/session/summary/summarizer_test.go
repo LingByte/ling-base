@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
@@ -33,8 +33,8 @@ func TestSessionSummarizer_ShouldSummarize(t *testing.T) {
 		for i := range sess.Events {
 			sess.Events[i] = event.Event{
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "message"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "message"},
 				}}},
 			}
 		}
@@ -81,9 +81,9 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 	t.Run("simple concat summary without event modification", func(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}) // Use all events
 		sess := &session.Session{ID: "concat", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "hello"}}}}, Timestamp: time.Now()},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "world"}}}}, Timestamp: time.Now()},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "hello"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "world"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent"}}}}, Timestamp: time.Now()},
 		}}
 		originalEventCount := len(sess.Events)
 		text, err := s.Summarize(context.Background(), sess)
@@ -101,8 +101,8 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 	t.Run("length limit when max length set", func(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(10))
 		sess := &session.Session{ID: "limit", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "abcdefghijklmno"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "abcdefghijklmno"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent"}}}}, Timestamp: time.Now()},
 		}}
 		originalEventCount := len(sess.Events)
 		text, err := s.Summarize(context.Background(), sess)
@@ -118,8 +118,8 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(0))
 		long := strings.Repeat("abc", 200)
 		sess := &session.Session{ID: "no-trunc", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: long}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: long}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent"}}}}, Timestamp: time.Now()},
 		}}
 		originalEventCount := len(sess.Events)
 		text, err := s.Summarize(context.Background(), sess)
@@ -133,8 +133,8 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 		s := NewSummarizer(&fakeModel{})
 		sess := &session.Session{ID: "author-fallback", Events: []event.Event{
 			{Timestamp: time.Now().Add(-3 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "content"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "content"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent"}}}}, Timestamp: time.Now()},
 		}}
 		originalEventCount := len(sess.Events)
 		text, err := s.Summarize(context.Background(), sess)
@@ -147,10 +147,10 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 	t.Run("uses all events for summarization", func(t *testing.T) {
 		s := NewSummarizer(&fakeModel{})
 		sess := &session.Session{ID: "all-events", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "old1"}}}}, Timestamp: time.Now().Add(-4 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "old2"}}}}, Timestamp: time.Now().Add(-3 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent1"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "recent2"}}}}, Timestamp: time.Now().Add(-1 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "old1"}}}}, Timestamp: time.Now().Add(-4 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "old2"}}}}, Timestamp: time.Now().Add(-3 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent1"}}}}, Timestamp: time.Now().Add(-2 * time.Second)},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "recent2"}}}}, Timestamp: time.Now().Add(-1 * time.Second)},
 		}}
 		originalEventCount := len(sess.Events)
 		_, err := s.Summarize(context.Background(), sess)
@@ -176,24 +176,24 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 					Author:    "user",
 					FilterKey: "app",
 					Timestamp: time.Now().Add(-3 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "root message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "root message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub",
 					Timestamp: time.Now().Add(-2 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "branch message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "branch message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub/tool",
 					Timestamp: time.Now().Add(-1 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "descendant message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "descendant message"},
 					}}},
 				},
 			},
@@ -220,24 +220,24 @@ func TestSessionSummarizer_Summarize(t *testing.T) {
 					Author:    "user",
 					FilterKey: "app",
 					Timestamp: time.Now().Add(-3 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "root message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "root message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub",
 					Timestamp: time.Now().Add(-2 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "child message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "child message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub/tool",
 					Timestamp: time.Now().Add(-1 * time.Second),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "descendant message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "descendant message"},
 					}}},
 				},
 			},
@@ -267,7 +267,7 @@ func TestSessionSummarizer_PlaceholderReplacement(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(100), WithPrompt(customPrompt))
 
 		sess := &session.Session{ID: "test", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
 		}}
 
 		text, err := s.Summarize(context.Background(), sess)
@@ -286,7 +286,7 @@ func TestSessionSummarizer_PlaceholderReplacement(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(0), WithPrompt(customPrompt))
 
 		sess := &session.Session{ID: "test", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
 		}}
 
 		text, err := s.Summarize(context.Background(), sess)
@@ -303,7 +303,7 @@ func TestSessionSummarizer_PlaceholderReplacement(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(50))
 
 		sess := &session.Session{ID: "test", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
 		}}
 
 		text, err := s.Summarize(context.Background(), sess)
@@ -321,7 +321,7 @@ func TestSessionSummarizer_PlaceholderReplacement(t *testing.T) {
 		s := NewSummarizer(&fakeModel{}, WithMaxSummaryWords(0))
 
 		sess := &session.Session{ID: "test", Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "Hello world"}}}}, Timestamp: time.Now()},
 		}}
 
 		text, err := s.Summarize(context.Background(), sess)
@@ -343,15 +343,15 @@ func TestSessionSummarizer_PreviousSummaryPlaceholder(t *testing.T) {
 				{
 					Author:    authorSystem,
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: previous},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: previous},
 					}}},
 				},
 				{
 					Author:    authorUser,
 					Timestamp: time.Now().Add(-time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "new request"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "new request"},
 					}}},
 				},
 			},
@@ -429,8 +429,8 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			{
 				Author:    "user",
 				Timestamp: time.Now(),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.NewUserMessage("event text for standalone fallback"),
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.NewUserMessage("event text for standalone fallback"),
 				}}},
 			},
 		}}
@@ -444,15 +444,15 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			WithMaxSummaryWords(42),
 		)
 		lookupTool := &testTool{name: "lookup"}
-		parent := &model.Request{
-			Messages: []model.Message{
-				model.NewSystemMessage("stable system"),
-				model.NewUserMessage("cached conversation"),
+		parent := &compat.Request{
+			Messages: []compat.Message{
+				compat.NewSystemMessage("stable system"),
+				compat.NewUserMessage("cached conversation"),
 			},
-			GenerationConfig: model.GenerationConfig{Stream: true},
-			StructuredOutput: &model.StructuredOutput{
-				Type: model.StructuredOutputJSONSchema,
-				JSONSchema: &model.JSONSchemaConfig{
+			GenerationConfig: compat.GenerationConfig{Stream: true},
+			StructuredOutput: &compat.StructuredOutput{
+				Type: compat.StructuredOutputJSONSchema,
+				JSONSchema: &compat.JSONSchemaConfig{
 					Name:   "answer",
 					Schema: map[string]any{"type": "object"},
 				},
@@ -468,14 +468,14 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 		require.Len(t, capture.request.Messages, 3)
 		require.Equal(t, parent.Messages[0], capture.request.Messages[0])
 		require.Equal(t, parent.Messages[1], capture.request.Messages[1])
-		require.Equal(t, model.RoleUser, capture.request.Messages[2].Role)
+		require.Equal(t, compat.RoleUser, capture.request.Messages[2].Role)
 		require.Contains(t, capture.request.Messages[2].Content, "Summarize the user, assistant, and tool conversation above")
 		require.Contains(t, capture.request.Messages[2].Content, "42")
 		require.NotContains(t, capture.request.Messages[2].Content, "{conversation_text}")
 		require.NotContains(t, capture.request.Messages[2].Content, "event text for standalone fallback")
 		require.False(t, capture.request.GenerationConfig.Stream)
 		require.Nil(t, capture.request.StructuredOutput)
-		require.Equal(t, lookupTool, capture.request.Tools["lookup"])
+		require.Equal(t, lookupTool, capture.request.Tools.(map[string]tool.Tool)["lookup"])
 		require.Len(t, parent.Messages, 2, "parent request must not be mutated")
 		require.True(t, parent.GenerationConfig.Stream, "parent generation config must not be mutated")
 		require.NotNil(t, parent.StructuredOutput, "parent structured output must not be mutated")
@@ -494,7 +494,7 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 		require.Equal(t, "standalone summary", text)
 		require.NotNil(t, capture.request)
 		require.Len(t, capture.request.Messages, 1)
-		require.Equal(t, model.RoleUser, capture.request.Messages[0].Role)
+		require.Equal(t, compat.RoleUser, capture.request.Messages[0].Role)
 		require.Contains(t, capture.request.Messages[0].Content, "event text for standalone fallback")
 	})
 
@@ -505,9 +505,9 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			WithCacheSafeForking(true),
 			WithPrompt("Previous:\n{previous_summary}\n\nConversation:\n{conversation_text}\n\nSummary:"),
 		)
-		parent := &model.Request{Messages: []model.Message{
-			model.NewSystemMessage("summary already injected in parent"),
-			model.NewUserMessage("new request"),
+		parent := &compat.Request{Messages: []compat.Message{
+			compat.NewSystemMessage("summary already injected in parent"),
+			compat.NewUserMessage("new request"),
 		}}
 		ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 		ctx = isummarycontext.WithPreviousSummary(ctx, "raw previous summary")
@@ -546,22 +546,22 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 		s := NewSummarizer(capture, WithCacheSafeForking(true))
 		arguments := []byte(`{"input":"` + strings.Repeat("argument-", 600) + `"}`)
 		toolResult := strings.Repeat("tool-result-", 800)
-		parent := &model.Request{
-			Messages: []model.Message{
-				model.NewSystemMessage("stable system"),
-				model.NewUserMessage("keep this user request"),
+		parent := &compat.Request{
+			Messages: []compat.Message{
+				compat.NewSystemMessage("stable system"),
+				compat.NewUserMessage("keep this user request"),
 				{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						Type: "function",
 						ID:   "call-1",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: arguments,
 						},
 					}},
 				},
-				model.NewToolMessage("call-1", "lookup", toolResult),
+				compat.NewToolMessage("call-1", "lookup", toolResult),
 			},
 			Tools: map[string]tool.Tool{"lookup": &testTool{name: "lookup"}},
 		}
@@ -596,10 +596,10 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			contextWindow: 1000,
 		}
 		s := NewSummarizer(capture, WithCacheSafeForking(true))
-		parent := &model.Request{
-			Messages: []model.Message{
-				model.NewSystemMessage("stable system"),
-				model.NewUserMessage("small conversation"),
+		parent := &compat.Request{
+			Messages: []compat.Message{
+				compat.NewSystemMessage("stable system"),
+				compat.NewUserMessage("small conversation"),
 			},
 			Tools: map[string]tool.Tool{
 				"large_schema": &testTool{
@@ -632,9 +632,9 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			WithCacheSafeForkPrompt("Summarize the conversation above."),
 		)
 		oversizedParent := strings.Repeat("provider-budget-content ", 200)
-		parent := &model.Request{Messages: []model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage(oversizedParent),
+		parent := &compat.Request{Messages: []compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage(oversizedParent),
 		}}
 		ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 		sess := &session.Session{
@@ -655,8 +655,8 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 	t.Run("rejects a cache-safe request without conversation content", func(t *testing.T) {
 		capture := &cacheSafeCaptureModel{response: "must not be called"}
 		s := NewSummarizer(capture, WithCacheSafeForking(true))
-		parent := &model.Request{
-			Messages: []model.Message{model.NewSystemMessage("system only")},
+		parent := &compat.Request{
+			Messages: []compat.Message{compat.NewSystemMessage("system only")},
 		}
 		ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -672,8 +672,8 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 			WithCacheSafeForking(true),
 			WithCacheSafeForkPrompt("Summarize above: {previous_summary}"),
 		)
-		parent := &model.Request{Messages: []model.Message{
-			model.NewUserMessage("source conversation"),
+		parent := &compat.Request{Messages: []compat.Message{
+			compat.NewUserMessage("source conversation"),
 		}}
 		ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -689,9 +689,9 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 		}
 		s := NewSummarizer(capture, WithCacheSafeForking(true))
 		oversized := strings.Repeat("oversized-user-content ", 1000)
-		parent := &model.Request{Messages: []model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage(oversized),
+		parent := &compat.Request{Messages: []compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage(oversized),
 		}}
 		ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 		first := newEventWithContent(strings.Repeat("first event ", 500))
@@ -714,21 +714,21 @@ func TestSessionSummarizer_CacheSafeForking(t *testing.T) {
 func TestSessionSummarizer_RetriesCacheSafeFailureWithStandaloneSource(t *testing.T) {
 	for _, test := range []struct {
 		name          string
-		firstResponse *model.Response
+		firstResponse *compat.Response
 	}{
 		{
 			name: "empty summary",
-			firstResponse: &model.Response{
+			firstResponse: &compat.Response{
 				Done: true,
 			},
 		},
 		{
 			name: "context overflow",
-			firstResponse: func() *model.Response {
+			firstResponse: func() *compat.Response {
 				code := "context_length_exceeded"
-				return &model.Response{
+				return &compat.Response{
 					Done: true,
-					Error: &model.ResponseError{
+					Error: &compat.ResponseError{
 						Message: "maximum context length exceeded",
 						Code:    &code,
 					},
@@ -739,20 +739,20 @@ func TestSessionSummarizer_RetriesCacheSafeFailureWithStandaloneSource(t *testin
 		t.Run(test.name, func(t *testing.T) {
 			capture := &retrySummaryModel{
 				contextWindow: 1000,
-				responses: []*model.Response{
+				responses: []*compat.Response{
 					test.firstResponse,
 					{
 						Done: true,
-						Choices: []model.Choice{{
-							Message: model.NewAssistantMessage("standalone retry summary"),
+						Choices: []compat.Choice{{
+							Message: compat.NewAssistantMessage("standalone retry summary"),
 						}},
 					},
 				},
 			}
 			s := NewSummarizer(capture, WithCacheSafeForking(true))
-			parent := &model.Request{Messages: []model.Message{
-				model.NewSystemMessage("stable system"),
-				model.NewUserMessage("source conversation"),
+			parent := &compat.Request{Messages: []compat.Message{
+				compat.NewSystemMessage("stable system"),
+				compat.NewUserMessage("source conversation"),
 			}}
 			ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 
@@ -789,8 +789,8 @@ func TestSessionSummarizer_RejectsOversizedStandaloneRequest(t *testing.T) {
 	sess := &session.Session{ID: "oversized", Events: []event.Event{{
 		Author:    "user",
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.NewUserMessage(strings.Repeat("large-event ", 1000)),
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewUserMessage(strings.Repeat("large-event ", 1000)),
 		}}},
 	}}}
 
@@ -816,8 +816,8 @@ func TestSessionSummarizer_BoundsPreviousSummaryAndConversation(t *testing.T) {
 		{
 			Author:    authorSystem,
 			Timestamp: time.Now(),
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: previous},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: previous},
 			}}},
 		},
 		newEventWithContent(conversation),
@@ -873,12 +873,12 @@ func TestSessionSummarizer_RejectsOversizedSourceWithFixedPrompt(t *testing.T) {
 func TestSessionSummarizer_RetriesEmptyStandaloneSummary(t *testing.T) {
 	capture := &retrySummaryModel{
 		contextWindow: 1000,
-		responses: []*model.Response{
+		responses: []*compat.Response{
 			{Done: true},
 			{
 				Done: true,
-				Choices: []model.Choice{{
-					Message: model.NewAssistantMessage("standalone retry summary"),
+				Choices: []compat.Choice{{
+					Message: compat.NewAssistantMessage("standalone retry summary"),
 				}},
 			},
 		},
@@ -903,24 +903,24 @@ func TestSessionSummarizer_RetriesEmptyStandaloneSummary(t *testing.T) {
 
 func TestEnsureSummaryRequestFitsPreservesSourceRounds(t *testing.T) {
 	s := NewSummarizer(&cacheSafeCaptureModel{}).(*sessionSummarizer)
-	request := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system"),
-		model.NewUserMessage(strings.Repeat("old source ", 400)),
+	request := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system"),
+		compat.NewUserMessage(strings.Repeat("old source ", 400)),
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID: "old-call",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name: "lookup",
 					Arguments: []byte(`{"query":"` +
 						strings.Repeat("old ", 100) + `"}`),
 				},
 			}},
 		},
-		model.NewToolMessage("old-call", "lookup", "old result"),
-		model.NewUserMessage("latest source"),
-		model.NewAssistantMessage("latest answer"),
-		model.NewUserMessage("Summarize the conversation above."),
+		compat.NewToolMessage("old-call", "lookup", "old result"),
+		compat.NewUserMessage("latest source"),
+		compat.NewAssistantMessage("latest answer"),
+		compat.NewUserMessage("Summarize the conversation above."),
 	}}
 
 	err := s.ensureSummaryRequestFits(
@@ -931,7 +931,7 @@ func TestEnsureSummaryRequestFitsPreservesSourceRounds(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "without dropping source conversation")
 	require.Len(t, request.Messages, 7)
-	require.Equal(t, model.RoleSystem, request.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, request.Messages[0].Role)
 	require.Contains(t, request.Messages[1].Content, "old source")
 	require.JSONEq(
 		t,
@@ -948,12 +948,12 @@ func TestPrepareSummaryRequestFallsBackBeforeDroppingSourceRounds(t *testing.T) 
 		&cacheSafeCaptureModel{},
 		WithPrompt("Conversation:\n{conversation_text}"),
 	).(*sessionSummarizer)
-	request := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system"),
-		model.NewUserMessage(strings.Repeat("large source ", 400)),
-		model.NewAssistantMessage("latest progress"),
-		model.NewUserMessage("continue"),
-		model.NewUserMessage("Summarize the conversation above."),
+	request := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system"),
+		compat.NewUserMessage(strings.Repeat("large source ", 400)),
+		compat.NewAssistantMessage("latest progress"),
+		compat.NewUserMessage("continue"),
+		compat.NewUserMessage("Summarize the conversation above."),
 	}}
 	input := summaryPromptInput{
 		conversationText: "user: original request\nassistant: latest progress",
@@ -977,9 +977,9 @@ func TestPrepareSummaryRequestFallsBackBeforeDroppingSourceRounds(t *testing.T) 
 // fakeModel is a minimal model that returns the conversation content back to simulate LLM.
 type fakeModel struct{}
 
-func (f *fakeModel) Info() model.Info { return model.Info{Name: "fake"} }
-func (f *fakeModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+func (f *fakeModel) Info() compat.Info { return compat.Info{Name: "fake"} }
+func (f *fakeModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	content := ""
 	if len(req.Messages) > 0 {
 		// Extract conversation text from the prompt for testing.
@@ -997,32 +997,32 @@ func (f *fakeModel) GenerateContent(ctx context.Context, req *model.Request) (<-
 		// For testing, return the full conversation content as the summary.
 		content = "Summary: " + content
 	}
-	ch <- &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Content: content}}}}
+	ch <- &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Content: content}}}}
 	close(ch)
 	return ch, nil
 }
 
 type cacheSafeCaptureModel struct {
-	request       *model.Request
+	request       *compat.Request
 	response      string
 	contextWindow int
 	inputBudget   int
 }
 
-func (m *cacheSafeCaptureModel) Info() model.Info {
-	return model.Info{Name: "capture", ContextWindow: m.contextWindow}
+func (m *cacheSafeCaptureModel) Info() compat.Info {
+	return compat.Info{Name: "capture", ContextWindow: m.contextWindow}
 }
 
 func (m *cacheSafeCaptureModel) GenerateContent(
 	_ context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.request = req
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: m.response},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: m.response},
 		}},
 	}
 	close(ch)
@@ -1031,7 +1031,7 @@ func (m *cacheSafeCaptureModel) GenerateContent(
 
 func (m *cacheSafeCaptureModel) InputTokenBudget(
 	context.Context,
-	*model.Request,
+	*compat.Request,
 ) int {
 	return m.inputBudget
 }
@@ -1039,25 +1039,25 @@ func (m *cacheSafeCaptureModel) InputTokenBudget(
 type retrySummaryModel struct {
 	contextWindow int
 	inputBudget   int
-	requests      []*model.Request
-	responses     []*model.Response
+	requests      []*compat.Request
+	responses     []*compat.Response
 }
 
-func (m *retrySummaryModel) Info() model.Info {
-	return model.Info{Name: "retry-summary", ContextWindow: m.contextWindow}
+func (m *retrySummaryModel) Info() compat.Info {
+	return compat.Info{Name: "retry-summary", ContextWindow: m.contextWindow}
 }
 
 func (m *retrySummaryModel) GenerateContent(
 	_ context.Context,
-	request *model.Request,
-) (<-chan *model.Response, error) {
+	request *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.requests = append(m.requests, cloneRequestForCacheSafeFork(request))
-	response := &model.Response{Done: true}
+	response := &compat.Response{Done: true}
 	if len(m.responses) > 0 {
 		response = m.responses[0]
 		m.responses = m.responses[1:]
 	}
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	ch <- response
 	close(ch)
 	return ch, nil
@@ -1065,7 +1065,7 @@ func (m *retrySummaryModel) GenerateContent(
 
 func (m *retrySummaryModel) InputTokenBudget(
 	context.Context,
-	*model.Request,
+	*compat.Request,
 ) int {
 	return m.inputBudget
 }
@@ -1088,7 +1088,7 @@ func TestSessionSummarizer_Summarize_NilModel(t *testing.T) {
 	sess := &session.Session{
 		ID: "test",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1104,7 +1104,7 @@ func TestSessionSummarizer_GenerateSummary_ModelError(t *testing.T) {
 	sess := &session.Session{
 		ID: "test",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1119,7 +1119,7 @@ func TestSessionSummarizer_GenerateSummary_NilResponseChannel(t *testing.T) {
 	sess := &session.Session{
 		ID: "test-nil-channel",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1135,7 +1135,7 @@ func TestSessionSummarizer_GenerateSummary_ResponseError(t *testing.T) {
 	sess := &session.Session{
 		ID: "test",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1152,7 +1152,7 @@ func TestSessionSummarizer_GenerateSummary_ResponseErrorWithDetails(t *testing.T
 	sess := &session.Session{
 		ID: "test-detailed-error",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1172,7 +1172,7 @@ func TestSessionSummarizer_GenerateSummary_EmptyResponse(t *testing.T) {
 	sess := &session.Session{
 		ID: "test",
 		Events: []event.Event{
-			{Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}}, Timestamp: time.Now()},
+			{Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}}, Timestamp: time.Now()},
 		},
 	}
 
@@ -1187,7 +1187,7 @@ func TestSessionSummarizer_Summarize_ContextTimeoutWhileWaitingForResponse(t *te
 		ID: "timeout",
 		Events: []event.Event{{
 			Author:    "user",
-			Response:  &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "test"}}}},
+			Response:  &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "test"}}}},
 			Timestamp: time.Now(),
 		}},
 	}
@@ -1227,11 +1227,11 @@ func TestSessionSummarizer_ExtractConversationText_WithAuthor(t *testing.T) {
 		Events: []event.Event{
 			{
 				Author:   "user",
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "hello"}}}},
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "hello"}}}},
 			},
 			{
 				Author:   "assistant",
-				Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Content: "hi there"}}}},
+				Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Content: "hi there"}}}},
 			},
 		},
 	}
@@ -1249,8 +1249,8 @@ func TestSessionSummarizer_ExtractConversationText_LeavesOutReasoningContent(t *
 		Events: []event.Event{
 			{
 				Author: "assistant",
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ReasoningContent: "I should inspect the user request first.",
 						Content:          "Here is the final answer.",
 					},
@@ -1274,18 +1274,18 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "What is the weather?"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "What is the weather?"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call_123",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "get_weather",
 									Arguments: []byte(`{"city":"Beijing"}`),
 								},
@@ -1295,8 +1295,8 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 				},
 				{
 					Author: "get_weather",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call_123",
 							ToolName: "get_weather",
 							Content:  `{"temperature": 25, "weather": "sunny"}`,
@@ -1305,8 +1305,8 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "The weather in Beijing is sunny with 25 degrees."},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "The weather in Beijing is sunny with 25 degrees."},
 					}}},
 				},
 			},
@@ -1327,18 +1327,18 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Get current time"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Get current time"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call_456",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name: "get_current_time",
 								},
 							}},
@@ -1361,18 +1361,18 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Process data"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Process data"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{{
 								ID:   "call_789",
 								Type: "function",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "process_data",
 									Arguments: []byte(longArgs),
 								},
@@ -1397,14 +1397,14 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Get data"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Get data"},
 					}}},
 				},
 				{
 					Author: "tool",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call_abc",
 							ToolName: "get_data",
 							Content:  longContent,
@@ -1427,14 +1427,14 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Do something"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Do something"},
 					}}},
 				},
 				{
 					Author: "tool",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:  "call_def",
 							Content: "done",
 						},
@@ -1456,19 +1456,19 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Check weather in multiple cities"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Check weather in multiple cities"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{
 								{
 									ID:   "call_beijing",
 									Type: "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      "get_weather",
 										Arguments: []byte(`{"city":"Beijing"}`),
 									},
@@ -1476,7 +1476,7 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 								{
 									ID:   "call_shanghai",
 									Type: "function",
-									Function: model.FunctionDefinitionParam{
+									Function: compat.FunctionDefinitionParam{
 										Name:      "get_weather",
 										Arguments: []byte(`{"city":"Shanghai"}`),
 									},
@@ -1487,16 +1487,16 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 				},
 				{
 					Author: "tool",
-					Response: &model.Response{Choices: []model.Choice{
+					Response: &compat.Response{Choices: []compat.Choice{
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:   "call_beijing",
 								ToolName: "get_weather",
 								Content:  `{"temperature": 25, "weather": "sunny"}`,
 							},
 						},
 						{
-							Message: model.Message{
+							Message: compat.Message{
 								ToolID:   "call_shanghai",
 								ToolName: "get_weather",
 								Content:  `{"temperature": 22, "weather": "cloudy"}`,
@@ -1506,8 +1506,8 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Beijing is sunny, Shanghai is cloudy."},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Beijing is sunny, Shanghai is cloudy."},
 					}}},
 				},
 			},
@@ -1527,7 +1527,7 @@ func TestSessionSummarizer_ExtractConversationText_WithToolCalls(t *testing.T) {
 
 func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 	t.Run("custom tool call formatter with truncation", func(t *testing.T) {
-		truncatingFormatter := func(tc model.ToolCall) string {
+		truncatingFormatter := func(tc compat.ToolCall) string {
 			name := tc.Function.Name
 			if name == "" {
 				return ""
@@ -1547,16 +1547,16 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Test"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Test"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{{
-								Function: model.FunctionDefinitionParam{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "my_tool",
 									Arguments: []byte(longArgs),
 								},
@@ -1575,7 +1575,7 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 
 	t.Run("custom tool result formatter excludes results", func(t *testing.T) {
 		// Formatter that excludes tool results entirely.
-		excludingFormatter := func(msg model.Message) string {
+		excludingFormatter := func(msg compat.Message) string {
 			return "" // Return empty to exclude.
 		}
 
@@ -1585,14 +1585,14 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Test"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Test"},
 					}}},
 				},
 				{
 					Author: "tool",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call_123",
 							ToolName: "my_tool",
 							Content:  "some result",
@@ -1609,7 +1609,7 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 	})
 
 	t.Run("custom formatter shows only tool name", func(t *testing.T) {
-		nameOnlyFormatter := func(tc model.ToolCall) string {
+		nameOnlyFormatter := func(tc compat.ToolCall) string {
 			if tc.Function.Name == "" {
 				return ""
 			}
@@ -1622,16 +1622,16 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author: "user",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "Test"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Test"},
 					}}},
 				},
 				{
 					Author: "assistant",
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							ToolCalls: []model.ToolCall{{
-								Function: model.FunctionDefinitionParam{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							ToolCalls: []compat.ToolCall{{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "search",
 									Arguments: []byte(`{"query":"test"}`),
 								},
@@ -1652,20 +1652,20 @@ func TestSessionSummarizer_CustomToolFormatters(t *testing.T) {
 // errorModel returns an error when generating content
 type errorModel struct{}
 
-func (e *errorModel) Info() model.Info { return model.Info{Name: "error"} }
-func (e *errorModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (e *errorModel) Info() compat.Info { return compat.Info{Name: "error"} }
+func (e *errorModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	return nil, fmt.Errorf("model error")
 }
 
 // responseErrorModel returns a response with an error.
 type responseErrorModel struct{}
 
-func (r *responseErrorModel) Info() model.Info { return model.Info{Name: "response-error"} }
-func (r *responseErrorModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+func (r *responseErrorModel) Info() compat.Info { return compat.Info{Name: "response-error"} }
+func (r *responseErrorModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done:  true,
-		Error: &model.ResponseError{Message: "response error"},
+		Error: &compat.ResponseError{Message: "response error"},
 	}
 	close(ch)
 	return ch, nil
@@ -1674,15 +1674,15 @@ func (r *responseErrorModel) GenerateContent(ctx context.Context, req *model.Req
 // responseErrorModelWithDetails returns a response with detailed error info.
 type responseErrorModelWithDetails struct{}
 
-func (r *responseErrorModelWithDetails) Info() model.Info {
-	return model.Info{Name: "response-error-detailed"}
+func (r *responseErrorModelWithDetails) Info() compat.Info {
+	return compat.Info{Name: "response-error-detailed"}
 }
-func (r *responseErrorModelWithDetails) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (r *responseErrorModelWithDetails) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	code := "rate_limit_exceeded"
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Error: &model.ResponseError{
+		Error: &compat.ResponseError{
 			Message: "API key rate limit exceeded",
 			Type:    "requestAuthError",
 			Code:    &code,
@@ -1695,10 +1695,10 @@ func (r *responseErrorModelWithDetails) GenerateContent(ctx context.Context, req
 // emptyResponseModel returns an empty response.
 type emptyResponseModel struct{}
 
-func (e *emptyResponseModel) Info() model.Info { return model.Info{Name: "empty"} }
-func (e *emptyResponseModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Done: true, Choices: []model.Choice{{Message: model.Message{Content: ""}}}}
+func (e *emptyResponseModel) Info() compat.Info { return compat.Info{Name: "empty"} }
+func (e *emptyResponseModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Done: true, Choices: []compat.Choice{{Message: compat.Message{Content: ""}}}}
 	close(ch)
 	return ch, nil
 }
@@ -1707,26 +1707,26 @@ func (e *emptyResponseModel) GenerateContent(ctx context.Context, req *model.Req
 // sends a response nor closes the response channel after ctx cancellation.
 type blockingResponseModel struct{}
 
-func (b *blockingResponseModel) Info() model.Info { return model.Info{Name: "blocking-response"} }
-func (b *blockingResponseModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (b *blockingResponseModel) Info() compat.Info { return compat.Info{Name: "blocking-response"} }
+func (b *blockingResponseModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	// The channel is intentionally never closed to exercise context timeout handling.
-	return make(chan *model.Response), nil
+	return make(chan *compat.Response), nil
 }
 
 type nilResponseChannelModel struct{}
 
-func (n *nilResponseChannelModel) Info() model.Info {
-	return model.Info{Name: "nil-response-channel"}
+func (n *nilResponseChannelModel) Info() compat.Info {
+	return compat.Info{Name: "nil-response-channel"}
 }
 
-func (n *nilResponseChannelModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (n *nilResponseChannelModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	return nil, nil
 }
 
 func TestFormatResponseError(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *model.ResponseError
+		err      *compat.ResponseError
 		expected string
 		isNil    bool
 	}{
@@ -1737,14 +1737,14 @@ func TestFormatResponseError(t *testing.T) {
 		},
 		{
 			name: "message only",
-			err: &model.ResponseError{
+			err: &compat.ResponseError{
 				Message: "simple error",
 			},
 			expected: "model error during summarization: simple error",
 		},
 		{
 			name: "with type",
-			err: &model.ResponseError{
+			err: &compat.ResponseError{
 				Message: "auth failed",
 				Type:    "authError",
 			},
@@ -1752,7 +1752,7 @@ func TestFormatResponseError(t *testing.T) {
 		},
 		{
 			name: "with type and code",
-			err: &model.ResponseError{
+			err: &compat.ResponseError{
 				Message: "rate limit",
 				Type:    "requestError",
 				Code:    stringPtr("rate_limit_exceeded"),
@@ -1761,7 +1761,7 @@ func TestFormatResponseError(t *testing.T) {
 		},
 		{
 			name: "with empty code",
-			err: &model.ResponseError{
+			err: &compat.ResponseError{
 				Message: "error message",
 				Type:    "someType",
 				Code:    stringPtr(""),
@@ -1770,7 +1770,7 @@ func TestFormatResponseError(t *testing.T) {
 		},
 		{
 			name: "code without type",
-			err: &model.ResponseError{
+			err: &compat.ResponseError{
 				Message: "error message",
 				Code:    stringPtr("error_code"),
 			},
@@ -1812,8 +1812,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 
 	t.Run("no filtering when skipRecentFunc is nil", func(t *testing.T) {
 		events := []event.Event{
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "msg1"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "msg2"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "msg1"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "msg2"}}}}},
 		}
 		filtered := s.filterEventsForSummary(events)
 		assert.Equal(t, events, filtered)
@@ -1822,8 +1822,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("returns empty when skip count >= events length", func(t *testing.T) {
 		s := &sessionSummarizer{skipRecentFunc: func(_ []event.Event) int { return 5 }}
 		events := []event.Event{
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "msg1"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "msg2"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "msg1"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "msg2"}}}}},
 		}
 		filtered := s.filterEventsForSummary(events)
 		assert.Empty(t, filtered)
@@ -1832,12 +1832,12 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("filters recent events and keeps user message context", func(t *testing.T) {
 		s := &sessionSummarizer{skipRecentFunc: func(_ []event.Event) int { return 2 }}
 		events := []event.Event{
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user1"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant1"}}}}},
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user2"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant2"}}}}},
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "recent1"}}}}},           // should be skipped
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "recent2"}}}}}, // should be skipped
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user1"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant1"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user2"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant2"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "recent1"}}}}},           // should be skipped
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "recent2"}}}}}, // should be skipped
 		}
 		filtered := s.filterEventsForSummary(events)
 		// Should keep events 0-3 (up to and including the last user message before recent events)
@@ -1853,18 +1853,18 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    authorSystem,
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "previous summary"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "previous summary"},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: now.Add(-2 * time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "lookup_weather",
 								Arguments: []byte(`{"city":"Shanghai"}`),
 							},
@@ -1875,8 +1875,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    "tool",
 				Timestamp: now.Add(-time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "lookup_weather",
 						Content:  "sunny",
@@ -1886,8 +1886,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    "assistant",
 				Timestamp: now.Add(time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleAssistant, Content: "recent response"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleAssistant, Content: "recent response"},
 				}}},
 			},
 		}
@@ -1901,7 +1901,7 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("drops prepended summary when remaining tool calls are formatter-excluded", func(t *testing.T) {
 		s := &sessionSummarizer{
 			skipRecentFunc: func(_ []event.Event) int { return 1 },
-			toolCallFormatter: func(model.ToolCall) string {
+			toolCallFormatter: func(compat.ToolCall) string {
 				return ""
 			},
 		}
@@ -1910,18 +1910,18 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    authorSystem,
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "previous summary"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "previous summary"},
 				}}},
 			},
 			{
 				Author:    "assistant",
 				Timestamp: now.Add(-time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "lookup_weather",
 								Arguments: []byte(`{"city":"Shanghai"}`),
 							},
@@ -1932,8 +1932,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    "assistant",
 				Timestamp: now.Add(time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleAssistant, Content: "recent response"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleAssistant, Content: "recent response"},
 				}}},
 			},
 		}
@@ -1945,7 +1945,7 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("drops prepended summary when remaining tool results are formatter-excluded", func(t *testing.T) {
 		s := &sessionSummarizer{
 			skipRecentFunc: func(_ []event.Event) int { return 1 },
-			toolResultFormatter: func(model.Message) string {
+			toolResultFormatter: func(compat.Message) string {
 				return ""
 			},
 		}
@@ -1954,15 +1954,15 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    authorSystem,
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "previous summary"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "previous summary"},
 				}}},
 			},
 			{
 				Author:    "tool",
 				Timestamp: now.Add(-time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "lookup_weather",
 						Content:  "sunny",
@@ -1972,8 +1972,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 			{
 				Author:    "assistant",
 				Timestamp: now.Add(time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleAssistant, Content: "recent response"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleAssistant, Content: "recent response"},
 				}}},
 			},
 		}
@@ -1985,8 +1985,8 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("returns empty slice when no user message in filtered events", func(t *testing.T) {
 		s := &sessionSummarizer{skipRecentFunc: func(_ []event.Event) int { return 1 }}
 		events := []event.Event{
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant1"}}}}},
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user1"}}}}}, // will be skipped
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant1"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user1"}}}}}, // will be skipped
 		}
 		filtered := s.filterEventsForSummary(events)
 		assert.Empty(t, filtered)
@@ -1995,14 +1995,14 @@ func TestSessionSummarizer_FilterEventsForSummary(t *testing.T) {
 	t.Run("keeps all events up to last user message when filtering", func(t *testing.T) {
 		s := &sessionSummarizer{skipRecentFunc: func(_ []event.Event) int { return 3 }}
 		events := []event.Event{
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user1"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant1"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant2"}}}}},
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user2"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant3"}}}}},
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "recent1"}}}}}, // skipped
-			{Author: "user", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "recent2"}}}}},           // skipped
-			{Author: "assistant", Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "recent3"}}}}}, // skipped
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user1"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant1"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant2"}}}}},
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user2"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant3"}}}}},
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "recent1"}}}}}, // skipped
+			{Author: "user", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "recent2"}}}}},           // skipped
+			{Author: "assistant", Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "recent3"}}}}}, // skipped
 		}
 		filtered := s.filterEventsForSummary(events)
 		// Should keep events 0-4 (up to and including the last user message before recent events)
@@ -2021,8 +2021,8 @@ func TestSummaryEventHelpers(t *testing.T) {
 
 		t.Run("returns false for whitespace-only content", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "   "},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "   "},
 				}}},
 			}
 			assert.False(t, eventHasTextContent(e))
@@ -2030,9 +2030,9 @@ func TestSummaryEventHelpers(t *testing.T) {
 
 		t.Run("returns true when any choice has text", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{
-					{Message: model.Message{Content: "   "}},
-					{Message: model.Message{Content: "hello"}},
+				Response: &compat.Response{Choices: []compat.Choice{
+					{Message: compat.Message{Content: "   "}},
+					{Message: compat.Message{Content: "hello"}},
 				}},
 			}
 			assert.True(t, eventHasTextContent(e))
@@ -2040,10 +2040,10 @@ func TestSummaryEventHelpers(t *testing.T) {
 	})
 
 	t.Run("eventHasSummarizableContent", func(t *testing.T) {
-		defaultToolCallFmt := func(tc model.ToolCall) string {
+		defaultToolCallFmt := func(tc compat.ToolCall) string {
 			return tc.Function.Name
 		}
-		defaultToolResultFmt := func(msg model.Message) string {
+		defaultToolResultFmt := func(msg compat.Message) string {
 			return msg.Content
 		}
 
@@ -2057,10 +2057,10 @@ func TestSummaryEventHelpers(t *testing.T) {
 
 		t.Run("returns true for included tool calls", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{Name: "lookup_weather"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{Name: "lookup_weather"},
 						}},
 					},
 				}}},
@@ -2074,25 +2074,25 @@ func TestSummaryEventHelpers(t *testing.T) {
 
 		t.Run("returns false for formatter-excluded tool calls", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						ToolCalls: []model.ToolCall{{
-							Function: model.FunctionDefinitionParam{Name: "lookup_weather"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						ToolCalls: []compat.ToolCall{{
+							Function: compat.FunctionDefinitionParam{Name: "lookup_weather"},
 						}},
 					},
 				}}},
 			}
 			assert.False(t, eventHasSummarizableContent(
 				e,
-				func(model.ToolCall) string { return "" },
+				func(compat.ToolCall) string { return "" },
 				defaultToolResultFmt,
 			))
 		})
 
 		t.Run("returns true for included tool results", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "lookup_weather",
 						Content:  "sunny",
@@ -2108,8 +2108,8 @@ func TestSummaryEventHelpers(t *testing.T) {
 
 		t.Run("returns false for formatter-excluded tool results", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
 						ToolID:   "call-1",
 						ToolName: "lookup_weather",
 						Content:  "sunny",
@@ -2119,14 +2119,14 @@ func TestSummaryEventHelpers(t *testing.T) {
 			assert.False(t, eventHasSummarizableContent(
 				e,
 				defaultToolCallFmt,
-				func(model.Message) string { return "" },
+				func(compat.Message) string { return "" },
 			))
 		})
 
 		t.Run("returns true for regular content", func(t *testing.T) {
 			e := event.Event{
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "assistant reply"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "assistant reply"},
 				}}},
 			}
 			assert.True(t, eventHasSummarizableContent(
@@ -2145,8 +2145,8 @@ func TestSummaryEventHelpers(t *testing.T) {
 			events := []event.Event{{
 				Author:    authorSystem,
 				Timestamp: now,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Content: "previous summary"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Content: "previous summary"},
 				}}},
 			}}
 			assert.False(t, s.hasPrependedSummaryContext(events))
@@ -2157,15 +2157,15 @@ func TestSummaryEventHelpers(t *testing.T) {
 				{
 					Author:    "assistant",
 					Timestamp: now,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "assistant"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "assistant"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					Timestamp: now.Add(-time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "reply"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "reply"},
 					}}},
 				},
 			}
@@ -2177,15 +2177,15 @@ func TestSummaryEventHelpers(t *testing.T) {
 				{
 					Author:    authorSystem,
 					Timestamp: now.Add(-2 * time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "previous summary"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "previous summary"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					Timestamp: now.Add(-time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "reply"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "reply"},
 					}}},
 				},
 			}
@@ -2197,15 +2197,15 @@ func TestSummaryEventHelpers(t *testing.T) {
 				{
 					Author:    authorSystem,
 					Timestamp: now,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "previous summary"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "previous summary"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					Timestamp: now.Add(-time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "reply"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "reply"},
 					}}},
 				},
 			}
@@ -2224,27 +2224,27 @@ func TestSessionSummarizer_SummarizeWithSkipRecent(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author:   "user",
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}},
 				},
 				{
 					Author:   "assistant",
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "hi there"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "hi there"}}}},
 				},
 				{
 					Author:   "user",
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "how are you"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "how are you"}}}},
 				},
 				{
 					Author:   "assistant",
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "I'm fine"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "I'm fine"}}}},
 				},
 				{
 					Author:   "user", // This will be skipped
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "recent message"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "recent message"}}}},
 				},
 				{
 					Author:   "assistant", // This will be skipped
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "recent response"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "recent response"}}}},
 				},
 			},
 		}
@@ -2273,18 +2273,18 @@ func TestSessionSummarizer_SummarizeWithSkipRecent(t *testing.T) {
 				{
 					Author:    authorSystem,
 					Timestamp: summaryTs,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "previous summary"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "previous summary"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					Timestamp: toolCallTs,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ToolCalls: []model.ToolCall{{
-								Function: model.FunctionDefinitionParam{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ToolCalls: []compat.ToolCall{{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "lookup_weather",
 									Arguments: []byte(`{"city":"Shanghai"}`),
 								},
@@ -2295,8 +2295,8 @@ func TestSessionSummarizer_SummarizeWithSkipRecent(t *testing.T) {
 				{
 					Author:    "tool",
 					Timestamp: toolResultTs,
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call-1",
 							ToolName: "lookup_weather",
 							Content:  "sunny",
@@ -2306,8 +2306,8 @@ func TestSessionSummarizer_SummarizeWithSkipRecent(t *testing.T) {
 				{
 					Author:    "assistant",
 					Timestamp: summaryTs.Add(time.Minute),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Role: model.RoleAssistant, Content: "recent response"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Role: compat.RoleAssistant, Content: "recent response"},
 					}}},
 				},
 			},
@@ -2337,15 +2337,15 @@ func TestSessionSummarizer_SummarizeWithSkipRecent(t *testing.T) {
 			Events: []event.Event{
 				{
 					Author:   "assistant",
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "response1"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "response1"}}}},
 				},
 				{
 					Author:   "user", // This will be skipped
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user message"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user message"}}}},
 				},
 				{
 					Author:   "assistant", // This will be skipped
-					Response: &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "response2"}}}},
+					Response: &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "response2"}}}},
 				},
 			},
 		}
@@ -2366,15 +2366,15 @@ func TestSessionSummarizer_RecordLastIncludedBoundary(t *testing.T) {
 				ID:        "keep-event",
 				Author:    "user",
 				Timestamp: keepTs,
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleUser, Content: "keep"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleUser, Content: "keep"},
 				}}},
 			},
 			{
 				Author:    "user",
 				Timestamp: now.Add(-time.Minute),
-				Response: &model.Response{Choices: []model.Choice{{
-					Message: model.Message{Role: model.RoleUser, Content: "skip"},
+				Response: &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{Role: compat.RoleUser, Content: "skip"},
 				}}},
 			},
 		},
@@ -2416,7 +2416,7 @@ func TestSessionSummarizer_BuildCheckSession(t *testing.T) {
 
 	t.Run("injects token text without summary input formatter", func(t *testing.T) {
 		s := &sessionSummarizer{
-			toolResultFormatter: func(model.Message) string { return "[tool result]" },
+			toolResultFormatter: func(compat.Message) string { return "[tool result]" },
 		}
 		content := strings.Repeat("x", 2000)
 		sess := &session.Session{
@@ -2424,8 +2424,8 @@ func TestSessionSummarizer_BuildCheckSession(t *testing.T) {
 				{
 					Author:    "tool",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							ToolID:   "call-1",
 							ToolName: "read_file",
 							Content:  content,
@@ -2451,8 +2451,8 @@ func TestSessionSummarizer_BuildCheckSession(t *testing.T) {
 				{
 					Author:    "assistant",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{
 							Content:          "final answer",
 							ReasoningContent: reasoning,
 						},
@@ -2478,24 +2478,24 @@ func TestSessionSummarizer_BuildCheckSession(t *testing.T) {
 					Author:    "user",
 					FilterKey: "app",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "root message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "root message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "branch message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "branch message"},
 					}}},
 				},
 				{
 					Author:    "assistant",
 					FilterKey: "app/sub/tool",
 					Timestamp: time.Now(),
-					Response: &model.Response{Choices: []model.Choice{{
-						Message: model.Message{Content: "descendant message"},
+					Response: &compat.Response{Choices: []compat.Choice{{
+						Message: compat.Message{Content: "descendant message"},
 					}}},
 				},
 			},
@@ -2553,9 +2553,9 @@ func TestSessionSummarizer_SetPrompt(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{
 				{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{Content: "Hello world"},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{Content: "Hello world"},
 						}},
 					},
 					Timestamp: time.Now(),
@@ -2583,9 +2583,9 @@ func TestSessionSummarizer_SetPrompt(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{
 				{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{Content: "Test content"},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{Content: "Test content"},
 						}},
 					},
 					Timestamp: time.Now(),
@@ -2712,27 +2712,27 @@ func TestSessionSummarizer_SetPrompt(t *testing.T) {
 }
 
 type captureRequestModel struct {
-	lastRequest *model.Request
+	lastRequest *compat.Request
 	output      string
 }
 
-func (c *captureRequestModel) Info() model.Info { return model.Info{Name: "capture"} }
+func (c *captureRequestModel) Info() compat.Info { return compat.Info{Name: "capture"} }
 
 func (c *captureRequestModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	_ = ctx
 	c.lastRequest = req
-	ch := make(chan *model.Response, 1)
+	ch := make(chan *compat.Response, 1)
 	output := c.output
 	if output == "" {
 		output = "captured"
 	}
-	ch <- &model.Response{
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Content: output},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Content: output},
 		}},
 	}
 	close(ch)
@@ -2752,9 +2752,9 @@ func TestSessionSummarizer_WithSystemPrompt(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{{
 				Author: "user",
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{Content: "Hello world"},
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Hello world"},
 					}},
 				},
 				Timestamp: time.Now(),
@@ -2765,9 +2765,9 @@ func TestSessionSummarizer_WithSystemPrompt(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, m.lastRequest)
 		require.Len(t, m.lastRequest.Messages, 2)
-		assert.Equal(t, model.RoleSystem, m.lastRequest.Messages[0].Role)
+		assert.Equal(t, compat.RoleSystem, m.lastRequest.Messages[0].Role)
 		assert.Equal(t, "Focus on key decisions.", m.lastRequest.Messages[0].Content)
-		assert.Equal(t, model.RoleUser, m.lastRequest.Messages[1].Role)
+		assert.Equal(t, compat.RoleUser, m.lastRequest.Messages[1].Role)
 		assert.Equal(
 			t,
 			"<conversation>\nuser: Hello world\n</conversation>\n\nSummary:",
@@ -2788,9 +2788,9 @@ func TestSessionSummarizer_WithSystemPrompt(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{{
 				Author: "user",
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{Content: "Need a summary"},
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Need a summary"},
 					}},
 				},
 				Timestamp: time.Now(),
@@ -2815,9 +2815,9 @@ func TestSessionSummarizer_WithSystemPrompt(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{{
 				Author: "user",
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{Content: "Need a summary"},
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{Content: "Need a summary"},
 					}},
 				},
 				Timestamp: time.Now(),
@@ -2876,9 +2876,9 @@ func TestSessionSummarizer_SetModel(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{
 				{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{Content: "Hello world"},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{Content: "Hello world"},
 						}},
 					},
 					Timestamp: time.Now(),
@@ -2943,9 +2943,9 @@ func TestSessionSummarizer_SetModel(t *testing.T) {
 			ID: "test",
 			Events: []event.Event{
 				{
-					Response: &model.Response{
-						Choices: []model.Choice{{
-							Message: model.Message{Content: "Hello"},
+					Response: &compat.Response{
+						Choices: []compat.Choice{{
+							Message: compat.Message{Content: "Hello"},
 						}},
 					},
 					Timestamp: time.Now(),
@@ -2982,16 +2982,16 @@ type customOutputModel struct {
 	output string
 }
 
-func (c *customOutputModel) Info() model.Info {
-	return model.Info{Name: "custom-output"}
+func (c *customOutputModel) Info() compat.Info {
+	return compat.Info{Name: "custom-output"}
 }
 
-func (c *customOutputModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+func (c *customOutputModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{
-			{Message: model.Message{Content: c.output}},
+		Choices: []compat.Choice{
+			{Message: compat.Message{Content: c.output}},
 		},
 	}
 	close(ch)

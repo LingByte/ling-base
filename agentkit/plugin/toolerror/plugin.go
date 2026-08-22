@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	pluginbase "github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/transfer"
@@ -115,11 +115,11 @@ func (p *toolErrorPlugin) afterToolMessages(
 		len(args.ToolCalls) == 0 || len(args.ToolResultMessages) == 0 {
 		return nil, nil
 	}
-	callsByID := make(map[string]model.ToolCall, len(args.ToolCalls))
+	callsByID := make(map[string]compat.ToolCall, len(args.ToolCalls))
 	for _, call := range args.ToolCalls {
 		callsByID[call.ID] = call
 	}
-	replacements := append([]model.Message(nil), args.ToolResultMessages...)
+	replacements := append([]compat.Message(nil), args.ToolResultMessages...)
 	changed := false
 	for i := range replacements {
 		msg := replacements[i]
@@ -127,7 +127,8 @@ func (p *toolErrorPlugin) afterToolMessages(
 		if !ok {
 			continue
 		}
-		if _, exists := args.Request.Tools[call.Function.Name]; exists {
+		toolsMap, _ := args.Request.Tools.(map[string]tool.Tool)
+		if _, exists := toolsMap[call.Function.Name]; exists {
 			continue
 		}
 		if isCompatibleSubAgentCall(args, call.Function.Name) {
@@ -187,7 +188,8 @@ func isCompatibleSubAgentCall(
 		args.Invocation == nil || args.Invocation.Agent == nil {
 		return false
 	}
-	if _, ok := args.Request.Tools[transfer.TransferToolName]; !ok {
+	toolsMap, _ := args.Request.Tools.(map[string]tool.Tool)
+	if _, ok := toolsMap[transfer.TransferToolName]; !ok {
 		return false
 	}
 	for _, subAgent := range args.Invocation.Agent.SubAgents() {

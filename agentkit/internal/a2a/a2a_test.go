@@ -12,7 +12,7 @@ package a2a
 import (
 	"testing"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestGetADKMetadataKey(t *testing.T) {
@@ -113,8 +113,8 @@ func TestGetDataPartType(t *testing.T) {
 func TestResponseErrorMetadataHelpers(t *testing.T) {
 	code := "A2A_42"
 	param := "task_id"
-	metadata := WithResponseErrorMetadata(nil, &model.ResponseError{
-		Type:    model.ErrorTypeFlowError,
+	metadata := WithResponseErrorMetadata(nil, &compat.ResponseError{
+		Type:    compat.ErrorTypeFlowError,
 		Message: "task failed",
 		Code:    &code,
 		Param:   &param,
@@ -123,13 +123,13 @@ func TestResponseErrorMetadataHelpers(t *testing.T) {
 	got := ResponseErrorFromMetadata(
 		metadata,
 		"",
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 	if got == nil {
 		t.Fatal("ResponseErrorFromMetadata() returned nil")
 	}
-	if got.Type != model.ErrorTypeFlowError {
-		t.Fatalf("Type = %q, want %q", got.Type, model.ErrorTypeFlowError)
+	if got.Type != compat.ErrorTypeFlowError {
+		t.Fatalf("Type = %q, want %q", got.Type, compat.ErrorTypeFlowError)
 	}
 	if got.Message != "task failed" {
 		t.Fatalf("Message = %q, want %q", got.Message, "task failed")
@@ -146,7 +146,7 @@ func TestResponseErrorFromMetadata_IgnoresPlainTextFallback(t *testing.T) {
 	got := ResponseErrorFromMetadata(
 		nil,
 		"plain response",
-		model.ErrorTypeFlowError,
+		compat.ErrorTypeFlowError,
 	)
 	if got != nil {
 		t.Fatalf("expected nil response error, got %+v", got)

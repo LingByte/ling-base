@@ -21,7 +21,7 @@ import (
 	agentevent "github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/adapter"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/multimodal"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/source"
@@ -171,7 +171,7 @@ func (t *translator) Translate(ctx context.Context, event *agentevent.Event) ([]
 		events = append(events, aguievents.NewRunErrorEvent(rsp.Error.Message, aguievents.WithRunID(t.runID)))
 		return t.finalizeEvents(event, events), nil
 	}
-	if rsp.Object == model.ObjectTypeChatCompletionChunk || rsp.Object == model.ObjectTypeChatCompletion {
+	if rsp.Object == compat.ObjectTypeChatCompletionChunk || rsp.Object == compat.ObjectTypeChatCompletion {
 		if t.reasoningContentEnabled {
 			reasoningEvents, err := t.translateReasoningMessageEvents(rsp)
 			if err != nil {
@@ -275,7 +275,7 @@ func (t *translator) queuedUserMessageEvents(
 		return nil, true, errors.New("queued user message event missing message")
 	}
 	message := evt.Response.Choices[0].Message
-	if message.Role != model.RoleUser {
+	if message.Role != compat.RoleUser {
 		return nil, true, fmt.Errorf(
 			"queued user message event role must be user: %s",
 			message.Role,
@@ -495,7 +495,7 @@ func (t *translator) graphNodeInterruptActivityEvents(evt *agentevent.Event) []a
 
 // reasoningEvents translates reasoning_content emitted by models (e.g. DeepSeek, Claude Thinking)
 // into AG-UI REASONING_* events.
-func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) reasoningEvents(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -507,7 +507,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 	// Different message ID means a new reasoning message.
 	if t.lastReasoningMessageID != reasoningID {
 		switch rsp.Object {
-		case model.ObjectTypeChatCompletionChunk:
+		case compat.ObjectTypeChatCompletionChunk:
 			if rsp.Choices[0].Delta.ReasoningContent == "" {
 				return nil, nil
 			}
@@ -524,7 +524,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 				aguievents.NewReasoningStartEvent(reasoningID),
 				aguievents.NewReasoningMessageStartEvent(reasoningID, string(aguitypes.RoleReasoning)),
 			)
-		case model.ObjectTypeChatCompletion:
+		case compat.ObjectTypeChatCompletion:
 			if rsp.Choices[0].Message.ReasoningContent == "" {
 				return nil, nil
 			}
@@ -551,7 +551,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 	choice := rsp.Choices[0]
 	reasoningDelta := ""
 	contentDelta := ""
-	if rsp.Object == model.ObjectTypeChatCompletionChunk {
+	if rsp.Object == compat.ObjectTypeChatCompletionChunk {
 		reasoningDelta = choice.Delta.ReasoningContent
 		contentDelta = choice.Delta.Content
 	} else {
@@ -560,7 +560,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 	}
 	// Streaming response.
 	switch rsp.Object {
-	case model.ObjectTypeChatCompletionChunk:
+	case compat.ObjectTypeChatCompletionChunk:
 		if reasoningDelta != "" {
 			events = append(events, aguievents.NewReasoningMessageContentEvent(reasoningID, reasoningDelta))
 		}
@@ -585,7 +585,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 		}
 	// For streaming response, don't need to emit final completion event.
 	// It means the response is ended.
-	case model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletion:
 		if t.receivingReasoning {
 			t.receivingReasoning = false
 			events = append(events,
@@ -600,7 +600,7 @@ func (t *translator) reasoningEvents(rsp *model.Response) ([]aguievents.Event, e
 }
 
 // textMessageEvent translates a text message trpc-agent-go event to AG-UI events.
-func (t *translator) textMessageEvent(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) textMessageEvent(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -609,7 +609,7 @@ func (t *translator) textMessageEvent(rsp *model.Response) ([]aguievents.Event, 
 	// Different message ID means a new message.
 	if t.lastMessageID != rsp.ID {
 		switch rsp.Object {
-		case model.ObjectTypeChatCompletionChunk:
+		case compat.ObjectTypeChatCompletionChunk:
 			if rsp.Choices[0].Delta.Content == "" {
 				return nil, nil
 			}
@@ -621,7 +621,7 @@ func (t *translator) textMessageEvent(rsp *model.Response) ([]aguievents.Event, 
 			t.receivingMessage = true
 			role := rsp.Choices[0].Delta.Role.String()
 			events = append(events, aguievents.NewTextMessageStartEvent(rsp.ID, aguievents.WithRole(role)))
-		case model.ObjectTypeChatCompletion:
+		case compat.ObjectTypeChatCompletion:
 			if rsp.Choices[0].Message.Content == "" {
 				return nil, nil
 			}
@@ -644,7 +644,7 @@ func (t *translator) textMessageEvent(rsp *model.Response) ([]aguievents.Event, 
 	// Streaming response.
 	switch rsp.Object {
 	// Streaming chunk.
-	case model.ObjectTypeChatCompletionChunk:
+	case compat.ObjectTypeChatCompletionChunk:
 		if rsp.Choices[0].Delta.Content != "" {
 			events = append(events, aguievents.NewTextMessageContentEvent(rsp.ID, rsp.Choices[0].Delta.Content))
 		}
@@ -654,7 +654,7 @@ func (t *translator) textMessageEvent(rsp *model.Response) ([]aguievents.Event, 
 		}
 	// For streaming response, don't need to emit final completion event.
 	// It means the response is ended.
-	case model.ObjectTypeChatCompletion:
+	case compat.ObjectTypeChatCompletion:
 		if t.receivingMessage {
 			t.receivingMessage = false
 			events = append(events, aguievents.NewTextMessageEndEvent(rsp.ID))
@@ -670,7 +670,7 @@ func reasoningMessageID(responseID string) string {
 }
 
 // toolCallEvent translates a tool call trpc-agent-go event to AG-UI events.
-func (t *translator) toolCallEvent(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) toolCallEvent(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -686,7 +686,7 @@ func (t *translator) toolCallEvent(rsp *model.Response) ([]aguievents.Event, err
 }
 
 // toolResultEvent translates a tool result trpc-agent-go event to AG-UI events.
-func (t *translator) toolResultEvent(rsp *model.Response, messageID string) ([]aguievents.Event, error) {
+func (t *translator) toolResultEvent(rsp *compat.Response, messageID string) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -707,7 +707,7 @@ func (t *translator) toolResultEvent(rsp *model.Response, messageID string) ([]a
 	return events, nil
 }
 
-func (t *translator) toolResultActivityEvents(rsp *model.Response) ([]aguievents.Event, error) {
+func (t *translator) toolResultActivityEvents(rsp *compat.Response) ([]aguievents.Event, error) {
 	if rsp == nil || len(rsp.Choices) == 0 {
 		return nil, nil
 	}
@@ -751,7 +751,7 @@ func (t *translator) toolResultActivityEvent(toolCallID, chunk string) (aguieven
 	), true
 }
 
-func (t *translator) clearToolResultActivityState(rsp *model.Response) {
+func (t *translator) clearToolResultActivityState(rsp *compat.Response) {
 	if t == nil || rsp == nil {
 		return
 	}
@@ -798,7 +798,7 @@ func (t *translator) graphModelEvents(evt *agentevent.Event) []aguievents.Event 
 	}
 	events := t.graphModelBoundaryEvents(responseID)
 	events = append(events,
-		aguievents.NewTextMessageStartEvent(responseID, aguievents.WithRole(model.RoleAssistant.String())),
+		aguievents.NewTextMessageStartEvent(responseID, aguievents.WithRole(compat.RoleAssistant.String())),
 		aguievents.NewTextMessageContentEvent(responseID, meta.Output),
 		aguievents.NewTextMessageEndEvent(responseID),
 	)

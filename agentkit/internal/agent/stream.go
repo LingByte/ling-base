@@ -12,11 +12,11 @@ package agent
 
 import (
 	publicagent "github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 // ResolveInvokeAgentStream resolves the effective stream setting for an agent invocation.
-func ResolveInvokeAgentStream(invocation *publicagent.Invocation, genCfg *model.GenerationConfig) bool {
+func ResolveInvokeAgentStream(invocation *publicagent.Invocation, genCfg *compat.GenerationConfig) bool {
 	if invocation != nil && invocation.RunOptions.Stream != nil {
 		return *invocation.RunOptions.Stream
 	}

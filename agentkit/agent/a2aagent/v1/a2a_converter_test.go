@@ -16,7 +16,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 )
 
@@ -271,24 +271,24 @@ func TestConvertResponseFileParts(t *testing.T) {
 	if len(parts) != 5 {
 		t.Fatalf("content part count = %d, want 5", len(parts))
 	}
-	if parts[0].Type != model.ContentTypeImage || parts[0].Image == nil ||
+	if parts[0].Type != compat.ContentTypeImage || parts[0].Image == nil ||
 		!bytes.Equal(parts[0].Image.Data, []byte("image")) {
 		t.Fatalf("image part = %#v", parts[0])
 	}
-	if parts[1].Type != model.ContentTypeAudio || parts[1].Audio == nil ||
+	if parts[1].Type != compat.ContentTypeAudio || parts[1].Audio == nil ||
 		!bytes.Equal(parts[1].Audio.Data, []byte("audio")) {
 		t.Fatalf("audio part = %#v", parts[1])
 	}
-	if parts[2].Type != model.ContentTypeFile || parts[2].File == nil ||
+	if parts[2].Type != compat.ContentTypeFile || parts[2].File == nil ||
 		parts[2].File.Name != "report.pdf" ||
 		!bytes.Equal(parts[2].File.Data, []byte("file")) {
 		t.Fatalf("raw file part = %#v", parts[2])
 	}
-	if parts[3].Type != model.ContentTypeImage || parts[3].Image == nil ||
+	if parts[3].Type != compat.ContentTypeImage || parts[3].Image == nil ||
 		parts[3].Image.URL != "https://example.com/image.png" {
 		t.Fatalf("image URL part = %#v", parts[3])
 	}
-	if parts[4].Type != model.ContentTypeFile || parts[4].File == nil ||
+	if parts[4].Type != compat.ContentTypeFile || parts[4].File == nil ||
 		parts[4].File.URL != "https://example.com/report.pdf" {
 		t.Fatalf("file URL part = %#v", parts[4])
 	}
@@ -358,14 +358,14 @@ func TestConvertPackedToolRoundPreservesFinalAssistantMessage(t *testing.T) {
 		choices[0].Message.ToolCalls[0].Function.Name != "lookup" {
 		t.Fatalf("tool call choice = %#v", choices[0])
 	}
-	if choices[1].Message.Role != model.RoleTool ||
+	if choices[1].Message.Role != compat.RoleTool ||
 		choices[1].Message.Content != `{"temperature":30}` ||
 		len(choices[1].Message.ContentParts) != 1 ||
 		choices[1].Message.ContentParts[0].Text == nil ||
 		*choices[1].Message.ContentParts[0].Text != toolResultText {
 		t.Fatalf("tool response choice = %#v", choices[1])
 	}
-	if choices[2].Message.Role != model.RoleAssistant ||
+	if choices[2].Message.Role != compat.RoleAssistant ||
 		choices[2].Message.Content != "It is 30 degrees." {
 		t.Fatalf("final assistant choice = %#v", choices[2])
 	}

@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	"github.com/stretchr/testify/assert"
@@ -25,19 +25,19 @@ type echoPromptModel struct {
 	lastPrompt string
 }
 
-func (m *echoPromptModel) Info() model.Info {
-	return model.Info{Name: "echo"}
+func (m *echoPromptModel) Info() compat.Info {
+	return compat.Info{Name: "echo"}
 }
 
-func (m *echoPromptModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
+func (m *echoPromptModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
 	if len(req.Messages) > 0 {
 		m.lastPrompt = req.Messages[0].Content
 	}
-	ch <- &model.Response{
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Content: m.lastPrompt},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Content: m.lastPrompt},
 		}},
 	}
 	close(ch)
@@ -47,8 +47,8 @@ func (m *echoPromptModel) GenerateContent(ctx context.Context, req *model.Reques
 func newEventWithContent(content string) event.Event {
 	return event.Event{
 		Author: "user",
-		Response: &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Content: content}}},
+		Response: &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Content: content}}},
 		},
 	}
 }
@@ -131,8 +131,8 @@ func TestSessionSummarizer_PreHook_ModifiesSeparatedPreviousSummary(t *testing.T
 	sess := &session.Session{ID: "sess", Events: []event.Event{
 		{
 			Author: authorSystem,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: "previous"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: "previous"},
 			}}},
 		},
 		newEventWithContent("new conversation"),
@@ -163,8 +163,8 @@ func TestSessionSummarizer_PreHook_ClearsSeparatedConversation(t *testing.T) {
 	sess := &session.Session{ID: "sess", Events: []event.Event{
 		{
 			Author: authorSystem,
-			Response: &model.Response{Choices: []model.Choice{{
-				Message: model.Message{Content: "previous"},
+			Response: &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{Content: "previous"},
 			}}},
 		},
 		newEventWithContent("sensitive conversation"),
@@ -287,8 +287,8 @@ type panicGenerateModel struct {
 	contextWindow int
 }
 
-func (m *panicGenerateModel) Info() model.Info {
-	return model.Info{
+func (m *panicGenerateModel) Info() compat.Info {
+	return compat.Info{
 		Name:          "panic-generate",
 		ContextWindow: m.contextWindow,
 	}
@@ -296,8 +296,8 @@ func (m *panicGenerateModel) Info() model.Info {
 
 func (m *panicGenerateModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	panic("GenerateContent should not be called")
 }
 
@@ -305,19 +305,19 @@ type staticResponseModel struct {
 	content string
 }
 
-func (m *staticResponseModel) Info() model.Info {
-	return model.Info{Name: "static"}
+func (m *staticResponseModel) Info() compat.Info {
+	return compat.Info{Name: "static"}
 }
 
 func (m *staticResponseModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
 		Done: true,
-		Choices: []model.Choice{{
-			Message: model.Message{Content: m.content},
+		Choices: []compat.Choice{{
+			Message: compat.Message{Content: m.content},
 		}},
 	}
 	close(ch)
@@ -326,11 +326,11 @@ func (m *staticResponseModel) GenerateContent(
 
 func TestSessionSummarizer_ModelCallbacks_Before_ModifiesRequest(t *testing.T) {
 	m := &echoPromptModel{}
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			if args != nil && args.Request != nil && len(args.Request.Messages) > 0 {
 				args.Request.Messages[0].Content = "MODIFIED"
 			}
@@ -352,14 +352,14 @@ func TestSessionSummarizer_ModelCallbacks_Before_ModifiesRequest(t *testing.T) {
 func TestSessionSummarizer_ModelCallbacks_Before_RejectsOversizedRequest(
 	t *testing.T,
 ) {
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			_ context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			args.Request.Messages = append(
 				args.Request.Messages,
-				model.NewSystemMessage(strings.Repeat("callback-content ", 1000)),
+				compat.NewSystemMessage(strings.Repeat("callback-content ", 1000)),
 			)
 			return nil, nil
 		},
@@ -379,17 +379,17 @@ func TestSessionSummarizer_ModelCallbacks_Before_RejectsOversizedRequest(
 
 func TestSessionSummarizer_ModelCallbacks_Before_CustomResponseSkipsModel(t *testing.T) {
 	var callbackInput string
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			callbackInput = args.Request.Messages[0].Content
-			return &model.BeforeModelResult{
-				CustomResponse: &model.Response{
+			return &compat.BeforeModelResult{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{Content: "FROM_CALLBACK"},
+					Choices: []compat.Choice{{
+						Message: compat.Message{Content: "FROM_CALLBACK"},
 					}},
 				},
 			}, nil
@@ -415,11 +415,11 @@ func TestSessionSummarizer_ModelCallbacks_Before_AppliesToFallbackRequest(
 ) {
 	const sentinel = "callback-applied"
 	maxTokens := 77
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			_ context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			args.Request.GenerationConfig.MaxTokens = &maxTokens
 			if args.Request.Headers == nil {
 				args.Request.Headers = make(map[string]string)
@@ -438,9 +438,9 @@ func TestSessionSummarizer_ModelCallbacks_Before_AppliesToFallbackRequest(
 		WithModelCallbacks(callbacks),
 	)
 	oversizedParent := strings.Repeat("oversized-parent ", 1000)
-	parent := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system"),
-		model.NewUserMessage(oversizedParent),
+	parent := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system"),
+		compat.NewUserMessage(oversizedParent),
 	}}
 	ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 	sess := &session.Session{
@@ -463,16 +463,16 @@ func TestSessionSummarizer_ModelCallbacks_Before_AppliesToFallbackRequest(
 }
 
 func TestSessionSummarizer_ModelCallbacks_After_OverridesResponse(t *testing.T) {
-	callbacks := model.NewCallbacks().RegisterAfterModel(
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
 		func(
 			ctx context.Context,
-			args *model.AfterModelArgs,
-		) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
-				CustomResponse: &model.Response{
+			args *compat.AfterModelArgs,
+		) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
+				CustomResponse: &compat.Response{
 					Done: true,
-					Choices: []model.Choice{{
-						Message: model.Message{Content: "OVERRIDE"},
+					Choices: []compat.Choice{{
+						Message: compat.Message{Content: "OVERRIDE"},
 					}},
 				},
 			}, nil
@@ -499,12 +499,12 @@ func TestSessionSummarizer_ModelCallbacks_ContextPropagationToPostHook(t *testin
 	m := &staticResponseModel{content: "OK"}
 	var captured any
 
-	callbacks := model.NewCallbacks().RegisterAfterModel(
+	callbacks := compat.NewCallbacks().RegisterAfterModel(
 		func(
 			ctx context.Context,
-			args *model.AfterModelArgs,
-		) (*model.AfterModelResult, error) {
-			return &model.AfterModelResult{
+			args *compat.AfterModelArgs,
+		) (*compat.AfterModelResult, error) {
+			return &compat.AfterModelResult{
 				Context: context.WithValue(ctx, key, "value"),
 			}, nil
 		},
@@ -528,11 +528,11 @@ func TestSessionSummarizer_ModelCallbacks_ContextPropagationToPostHook(t *testin
 }
 
 func TestSessionSummarizer_ModelCallbacks_Before_Error(t *testing.T) {
-	callbacks := model.NewCallbacks().RegisterBeforeModel(
+	callbacks := compat.NewCallbacks().RegisterBeforeModel(
 		func(
 			ctx context.Context,
-			args *model.BeforeModelArgs,
-		) (*model.BeforeModelResult, error) {
+			args *compat.BeforeModelArgs,
+		) (*compat.BeforeModelResult, error) {
 			return nil, assert.AnError
 		},
 	)

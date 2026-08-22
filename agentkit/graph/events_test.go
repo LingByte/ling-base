@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph/internal/channel"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -148,7 +148,7 @@ func TestNewNodeEvents(t *testing.T) {
 		WithNodeEventStartTime(start),
 		WithNodeEventEndTime(end),
 		WithNodeEventOutputKeys([]string{"b"}),
-		WithNodeEventToolCalls([]model.ToolCall{{ID: "t1", Function: model.FunctionDefinitionParam{Name: "tool"}}}),
+		WithNodeEventToolCalls([]compat.ToolCall{{ID: "t1", Function: compat.FunctionDefinitionParam{Name: "tool"}}}),
 		WithNodeEventModelName("gpt-2"),
 	)
 	require.Equal(t, ObjectTypeGraphNodeComplete, e2.Object)
@@ -176,7 +176,7 @@ func TestNewNodeEvents(t *testing.T) {
 	require.Equal(t, "boom", meta3.Error)
 	require.NotNil(t, e3.Response)
 	require.NotNil(t, e3.Response.Error)
-	require.Equal(t, model.ErrorTypeFlowError, e3.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, e3.Response.Error.Type)
 	require.Equal(t, "boom", e3.Response.Error.Message)
 }
 
@@ -199,12 +199,12 @@ func TestNewNodeErrorEvent_WithResponseError(t *testing.T) {
 		WithNodeEventStartTime(start),
 		WithNodeEventEndTime(end),
 		WithNodeEventError(errMsg),
-		WithNodeEventResponseError(&model.ResponseError{Code: &codeVal}),
+		WithNodeEventResponseError(&compat.ResponseError{Code: &codeVal}),
 	)
 	require.Equal(t, ObjectTypeGraphNodeError, e.Object)
 	require.NotNil(t, e.Response)
 	require.NotNil(t, e.Response.Error)
-	require.Equal(t, model.ErrorTypeFlowError, e.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, e.Response.Error.Type)
 	require.Equal(t, errMsg, e.Response.Error.Message)
 	require.NotNil(t, e.Response.Error.Code)
 	require.Equal(t, code, *e.Response.Error.Code)
@@ -229,7 +229,7 @@ func TestNewToolAndModelEvents(t *testing.T) {
 		WithToolEventError(toolErr),
 		WithToolEventIncludeResponse(true),
 	)
-	require.Equal(t, model.ObjectTypeToolResponse, te.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, te.Object)
 	var tmeta ToolExecutionMetadata
 	require.NoError(t, json.Unmarshal(te.StateDelta[MetadataKeyTool], &tmeta))
 	require.Equal(t, "fetch", tmeta.ToolName)
@@ -239,16 +239,16 @@ func TestNewToolAndModelEvents(t *testing.T) {
 	require.Equal(t, "in", tmeta.Input)
 	require.Equal(t, "tool failed", tmeta.Error)
 	require.NotNil(t, te.Response)
-	require.Equal(t, model.ObjectTypeToolResponse, te.Response.Object)
+	require.Equal(t, compat.ObjectTypeToolResponse, te.Response.Object)
 	require.True(t, te.Response.Done)
 	require.Len(t, te.Response.Choices, 1)
-	require.Equal(t, model.RoleTool, te.Response.Choices[0].Message.Role)
+	require.Equal(t, compat.RoleTool, te.Response.Choices[0].Message.Role)
 	require.Equal(t, "t-1", te.Response.Choices[0].Message.ToolID)
 	require.Equal(t, "fetch", te.Response.Choices[0].Message.ToolName)
 	require.Equal(t, "out", te.Response.Choices[0].Message.Content)
 	require.NotNil(t, te.Response.Error)
 	require.Equal(t, "tool failed", te.Response.Error.Message)
-	require.Equal(t, model.ErrorTypeFlowError, te.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, te.Response.Error.Type)
 	require.GreaterOrEqual(t, tmeta.Duration, time.Duration(0))
 	require.Equal(t, "rsp-1", tmeta.ResponseID)
 
@@ -308,7 +308,7 @@ func TestNewPregelAndChannelStateEvents(t *testing.T) {
 	// Also mirrored to Event.Error for convenient consumption
 	require.NotNil(t, pe.Response)
 	require.NotNil(t, pe.Response.Error)
-	require.Equal(t, model.ErrorTypeFlowError, pe.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, pe.Response.Error.Type)
 	require.Equal(t, "fail", pe.Response.Error.Message)
 
 	const pregelCode = "E2"
@@ -321,13 +321,13 @@ func TestNewPregelAndChannelStateEvents(t *testing.T) {
 		WithPregelEventEndTime(end),
 		WithPregelEventError("fail"),
 		WithPregelEventResponseError(
-			&model.ResponseError{Code: &pregelCodeVal},
+			&compat.ResponseError{Code: &pregelCodeVal},
 		),
 	)
 	require.Equal(t, ObjectTypeGraphPregelStep, pe2.Object)
 	require.NotNil(t, pe2.Response)
 	require.NotNil(t, pe2.Response.Error)
-	require.Equal(t, model.ErrorTypeFlowError, pe2.Response.Error.Type)
+	require.Equal(t, compat.ErrorTypeFlowError, pe2.Response.Error.Type)
 	require.Equal(t, "fail", pe2.Response.Error.Message)
 	require.NotNil(t, pe2.Response.Error.Code)
 	require.Equal(t, pregelCode, *pe2.Response.Error.Code)
@@ -436,8 +436,8 @@ func TestNewGraphCompletionEvent_SerializeFinalStateSkipsInternalAndUnserializab
 		StateKeyLastResponse: "ok",
 		"keep1":              1,
 		"keep2":              map[string]any{"a": 1},
-		StateKeyMessages: []model.Message{
-			model.NewUserMessage("large history should not persist"),
+		StateKeyMessages: []compat.Message{
+			compat.NewUserMessage("large history should not persist"),
 		},
 		// internal keys that must be skipped.
 		MetadataKeyNode:        []byte("x"),

@@ -12,7 +12,7 @@ package llmagent
 import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/agent/extension"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -153,7 +153,7 @@ func mergeAgentCallbacks(a, b *agent.Callbacks) *agent.Callbacks {
 
 // mergeModelCallbacks mirrors mergeAgentCallbacks for model hooks.
 // See its docstring for shared semantics.
-func mergeModelCallbacks(a, b *model.Callbacks) *model.Callbacks {
+func mergeModelCallbacks(a, b *compat.Callbacks) *compat.Callbacks {
 	bn := hasModelContent(b)
 	if !bn {
 		return a
@@ -203,7 +203,7 @@ func hasAgentContent(c *agent.Callbacks) bool {
 	return c != nil && (len(c.BeforeAgent) > 0 || len(c.AfterAgent) > 0)
 }
 
-func hasModelContent(c *model.Callbacks) bool {
+func hasModelContent(c *compat.Callbacks) bool {
 	return c != nil && (len(c.BeforeModel) > 0 || len(c.AfterModel) > 0)
 }
 

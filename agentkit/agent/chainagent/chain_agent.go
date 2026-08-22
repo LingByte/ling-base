@@ -22,7 +22,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	itrace "github.com/LingByte/ling-base/agentkit/internal/trace"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -117,7 +117,7 @@ func (a *ChainAgent) executeChainRun(
 			invocation,
 			"chain-agent",
 			"",
-			&model.GenerationConfig{Stream: stream},
+			&compat.GenerationConfig{Stream: stream},
 		)
 	}
 	var trackerErr error
@@ -146,7 +146,7 @@ func (a *ChainAgent) executeChainRun(
 	if e != nil && e.Error != nil {
 		trackerErr = fmt.Errorf("%s: %s", e.Error.Type, e.Error.Message)
 		tracker.SetResponseErrorType(
-			itelemetry.FormatResponseErrorLabel(e.Error, model.ErrorTypeFlowError),
+			itelemetry.FormatResponseErrorLabel(e.Error, compat.ErrorTypeFlowError),
 		)
 	}
 	if startedSpan {
@@ -155,7 +155,7 @@ func (a *ChainAgent) executeChainRun(
 			e,
 			tokenUsage,
 			tracker.FirstTokenTimeDuration(),
-			model.ErrorTypeFlowError,
+			compat.ErrorTypeFlowError,
 		)
 	}
 }
@@ -246,7 +246,7 @@ func (a *ChainAgent) executeSubAgents(
 			e := event.NewErrorEvent(
 				invocation.InvocationID,
 				invocation.AgentName,
-				model.ErrorTypeFlowError,
+				compat.ErrorTypeFlowError,
 				err.Error(),
 			)
 			agent.EmitEvent(ctx, invocation, eventChan, e)

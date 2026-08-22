@@ -14,31 +14,31 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 func TestCloneChoicesDeepCopiesMutableFields(t *testing.T) {
 	reason := "stop"
 	index := 1
 	text := "hello"
-	choices := []model.Choice{
+	choices := []compat.Choice{
 		{
 			Index: 0,
-			Message: model.Message{
-				Role:    model.RoleAssistant,
+			Message: compat.Message{
+				Role:    compat.RoleAssistant,
 				Content: "assistant content",
-				ContentParts: []model.ContentPart{
-					{Type: model.ContentTypeText, Text: &text},
-					{Type: model.ContentTypeImage, Image: &model.Image{Data: []byte("image"), Format: "png"}},
-					{Type: model.ContentTypeAudio, Audio: &model.Audio{Data: []byte("audio"), Format: "wav"}},
-					{Type: model.ContentTypeFile, File: &model.File{Name: "file.txt", Data: []byte("file")}},
+				ContentParts: []compat.ContentPart{
+					{Type: compat.ContentTypeText, Text: &text},
+					{Type: compat.ContentTypeImage, Image: &compat.Image{Data: []byte("image"), Format: "png"}},
+					{Type: compat.ContentTypeAudio, Audio: &compat.Audio{Data: []byte("audio"), Format: "wav"}},
+					{Type: compat.ContentTypeFile, File: &compat.File{Name: "file.txt", Data: []byte("file")}},
 				},
-				ToolCalls: []model.ToolCall{
+				ToolCalls: []compat.ToolCall{
 					{
 						Type:  "function",
 						ID:    "call-1",
 						Index: &index,
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "tool",
 							Arguments: []byte(`{"value":"original"}`),
 						},
@@ -52,13 +52,13 @@ func TestCloneChoicesDeepCopiesMutableFields(t *testing.T) {
 				},
 			},
 			FinishReason: &reason,
-			Logprobs: &model.Logprobs{
-				Content: []model.TokenLogprob{
+			Logprobs: &compat.Logprobs{
+				Content: []compat.TokenLogprob{
 					{
 						Token:   "tok",
 						Logprob: -1,
 						Bytes:   []int{1, 2},
-						TopLogprobs: []model.TopLogprob{
+						TopLogprobs: []compat.TopLogprob{
 							{Token: "alt", Logprob: -2, Bytes: []int{3, 4}},
 						},
 					},
@@ -107,14 +107,14 @@ func TestCloneChoicesDeepCopiesMutableFields(t *testing.T) {
 
 func TestCloneChoicesHandlesEmptyValues(t *testing.T) {
 	require.Nil(t, cloneChoices(nil))
-	require.Empty(t, cloneChoices([]model.Choice{}))
+	require.Empty(t, cloneChoices([]compat.Choice{}))
 
-	choices := []model.Choice{
+	choices := []compat.Choice{
 		{
 			Index: 1,
-			Message: model.Message{
-				Role:         model.RoleAssistant,
-				ContentParts: []model.ContentPart{},
+			Message: compat.Message{
+				Role:         compat.RoleAssistant,
+				ContentParts: []compat.ContentPart{},
 			},
 		},
 	}

@@ -46,7 +46,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
 	log "github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -225,7 +225,7 @@ type Runner interface {
 		ctx context.Context,
 		userID string,
 		sessionID string,
-		message model.Message,
+		message compat.Message,
 		runOpts ...agent.RunOption,
 	) (<-chan *event.Event, error)
 
@@ -262,7 +262,7 @@ type SteerableRunner interface {
 	ManagedRunner
 
 	// EnqueueUserMessage queues a user message for the active request.
-	EnqueueUserMessage(requestID string, message model.Message) error
+	EnqueueUserMessage(requestID string, message compat.Message) error
 }
 
 // QueuedUserMessagesCanceler is an optional capability detected by the
@@ -276,7 +276,7 @@ type QueuedUserMessagesCanceler interface {
 }
 
 type queuedUserMessageEnqueuer interface {
-	EnqueueUserMessage(requestID string, message model.Message) error
+	EnqueueUserMessage(requestID string, message compat.Message) error
 }
 
 // EnqueueUserMessage queues a user message on runners that support steering.
@@ -285,7 +285,7 @@ type queuedUserMessageEnqueuer interface {
 func EnqueueUserMessage(
 	r Runner,
 	requestID string,
-	message model.Message,
+	message compat.Message,
 ) error {
 	steerable, ok := r.(queuedUserMessageEnqueuer)
 	if !ok {
@@ -531,16 +531,16 @@ func (r *runner) Run(
 	ctx context.Context,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	runOpts ...agent.RunOption,
 ) (out <-chan *event.Event, err error) {
 	requestStartedAt := time.Now().UTC()
-	if message.Role == "" && model.HasPayload(message) {
+	if message.Role == "" && compat.HasPayload(message) {
 		log.WarnfContext(
 			ctx,
 			"runner.Run received a message with empty role; defaulting to user",
 		)
-		message.Role = model.RoleUser
+		message.Role = compat.RoleUser
 	}
 
 	ro := agent.RunOptions{RequestID: uuid.NewString()}
@@ -788,7 +788,7 @@ func (r *runner) Run(
 
 func (r *runner) newRunInvocation(
 	sess *session.Session,
-	message model.Message,
+	message compat.Message,
 	ag agent.Agent,
 	ro agent.RunOptions,
 	effectiveAppName string,
@@ -870,7 +870,7 @@ func (r *runner) persistAgentRunError(
 	errorEvent := event.NewErrorEvent(
 		invocation.InvocationID,
 		ag.Info().Name,
-		model.ErrorTypeRunError,
+		compat.ErrorTypeRunError,
 		runErr.Error(),
 	)
 	agent.InjectIntoEvent(invocation, errorEvent)
@@ -903,7 +903,7 @@ func (r *runner) seedSessionHistory(
 	sess *session.Session,
 	invocation *agent.Invocation,
 	ag agent.Agent,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
 ) (bool, error) {
 	if len(ro.Messages) == 0 || sess.GetEventCount() != 0 {
@@ -926,7 +926,7 @@ func (r *runner) seedSessionHistory(
 }
 
 type pendingSessionMessage struct {
-	message       model.Message
+	message       compat.Message
 	seededHistory bool
 	currentTurn   bool
 }
@@ -938,7 +938,7 @@ func (r *runner) appendSessionMessages(
 	sess *session.Session,
 	invocation *agent.Invocation,
 	ag agent.Agent,
-	messages []model.Message,
+	messages []compat.Message,
 ) error {
 	pending := make([]pendingSessionMessage, 0, len(messages))
 	for _, message := range messages {
@@ -962,14 +962,14 @@ func (r *runner) appendMessagesAsSessionEvents(
 	for _, pending := range messages {
 		msg := pending.message
 		author := ag.Info().Name
-		if msg.Role == model.RoleUser {
+		if msg.Role == compat.RoleUser {
 			author = authorUser
 		}
 		current := msg
 		evt := event.NewResponseEvent(
 			invocation.InvocationID,
 			author,
-			&model.Response{Done: false, Choices: []model.Choice{{Index: 0, Message: current}}},
+			&compat.Response{Done: false, Choices: []compat.Choice{{Index: 0, Message: current}}},
 		)
 		agent.InjectIntoEvent(invocation, evt)
 		evt = r.applyEventPlugins(ctx, invocation, evt)
@@ -992,11 +992,11 @@ func (r *runner) appendIncomingMessage(
 	ctx context.Context,
 	sess *session.Session,
 	invocation *agent.Invocation,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
 	historySeeded bool,
 ) error {
-	if !model.HasPayload(message) {
+	if !compat.HasPayload(message) {
 		return nil
 	}
 	if historySeeded && !shouldAppendUserMessage(message, ro.Messages) {
@@ -1005,7 +1005,7 @@ func (r *runner) appendIncomingMessage(
 	evt := event.NewResponseEvent(
 		invocation.InvocationID,
 		authorUser,
-		&model.Response{Done: false, Choices: []model.Choice{{Index: 0, Message: message}}},
+		&compat.Response{Done: false, Choices: []compat.Choice{{Index: 0, Message: message}}},
 	)
 	agent.InjectIntoEvent(invocation, evt)
 	evt = r.applyEventPlugins(ctx, invocation, evt)
@@ -1033,7 +1033,7 @@ func (r *runner) RunStatus(requestID string) (RunStatus, bool) {
 
 func (r *runner) EnqueueUserMessage(
 	requestID string,
-	message model.Message,
+	message compat.Message,
 ) error {
 	if requestID == "" {
 		return fmt.Errorf(errMsgEmptyRequestID)
@@ -1295,11 +1295,11 @@ type eventLoopContext struct {
 	baselineFinalResponseID            string
 	priorAssistantResponseIDs          map[string]struct{}
 	finalStateDelta                    map[string][]byte
-	finalChoices                       []model.Choice
-	fallbackChoices                    []model.Choice
+	finalChoices                       []compat.Choice
+	fallbackChoices                    []compat.Choice
 	fallbackResponseID                 string
 	fallbackStateDelta                 map[string][]byte
-	finalError                         *model.ResponseError
+	finalError                         *compat.ResponseError
 	executionTraceInput                *trace.Snapshot
 	graphCompletionSeen                bool
 	freshAssistantContentProduced      bool
@@ -2032,7 +2032,7 @@ func eventHasAssistantMessageContent(e *event.Event) bool {
 	}
 	for _, choice := range e.Response.Choices {
 		msg := choice.Message
-		if msg.Role == model.RoleAssistant && model.HasPayload(msg) {
+		if msg.Role == compat.RoleAssistant && compat.HasPayload(msg) {
 			return true
 		}
 	}
@@ -2252,7 +2252,7 @@ func (r *runner) recordInterruptedAssistantDelta(
 	}
 	recorded := false
 	for _, choice := range rsp.Choices {
-		if choice.Delta.Role != "" && choice.Delta.Role != model.RoleAssistant {
+		if choice.Delta.Role != "" && choice.Delta.Role != compat.RoleAssistant {
 			continue
 		}
 		if choice.Delta.Content == "" {
@@ -2281,12 +2281,12 @@ func (r *runner) recordInterruptedAssistantDelta(
 	}
 }
 
-func interruptedAssistantHasTextDelta(rsp *model.Response) bool {
+func interruptedAssistantHasTextDelta(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}
 	for _, choice := range rsp.Choices {
-		if choice.Delta.Role != "" && choice.Delta.Role != model.RoleAssistant {
+		if choice.Delta.Role != "" && choice.Delta.Role != compat.RoleAssistant {
 			continue
 		}
 		if choice.Delta.Content != "" {
@@ -2488,9 +2488,9 @@ func (r *runner) interruptedAssistantEventForAccumulator(
 	evt := event.NewResponseEvent(
 		invocationID,
 		author,
-		&model.Response{
+		&compat.Response{
 			ID:        acc.responseID,
-			Object:    model.ObjectTypeChatCompletion,
+			Object:    compat.ObjectTypeChatCompletion,
 			Created:   created,
 			Done:      true,
 			IsPartial: false,
@@ -2510,7 +2510,7 @@ func (r *runner) interruptedAssistantEventForAccumulator(
 	return evt
 }
 
-func interruptedAssistantChoices(loop *eventLoopContext) []model.Choice {
+func interruptedAssistantChoices(loop *eventLoopContext) []compat.Choice {
 	return interruptedAssistantChoicesFromAccumulator(
 		defaultInterruptedAssistantAccumulator(loop),
 	)
@@ -2518,7 +2518,7 @@ func interruptedAssistantChoices(loop *eventLoopContext) []model.Choice {
 
 func interruptedAssistantChoicesFromAccumulator(
 	acc *interruptedAssistantAccumulator,
-) []model.Choice {
+) []compat.Choice {
 	if acc == nil || len(acc.choiceContent) == 0 {
 		return nil
 	}
@@ -2528,15 +2528,15 @@ func interruptedAssistantChoicesFromAccumulator(
 	}
 	sort.Ints(indexes)
 	finishReason := interruptedAssistantFinishReason
-	choices := make([]model.Choice, 0, len(indexes))
+	choices := make([]compat.Choice, 0, len(indexes))
 	for _, index := range indexes {
 		content := acc.choiceContent[index]
 		if content == nil || content.Len() == 0 {
 			continue
 		}
-		choices = append(choices, model.Choice{
+		choices = append(choices, compat.Choice{
 			Index:        index,
-			Message:      model.NewAssistantMessage(content.String()),
+			Message:      compat.NewAssistantMessage(content.String()),
 			FinishReason: &finishReason,
 		})
 	}
@@ -2545,7 +2545,7 @@ func interruptedAssistantChoicesFromAccumulator(
 
 func (r *runner) interruptedAssistantAlreadyPersisted(
 	loop *eventLoopContext,
-	choices []model.Choice,
+	choices []compat.Choice,
 ) bool {
 	return r.interruptedAssistantAlreadyPersistedForAccumulator(
 		defaultInterruptedAssistantAccumulator(loop),
@@ -2555,7 +2555,7 @@ func (r *runner) interruptedAssistantAlreadyPersisted(
 
 func (r *runner) interruptedAssistantAlreadyPersistedForAccumulator(
 	acc *interruptedAssistantAccumulator,
-	choices []model.Choice,
+	choices []compat.Choice,
 ) bool {
 	if acc == nil {
 		return false
@@ -2866,10 +2866,10 @@ func shouldSuppressGraphExecutorBarrierEvent(
 // graph execution completion event.
 func (r *runner) captureGraphCompletion(
 	agentEvent *event.Event,
-) (map[string][]byte, []model.Choice) {
+) (map[string][]byte, []compat.Choice) {
 	finalStateDelta := mergeStateDelta(nil, agentEvent.StateDelta)
 
-	var finalChoices []model.Choice
+	var finalChoices []compat.Choice
 	if agentEvent.Response != nil && len(agentEvent.Response.Choices) > 0 {
 		finalChoices = cloneChoices(agentEvent.Response.Choices)
 	}
@@ -3004,7 +3004,7 @@ func mergeStateDelta(
 	return dst
 }
 
-func cloneResponseError(err *model.ResponseError) *model.ResponseError {
+func cloneResponseError(err *compat.ResponseError) *compat.ResponseError {
 	if err == nil {
 		return nil
 	}
@@ -3020,7 +3020,7 @@ func cloneResponseError(err *model.ResponseError) *model.ResponseError {
 	return &clone
 }
 
-func shouldPropagateFallbackState(err *model.ResponseError) bool {
+func shouldPropagateFallbackState(err *compat.ResponseError) bool {
 	if err == nil {
 		return false
 	}
@@ -3040,9 +3040,9 @@ func (r *runner) emitRunnerCompletion(ctx context.Context, loop *eventLoopContex
 	runnerCompletionEvent := event.NewResponseEvent(
 		loop.invocation.InvocationID,
 		completionAuthor,
-		&model.Response{
+		&compat.Response{
 			ID:        "runner-completion-" + uuid.New().String(),
-			Object:    model.ObjectTypeRunnerCompletion,
+			Object:    compat.ObjectTypeRunnerCompletion,
 			Created:   time.Now().Unix(),
 			Done:      true,
 			IsPartial: false,
@@ -3226,7 +3226,7 @@ func resolveExecutionTraceStatus(loop *eventLoopContext, ctxErr error) trace.Tra
 	return trace.TraceStatusCompleted
 }
 
-func executionTraceMessageSnapshot(message model.Message) *trace.Snapshot {
+func executionTraceMessageSnapshot(message compat.Message) *trace.Snapshot {
 	data, err := json.Marshal(message)
 	if err != nil {
 		return nil
@@ -3234,12 +3234,12 @@ func executionTraceMessageSnapshot(message model.Message) *trace.Snapshot {
 	return &trace.Snapshot{Text: string(data)}
 }
 
-func executionTraceInputSnapshot(message model.Message, ro agent.RunOptions) *trace.Snapshot {
+func executionTraceInputSnapshot(message compat.Message, ro agent.RunOptions) *trace.Snapshot {
 	if len(ro.Messages) == 0 {
 		return executionTraceMessageSnapshot(message)
 	}
-	messages := append([]model.Message(nil), ro.Messages...)
-	if model.HasPayload(message) && shouldAppendUserMessage(message, ro.Messages) {
+	messages := append([]compat.Message(nil), ro.Messages...)
+	if compat.HasPayload(message) && shouldAppendUserMessage(message, ro.Messages) {
 		messages = append(messages, message)
 	}
 	data, err := json.Marshal(messages)
@@ -3276,20 +3276,20 @@ func executionTraceOutputSnapshot(
 			return snapshot
 		}
 		if finalText := finalResponseTextFromStateDelta(loop.finalStateDelta); finalText != "" {
-			return executionTraceMessageSnapshot(model.NewAssistantMessage(finalText))
+			return executionTraceMessageSnapshot(compat.NewAssistantMessage(finalText))
 		}
 		return nil
 	}
 	if finalText := finalResponseTextFromStateDelta(finalStateDelta); finalText != "" {
-		return executionTraceMessageSnapshot(model.NewAssistantMessage(finalText))
+		return executionTraceMessageSnapshot(compat.NewAssistantMessage(finalText))
 	}
 	return executionTraceChoicesSnapshot(loop.fallbackChoices)
 }
 
-func executionTraceChoicesSnapshot(choices []model.Choice) *trace.Snapshot {
+func executionTraceChoicesSnapshot(choices []compat.Choice) *trace.Snapshot {
 	for _, choice := range choices {
-		if choice.Message.Role != model.RoleAssistant ||
-			!model.HasPayload(choice.Message) {
+		if choice.Message.Role != compat.RoleAssistant ||
+			!compat.HasPayload(choice.Message) {
 			continue
 		}
 		return executionTraceMessageSnapshot(choice.Message)
@@ -3302,7 +3302,7 @@ func executionTraceChoicesSnapshot(choices []model.Choice) *trace.Snapshot {
 func (r *runner) propagateGraphCompletion(
 	runnerCompletionEvent *event.Event,
 	finalStateDelta map[string][]byte,
-	finalChoices []model.Choice,
+	finalChoices []compat.Choice,
 	echoFinalChoices bool,
 ) {
 	// Initialize state delta map if needed.
@@ -3328,7 +3328,7 @@ func (r *runner) propagateGraphCompletion(
 
 func shouldClearRunnerCompletionChoicesInSession(
 	loop *eventLoopContext,
-	finalChoices []model.Choice,
+	finalChoices []compat.Choice,
 	finalStateDelta map[string][]byte,
 ) bool {
 	if loop == nil {
@@ -3358,7 +3358,7 @@ func shouldClearRunnerCompletionChoicesInSession(
 func (r *runner) completionChoicesForRunner(
 	loop *eventLoopContext,
 	finalStateDelta map[string][]byte,
-) []model.Choice {
+) []compat.Choice {
 	if loop == nil {
 		return nil
 	}
@@ -3398,7 +3398,7 @@ func (r *runner) completionChoicesForRunner(
 // (ID) to a response ID that was already emitted, avoiding duplicates.
 func (r *runner) shouldEchoFinalChoicesInCompletion(
 	loop *eventLoopContext,
-	finalChoices []model.Choice,
+	finalChoices []compat.Choice,
 	finalStateDelta map[string][]byte,
 ) bool {
 	if loop == nil {
@@ -3438,7 +3438,7 @@ func (r *runner) shouldEchoFinalChoicesInCompletion(
 
 func visibleCompletionAlreadyEmitted(
 	loop *eventLoopContext,
-	finalChoices []model.Choice,
+	finalChoices []compat.Choice,
 	finalStateDelta map[string][]byte,
 ) bool {
 	if loop == nil {
@@ -3459,7 +3459,7 @@ func visibleCompletionAlreadyEmitted(
 
 func shouldMarkCompletionSnapshotOnly(
 	loop *eventLoopContext,
-	choices []model.Choice,
+	choices []compat.Choice,
 	finalStateDelta map[string][]byte,
 ) bool {
 	if loop == nil || len(choices) == 0 {
@@ -3515,11 +3515,11 @@ func isSnapshotOnlyVisibleGraphCompletion(e *event.Event) bool {
 		graph.CompletionSnapshotOnlyFromStateDelta(e.StateDelta)
 }
 
-func cloneChoices(choices []model.Choice) []model.Choice {
+func cloneChoices(choices []compat.Choice) []compat.Choice {
 	if len(choices) == 0 {
 		return nil
 	}
-	cloned := make([]model.Choice, len(choices))
+	cloned := make([]compat.Choice, len(choices))
 	for i, choice := range choices {
 		cloned[i] = choice
 		cloned[i].Message = cloneMessage(choice.Message)
@@ -3533,18 +3533,18 @@ func cloneChoices(choices []model.Choice) []model.Choice {
 	return cloned
 }
 
-func cloneMessage(message model.Message) model.Message {
+func cloneMessage(message compat.Message) compat.Message {
 	cloned := message
 	cloned.ContentParts = cloneContentParts(message.ContentParts)
 	cloned.ToolCalls = cloneToolCalls(message.ToolCalls)
 	return cloned
 }
 
-func cloneContentParts(parts []model.ContentPart) []model.ContentPart {
+func cloneContentParts(parts []compat.ContentPart) []compat.ContentPart {
 	if parts == nil {
 		return nil
 	}
-	cloned := make([]model.ContentPart, len(parts))
+	cloned := make([]compat.ContentPart, len(parts))
 	for i, part := range parts {
 		cloned[i] = part
 		if part.Text != nil {
@@ -3579,11 +3579,11 @@ func cloneContentParts(parts []model.ContentPart) []model.ContentPart {
 	return cloned
 }
 
-func cloneToolCalls(toolCalls []model.ToolCall) []model.ToolCall {
+func cloneToolCalls(toolCalls []compat.ToolCall) []compat.ToolCall {
 	if toolCalls == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCall, len(toolCalls))
+	cloned := make([]compat.ToolCall, len(toolCalls))
 	for i, toolCall := range toolCalls {
 		cloned[i] = toolCall
 		cloned[i].Function.Arguments = append([]byte(nil), toolCall.Function.Arguments...)
@@ -3686,25 +3686,25 @@ func cloneReflectContainer(value reflect.Value) (reflect.Value, bool) {
 	}
 }
 
-func cloneChoiceLogprobs(logprobs *model.Logprobs) *model.Logprobs {
+func cloneChoiceLogprobs(logprobs *compat.Logprobs) *compat.Logprobs {
 	if logprobs == nil {
 		return nil
 	}
-	cloned := &model.Logprobs{}
+	cloned := &compat.Logprobs{}
 	if logprobs.Content == nil {
 		return cloned
 	}
-	cloned.Content = make([]model.TokenLogprob, len(logprobs.Content))
+	cloned.Content = make([]compat.TokenLogprob, len(logprobs.Content))
 	for i, token := range logprobs.Content {
-		cloned.Content[i] = model.TokenLogprob{
+		cloned.Content[i] = compat.TokenLogprob{
 			Token:   token.Token,
 			Logprob: token.Logprob,
 			Bytes:   append([]int(nil), token.Bytes...),
 		}
 		if token.TopLogprobs != nil {
-			cloned.Content[i].TopLogprobs = make([]model.TopLogprob, len(token.TopLogprobs))
+			cloned.Content[i].TopLogprobs = make([]compat.TopLogprob, len(token.TopLogprobs))
 			for j, top := range token.TopLogprobs {
-				cloned.Content[i].TopLogprobs[j] = model.TopLogprob{
+				cloned.Content[i].TopLogprobs[j] = compat.TopLogprob{
 					Token:   top.Token,
 					Logprob: top.Logprob,
 					Bytes:   append([]int(nil), top.Bytes...),
@@ -3715,17 +3715,17 @@ func cloneChoiceLogprobs(logprobs *model.Logprobs) *model.Logprobs {
 	return cloned
 }
 
-func assistantChoiceSignature(choices []model.Choice) string {
+func assistantChoiceSignature(choices []compat.Choice) string {
 	if len(choices) == 0 {
 		return ""
 	}
 	type signatureChoice struct {
-		Role    model.Role `json:"role"`
+		Role    compat.Role `json:"role"`
 		Content string     `json:"content"`
 	}
 	var signatureChoices []signatureChoice
 	for _, choice := range choices {
-		if choice.Message.Role != model.RoleAssistant ||
+		if choice.Message.Role != compat.RoleAssistant ||
 			choice.Message.Content == "" {
 			continue
 		}
@@ -3898,7 +3898,7 @@ func collectPriorAssistantChoiceSignaturesForLineage(
 func interruptedAssistantSignatureKey(
 	requestID string,
 	invocationID string,
-	choices []model.Choice,
+	choices []compat.Choice,
 ) string {
 	signature := assistantChoiceSignature(choices)
 	if signature == "" {
@@ -4004,9 +4004,9 @@ func finalResponseTextFromStateDelta(finalStateDelta map[string][]byte) string {
 	return responseText
 }
 
-func assistantChoicePrimaryContent(choices []model.Choice) string {
+func assistantChoicePrimaryContent(choices []compat.Choice) string {
 	for _, choice := range choices {
-		if choice.Message.Role != model.RoleAssistant ||
+		if choice.Message.Role != compat.RoleAssistant ||
 			choice.Message.Content == "" {
 			continue
 		}
@@ -4020,11 +4020,11 @@ func (r *runner) rewriteUserMessage(
 	appName string,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
-) ([]model.Message, error) {
+) ([]compat.Message, error) {
 	if ro.UserMessageRewriter == nil {
-		return []model.Message{message}, nil
+		return []compat.Message{message}, nil
 	}
 	rewritten, err := ro.UserMessageRewriter(ctx, &agent.UserMessageRewriteArgs{
 		AppName:         appName,
@@ -4040,8 +4040,8 @@ func (r *runner) rewriteUserMessage(
 		return nil, fmt.Errorf("runner: user message rewriter returned no messages")
 	}
 	for i := range rewritten {
-		if rewritten[i].Role == "" && model.HasPayload(rewritten[i]) {
-			rewritten[i].Role = model.RoleUser
+		if rewritten[i].Role == "" && compat.HasPayload(rewritten[i]) {
+			rewritten[i].Role = compat.RoleUser
 		}
 	}
 	return rewritten, nil
@@ -4052,9 +4052,9 @@ func (r *runner) resolveCurrentTurnMessages(
 	appName string,
 	userID string,
 	sessionID string,
-	message model.Message,
+	message compat.Message,
 	ro agent.RunOptions,
-) (model.Message, []model.Message, error) {
+) (compat.Message, []compat.Message, error) {
 	if ro.UserMessageRewriter == nil {
 		return message, nil, nil
 	}
@@ -4067,7 +4067,7 @@ func (r *runner) resolveCurrentTurnMessages(
 		ro,
 	)
 	if err != nil {
-		return model.Message{}, nil, err
+		return compat.Message{}, nil, err
 	}
 	return currentTurnMessages[len(currentTurnMessages)-1], filterPayloadMessages(currentTurnMessages), nil
 }
@@ -4077,8 +4077,8 @@ func (r *runner) persistCurrentTurnMessages(
 	sess *session.Session,
 	invocation *agent.Invocation,
 	ag agent.Agent,
-	message model.Message,
-	persistedCurrentTurnMessages []model.Message,
+	message compat.Message,
+	persistedCurrentTurnMessages []compat.Message,
 	ro agent.RunOptions,
 ) error {
 	if ro.UserMessageRewriter == nil {
@@ -4114,26 +4114,26 @@ func (r *runner) persistCurrentTurnMessages(
 
 // shouldAppendUserMessage checks if the incoming user message should be
 // appended to the session.
-func shouldAppendUserMessage(message model.Message, seed []model.Message) bool {
+func shouldAppendUserMessage(message compat.Message, seed []compat.Message) bool {
 	return coveredSeedUserMessageIndex(message, seed) == -1
 }
 
 func coveredSeedUserMessageIndex(
-	message model.Message,
-	seed []model.Message,
+	message compat.Message,
+	seed []compat.Message,
 ) int {
-	if len(seed) == 0 || message.Role != model.RoleUser {
+	if len(seed) == 0 || message.Role != compat.RoleUser {
 		return -1
 	}
 	// Only a trailing seeded user turn can cover the incoming user message.
 	for i := len(seed) - 1; i >= 0; i-- {
-		if (!model.HasPayload(seed[i]) && len(seed[i].ToolCalls) == 0) || seed[i].Role == model.RoleSystem {
+		if (!compat.HasPayload(seed[i]) && len(seed[i].ToolCalls) == 0) || seed[i].Role == compat.RoleSystem {
 			continue
 		}
-		if seed[i].Role != model.RoleUser {
+		if seed[i].Role != compat.RoleUser {
 			return -1
 		}
-		if model.MessagesEqual(seed[i], message) {
+		if compat.MessagesEqual(seed[i], message) {
 			return i
 		}
 		return -1
@@ -4142,7 +4142,7 @@ func coveredSeedUserMessageIndex(
 }
 
 func pendingSeedMessages(
-	seed []model.Message,
+	seed []compat.Message,
 	currentTurnIndex int,
 ) []pendingSessionMessage {
 	pending := make([]pendingSessionMessage, 0, len(seed))
@@ -4157,9 +4157,9 @@ func pendingSeedMessages(
 }
 
 func mergeCurrentTurnMessagesIntoSeed(
-	seed []model.Message,
-	original model.Message,
-	currentTurn []model.Message,
+	seed []compat.Message,
+	original compat.Message,
+	currentTurn []compat.Message,
 ) []pendingSessionMessage {
 	pendingCurrent := make([]pendingSessionMessage, 0, len(currentTurn))
 	for _, message := range currentTurn {
@@ -4176,10 +4176,10 @@ func mergeCurrentTurnMessagesIntoSeed(
 	}
 	insertIndex := -1
 	for i := len(seed) - 1; i >= 0; i-- {
-		if seed[i].Role != model.RoleUser {
+		if seed[i].Role != compat.RoleUser {
 			continue
 		}
-		if model.MessagesEqual(seed[i], original) {
+		if compat.MessagesEqual(seed[i], original) {
 			insertIndex = i
 		}
 		break
@@ -4196,13 +4196,13 @@ func mergeCurrentTurnMessagesIntoSeed(
 	return merged
 }
 
-func filterPayloadMessages(messages []model.Message) []model.Message {
+func filterPayloadMessages(messages []compat.Message) []compat.Message {
 	if len(messages) == 0 {
 		return nil
 	}
-	filtered := make([]model.Message, 0, len(messages))
+	filtered := make([]compat.Message, 0, len(messages))
 	for _, msg := range messages {
-		if !model.HasPayload(msg) {
+		if !compat.HasPayload(msg) {
 			continue
 		}
 		filtered = append(filtered, msg)
@@ -4211,49 +4211,49 @@ func filterPayloadMessages(messages []model.Message) []model.Message {
 }
 
 func normalizeQueuedUserMessage(
-	message model.Message,
-) (model.Message, error) {
-	if message.Role == "" && model.HasPayload(message) {
-		message.Role = model.RoleUser
+	message compat.Message,
+) (compat.Message, error) {
+	if message.Role == "" && compat.HasPayload(message) {
+		message.Role = compat.RoleUser
 	}
-	if message.Role != model.RoleUser || !model.HasPayload(message) {
-		return model.Message{}, ErrInvalidQueuedUserMessage
+	if message.Role != compat.RoleUser || !compat.HasPayload(message) {
+		return compat.Message{}, ErrInvalidQueuedUserMessage
 	}
 	if !queuedUserMessageContentPartsSupported(message.ContentParts) {
-		return model.Message{}, ErrInvalidQueuedUserMessage
+		return compat.Message{}, ErrInvalidQueuedUserMessage
 	}
 	return message, nil
 }
 
-func queuedUserMessageContentPartsSupported(parts []model.ContentPart) bool {
+func queuedUserMessageContentPartsSupported(parts []compat.ContentPart) bool {
 	for _, part := range parts {
 		switch part.Type {
-		case model.ContentTypeText:
+		case compat.ContentTypeText:
 			if part.Text == nil {
 				return false
 			}
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if part.Image == nil {
 				return false
 			}
 			if !queuedUserMessageURLOrDataSupported(part.Image.URL, part.Image.Data) {
 				return false
 			}
-		case model.ContentTypeAudio:
+		case compat.ContentTypeAudio:
 			if part.Audio == nil {
 				return false
 			}
 			if !queuedUserMessageURLOrDataSupported(part.Audio.URL, part.Audio.Data) {
 				return false
 			}
-		case model.ContentTypeVideo:
+		case compat.ContentTypeVideo:
 			if part.Video == nil {
 				return false
 			}
 			if !queuedUserMessageURLOrDataSupported(part.Video.URL, part.Video.Data) {
 				return false
 			}
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if part.File == nil {
 				return false
 			}
@@ -4287,10 +4287,10 @@ func ensureErrorEventContent(e *event.Event) {
 
 	// Ensure Choices slice exists
 	if len(e.Response.Choices) == 0 {
-		e.Response.Choices = []model.Choice{{
+		e.Response.Choices = []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 			},
 		}}
 	}
@@ -4324,7 +4324,7 @@ func errorEventWithContent(e *event.Event) *event.Event {
 }
 
 // RunWithMessages is a convenience helper that lets callers pass a full
-// conversation history ([]model.Message) directly. The messages seed the LLM
+// conversation history ([]compat.Message) directly. The messages seed the LLM
 // request while the runner continues to merge in newer session events. It
 // preserves backward compatibility by delegating to Runner.Run with an empty
 // message and a RunOption that carries the conversation history.
@@ -4333,15 +4333,15 @@ func RunWithMessages(
 	r Runner,
 	userID string,
 	sessionID string,
-	messages []model.Message,
+	messages []compat.Message,
 	runOpts ...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	runOpts = append(runOpts, agent.WithMessages(messages))
 	// Derive the latest user message for invocation state compatibility
 	// (e.g., used by GraphAgent to set initial user_input).
-	var latestUser model.Message
+	var latestUser compat.Message
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == model.RoleUser && model.HasPayload(messages[i]) {
+		if messages[i].Role == compat.RoleUser && compat.HasPayload(messages[i]) {
 			latestUser = messages[i]
 			break
 		}

@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type sampleOut struct {
@@ -35,13 +35,13 @@ func TestOutputResponseProcessor_StructuredOutputTypedEvent(t *testing.T) {
 	// Response content: valid JSON object for sampleOut.
 	payload := sampleOut{A: "ok"}
 	b, _ := json.Marshal(payload)
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done:    true,
-		Choices: []model.Choice{{Message: model.Message{Content: string(b)}}},
+		Choices: []compat.Choice{{Message: compat.Message{Content: string(b)}}},
 	}
 
 	ch := make(chan *event.Event, 1)
-	proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+	proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 	select {
 	case evt := <-ch:
@@ -58,22 +58,22 @@ func TestOutputResponseProcessor_StructuredOutputUntypedEvent(t *testing.T) {
 	proc := NewOutputResponseProcessor("", nil)
 
 	inv := &agent.Invocation{InvocationID: "inv", AgentName: "agent"}
-	inv.StructuredOutput = &model.StructuredOutput{
-		Type: model.StructuredOutputJSONSchema,
-		JSONSchema: &model.JSONSchemaConfig{
+	inv.StructuredOutput = &compat.StructuredOutput{
+		Type: compat.StructuredOutputJSONSchema,
+		JSONSchema: &compat.JSONSchemaConfig{
 			Name:   "output",
 			Schema: map[string]any{"type": "object"},
 			Strict: true,
 		},
 	}
 
-	rsp := &model.Response{
+	rsp := &compat.Response{
 		Done:    true,
-		Choices: []model.Choice{{Message: model.Message{Content: `{"a":"ok"}`}}},
+		Choices: []compat.Choice{{Message: compat.Message{Content: `{"a":"ok"}`}}},
 	}
 
 	ch := make(chan *event.Event, 1)
-	proc.ProcessResponse(ctx, inv, &model.Request{}, rsp, ch)
+	proc.ProcessResponse(ctx, inv, &compat.Request{}, rsp, ch)
 
 	select {
 	case evt := <-ch:

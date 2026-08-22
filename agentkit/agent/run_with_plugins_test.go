@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -40,11 +40,11 @@ func (a *testAgent) Run(
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
+			Choices: []compat.Choice{{
 				Index:   0,
-				Message: model.NewAssistantMessage("orig"),
+				Message: compat.NewAssistantMessage("orig"),
 			}},
 		}
 		_ = agent.EmitEvent(
@@ -95,11 +95,11 @@ func TestRunWithPlugins_BeforeAgentCanShortCircuit(t *testing.T) {
 				args *agent.BeforeAgentArgs,
 			) (*agent.BeforeAgentResult, error) {
 				return &agent.BeforeAgentResult{
-					CustomResponse: &model.Response{
+					CustomResponse: &compat.Response{
 						Done: true,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Index: 0,
-							Message: model.NewAssistantMessage(
+							Message: compat.NewAssistantMessage(
 								"early",
 							),
 						}},
@@ -144,11 +144,11 @@ func TestRunWithPlugins_AfterAgentCanAppendEvent(t *testing.T) {
 				args *agent.AfterAgentArgs,
 			) (*agent.AfterAgentResult, error) {
 				return &agent.AfterAgentResult{
-					CustomResponse: &model.Response{
+					CustomResponse: &compat.Response{
 						Done: true,
-						Choices: []model.Choice{{
+						Choices: []compat.Choice{{
 							Index: 0,
-							Message: model.NewAssistantMessage(
+							Message: compat.NewAssistantMessage(
 								"after",
 							),
 						}},
@@ -203,7 +203,7 @@ func (a *ctxValueAgent) Run(
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		rsp := &model.Response{Done: true}
+		rsp := &compat.Response{Done: true}
 		_ = agent.EmitEvent(
 			ctx,
 			inv,
@@ -320,9 +320,9 @@ func (a *errorResponseAgent) Run(
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		rsp := &model.Response{
+		rsp := &compat.Response{
 			Done: true,
-			Error: &model.ResponseError{
+			Error: &compat.ResponseError{
 				Type:    "test",
 				Message: "boom",
 			},

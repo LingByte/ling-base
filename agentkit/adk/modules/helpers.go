@@ -14,7 +14,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	memorystore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
 	neo4jstore "github.com/LingByte/ling-base/agentkit/memory/neo4j"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var (
@@ -89,8 +89,8 @@ func lazyMemoryModule(name string, factory memoryStoreFactory, window int, embed
 }
 
 // StaticModelProvider returns a provider that always yields the supplied model.
-func StaticModelProvider(model gomodel.Agent) kit.ModelProvider {
-	return func(context.Context) (gomodel.Agent, error) {
+func StaticModelProvider(model compat.Model) kit.ModelProvider {
+	return func(context.Context) (compat.Model, error) {
 		return model, nil
 	}
 }

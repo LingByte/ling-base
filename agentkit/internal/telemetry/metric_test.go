@@ -17,7 +17,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/metric/histogram"
 	"github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
@@ -27,16 +27,16 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-// mockModel implements model.Model interface for testing.
+// mockModel implements compat.Model interface for testing.
 type mockModel struct {
 	name string
 }
 
-func (m *mockModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *mockModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
-func (m *mockModel) GenerateContent(ctx context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *mockModel) GenerateContent(ctx context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	return nil, nil
 }
 
@@ -157,13 +157,13 @@ func TestNewChatMetricsTracker(t *testing.T) {
 	invocation := &agent.Invocation{
 		AgentName: "test-agent",
 	}
-	llmRequest := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	llmRequest := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
 	var err error
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 
 	tracker := NewChatMetricsTracker(ctx, invocation, llmRequest, timingInfo, nil, &err)
 
@@ -198,22 +198,22 @@ func TestNewChatMetricsTracker(t *testing.T) {
 
 func TestChatMetricsTracker_TrackResponse(t *testing.T) {
 	ctx := context.Background()
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, nil, nil, timingInfo, nil, nil)
 
 	// First response
-	response1 := &model.Response{
-		Choices: []model.Choice{
+	response1 := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
 		},
-		Usage: &model.Usage{
+		Usage: &compat.Usage{
 			PromptTokens:     10,
 			CompletionTokens: 5,
-			PromptTokensDetails: model.PromptTokensDetails{
+			PromptTokensDetails: compat.PromptTokensDetails{
 				CachedTokens:        7,
 				CacheReadTokens:     11,
 				CacheCreationTokens: 13,
@@ -251,11 +251,11 @@ func TestChatMetricsTracker_TrackResponse(t *testing.T) {
 	}
 
 	// Second response
-	response2 := &model.Response{
-		Usage: &model.Usage{
+	response2 := &compat.Response{
+		Usage: &compat.Usage{
 			PromptTokens:     0,
 			CompletionTokens: 3,
-			PromptTokensDetails: model.PromptTokensDetails{
+			PromptTokensDetails: compat.PromptTokensDetails{
 				CachedTokens:        2,
 				CacheReadTokens:     5,
 				CacheCreationTokens: 8,
@@ -287,13 +287,13 @@ func TestChatMetricsTracker_TrackResponse(t *testing.T) {
 
 func TestChatMetricsTracker_TrackResponse_NilUsage(t *testing.T) {
 	ctx := context.Background()
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, nil, nil, timingInfo, nil, nil)
 
-	response := &model.Response{
-		Choices: []model.Choice{
+	response := &compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
@@ -328,11 +328,11 @@ func TestChatMetricsTracker_TrackResponse_NilUsage(t *testing.T) {
 
 func TestChatMetricsTracker_SetLastEvent(t *testing.T) {
 	ctx := context.Background()
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, nil, nil, timingInfo, nil, nil)
 
 	evt := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			Model: "gpt-4-0613",
 		},
 	}
@@ -346,7 +346,7 @@ func TestChatMetricsTracker_SetLastEvent(t *testing.T) {
 
 func TestChatMetricsTracker_FirstTokenTimeDuration(t *testing.T) {
 	ctx := context.Background()
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, nil, nil, timingInfo, nil, nil)
 
 	if tracker.FirstTokenTimeDuration() != 0 {
@@ -354,10 +354,10 @@ func TestChatMetricsTracker_FirstTokenTimeDuration(t *testing.T) {
 	}
 
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
@@ -379,7 +379,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 			name: "with error",
 			setupFunc: func() *ChatMetricsTracker {
 				testErr := errors.New("test error")
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				return NewChatMetricsTracker(context.Background(), nil, nil, timingInfo, nil, &testErr)
 			},
 			checkFunc: func(t *testing.T, attrs chatAttributes) {
@@ -391,12 +391,12 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 		{
 			name: "with llm request",
 			setupFunc: func() *ChatMetricsTracker {
-				req := &model.Request{
-					GenerationConfig: model.GenerationConfig{
+				req := &compat.Request{
+					GenerationConfig: compat.GenerationConfig{
 						Stream: true,
 					},
 				}
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				return NewChatMetricsTracker(context.Background(), nil, req, timingInfo, nil, nil)
 			},
 			checkFunc: func(t *testing.T, attrs chatAttributes) {
@@ -409,7 +409,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 			name: "with task type pointer",
 			setupFunc: func() *ChatMetricsTracker {
 				tt := "summarize demo"
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				return NewChatMetricsTracker(context.Background(), nil, nil, timingInfo, &tt, nil)
 			},
 			checkFunc: func(t *testing.T, attrs chatAttributes) {
@@ -430,7 +430,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 						AppName: "test-app",
 					},
 				}
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				return NewChatMetricsTracker(context.Background(), inv, nil, timingInfo, nil, nil)
 			},
 			checkFunc: func(t *testing.T, attrs chatAttributes) {
@@ -454,7 +454,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 		{
 			name: "with last event - response model",
 			setupFunc: func() *ChatMetricsTracker {
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				tracker := NewChatMetricsTracker(context.Background(), nil, nil, timingInfo, nil, nil)
 				evt := event.New("inv-123", "test-author")
 				evt.Model = "gpt-4-0613"
@@ -470,7 +470,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 		{
 			name: "with last event - error type",
 			setupFunc: func() *ChatMetricsTracker {
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				tracker := NewChatMetricsTracker(context.Background(), nil, nil, timingInfo, nil, nil)
 				evt := event.NewErrorEvent("inv-123", "test-author", "rate_limit", "rate limit exceeded")
 				tracker.SetLastEvent(evt)
@@ -485,7 +485,7 @@ func TestChatMetricsTracker_buildAttributes(t *testing.T) {
 		{
 			name: "nil invocation",
 			setupFunc: func() *ChatMetricsTracker {
-				timingInfo := &model.TimingInfo{}
+				timingInfo := &compat.TimingInfo{}
 				return NewChatMetricsTracker(context.Background(), nil, nil, timingInfo, nil, nil)
 			},
 			checkFunc: func(t *testing.T, attrs chatAttributes) {
@@ -559,34 +559,34 @@ func TestChatMetricsTracker_RecordMetrics(t *testing.T) {
 		AgentName: "test-agent",
 		Model:     &mockModel{name: "gpt-4"},
 	}
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: true,
 		},
 	}
 
-	timingInfo := &model.TimingInfo{}
+	timingInfo := &compat.TimingInfo{}
 	tracker := NewChatMetricsTracker(ctx, inv, req, timingInfo, nil, nil)
 
 	// Simulate some responses
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Choices: []model.Choice{
+	tracker.TrackResponse(&compat.Response{
+		Choices: []compat.Choice{
 			{
-				Delta: model.Message{
+				Delta: compat.Message{
 					Content: "Hello",
 				},
 			},
 		},
-		Usage: &model.Usage{
+		Usage: &compat.Usage{
 			PromptTokens:     10,
 			CompletionTokens: 2,
 		},
 	})
 
 	time.Sleep(10 * time.Millisecond)
-	tracker.TrackResponse(&model.Response{
-		Usage: &model.Usage{
+	tracker.TrackResponse(&compat.Response{
+		Usage: &compat.Usage{
 			CompletionTokens: 3,
 		},
 	})
@@ -668,7 +668,7 @@ func TestChatMetricsTracker_recordDerivedMetrics(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			timingInfo := &model.TimingInfo{}
+			timingInfo := &compat.TimingInfo{}
 			tracker := NewChatMetricsTracker(ctx, nil, nil, timingInfo, nil, nil)
 			tracker.firstCompleteToken = tt.firstCompleteToken
 			tracker.totalCompletionTokens = tt.totalCompletionTokens

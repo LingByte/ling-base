@@ -18,7 +18,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,12 +39,12 @@ func TestService_AppendEvent(t *testing.T) {
 
 	e := &event.Event{
 		ID: "evt1",
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "test content",
 					},
 				},
@@ -126,12 +126,12 @@ func TestService_AsyncAppendEvent(t *testing.T) {
 
 	e := &event.Event{
 		ID: "evt1",
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "test content",
 					},
 				},
@@ -320,12 +320,12 @@ func TestService_GetEventsList_MultiRow(t *testing.T) {
 	now := time.Now()
 	evt1 := &event.Event{
 		ID: "evt1",
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "content1",
 					},
 				},
@@ -335,12 +335,12 @@ func TestService_GetEventsList_MultiRow(t *testing.T) {
 	evt1Bytes, _ := json.Marshal(evt1)
 	evt2 := &event.Event{
 		ID: "evt2",
-		Response: &model.Response{
-			Object: model.ObjectTypeChatCompletion,
-			Choices: []model.Choice{
+		Response: &compat.Response{
+			Object: compat.ObjectTypeChatCompletion,
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "content2",
 					},
 				},
@@ -748,7 +748,7 @@ func TestService_AddEvent_MoreErrors(t *testing.T) {
 	}
 	ctx := context.Background()
 	key := session.Key{AppName: "app", UserID: "user", SessionID: "sess"}
-	evt := &event.Event{ID: "evt1", Response: &model.Response{}}
+	evt := &event.Event{ID: "evt1", Response: &compat.Response{}}
 
 	// Case 1: Session not found
 	mockCli.queryFunc = func(ctx context.Context, query string, args ...any) (driver.Rows, error) {

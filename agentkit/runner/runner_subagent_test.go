@@ -23,7 +23,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/graphagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/runner"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -87,13 +87,13 @@ func (a *testHistoryAgent) Run(ctx context.Context, inv *agent.Invocation) (<-ch
 	ch := make(chan *event.Event, 1)
 	go func() {
 		defer close(ch)
-		rsp := &model.Response{
-			Object:  model.ObjectTypeChatCompletion,
+		rsp := &compat.Response{
+			Object:  compat.ObjectTypeChatCompletion,
 			Created: time.Now().Unix(),
 			Model:   "test-model",
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: a.expectSubstring,
 				},
 			}},
@@ -118,7 +118,7 @@ func newTestGraphAgent(
 
 	schema := graph.NewStateSchema().
 		AddField(graph.StateKeyMessages, graph.StateField{
-			Type:    reflect.TypeOf([]model.Message{}),
+			Type:    reflect.TypeOf([]compat.Message{}),
 			Reducer: graph.DefaultReducer,
 		})
 
@@ -133,7 +133,7 @@ func newTestGraphAgent(
 			if !ok {
 				return nil, fmt.Errorf("messages not found in state")
 			}
-			msgs, ok := raw.([]model.Message)
+			msgs, ok := raw.([]compat.Message)
 			if !ok {
 				return nil, fmt.Errorf("messages has wrong type")
 			}
@@ -175,7 +175,7 @@ func TestGraphAgent_ChainAgent_ShouldSeeUpstreamHistory(t *testing.T) {
 	svc := newBlockingSessionService("history-agent", nodeEntered)
 	r := runner.NewRunner("app-chain", chain, runner.WithSessionService(svc))
 
-	evCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	evCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	var graphErr *event.Event
@@ -212,7 +212,7 @@ func TestGraphAgent_CycleAgent_ShouldSeeUpstreamHistory(t *testing.T) {
 	svc := newBlockingSessionService("history-agent", nodeEntered)
 	r := runner.NewRunner("app-cycle", cycle, runner.WithSessionService(svc))
 
-	evCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	evCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	var graphErr *event.Event
@@ -260,13 +260,13 @@ func (a *agentToolParentAgent) Run(ctx context.Context, inv *agent.Invocation) (
 		defer close(ch)
 
 		// Emit an upstream assistant message that should become part of session history.
-		rsp := &model.Response{
-			Object:  model.ObjectTypeChatCompletion,
+		rsp := &compat.Response{
+			Object:  compat.ObjectTypeChatCompletion,
 			Created: time.Now().Unix(),
 			Model:   "parent-model",
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: a.expectSubstring,
 				},
 			}},
@@ -305,7 +305,7 @@ func TestGraphAgent_AgentTool_ShouldSeeParentHistory(t *testing.T) {
 	svc := newBlockingSessionService("parent-agent", nodeEntered)
 	r := runner.NewRunner("app-tool", parent, runner.WithSessionService(svc))
 
-	evCh, err := r.Run(ctx, "user", "session", model.NewUserMessage("hello"))
+	evCh, err := r.Run(ctx, "user", "session", compat.NewUserMessage("hello"))
 	require.NoError(t, err)
 
 	// Drain events to ensure the run completes.

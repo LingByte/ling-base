@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
 	"github.com/LingByte/ling-base/agentkit/internal/state/toolresultround"
 	"github.com/LingByte/ling-base/agentkit/internal/summarytrigger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/summary"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -44,10 +44,10 @@ func TestRunnerEnqueuesModelVisibleSummaryView(t *testing.T) {
 	})
 	evt := &event.Event{
 		Author: "assistant",
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{{
-				Message: model.NewAssistantMessage("answer"),
+			Choices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("answer"),
 			}},
 		},
 	}
@@ -108,8 +108,8 @@ func TestRunner_EnqueueSummaryJob_Calls(t *testing.T) {
 		sessionID := "test-session"
 
 		// Run the runner with qualifying event
-		_, err := RunWithMessages(ctx, runner, userID, sessionID, []model.Message{
-			{Role: model.RoleUser, Content: "Hello"},
+		_, err := RunWithMessages(ctx, runner, userID, sessionID, []compat.Message{
+			{Role: compat.RoleUser, Content: "Hello"},
 		})
 		require.NoError(t, err)
 
@@ -141,8 +141,8 @@ func TestRunner_EnqueueSummaryJob_Calls(t *testing.T) {
 		sessionID := "test-session"
 
 		// Run the runner with non-qualifying event
-		_, err := RunWithMessages(ctx, runner, userID, sessionID, []model.Message{
-			{Role: model.RoleUser, Content: "Hello"},
+		_, err := RunWithMessages(ctx, runner, userID, sessionID, []compat.Message{
+			{Role: compat.RoleUser, Content: "Hello"},
 		})
 		require.NoError(t, err)
 
@@ -168,8 +168,8 @@ func TestRunner_EnqueueSummaryJob_Calls(t *testing.T) {
 		sessionID := "test-session"
 
 		// Run the runner with state delta event
-		_, err := RunWithMessages(ctx, runner, userID, sessionID, []model.Message{
-			{Role: model.RoleUser, Content: "Hello"},
+		_, err := RunWithMessages(ctx, runner, userID, sessionID, []compat.Message{
+			{Role: compat.RoleUser, Content: "Hello"},
 		})
 		require.NoError(t, err)
 
@@ -198,8 +198,8 @@ func TestRunner_EnqueueSummaryJob_Calls(t *testing.T) {
 		sessionID := "test-session"
 
 		// Run the runner - should not fail even if EnqueueSummaryJob returns error
-		_, err := RunWithMessages(ctx, runner, userID, sessionID, []model.Message{
-			{Role: model.RoleUser, Content: "Hello"},
+		_, err := RunWithMessages(ctx, runner, userID, sessionID, []compat.Message{
+			{Role: compat.RoleUser, Content: "Hello"},
 		})
 		require.NoError(t, err, "Runner should not fail when EnqueueSummaryJob returns error")
 
@@ -237,8 +237,8 @@ func TestRunner_EnqueueSummaryJob_ContextValuePreserved(t *testing.T) {
 
 	requestStartedLowerBound := time.Now().Add(-time.Second)
 	// Run the runner with qualifying event
-	_, err := RunWithMessages(ctx, runner, userID, sessionID, []model.Message{
-		{Role: model.RoleUser, Content: "Hello"},
+	_, err := RunWithMessages(ctx, runner, userID, sessionID, []compat.Message{
+		{Role: compat.RoleUser, Content: "Hello"},
 	})
 	require.NoError(t, err)
 
@@ -259,10 +259,10 @@ func TestRunner_EnqueueSummaryJob_ContextValuePreserved(t *testing.T) {
 }
 
 func TestRunner_EnqueueSummaryJob_AttachesCacheSafeForkRequest(t *testing.T) {
-	parent := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage("parent request"),
+	parent := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage("parent request"),
 		},
 	}
 	svc := &cacheSafeForkCapturingSessionService{
@@ -280,7 +280,7 @@ func TestRunner_EnqueueSummaryJob_AttachesCacheSafeForkRequest(t *testing.T) {
 		r,
 		"user1",
 		"sess1",
-		[]model.Message{{Role: model.RoleUser, Content: "hello"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	)
 	require.NoError(t, err)
 
@@ -294,20 +294,20 @@ func TestRunner_EnqueueSummaryJob_AttachesCacheSafeForkRequest(t *testing.T) {
 	require.NotNil(t, svc.capturedParent)
 	require.Equal(
 		t,
-		[]model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage("parent request"),
-			model.NewAssistantMessage("final"),
+		[]compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage("parent request"),
+			compat.NewAssistantMessage("final"),
 		},
 		svc.capturedParent.Messages,
 	)
 }
 
 func TestRunner_EnqueueSummaryJob_CacheSafeForkIncludesToolResult(t *testing.T) {
-	parent := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("stable system"),
-			model.NewUserMessage("use lookup"),
+	parent := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("stable system"),
+			compat.NewUserMessage("use lookup"),
 		},
 	}
 	svc := &cacheSafeForkCapturingSessionService{
@@ -328,7 +328,7 @@ func TestRunner_EnqueueSummaryJob_CacheSafeForkIncludesToolResult(t *testing.T) 
 		r,
 		"user1",
 		"sess1",
-		[]model.Message{{Role: model.RoleUser, Content: "hello"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	)
 	require.NoError(t, err)
 
@@ -341,10 +341,10 @@ func TestRunner_EnqueueSummaryJob_CacheSafeForkIncludesToolResult(t *testing.T) 
 	require.True(t, svc.capturedOK)
 	require.NotNil(t, svc.capturedParent)
 	require.Len(t, svc.capturedParent.Messages, 4)
-	require.Equal(t, model.RoleAssistant, svc.capturedParent.Messages[2].Role)
+	require.Equal(t, compat.RoleAssistant, svc.capturedParent.Messages[2].Role)
 	require.Len(t, svc.capturedParent.Messages[2].ToolCalls, 1)
 	require.Equal(t, "call_1", svc.capturedParent.Messages[2].ToolCalls[0].ID)
-	require.Equal(t, model.RoleTool, svc.capturedParent.Messages[3].Role)
+	require.Equal(t, compat.RoleTool, svc.capturedParent.Messages[3].Role)
 	require.Equal(t, "call_1", svc.capturedParent.Messages[3].ToolID)
 	require.Equal(t, `{"answer":"ok"}`, svc.capturedParent.Messages[3].Content)
 }
@@ -352,9 +352,9 @@ func TestRunner_EnqueueSummaryJob_CacheSafeForkIncludesToolResult(t *testing.T) 
 func TestRunner_PerToolCallResultEventsFailedIntermediatePersistenceUsesStandaloneSummary(
 	t *testing.T,
 ) {
-	parent := &model.Request{Messages: []model.Message{
-		model.NewSystemMessage("stable system"),
-		model.NewUserMessage("run both tools"),
+	parent := &compat.Request{Messages: []compat.Message{
+		compat.NewSystemMessage("stable system"),
+		compat.NewUserMessage("run both tools"),
 	}}
 	capture := &cacheSafeForkCapturingSessionService{
 		mockSessionService: &mockSessionService{},
@@ -378,7 +378,7 @@ func TestRunner_PerToolCallResultEventsFailedIntermediatePersistenceUsesStandalo
 		r,
 		"user1",
 		"sess1",
-		[]model.Message{{Role: model.RoleUser, Content: "hello"}},
+		[]compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 	)
 	require.NoError(t, err)
 	for range events {
@@ -403,7 +403,7 @@ func TestRunner_SummaryAwareSessionRestoreHint(t *testing.T) {
 			r,
 			"user1",
 			"sess1",
-			[]model.Message{{Role: model.RoleUser, Content: "hello"}},
+			[]compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 			agent.WithEventFilterKey("root/branch"),
 		)
 		require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestRunner_SummaryAwareSessionRestoreHint(t *testing.T) {
 			r,
 			"user1",
 			"sess1",
-			[]model.Message{{Role: model.RoleUser, Content: "hello"}},
+			[]compat.Message{{Role: compat.RoleUser, Content: "hello"}},
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, svc.getSessionCalls)
@@ -442,7 +442,7 @@ func TestRunner_SummaryAwareSessionRestoreHint(t *testing.T) {
 // passed to EnqueueSummaryJob.
 type cacheSafeForkCapturingSessionService struct {
 	*mockSessionService
-	capturedParent *model.Request
+	capturedParent *compat.Request
 	capturedOK     bool
 	done           chan struct{}
 }
@@ -520,16 +520,16 @@ func (m *nonQualifyingMockAgent) Run(ctx context.Context, invocation *agent.Invo
 
 	// Create a non-qualifying event (partial response)
 	nonQualifyingEvent := &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:        "test-response",
 			Model:     "test-model",
 			Done:      false, // Partial response
 			IsPartial: true,  // This makes it non-qualifying
-			Choices: []model.Choice{
+			Choices: []compat.Choice{
 				{
 					Index: 0,
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "This is a partial response",
 					},
 				},
@@ -602,7 +602,7 @@ func (m *stateDeltaMockAgent) Tools() []tool.Tool {
 // before emitting a final assistant event.
 type cacheSafeForkMockAgent struct {
 	name   string
-	parent *model.Request
+	parent *compat.Request
 }
 
 func (m *cacheSafeForkMockAgent) Info() agent.Info {
@@ -626,13 +626,13 @@ func (m *cacheSafeForkMockAgent) Run(
 
 	ch := make(chan *event.Event, 1)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "fork-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "final",
 				},
 			}},
@@ -648,12 +648,12 @@ func (m *cacheSafeForkMockAgent) Run(
 
 type cacheSafeForkToolResultMockAgent struct {
 	name   string
-	parent *model.Request
+	parent *compat.Request
 }
 
 type cacheSafeForkPerToolCallResultEventsMockAgent struct {
 	name   string
-	parent *model.Request
+	parent *compat.Request
 }
 
 func (m *cacheSafeForkPerToolCallResultEventsMockAgent) Info() agent.Info {
@@ -680,10 +680,10 @@ func (m *cacheSafeForkPerToolCallResultEventsMockAgent) Run(
 
 	ch := make(chan *event.Event, 3)
 	ch <- &event.Event{
-		Response: &model.Response{Done: true, Choices: []model.Choice{{
-			Message: model.Message{
-				Role: model.RoleAssistant,
-				ToolCalls: []model.ToolCall{
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
+				ToolCalls: []compat.ToolCall{
 					{ID: "call-slow"},
 					{ID: "call-fast"},
 				},
@@ -695,8 +695,8 @@ func (m *cacheSafeForkPerToolCallResultEventsMockAgent) Run(
 		Timestamp:    time.Now(),
 	}
 	fastResult := &event.Event{
-		Response: &model.Response{Done: true, Choices: []model.Choice{{
-			Message: model.NewToolMessage(
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{
+			Message: compat.NewToolMessage(
 				"call-fast",
 				"fast",
 				"fast result",
@@ -710,8 +710,8 @@ func (m *cacheSafeForkPerToolCallResultEventsMockAgent) Run(
 	toolresultround.Mark(fastResult, true)
 	ch <- fastResult
 	slowResult := &event.Event{
-		Response: &model.Response{Done: true, Choices: []model.Choice{{
-			Message: model.NewToolMessage(
+		Response: &compat.Response{Done: true, Choices: []compat.Choice{{
+			Message: compat.NewToolMessage(
 				"call-slow",
 				"slow",
 				"slow result",
@@ -750,17 +750,17 @@ func (m *cacheSafeForkToolResultMockAgent) Run(
 
 	ch := make(chan *event.Event, 2)
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "tool-call-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call_1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "lookup",
 							Arguments: []byte(`{"q":"hello"}`),
 						},
@@ -774,12 +774,12 @@ func (m *cacheSafeForkToolResultMockAgent) Run(
 		Timestamp:    time.Now(),
 	}
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "tool-result-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.NewToolMessage(
+			Choices: []compat.Choice{{
+				Message: compat.NewToolMessage(
 					"call_1",
 					"lookup",
 					`{"answer":"ok"}`,
@@ -958,17 +958,17 @@ func (m *toolCallMockAgent) Run(
 
 	// 1. assistant tool_call event.
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "tc-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call_1",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "get_weather",
 							Arguments: []byte(`{"city":"Beijing"}`),
 						},
@@ -984,13 +984,13 @@ func (m *toolCallMockAgent) Run(
 
 	// 2. tool result event.
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "tr-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "call_1",
 					ToolName: "get_weather",
 					Content:  `{"temp":25}`,
@@ -1005,13 +1005,13 @@ func (m *toolCallMockAgent) Run(
 
 	// 3. final assistant text response.
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "final-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "The weather is 25 degrees.",
 				},
 			}},
@@ -1053,13 +1053,13 @@ func (m *skipSummarizationMockAgent) Run(
 
 	// Final assistant response with SkipSummarization.
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "skip-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Skipped summary response.",
 				},
 			}},
@@ -1113,17 +1113,17 @@ func (m *syncSummaryIntraRunMockAgent) Run(
 
 	// 1. assistant tool_call event (skipped by IsToolCallResponse).
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "intra-tc-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{{
 						ID:   "call_intra",
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "step_worker",
 							Arguments: []byte(`{"step":1}`),
 						},
@@ -1140,13 +1140,13 @@ func (m *syncSummaryIntraRunMockAgent) Run(
 	// 2. tool result event (intermediate, should be skipped
 	// by intra-run check).
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "intra-tr-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					ToolID:   "call_intra",
 					ToolName: "step_worker",
 					Content:  `{"step":1,"status":"ok"}`,
@@ -1162,13 +1162,13 @@ func (m *syncSummaryIntraRunMockAgent) Run(
 	// 3. final assistant text response (should still trigger
 	// async enqueue).
 	ch <- &event.Event{
-		Response: &model.Response{
+		Response: &compat.Response{
 			ID:    "intra-final-resp",
 			Model: "test-model",
 			Done:  true,
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleAssistant,
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleAssistant,
 					Content: "Done with intra-run summary active.",
 				},
 			}},
@@ -1195,8 +1195,8 @@ func TestRunner_SyncSummaryIntraRun_SkipsIntermediateButAllowsFinal(
 	_, err := RunWithMessages(
 		context.Background(), r,
 		"user1", "sess1",
-		[]model.Message{{
-			Role:    model.RoleUser,
+		[]compat.Message{{
+			Role:    compat.RoleUser,
 			Content: "hello",
 		}},
 	)
@@ -1229,8 +1229,8 @@ func TestRunner_EnqueueSummaryJob_ToolResultTrigger(t *testing.T) {
 			_, err := RunWithMessages(
 				context.Background(), r,
 				"user1", "sess1",
-				[]model.Message{{
-					Role:    model.RoleUser,
+				[]compat.Message{{
+					Role:    compat.RoleUser,
 					Content: "weather?",
 				}},
 			)
@@ -1264,8 +1264,8 @@ func TestRunner_EnqueueSummaryJob_ToolResultTrigger(t *testing.T) {
 			_, err := RunWithMessages(
 				context.Background(), r,
 				"user1", "sess1",
-				[]model.Message{{
-					Role:    model.RoleUser,
+				[]compat.Message{{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				}},
 			)

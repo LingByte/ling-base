@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory"
 	"github.com/LingByte/ling-base/agentkit/memory/extractor"
 	"github.com/LingByte/ling-base/agentkit/memory/internal/updatepolicy"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -524,10 +524,10 @@ func stringSet(values []string) map[string]struct{} {
 // buildPolicySearchQuery includes conversational user and assistant text while
 // excluding tool protocol messages. Preserve History and Append Only use this
 // broader context to retrieve candidates for their policy decisions.
-func buildPolicySearchQuery(messages []model.Message) string {
+func buildPolicySearchQuery(messages []compat.Message) string {
 	parts := make([]string, 0, len(messages))
 	for _, msg := range messages {
-		if msg.Role != model.RoleUser && msg.Role != model.RoleAssistant {
+		if msg.Role != compat.RoleUser && msg.Role != compat.RoleAssistant {
 			continue
 		}
 		if msg.ToolID != "" || len(msg.ToolCalls) > 0 {

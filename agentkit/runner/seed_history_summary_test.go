@@ -15,7 +15,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/flow/processor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
@@ -26,7 +26,7 @@ import (
 type summaryMessageCapturingAgent struct {
 	name       string
 	addSummary bool
-	messages   []model.Message
+	messages   []compat.Message
 }
 
 func (a *summaryMessageCapturingAgent) Info() agent.Info {
@@ -67,11 +67,11 @@ func (a *summaryMessageCapturingAgent) Run(
 		}
 	}
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	processor.NewContentRequestProcessor(
 		processor.WithAddSessionSummary(a.addSummary),
 	).ProcessRequest(ctx, inv, req, nil)
-	a.messages = append([]model.Message(nil), req.Messages...)
+	a.messages = append([]compat.Message(nil), req.Messages...)
 
 	ch := make(chan *event.Event)
 	close(ch)
@@ -79,42 +79,42 @@ func (a *summaryMessageCapturingAgent) Run(
 }
 
 func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
-	firstToolCall := model.ToolCall{
+	firstToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "lookup-first",
 			Arguments: []byte(`{"query":"current"}`),
 		},
 	}
-	secondToolCall := model.ToolCall{
+	secondToolCall := compat.ToolCall{
 		Type: "function",
 		ID:   "call-2",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "lookup-second",
 			Arguments: []byte(`{"query":"context"}`),
 		},
 	}
-	rewrittenToolTranscript := []model.Message{
-		model.NewUserMessage("current context"),
+	rewrittenToolTranscript := []compat.Message{
+		compat.NewUserMessage("current context"),
 		{
-			Role:      model.RoleAssistant,
+			Role:      compat.RoleAssistant,
 			Content:   "calling first lookup",
-			ToolCalls: []model.ToolCall{firstToolCall},
+			ToolCalls: []compat.ToolCall{firstToolCall},
 		},
-		model.NewToolMessage("call-1", "lookup-first", `{"answer":"first"}`),
+		compat.NewToolMessage("call-1", "lookup-first", `{"answer":"first"}`),
 		{
-			Role:      model.RoleAssistant,
+			Role:      compat.RoleAssistant,
 			Content:   "calling second lookup",
-			ToolCalls: []model.ToolCall{secondToolCall},
+			ToolCalls: []compat.ToolCall{secondToolCall},
 		},
-		model.NewToolMessage("call-2", "lookup-second", `{"answer":"second"}`),
-		model.NewUserMessage("rewritten"),
+		compat.NewToolMessage("call-2", "lookup-second", `{"answer":"second"}`),
+		compat.NewUserMessage("rewritten"),
 	}
 	tests := []struct {
 		name       string
 		run        func(Runner) (<-chan *event.Event, error)
-		want       []model.Message
+		want       []compat.Message
 		addSummary bool
 		eventHook  plugin.EventHook
 	}{
@@ -126,15 +126,15 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					r,
 					"user",
 					"session",
-					[]model.Message{
-						model.NewUserMessage("current"),
-						model.NewAssistantMessage("old answer"),
-						model.NewUserMessage("current"),
+					[]compat.Message{
+						compat.NewUserMessage("current"),
+						compat.NewAssistantMessage("old answer"),
+						compat.NewUserMessage("current"),
 					},
 				)
 			},
-			want: []model.Message{
-				model.NewUserMessage("current"),
+			want: []compat.Message{
+				compat.NewUserMessage("current"),
 			},
 			addSummary: true,
 		},
@@ -145,26 +145,26 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					context.Background(),
 					"user",
 					"session",
-					model.NewUserMessage("original"),
-					agent.WithMessages([]model.Message{
-						model.NewUserMessage("old question"),
-						model.NewAssistantMessage("old answer"),
-						model.NewUserMessage("original"),
+					compat.NewUserMessage("original"),
+					agent.WithMessages([]compat.Message{
+						compat.NewUserMessage("old question"),
+						compat.NewAssistantMessage("old answer"),
+						compat.NewUserMessage("original"),
 					}),
 					agent.WithUserMessageRewriter(func(
 						context.Context,
 						*agent.UserMessageRewriteArgs,
-					) ([]model.Message, error) {
-						return []model.Message{
-							model.NewUserMessage("current context"),
-							model.NewUserMessage("rewritten"),
+					) ([]compat.Message, error) {
+						return []compat.Message{
+							compat.NewUserMessage("current context"),
+							compat.NewUserMessage("rewritten"),
 						}, nil
 					}),
 				)
 			},
-			want: []model.Message{
-				model.NewUserMessage("current context"),
-				model.NewUserMessage("rewritten"),
+			want: []compat.Message{
+				compat.NewUserMessage("current context"),
+				compat.NewUserMessage("rewritten"),
 			},
 			addSummary: true,
 		},
@@ -176,24 +176,24 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					r,
 					"user",
 					"session",
-					[]model.Message{
-						model.NewUserMessage("old question"),
+					[]compat.Message{
+						compat.NewUserMessage("old question"),
 						{
-							Role:      model.RoleAssistant,
+							Role:      compat.RoleAssistant,
 							Content:   "calling old lookup",
-							ToolCalls: []model.ToolCall{firstToolCall},
+							ToolCalls: []compat.ToolCall{firstToolCall},
 						},
-						model.NewToolMessage(
+						compat.NewToolMessage(
 							"call-1",
 							"lookup-first",
 							`{"answer":"old"}`,
 						),
-						model.NewUserMessage("current"),
+						compat.NewUserMessage("current"),
 					},
 				)
 			},
-			want: []model.Message{
-				model.NewUserMessage("current"),
+			want: []compat.Message{
+				compat.NewUserMessage("current"),
 			},
 			addSummary: true,
 		},
@@ -204,16 +204,16 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					context.Background(),
 					"user",
 					"session",
-					model.NewUserMessage("original"),
-					agent.WithMessages([]model.Message{
-						model.NewUserMessage("old question"),
-						model.NewAssistantMessage("old answer"),
-						model.NewUserMessage("original"),
+					compat.NewUserMessage("original"),
+					agent.WithMessages([]compat.Message{
+						compat.NewUserMessage("old question"),
+						compat.NewAssistantMessage("old answer"),
+						compat.NewUserMessage("original"),
 					}),
 					agent.WithUserMessageRewriter(func(
 						context.Context,
 						*agent.UserMessageRewriteArgs,
-					) ([]model.Message, error) {
+					) ([]compat.Message, error) {
 						return rewrittenToolTranscript, nil
 					}),
 				)
@@ -229,15 +229,15 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					r,
 					"user",
 					"session",
-					[]model.Message{
-						model.NewUserMessage("old question"),
-						model.NewAssistantMessage("old answer"),
-						model.NewUserMessage("current"),
+					[]compat.Message{
+						compat.NewUserMessage("old question"),
+						compat.NewAssistantMessage("old answer"),
+						compat.NewUserMessage("current"),
 					},
 				)
 			},
-			want: []model.Message{
-				model.NewUserMessage("current"),
+			want: []compat.Message{
+				compat.NewUserMessage("current"),
 			},
 			addSummary: true,
 			eventHook: func(
@@ -258,17 +258,17 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 					r,
 					"user",
 					"session",
-					[]model.Message{
-						model.NewUserMessage("old question"),
-						model.NewAssistantMessage("old answer"),
-						model.NewUserMessage("current"),
+					[]compat.Message{
+						compat.NewUserMessage("old question"),
+						compat.NewAssistantMessage("old answer"),
+						compat.NewUserMessage("current"),
 					},
 				)
 			},
-			want: []model.Message{
-				model.NewUserMessage("old question"),
-				model.NewAssistantMessage("old answer"),
-				model.NewUserMessage("current"),
+			want: []compat.Message{
+				compat.NewUserMessage("old question"),
+				compat.NewAssistantMessage("old answer"),
+				compat.NewUserMessage("current"),
 			},
 		},
 	}
@@ -297,7 +297,7 @@ func TestRunner_Run_SeedHistoryRespectsMidRunSummary(t *testing.T) {
 			}
 			if tt.addSummary {
 				require.Len(t, capture.messages, len(tt.want)+1)
-				require.Equal(t, model.RoleSystem, capture.messages[0].Role)
+				require.Equal(t, compat.RoleSystem, capture.messages[0].Role)
 				require.Contains(t, capture.messages[0].Content, "covered history")
 				require.Equal(t, tt.want, capture.messages[1:])
 				return
@@ -320,27 +320,27 @@ func TestRunner_Run_RewrittenCurrentTurnSurvivesSummaryInExistingSession(
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("old question"),
+		compat.NewUserMessage("old question"),
 	)
 	require.NoError(t, err)
 	for range events {
 	}
 
-	rewritten := []model.Message{
-		model.NewUserMessage("current context"),
-		model.NewAssistantMessage("current acknowledgement"),
-		model.NewUserMessage("rewritten"),
+	rewritten := []compat.Message{
+		compat.NewUserMessage("current context"),
+		compat.NewAssistantMessage("current acknowledgement"),
+		compat.NewUserMessage("rewritten"),
 	}
 	capture.addSummary = true
 	events, err = r.Run(
 		context.Background(),
 		"user",
 		"session",
-		model.NewUserMessage("original"),
+		compat.NewUserMessage("original"),
 		agent.WithUserMessageRewriter(func(
 			context.Context,
 			*agent.UserMessageRewriteArgs,
-		) ([]model.Message, error) {
+		) ([]compat.Message, error) {
 			return rewritten, nil
 		}),
 	)
@@ -349,7 +349,7 @@ func TestRunner_Run_RewrittenCurrentTurnSurvivesSummaryInExistingSession(
 	}
 
 	require.Len(t, capture.messages, len(rewritten)+1)
-	require.Equal(t, model.RoleSystem, capture.messages[0].Role)
+	require.Equal(t, compat.RoleSystem, capture.messages[0].Role)
 	require.Contains(t, capture.messages[0].Content, "covered history")
 	require.Equal(t, rewritten, capture.messages[1:])
 }

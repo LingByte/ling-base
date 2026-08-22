@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	"github.com/LingByte/ling-base/agentkit/internal/agenttoolgraph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type parentInvocationGraphRuntime struct {
@@ -46,7 +46,7 @@ func (at *Tool) CallWithAgentToolGraphRuntime(
 	if err != nil {
 		return nil, err
 	}
-	message := model.NewUserMessage(string(jsonArgs))
+	message := compat.NewUserMessage(string(jsonArgs))
 	return at.callWithParentInvocation(ctx, runtime.ParentInvocation, message, graphRuntime)
 }
 

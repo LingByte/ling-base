@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	sessioninmemory "github.com/LingByte/ling-base/agentkit/session/inmemory"
 	"github.com/stretchr/testify/assert"
@@ -54,10 +54,10 @@ func (s *onDemandSearchOnlyService) SearchEvents(
 
 func TestOnDemandSessionRequestProcessor_ProcessRequest(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base instruction"),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base instruction"),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -77,9 +77,9 @@ func TestOnDemandSessionRequestProcessor_ProcessRequest(t *testing.T) {
 
 func TestOnDemandSessionRequestProcessor_SkipsWithoutSupport(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -88,14 +88,14 @@ func TestOnDemandSessionRequestProcessor_SkipsWithoutSupport(t *testing.T) {
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 1)
-	assert.Equal(t, model.RoleUser, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[0].Role)
 }
 
 func TestOnDemandSessionRequestProcessor_LoadOnlyOverview(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -105,16 +105,16 @@ func TestOnDemandSessionRequestProcessor_LoadOnlyOverview(t *testing.T) {
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "Exact session history loading is available.")
 	assert.NotContains(t, req.Messages[0].Content, "Use session_search before session_load")
 }
 
 func TestOnDemandSessionRequestProcessor_SearchOnlyOverview(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -126,17 +126,17 @@ func TestOnDemandSessionRequestProcessor_SearchOnlyOverview(t *testing.T) {
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "Use session_search")
 	assert.NotContains(t, req.Messages[0].Content, "Exact session history loading is available.")
 }
 
 func TestOnDemandSessionRequestProcessor_EmptySystemMessage(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage(""),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage(""),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -146,7 +146,7 @@ func TestOnDemandSessionRequestProcessor_EmptySystemMessage(t *testing.T) {
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Equal(t, onDemandSessionLoadOverview, req.Messages[0].Content)
 
 	p.ProcessRequest(context.Background(), nil, nil, nil)
@@ -154,9 +154,9 @@ func TestOnDemandSessionRequestProcessor_EmptySystemMessage(t *testing.T) {
 
 func TestOnDemandSessionRequestProcessor_InsertsSystemMessage(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -166,16 +166,16 @@ func TestOnDemandSessionRequestProcessor_InsertsSystemMessage(t *testing.T) {
 
 	p.ProcessRequest(context.Background(), inv, req, nil)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "scope=current_session")
-	assert.Equal(t, model.RoleUser, req.Messages[1].Role)
+	assert.Equal(t, compat.RoleUser, req.Messages[1].Role)
 }
 
 func TestOnDemandSessionRequestProcessor_EmitsInstructionEvent(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{
@@ -191,7 +191,7 @@ func TestOnDemandSessionRequestProcessor_EmitsInstructionEvent(t *testing.T) {
 	select {
 	case got := <-ch:
 		require.NotNil(t, got)
-		require.Equal(t, model.ObjectTypePreprocessingInstruction, got.Object)
+		require.Equal(t, compat.ObjectTypePreprocessingInstruction, got.Object)
 	case <-time.After(time.Second):
 		t.Fatal("expected preprocessing instruction event")
 	}
@@ -199,10 +199,10 @@ func TestOnDemandSessionRequestProcessor_EmitsInstructionEvent(t *testing.T) {
 
 func TestOnDemandSessionRequestProcessor_RebuildForContextCompaction(t *testing.T) {
 	p := NewOnDemandSessionRequestProcessor()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("base instruction"),
-			model.NewUserMessage("hello"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("base instruction"),
+			compat.NewUserMessage("hello"),
 		},
 	}
 	inv := &agent.Invocation{

@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/knowledge"
 	knowledgetool "github.com/LingByte/ling-base/agentkit/knowledge/tool"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -242,7 +242,7 @@ func TestLLMAgent_InvocationToolSurface_IncludesCurrentTimeWhenAddCurrentTime(t 
 	tools, userToolNames := agt.InvocationToolSurface(
 		context.Background(),
 		agent.NewInvocation(
-			agent.WithInvocationMessage(model.NewUserMessage("hi")),
+			agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		),
 	)
 	found := false

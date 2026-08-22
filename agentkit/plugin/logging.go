@@ -15,7 +15,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -108,8 +108,8 @@ func (p *Logging) afterAgent(
 
 func (p *Logging) beforeModel(
 	ctx context.Context,
-	_ *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	_ *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	inv, _ := agent.InvocationFromContext(ctx)
 	start := time.Now()
 	modelName := ""
@@ -127,15 +127,15 @@ func (p *Logging) beforeModel(
 		agentName,
 		modelName,
 	)
-	return &model.BeforeModelResult{
+	return &compat.BeforeModelResult{
 		Context: context.WithValue(ctx, modelStartTimeKey{}, start),
 	}, nil
 }
 
 func (p *Logging) afterModel(
 	ctx context.Context,
-	args *model.AfterModelArgs,
-) (*model.AfterModelResult, error) {
+	args *compat.AfterModelArgs,
+) (*compat.AfterModelResult, error) {
 	start, _ := ctx.Value(modelStartTimeKey{}).(time.Time)
 	duration := time.Since(start)
 	errText := ""

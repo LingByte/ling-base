@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/client"
 	"trpc.group/trpc-go/trpc-a2a-go/protocol"
 	"trpc.group/trpc-go/trpc-a2a-go/server"
@@ -22,7 +22,7 @@ import (
 
 // StreamingRespHandler handles the streaming response content
 // return the content will be added to the final aggregated content
-type StreamingRespHandler func(resp *model.Response) (string, error)
+type StreamingRespHandler func(resp *compat.Response) (string, error)
 
 // ConvertToA2AMessageFunc is the function signature for converting an invocation to an A2A protocol message.
 type ConvertToA2AMessageFunc func(isStream bool, agentName string, invocation *agent.Invocation) (*protocol.Message, error)
@@ -51,7 +51,7 @@ type A2ADataPartToolResponse struct {
 type A2ADataPartMappingResult struct {
 	textContent            string
 	reasoningContent       string
-	toolCalls              []model.ToolCall
+	toolCalls              []compat.ToolCall
 	toolResponses          []A2ADataPartToolResponse
 	codeExecution          string
 	codeExecutionResult    string
@@ -97,7 +97,7 @@ func (r *A2ADataPartMappingResult) SetReasoningContent(text string) {
 }
 
 // AppendToolCall appends a tool call when the mapper matches.
-func (r *A2ADataPartMappingResult) AppendToolCall(call model.ToolCall) {
+func (r *A2ADataPartMappingResult) AppendToolCall(call compat.ToolCall) {
 	if r == nil {
 		return
 	}

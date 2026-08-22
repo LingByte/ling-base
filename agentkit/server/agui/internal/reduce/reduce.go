@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/server/agui/internal/multimodal"
 	"github.com/LingByte/ling-base/agentkit/session"
 	aguievents "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
@@ -346,7 +346,7 @@ func (r *reducer) handleTextStart(e *aguievents.TextMessageStartEvent) error {
 	if e.MessageID == "" {
 		return fmt.Errorf("text message start missing id")
 	}
-	role := string(model.RoleAssistant)
+	role := string(compat.RoleAssistant)
 	if e.Role != nil && *e.Role != "" {
 		role = string(*e.Role)
 	}
@@ -415,7 +415,7 @@ func (r *reducer) handleTextChunk(e *aguievents.TextMessageChunkEvent) error {
 	if state, exists := r.texts[messageID]; exists && state.phase == textReceiving {
 		return fmt.Errorf("duplicate text message chunk: %s", *e.MessageID)
 	}
-	role := string(model.RoleAssistant)
+	role := string(compat.RoleAssistant)
 	if e.Role != nil && *e.Role != "" {
 		role = string(*e.Role)
 	}
@@ -456,9 +456,9 @@ func (r *reducer) handleTextChunk(e *aguievents.TextMessageChunkEvent) error {
 
 func (r *reducer) textIdentity(role string) (string, string, error) {
 	switch role {
-	case string(model.RoleUser):
+	case string(compat.RoleUser):
 		return role, r.userID, nil
-	case string(model.RoleAssistant):
+	case string(compat.RoleAssistant):
 		return role, r.appName, nil
 	default:
 		return "", "", fmt.Errorf("unsupported role: %s", role)
@@ -603,7 +603,7 @@ func (r *reducer) handleReasoningChunk(e *aguievents.ReasoningMessageChunkEvent)
 
 func (r *reducer) reasoningIdentity(role string) (string, string, error) {
 	switch role {
-	case "", string(types.RoleReasoning), string(model.RoleAssistant):
+	case "", string(types.RoleReasoning), string(compat.RoleAssistant):
 		return string(types.RoleReasoning), r.appName, nil
 	default:
 		return "", "", fmt.Errorf("unsupported role: %s", role)
@@ -667,11 +667,11 @@ func (r *reducer) handleToolStart(e *aguievents.ToolCallStartEvent) error {
 		name := r.appName
 		r.messages = append(r.messages, &aguievents.Message{
 			ID:   *e.ParentMessageID,
-			Role: types.Role(string(model.RoleAssistant)),
+			Role: types.Role(string(compat.RoleAssistant)),
 			Name: name,
 		})
 		parentState = &textState{
-			role:  string(model.RoleAssistant),
+			role:  string(compat.RoleAssistant),
 			name:  r.appName,
 			phase: textNotStarted,
 			index: len(r.messages) - 1,
@@ -742,7 +742,7 @@ func (r *reducer) handleToolResult(e *aguievents.ToolCallResultEvent) error {
 	if !ok {
 		return fmt.Errorf("tool call result missing parent message: %s", state.messageID)
 	}
-	role := string(model.RoleTool)
+	role := string(compat.RoleTool)
 	if e.Role != nil && *e.Role != "" {
 		role = *e.Role
 	}

@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/artifact/inmemory"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -27,7 +27,7 @@ func TestArtifactSaveSkipReason(t *testing.T) {
 	require.Equal(t, SaveReasonNoInvocation, ArtifactSaveSkipReason(context.Background()))
 
 	noSvc := agent.NewInvocationContext(context.Background(), agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess",
 			AppName: "app",
@@ -37,20 +37,20 @@ func TestArtifactSaveSkipReason(t *testing.T) {
 	require.Equal(t, SaveReasonNoService, ArtifactSaveSkipReason(noSvc))
 
 	noSession := agent.NewInvocationContext(context.Background(), agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationArtifactService(inmemory.NewService()),
 	))
 	require.Equal(t, SaveReasonNoSession, ArtifactSaveSkipReason(noSession))
 
 	incompleteSession := agent.NewInvocationContext(context.Background(), agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationArtifactService(inmemory.NewService()),
 		agent.WithInvocationSession(&session.Session{ID: "sess"}),
 	))
 	require.Equal(t, SaveReasonNoSessionIDs, ArtifactSaveSkipReason(incompleteSession))
 
 	complete := agent.NewInvocationContext(context.Background(), agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationArtifactService(inmemory.NewService()),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess",
@@ -63,7 +63,7 @@ func TestArtifactSaveSkipReason(t *testing.T) {
 
 func TestWithArtifactContext(t *testing.T) {
 	inv := agent.NewInvocation(
-		agent.WithInvocationMessage(model.NewUserMessage("hi")),
+		agent.WithInvocationMessage(compat.NewUserMessage("hi")),
 		agent.WithInvocationArtifactService(inmemory.NewService()),
 		agent.WithInvocationSession(&session.Session{
 			ID:      "sess",

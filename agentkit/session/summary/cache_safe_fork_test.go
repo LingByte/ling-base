@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -28,7 +28,7 @@ func TestCacheSafeForkRequestContext(t *testing.T) {
 	require.False(t, ok)
 	require.Nil(t, got)
 
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hello")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hello")}}
 	ctx := ContextWithCacheSafeForkRequest(nil, req)
 	got, ok = CacheSafeForkRequestFromContext(ctx)
 	require.True(t, ok)
@@ -46,7 +46,7 @@ func TestCacheSafeForkRequestContext(t *testing.T) {
 func TestCloneRequestForCacheSafeFork_NilFields(t *testing.T) {
 	require.Nil(t, cloneRequestForCacheSafeFork(nil))
 
-	cloned := cloneRequestForCacheSafeFork(&model.Request{})
+	cloned := cloneRequestForCacheSafeFork(&compat.Request{})
 	require.NotNil(t, cloned)
 	require.Nil(t, cloned.Messages)
 	require.Nil(t, cloned.StructuredOutput)
@@ -59,34 +59,34 @@ func TestCloneRequestForCacheSafeFork_DeepClonesMutableFields(t *testing.T) {
 	text := "text part"
 	index := 3
 	lookupTool := &cacheSafeForkTestTool{name: "lookup"}
-	parent := &model.Request{
-		Messages: []model.Message{
+	parent := &compat.Request{
+		Messages: []compat.Message{
 			{
-				Role:    model.RoleAssistant,
+				Role:    compat.RoleAssistant,
 				Content: "assistant",
-				ContentParts: []model.ContentPart{
-					{Type: model.ContentTypeText, Text: &text},
+				ContentParts: []compat.ContentPart{
+					{Type: compat.ContentTypeText, Text: &text},
 					{
-						Type:  model.ContentTypeImage,
-						Image: &model.Image{Data: []byte{1, 2}, Detail: "high", Format: "png"},
+						Type:  compat.ContentTypeImage,
+						Image: &compat.Image{Data: []byte{1, 2}, Detail: "high", Format: "png"},
 					},
 					{
-						Type:  model.ContentTypeAudio,
-						Audio: &model.Audio{Data: []byte{3, 4}, Format: "wav"},
+						Type:  compat.ContentTypeAudio,
+						Audio: &compat.Audio{Data: []byte{3, 4}, Format: "wav"},
 					},
 					{
-						Type:  model.ContentTypeVideo,
-						Video: &model.Video{Data: []byte{5, 6}, Format: "mp4"},
+						Type:  compat.ContentTypeVideo,
+						Video: &compat.Video{Data: []byte{5, 6}, Format: "mp4"},
 					},
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{Name: "a.txt", Data: []byte{7, 8}, MimeType: "text/plain"},
+						Type: compat.ContentTypeFile,
+						File: &compat.File{Name: "a.txt", Data: []byte{7, 8}, MimeType: "text/plain"},
 					},
 				},
-				ToolCalls: []model.ToolCall{{
+				ToolCalls: []compat.ToolCall{{
 					ID:    "call-1",
 					Index: &index,
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "lookup",
 						Arguments: []byte(`{"q":"cache"}`),
 					},
@@ -94,10 +94,10 @@ func TestCloneRequestForCacheSafeFork_DeepClonesMutableFields(t *testing.T) {
 				}},
 			},
 		},
-		GenerationConfig: model.GenerationConfig{Stop: []string{"END"}},
-		StructuredOutput: &model.StructuredOutput{
-			Type: model.StructuredOutputJSONSchema,
-			JSONSchema: &model.JSONSchemaConfig{
+		GenerationConfig: compat.GenerationConfig{Stop: []string{"END"}},
+		StructuredOutput: &compat.StructuredOutput{
+			Type: compat.StructuredOutputJSONSchema,
+			JSONSchema: &compat.JSONSchemaConfig{
 				Name:   "answer",
 				Schema: map[string]any{"type": "object", "nested": map[string]any{"k": "v"}},
 			},
@@ -132,7 +132,8 @@ func TestCloneRequestForCacheSafeFork_DeepClonesMutableFields(t *testing.T) {
 	cloned.StructuredOutput.JSONSchema.Schema["nested"].(map[string]any)["k"] = "changed"
 	cloned.ExtraFields["metadata"].(map[string]any)["id"] = "two"
 	cloned.Headers["X-Trace"] = "two"
-	delete(cloned.Tools, "lookup")
+	clonedTools, _ := cloned.Tools.(map[string]tool.Tool)
+	delete(clonedTools, "lookup")
 
 	require.Equal(t, "text part", *parent.Messages[0].ContentParts[0].Text)
 	require.Equal(t, byte(1), parent.Messages[0].ContentParts[1].Image.Data[0])
@@ -147,7 +148,7 @@ func TestCloneRequestForCacheSafeFork_DeepClonesMutableFields(t *testing.T) {
 	require.Equal(t, "v", parent.StructuredOutput.JSONSchema.Schema["nested"].(map[string]any)["k"])
 	require.Equal(t, "one", parent.ExtraFields["metadata"].(map[string]any)["id"])
 	require.Equal(t, "one", parent.Headers["X-Trace"])
-	require.Same(t, lookupTool, parent.Tools["lookup"])
+	require.Same(t, lookupTool, parent.Tools.(map[string]tool.Tool)["lookup"])
 }
 
 func TestSessionSummarizer_CacheSafeForkOptions(t *testing.T) {
@@ -197,10 +198,10 @@ func TestSessionSummarizer_CacheSafeStandaloneFallbackEndsWithForkPrompt(
 	require.NoError(t, err)
 	require.Equal(t, callModeStandalone, mode)
 	require.Len(t, request.Messages, 2)
-	require.Equal(t, model.RoleSystem, request.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, request.Messages[0].Role)
 	require.Equal(t, "Summarize the source conversation within 2000 words.",
 		request.Messages[0].Content)
-	require.Equal(t, model.RoleUser, request.Messages[1].Role)
+	require.Equal(t, compat.RoleUser, request.Messages[1].Role)
 	require.Equal(
 		t,
 		"assistant: unfinished work\n\n"+
@@ -235,18 +236,18 @@ func TestSessionSummarizer_CacheSafeForkingDisabledUsesStandaloneRequest(t *test
 		capture,
 		WithPrompt("Conversation:\n{conversation_text}\n\nSummary:"),
 	)
-	parent := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage("parent system"),
-			model.NewUserMessage("parent user"),
+	parent := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage("parent system"),
+			compat.NewUserMessage("parent user"),
 		},
 	}
 	ctx := ContextWithCacheSafeForkRequest(context.Background(), parent)
 	sess := &session.Session{ID: "disabled", Events: []event.Event{{
 		Author:    "user",
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.NewUserMessage("event text"),
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("event text"),
 		}}},
 	}}}
 

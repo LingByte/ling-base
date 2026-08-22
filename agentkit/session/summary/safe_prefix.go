@@ -16,7 +16,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type summarySourceTooLargeError struct {
@@ -52,7 +52,7 @@ func (s *sessionSummarizer) buildSafeSummaryPrefixRequest(
 	ctx context.Context,
 	source *summarySource,
 	budget int,
-) (*model.Request, bool, error) {
+) (*compat.Request, bool, error) {
 	if source == nil || len(source.prefixEvents) == 0 {
 		return nil, false, nil
 	}
@@ -65,7 +65,7 @@ func (s *sessionSummarizer) buildSafeSummaryPrefixRequest(
 	}
 
 	buildCandidate := func(end int) (
-		*model.Request,
+		*compat.Request,
 		summaryPromptInput,
 		bool,
 		error,
@@ -233,7 +233,7 @@ func canEndSummaryPrefix(events []event.Event, index int) bool {
 	if evt.ID == "" || evt.Timestamp.IsZero() || evt.Response == nil ||
 		!evt.Response.IsValidContent() || evt.Response.IsPartial ||
 		evt.Response.IsUserMessage() ||
-		summaryResponseHasRole(evt.Response, model.RoleSystem) ||
+		summaryResponseHasRole(evt.Response, compat.RoleSystem) ||
 		evt.Author == authorUser || evt.Author == authorSystem ||
 		len(summaryToolCallIDs(evt.Response)) != 0 {
 		return false
@@ -245,7 +245,7 @@ func canEndSummaryPrefix(events []event.Event, index int) bool {
 	return events[index+1].Response.ID != evt.Response.ID
 }
 
-func summaryResponseHasRole(response *model.Response, role model.Role) bool {
+func summaryResponseHasRole(response *compat.Response, role compat.Role) bool {
 	if response == nil {
 		return false
 	}
@@ -257,7 +257,7 @@ func summaryResponseHasRole(response *model.Response, role model.Role) bool {
 	return false
 }
 
-func summaryToolCallIDs(response *model.Response) []string {
+func summaryToolCallIDs(response *compat.Response) []string {
 	if response == nil {
 		return nil
 	}
@@ -273,13 +273,13 @@ func summaryToolCallIDs(response *model.Response) []string {
 	return ids
 }
 
-func summaryToolResultIDs(response *model.Response) []string {
+func summaryToolResultIDs(response *compat.Response) []string {
 	if response == nil {
 		return nil
 	}
 	var ids []string
 	for _, choice := range response.Choices {
-		for _, message := range []model.Message{
+		for _, message := range []compat.Message{
 			choice.Message,
 			choice.Delta,
 		} {

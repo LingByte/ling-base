@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -268,7 +268,7 @@ func readLocationFromMetadata(meta map[string]any) string {
 	return strings.TrimSpace(location)
 }
 
-func messageText(msg model.Message) string {
+func messageText(msg compat.Message) string {
 	if strings.TrimSpace(msg.Content) != "" {
 		return strings.TrimSpace(msg.Content)
 	}
@@ -277,7 +277,7 @@ func messageText(msg model.Message) string {
 	}
 	var parts []string
 	for _, part := range msg.ContentParts {
-		if part.Type != model.ContentTypeText || part.Text == nil {
+		if part.Type != compat.ContentTypeText || part.Text == nil {
 			continue
 		}
 		if strings.TrimSpace(*part.Text) == "" {

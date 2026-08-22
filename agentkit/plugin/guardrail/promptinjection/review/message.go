@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const defaultSystemPromptText = `You are the guardian reviewer for prompt injection detection.
@@ -52,7 +52,7 @@ type userMessageTemplateData struct {
 
 type userMessageTranscriptLine struct {
 	Index   int
-	Role    model.Role
+	Role    compat.Role
 	Content string
 }
 

@@ -22,7 +22,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	openaiembedder "github.com/LingByte/ling-base/agentkit/knowledge/embedder/openai"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -547,8 +547,8 @@ func TestServiceCloseDrainsWorkerBeforeClosingHTTPClient(t *testing.T) {
 	sess := session.NewSession("app", "user", "session")
 	sess.Events = append(sess.Events, event.Event{
 		Timestamp: time.Now(),
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.NewUserMessage("remember this"),
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewUserMessage("remember this"),
 		}}},
 	})
 	require.NoError(t, service.EnqueueAutoMemoryJob(context.Background(), sess))

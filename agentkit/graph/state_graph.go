@@ -41,7 +41,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
 	"github.com/LingByte/ling-base/agentkit/internal/util"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -137,7 +137,7 @@ func WithUserInputKey(key string) Option {
 
 // WithAgentNodeInputMapper sets a mapper used to build the child invocation
 // message for an AgentNode. The mapper should return StateKeyAgentInputMessage
-// with a *model.Message value. When the mapper is nil or does not return that
+// with a *compat.Message value. When the mapper is nil or does not return that
 // key, the AgentNode falls back to WithUserInputKey or StateKeyUserInput.
 func WithAgentNodeInputMapper(f AgentNodeInputMapper) Option {
 	return func(node *Node) {
@@ -281,7 +281,7 @@ func WithInterruptAfter() Option {
 
 // WithGenerationConfig sets the generation config for an LLM node.
 // Effective only for nodes added via AddLLMNode.
-func WithGenerationConfig(cfg model.GenerationConfig) Option {
+func WithGenerationConfig(cfg compat.GenerationConfig) Option {
 	return func(node *Node) {
 		c := cfg
 		node.llmGenerationConfig = &c
@@ -437,9 +437,9 @@ func WithAgentNodeEventCallback(callback AgentEventCallback) Option {
 type SubgraphResult struct {
 	LastResponse string
 	// LastMessage is the latest assistant message observed from the child agent.
-	LastMessage *model.Message
+	LastMessage *compat.Message
 	// ToolCalls contains the tool calls from LastMessage when present.
-	ToolCalls          []model.ToolCall
+	ToolCalls          []compat.ToolCall
 	FinalState         State
 	RawStateDelta      map[string][]byte
 	FallbackState      State
@@ -471,7 +471,7 @@ type SubgraphInputMapper func(parent State) State
 
 // AgentNodeInputMapper projects parent state into the AgentNode input state.
 // The returned state is inspected for StateKeyAgentInputMessage. When that key
-// contains a non-nil *model.Message, the AgentNode uses it as the child invocation
+// contains a non-nil *compat.Message, the AgentNode uses it as the child invocation
 // message instead of building a user message from StateKeyUserInput.
 type AgentNodeInputMapper func(parent State) State
 
@@ -541,7 +541,7 @@ func WithSubgraphEventScope(scope string) Option {
 }
 
 // WithModelCallbacks sets the model callbacks for LLM node.
-func WithModelCallbacks(callbacks *model.Callbacks) Option {
+func WithModelCallbacks(callbacks *compat.Callbacks) Option {
 	return func(node *Node) {
 		node.modelCallbacks = callbacks
 	}
@@ -659,7 +659,7 @@ func (sg *StateGraph) AddNode(id string, function NodeFunc, opts ...Option) *Sta
 // AddLLMNode adds a node that uses the model package directly.
 func (sg *StateGraph) AddLLMNode(
 	id string,
-	llmModel model.Model,
+	llmModel compat.Model,
 	instruction string,
 	tools map[string]tool.Tool,
 	opts ...Option,
@@ -681,7 +681,7 @@ func (sg *StateGraph) AddLLMNode(
 		tools:                tools,
 		refreshToolSetsOnRun: node.refreshToolSetsOnRun,
 		nodeID:               id,
-		generationConfig:     model.GenerationConfig{Stream: true},
+		generationConfig:     compat.GenerationConfig{Stream: true},
 		userInputKey:         node.userInputKey,
 		streamOutputName:     node.streamOutputName,
 	}
@@ -1009,7 +1009,7 @@ func (sg *StateGraph) AddToolsConditionalEdges(
 	fallbackNode string,
 ) *StateGraph {
 	condition := func(ctx context.Context, state State) (ConditionResult, error) {
-		if msgs, ok := state[StateKeyMessages].([]model.Message); ok {
+		if msgs, ok := state[StateKeyMessages].([]compat.Message); ok {
 			if len(msgs) > 0 {
 				if len(msgs[len(msgs)-1].ToolCalls) > 0 {
 					return ConditionResult{NextNodes: []string{toToolsNode}}, nil
@@ -1219,7 +1219,7 @@ func WithLLMToolSets(toolSets []tool.ToolSet) LLMNodeFuncOption {
 }
 
 // WithLLMGenerationConfig sets the generation configuration for the LLM runner.
-func WithLLMGenerationConfig(cfg model.GenerationConfig) LLMNodeFuncOption {
+func WithLLMGenerationConfig(cfg compat.GenerationConfig) LLMNodeFuncOption {
 	return func(runner *llmRunner) {
 		runner.generationConfig = cfg
 	}
@@ -1235,7 +1235,7 @@ func WithLLMStreamOutput(streamName string) LLMNodeFuncOption {
 // NewLLMNodeFunc creates a NodeFunc that uses the model package directly.
 // This implements LLM node functionality using the model package interface.
 func NewLLMNodeFunc(
-	llmModel model.Model,
+	llmModel compat.Model,
 	instruction string,
 	tools map[string]tool.Tool,
 	opts ...LLMNodeFuncOption,
@@ -1244,7 +1244,7 @@ func NewLLMNodeFunc(
 		llmModel:         llmModel,
 		instruction:      instruction,
 		tools:            tools,
-		generationConfig: model.GenerationConfig{Stream: true},
+		generationConfig: compat.GenerationConfig{Stream: true},
 		userInputKey:     StateKeyUserInput,
 	}
 	for _, opt := range opts {
@@ -1262,13 +1262,13 @@ func NewLLMNodeFunc(
 // llmRunner encapsulates LLM execution dependencies to avoid long parameter
 // lists.
 type llmRunner struct {
-	llmModel             model.Model
+	llmModel             compat.Model
 	instruction          string
 	tools                map[string]tool.Tool
 	toolSets             []tool.ToolSet
 	refreshToolSetsOnRun bool
 	nodeID               string
-	generationConfig     model.GenerationConfig
+	generationConfig     compat.GenerationConfig
 	userInputKey         string
 	streamOutputName     string
 }
@@ -1284,14 +1284,14 @@ func (r *llmRunner) execute(ctx context.Context, state State, span oteltrace.Spa
 			ClearOneShotMessagesForNode(r.nodeID),
 		)
 	}
-	if v, ok := state[StateKeyOneShotMessages].([]model.Message); ok && len(v) > 0 {
+	if v, ok := state[StateKeyOneShotMessages].([]compat.Message); ok && len(v) > 0 {
 		return r.executeOneShotStage(
 			ctx,
 			state,
 			v,
 			span,
 			State{
-				StateKeyOneShotMessages: []model.Message(nil),
+				StateKeyOneShotMessages: []compat.Message(nil),
 			},
 		)
 	}
@@ -1316,7 +1316,7 @@ func (r *llmRunner) execute(ctx context.Context, state State, span oteltrace.Spa
 func (r *llmRunner) executeOneShotStage(
 	ctx context.Context,
 	state State,
-	oneShotMsgs []model.Message,
+	oneShotMsgs []compat.Message,
 	span oteltrace.Span,
 	clearUpdate State,
 ) (any, error) {
@@ -1330,12 +1330,12 @@ func (r *llmRunner) executeOneShotStage(
 	// Preallocate the common fast-path operations slice to avoid re-slicing
 	// growth on hot paths.
 	ops := make([]MessageOp, 0, 2)
-	if len(used) > 0 && used[len(used)-1].Role == model.RoleUser {
+	if len(used) > 0 && used[len(used)-1].Role == compat.RoleUser {
 		ops = append(ops, ReplaceLastUser{Content: used[len(used)-1].Content})
 	}
 	asst := extractAssistantMessage(result)
 	if asst != nil {
-		ops = append(ops, AppendMessages{Items: []model.Message{*asst}})
+		ops = append(ops, AppendMessages{Items: []compat.Message{*asst}})
 	}
 	out := State{
 		StateKeyMessages:       ops,
@@ -1356,9 +1356,9 @@ func (r *llmRunner) executeUserInputStage(
 	userInput string,
 	span oteltrace.Span,
 ) (any, error) {
-	var history []model.Message
+	var history []compat.Message
 	if msgData, exists := state[StateKeyMessages]; exists {
-		if msgs, ok := msgData.([]model.Message); ok {
+		if msgs, ok := msgData.([]compat.Message); ok {
 			history = msgs
 		}
 	}
@@ -1366,14 +1366,14 @@ func (r *llmRunner) executeUserInputStage(
 	used := ensureSystemHead(history, instr)
 	used = r.insertFewShot(state, used)
 	var ops []MessageOp
-	if len(used) > 0 && used[len(used)-1].Role == model.RoleUser {
+	if len(used) > 0 && used[len(used)-1].Role == compat.RoleUser {
 		if used[len(used)-1].Content != userInput {
-			used[len(used)-1] = model.NewUserMessage(userInput)
+			used[len(used)-1] = compat.NewUserMessage(userInput)
 			ops = append(ops, ReplaceLastUser{Content: userInput})
 		}
 	} else {
-		used = append(used, model.NewUserMessage(userInput))
-		ops = append(ops, AppendMessages{Items: []model.Message{model.NewUserMessage(userInput)}})
+		used = append(used, compat.NewUserMessage(userInput))
+		ops = append(ops, AppendMessages{Items: []compat.Message{compat.NewUserMessage(userInput)}})
 	}
 	result, err := r.executeModel(ctx, state, used, span, instr)
 	if err != nil {
@@ -1381,7 +1381,7 @@ func (r *llmRunner) executeUserInputStage(
 	}
 	asst := extractAssistantMessage(result)
 	if asst != nil {
-		ops = append(ops, AppendMessages{Items: []model.Message{*asst}})
+		ops = append(ops, AppendMessages{Items: []compat.Message{*asst}})
 	}
 	if userInputKey == "" {
 		userInputKey = StateKeyUserInput
@@ -1398,9 +1398,9 @@ func (r *llmRunner) executeUserInputStage(
 }
 
 func (r *llmRunner) executeHistoryStage(ctx context.Context, state State, span oteltrace.Span) (any, error) {
-	var history []model.Message
+	var history []compat.Message
 	if msgData, exists := state[StateKeyMessages]; exists {
-		if msgs, ok := msgData.([]model.Message); ok {
+		if msgs, ok := msgData.([]compat.Message); ok {
 			history = msgs
 		}
 	}
@@ -1414,7 +1414,7 @@ func (r *llmRunner) executeHistoryStage(ctx context.Context, state State, span o
 	asst := extractAssistantMessage(result)
 	if asst != nil {
 		return State{
-			StateKeyMessages:       AppendMessages{Items: []model.Message{*asst}},
+			StateKeyMessages:       AppendMessages{Items: []compat.Message{*asst}},
 			StateKeyLastResponse:   asst.Content,
 			StateKeyLastResponseID: extractResponseID(result),
 			StateKeyNodeResponses: map[string]any{
@@ -1426,7 +1426,7 @@ func (r *llmRunner) executeHistoryStage(ctx context.Context, state State, span o
 }
 
 func applyInvocationRequestOverrides(
-	request *model.Request,
+	request *compat.Request,
 	invocation *agent.Invocation,
 	nodeID string,
 ) {
@@ -1437,7 +1437,7 @@ func applyInvocationRequestOverrides(
 		invocation.RunOptions.CustomAgentConfigs,
 	); opts != nil {
 		patch := generationPatchForNode(opts, nodeID)
-		request.GenerationConfig = model.ApplyGenerationConfigPatch(
+		request.GenerationConfig = compat.ApplyGenerationConfigPatch(
 			request.GenerationConfig,
 			patch,
 		)
@@ -1470,7 +1470,7 @@ func applyInvocationRequestOverrides(
 }
 
 func extractModelResponseSummary(result any) (string, string) {
-	finalResponse, ok := result.(*model.Response)
+	finalResponse, ok := result.(*compat.Response)
 	if !ok || finalResponse == nil || len(finalResponse.Choices) == 0 {
 		return "", ""
 	}
@@ -1481,8 +1481,8 @@ func selectGraphNodeModel(
 	ctx context.Context,
 	invocation *agent.Invocation,
 	nodeID string,
-	baseModel model.Model,
-) (model.Model, *agent.Invocation, error) {
+	baseModel compat.Model,
+) (compat.Model, *agent.Invocation, error) {
 	if invocation == nil || invocation.RunOptions.ModelSelector == nil {
 		return baseModel, invocation, nil
 	}
@@ -1505,7 +1505,7 @@ func selectGraphNodeModel(
 func graphModelInvocationView(
 	invocation *agent.Invocation,
 	nodeID string,
-	callModel model.Model,
+	callModel compat.Model,
 ) *agent.Invocation {
 	if invocation == nil {
 		return nil
@@ -1521,7 +1521,7 @@ func runGraphModelSelector(
 	ctx context.Context,
 	selector agent.ModelSelector,
 	invocation *agent.Invocation,
-) (selected model.Model, err error) {
+) (selected compat.Model, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf(log.PanicPrefix+" model selector panic: %v\n%s", r, debug.Stack())
@@ -1536,7 +1536,7 @@ type graphModelCall struct {
 	tools          map[string]tool.Tool
 	nodeID         string
 	callInvocation *agent.Invocation
-	callModel      model.Model
+	callModel      compat.Model
 	span           oteltrace.Span
 	startedSpan    bool
 }
@@ -1605,7 +1605,7 @@ func rootInvocationForGraphModelCall(ctx context.Context, state State) *agent.In
 func (r *llmRunner) executeModel(
 	ctx context.Context,
 	state State,
-	messages []model.Message,
+	messages []compat.Message,
 	span oteltrace.Span,
 	instructionUsed string,
 ) (any, error) {
@@ -1622,16 +1622,17 @@ func (r *llmRunner) executeModel(
 	if call.startedSpan {
 		defer span.End()
 	}
-	request := &model.Request{
+	request := &compat.Request{
 		Messages:         messages,
 		Tools:            tools,
 		GenerationConfig: r.generationConfig,
 	}
 	// Sanitize invalid tool calls in history to avoid poisoning future requests.
-	request.Messages = toolcall.SanitizeMessagesWithTools(ctx, request.Messages, request.Tools)
+	reqTools, _ := request.Tools.(map[string]tool.Tool)
+	request.Messages = toolcall.SanitizeMessagesWithTools(ctx, request.Messages, reqTools)
 	applyInvocationRequestOverrides(request, callInvocation, nodeID)
 	invocationID, sessionID, appName, userID, eventChan := extractExecutionContext(state)
-	modelCallbacks, _ := state[StateKeyModelCallbacks].(*model.Callbacks)
+	modelCallbacks, _ := state[StateKeyModelCallbacks].(*compat.Callbacks)
 	emittedModelStartEvent := false
 
 	var streamWriter *agent.StreamWriter
@@ -1776,11 +1777,11 @@ func (r *llmRunner) processInstruction(state State) string {
 }
 
 // extractAssistantMessage extracts the assistant message from model result.
-func extractAssistantMessage(result any) *model.Message {
+func extractAssistantMessage(result any) *compat.Message {
 	if result == nil {
 		return nil
 	}
-	if response, ok := result.(*model.Response); ok && len(response.Choices) > 0 {
+	if response, ok := result.(*compat.Response); ok && len(response.Choices) > 0 {
 		return &response.Choices[0].Message
 	}
 	return nil
@@ -1788,22 +1789,22 @@ func extractAssistantMessage(result any) *model.Message {
 
 // extractResponseID extracts response ID from model result.
 func extractResponseID(result any) string {
-	if response, ok := result.(*model.Response); ok {
+	if response, ok := result.(*compat.Response); ok {
 		return response.ID
 	}
 	return ""
 }
 
 // ensureSystemHead ensures system prompt is at the head if provided.
-func ensureSystemHead(in []model.Message, sys string) []model.Message {
+func ensureSystemHead(in []compat.Message, sys string) []compat.Message {
 	if sys == "" {
 		return in
 	}
-	if len(in) > 0 && in[0].Role == model.RoleSystem {
+	if len(in) > 0 && in[0].Role == compat.RoleSystem {
 		return in
 	}
-	out := make([]model.Message, 0, len(in)+1)
-	out = append(out, model.NewSystemMessage(sys))
+	out := make([]compat.Message, 0, len(in)+1)
+	out = append(out, compat.NewSystemMessage(sys))
 	out = append(out, in...)
 	return out
 }
@@ -1842,23 +1843,23 @@ func executionContextFromState(state State) *ExecutionContext {
 
 // modelResponseConfig contains configuration for processing model responses.
 type modelResponseConfig struct {
-	Response         *model.Response
+	Response         *compat.Response
 	Invocation       *agent.Invocation
 	StableInvocation *agent.Invocation
 	Tracker          *itelemetry.ChatMetricsTracker
 	PartialUsage     *responseusage.PartialState
-	ModelCallbacks   *model.Callbacks
+	ModelCallbacks   *compat.Callbacks
 	EventChan        chan<- *event.Event
 	InvocationID     string
 	SessionID        string
-	LLMModel         model.Model
-	Request          *model.Request
+	LLMModel         compat.Model
+	Request          *compat.Request
 	Span             oteltrace.Span
 	// NodeID, when provided, is used as the event author.
 	NodeID string
 }
 
-func responseModelError(rsp *model.Response) error {
+func responseModelError(rsp *compat.Response) error {
 	if rsp == nil || rsp.Error == nil {
 		return nil
 	}
@@ -1883,9 +1884,9 @@ func shouldDisableModelExecutionEvents(invocation *agent.Invocation) bool {
 func applyBeforeModelPluginCallbacks(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	request *model.Request,
+	request *compat.Request,
 	span oteltrace.Span,
-) (context.Context, bool, *model.Response, error) {
+) (context.Context, bool, *compat.Response, error) {
 	if invocation == nil || invocation.Plugins == nil {
 		return ctx, false, nil, nil
 	}
@@ -1893,7 +1894,7 @@ func applyBeforeModelPluginCallbacks(
 	if callbacks == nil {
 		return ctx, false, nil, nil
 	}
-	args := &model.BeforeModelArgs{Request: request}
+	args := &compat.BeforeModelArgs{Request: request}
 	result, err := callbacks.RunBeforeModel(ctx, args)
 	if err != nil {
 		span.SetAttributes(
@@ -1915,14 +1916,14 @@ func applyBeforeModelPluginCallbacks(
 
 func applyBeforeModelCallbacks(
 	ctx context.Context,
-	callbacks *model.Callbacks,
-	request *model.Request,
+	callbacks *compat.Callbacks,
+	request *compat.Request,
 	span oteltrace.Span,
-) (context.Context, *model.Response, error) {
+) (context.Context, *compat.Response, error) {
 	if callbacks == nil {
 		return ctx, nil, nil
 	}
-	args := &model.BeforeModelArgs{Request: request}
+	args := &compat.BeforeModelArgs{Request: request}
 	result, err := callbacks.RunBeforeModel(ctx, args)
 	if err != nil {
 		span.RecordError(err)
@@ -1938,9 +1939,9 @@ func applyBeforeModelCallbacks(
 	return ctx, nil, nil
 }
 
-func singleResponseStream(response *model.Response) modelResponseStream {
+func singleResponseStream(response *compat.Response) modelResponseStream {
 	return modelResponseStream{
-		Seq: func(yield func(*model.Response) bool) {
+		Seq: func(yield func(*compat.Response) bool) {
 			yield(response)
 		},
 	}
@@ -1948,9 +1949,9 @@ func singleResponseStream(response *model.Response) modelResponseStream {
 
 func applyAfterModelPluginCallbacks(
 	ctx context.Context,
-	args *model.AfterModelArgs,
+	args *compat.AfterModelArgs,
 	span oteltrace.Span,
-) (context.Context, bool, *model.Response, error) {
+) (context.Context, bool, *compat.Response, error) {
 	invocation, ok := agent.InvocationFromContext(ctx)
 	if !ok || invocation == nil || invocation.Plugins == nil {
 		return ctx, false, nil, nil
@@ -1983,10 +1984,10 @@ func applyAfterModelPluginCallbacks(
 
 func applyAfterModelCallbacks(
 	ctx context.Context,
-	callbacks *model.Callbacks,
-	args *model.AfterModelArgs,
+	callbacks *compat.Callbacks,
+	args *compat.AfterModelArgs,
 	span oteltrace.Span,
-) (context.Context, *model.Response, error) {
+) (context.Context, *compat.Response, error) {
 	if callbacks == nil {
 		return ctx, nil, nil
 	}
@@ -2022,7 +2023,7 @@ func modelResponseAuthor(config modelResponseConfig) string {
 
 func applyPartialEventMetadataOverrides(
 	ev *event.Event,
-	resp *model.Response,
+	resp *compat.Response,
 	invocation *agent.Invocation,
 ) {
 	if ev == nil || resp == nil || !resp.IsPartial || invocation == nil {
@@ -2060,7 +2061,7 @@ func emitModelResponseEvent(
 }
 
 func shouldEmitModelResponseEvent(
-	rsp *model.Response,
+	rsp *compat.Response,
 	invocation *agent.Invocation,
 ) bool {
 	if rsp == nil {
@@ -2090,7 +2091,7 @@ func processModelResponse(ctx context.Context, config modelResponseConfig) (cont
 		timingInfo,
 		config.PartialUsage,
 	)
-	args := &model.AfterModelArgs{
+	args := &compat.AfterModelArgs{
 		Request:  config.Request,
 		Response: config.Response,
 		Error:    responseModelError(config.Response),
@@ -2183,7 +2184,7 @@ func processModelResponse(ctx context.Context, config modelResponseConfig) (cont
 
 // responseHasReasoningContent reports whether any choice in the response
 // carries reasoning/thinking content.
-func responseHasReasoningContent(rsp *model.Response) bool {
+func responseHasReasoningContent(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}
@@ -2195,7 +2196,7 @@ func responseHasReasoningContent(rsp *model.Response) bool {
 	return false
 }
 
-func shouldEmitModelResponse(rsp *model.Response) bool {
+func shouldEmitModelResponse(rsp *compat.Response) bool {
 	if rsp == nil {
 		return false
 	}
@@ -2217,20 +2218,20 @@ func shouldEmitModelResponse(rsp *model.Response) bool {
 }
 
 type modelResponseStream struct {
-	// Ch is the response channel returned by model.Model.GenerateContent.
-	Ch <-chan *model.Response
-	// Seq is the iterator returned by model.IterModel.GenerateContentIter.
-	Seq model.Seq[*model.Response]
+	// Ch is the response channel returned by compat.Model.GenerateContent.
+	Ch <-chan *compat.Response
+	// Seq is the iterator returned by compat.IterModel.GenerateContentIter.
+	Seq compat.Seq[*compat.Response]
 }
 
 func generateModelStream(
 	ctx context.Context,
-	llmModel model.Model,
-	request *model.Request,
+	llmModel compat.Model,
+	request *compat.Request,
 	span oteltrace.Span,
 ) (modelResponseStream, error) {
 	// Generate content.
-	if iterModel, ok := llmModel.(model.IterModel); ok {
+	if iterModel, ok := llmModel.(compat.IterModel); ok {
 		seq, err := iterModel.GenerateContentIter(ctx, request)
 		if err != nil {
 			span.RecordError(err)
@@ -2256,9 +2257,9 @@ func generateModelStream(
 func runModelStream(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	modelCallbacks *model.Callbacks,
-	llmModel model.Model,
-	request *model.Request,
+	modelCallbacks *compat.Callbacks,
+	llmModel compat.Model,
+	request *compat.Request,
 	beforeGenerate func(context.Context),
 ) (context.Context, modelResponseStream, error) {
 	ctx, span, startedSpan := startNodeSpanForInvocation(ctx, invocation, "run_model")
@@ -2273,7 +2274,7 @@ func runModelStream(
 		)
 	}
 	pluginOverride := false
-	customResponse := (*model.Response)(nil)
+	customResponse := (*compat.Response)(nil)
 	var err error
 	ctx, pluginOverride, customResponse, err = applyBeforeModelPluginCallbacks(
 		ctx,
@@ -2322,10 +2323,10 @@ func runModelStream(
 // adapting iterator-based model streams back to the legacy channel form.
 func runModel(
 	ctx context.Context,
-	modelCallbacks *model.Callbacks,
-	llmModel model.Model,
-	request *model.Request,
-) (context.Context, <-chan *model.Response, error) {
+	modelCallbacks *compat.Callbacks,
+	llmModel compat.Model,
+	request *compat.Request,
+) (context.Context, <-chan *compat.Response, error) {
 	invocation, _ := agent.InvocationFromContext(ctx)
 	ctx, stream, err := runModelStream(
 		ctx,
@@ -2345,10 +2346,10 @@ func runModel(
 		return ctx, nil, errors.New(errMsgNoModelResponse)
 	}
 
-	responseChan := make(chan *model.Response, 1)
+	responseChan := make(chan *compat.Response, 1)
 	go func() {
 		defer close(responseChan)
-		stream.Seq(func(response *model.Response) bool {
+		stream.Seq(func(response *compat.Response) bool {
 			select {
 			case responseChan <- response:
 				return true
@@ -2732,7 +2733,7 @@ type agentNodeConfig struct {
 	isolated            bool
 	scope               string
 	inputFromLast       bool
-	llmGenerationConfig *model.GenerationConfig
+	llmGenerationConfig *compat.GenerationConfig
 	userInputKey        string
 	streamOutputName    string
 }
@@ -2901,7 +2902,7 @@ func agentNodeInputMessage(
 	parent State,
 	inputMessageMapper AgentNodeInputMapper,
 	userInputKey string,
-) model.Message {
+) compat.Message {
 	if msg, ok := agentNodeInputMessageFromMappedState(
 		parent,
 		inputMessageMapper,
@@ -2915,58 +2916,58 @@ func agentNodeInputMessage(
 		userInputKey = StateKeyUserInput
 	}
 	userInput, _ := GetStateValue[string](parent, userInputKey)
-	return model.NewUserMessage(userInput)
+	return compat.NewUserMessage(userInput)
 }
 
 func agentNodeInputMessageFromMappedState(
 	parent State,
 	inputMessageMapper AgentNodeInputMapper,
-) (model.Message, bool) {
+) (compat.Message, bool) {
 	if inputMessageMapper == nil {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	mapped := inputMessageMapper(parent)
 	if len(mapped) == 0 {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	return agentNodeInputMessageFromState(mapped)
 }
 
-func agentNodeInputMessageFromState(state State) (model.Message, bool) {
+func agentNodeInputMessageFromState(state State) (compat.Message, bool) {
 	raw, ok := state[StateKeyAgentInputMessage]
 	if !ok || raw == nil {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	switch msg := raw.(type) {
-	case *model.Message:
+	case *compat.Message:
 		if msg == nil {
-			return model.Message{}, false
+			return compat.Message{}, false
 		}
 		return validAgentNodeInputMessage(*msg)
-	case model.Message:
+	case compat.Message:
 		return validAgentNodeInputMessage(msg)
 	case map[string]any:
 		return decodeAgentNodeInputMessage(msg)
 	default:
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 }
 
-func validAgentNodeInputMessage(msg model.Message) (model.Message, bool) {
+func validAgentNodeInputMessage(msg compat.Message) (compat.Message, bool) {
 	if msg.Role == "" {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	return msg, true
 }
 
-func decodeAgentNodeInputMessage(raw any) (model.Message, bool) {
+func decodeAgentNodeInputMessage(raw any) (compat.Message, bool) {
 	b, err := json.Marshal(raw)
 	if err != nil {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
-	var msg model.Message
+	var msg compat.Message
 	if err := json.Unmarshal(b, &msg); err != nil {
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 	return validAgentNodeInputMessage(msg)
 }
@@ -3237,13 +3238,13 @@ type agentEventStreamResult struct {
 	fallbackState    State
 	fallbackRawDelta map[string][]byte
 	structuredOutput any
-	lastMessage      *model.Message
-	toolCalls        []model.ToolCall
+	lastMessage      *compat.Message
+	toolCalls        []compat.ToolCall
 	interrupt        *InterruptError
 	interruptInfo    *extractedPregelInterrupt
 	terminalErr      error
 	terminalErrMeta  agentTerminalErrorMeta
-	finalError       *model.ResponseError
+	finalError       *compat.ResponseError
 }
 
 type agentTerminalErrorMeta struct {
@@ -3373,7 +3374,7 @@ func updateAgentLastResponseValue(lastResponse *string, lastResponseID *string, 
 		return
 	}
 	msg := ev.Response.Choices[0].Message
-	if msg.Role != model.RoleAssistant || msg.Content == "" {
+	if msg.Role != compat.RoleAssistant || msg.Content == "" {
 		return
 	}
 	if ev.Response.ID != "" {
@@ -3387,14 +3388,14 @@ func updateAgentLastMessage(res *agentEventStreamResult, ev *event.Event) {
 		return
 	}
 	msg := ev.Response.Choices[0].Message
-	if msg.Role != model.RoleAssistant || !agentMessageHasPayload(msg) {
+	if msg.Role != compat.RoleAssistant || !agentMessageHasPayload(msg) {
 		return
 	}
 	res.lastMessage = &msg
 	res.toolCalls = msg.ToolCalls
 }
 
-func agentMessageHasPayload(msg model.Message) bool {
+func agentMessageHasPayload(msg compat.Message) bool {
 	return msg.Content != "" ||
 		len(msg.ContentParts) > 0 ||
 		msg.ReasoningContent != "" ||
@@ -3481,7 +3482,7 @@ func isAgentRecoveryEvent(ev *event.Event) bool {
 		return true
 	}
 	for _, choice := range ev.Response.Choices {
-		if choice.Message.Role == model.RoleAssistant &&
+		if choice.Message.Role == compat.RoleAssistant &&
 			choice.Message.Content != "" {
 			return true
 		}
@@ -3575,7 +3576,7 @@ func isTerminalAgentErrorEvent(ev *event.Event) bool {
 		}
 		return metadata.StepNumber < 0
 	}
-	if ev.Object != model.ObjectTypeError {
+	if ev.Object != compat.ObjectTypeError {
 		return false
 	}
 	if len(ev.StateDelta) == 0 {
@@ -3851,7 +3852,7 @@ func shouldPropagateAgentFallbackStateKey(
 }
 
 func shouldPropagateAgentFallbackState(
-	err *model.ResponseError,
+	err *compat.ResponseError,
 ) bool {
 	if err == nil {
 		return false
@@ -4014,18 +4015,18 @@ func mergeAgentNodeRuntimeState(runtime State, nodeRuntimeState map[string]any) 
 func injectAgentNodeToolContinuationMessages(
 	runOptions *agent.RunOptions,
 	runtime State,
-	inputMessage model.Message,
+	inputMessage compat.Message,
 ) {
-	if runOptions == nil || runtime == nil || inputMessage.Role != model.RoleTool {
+	if runOptions == nil || runtime == nil || inputMessage.Role != compat.RoleTool {
 		return
 	}
-	messages, ok := runtime[StateKeyMessages].([]model.Message)
+	messages, ok := runtime[StateKeyMessages].([]compat.Message)
 	if !ok || len(messages) == 0 {
 		return
 	}
-	history := make([]model.Message, 0, len(messages))
+	history := make([]compat.Message, 0, len(messages))
 	for _, msg := range messages {
-		if model.MessagesEqual(msg, inputMessage) {
+		if compat.MessagesEqual(msg, inputMessage) {
 			continue
 		}
 		history = append(history, msg)
@@ -4101,10 +4102,10 @@ const (
 
 func runBeforeToolPluginCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	decl *tool.Declaration,
 	state State,
-) (context.Context, model.ToolCall, any, error) {
+) (context.Context, compat.ToolCall, any, error) {
 	invocation, ok := agent.InvocationFromContext(ctx)
 	if !ok || invocation == nil || invocation.Plugins == nil {
 		return ctx, toolCall, nil, nil
@@ -4148,11 +4149,11 @@ func runBeforeToolPluginCallbacks(
 
 func runBeforeToolCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	decl *tool.Declaration,
 	toolCallbacks *tool.Callbacks,
 	state State,
-) (context.Context, model.ToolCall, any, error) {
+) (context.Context, compat.ToolCall, any, error) {
 	if toolCallbacks == nil {
 		return ctx, toolCall, nil, nil
 	}
@@ -4202,7 +4203,7 @@ func ensureCallableTool(
 
 func runAfterToolPluginCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	decl *tool.Declaration,
 	result any,
 	runErr error,
@@ -4251,7 +4252,7 @@ func runAfterToolPluginCallbacks(
 
 func runAfterToolCallbacks(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	decl *tool.Declaration,
 	result any,
 	runErr error,
@@ -4315,7 +4316,7 @@ func extractMetaFromResult(result any) map[string]any {
 //   - error: any error that occurred during execution
 func runTool(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolCallbacks *tool.Callbacks,
 	t tool.Tool,
 	state State,
@@ -4334,7 +4335,7 @@ func runTool(
 
 func runToolWithEventContexts(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolCallbacks *tool.Callbacks,
 	t tool.Tool,
 	state State,
@@ -4465,7 +4466,7 @@ func runToolWithEventContexts(
 func agentToolGraphRuntimeContext(
 	invocation *agent.Invocation,
 	state State,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	toolCallIndex int,
 ) (agenttoolgraph.RuntimeContext, error) {
 	if invocation == nil {
@@ -4495,7 +4496,7 @@ func agentToolGraphRuntimeContext(
 
 func callToolWithRetry(
 	ctx context.Context,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	callableTool tool.CallableTool,
 	retryPolicy *tool.RetryPolicy,
 	invocation *agent.Invocation,
@@ -4547,7 +4548,7 @@ func callToolWithRetry(
 func checkToolPermission(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	toolCall model.ToolCall,
+	toolCall compat.ToolCall,
 	t tool.Tool,
 	decl *tool.Declaration,
 ) (*tool.PermissionResult, error) {
@@ -4630,7 +4631,7 @@ func extractModelInput(state State, instruction, userInputKey string) string {
 }
 
 // getModelName extracts the model name from the model instance.
-func getModelName(llmModel model.Model) string {
+func getModelName(llmModel compat.Model) string {
 	return llmModel.Info().Name
 }
 
@@ -4789,9 +4790,9 @@ func modelExecutionEventFilterKey(baseInvocation, currentInvocation *agent.Invoc
 // modelExecutionConfig contains configuration for model execution with events.
 type modelExecutionConfig struct {
 	Invocation     *agent.Invocation
-	ModelCallbacks *model.Callbacks
-	LLMModel       model.Model
-	Request        *model.Request
+	ModelCallbacks *compat.Callbacks
+	LLMModel       compat.Model
+	Request        *compat.Request
 	EventChan      chan<- *event.Event
 	InvocationID   string
 	SessionID      string
@@ -4822,7 +4823,7 @@ func newModelDeltaStreamTap(w *agent.StreamWriter) *modelDeltaStreamTap {
 	}
 }
 
-func (t *modelDeltaStreamTap) WriteDelta(resp *model.Response) {
+func (t *modelDeltaStreamTap) WriteDelta(resp *compat.Response) {
 	if t == nil || t.writer == nil || t.broken {
 		return
 	}
@@ -4836,7 +4837,7 @@ func (t *modelDeltaStreamTap) WriteDelta(resp *model.Response) {
 	}
 }
 
-func (t *modelDeltaStreamTap) WriteFinalIfNoDelta(final *model.Response) {
+func (t *modelDeltaStreamTap) WriteFinalIfNoDelta(final *compat.Response) {
 	if t == nil || t.writer == nil || t.broken || t.sawDelta {
 		return
 	}
@@ -4847,14 +4848,14 @@ func (t *modelDeltaStreamTap) WriteFinalIfNoDelta(final *model.Response) {
 	_, _ = t.writer.WriteString(msg)
 }
 
-func modelDeltaFromResponse(resp *model.Response) string {
+func modelDeltaFromResponse(resp *compat.Response) string {
 	if resp == nil || len(resp.Choices) == 0 {
 		return ""
 	}
 	return resp.Choices[0].Delta.Content
 }
 
-func modelMessageFromResponse(resp *model.Response) string {
+func modelMessageFromResponse(resp *compat.Response) string {
 	if resp == nil || len(resp.Choices) == 0 {
 		return ""
 	}
@@ -4863,8 +4864,8 @@ func modelMessageFromResponse(resp *model.Response) string {
 
 func validateFinalModelResponse(
 	span oteltrace.Span,
-	resp *model.Response,
-) (*model.Response, error) {
+	resp *compat.Response,
+) (*compat.Response, error) {
 	if resp == nil {
 		span.SetAttributes(attribute.String(
 			"trpc.go.agent.error",
@@ -4883,9 +4884,9 @@ func validateFinalModelResponse(
 }
 
 func collectToolCallsFromResponse(
-	toolCalls []model.ToolCall,
-	resp *model.Response,
-) []model.ToolCall {
+	toolCalls []compat.ToolCall,
+	resp *compat.Response,
+) []compat.ToolCall {
 	if resp == nil || len(resp.Choices) == 0 {
 		return toolCalls
 	}
@@ -4897,8 +4898,8 @@ func collectToolCallsFromResponse(
 }
 
 func mergeToolCallsIntoFinalResponse(
-	resp *model.Response,
-	toolCalls []model.ToolCall,
+	resp *compat.Response,
+	toolCalls []compat.ToolCall,
 ) {
 	if resp == nil || len(resp.Choices) == 0 {
 		return
@@ -4911,7 +4912,7 @@ func mergeToolCallsIntoFinalResponse(
 
 func hasAfterModelCallbacks(
 	invocation *agent.Invocation,
-	modelCallbacks *model.Callbacks,
+	modelCallbacks *compat.Callbacks,
 ) bool {
 	if hasRegisteredAfterModelCallbacks(modelCallbacks) {
 		return true
@@ -4924,7 +4925,7 @@ func hasAfterModelCallbacks(
 	)
 }
 
-func hasRegisteredAfterModelCallbacks(callbacks *model.Callbacks) bool {
+func hasRegisteredAfterModelCallbacks(callbacks *compat.Callbacks) bool {
 	return callbacks != nil && len(callbacks.AfterModel) > 0
 }
 
@@ -4941,7 +4942,7 @@ func nextReusableModelEvent(
 }
 
 func trackModelResponseTelemetry(
-	response *model.Response,
+	response *compat.Response,
 	tracker *itelemetry.ChatMetricsTracker,
 ) {
 	if tracker == nil || response == nil {
@@ -4950,7 +4951,7 @@ func trackModelResponseTelemetry(
 	tracker.TrackResponse(response)
 }
 
-func responseUsageTimingInfo(invocation *agent.Invocation) *model.TimingInfo {
+func responseUsageTimingInfo(invocation *agent.Invocation) *compat.TimingInfo {
 	if invocation == nil || invocation.RunOptions.DisableResponseUsageTracking {
 		return nil
 	}
@@ -4961,7 +4962,7 @@ func emitFastModelResponseEvent(
 	ctx context.Context,
 	eventInvocation *agent.Invocation,
 	config modelExecutionConfig,
-	response *model.Response,
+	response *compat.Response,
 	author string,
 	partialEventIDsDisabled bool,
 	partialEventTimestampsDisabled bool,
@@ -5006,8 +5007,8 @@ func traceProcessedModelResponse(
 	traceState *itelemetry.ChatTraceState,
 	tracker *itelemetry.ChatMetricsTracker,
 	invocation *agent.Invocation,
-	request *model.Request,
-	response *model.Response,
+	request *compat.Request,
+	response *compat.Response,
 	lastEvent *event.Event,
 ) {
 	if lastEvent == nil {
@@ -5040,7 +5041,7 @@ type modelResponseProcessor struct {
 	invocation                     *agent.Invocation
 	chatTraceState                 itelemetry.ChatTraceState
 	tracker                        *itelemetry.ChatMetricsTracker
-	timingInfo                     *model.TimingInfo
+	timingInfo                     *compat.TimingInfo
 	partialUsageState              responseusage.PartialState
 	tap                            *modelDeltaStreamTap
 	reusableEvents                 []event.Event
@@ -5050,8 +5051,8 @@ type modelResponseProcessor struct {
 	partialEventIDsDisabled        bool
 	partialEventTimestampsDisabled bool
 	lastEvent                      *event.Event
-	finalResponse                  *model.Response
-	toolCalls                      []model.ToolCall
+	finalResponse                  *compat.Response
+	toolCalls                      []compat.ToolCall
 }
 
 func newModelResponseProcessor(
@@ -5288,7 +5289,7 @@ func (p *modelResponseProcessor) consume(stream modelResponseStream) error {
 	}
 
 	var streamErr error
-	stream.Seq(func(response *model.Response) bool {
+	stream.Seq(func(response *compat.Response) bool {
 		ok, err := p.handleResponse(response)
 		if err != nil {
 			streamErr = err
@@ -5299,7 +5300,7 @@ func (p *modelResponseProcessor) consume(stream modelResponseStream) error {
 	return streamErr
 }
 
-func (p *modelResponseProcessor) handleResponse(response *model.Response) (bool, error) {
+func (p *modelResponseProcessor) handleResponse(response *compat.Response) (bool, error) {
 	if response == nil {
 		return true, nil
 	}
@@ -5368,7 +5369,7 @@ func (p *modelResponseProcessor) handleResponse(response *model.Response) (bool,
 	return true, nil
 }
 
-func (p *modelResponseProcessor) finalize() (*model.Response, error) {
+func (p *modelResponseProcessor) finalize() (*compat.Response, error) {
 	finalResponse, err := validateFinalModelResponse(p.config.Span, p.finalResponse)
 	if err != nil {
 		return nil, err
@@ -5445,10 +5446,10 @@ func executeModelWithEvents(ctx context.Context, config modelExecutionConfig) (a
 // extractToolCallsFromState extracts and validates tool calls from the state.
 // It scans backwards from the end to find the most recent assistant message with tool calls,
 // stopping when it encounters a user message.
-func extractToolCallsFromState(state State, span oteltrace.Span) ([]model.ToolCall, error) {
-	var messages []model.Message
+func extractToolCallsFromState(state State, span oteltrace.Span) ([]compat.ToolCall, error) {
+	var messages []compat.Message
 	if msgData, exists := state[StateKeyMessages]; exists {
-		if msgs, ok := msgData.([]model.Message); ok {
+		if msgs, ok := msgData.([]compat.Message); ok {
 			messages = msgs
 		}
 	}
@@ -5463,11 +5464,11 @@ func extractToolCallsFromState(state State, span oteltrace.Span) ([]model.ToolCa
 	for i := len(messages) - 1; i >= 0; i-- {
 		m := messages[i]
 		switch m.Role {
-		case model.RoleAssistant:
+		case compat.RoleAssistant:
 			if len(m.ToolCalls) > 0 {
 				return m.ToolCalls, nil
 			}
-		case model.RoleUser:
+		case compat.RoleUser:
 			// Stop scanning when we encounter a user message.
 			// This ensures we don't process tool calls from previous conversation turns.
 			span.SetAttributes(attribute.String("trpc.go.agent.error", "no assistant message with tool calls found before user message"))
@@ -5484,7 +5485,7 @@ func extractToolCallsFromState(state State, span oteltrace.Span) ([]model.ToolCa
 
 // toolCallsConfig contains configuration for processing tool calls.
 type toolCallsConfig struct {
-	ToolCalls    []model.ToolCall
+	ToolCalls    []compat.ToolCall
 	Tools        map[string]tool.Tool
 	InvocationID string
 	EventChan    chan<- *event.Event
@@ -5517,7 +5518,7 @@ func (c *parallelToolCallCancelCause) Unwrap() error {
 }
 
 // processToolCalls executes all tool calls and returns the resulting messages.
-func processToolCalls(ctx context.Context, config toolCallsConfig) ([]model.Message, error) {
+func processToolCalls(ctx context.Context, config toolCallsConfig) ([]compat.Message, error) {
 	// Use callbacks from config if provided; otherwise extract from state.
 	toolCallbacks := config.ToolCallbacks
 	if toolCallbacks == nil {
@@ -5526,8 +5527,8 @@ func processToolCalls(ctx context.Context, config toolCallsConfig) ([]model.Mess
 	completedMessages := completedToolMessagesForNode(config.State, config.NodeID)
 	// Serial path or single tool call.
 	if !config.EnableParallel || len(config.ToolCalls) <= 1 {
-		newMessages := make([]model.Message, 0, len(config.ToolCalls))
-		completedThisRun := make(map[string]model.Message)
+		newMessages := make([]compat.Message, 0, len(config.ToolCalls))
+		completedThisRun := make(map[string]compat.Message)
 		for i, toolCall := range config.ToolCalls {
 			completedKey := completedToolMessageKey(i, toolCall)
 			if msg, ok := completedMessages[completedKey]; ok {
@@ -5566,11 +5567,11 @@ func processToolCalls(ctx context.Context, config toolCallsConfig) ([]model.Mess
 	// preserving the original order in the resulting messages slice.
 	type pendingCall struct {
 		idx int
-		tc  model.ToolCall
+		tc  compat.ToolCall
 	}
 	type result struct {
 		idx int
-		msg model.Message
+		msg compat.Message
 		err error
 	}
 
@@ -5578,7 +5579,7 @@ func processToolCalls(ctx context.Context, config toolCallsConfig) ([]model.Mess
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	out := make([]model.Message, len(config.ToolCalls))
+	out := make([]compat.Message, len(config.ToolCalls))
 	pendingCalls := make([]pendingCall, 0, len(config.ToolCalls))
 	for i, tc := range config.ToolCalls {
 		completedKey := completedToolMessageKey(i, tc)
@@ -5635,7 +5636,7 @@ func processToolCalls(ctx context.Context, config toolCallsConfig) ([]model.Mess
 
 	// Aggregate while preserving order.
 	errsByIndex := make([]error, len(config.ToolCalls))
-	completedThisRun := make(map[string]model.Message)
+	completedThisRun := make(map[string]compat.Message)
 	for r := range results {
 		if r.err != nil {
 			errsByIndex[r.idx] = r.err
@@ -5705,7 +5706,7 @@ func selectToolCallError(errs []error, causalError error) error {
 	return first
 }
 
-func completedToolMessagesForNode(state State, nodeID string) map[string]model.Message {
+func completedToolMessagesForNode(state State, nodeID string) map[string]compat.Message {
 	if state == nil || nodeID == "" {
 		return nil
 	}
@@ -5717,7 +5718,7 @@ func completedToolMessagesForNode(state State, nodeID string) map[string]model.M
 	if !ok {
 		return nil
 	}
-	messages := make(map[string]model.Message, len(rawMessages))
+	messages := make(map[string]compat.Message, len(rawMessages))
 	for key, raw := range rawMessages {
 		msg, ok := modelMessageFromAny(raw)
 		if ok {
@@ -5727,29 +5728,29 @@ func completedToolMessagesForNode(state State, nodeID string) map[string]model.M
 	return messages
 }
 
-func modelMessageFromAny(raw any) (model.Message, bool) {
+func modelMessageFromAny(raw any) (compat.Message, bool) {
 	switch msg := raw.(type) {
-	case model.Message:
+	case compat.Message:
 		return msg, true
-	case *model.Message:
+	case *compat.Message:
 		if msg == nil {
-			return model.Message{}, false
+			return compat.Message{}, false
 		}
 		return *msg, true
 	default:
 		data, err := json.Marshal(raw)
 		if err != nil {
-			return model.Message{}, false
+			return compat.Message{}, false
 		}
-		var decoded model.Message
+		var decoded compat.Message
 		if err := json.Unmarshal(data, &decoded); err != nil {
-			return model.Message{}, false
+			return compat.Message{}, false
 		}
 		return decoded, true
 	}
 }
 
-func recordCompletedToolMessage(state State, nodeID string, key string, msg model.Message) {
+func recordCompletedToolMessage(state State, nodeID string, key string, msg compat.Message) {
 	if state == nil || nodeID == "" || key == "" {
 		return
 	}
@@ -5766,7 +5767,7 @@ func recordCompletedToolMessage(state State, nodeID string, key string, msg mode
 	rawMessages[key] = msg
 }
 
-func recordCompletedToolMessages(state State, nodeID string, messages map[string]model.Message) {
+func recordCompletedToolMessages(state State, nodeID string, messages map[string]compat.Message) {
 	for key, msg := range messages {
 		recordCompletedToolMessage(state, nodeID, key, msg)
 	}
@@ -5786,17 +5787,17 @@ func clearCompletedToolMessages(state State, nodeID string) {
 	}
 }
 
-func completedToolMessageKey(index int, toolCall model.ToolCall) string {
+func completedToolMessageKey(index int, toolCall compat.ToolCall) string {
 	return fmt.Sprintf("%d:%s:%s", index, toolCall.Function.Name, toolCall.ID)
 }
 
-func agentToolCallKey(index int, toolCall model.ToolCall) string {
+func agentToolCallKey(index int, toolCall compat.ToolCall) string {
 	return fmt.Sprintf("%d:%s:%s", index, toolCall.Function.Name, toolCall.ID)
 }
 
 // singleToolCallConfig contains configuration for executing a single tool call.
 type singleToolCallConfig struct {
-	ToolCall      model.ToolCall
+	ToolCall      compat.ToolCall
 	ToolCallIndex int
 	Tools         map[string]tool.Tool
 	InvocationID  string
@@ -5810,7 +5811,7 @@ type singleToolCallConfig struct {
 }
 
 // executeSingleToolCall executes a single tool call with event emission.
-func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (model.Message, error) {
+func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (compat.Message, error) {
 	id, name := config.ToolCall.ID, config.ToolCall.Function.Name
 	originalInvocation, traceStepID := graphToolTraceContext(ctx, config.State)
 	t := config.Tools[name]
@@ -5830,7 +5831,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 			nil,
 			err,
 		)
-		return model.Message{}, err
+		return compat.Message{}, err
 	}
 	if config.Concurrency != nil {
 		release, err := config.Concurrency.Acquire(ctx, name)
@@ -5853,7 +5854,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 				nil,
 				traceErr,
 			)
-			return model.Message{}, traceErr
+			return compat.Message{}, traceErr
 		}
 		defer release()
 	}
@@ -5974,7 +5975,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 				nil,
 				nil,
 			)
-			return model.Message{}, err
+			return compat.Message{}, err
 		}
 		config.Span.RecordError(err)
 		config.Span.SetStatus(codes.Error, err.Error())
@@ -5991,7 +5992,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 			nil,
 			err,
 		)
-		return model.Message{}, fmt.Errorf("tool %s call failed: %w", name, err)
+		return compat.Message{}, fmt.Errorf("tool %s call failed: %w", name, err)
 	}
 
 	// Marshal result to JSON.
@@ -6013,7 +6014,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 			nil,
 			traceErr,
 		)
-		return model.Message{}, traceErr
+		return compat.Message{}, traceErr
 	}
 	recordGraphToolExecutionTrace(
 		finalCtx,
@@ -6028,7 +6029,7 @@ func executeSingleToolCall(ctx context.Context, config singleToolCallConfig) (mo
 		content,
 		nil,
 	)
-	return model.NewToolMessage(id, name, string(content)), nil
+	return compat.NewToolMessage(id, name, string(content)), nil
 }
 
 func graphToolTraceContext(ctx context.Context, state State) (*agent.Invocation, string) {
@@ -6178,16 +6179,16 @@ func extractToolCallbacks(state State) (*tool.Callbacks, bool) {
 func MessagesStateSchema() *StateSchema {
 	schema := NewStateSchema()
 	schema.AddField(StateKeyMessages, StateField{
-		Type:    reflect.TypeOf([]model.Message{}),
+		Type:    reflect.TypeOf([]compat.Message{}),
 		Reducer: MessageReducer,
-		Default: func() any { return []model.Message{} },
+		Default: func() any { return []compat.Message{} },
 	})
 	schema.AddField(StateKeyUserInput, StateField{
 		Type:    reflect.TypeOf(""),
 		Reducer: DefaultReducer,
 	})
 	schema.AddField(StateKeyAgentInputMessage, StateField{
-		Type:    reflect.TypeOf((*model.Message)(nil)),
+		Type:    reflect.TypeOf((*compat.Message)(nil)),
 		Reducer: DefaultReducer,
 	})
 	schema.AddField(StateKeyLastResponse, StateField{

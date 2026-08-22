@@ -20,7 +20,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/auth"
@@ -29,12 +29,12 @@ import (
 	"trpc.group/trpc-go/trpc-a2a-go/v2/taskmanager"
 )
 
-type messageConverterFunc func(context.Context, protocol.Message) (*model.Message, error)
+type messageConverterFunc func(context.Context, protocol.Message) (*compat.Message, error)
 
 func (f messageConverterFunc) ConvertToAgentMessage(
 	ctx context.Context,
 	message protocol.Message,
-) (*model.Message, error) {
+) (*compat.Message, error) {
 	return f(ctx, message)
 }
 
@@ -60,7 +60,7 @@ func (r *errorRunner) Run(
 	context.Context,
 	string,
 	string,
-	model.Message,
+	compat.Message,
 	...agent.RunOption,
 ) (<-chan *event.Event, error) {
 	return nil, r.err
@@ -228,10 +228,10 @@ func TestFinalMetadataAndMessageMetadataMerging(t *testing.T) {
 			graph.StateKeyLastResponseID: []byte(`"response"`),
 			"new":                        []byte(`"value"`),
 		}),
-		event.WithResponse(&model.Response{
-			Object: model.ObjectTypeRunnerCompletion,
+		event.WithResponse(&compat.Response{
+			Object: compat.ObjectTypeRunnerCompletion,
 			Done:   true,
-			Error:  &model.ResponseError{Message: "warning"},
+			Error:  &compat.ResponseError{Message: "warning"},
 		}),
 	)
 	if !isFinalStreamingEvent(final) {
@@ -413,7 +413,7 @@ func TestProcessMessageSetupErrors(t *testing.T) {
 		a2aToAgentConverter: messageConverterFunc(func(
 			context.Context,
 			protocol.Message,
-		) (*model.Message, error) {
+		) (*compat.Message, error) {
 			return nil, errors.New("convert")
 		}),
 	}
@@ -443,7 +443,7 @@ func TestProcessMessageSetupErrors(t *testing.T) {
 	processor.a2aToAgentConverter = messageConverterFunc(func(
 		context.Context,
 		protocol.Message,
-	) (*model.Message, error) {
+	) (*compat.Message, error) {
 		return nil, nil
 	})
 	out, err := processor.ProcessMessage(ctx, execContext)
@@ -574,7 +574,7 @@ func TestRecordTaskOutputEventIgnoresTypedNil(t *testing.T) {
 }
 
 func TestTaskErrorHelperBranches(t *testing.T) {
-	if taskErrorState(&model.ResponseError{
+	if taskErrorState(&compat.ResponseError{
 		Type: agent.ErrorTypeStopAgentError,
 	}) != protocol.TaskStateCanceled {
 		t.Fatal("stop-agent error was not canceled")
@@ -583,7 +583,7 @@ func TestTaskErrorHelperBranches(t *testing.T) {
 		buildTaskErrorMessage("task", "context", nil, nil) != nil {
 		t.Fatal("nil task error helpers returned values")
 	}
-	noError := event.New("inv", "agent", event.WithResponse(&model.Response{}))
+	noError := event.New("inv", "agent", event.WithResponse(&compat.Response{}))
 	if buildTaskErrorMetadata(noError) != nil ||
 		buildTaskErrorMessage("task", "context", noError, nil) != nil {
 		t.Fatal("no-error task helpers returned values")

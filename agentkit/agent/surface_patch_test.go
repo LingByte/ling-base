@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/internal/surfacepatch"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
@@ -51,15 +51,15 @@ type surfacePatchTestModel struct {
 
 func (m *surfacePatchTestModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *surfacePatchTestModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *surfacePatchTestModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestWithSurfacePatchForNode_MergesAndCopiesByValue(t *testing.T) {
@@ -104,9 +104,9 @@ func TestSurfacePatch_Setters_ApplyAllSupportedSurfaces(t *testing.T) {
 	var patch SurfacePatch
 	patch.SetInstruction("instruction")
 	patch.SetGlobalInstruction("global")
-	patch.SetFewShot([][]model.Message{{
-		model.NewUserMessage("few-shot user"),
-		model.NewAssistantMessage("few-shot assistant"),
+	patch.SetFewShot([][]compat.Message{{
+		compat.NewUserMessage("few-shot user"),
+		compat.NewAssistantMessage("few-shot assistant"),
 	}})
 	patch.SetModel(modelValue)
 	patch.SetTools([]tool.Tool{surfacePatchTestTool{name: "tool_one"}})

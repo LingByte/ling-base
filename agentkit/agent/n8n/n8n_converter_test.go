@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -23,8 +23,8 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("converts basic message", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Hello, assistant!",
 			},
 		}
@@ -46,8 +46,8 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("with session user ID", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test message",
 			},
 			Session: &session.Session{
@@ -66,8 +66,8 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles empty user ID", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test message",
 			},
 			Session: &session.Session{
@@ -87,12 +87,12 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 	t.Run("handles text content parts", func(t *testing.T) {
 		textContent := "Additional text"
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Main content",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &textContent,
 					},
 				},
@@ -116,12 +116,12 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 	t.Run("handles text content part without main content", func(t *testing.T) {
 		textContent := "Only text part"
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: &textContent,
 					},
 				},
@@ -142,12 +142,12 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles nil text in text content part", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Main",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeText,
+						Type: compat.ContentTypeText,
 						Text: nil,
 					},
 				},
@@ -168,13 +168,13 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles image content parts", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Check this image",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL: "http://example.com/image.jpg",
 						},
 					},
@@ -196,13 +196,13 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles empty image URL", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeImage,
-						Image: &model.Image{
+						Type: compat.ContentTypeImage,
+						Image: &compat.Image{
 							URL: "",
 						},
 					},
@@ -224,13 +224,13 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles file content parts", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Check this file",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name: "document.pdf",
 						},
 					},
@@ -252,13 +252,13 @@ func TestDefaultRequestConverter_ConvertToN8nRequest(t *testing.T) {
 
 	t.Run("handles empty file name", func(t *testing.T) {
 		invocation := &agent.Invocation{
-			Message: model.Message{
-				Role:    model.RoleUser,
+			Message: compat.Message{
+				Role:    compat.RoleUser,
 				Content: "Test",
-				ContentParts: []model.ContentPart{
+				ContentParts: []compat.ContentPart{
 					{
-						Type: model.ContentTypeFile,
-						File: &model.File{
+						Type: compat.ContentTypeFile,
+						File: &compat.File{
 							Name: "",
 						},
 					},
@@ -306,7 +306,7 @@ func TestDefaultResponseConverter_ConvertToEvent(t *testing.T) {
 		if evt.Response.Choices[0].Message.Content != "Hello from n8n" {
 			t.Errorf("expected content 'Hello from n8n', got '%s'", evt.Response.Choices[0].Message.Content)
 		}
-		if evt.Response.Choices[0].Message.Role != model.RoleAssistant {
+		if evt.Response.Choices[0].Message.Role != compat.RoleAssistant {
 			t.Errorf("expected role assistant, got '%s'", evt.Response.Choices[0].Message.Role)
 		}
 		if !evt.Response.Done {
@@ -424,7 +424,7 @@ func TestDefaultResponseConverter_ConvertStreamingToEvent(t *testing.T) {
 		if evt.Response == nil {
 			t.Fatal("expected response, got nil")
 		}
-		if evt.Response.Object != model.ObjectTypeChatCompletionChunk {
+		if evt.Response.Object != compat.ObjectTypeChatCompletionChunk {
 			t.Errorf("expected object type chat completion chunk, got '%s'", evt.Response.Object)
 		}
 		if len(evt.Response.Choices) != 1 {
@@ -433,7 +433,7 @@ func TestDefaultResponseConverter_ConvertStreamingToEvent(t *testing.T) {
 		if evt.Response.Choices[0].Delta.Content != "streaming chunk" {
 			t.Errorf("expected delta content 'streaming chunk', got '%s'", evt.Response.Choices[0].Delta.Content)
 		}
-		if evt.Response.Choices[0].Delta.Role != model.RoleAssistant {
+		if evt.Response.Choices[0].Delta.Role != compat.RoleAssistant {
 			t.Errorf("expected role assistant, got '%s'", evt.Response.Choices[0].Delta.Role)
 		}
 		if !evt.Response.IsPartial {

@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -196,8 +196,8 @@ func TestManager_ModelCallbacks_Order(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				calls = append(calls, "p1")
 				return nil, nil
 			})
@@ -208,8 +208,8 @@ func TestManager_ModelCallbacks_Order(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				calls = append(calls, "p2")
 				return nil, nil
 			})
@@ -222,7 +222,7 @@ func TestManager_ModelCallbacks_Order(t *testing.T) {
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	require.Equal(t, []string{"p1", "p2"}, calls)
@@ -235,11 +235,11 @@ func TestManager_ModelCallbacks_EarlyExit(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				calls = append(calls, "p1")
-				return &model.BeforeModelResult{
-					CustomResponse: &model.Response{Done: true},
+				return &compat.BeforeModelResult{
+					CustomResponse: &compat.Response{Done: true},
 				}, nil
 			})
 		},
@@ -249,8 +249,8 @@ func TestManager_ModelCallbacks_EarlyExit(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.BeforeModel(func(
 				ctx context.Context,
-				args *model.BeforeModelArgs,
-			) (*model.BeforeModelResult, error) {
+				args *compat.BeforeModelArgs,
+			) (*compat.BeforeModelResult, error) {
 				calls = append(calls, "p2")
 				return nil, nil
 			})
@@ -263,7 +263,7 @@ func TestManager_ModelCallbacks_EarlyExit(t *testing.T) {
 
 	result, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -272,20 +272,20 @@ func TestManager_ModelCallbacks_EarlyExit(t *testing.T) {
 }
 
 func TestManager_AfterToolMessagesCanonicalizesReplacements(t *testing.T) {
-	original := []model.Message{
-		model.NewToolMessage("call-1", "search", "raw 1"),
-		model.NewToolMessage("call-2", "search", "raw 2"),
+	original := []compat.Message{
+		compat.NewToolMessage("call-1", "search", "raw 1"),
+		compat.NewToolMessage("call-2", "search", "raw 2"),
 	}
 	finishReason := "tool_calls"
-	toolEvent := event.NewResponseEvent("inv", "agent", &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{
+	toolEvent := event.NewResponseEvent("inv", "agent", &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{
 			{Index: 10, Message: original[0], FinishReason: &finishReason},
 			{Index: 11, Message: original[1], FinishReason: &finishReason},
 		},
 	})
-	var secondHookMessages []model.Message
-	var secondHookChoices []model.Choice
+	var secondHookMessages []compat.Message
+	var secondHookChoices []compat.Choice
 	m := plugin.MustNewManager(
 		&testPlugin{
 			name: "p1",
@@ -295,9 +295,9 @@ func TestManager_AfterToolMessagesCanonicalizesReplacements(t *testing.T) {
 					*plugin.AfterToolMessagesArgs,
 				) (*plugin.AfterToolMessagesResult, error) {
 					return &plugin.AfterToolMessagesResult{
-						ToolResultMessages: []model.Message{
-							model.NewToolMessage("call-2", "search", "summary 2"),
-							model.NewToolMessage("call-1", "search", "summary 1"),
+						ToolResultMessages: []compat.Message{
+							compat.NewToolMessage("call-2", "search", "summary 2"),
+							compat.NewToolMessage("call-1", "search", "summary 1"),
 						},
 					}, nil
 				})
@@ -310,8 +310,8 @@ func TestManager_AfterToolMessagesCanonicalizesReplacements(t *testing.T) {
 					_ context.Context,
 					args *plugin.AfterToolMessagesArgs,
 				) (*plugin.AfterToolMessagesResult, error) {
-					secondHookMessages = append([]model.Message(nil), args.ToolResultMessages...)
-					secondHookChoices = append([]model.Choice(nil), args.ToolResultEvent.Response.Choices...)
+					secondHookMessages = append([]compat.Message(nil), args.ToolResultMessages...)
+					secondHookChoices = append([]compat.Choice(nil), args.ToolResultEvent.Response.Choices...)
 					return nil, nil
 				})
 			},
@@ -320,7 +320,7 @@ func TestManager_AfterToolMessagesCanonicalizesReplacements(t *testing.T) {
 
 	args := &plugin.AfterToolMessagesArgs{
 		ToolResultEvent:    toolEvent,
-		Messages:           append([]model.Message{model.NewUserMessage("query")}, original...),
+		Messages:           append([]compat.Message{compat.NewUserMessage("query")}, original...),
 		ToolResultMessages: original,
 	}
 	result, err := m.AfterToolMessages(context.Background(), args)
@@ -352,14 +352,14 @@ func TestManager_AfterToolMessagesRejectsInvalidReplacement(t *testing.T) {
 				*plugin.AfterToolMessagesArgs,
 			) (*plugin.AfterToolMessagesResult, error) {
 				return &plugin.AfterToolMessagesResult{
-					ToolResultMessages: []model.Message{model.NewAssistantMessage("bad")},
+					ToolResultMessages: []compat.Message{compat.NewAssistantMessage("bad")},
 				}, nil
 			})
 		},
 	})
 	_, err := m.AfterToolMessages(context.Background(), &plugin.AfterToolMessagesArgs{
-		ToolResultMessages: []model.Message{
-			model.NewToolMessage("call-1", "search", "raw"),
+		ToolResultMessages: []compat.Message{
+			compat.NewToolMessage("call-1", "search", "raw"),
 		},
 	})
 	require.Error(t, err)
@@ -400,22 +400,22 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 				*plugin.AfterToolMessagesArgs,
 			) (*plugin.AfterToolMessagesResult, error) {
 				return &plugin.AfterToolMessagesResult{
-					ToolResultMessages: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+					ToolResultMessages: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 				}, hookErr
 			})
 		},
 	})
 	res, err = m.AfterToolMessages(context.Background(), &plugin.AfterToolMessagesArgs{
-		ToolResultMessages: []model.Message{model.NewToolMessage("call-1", "lookup", "raw")},
+		ToolResultMessages: []compat.Message{compat.NewToolMessage("call-1", "lookup", "raw")},
 	})
 	require.ErrorIs(t, err, hookErr)
 	require.NotNil(t, res)
 
 	t.Run("uses event messages when args messages are empty", func(t *testing.T) {
-		toolEvent := event.NewResponseEvent("inv", "agent", &model.Response{
-			Object: model.ObjectTypeToolResponse,
-			Choices: []model.Choice{
-				{Index: 2, Delta: model.NewToolMessage("call-1", "lookup", "raw delta")},
+		toolEvent := event.NewResponseEvent("inv", "agent", &compat.Response{
+			Object: compat.ObjectTypeToolResponse,
+			Choices: []compat.Choice{
+				{Index: 2, Delta: compat.NewToolMessage("call-1", "lookup", "raw delta")},
 			},
 		})
 		m := plugin.MustNewManager(&testPlugin{
@@ -427,8 +427,8 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 				) (*plugin.AfterToolMessagesResult, error) {
 					require.Len(t, args.ToolResultMessages, 0)
 					return &plugin.AfterToolMessagesResult{
-						ToolResultMessages: []model.Message{
-							model.NewToolMessage("call-1", "lookup", "summary delta"),
+						ToolResultMessages: []compat.Message{
+							compat.NewToolMessage("call-1", "lookup", "summary delta"),
 						},
 					}, nil
 				})
@@ -436,9 +436,9 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 		})
 		args := &plugin.AfterToolMessagesArgs{
 			ToolResultEvent: toolEvent,
-			Messages: []model.Message{
-				model.NewUserMessage("query"),
-				model.NewToolMessage("call-1", "lookup", "raw delta"),
+			Messages: []compat.Message{
+				compat.NewUserMessage("query"),
+				compat.NewToolMessage("call-1", "lookup", "raw delta"),
 			},
 		}
 		res, err := m.AfterToolMessages(context.Background(), args)
@@ -453,50 +453,50 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 
 	cases := []struct {
 		name         string
-		original     []model.Message
-		replacements []model.Message
+		original     []compat.Message
+		replacements []compat.Message
 		want         string
 	}{
 		{
 			name:         "empty original",
 			original:     nil,
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 			want:         "original tool result messages are empty",
 		},
 		{
 			name:         "count mismatch",
-			original:     []model.Message{model.NewToolMessage("call-1", "lookup", "raw")},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary"), model.NewToolMessage("call-2", "lookup", "summary")},
+			original:     []compat.Message{compat.NewToolMessage("call-1", "lookup", "raw")},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary"), compat.NewToolMessage("call-2", "lookup", "summary")},
 			want:         "replacement count",
 		},
 		{
 			name:         "replacement role",
-			original:     []model.Message{model.NewToolMessage("call-1", "lookup", "raw")},
-			replacements: []model.Message{{Role: model.RoleAssistant, ToolID: "call-1", Content: "summary"}},
+			original:     []compat.Message{compat.NewToolMessage("call-1", "lookup", "raw")},
+			replacements: []compat.Message{{Role: compat.RoleAssistant, ToolID: "call-1", Content: "summary"}},
 			want:         "must use role",
 		},
 		{
 			name:         "duplicate replacement",
-			original:     []model.Message{model.NewToolMessage("call-1", "lookup", "raw"), model.NewToolMessage("call-2", "lookup", "raw")},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary"), model.NewToolMessage("call-1", "lookup", "summary again")},
+			original:     []compat.Message{compat.NewToolMessage("call-1", "lookup", "raw"), compat.NewToolMessage("call-2", "lookup", "raw")},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary"), compat.NewToolMessage("call-1", "lookup", "summary again")},
 			want:         "duplicate tool id",
 		},
 		{
 			name:         "original missing id",
-			original:     []model.Message{{Role: model.RoleTool, Content: "raw"}},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+			original:     []compat.Message{{Role: compat.RoleTool, Content: "raw"}},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 			want:         "original tool message missing tool id",
 		},
 		{
 			name:         "original role",
-			original:     []model.Message{{Role: model.RoleAssistant, ToolID: "call-1", Content: "raw"}},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+			original:     []compat.Message{{Role: compat.RoleAssistant, ToolID: "call-1", Content: "raw"}},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 			want:         "original for tool id",
 		},
 		{
 			name:         "missing replacement",
-			original:     []model.Message{model.NewToolMessage("call-1", "lookup", "raw")},
-			replacements: []model.Message{model.NewToolMessage("call-2", "lookup", "summary")},
+			original:     []compat.Message{compat.NewToolMessage("call-1", "lookup", "raw")},
+			replacements: []compat.Message{compat.NewToolMessage("call-2", "lookup", "summary")},
 			want:         "replacement missing tool id",
 		},
 	}
@@ -525,34 +525,34 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 
 	eventCases := []struct {
 		name         string
-		eventChoices []model.Choice
-		replacements []model.Message
+		eventChoices []compat.Choice
+		replacements []compat.Message
 		want         string
 	}{
 		{
 			name: "choice missing id",
-			eventChoices: []model.Choice{{
-				Message: model.NewAssistantMessage("no tool id"),
+			eventChoices: []compat.Choice{{
+				Message: compat.NewAssistantMessage("no tool id"),
 			}},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 			want:         "original tool result choice missing tool id",
 		},
 		{
 			name: "event choice missing replacement",
-			eventChoices: []model.Choice{{
-				Message: model.NewToolMessage("call-2", "lookup", "raw"),
+			eventChoices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-2", "lookup", "raw"),
 			}},
-			replacements: []model.Message{model.NewToolMessage("call-1", "lookup", "summary")},
+			replacements: []compat.Message{compat.NewToolMessage("call-1", "lookup", "summary")},
 			want:         "replacement missing tool id",
 		},
 		{
 			name: "event replacement unknown",
-			eventChoices: []model.Choice{{
-				Message: model.NewToolMessage("call-1", "lookup", "raw"),
+			eventChoices: []compat.Choice{{
+				Message: compat.NewToolMessage("call-1", "lookup", "raw"),
 			}},
-			replacements: []model.Message{
-				model.NewToolMessage("call-1", "lookup", "summary"),
-				model.NewToolMessage("call-2", "lookup", "summary"),
+			replacements: []compat.Message{
+				compat.NewToolMessage("call-1", "lookup", "summary"),
+				compat.NewToolMessage("call-2", "lookup", "summary"),
 			},
 			want: "replacement contains unknown tool id",
 		},
@@ -572,14 +572,14 @@ func TestManager_AfterToolMessagesEdgeCases(t *testing.T) {
 					})
 				},
 			})
-			original := make([]model.Message, 0, len(tc.replacements))
+			original := make([]compat.Message, 0, len(tc.replacements))
 			for _, msg := range tc.replacements {
-				original = append(original, model.NewToolMessage(msg.ToolID, msg.ToolName, "raw"))
+				original = append(original, compat.NewToolMessage(msg.ToolID, msg.ToolName, "raw"))
 			}
 			_, err := m.AfterToolMessages(context.Background(), &plugin.AfterToolMessagesArgs{
 				ToolResultMessages: original,
-				ToolResultEvent: event.NewResponseEvent("inv", "agent", &model.Response{
-					Object:  model.ObjectTypeToolResponse,
+				ToolResultEvent: event.NewResponseEvent("inv", "agent", &compat.Response{
+					Object:  compat.ObjectTypeToolResponse,
 					Choices: tc.eventChoices,
 				}),
 			})
@@ -814,8 +814,8 @@ func TestManager_ModelCallbacks_WrapAfterErrorWithName(t *testing.T) {
 		reg: func(r *plugin.Registry) {
 			r.AfterModel(func(
 				ctx context.Context,
-				args *model.AfterModelArgs,
-			) (*model.AfterModelResult, error) {
+				args *compat.AfterModelArgs,
+			) (*compat.AfterModelResult, error) {
 				return nil, wantErr
 			})
 		},
@@ -827,9 +827,9 @@ func TestManager_ModelCallbacks_WrapAfterErrorWithName(t *testing.T) {
 
 	_, err := cb.RunAfterModel(
 		context.Background(),
-		&model.AfterModelArgs{
-			Request:  &model.Request{},
-			Response: &model.Response{Done: true},
+		&compat.AfterModelArgs{
+			Request:  &compat.Request{},
+			Response: &compat.Response{Done: true},
 		},
 	)
 	require.Error(t, err)
@@ -872,17 +872,17 @@ func TestGlobalInstruction_PrependsSystemMessage(t *testing.T) {
 	callbacks := m.ModelCallbacks()
 	require.NotNil(t, callbacks)
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
 	}
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.NotEmpty(t, req.Messages)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Contains(t, req.Messages[0].Content, "policy")
 }
 
@@ -891,48 +891,48 @@ func TestGlobalInstruction_NoMessages_AddsSystem(t *testing.T) {
 	m := plugin.MustNewManager(plugin.NewGlobalInstruction(instr))
 	callbacks := m.ModelCallbacks()
 
-	req := &model.Request{}
+	req := &compat.Request{}
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 
 	require.Len(t, req.Messages, 1)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Equal(t, instr, req.Messages[0].Content)
 }
 
 func TestGlobalInstruction_EmptyInstruction_NoChange(t *testing.T) {
 	m := plugin.MustNewManager(plugin.NewGlobalInstruction("  \n\t "))
 	callbacks := m.ModelCallbacks()
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hi")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hi")},
 	}
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 1)
-	require.Equal(t, model.RoleUser, req.Messages[0].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[0].Role)
 }
 
 func TestGlobalInstruction_SystemEmptyContent_Sets(t *testing.T) {
 	const instr = "policy"
 	m := plugin.MustNewManager(plugin.NewGlobalInstruction(instr))
 	callbacks := m.ModelCallbacks()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage(""),
-			model.NewUserMessage("hi"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage(""),
+			compat.NewUserMessage("hi"),
 		},
 	}
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2)
@@ -946,16 +946,16 @@ func TestGlobalInstruction_SystemWithContent_Prepends(t *testing.T) {
 	)
 	m := plugin.MustNewManager(plugin.NewGlobalInstruction(instr))
 	callbacks := m.ModelCallbacks()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewSystemMessage(old),
-			model.NewUserMessage("hi"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewSystemMessage(old),
+			compat.NewUserMessage("hi"),
 		},
 	}
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.True(
@@ -969,21 +969,21 @@ func TestGlobalInstruction_FirstNonSystem_Prepends(t *testing.T) {
 	const instr = "policy"
 	m := plugin.MustNewManager(plugin.NewGlobalInstruction(instr))
 	callbacks := m.ModelCallbacks()
-	req := &model.Request{
-		Messages: []model.Message{
-			model.NewUserMessage("hi"),
+	req := &compat.Request{
+		Messages: []compat.Message{
+			compat.NewUserMessage("hi"),
 		},
 	}
 
 	_, err := callbacks.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: req},
+		&compat.BeforeModelArgs{Request: req},
 	)
 	require.NoError(t, err)
 	require.Len(t, req.Messages, 2)
-	require.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	require.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	require.Equal(t, instr, req.Messages[0].Content)
-	require.Equal(t, model.RoleUser, req.Messages[1].Role)
+	require.Equal(t, compat.RoleUser, req.Messages[1].Role)
 }
 
 func TestLoggingPlugin_Callbacks_DoNotError(t *testing.T) {
@@ -1017,16 +1017,16 @@ func TestLoggingPlugin_Callbacks_DoNotError(t *testing.T) {
 	invCtx := agent.NewInvocationContext(context.Background(), inv)
 	beforeModel, err := modelCB.RunBeforeModel(
 		invCtx,
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	var modelCtx context.Context = invCtx
 	if beforeModel != nil && beforeModel.Context != nil {
 		modelCtx = beforeModel.Context
 	}
-	_, err = modelCB.RunAfterModel(modelCtx, &model.AfterModelArgs{
-		Request:  &model.Request{},
-		Response: &model.Response{Done: true},
+	_, err = modelCB.RunAfterModel(modelCtx, &compat.AfterModelArgs{
+		Request:  &compat.Request{},
+		Response: &compat.Response{Done: true},
 		Error:    nil,
 	})
 	require.NoError(t, err)
@@ -1067,7 +1067,7 @@ func TestLoggingPlugin_NoInvocationContextAndErrorArgs(t *testing.T) {
 
 	before, err := cb.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: &model.Request{}},
+		&compat.BeforeModelArgs{Request: &compat.Request{}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, before)
@@ -1076,9 +1076,9 @@ func TestLoggingPlugin_NoInvocationContextAndErrorArgs(t *testing.T) {
 	if before.Context != nil {
 		afterCtx = before.Context
 	}
-	_, err = cb.RunAfterModel(afterCtx, &model.AfterModelArgs{
-		Request:  &model.Request{},
-		Response: &model.Response{Done: true},
+	_, err = cb.RunAfterModel(afterCtx, &compat.AfterModelArgs{
+		Request:  &compat.Request{},
+		Response: &compat.Response{Done: true},
 		Error:    errors.New("boom"),
 	})
 	require.NoError(t, err)
@@ -1103,7 +1103,7 @@ func TestGlobalInstruction_NilRequest_IsSafe(t *testing.T) {
 
 	_, err := cb.RunBeforeModel(
 		context.Background(),
-		&model.BeforeModelArgs{Request: nil},
+		&compat.BeforeModelArgs{Request: nil},
 	)
 	require.NoError(t, err)
 }
@@ -1114,16 +1114,16 @@ type staticModel struct {
 
 func (m *staticModel) GenerateContent(
 	_ context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{Done: true}
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{Done: true}
 	close(ch)
 	return ch, nil
 }
 
-func (m *staticModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *staticModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestRegistry_NilReceiver_IsSafe(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/artifact"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -71,14 +71,14 @@ func WithInvocationSessionService(sessionService session.Service) InvocationOpti
 }
 
 // WithInvocationModel set model for the Invocation.
-func WithInvocationModel(model model.Model) InvocationOptions {
+func WithInvocationModel(model compat.Model) InvocationOptions {
 	return func(inv *Invocation) {
 		inv.Model = model
 	}
 }
 
 // WithInvocationMessage set message for the Invocation.
-func WithInvocationMessage(message model.Message) InvocationOptions {
+func WithInvocationMessage(message compat.Message) InvocationOptions {
 	return func(inv *Invocation) {
 		inv.Message = message
 	}
@@ -99,7 +99,7 @@ func WithInvocationTransferInfo(transferInfo *TransferInfo) InvocationOptions {
 }
 
 // WithInvocationStructuredOutput set structuredOutput for the Invocation.
-func WithInvocationStructuredOutput(structuredOutput *model.StructuredOutput) InvocationOptions {
+func WithInvocationStructuredOutput(structuredOutput *compat.StructuredOutput) InvocationOptions {
 	return func(inv *Invocation) {
 		inv.StructuredOutput = structuredOutput
 	}

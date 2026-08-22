@@ -14,25 +14,21 @@ import (
 	"github.com/LingByte/ling-base/agentkit/memory/gomemory"
 	memmodel "github.com/LingByte/ling-base/agentkit/memory/gomodel"
 	storepkg "github.com/LingByte/ling-base/agentkit/memory/neo4j"
-	"github.com/LingByte/ling-base/agentkit/model/gomodel"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type stubAgent struct{ called int32 }
 
-func (s *stubAgent) Generate(context.Context, string) (any, error) {
-	atomic.AddInt32(&s.called, 1)
-	return "ok", nil
-}
+func (s *stubAgent) Info() compat.Info { return compat.Info{Name: "stub"} }
 
-func (s *stubAgent) GenerateWithFiles(context.Context, string, []gomodel.File) (any, error) {
+func (s *stubAgent) GenerateContent(context.Context, *compat.Request) (<-chan *compat.Response, error) {
 	atomic.AddInt32(&s.called, 1)
-	return "files", nil
-}
-
-func (s *stubAgent) GenerateStream(context.Context, string) (<-chan gomodel.StreamChunk, error) {
-	atomic.AddInt32(&s.called, 1)
-	ch := make(chan gomodel.StreamChunk, 1)
-	ch <- gomodel.StreamChunk{Delta: "ok", FullText: "ok", Done: true}
+	ch := make(chan *compat.Response, 1)
+	finishReason := "stop"
+	ch <- &compat.Response{
+		Done:    true,
+		Choices: []compat.Choice{{Message: compat.NewAssistantMessage("ok"), FinishReason: &finishReason}},
+	}
 	close(ch)
 	return ch, nil
 }

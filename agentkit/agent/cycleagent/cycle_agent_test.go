@@ -19,7 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent/graphagent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/graph"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +73,7 @@ func (m *mockAgent) Run(ctx context.Context, invocation *agent.Invocation) (<-ch
 
 			// Generate error event if requested.
 			if m.shouldTriggerError && i == m.eventCount-1 {
-				evt = event.NewErrorEvent(invocation.InvocationID, m.name, model.ErrorTypeFlowError, "mock escalation")
+				evt = event.NewErrorEvent(invocation.InvocationID, m.name, compat.ErrorTypeFlowError, "mock escalation")
 			} else {
 				evt = event.New(invocation.InvocationID, m.name)
 				evt.Object = "test.completion"
@@ -347,7 +347,7 @@ func (m *conditionalMockAgent) Run(ctx context.Context, invocation *agent.Invoca
 
 			// Generate error event if we should escalate.
 			if shouldEscalate && i == m.eventCount-1 {
-				evt = event.NewErrorEvent(invocation.InvocationID, m.name, model.ErrorTypeFlowError, "escalation")
+				evt = event.NewErrorEvent(invocation.InvocationID, m.name, compat.ErrorTypeFlowError, "escalation")
 			} else {
 				evt = event.New(invocation.InvocationID, m.name)
 				evt.Object = "test.completion"
@@ -416,12 +416,12 @@ func TestCycleAgent_ShouldEscalate(t *testing.T) {
 	require.False(t, cycleAgent.shouldEscalate(normalEvent))
 
 	// Test error event.
-	errorEvent := event.NewErrorEvent("test", "test", model.ErrorTypeFlowError, "test error")
+	errorEvent := event.NewErrorEvent("test", "test", compat.ErrorTypeFlowError, "test error")
 	require.True(t, cycleAgent.shouldEscalate(errorEvent))
 
 	// Test done error event.
 	doneErrorEvent := event.New("test", "test")
-	doneErrorEvent.Object = model.ObjectTypeError
+	doneErrorEvent.Object = compat.ObjectTypeError
 	doneErrorEvent.Done = true
 	require.True(t, cycleAgent.shouldEscalate(doneErrorEvent))
 }
@@ -514,7 +514,7 @@ func TestCycleAgent_DisableGraphCompletionEvent_PreservesVisibleChildResponse(t 
 		}
 	}
 	require.NotNil(t, visibleEvent)
-	require.Equal(t, model.ObjectTypeChatCompletion, visibleEvent.Object)
+	require.Equal(t, compat.ObjectTypeChatCompletion, visibleEvent.Object)
 	require.Len(t, visibleEvent.Response.Choices, 1)
 	require.Equal(t, "child-final", visibleEvent.Response.Choices[0].Message.Content)
 	require.Equal(t, []byte(`"child-final"`), visibleEvent.StateDelta[graph.StateKeyLastResponse])
@@ -547,7 +547,7 @@ func TestCycleAgent_DisableGraphCompletionEvent_PreservesStateOnlyChildCompletio
 	var visibleEvent *event.Event
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
-		if evt != nil && evt.Object == model.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
+		if evt != nil && evt.Object == compat.ObjectTypeChatCompletion && len(evt.StateDelta) > 0 {
 			visibleEvent = evt
 		}
 	}
@@ -573,7 +573,7 @@ func TestCycleAgent_DisableGraphCompletionEvent_CustomEscalationSeesVisibleChild
 		MaxIterations: ptrInt(2),
 		EscalationFunc: func(evt *event.Event) bool {
 			return evt != nil &&
-				evt.Object == model.ObjectTypeChatCompletion &&
+				evt.Object == compat.ObjectTypeChatCompletion &&
 				len(evt.StateDelta) > 0
 		},
 	})
@@ -588,7 +588,7 @@ func TestCycleAgent_DisableGraphCompletionEvent_CustomEscalationSeesVisibleChild
 	for evt := range events {
 		require.False(t, evt.Done && evt.Object == graph.ObjectTypeGraphExecution)
 		if evt != nil &&
-			evt.Object == model.ObjectTypeChatCompletion &&
+			evt.Object == compat.ObjectTypeChatCompletion &&
 			len(evt.StateDelta) > 0 {
 			visibleCompletionCount++
 		}
@@ -601,7 +601,7 @@ func TestCycleAgent_WithCallbacks(t *testing.T) {
 	callbacks := agent.NewCallbacks()
 
 	// Test before agent callback that skips execution.
-	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*model.Response, error) {
+	callbacks.RegisterBeforeAgent(func(ctx context.Context, invocation *agent.Invocation) (*compat.Response, error) {
 		if invocation.Message.Content == "skip" {
 			return nil, nil
 		}
@@ -621,8 +621,8 @@ func TestCycleAgent_WithCallbacks(t *testing.T) {
 	invocation := &agent.Invocation{
 		InvocationID: "test-invocation-skip",
 		AgentName:    "test-cycle-agent",
-		Message: model.Message{
-			Role:    model.RoleUser,
+		Message: compat.Message{
+			Role:    compat.RoleUser,
 			Content: "skip",
 		},
 	}
@@ -660,8 +660,8 @@ func (n *noopAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *eve
 
 func TestCycleAgent_BeforeCallbackResp(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
-		return &model.Response{Object: "custom", Done: true}, nil
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
+		return &compat.Response{Object: "custom", Done: true}, nil
 	})
 
 	ca := newFromLegacy(legacyOptions{Name: "loop", SubAgents: []agent.Agent{&noopAgent{"a"}}, AgentCallbacks: cb})
@@ -679,7 +679,7 @@ func TestCycleAgent_BeforeCallbackResp(t *testing.T) {
 
 func TestCycleAgent_BeforeCallbackError(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*model.Response, error) {
+	cb.RegisterBeforeAgent(func(ctx context.Context, inv *agent.Invocation) (*compat.Response, error) {
 		return nil, errors.New("boom")
 	})
 
@@ -708,7 +708,7 @@ func TestCycleAgent_SubAgentErrProp(t *testing.T) {
 	for e := range events {
 		cnt++
 		require.NotNil(t, e.Error)
-		require.Equal(t, model.ErrorTypeFlowError, e.Error.Type)
+		require.Equal(t, compat.ErrorTypeFlowError, e.Error.Type)
 	}
 	require.Equal(t, 1, cnt)
 }
@@ -741,8 +741,8 @@ func TestCycleAgent_CreateSubAgentInvoke(t *testing.T) {
 
 func TestCycleAgent_AfterCallback(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
-		return &model.Response{Object: "after", Done: true}, nil
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
+		return &compat.Response{Object: "after", Done: true}, nil
 	})
 
 	one := 1
@@ -783,11 +783,11 @@ func (s *simpleAgent) Run(ctx context.Context, inv *agent.Invocation) (<-chan *e
 		e := event.New(inv.InvocationID, s.name)
 		e.Object = s.object
 		e.Done = s.done
-		e.Choices = []model.Choice{{
-			Message: model.Message{Role: model.RoleAssistant, Content: s.content},
+		e.Choices = []compat.Choice{{
+			Message: compat.Message{Role: compat.RoleAssistant, Content: s.content},
 		}}
 		if s.withError {
-			e.Error = &model.ResponseError{Type: model.ErrorTypeAPIError, Message: "fail"}
+			e.Error = &compat.ResponseError{Type: compat.ErrorTypeAPIError, Message: "fail"}
 		}
 		ch <- e
 	}()
@@ -799,8 +799,8 @@ func TestCycleAgent_ShouldEscalateDef(t *testing.T) {
 
 	// Error event should escalate.
 	errEvt := event.New("id", "loop")
-	errEvt.Response.Error = &model.ResponseError{Type: model.ErrorTypeAPIError, Message: "x"}
-	errEvt.Object = model.ObjectTypeError
+	errEvt.Response.Error = &compat.ResponseError{Type: compat.ErrorTypeAPIError, Message: "x"}
+	errEvt.Object = compat.ObjectTypeError
 	errEvt.Done = true
 	require.True(t, ca.shouldEscalate(errEvt))
 
@@ -818,8 +818,8 @@ func TestCycleAgent_CustomEscalationFunc(t *testing.T) {
 		return false
 	}
 
-	agent1 := &simpleAgent{name: "worker", content: "RUN", object: model.ObjectTypeToolResponse, done: true}
-	stopAgent := &simpleAgent{name: "stopper", content: "STOP", object: model.ObjectTypeToolResponse, done: true}
+	agent1 := &simpleAgent{name: "worker", content: "RUN", object: compat.ObjectTypeToolResponse, done: true}
+	stopAgent := &simpleAgent{name: "stopper", content: "STOP", object: compat.ObjectTypeToolResponse, done: true}
 
 	ca := newFromLegacy(legacyOptions{
 		Name:           "loop",
@@ -867,7 +867,7 @@ func TestCycleAgent_MaxIterations(t *testing.T) {
 
 func TestCycleAgent_AfterCallbackError(t *testing.T) {
 	cb := agent.NewCallbacks()
-	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*model.Response, error) {
+	cb.RegisterAfterAgent(func(ctx context.Context, inv *agent.Invocation, err error) (*compat.Response, error) {
 		return nil, errors.New("after failed")
 	})
 

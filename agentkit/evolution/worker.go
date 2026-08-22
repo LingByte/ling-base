@@ -20,7 +20,7 @@ import (
 	"time"
 
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -1214,12 +1214,12 @@ func skillExists(repo skill.Repository, name string) bool {
 func scanDelta(sess *session.Session, since time.Time) (time.Time, *ReviewContext) {
 	var (
 		latestTs      time.Time
-		messages      []model.Message
+		messages      []compat.Message
 		transcript    []ReviewMessage
 		toolCallCount int
 		hasCorrection bool
 		hasRecovered  bool
-		lastRole      model.Role
+		lastRole      compat.Role
 		sawError      bool
 	)
 
@@ -1247,7 +1247,7 @@ func scanDelta(sess *session.Session, since time.Time) (time.Time, *ReviewContex
 			}
 
 			// Track error signals from tool responses.
-			if msg.Role == model.RoleTool {
+			if msg.Role == compat.RoleTool {
 				if looksLikeError(msg.Content) {
 					sawError = true
 				}
@@ -1255,19 +1255,19 @@ func scanDelta(sess *session.Session, since time.Time) (time.Time, *ReviewContex
 			}
 
 			// Detect user correction: user message right after an assistant turn.
-			if msg.Role == model.RoleUser && lastRole == model.RoleAssistant {
+			if msg.Role == compat.RoleUser && lastRole == compat.RoleAssistant {
 				if looksLikeCorrection(msg.Content) {
 					hasCorrection = true
 				}
 			}
 
 			// Detect recovered error: assistant continues after a tool error.
-			if msg.Role == model.RoleAssistant && sawError {
+			if msg.Role == compat.RoleAssistant && sawError {
 				hasRecovered = true
 				sawError = false
 			}
 
-			if msg.Role == model.RoleUser || msg.Role == model.RoleAssistant {
+			if msg.Role == compat.RoleUser || msg.Role == compat.RoleAssistant {
 				if msg.Content != "" || len(msg.ContentParts) > 0 {
 					messages = append(messages, msg)
 					lastRole = msg.Role
@@ -1286,7 +1286,7 @@ func scanDelta(sess *session.Session, since time.Time) (time.Time, *ReviewContex
 	}
 }
 
-func buildReviewMessage(msg model.Message) (ReviewMessage, bool) {
+func buildReviewMessage(msg compat.Message) (ReviewMessage, bool) {
 	reviewMsg := reviewMessageFromModel(msg)
 	if reviewMsg.Content == "" && reviewMsg.ToolName == "" && len(reviewMsg.ToolCalls) == 0 {
 		return ReviewMessage{}, false
@@ -1327,7 +1327,7 @@ func containsSkillWriteText(content string) bool {
 }
 
 func isSkillWriteToolResult(msg ReviewMessage) bool {
-	if msg.Role != model.RoleTool {
+	if msg.Role != compat.RoleTool {
 		return false
 	}
 	name := strings.ToLower(strings.TrimSpace(msg.ToolName))

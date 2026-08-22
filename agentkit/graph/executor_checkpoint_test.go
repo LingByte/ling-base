@@ -24,7 +24,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	ichannel "github.com/LingByte/ling-base/agentkit/graph/internal/channel"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -310,7 +310,7 @@ func TestExecutor_Resume_GetTupleError_ReturnsError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var gotErr *model.ResponseError
+	var gotErr *compat.ResponseError
 	var gotDone bool
 	for evt := range ch {
 		if evt.Error != nil {
@@ -357,7 +357,7 @@ func TestExecutor_Resume_CheckpointNotFound_ReturnsError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var gotErr *model.ResponseError
+	var gotErr *compat.ResponseError
 	var gotDone bool
 	for evt := range ch {
 		if evt.Error != nil {
@@ -2322,8 +2322,8 @@ func TestExecutor_RestoreStateFromCheckpoint_OneShotMessages(t *testing.T) {
 	ckpt := &Checkpoint{
 		ID: "ck",
 		ChannelValues: map[string]any{
-			StateKeyOneShotMessages: []model.Message{
-				model.NewUserMessage("hi"),
+			StateKeyOneShotMessages: []compat.Message{
+				compat.NewUserMessage("hi"),
 			},
 		},
 	}
@@ -2333,10 +2333,10 @@ func TestExecutor_RestoreStateFromCheckpoint_OneShotMessages(t *testing.T) {
 	raw, ok := st[StateKeyOneShotMessages]
 	require.True(t, ok)
 
-	msgs, ok := raw.([]model.Message)
+	msgs, ok := raw.([]compat.Message)
 	require.True(t, ok)
 	require.Len(t, msgs, 1)
-	require.Equal(t, model.RoleUser, msgs[0].Role)
+	require.Equal(t, compat.RoleUser, msgs[0].Role)
 	require.Equal(t, "hi", msgs[0].Content)
 }
 
@@ -3155,9 +3155,9 @@ func TestExecutor_ApplyPendingWrites_NilExecCtx_NoPanic(t *testing.T) {
 }
 
 func TestRunModel_BeforeModelError(t *testing.T) {
-	cbs := model.NewCallbacks().RegisterBeforeModel(func(ctx context.Context, req *model.Request) (*model.Response, error) {
+	cbs := compat.NewCallbacks().RegisterBeforeModel(func(ctx context.Context, req *compat.Request) (*compat.Response, error) {
 		return nil, fmt.Errorf("boom")
 	})
-	_, _, err := runModel(context.Background(), cbs, &dummyModel{}, &model.Request{Messages: []model.Message{model.NewUserMessage("hi")}})
+	_, _, err := runModel(context.Background(), cbs, &dummyModel{}, &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hi")}})
 	require.Error(t, err)
 }

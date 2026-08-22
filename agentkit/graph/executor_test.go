@@ -26,7 +26,7 @@ import (
 	ichannel "github.com/LingByte/ling-base/agentkit/graph/internal/channel"
 	"github.com/LingByte/ling-base/agentkit/internal/state/barrier"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	teletrace "github.com/LingByte/ling-base/agentkit/telemetry/trace"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
@@ -533,7 +533,7 @@ func TestExecutor_DisableGraphExecutorEvents_PreservesTerminalError(t *testing.T
 			continue
 		}
 		require.NotEqual(t, ObjectTypeGraphPregelStep, evt.Object)
-		if evt.Object == model.ObjectTypeError &&
+		if evt.Object == compat.ObjectTypeError &&
 			evt.Response != nil &&
 			evt.Response.Error != nil {
 			sawTerminalError = true
@@ -591,9 +591,9 @@ func TestExecuteSingleToolCall_DisableGraphExecutorEvents_FallsBackToOriginalInv
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -610,7 +610,7 @@ func TestExecuteSingleToolCall_DisableGraphExecutorEvents_FallsBackToOriginalInv
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Len(t, eventCh, 0)
 }
 
@@ -640,9 +640,9 @@ func TestExecuteSingleToolCall_UsesInvocationFromCallbackContext(t *testing.T) {
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -659,7 +659,7 @@ func TestExecuteSingleToolCall_UsesInvocationFromCallbackContext(t *testing.T) {
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Len(t, eventCh, 2)
 	startEvent := <-eventCh
 	completeEvent := <-eventCh
@@ -699,9 +699,9 @@ func TestExecuteSingleToolCall_UsesLatestToolCallbackInvocationForEvents(t *test
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -718,7 +718,7 @@ func TestExecuteSingleToolCall_UsesLatestToolCallbackInvocationForEvents(t *test
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Len(t, eventCh, 2)
 	startEvent := <-eventCh
 	completeEvent := <-eventCh
@@ -758,9 +758,9 @@ func TestExecuteSingleToolCall_CompleteEventFallsBackToBeforeToolInvocation(t *t
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -777,7 +777,7 @@ func TestExecuteSingleToolCall_CompleteEventFallsBackToBeforeToolInvocation(t *t
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Len(t, eventCh, 2)
 	startEvent := <-eventCh
 	completeEvent := <-eventCh
@@ -839,9 +839,9 @@ func TestExecuteSingleToolCall_UsesLatestBareCallbackContextAsIs(t *testing.T) {
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -858,7 +858,7 @@ func TestExecuteSingleToolCall_UsesLatestBareCallbackContextAsIs(t *testing.T) {
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Len(t, eventCh, 2)
 	startEvent := <-eventCh
 	completeEvent := <-eventCh
@@ -899,9 +899,9 @@ func TestExecuteSingleToolCall_BareCallbackContextsCanClearToolCallID(t *testing
 	)
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 	eventCh := make(chan *event.Event, 4)
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "tool-call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "echo",
 			Arguments: []byte(`{"value":"ok"}`),
 		},
@@ -918,7 +918,7 @@ func TestExecuteSingleToolCall_BareCallbackContextsCanClearToolCallID(t *testing
 		ToolCallbacks: callbacks,
 	})
 	require.NoError(t, err)
-	require.Equal(t, model.RoleTool, msg.Role)
+	require.Equal(t, compat.RoleTool, msg.Role)
 	require.Empty(t, tl.toolCallID)
 }
 
@@ -1264,9 +1264,9 @@ type MockModel struct {
 	responses map[string]string
 }
 
-func (m *MockModel) GenerateContent(ctx context.Context, request *model.Request) (<-chan *model.Response, error) {
+func (m *MockModel) GenerateContent(ctx context.Context, request *compat.Request) (<-chan *compat.Response, error) {
 	// Create a channel for streaming response
-	responseChan := make(chan *model.Response, 1)
+	responseChan := make(chan *compat.Response, 1)
 
 	// Determine response based on the last message content
 	var response string
@@ -1290,10 +1290,10 @@ func (m *MockModel) GenerateContent(ctx context.Context, request *model.Request)
 	// Send response and close channel
 	go func() {
 		defer close(responseChan)
-		responseChan <- &model.Response{
-			Choices: []model.Choice{
+		responseChan <- &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.NewAssistantMessage(response),
+					Message: compat.NewAssistantMessage(response),
 				},
 			},
 		}
@@ -1302,8 +1302,8 @@ func (m *MockModel) GenerateContent(ctx context.Context, request *model.Request)
 	return responseChan, nil
 }
 
-func (m *MockModel) Info() model.Info {
-	return model.Info{
+func (m *MockModel) Info() compat.Info {
+	return compat.Info{
 		Name: "mock-model",
 	}
 }
@@ -1941,8 +1941,8 @@ type IssueClassificationMockModel struct {
 	responses map[string]string
 }
 
-func (m *IssueClassificationMockModel) GenerateContent(ctx context.Context, request *model.Request) (<-chan *model.Response, error) {
-	responseChan := make(chan *model.Response, 1)
+func (m *IssueClassificationMockModel) GenerateContent(ctx context.Context, request *compat.Request) (<-chan *compat.Response, error) {
+	responseChan := make(chan *compat.Response, 1)
 
 	var response string
 	if len(request.Messages) > 0 {
@@ -1962,10 +1962,10 @@ func (m *IssueClassificationMockModel) GenerateContent(ctx context.Context, requ
 
 	go func() {
 		defer close(responseChan)
-		responseChan <- &model.Response{
-			Choices: []model.Choice{
+		responseChan <- &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.NewAssistantMessage(response),
+					Message: compat.NewAssistantMessage(response),
 				},
 			},
 		}
@@ -1974,8 +1974,8 @@ func (m *IssueClassificationMockModel) GenerateContent(ctx context.Context, requ
 	return responseChan, nil
 }
 
-func (m *IssueClassificationMockModel) Info() model.Info {
-	return model.Info{
+func (m *IssueClassificationMockModel) Info() compat.Info {
+	return compat.Info{
 		Name: "issue-classification-mock-model",
 	}
 }
@@ -3544,7 +3544,7 @@ func TestExecutor_ConditionalUnknownTarget_ReturnsError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var gotErr *model.ResponseError
+	var gotErr *compat.ResponseError
 	for ev := range events {
 		if ev.Error != nil {
 			gotErr = ev.Error
@@ -3975,10 +3975,10 @@ func TestExecutor_NodeCallbacksNotOverwriteStateCallbacks(t *testing.T) {
 	)
 
 	// State-level model callback that should be preserved.
-	stateModelCallbacks := model.NewCallbacks()
+	stateModelCallbacks := compat.NewCallbacks()
 	stateModelCallbacks.RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error) {
+		func(ctx context.Context, args *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error) {
 			return nil, nil
 		},
 	)
@@ -4103,19 +4103,19 @@ func TestExecutor_NodeCallbacksOverrideStateCallbacks(t *testing.T) {
 // callbacks.
 func TestExecutor_NodeModelCallbacksOverrideStateCallbacks(t *testing.T) {
 	// State-level model callbacks.
-	stateModelCallbacks := model.NewCallbacks()
+	stateModelCallbacks := compat.NewCallbacks()
 	stateModelCallbacks.RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error) {
+		func(ctx context.Context, args *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error) {
 			return nil, nil
 		},
 	)
 
 	// Node-level model callbacks that should override state-level.
-	nodeModelCallbacks := model.NewCallbacks()
+	nodeModelCallbacks := compat.NewCallbacks()
 	nodeModelCallbacks.RegisterBeforeModel(
-		func(ctx context.Context, args *model.BeforeModelArgs) (
-			*model.BeforeModelResult, error) {
+		func(ctx context.Context, args *compat.BeforeModelArgs) (
+			*compat.BeforeModelResult, error) {
 			return nil, nil
 		},
 	)
@@ -4161,11 +4161,11 @@ func TestExecutor_NodeModelCallbacksOverrideStateCallbacks(t *testing.T) {
 func TestExecutor_NodeBothCallbacksOverrideState(t *testing.T) {
 	// State-level callbacks.
 	stateToolCallbacks := tool.NewCallbacks()
-	stateModelCallbacks := model.NewCallbacks()
+	stateModelCallbacks := compat.NewCallbacks()
 
 	// Node-level callbacks.
 	nodeToolCallbacks := tool.NewCallbacks()
-	nodeModelCallbacks := model.NewCallbacks()
+	nodeModelCallbacks := compat.NewCallbacks()
 
 	builder := NewStateGraph(NewStateSchema())
 	builder.AddNode("llm_node", func(ctx context.Context, state State) (

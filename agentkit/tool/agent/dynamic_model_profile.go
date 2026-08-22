@@ -13,7 +13,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
 
@@ -24,7 +24,7 @@ const defaultModelDescription = "Optional host-authorized model profile for " +
 type agentModelProfile struct {
 	name        string
 	description string
-	model       model.Model
+	model       compat.Model
 }
 
 // WithAgentModelProfile registers one host-authorized model profile that the
@@ -55,7 +55,7 @@ type agentModelProfile struct {
 func WithAgentModelProfile(
 	name string,
 	description string,
-	m model.Model,
+	m compat.Model,
 ) Option {
 	return func(opts *agentToolOptions) {
 		cfg := opts.ensureDynamicOptions()
@@ -107,7 +107,7 @@ func mustNormalizeAgentModelProfiles(
 	return normalized
 }
 
-func isNilAgentModel(m model.Model) bool {
+func isNilAgentModel(m compat.Model) bool {
 	if m == nil {
 		return true
 	}
@@ -139,7 +139,7 @@ func agentModelProfileSchema(profiles []agentModelProfile) *tool.Schema {
 	}
 }
 
-func (at *Tool) resolveAgentModelProfile(alias string) (model.Model, error) {
+func (at *Tool) resolveAgentModelProfile(alias string) (compat.Model, error) {
 	if alias == "" {
 		return nil, nil
 	}

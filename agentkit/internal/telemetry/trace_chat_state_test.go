@@ -16,7 +16,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
 )
 
@@ -24,8 +24,8 @@ func TestChatTraceState_RequestAttributesCommittedOnce(t *testing.T) {
 	t.Cleanup(func() { SetSpanAttributePolicy(SpanAttributePolicy{}) })
 	installChatStreamingPolicyForTest()
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("aaaa")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("aaaa")},
 	}
 	span := newRecordingSpan()
 	state := &ChatTraceState{}
@@ -50,8 +50,8 @@ func TestChatTraceState_RequestAttributesCommittedOnce(t *testing.T) {
 func TestChatTraceState_PolicyDropSkipsDroppedRequestAttributesOnRefresh(t *testing.T) {
 	t.Cleanup(func() { SetSpanAttributePolicy(SpanAttributePolicy{}) })
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hello")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}
 	span := newRecordingSpan()
 	state := &ChatTraceState{}
@@ -80,8 +80,8 @@ func TestChatTraceState_NilRequestThenRequestCommitsPayload(t *testing.T) {
 
 	span := newRecordingSpan()
 	state := &ChatTraceState{}
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hello")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}
 
 	state.TraceChat(span, &TraceChatAttributes{
@@ -112,8 +112,8 @@ func TestChatTraceState_ResponseAttributesStillUpdate(t *testing.T) {
 	t.Cleanup(func() { SetSpanAttributePolicy(SpanAttributePolicy{}) })
 	installChatStreamingPolicyForTest()
 
-	req := &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hello")},
+	req := &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}
 	span := newRecordingSpan()
 	state := &ChatTraceState{}
@@ -143,7 +143,7 @@ func TestChatTraceState_NilReceiverUsesStatelessPath(t *testing.T) {
 
 	var state *ChatTraceState
 	span := newRecordingSpan()
-	req := &model.Request{Messages: []model.Message{model.NewUserMessage("hello")}}
+	req := &compat.Request{Messages: []compat.Message{compat.NewUserMessage("hello")}}
 
 	state.TraceChat(span, &TraceChatAttributes{Request: req})
 	if countAttr(span.attrs, semconvtrace.KeyGenAIInputMessages) != 1 {
@@ -177,8 +177,8 @@ func TestChatTraceState_RequestWithOptionalGenerationConfig(t *testing.T) {
 	tp := 0.7
 	topP := 0.9
 	thinkingEnabled := true
-	req := &model.Request{
-		GenerationConfig: model.GenerationConfig{
+	req := &compat.Request{
+		GenerationConfig: compat.GenerationConfig{
 			Stop:             []string{"END"},
 			Stream:           true,
 			FrequencyPenalty: &fp,
@@ -188,7 +188,7 @@ func TestChatTraceState_RequestWithOptionalGenerationConfig(t *testing.T) {
 			TopP:             &topP,
 			ThinkingEnabled:  &thinkingEnabled,
 		},
-		Messages: []model.Message{model.NewUserMessage("hello")},
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}
 	span := newRecordingSpan()
 	state := &ChatTraceState{}
@@ -224,8 +224,8 @@ func benchmarkTraceChatStreamingRequestAttributes(b *testing.B, useState bool) {
 		{turns: 16, chunks: 64},
 	} {
 		b.Run(fmt.Sprintf("turns=%d/chunks=%d", tc.turns, tc.chunks), func(b *testing.B) {
-			req := &model.Request{Messages: multiTurnMessagesForChatStateTest(tc.turns)}
-			responses := make([]*model.Response, tc.chunks)
+			req := &compat.Request{Messages: multiTurnMessagesForChatStateTest(tc.turns)}
+			responses := make([]*compat.Response, tc.chunks)
 			for i := range responses {
 				responses[i] = chatResponseForChatStateTest(fmt.Sprintf("chunk-%d", i))
 			}
@@ -266,23 +266,23 @@ func installChatStreamingPolicyForTest() {
 	SetSpanAttributePolicy(policy)
 }
 
-func chatResponseForChatStateTest(content string) *model.Response {
-	return &model.Response{
+func chatResponseForChatStateTest(content string) *compat.Response {
+	return &compat.Response{
 		ID:    "response-id",
 		Model: "test-model",
-		Choices: []model.Choice{{
+		Choices: []compat.Choice{{
 			Index: 0,
-			Delta: model.Message{Role: model.RoleAssistant, Content: content},
+			Delta: compat.Message{Role: compat.RoleAssistant, Content: content},
 		}},
 	}
 }
 
-func multiTurnMessagesForChatStateTest(turns int) []model.Message {
-	messages := make([]model.Message, 0, turns*2)
+func multiTurnMessagesForChatStateTest(turns int) []compat.Message {
+	messages := make([]compat.Message, 0, turns*2)
 	for i := 0; i < turns; i++ {
 		messages = append(messages,
-			model.NewUserMessage(strings.Repeat(fmt.Sprintf("user-turn-%d ", i), 200)),
-			model.NewAssistantMessage(strings.Repeat(fmt.Sprintf("assistant-turn-%d ", i), 200)),
+			compat.NewUserMessage(strings.Repeat(fmt.Sprintf("user-turn-%d ", i), 200)),
+			compat.NewAssistantMessage(strings.Repeat(fmt.Sprintf("assistant-turn-%d ", i), 200)),
 		)
 	}
 	return messages

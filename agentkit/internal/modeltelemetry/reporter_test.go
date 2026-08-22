@@ -22,7 +22,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	semconvmetrics "github.com/LingByte/ling-base/agentkit/telemetry/semconv/metrics"
 	semconvtrace "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
@@ -35,15 +35,15 @@ type testModel struct {
 
 func (m *testModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m *testModel) Info() model.Info {
-	return model.Info{Name: m.name}
+func (m *testModel) Info() compat.Info {
+	return compat.Info{Name: m.name}
 }
 
 func TestInvocationViewCopiesInvocationAndUsesFallbackModel(t *testing.T) {
@@ -85,14 +85,14 @@ func TestInvocationViewKeepsInvocationModel(t *testing.T) {
 func TestReporterTrackResponseTracesWithTracker(t *testing.T) {
 	recorder := useChatTelemetrySpanRecorder(t)
 	llm := &testModel{name: "request-model"}
-	reporter := StartChat(context.Background(), llm, &model.Request{
-		Messages: []model.Message{model.NewUserMessage("hello")},
+	reporter := StartChat(context.Background(), llm, &compat.Request{
+		Messages: []compat.Message{compat.NewUserMessage("hello")},
 	}, true)
 
-	reporter.TrackResponse(&model.Response{
+	reporter.TrackResponse(&compat.Response{
 		ID:    "response-id",
 		Model: "response-model",
-		Usage: &model.Usage{
+		Usage: &compat.Usage{
 			PromptTokens:     3,
 			CompletionTokens: 5,
 			TotalTokens:      8,
@@ -116,7 +116,7 @@ func TestReporterWithoutResponseDoesNotTraceRequestPayload(t *testing.T) {
 	reporter := StartChat(
 		context.Background(),
 		&testModel{name: "request-model"},
-		&model.Request{Messages: []model.Message{model.NewUserMessage("secret")}},
+		&compat.Request{Messages: []compat.Message{compat.NewUserMessage("secret")}},
 		true,
 	)
 
@@ -139,9 +139,9 @@ func TestReporterTrackResponseHandlesNilInputsAndNilTracker(t *testing.T) {
 
 	var nilReporter *Reporter
 	require.NotPanics(t, func() {
-		nilReporter.TrackResponse(&model.Response{})
+		nilReporter.TrackResponse(&compat.Response{})
 		(&Reporter{}).TrackResponse(nil)
-		(&Reporter{span: span, startedSpan: true}).TrackResponse(&model.Response{
+		(&Reporter{span: span, startedSpan: true}).TrackResponse(&compat.Response{
 			ID:    "manual-response-id",
 			Model: "manual-response-model",
 		})
@@ -161,7 +161,7 @@ func TestReporterEndRecordsContextCancellationErrorType(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	reporter := StartChat(ctx, nil, &model.Request{}, true)
+	reporter := StartChat(ctx, nil, &compat.Request{}, true)
 	reporter.End()
 
 	var rm metricdata.ResourceMetrics

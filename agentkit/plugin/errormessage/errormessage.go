@@ -36,7 +36,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 )
 
@@ -119,15 +119,15 @@ func isRewritableErrorEvent(e *event.Event) bool {
 	return true
 }
 
-func ensureFirstAssistantChoice(rsp *model.Response) {
+func ensureFirstAssistantChoice(rsp *compat.Response) {
 	if rsp == nil {
 		return
 	}
 	if len(rsp.Choices) == 0 {
-		rsp.Choices = []model.Choice{{
+		rsp.Choices = []compat.Choice{{
 			Index: 0,
-			Message: model.Message{
-				Role: model.RoleAssistant,
+			Message: compat.Message{
+				Role: compat.RoleAssistant,
 			},
 		}}
 		return
@@ -136,5 +136,5 @@ func ensureFirstAssistantChoice(rsp *model.Response) {
 	// output is never written into a non-assistant choice (for example when
 	// upstream emits an error event whose first choice carries a
 	// role=user or role=system placeholder).
-	rsp.Choices[0].Message.Role = model.RoleAssistant
+	rsp.Choices[0].Message.Role = compat.RoleAssistant
 }

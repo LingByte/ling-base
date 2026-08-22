@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -239,7 +239,7 @@ func TestWithIndexTextBuilder(t *testing.T) {
 		sess *session.Session,
 		_ *event.Event,
 		baseText string,
-		role model.Role,
+		role compat.Role,
 	) string {
 		return fmt.Sprintf("%s:%s:%s", sess.ID, role, baseText)
 	}
@@ -251,7 +251,7 @@ func TestWithIndexTextBuilder(t *testing.T) {
 		&session.Session{ID: "sess-1"},
 		nil,
 		"hello",
-		model.RoleAssistant,
+		compat.RoleAssistant,
 	)
 	assert.Equal(t, "sess-1:assistant:hello", got)
 }

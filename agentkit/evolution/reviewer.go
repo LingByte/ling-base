@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/LingByte/ling-base/agentkit/internal/jsonrepair"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
 
@@ -97,7 +97,7 @@ const DefaultReviewerMessageMaxChars = 4000
 
 // LLMReviewer uses a language model to produce ReviewDecisions.
 type LLMReviewer struct {
-	model           model.Model
+	model           compat.Model
 	messageMaxChars int
 }
 
@@ -114,7 +114,7 @@ func WithMessageContentMaxChars(n int) LLMReviewerOption {
 }
 
 // NewLLMReviewer creates a reviewer backed by the given model.
-func NewLLMReviewer(m model.Model, opts ...LLMReviewerOption) *LLMReviewer {
+func NewLLMReviewer(m compat.Model, opts ...LLMReviewerOption) *LLMReviewer {
 	r := &LLMReviewer{
 		model:           m,
 		messageMaxChars: DefaultReviewerMessageMaxChars,
@@ -135,10 +135,10 @@ func (r *LLMReviewer) Review(ctx context.Context, input *ReviewInput) (*ReviewDe
 
 	userPrompt := buildUserPrompt(input, r.messageMaxChars)
 
-	req := &model.Request{
-		Messages: []model.Message{
-			{Role: model.RoleSystem, Content: reviewSystemPrompt},
-			{Role: model.RoleUser, Content: userPrompt},
+	req := &compat.Request{
+		Messages: []compat.Message{
+			{Role: compat.RoleSystem, Content: reviewSystemPrompt},
+			{Role: compat.RoleUser, Content: userPrompt},
 		},
 	}
 
@@ -184,15 +184,15 @@ func (r *LLMReviewer) Review(ctx context.Context, input *ReviewInput) (*ReviewDe
 }
 
 type reviewerGenerateResult struct {
-	respCh <-chan *model.Response
+	respCh <-chan *compat.Response
 	err    error
 }
 
 func generateReviewerContent(
 	ctx context.Context,
-	m model.Model,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	m compat.Model,
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	resultCh := make(chan reviewerGenerateResult, 1)
 	go func() {
 		respCh, err := m.GenerateContent(ctx, req)
@@ -296,7 +296,7 @@ func truncateMessageContent(content string, maxChars int) string {
 	)
 }
 
-func messageText(msg model.Message) string {
+func messageText(msg compat.Message) string {
 	if msg.Content != "" {
 		return msg.Content
 	}
@@ -309,7 +309,7 @@ func messageText(msg model.Message) string {
 	return strings.Join(parts, "\n")
 }
 
-func reviewMessageFromModel(msg model.Message) ReviewMessage {
+func reviewMessageFromModel(msg compat.Message) ReviewMessage {
 	return ReviewMessage{
 		Role:      msg.Role,
 		Content:   messageText(msg),
@@ -319,7 +319,7 @@ func reviewMessageFromModel(msg model.Message) ReviewMessage {
 	}
 }
 
-func reviewToolCallsFromModel(calls []model.ToolCall) []ReviewToolCall {
+func reviewToolCallsFromModel(calls []compat.ToolCall) []ReviewToolCall {
 	if len(calls) == 0 {
 		return nil
 	}

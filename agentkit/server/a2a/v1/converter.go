@@ -19,14 +19,14 @@ import (
 	"github.com/LingByte/ling-base/agentkit/graph"
 	ia2a "github.com/LingByte/ling-base/agentkit/internal/a2a"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"trpc.group/trpc-go/trpc-a2a-go/v2/protocol"
 )
 
 // A2AMessageToAgentMessage defines an interface for converting A2A protocol messages to Agent messages.
 type A2AMessageToAgentMessage interface {
 	// ConvertToAgentMessage converts an A2A protocol message to an Agent message.
-	ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*model.Message, error)
+	ConvertToAgentMessage(ctx context.Context, message protocol.Message) (*compat.Message, error)
 }
 
 // EventToA2AStreamingOptions is the options for the EventToA2AMessage.
@@ -52,9 +52,9 @@ type defaultA2AMessageToAgentMessage struct{}
 func (c *defaultA2AMessageToAgentMessage) ConvertToAgentMessage(
 	ctx context.Context,
 	message protocol.Message,
-) (*model.Message, error) {
+) (*compat.Message, error) {
 	var content string
-	var contentParts []model.ContentPart
+	var contentParts []compat.ContentPart
 
 	// Process all parts in the A2A message
 	for _, part := range message.Parts {
@@ -67,7 +67,7 @@ func (c *defaultA2AMessageToAgentMessage) ConvertToAgentMessage(
 			// to avoid duplication when converting back to A2A message
 			content += string(c)
 		case protocol.Raw, protocol.URL:
-			// Convert file content to model.ContentPart.
+			// Convert file content to compat.ContentPart.
 			// The original content type is primarily preserved by metadata["content_type"].
 			// MediaType and Filename are only fallback signals for compatibility.
 			contentParts = append(contentParts, convertFilePart(part)...)
@@ -76,16 +76,16 @@ func (c *defaultA2AMessageToAgentMessage) ConvertToAgentMessage(
 			if err != nil {
 				return nil, err
 			}
-			contentParts = append(contentParts, model.ContentPart{
-				Type: model.ContentTypeText,
+			contentParts = append(contentParts, compat.ContentPart{
+				Type: compat.ContentTypeText,
 				Text: &dataStr,
 			})
 		}
 	}
 
 	// Create message with both content and content parts
-	msg := model.Message{
-		Role:         model.RoleUser,
+	msg := compat.Message{
+		Role:         compat.RoleUser,
 		Content:      content,
 		ContentParts: contentParts,
 	}
@@ -265,7 +265,7 @@ func (c *defaultEventToA2AMessage) convertCodeExecutionToA2AMessage(
 }
 
 // buildMessageParts converts text and multimodal message content to A2A parts.
-func (c *defaultEventToA2AMessage) buildMessageParts(msg model.Message) []*protocol.Part {
+func (c *defaultEventToA2AMessage) buildMessageParts(msg compat.Message) []*protocol.Part {
 	var parts []*protocol.Part
 
 	// Add reasoning content as a separate TextPart with thought metadata
@@ -284,11 +284,11 @@ func (c *defaultEventToA2AMessage) buildMessageParts(msg model.Message) []*proto
 	for _, contentPart := range msg.ContentParts {
 		var part *protocol.Part
 		switch contentPart.Type {
-		case model.ContentTypeText:
+		case compat.ContentTypeText:
 			if contentPart.Text != nil {
 				part = protocol.NewTextPart(*contentPart.Text)
 			}
-		case model.ContentTypeImage:
+		case compat.ContentTypeImage:
 			if contentPart.Image == nil {
 				continue
 			}
@@ -307,7 +307,7 @@ func (c *defaultEventToA2AMessage) buildMessageParts(msg model.Message) []*proto
 				part,
 				ia2a.FilePartMetadataContentTypeImage,
 			)
-		case model.ContentTypeAudio:
+		case compat.ContentTypeAudio:
 			if contentPart.Audio == nil || len(contentPart.Audio.Data) == 0 {
 				continue
 			}
@@ -319,7 +319,7 @@ func (c *defaultEventToA2AMessage) buildMessageParts(msg model.Message) []*proto
 				part,
 				ia2a.FilePartMetadataContentTypeAudio,
 			)
-		case model.ContentTypeFile:
+		case compat.ContentTypeFile:
 			if contentPart.File == nil {
 				continue
 			}
@@ -545,13 +545,13 @@ func isToolCallEvent(event *event.Event) bool {
 
 	// Check if this event contains tool calls in the response choices
 	for _, choice := range event.Response.Choices {
-		for _, message := range []model.Message{choice.Message, choice.Delta} {
+		for _, message := range []compat.Message{choice.Message, choice.Delta} {
 			// Check for tool call requests (assistant making tool calls)
 			if len(message.ToolCalls) > 0 {
 				return true
 			}
 			// Check for tool call responses (tool returning results)
-			if message.Role == model.RoleTool {
+			if message.Role == compat.RoleTool {
 				return true
 			}
 			// Check for tool ID in the message (indicates tool response)
@@ -570,7 +570,7 @@ func isCodeExecutionEvent(evt *event.Event) bool {
 	}
 
 	// Check if the event object type is code execution related
-	return evt.Response.Object == model.ObjectTypePostprocessingCodeExecution
+	return evt.Response.Object == compat.ObjectTypePostprocessingCodeExecution
 }
 
 // convertToolCallToA2AMessage converts tool call events to A2A DataPart messages.
@@ -585,7 +585,7 @@ func (c *defaultEventToA2AMessage) convertToolCallToA2AMessage(
 	var parts []*protocol.Part
 
 	for _, choice := range event.Response.Choices {
-		for _, message := range []model.Message{choice.Message, choice.Delta} {
+		for _, message := range []compat.Message{choice.Message, choice.Delta} {
 			// Handle tool call requests (assistant making function calls).
 			for _, toolCall := range message.ToolCalls {
 				toolCallData := map[string]any{
@@ -601,7 +601,7 @@ func (c *defaultEventToA2AMessage) convertToolCallToA2AMessage(
 			}
 
 			// Handle tool call responses (tool returning results).
-			if message.Role != model.RoleTool && message.ToolID == "" {
+			if message.Role != compat.RoleTool && message.ToolID == "" {
 				continue
 			}
 			toolResponseData := map[string]any{
@@ -680,7 +680,7 @@ func (c *defaultEventToA2AMessage) convertCodeExecutionToA2AStreamingMessage(
 }
 
 // convertFilePart converts a file Part (Raw or URL content) to one or more
-// model.ContentPart values.
+// compat.ContentPart values.
 //
 // Content type resolution order (highest to lowest priority):
 //  1. Part.Metadata["content_type"] — set explicitly by trpc-agent-go clients
@@ -689,7 +689,7 @@ func (c *defaultEventToA2AMessage) convertCodeExecutionToA2AStreamingMessage(
 //  3. Part.Filename — legacy fallback for older clients that used name="image"/"audio"
 //
 // For Raw content, the bytes are already decoded by the protocol layer.
-func convertFilePart(filePart *protocol.Part) []model.ContentPart {
+func convertFilePart(filePart *protocol.Part) []compat.ContentPart {
 	// Resolve content type using metadata > mediaType > name (legacy).
 	contentType := resolveFilePartContentType(filePart)
 
@@ -702,25 +702,25 @@ func convertFilePart(filePart *protocol.Part) []model.ContentPart {
 		data := []byte(content)
 		switch contentType {
 		case ia2a.FilePartMetadataContentTypeImage:
-			return []model.ContentPart{{
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+			return []compat.ContentPart{{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					Format: mimeType,
 					Data:   data,
 				},
 			}}
 		case ia2a.FilePartMetadataContentTypeAudio:
-			return []model.ContentPart{{
-				Type: model.ContentTypeAudio,
-				Audio: &model.Audio{
+			return []compat.ContentPart{{
+				Type: compat.ContentTypeAudio,
+				Audio: &compat.Audio{
 					Format: mimeType,
 					Data:   data,
 				},
 			}}
 		default:
-			return []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+			return []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     name,
 					Data:     data,
 					MimeType: mimeType,
@@ -731,18 +731,18 @@ func convertFilePart(filePart *protocol.Part) []model.ContentPart {
 		uri := string(content)
 		switch contentType {
 		case ia2a.FilePartMetadataContentTypeImage:
-			return []model.ContentPart{{
-				Type: model.ContentTypeImage,
-				Image: &model.Image{
+			return []compat.ContentPart{{
+				Type: compat.ContentTypeImage,
+				Image: &compat.Image{
 					Format: mimeType,
 					URL:    uri,
 				},
 			}}
 		default:
 			// Audio with URI and other file types use URL-backed files.
-			return []model.ContentPart{{
-				Type: model.ContentTypeFile,
-				File: &model.File{
+			return []compat.ContentPart{{
+				Type: compat.ContentTypeFile,
+				File: &compat.File{
 					Name:     name,
 					URL:      uri,
 					MimeType: mimeType,

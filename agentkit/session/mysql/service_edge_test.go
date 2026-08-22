@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -316,31 +316,31 @@ func TestGetEventsList(t *testing.T) {
 		}
 		createdAts := []time.Time{time.Now().Add(-time.Hour)}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message",
 					},
 				},
 			},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message - 1",
 					},
 				},
 			},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-1 message",
 					},
 				},
@@ -381,14 +381,14 @@ func TestGetEventsList(t *testing.T) {
 		}
 		createdAts := []time.Time{time.Now().Add(-time.Hour)}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user message"}}},
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user message"}}},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-1"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-1"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 		})
 
 		evt1Bytes, _ := json.Marshal(evt1)
@@ -426,14 +426,14 @@ func TestGetEventsList(t *testing.T) {
 		}
 		createdAts := []time.Time{time.Now().Add(-time.Hour)}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user message"}}},
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user message"}}},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-1"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-1"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 		})
 
 		evt1Bytes, _ := json.Marshal(evt1)
@@ -472,11 +472,11 @@ func TestGetEventsList(t *testing.T) {
 		createdAt := time.Now().Add(-time.Hour)
 		createdAts := []time.Time{createdAt}
 
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user-2"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user-2"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-3"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-3"}}},
 		})
 		evt2Bytes, _ := json.Marshal(evt2)
 		evt3Bytes, _ := json.Marshal(evt3)
@@ -524,14 +524,14 @@ func TestGetEventsList(t *testing.T) {
 		createdAt := time.Now().Add(-time.Hour)
 		createdAts := []time.Time{createdAt}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user-1"}}},
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user-1"}}},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-3"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-3"}}},
 		})
 		evt1Bytes, _ := json.Marshal(evt1)
 		evt2Bytes, _ := json.Marshal(evt2)
@@ -578,8 +578,8 @@ func TestGetEventsList(t *testing.T) {
 		createdAt := time.Now().Add(-time.Hour)
 		createdAts := []time.Time{createdAt}
 
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-3"}}},
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-3"}}},
 		})
 		evt3Bytes, _ := json.Marshal(evt3)
 		older := time.Now().Add(-time.Minute)
@@ -664,31 +664,31 @@ func TestGetEventsList(t *testing.T) {
 		}
 		createdAts := []time.Time{time.Now().Add(-time.Hour)}
 
-		evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleUser,
+					Message: compat.Message{
+						Role:    compat.RoleUser,
 						Content: "user message",
 					},
 				},
 			},
 		})
-		evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-1 message",
 					},
 				},
 			},
 		})
-		evt3 := event.NewResponseEvent("inv-3", "author1", &model.Response{
-			Choices: []model.Choice{
+		evt3 := event.NewResponseEvent("inv-3", "author1", &compat.Response{
+			Choices: []compat.Choice{
 				{
-					Message: model.Message{
-						Role:    model.RoleAssistant,
+					Message: compat.Message{
+						Role:    compat.RoleAssistant,
 						Content: "assistant-2 message",
 					},
 				},
@@ -756,11 +756,11 @@ func TestGetSessionEvents_DelegatesToPagedEvents(t *testing.T) {
 	older := createdAt.Add(time.Minute)
 	newer := createdAt.Add(2 * time.Minute)
 
-	evt1 := event.NewResponseEvent("inv-1", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user-1"}}},
+	evt1 := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user-1"}}},
 	})
-	evt2 := event.NewResponseEvent("inv-2", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+	evt2 := event.NewResponseEvent("inv-2", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 	})
 	evt1Bytes, _ := json.Marshal(evt1)
 	evt2Bytes, _ := json.Marshal(evt2)
@@ -803,8 +803,8 @@ func TestGetSessionEvents_DisabledLimitUsesLegacyList(t *testing.T) {
 	key := session.Key{AppName: "app1", UserID: "user1", SessionID: "sess1"}
 	createdAt := time.Now().Add(-time.Hour)
 
-	evt := event.NewResponseEvent("inv-1", "author1", &model.Response{
-		Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user-1"}}},
+	evt := event.NewResponseEvent("inv-1", "author1", &compat.Response{
+		Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user-1"}}},
 	})
 	evtBytes, _ := json.Marshal(evt)
 
@@ -913,14 +913,14 @@ func TestLimitedEventHelpers_ErrorsAndBoundaries(t *testing.T) {
 		defer db.Close()
 
 		s := createTestService(t, db)
-		assistant1 := event.NewResponseEvent("inv-assistant-1", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-1"}}},
+		assistant1 := event.NewResponseEvent("inv-assistant-1", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-1"}}},
 		})
-		assistant2 := event.NewResponseEvent("inv-assistant-2", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant-2"}}},
+		assistant2 := event.NewResponseEvent("inv-assistant-2", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant-2"}}},
 		})
-		user := event.NewResponseEvent("inv-user", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user"}}},
+		user := event.NewResponseEvent("inv-user", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user"}}},
 		})
 		assistant1Bytes, _ := json.Marshal(assistant1)
 		assistant2Bytes, _ := json.Marshal(assistant2)
@@ -981,12 +981,12 @@ func TestLimitedEventHelpers_ErrorsAndBoundaries(t *testing.T) {
 
 	t.Run("TimestampFilterAndLoadedAnchor", func(t *testing.T) {
 		afterTime := time.Now()
-		user := event.NewResponseEvent("inv-user", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "user"}}},
+		user := event.NewResponseEvent("inv-user", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "user"}}},
 		})
 		user.Timestamp = afterTime.Add(-time.Minute)
-		assistant := event.NewResponseEvent("inv-assistant", "author1", &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "assistant"}}},
+		assistant := event.NewResponseEvent("inv-assistant", "author1", &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "assistant"}}},
 		})
 		assistant.Timestamp = afterTime
 

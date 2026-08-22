@@ -16,26 +16,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
-// stubModel implements model.Model and returns a canned JSON response.
+// stubModel implements compat.Model and returns a canned JSON response.
 type stubModel struct {
 	response string
 }
 
-func (m *stubModel) GenerateContent(_ context.Context, _ *model.Request) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response, 1)
-	ch <- &model.Response{
-		Choices: []model.Choice{{
-			Message: model.Message{Content: m.response},
+func (m *stubModel) GenerateContent(_ context.Context, _ *compat.Request) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response, 1)
+	ch <- &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.Message{Content: m.response},
 		}},
 	}
 	close(ch)
 	return ch, nil
 }
 
-func (m *stubModel) Info() model.Info { return model.Info{Name: "stub"} }
+func (m *stubModel) Info() compat.Info { return compat.Info{Name: "stub"} }
 
 func TestService_ApprovalGateMetrics(t *testing.T) {
 	mdl := &stubModel{response: `{"skip_reason":"nothing useful"}`}
@@ -69,8 +69,8 @@ func TestNewService_EnqueueAndClose(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "test input"},
-		model.Message{Role: model.RoleAssistant, Content: "test output"},
+		compat.Message{Role: compat.RoleUser, Content: "test input"},
+		compat.Message{Role: compat.RoleAssistant, Content: "test output"},
 	)
 
 	err := svc.EnqueueLearningJob(context.Background(), LearningJob{Session: sess})
@@ -100,8 +100,8 @@ func TestNewService_WritesSkill(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "help"},
-		model.Message{Role: model.RoleAssistant, Content: "done"},
+		compat.Message{Role: compat.RoleUser, Content: "help"},
+		compat.Message{Role: compat.RoleAssistant, Content: "done"},
 	)
 
 	require.NoError(t, svc.EnqueueLearningJob(context.Background(), LearningJob{Session: sess}))
@@ -136,8 +136,8 @@ func TestNewService_FactsKeyInResponseIsIgnored(t *testing.T) {
 
 	sess := newTestSession()
 	addEvents(sess,
-		model.Message{Role: model.RoleUser, Content: "I prefer dark mode"},
-		model.Message{Role: model.RoleAssistant, Content: "noted"},
+		compat.Message{Role: compat.RoleUser, Content: "I prefer dark mode"},
+		compat.Message{Role: compat.RoleAssistant, Content: "noted"},
 	)
 	require.NoError(t, svc.EnqueueLearningJob(context.Background(), LearningJob{Session: sess}))
 	require.NoError(t, svc.Close())
@@ -154,19 +154,19 @@ func TestDefaultReviewPolicy(t *testing.T) {
 	assertReviewPolicy(t, p, nil, false)
 	assertReviewPolicy(t, p, &ReviewContext{}, false)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ToolCallCount: 2,
 	}, false)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ToolCallCount: defaultMinToolCalls,
 	}, true)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:          []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:          []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		HasUserCorrection: true,
 	}, true)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:          []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:          []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		HasRecoveredError: true,
 	}, true)
 }
@@ -179,19 +179,19 @@ func TestDefaultReviewPolicy_CustomTriggers(t *testing.T) {
 	}
 
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ToolCallCount: 9,
 	}, false)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ToolCallCount: 10,
 	}, true)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:          []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:          []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		HasUserCorrection: true,
 	}, false)
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:          []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:          []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		HasRecoveredError: true,
 	}, false)
 }
@@ -200,7 +200,7 @@ func TestDefaultReviewPolicy_DisableToolCallTrigger(t *testing.T) {
 	p := DefaultReviewPolicy{MinToolCalls: -1}
 
 	assertReviewPolicy(t, p, &ReviewContext{
-		Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+		Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 		ToolCallCount: 100,
 	}, false)
 }
@@ -212,7 +212,7 @@ func TestDefaultReviewPolicy_ContextCancelled(t *testing.T) {
 
 	got, err := p.ShouldReview(ctx, &ReviewPolicyInput{
 		ReviewContext: &ReviewContext{
-			Messages:      []model.Message{{Role: model.RoleUser, Content: "hi"}},
+			Messages:      []compat.Message{{Role: compat.RoleUser, Content: "hi"}},
 			ToolCallCount: defaultMinToolCalls,
 		},
 	})

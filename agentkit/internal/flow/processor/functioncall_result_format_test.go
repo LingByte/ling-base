@@ -21,7 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/event"
 	itool "github.com/LingByte/ling-base/agentkit/internal/tool"
 	"github.com/LingByte/ling-base/agentkit/memory"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	toolerrorplugin "github.com/LingByte/ling-base/agentkit/plugin/toolerror"
 	"github.com/LingByte/ling-base/agentkit/session"
@@ -46,12 +46,12 @@ func executeResultFormatToolCall(
 	p *FunctionCallResponseProcessor,
 	name string,
 	tl tool.Tool,
-) ([]model.Choice, bool, error) {
+) ([]compat.Choice, bool, error) {
 	t.Helper()
 	inv := &agent.Invocation{AgentName: "agent", Model: &mockModel{}}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      name,
 			Arguments: []byte(`{}`),
 		},
@@ -72,7 +72,7 @@ func requireResultFormatToolCall(
 	p *FunctionCallResponseProcessor,
 	name string,
 	tl tool.Tool,
-) []model.Choice {
+) []compat.Choice {
 	t.Helper()
 	choices, _, err := executeResultFormatToolCall(t, p, name, tl)
 	require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestExecuteToolCall_ResultFormatterDefaultJSONCompatibility(t *testing.T) {
 				`{"exit_code":0,"output":"<done>"}`,
 				choices[0].Message.Content,
 			)
-			assert.Equal(t, model.RoleTool, choices[0].Message.Role)
+			assert.Equal(t, compat.RoleTool, choices[0].Message.Role)
 			assert.Equal(t, "bash", choices[0].Message.ToolName)
 			assert.Equal(t, "call-1", choices[0].Message.ToolID)
 		})
@@ -222,7 +222,7 @@ func TestExecuteToolCall_ResultFormatterFormatsDefaultMessage(t *testing.T) {
 		"<observation><exit_code>2</exit_code><output>failed</output></observation>",
 		choices[0].Message.Content,
 	)
-	assert.Equal(t, model.RoleTool, choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, choices[0].Message.Role)
 	assert.Equal(t, "bash", choices[0].Message.ToolName)
 	assert.Equal(t, "call-1", choices[0].Message.ToolID)
 }
@@ -349,16 +349,16 @@ func TestExecuteToolCall_AfterToolResultCanSkipResultFormatter(t *testing.T) {
 func TestExecuteToolCall_ToolResultMessagesOverridesFormattedDefault(t *testing.T) {
 	result := resultFormatTestResult{ExitCode: 0, Output: "formatted"}
 	var callbackResult any
-	var defaultMessage model.Message
+	var defaultMessage compat.Message
 	callbacks := tool.NewCallbacks()
 	callbacks.RegisterToolResultMessages(func(
 		_ context.Context,
 		input *tool.ToolResultMessagesInput,
 	) (any, error) {
 		callbackResult = input.Result
-		defaultMessage = input.DefaultToolMessage.(model.Message)
-		return model.Message{
-			Role:     model.RoleTool,
+		defaultMessage = input.DefaultToolMessage.(compat.Message)
+		return compat.Message{
+			Role:     compat.RoleTool,
 			Content:  "overridden",
 			ToolID:   input.ToolCallID,
 			ToolName: input.ToolName,
@@ -549,9 +549,9 @@ func TestExecuteToolCall_StreamableFormatsOnlyFinalResult(t *testing.T) {
 		AgentName:    "agent",
 		Model:        &mockModel{},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-1",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "stream",
 			Arguments: []byte(`{}`),
 		},
@@ -592,7 +592,7 @@ func TestExecuteToolCall_StateOnlyStreamSkipsResultFormatter(t *testing.T) {
 		&toolCalls,
 		&formatterCalls,
 	)
-	var defaultMessage model.Message
+	var defaultMessage compat.Message
 	callbacks := tool.NewCallbacks()
 	callbacks.RegisterToolResultMessages(func(
 		_ context.Context,
@@ -601,7 +601,7 @@ func TestExecuteToolCall_StateOnlyStreamSkipsResultFormatter(t *testing.T) {
 		callbackCalls.Add(1)
 		require.Nil(t, input.Result)
 		var ok bool
-		defaultMessage, ok = input.DefaultToolMessage.(model.Message)
+		defaultMessage, ok = input.DefaultToolMessage.(compat.Message)
 		require.True(t, ok)
 		return nil, nil
 	})
@@ -611,9 +611,9 @@ func TestExecuteToolCall_StateOnlyStreamSkipsResultFormatter(t *testing.T) {
 		AgentName:    "agent",
 		Model:        &mockModel{},
 	}
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-state",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "state_only",
 			Arguments: []byte(`{}`),
 		},
@@ -631,7 +631,7 @@ func TestExecuteToolCall_StateOnlyStreamSkipsResultFormatter(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, execution.choices, 1)
-	assert.Equal(t, model.RoleTool, execution.choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, execution.choices[0].Message.Role)
 	assert.Equal(t, "state_only", execution.choices[0].Message.ToolName)
 	assert.Equal(t, "call-state", execution.choices[0].Message.ToolID)
 	assert.Equal(t, "null", execution.choices[0].Message.Content)
@@ -658,27 +658,27 @@ func TestHandleFunctionCalls_StateOnlyStreamFormatterKeepsParallelPairing(
 		},
 		function.WithName("sibling"),
 	)
-	toolCallsFromModel := []model.ToolCall{
+	toolCallsFromModel := []compat.ToolCall{
 		{
 			ID: "call-state",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "state_only",
 				Arguments: []byte(`{}`),
 			},
 		},
 		{
 			ID: "call-sibling",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "sibling",
 				Arguments: []byte(`{}`),
 			},
 		},
 	}
-	llmResponse := &model.Response{
+	llmResponse := &compat.Response{
 		Model: "model",
-		Choices: []model.Choice{{
-			Message: model.Message{
-				Role:      model.RoleAssistant,
+		Choices: []compat.Choice{{
+			Message: compat.Message{
+				Role:      compat.RoleAssistant,
 				ToolCalls: toolCallsFromModel,
 			},
 		}},
@@ -743,20 +743,20 @@ func TestHandleFunctionCalls_ResultFormatterIsPerToolAndKeepsPairing(t *testing.
 				},
 				function.WithName("default"),
 			)
-			llmResponse := &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+			llmResponse := &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call-1",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "formatted",
 								Arguments: []byte(`{}`),
 							},
 						},
 						{
 							ID: "call-2",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "default",
 								Arguments: []byte(`{}`),
 							},
@@ -819,17 +819,17 @@ func TestHandleFunctionCallsAndSendEvent_ResultFormatterPerCallEvents(
 				"formatted": stateful,
 				"default":   defaultTool,
 			}
-			toolCalls := []model.ToolCall{
+			toolCalls := []compat.ToolCall{
 				{
 					ID: "call-formatted",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "formatted",
 						Arguments: []byte(`{}`),
 					},
 				},
 				{
 					ID: "call-default",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "default",
 						Arguments: []byte(`{}`),
 					},
@@ -855,7 +855,7 @@ func TestHandleFunctionCallsAndSendEvent_ResultFormatterPerCallEvents(
 			).handleFunctionCallsAndSendEventWithRequest(
 				context.Background(),
 				inv,
-				&model.Request{Tools: tools},
+				&compat.Request{Tools: tools},
 				newToolCallResponseWithCalls(toolCalls),
 				eventChan,
 			)
@@ -909,7 +909,7 @@ func TestHandleFunctionCallsAndSendEvent_ResultFormatterPerCallEvents(
 	}
 }
 
-func toolCallIDForName(toolCalls []model.ToolCall, name string) string {
+func toolCallIDForName(toolCalls []compat.ToolCall, name string) string {
 	for _, toolCall := range toolCalls {
 		if toolCall.Function.Name == name {
 			return toolCall.ID
@@ -1090,13 +1090,13 @@ func TestExecuteToolCall_CustomResultCanSkipStateDelta(t *testing.T) {
 					Model:     &mockModel{},
 					Session:   &session.Session{},
 				},
-				&model.Response{},
+				&compat.Response{},
 				map[string]tool.Tool{"stateful": stateful},
 				make(chan *event.Event, 32),
 				0,
-				model.ToolCall{
+				compat.ToolCall{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "stateful",
 						Arguments: []byte(`{}`),
 					},
@@ -1151,13 +1151,13 @@ func TestExecuteToolCall_StateDeltaIgnoresInPlaceFormatterMutation(t *testing.T)
 			Model:     &mockModel{},
 			Session:   &session.Session{},
 		},
-		&model.Response{},
+		&compat.Response{},
 		map[string]tool.Tool{"stateful": stateful},
 		make(chan *event.Event, 32),
 		0,
-		model.ToolCall{
+		compat.ToolCall{
 			ID: "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      "stateful",
 				Arguments: []byte(`{}`),
 			},
@@ -1207,16 +1207,16 @@ func newResultFormatCallbacks(
 		_ context.Context,
 		input *tool.ToolResultMessagesInput,
 	) (any, error) {
-		defaultMsg := input.DefaultToolMessage.(model.Message)
+		defaultMsg := input.DefaultToolMessage.(compat.Message)
 		*seenDefault = defaultMsg.Content
 		if mode == callbackModeKeepDefault {
-			return []model.Message{
+			return []compat.Message{
 				defaultMsg,
-				{Role: model.RoleUser, Content: "extra"},
+				{Role: compat.RoleUser, Content: "extra"},
 			}, nil
 		}
-		return model.Message{
-			Role:     model.RoleTool,
+		return compat.Message{
+			Role:     compat.RoleTool,
 			Content:  statefulRewritten,
 			ToolID:   input.ToolCallID,
 			ToolName: input.ToolName,
@@ -1305,13 +1305,13 @@ func TestExecuteToolCall_StateDeltaIgnoresFormattingHonorsOverride(t *testing.T)
 					Model:     &mockModel{},
 					Session:   &session.Session{},
 				},
-				&model.Response{},
+				&compat.Response{},
 				map[string]tool.Tool{"stateful": stateful},
 				make(chan *event.Event, 32),
 				0,
-				model.ToolCall{
+				compat.ToolCall{
 					ID: "call-1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "stateful",
 						Arguments: []byte(`{}`),
 					},
@@ -1483,20 +1483,20 @@ func TestHandleFunctionCalls_FormatterFailureKeepsStateDelta(t *testing.T) {
 				},
 				function.WithName("sibling"),
 			)
-			llmResponse := &model.Response{Choices: []model.Choice{{
-				Message: model.Message{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+			llmResponse := &compat.Response{Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call-1",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "stateful",
 								Arguments: []byte(`{}`),
 							},
 						},
 						{
 							ID: "call-2",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      "sibling",
 								Arguments: []byte(`{}`),
 							},
@@ -1581,20 +1581,20 @@ func TestHandleFunctionCalls_FormatterFailureDoesNotMarkAutoMemoryPolluted(
 					},
 					function.WithName("sibling"),
 				)
-				llmResponse := &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+				llmResponse := &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID: "call-1",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      knowledgeSearchToolName,
 									Arguments: []byte(`{}`),
 								},
 							},
 							{
 								ID: "call-2",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "sibling",
 									Arguments: []byte(`{}`),
 								},
@@ -1696,20 +1696,20 @@ func TestHandleFunctionCalls_ToolErrorFailureDoesNotMarkAutoMemoryPolluted(
 					},
 					function.WithName("sibling"),
 				)
-				llmResponse := &model.Response{Choices: []model.Choice{{
-					Message: model.Message{
-						Role: model.RoleAssistant,
-						ToolCalls: []model.ToolCall{
+				llmResponse := &compat.Response{Choices: []compat.Choice{{
+					Message: compat.Message{
+						Role: compat.RoleAssistant,
+						ToolCalls: []compat.ToolCall{
 							{
 								ID: "call-1",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      knowledgeSearchToolName,
 									Arguments: test.arguments,
 								},
 							},
 							{
 								ID: "call-2",
-								Function: model.FunctionDefinitionParam{
+								Function: compat.FunctionDefinitionParam{
 									Name:      "sibling",
 									Arguments: []byte(`{}`),
 								},
@@ -1761,23 +1761,23 @@ func TestHandleFunctionCalls_ToolErrorFailureDoesNotMarkAutoMemoryPolluted(
 func TestAfterToolMessages_ToolErrorNormalizesUnknownToolWithNilTools(
 	t *testing.T,
 ) {
-	toolCall := model.ToolCall{
+	toolCall := compat.ToolCall{
 		ID: "call-missing",
-		Function: model.FunctionDefinitionParam{
+		Function: compat.FunctionDefinitionParam{
 			Name:      "missing",
 			Arguments: []byte(`{}`),
 		},
 	}
-	llmResponse := &model.Response{Choices: []model.Choice{{
-		Message: model.Message{
-			Role:      model.RoleAssistant,
-			ToolCalls: []model.ToolCall{toolCall},
+	llmResponse := &compat.Response{Choices: []compat.Choice{{
+		Message: compat.Message{
+			Role:      compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{toolCall},
 		},
 	}}}
-	toolEvent := event.NewResponseEvent("inv-1", "agent", &model.Response{
-		Object: model.ObjectTypeToolResponse,
-		Choices: []model.Choice{{
-			Message: model.NewToolMessage(
+	toolEvent := event.NewResponseEvent("inv-1", "agent", &compat.Response{
+		Object: compat.ObjectTypeToolResponse,
+		Choices: []compat.Choice{{
+			Message: compat.NewToolMessage(
 				toolCall.ID,
 				toolCall.Function.Name,
 				"executeToolCall: Error: tool not found: missing",
@@ -1796,7 +1796,7 @@ func TestAfterToolMessages_ToolErrorNormalizesUnknownToolWithNilTools(
 		applyAfterToolMessagesHooks(
 			context.Background(),
 			inv,
-			&model.Request{Tools: nil},
+			&compat.Request{Tools: nil},
 			llmResponse,
 			toolEvent,
 		)
@@ -1855,9 +1855,9 @@ func executeToolCallWithHooks(
 			Model:        &mockModel{},
 			Plugins:      plugins,
 		},
-		model.ToolCall{
+		compat.ToolCall{
 			ID: "call-1",
-			Function: model.FunctionDefinitionParam{
+			Function: compat.FunctionDefinitionParam{
 				Name:      name,
 				Arguments: []byte(`{}`),
 			},
@@ -1902,7 +1902,7 @@ func TestExecuteToolCall_MergedStreamResultSkipsResultFormatter(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, execution.choices, 1)
 	assert.Equal(t, `"hello world"`, execution.choices[0].Message.Content)
-	assert.Equal(t, model.RoleTool, execution.choices[0].Message.Role)
+	assert.Equal(t, compat.RoleTool, execution.choices[0].Message.Role)
 	assert.Zero(t, formatterCalls.Load())
 }
 

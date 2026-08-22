@@ -12,12 +12,12 @@ package telemetry
 import (
 	"fmt"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/telemetry/errs"
 )
 
 // FormatResponseErrorLabel converts a response error into a telemetry label.
-func FormatResponseErrorLabel(respErr *model.ResponseError, fallback string) string {
+func FormatResponseErrorLabel(respErr *compat.ResponseError, fallback string) string {
 	if respErr == nil {
 		return fallback
 	}

@@ -18,7 +18,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/require"
 )
@@ -39,24 +39,24 @@ func TestService_GetEventWindow(t *testing.T) {
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, "u2").
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
-			AddRow(mysqlWindowEventBytes(t, "u2", model.RoleUser, "three"), base.Add(2*time.Minute)))
+			AddRow(mysqlWindowEventBytes(t, "u2", compat.RoleUser, "three"), base.Add(2*time.Minute)))
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, base.Add(2*time.Minute), eventWindowBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
-			AddRow(mysqlWindowEventBytes(t, "a1", model.RoleAssistant, "two"), base.Add(time.Minute)).
-			AddRow(mysqlWindowEventBytes(t, "u1", model.RoleUser, "one"), base))
+			AddRow(mysqlWindowEventBytes(t, "a1", compat.RoleAssistant, "two"), base.Add(time.Minute)).
+			AddRow(mysqlWindowEventBytes(t, "u1", compat.RoleUser, "one"), base))
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, base.Add(2*time.Minute), eventWindowBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
 			AddRow(mysqlWindowToolEventBytes(t, "t1", "calc", "four"), base.Add(3*time.Minute)).
-			AddRow(mysqlWindowEventBytes(t, "u3", model.RoleUser, "five"), base.Add(4*time.Minute)))
+			AddRow(mysqlWindowEventBytes(t, "u3", compat.RoleUser, "five"), base.Add(4*time.Minute)))
 
 	got, err := svc.GetEventWindow(ctx, session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "u2",
 		Before:        1,
 		After:         1,
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"u1", "u2", "u3"}, mysqlWindowIDs(got))
@@ -128,7 +128,7 @@ func TestService_GetEventWindowAnchorOnly(t *testing.T) {
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, "anchor").
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
-			AddRow(mysqlWindowEventBytes(t, "anchor", model.RoleUser, "one"), base))
+			AddRow(mysqlWindowEventBytes(t, "anchor", compat.RoleUser, "one"), base))
 
 	got, err := svc.GetEventWindow(context.Background(), session.EventWindowRequest{
 		Key:           key,
@@ -196,12 +196,12 @@ func TestService_GetEventWindowAnchorFilteredByRole(t *testing.T) {
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, "a1").
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
-			AddRow(mysqlWindowEventBytes(t, "a1", model.RoleAssistant, "one"), base))
+			AddRow(mysqlWindowEventBytes(t, "a1", compat.RoleAssistant, "one"), base))
 
 	_, err = svc.GetEventWindow(context.Background(), session.EventWindowRequest{
 		Key:           key,
 		AnchorEventID: "a1",
-		Roles:         []model.Role{model.RoleUser},
+		Roles:         []compat.Role{compat.RoleUser},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anchor event not found")
@@ -223,7 +223,7 @@ func TestService_GetEventWindowNeighborQueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, "anchor").
 		WillReturnRows(sqlmock.NewRows([]string{"event", "created_at"}).
-			AddRow(mysqlWindowEventBytes(t, "anchor", model.RoleUser, "one"), base))
+			AddRow(mysqlWindowEventBytes(t, "anchor", compat.RoleUser, "one"), base))
 	mock.ExpectQuery("SELECT event, created_at FROM session_events").
 		WithArgs(key.AppName, key.UserID, key.SessionID, base, base, eventWindowBatchSize).
 		WillReturnError(errors.New("neighbors failed"))
@@ -279,16 +279,16 @@ func TestReverseWindowEntries(t *testing.T) {
 func mysqlWindowEventBytes(
 	t *testing.T,
 	id string,
-	role model.Role,
+	role compat.Role,
 	content string,
 ) []byte {
 	t.Helper()
 	evt := event.Event{
 		ID:        id,
 		Timestamp: time.Now().UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
 					Role:    role,
 					Content: content,
 				},
@@ -310,10 +310,10 @@ func mysqlWindowToolEventBytes(
 	evt := event.Event{
 		ID:        id,
 		Timestamp: time.Now().UTC(),
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:     model.RoleTool,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:     compat.RoleTool,
 					Content:  content,
 					ToolID:   "call-" + id,
 					ToolName: toolName,

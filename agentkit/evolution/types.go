@@ -16,7 +16,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
@@ -138,7 +138,7 @@ type ReviewInput struct {
 	AppName    string          `json:"app_name"`
 	UserID     string          `json:"user_id"`
 	SessionID  string          `json:"session_id"`
-	Messages   []model.Message `json:"messages,omitempty"`
+	Messages   []compat.Message `json:"messages,omitempty"`
 	Transcript []ReviewMessage `json:"transcript,omitempty"`
 	// ExistingSkills carries the reviewer-facing view of the current skill
 	// library. Each entry includes the skill name, description, and a
@@ -214,7 +214,7 @@ type SkillSpec struct {
 // ReviewMessage is a compact, tool-aware transcript entry used by the
 // reviewer and by offline benchmarks.
 type ReviewMessage struct {
-	Role      model.Role       `json:"role"`
+	Role      compat.Role       `json:"role"`
 	Content   string           `json:"content,omitempty"`
 	ToolName  string           `json:"tool_name,omitempty"`
 	ToolID    string           `json:"tool_id,omitempty"`
@@ -233,7 +233,7 @@ type ReviewToolCall struct {
 // ReviewPolicy uses to decide whether a review is worthwhile.
 type ReviewContext struct {
 	LatestTs          time.Time
-	Messages          []model.Message
+	Messages          []compat.Message
 	Transcript        []ReviewMessage
 	ToolCallCount     int
 	HasUserCorrection bool

@@ -25,7 +25,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/artifact/inmemory"
 	"github.com/LingByte/ling-base/agentkit/codeexecutor"
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 )
 
@@ -110,15 +110,15 @@ type stubDownloadModel struct {
 
 func (m *stubDownloadModel) GenerateContent(
 	context.Context,
-	*model.Request,
-) (<-chan *model.Response, error) {
-	ch := make(chan *model.Response)
+	*compat.Request,
+) (<-chan *compat.Response, error) {
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (*stubDownloadModel) Info() model.Info {
-	return model.Info{Name: "stub"}
+func (*stubDownloadModel) Info() compat.Info {
+	return compat.Info{Name: "stub"}
 }
 
 func (m *stubDownloadModel) DownloadFile(
@@ -130,9 +130,9 @@ func (m *stubDownloadModel) DownloadFile(
 }
 
 func newInvocationCtx(
-	msg model.Message,
+	msg compat.Message,
 	sess *session.Session,
-	mdl model.Model,
+	mdl compat.Model,
 	svc artifact.Service,
 ) context.Context {
 	inv := agent.NewInvocation(
@@ -144,20 +144,20 @@ func newInvocationCtx(
 	return agent.NewInvocationContext(context.Background(), inv)
 }
 
-func userFileEvent(files ...model.File) event.Event {
-	parts := make([]model.ContentPart, 0, len(files))
+func userFileEvent(files ...compat.File) event.Event {
+	parts := make([]compat.ContentPart, 0, len(files))
 	for _, f := range files {
 		fileCopy := f
-		parts = append(parts, model.ContentPart{
-			Type: model.ContentTypeFile,
+		parts = append(parts, compat.ContentPart{
+			Type: compat.ContentTypeFile,
 			File: &fileCopy,
 		})
 	}
 	return event.Event{
-		Response: &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:         model.RoleUser,
+		Response: &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:         compat.RoleUser,
 					ContentParts: parts,
 				},
 			}},
@@ -166,7 +166,7 @@ func userFileEvent(files ...model.File) event.Event {
 }
 
 func TestStageConversationFiles_Warnings(t *testing.T) {
-	msg := model.NewUserMessage("process the file")
+	msg := compat.NewUserMessage("process the file")
 	msg.AddFileData("report.txt", []byte("hello"), "text/plain")
 	ws := codeexecutor.Workspace{ID: "ws"}
 
@@ -266,7 +266,7 @@ func TestStageConversationFiles_Warnings(t *testing.T) {
 
 func TestStageConversationFile_DefaultNameAndMetadataReuse(t *testing.T) {
 	ctx := context.Background()
-	f := model.File{Data: []byte("hello")}
+	f := compat.File{Data: []byte("hello")}
 
 	t.Run("default fallback and de-dup", func(t *testing.T) {
 		puts := []codeexecutor.PutFile{}
@@ -306,7 +306,7 @@ func TestStageConversationFile_DefaultNameAndMetadataReuse(t *testing.T) {
 		item, warn := stageConversationFile(
 			ctx,
 			nil,
-			model.File{Name: "report.txt", Data: f.Data},
+			compat.File{Name: "report.txt", Data: f.Data},
 			0,
 			map[string]struct{}{},
 			map[string]struct{}{},
@@ -335,7 +335,7 @@ func TestStageConversationFile_DefaultNameAndMetadataReuse(t *testing.T) {
 		item, warn := stageConversationFile(
 			ctx,
 			nil,
-			model.File{Name: "renamed.txt", Data: f.Data},
+			compat.File{Name: "renamed.txt", Data: f.Data},
 			0,
 			map[string]struct{}{},
 			map[string]struct{}{},
@@ -357,7 +357,7 @@ func TestStageConversationFile_DefaultNameAndMetadataReuse(t *testing.T) {
 }
 
 func TestFilesFromSessionAndMessage_Filtering(t *testing.T) {
-	file := model.File{Name: "report.txt", Data: []byte("x")}
+	file := compat.File{Name: "report.txt", Data: []byte("x")}
 	text := "ignore me"
 
 	sess := session.NewSession(
@@ -367,12 +367,12 @@ func TestFilesFromSessionAndMessage_Filtering(t *testing.T) {
 		session.WithSessionEvents([]event.Event{
 			{},
 			{
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleAssistant,
-							ContentParts: []model.ContentPart{{
-								Type: model.ContentTypeFile,
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleAssistant,
+							ContentParts: []compat.ContentPart{{
+								Type: compat.ContentTypeFile,
 								File: &file,
 							}},
 						},
@@ -380,12 +380,12 @@ func TestFilesFromSessionAndMessage_Filtering(t *testing.T) {
 				},
 			},
 			{
-				Response: &model.Response{
-					Choices: []model.Choice{{
-						Message: model.Message{
-							Role: model.RoleUser,
-							ContentParts: []model.ContentPart{{
-								Type: model.ContentTypeText,
+				Response: &compat.Response{
+					Choices: []compat.Choice{{
+						Message: compat.Message{
+							Role: compat.RoleUser,
+							ContentParts: []compat.ContentPart{{
+								Type: compat.ContentTypeText,
 								Text: &text,
 							}},
 						},
@@ -400,10 +400,10 @@ func TestFilesFromSessionAndMessage_Filtering(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Equal(t, file.Name, got[0].Name)
 
-	msg := model.NewUserMessage("hi")
+	msg := compat.NewUserMessage("hi")
 	msg.ContentParts = append(msg.ContentParts,
-		model.ContentPart{Type: model.ContentTypeText, Text: &text},
-		model.ContentPart{Type: model.ContentTypeFile, File: &file},
+		compat.ContentPart{Type: compat.ContentTypeText, Text: &text},
+		compat.ContentPart{Type: compat.ContentTypeFile, File: &file},
 	)
 	got = filesFromMessage(msg)
 	require.Len(t, got, 1)
@@ -441,7 +441,7 @@ func TestArtifactBaseNameAndPathHelpers(t *testing.T) {
 
 func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 	t.Run("missing ref", func(t *testing.T) {
-		data, mime, warn := ResolveFileBytes(context.Background(), nil, model.File{})
+		data, mime, warn := ResolveFileBytes(context.Background(), nil, compat.File{})
 		require.Nil(t, data)
 		require.Empty(t, mime)
 		require.Equal(t, WarnMissingRef, warn)
@@ -451,7 +451,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		hostPath := filepath.Join(t.TempDir(), "host.txt")
 		require.NoError(t, os.WriteFile(hostPath, []byte("host-bytes"), 0o600))
 
-		data, mime, warn := ResolveFileBytes(context.Background(), nil, model.File{
+		data, mime, warn := ResolveFileBytes(context.Background(), nil, compat.File{
 			FileID:   HostPrefix + hostPath,
 			MimeType: "text/plain",
 		})
@@ -468,7 +468,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		data, mime, warn := ResolveFileBytes(
 			context.Background(),
 			mdl,
-			model.File{FileID: "provider-file-1"},
+			compat.File{FileID: "provider-file-1"},
 		)
 		require.Equal(t, []byte("remote"), data)
 		require.Equal(t, "text/csv", mime)
@@ -480,7 +480,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		data, mime, warn := ResolveFileBytes(
 			context.Background(),
 			nil,
-			model.File{FileID: "provider-file-2"},
+			compat.File{FileID: "provider-file-2"},
 		)
 		require.Nil(t, data)
 		require.Empty(t, mime)
@@ -491,7 +491,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		data, mime, warn := ResolveFileBytes(
 			context.Background(),
 			nil,
-			model.File{FileID: "artifact://uploads/report.txt@1"},
+			compat.File{FileID: "artifact://uploads/report.txt@1"},
 		)
 		require.Nil(t, data)
 		require.Empty(t, mime)
@@ -503,7 +503,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		data, mime, warn := ResolveFileBytes(
 			ctx,
 			nil,
-			model.File{FileID: "artifact://@1"},
+			compat.File{FileID: "artifact://@1"},
 		)
 		require.Nil(t, data)
 		require.Empty(t, mime)
@@ -531,7 +531,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 
 		ref := fmt.Sprintf("artifact://uploads/report.txt@%d", ver)
 		ctx := newInvocationCtx(
-			model.NewUserMessage("read"),
+			compat.NewUserMessage("read"),
 			session.NewSession("app", "user", "sess"),
 			nil,
 			svc,
@@ -540,7 +540,7 @@ func TestResolveFileBytes_CoversInputSources(t *testing.T) {
 		data, mime, warn := ResolveFileBytes(
 			ctx,
 			nil,
-			model.File{FileID: ref},
+			compat.File{FileID: ref},
 		)
 		require.Equal(t, []byte("artifact-data"), data)
 		require.Equal(t, "text/plain", mime)
@@ -554,8 +554,8 @@ func TestStageConversationFiles_MergesSessionAndMessageFiles(t *testing.T) {
 	eng := codeexecutor.NewEngine(nil, fs, runner)
 	ws := codeexecutor.Workspace{ID: "ws"}
 
-	sessionFile := model.File{Name: "session.txt", Data: []byte("from session")}
-	message := model.NewUserMessage("include current file too")
+	sessionFile := compat.File{Name: "session.txt", Data: []byte("from session")}
+	message := compat.NewUserMessage("include current file too")
 	message.AddFileData("message.txt", []byte("from message"), "text/plain")
 	sess := session.NewSession(
 		"app",
@@ -628,7 +628,7 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 			context.Background(),
 			codeexecutor.NewEngine(nil, &stubFS{}, nil),
 			ws,
-			[]model.File{{Name: "report.txt", Data: []byte("data")}},
+			[]compat.File{{Name: "report.txt", Data: []byte("data")}},
 		)
 		require.NoError(t, err)
 		require.Nil(t, staged)
@@ -636,7 +636,7 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 	})
 
 	t.Run("metadata lock warning", func(t *testing.T) {
-		msg := model.NewUserMessage("process")
+		msg := compat.NewUserMessage("process")
 		msg.AddFileData("report.txt", []byte("data"), "text/plain")
 		ctx := newInvocationCtx(msg, nil, nil, nil)
 		ctx, cancel := context.WithCancel(ctx)
@@ -654,7 +654,7 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 	})
 
 	t.Run("no files", func(t *testing.T) {
-		ctx := newInvocationCtx(model.NewUserMessage("no files"), nil, nil, nil)
+		ctx := newInvocationCtx(compat.NewUserMessage("no files"), nil, nil, nil)
 		staged, warnings, err := StageConversationFiles(
 			ctx,
 			codeexecutor.NewEngine(nil, &stubFS{}, nil),
@@ -666,7 +666,7 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 	})
 
 	t.Run("metadata reuse skips put", func(t *testing.T) {
-		file := model.File{Name: "report.txt", Data: []byte("same")}
+		file := compat.File{Name: "report.txt", Data: []byte("same")}
 		key, ok := reuseKey(file, "report.txt")
 		require.True(t, ok)
 
@@ -684,9 +684,9 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 			Name:    codeexecutor.MetaFileName,
 			Content: string(buf),
 		}}}
-		msg := model.NewUserMessage("reuse")
-		msg.ContentParts = append(msg.ContentParts, model.ContentPart{
-			Type: model.ContentTypeFile,
+		msg := compat.NewUserMessage("reuse")
+		msg.ContentParts = append(msg.ContentParts, compat.ContentPart{
+			Type: compat.ContentTypeFile,
 			File: &file,
 		})
 		ctx := newInvocationCtx(msg, nil, nil, nil)
@@ -710,17 +710,17 @@ func TestStageConversationFiles_CoversEmptyAndReusePaths(t *testing.T) {
 
 func TestHelperCoverage_GapFillers(t *testing.T) {
 	t.Run("fastKey", func(t *testing.T) {
-		key, ok := fastKey(model.File{FileID: "provider-file"})
+		key, ok := fastKey(compat.File{FileID: "provider-file"})
 		require.True(t, ok)
 		require.Contains(t, key, "file_id/provider-file")
 
-		key, ok = fastKey(model.File{})
+		key, ok = fastKey(compat.File{})
 		require.False(t, ok)
 		require.Empty(t, key)
 	})
 
 	t.Run("hostBytes error", func(t *testing.T) {
-		data, mime, warn := hostBytes("/definitely/missing/file.txt", model.File{})
+		data, mime, warn := hostBytes("/definitely/missing/file.txt", compat.File{})
 		require.Nil(t, data)
 		require.Empty(t, mime)
 		require.Contains(t, warn, "read host path")

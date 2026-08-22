@@ -15,7 +15,7 @@ import (
 	atrace "github.com/LingByte/ling-base/agentkit/agent/trace"
 	"github.com/LingByte/ling-base/agentkit/event"
 	"github.com/LingByte/ling-base/agentkit/internal/tracecapture"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 type executionTraceToolMessage struct {
@@ -133,7 +133,7 @@ func executionTraceFirstToolMessage(
 }
 
 func executionTraceToolMessageFromChoice(
-	choice model.Choice,
+	choice compat.Choice,
 ) (executionTraceToolMessage, bool) {
 	msg := choice.Message
 	if msg.ToolID == "" && choice.Delta.ToolID != "" {

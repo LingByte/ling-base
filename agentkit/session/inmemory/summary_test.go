@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	ssummary "github.com/LingByte/ling-base/agentkit/session/summary"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +33,7 @@ func (f *fakeSummarizer) Summarize(ctx context.Context, sess *session.Session) (
 	return f.out, nil
 }
 func (f *fakeSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeSummarizer) SetModel(m model.Model)   {}
+func (f *fakeSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestMemoryService_GetSessionSummaryText_LocalPreferred(t *testing.T) {
@@ -88,7 +88,7 @@ func TestMemoryService_CreateSessionSummary_UpdateAndPersist(t *testing.T) {
 	// Append one valid event so delta is non-empty.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enable summarizer and create summary under filterKey "" (full-session).
@@ -129,7 +129,7 @@ func TestMemoryService_EnqueueSummaryJob_AsyncEnabled(t *testing.T) {
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue summary job
@@ -162,7 +162,7 @@ func TestMemoryService_EnqueueSummaryJob_AsyncEnabled_Default(t *testing.T) {
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue summary job (should use async processing)
@@ -196,13 +196,13 @@ func TestMemoryService_CreateSessionSummary_FilterAllowlistAndCascade(t *testing
 	allowed := event.New("inv-1", "author")
 	allowed.Timestamp = time.Now().Add(-time.Minute)
 	allowed.FilterKey = "branch"
-	allowed.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "allowed"}}}}
+	allowed.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "allowed"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, allowed))
 
 	disallowed := event.New("inv-2", "author")
 	disallowed.Timestamp = time.Now()
 	disallowed.FilterKey = "other"
-	disallowed.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "other"}}}}
+	disallowed.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "other"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, disallowed))
 
 	require.NoError(t, s.CreateSessionSummary(context.Background(), sess, "other", false))
@@ -287,13 +287,13 @@ func TestMemoryService_EnqueueSummaryJob_QueueFull_FallbackToSync(t *testing.T) 
 	e1 := event.New("inv1", "author")
 	e1.Timestamp = time.Now().Add(-time.Minute)
 	e1.FilterKey = "branch"
-	e1.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e1.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e1))
 
 	e2 := event.New("inv2", "author")
 	e2.Timestamp = time.Now()
 	e2.FilterKey = "other-branch"
-	e2.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "world"}}}}
+	e2.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "world"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e2))
 
 	// Fill up the queue by enqueueing multiple jobs.
@@ -331,7 +331,7 @@ func (f *fakeBlockingSummarizer) Summarize(ctx context.Context, sess *session.Se
 	return "", ctx.Err()
 }
 func (f *fakeBlockingSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeBlockingSummarizer) SetModel(m model.Model)   {}
+func (f *fakeBlockingSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeBlockingSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestMemoryService_SummaryJobTimeout_CancelsSummarizer(t *testing.T) {
@@ -348,7 +348,7 @@ func TestMemoryService_SummaryJobTimeout_CancelsSummarizer(t *testing.T) {
 
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Enqueue job; summarizer will block until timeout; worker should cancel and not persist.
@@ -383,7 +383,7 @@ func TestMemoryService_EnqueueSummaryJob_ChannelClosed_PanicRecovery(t *testing.
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Close the service to simulate channel closure
@@ -425,7 +425,7 @@ func TestMemoryService_EnqueueSummaryJob_ChannelClosed_AllChannelsClosed(t *test
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Close the service to simulate service shutdown scenario
@@ -556,7 +556,7 @@ func TestMemoryService_CreateSessionSummary_SessionNotFound(t *testing.T) {
 	// Add an event.
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	sess := &session.Session{ID: key.SessionID, AppName: key.AppName, UserID: key.UserID}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
@@ -589,7 +589,7 @@ func (p *panicSummarizer) Metadata() map[string]any {
 func (p *panicSummarizer) SetPrompt(prompt string) {
 }
 
-func (p *panicSummarizer) SetModel(m model.Model) {
+func (p *panicSummarizer) SetModel(m compat.Model) {
 }
 
 func TestMemoryService_AppendEvent_Errors(t *testing.T) {
@@ -658,7 +658,7 @@ func TestMemoryService_ListSessions_Filtering(t *testing.T) {
 	// Add some events
 	e1 := &event.Event{
 		ID:        "e1",
-		Response:  &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}},
+		Response:  &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}},
 		Timestamp: time.Now(),
 	}
 	require.NoError(t, service.AppendEvent(ctx, sess1, e1))
@@ -730,7 +730,7 @@ func (f *fakeErrorSummarizer) Summarize(ctx context.Context, sess *session.Sessi
 	return "", fmt.Errorf("summarizer error")
 }
 func (f *fakeErrorSummarizer) SetPrompt(prompt string)  {}
-func (f *fakeErrorSummarizer) SetModel(m model.Model)   {}
+func (f *fakeErrorSummarizer) SetModel(m compat.Model)   {}
 func (f *fakeErrorSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 func TestMemoryService_TryEnqueueJob_ChannelsNotInitialized(t *testing.T) {
@@ -748,7 +748,7 @@ func TestMemoryService_TryEnqueueJob_ChannelsNotInitialized(t *testing.T) {
 	// Append an event to make delta non-empty
 	e := event.New("inv", "author")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, service.AppendEvent(ctx, sess, e))
 
 	// Close the service to simulate shutdown and set channels to nil
@@ -883,7 +883,7 @@ func (c *ctxCaptureSummarizer) Summarize(ctx context.Context, sess *session.Sess
 	return "captured-summary", nil
 }
 func (c *ctxCaptureSummarizer) SetPrompt(prompt string)  {}
-func (c *ctxCaptureSummarizer) SetModel(m model.Model)   {}
+func (c *ctxCaptureSummarizer) SetModel(m compat.Model)   {}
 func (c *ctxCaptureSummarizer) Metadata() map[string]any { return map[string]any{} }
 
 type contextAwareSummarizer struct {
@@ -908,7 +908,7 @@ func (c *contextAwareSummarizer) Summarize(context.Context, *session.Session) (s
 	return "provider-summary", nil
 }
 func (c *contextAwareSummarizer) SetPrompt(string)     {}
-func (c *contextAwareSummarizer) SetModel(model.Model) {}
+func (c *contextAwareSummarizer) SetModel(compat.Model) {}
 func (c *contextAwareSummarizer) Metadata() map[string]any {
 	return map[string]any{}
 }
@@ -924,8 +924,8 @@ func TestMemoryService_CreateSessionSummary_ContextAwareGateReceivesContext(t *t
 
 	e := event.New("inv", "user")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{
-		Role:    model.RoleUser,
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+		Role:    compat.RoleUser,
 		Content: "hello",
 	}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
@@ -961,8 +961,8 @@ func TestMemoryService_CreateSessionSummary_DynamicSummarizerUsesContext(t *test
 
 	e := event.New("inv", "user")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{
-		Role:    model.RoleUser,
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+		Role:    compat.RoleUser,
 		Content: "hello",
 	}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
@@ -992,7 +992,7 @@ func TestMemoryService_EnqueueSummaryJob_ContextValuePreserved(t *testing.T) {
 	// Append an event to make delta non-empty.
 	e := event.New("inv", "user")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "hello"}}}}
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "hello"}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
 
 	// Create context with trace ID value.
@@ -1030,8 +1030,8 @@ func TestMemoryService_EnqueueSummaryJob_ContextAwareGateReceivesContext(t *test
 
 	e := event.New("inv", "user")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{
-		Role:    model.RoleUser,
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+		Role:    compat.RoleUser,
 		Content: "hello",
 	}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))
@@ -1074,8 +1074,8 @@ func TestMemoryService_EnqueueSummaryJob_DynamicSummarizerUsesContext(t *testing
 
 	e := event.New("inv", "user")
 	e.Timestamp = time.Now()
-	e.Response = &model.Response{Choices: []model.Choice{{Message: model.Message{
-		Role:    model.RoleUser,
+	e.Response = &compat.Response{Choices: []compat.Choice{{Message: compat.Message{
+		Role:    compat.RoleUser,
 		Content: "hello",
 	}}}}
 	require.NoError(t, s.AppendEvent(context.Background(), sess, e))

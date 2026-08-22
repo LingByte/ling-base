@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/session/redis/internal/util"
 	"github.com/alicebob/miniredis/v2"
@@ -51,10 +51,10 @@ func makeTestEvent(id string, ts time.Time, content string) *event.Event {
 		ID:        id,
 		Timestamp: ts,
 		RequestID: "req-" + id,
-		Response: &model.Response{
+		Response: &compat.Response{
 			Done: true,
-			Choices: []model.Choice{
-				{Message: model.Message{Role: model.RoleUser, Content: content}},
+			Choices: []compat.Choice{
+				{Message: compat.Message{Role: compat.RoleUser, Content: content}},
 			},
 		},
 	}
@@ -251,7 +251,7 @@ func TestAppendEvent(t *testing.T) {
 		partialEvt := &event.Event{
 			ID:        "ep1",
 			Timestamp: time.Now(),
-			Response:  &model.Response{Done: false, IsPartial: true},
+			Response:  &compat.Response{Done: false, IsPartial: true},
 		}
 		require.NoError(t, c.AppendEvent(ctx, key2, partialEvt))
 
@@ -301,11 +301,11 @@ func TestAppendEvent(t *testing.T) {
 		evt := &event.Event{
 			ID:        "bad-event",
 			Timestamp: time.Now(),
-			Response: &model.Response{
-				Choices: []model.Choice{{
-					Message: model.Message{ToolCalls: []model.ToolCall{{
+			Response: &compat.Response{
+				Choices: []compat.Choice{{
+					Message: compat.Message{ToolCalls: []compat.ToolCall{{
 						Type: "function",
-						Function: model.FunctionDefinitionParam{
+						Function: compat.FunctionDefinitionParam{
 							Name:      "demo",
 							Arguments: []byte("{}"),
 						},
@@ -614,10 +614,10 @@ func TestListSessions(t *testing.T) {
 		require.NoError(t, c.UpdateUserState(ctx, session.UserKey{AppName: key.AppName, UserID: key.UserID}, session.StateMap{"user_key": []byte("user_value")}, 0))
 
 		evt := event.New("test-invocation", "author")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{
-				Message: model.Message{
-					Role:    model.RoleUser,
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{
+				Message: compat.Message{
+					Role:    compat.RoleUser,
 					Content: "hello",
 				},
 			}},

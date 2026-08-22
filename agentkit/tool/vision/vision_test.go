@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,13 +58,13 @@ func TestNewAppliesDeclarationOptions(t *testing.T) {
 
 func TestToolCallUsesExplicitImageURLs(t *testing.T) {
 	visionModel := &fakeModel{
-		responses: []*model.Response{finalResponse("explicit analysis")},
+		responses: []*compat.Response{finalResponse("explicit analysis")},
 	}
 	tool, err := New(visionModel)
 	require.NoError(t, err)
 
 	invocation := agent.NewInvocation()
-	invocation.Message = model.NewUserMessage("user request")
+	invocation.Message = compat.NewUserMessage("user request")
 	invocation.Message.AddImageURL("https://example.com/attached.png", "high")
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 
@@ -78,7 +78,7 @@ func TestToolCallUsesExplicitImageURLs(t *testing.T) {
 	req := visionModel.lastRequest
 	require.NotNil(t, req)
 	require.Len(t, req.Messages, 2)
-	assert.Equal(t, model.RoleSystem, req.Messages[0].Role)
+	assert.Equal(t, compat.RoleSystem, req.Messages[0].Role)
 	assert.Contains(t, req.Messages[0].Content, "untrusted data")
 	assert.Empty(t, req.Messages[1].Content)
 	require.Len(t, req.Messages[1].ContentParts, 3)
@@ -92,13 +92,13 @@ func TestToolCallUsesExplicitImageURLs(t *testing.T) {
 
 func TestToolCallFallsBackToCurrentMessageImages(t *testing.T) {
 	visionModel := &fakeModel{
-		responses: []*model.Response{finalResponse("attached analysis")},
+		responses: []*compat.Response{finalResponse("attached analysis")},
 	}
 	maxTokens := 123
 	tool, err := New(
 		visionModel,
 		WithInstruction("custom instruction"),
-		WithGenerationConfig(model.GenerationConfig{
+		WithGenerationConfig(compat.GenerationConfig{
 			MaxTokens: &maxTokens,
 			Stream:    false,
 		}),
@@ -107,11 +107,11 @@ func TestToolCallFallsBackToCurrentMessageImages(t *testing.T) {
 
 	data := []byte{1, 2, 3}
 	invocation := agent.NewInvocation()
-	invocation.Message = model.NewUserMessage("look at these")
+	invocation.Message = compat.NewUserMessage("look at these")
 	invocation.Message.AddImageURL("https://example.com/attached.png", "high")
 	invocation.Message.AddImageData(data, "low", "png")
 	invocation.Message.ContentParts = append(invocation.Message.ContentParts,
-		model.ContentPart{Type: model.ContentTypeText})
+		compat.ContentPart{Type: compat.ContentTypeText})
 	ctx := agent.NewInvocationContext(context.Background(), invocation)
 
 	result, err := tool.Call(ctx, []byte(`{"prompt":" describe them ","image_urls":[]}`))
@@ -137,7 +137,7 @@ func TestToolCallFallsBackToCurrentMessageImages(t *testing.T) {
 
 func TestToolCallWithoutInstruction(t *testing.T) {
 	visionModel := &fakeModel{
-		responses: []*model.Response{finalResponse("analysis")},
+		responses: []*compat.Response{finalResponse("analysis")},
 	}
 	tool, err := New(visionModel, WithInstruction(""))
 	require.NoError(t, err)
@@ -149,7 +149,7 @@ func TestToolCallWithoutInstruction(t *testing.T) {
 	assert.Equal(t, "analysis", result)
 	require.Len(t, visionModel.lastRequest.Messages, 1)
 	message := visionModel.lastRequest.Messages[0]
-	assert.Equal(t, model.RoleUser, message.Role)
+	assert.Equal(t, compat.RoleUser, message.Role)
 	assert.Empty(t, message.Content)
 	require.Len(t, message.ContentParts, 2)
 	require.NotNil(t, message.ContentParts[0].Text)
@@ -202,7 +202,7 @@ func TestToolCallInputErrors(t *testing.T) {
 			name: "no current images",
 			ctx: agent.NewInvocationContext(
 				context.Background(),
-				&agent.Invocation{Message: model.NewUserMessage("hello")},
+				&agent.Invocation{Message: compat.NewUserMessage("hello")},
 			),
 			args:    `{"prompt":"describe"}`,
 			wantErr: "no images found",
@@ -232,8 +232,8 @@ func TestToolCallModelErrors(t *testing.T) {
 
 	t.Run("response error", func(t *testing.T) {
 		contextDone := make(chan struct{})
-		visionModel := &fakeModel{responses: []*model.Response{{
-			Error: &model.ResponseError{Message: "filtered"},
+		visionModel := &fakeModel{responses: []*compat.Response{{
+			Error: &compat.ResponseError{Message: "filtered"},
 		}}, contextDone: contextDone}
 		tool, err := New(visionModel)
 		require.NoError(t, err)
@@ -245,7 +245,7 @@ func TestToolCallModelErrors(t *testing.T) {
 	})
 
 	t.Run("empty response", func(t *testing.T) {
-		visionModel := &fakeModel{responses: []*model.Response{{}}}
+		visionModel := &fakeModel{responses: []*compat.Response{{}}}
 		tool, err := New(visionModel)
 		require.NoError(t, err)
 
@@ -294,7 +294,7 @@ func TestToolCallHonorsContextCancellation(t *testing.T) {
 }
 
 func TestToolCallAggregatesStreamingResponse(t *testing.T) {
-	visionModel := &fakeModel{responses: []*model.Response{
+	visionModel := &fakeModel{responses: []*compat.Response{
 		partialResponse("first "),
 		nil,
 		partialResponse("second"),
@@ -308,7 +308,7 @@ func TestToolCallAggregatesStreamingResponse(t *testing.T) {
 }
 
 func TestToolCallPrefersFinalResponseOverStreamingChunks(t *testing.T) {
-	visionModel := &fakeModel{responses: []*model.Response{
+	visionModel := &fakeModel{responses: []*compat.Response{
 		partialResponse("partial"),
 		finalResponse("final"),
 	}}
@@ -324,26 +324,26 @@ func validExplicitArgs() []byte {
 	return []byte(`{"prompt":"describe","image_urls":["https://example.com/image.png"]}`)
 }
 
-func finalResponse(content string) *model.Response {
-	return &model.Response{
-		Choices: []model.Choice{{
-			Message: model.NewAssistantMessage(content),
+func finalResponse(content string) *compat.Response {
+	return &compat.Response{
+		Choices: []compat.Choice{{
+			Message: compat.NewAssistantMessage(content),
 		}},
 	}
 }
 
-func partialResponse(content string) *model.Response {
-	return &model.Response{
+func partialResponse(content string) *compat.Response {
+	return &compat.Response{
 		IsPartial: true,
-		Choices: []model.Choice{{
-			Delta: model.Message{Content: content},
+		Choices: []compat.Choice{{
+			Delta: compat.Message{Content: content},
 		}},
 	}
 }
 
 type fakeModel struct {
-	lastRequest  *model.Request
-	responses    []*model.Response
+	lastRequest  *compat.Request
+	responses    []*compat.Response
 	err          error
 	nilResponses bool
 	contextDone  chan struct{}
@@ -351,8 +351,8 @@ type fakeModel struct {
 
 func (m *fakeModel) GenerateContent(
 	ctx context.Context,
-	req *model.Request,
-) (<-chan *model.Response, error) {
+	req *compat.Request,
+) (<-chan *compat.Response, error) {
 	m.lastRequest = req
 	if m.contextDone != nil {
 		go func() {
@@ -366,7 +366,7 @@ func (m *fakeModel) GenerateContent(
 	if m.nilResponses {
 		return nil, nil
 	}
-	responses := make(chan *model.Response, len(m.responses))
+	responses := make(chan *compat.Response, len(m.responses))
 	for _, response := range m.responses {
 		responses <- response
 	}
@@ -374,8 +374,8 @@ func (m *fakeModel) GenerateContent(
 	return responses, nil
 }
 
-func (m *fakeModel) Info() model.Info {
-	return model.Info{Name: "fake-vision-model"}
+func (m *fakeModel) Info() compat.Info {
+	return compat.Info{Name: "fake-vision-model"}
 }
 
 type blockingModel struct {
@@ -385,9 +385,9 @@ type blockingModel struct {
 
 func (m *blockingModel) GenerateContent(
 	ctx context.Context,
-	_ *model.Request,
-) (<-chan *model.Response, error) {
-	responses := make(chan *model.Response)
+	_ *compat.Request,
+) (<-chan *compat.Response, error) {
+	responses := make(chan *compat.Response)
 	close(m.started)
 	go func() {
 		<-ctx.Done()
@@ -396,8 +396,8 @@ func (m *blockingModel) GenerateContent(
 	return responses, nil
 }
 
-func (m *blockingModel) Info() model.Info {
-	return model.Info{Name: "blocking-vision-model"}
+func (m *blockingModel) Info() compat.Info {
+	return compat.Info{Name: "blocking-vision-model"}
 }
 
 func waitForSignal(t *testing.T, signal <-chan struct{}, name string) {

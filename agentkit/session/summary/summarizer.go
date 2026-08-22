@@ -23,13 +23,14 @@ import (
 	"github.com/LingByte/ling-base/agentkit/internal/modelcontext"
 	"github.com/LingByte/ling-base/agentkit/internal/state/summaryview"
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
-	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
 	"github.com/LingByte/ling-base/agentkit/prompt"
 	"github.com/LingByte/ling-base/agentkit/session"
 	isummarycontext "github.com/LingByte/ling-base/agentkit/session/internal/summarycontext"
 	isummaryscope "github.com/LingByte/ling-base/agentkit/session/internal/summaryscope"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
+	"github.com/LingByte/ling-base/agentkit/tool"
+	log "github.com/LingByte/ling-base/common/logger"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 var _ SessionSummarizer = (*sessionSummarizer)(nil)
@@ -92,8 +93,8 @@ const (
 	summaryPreviousOmitted = "\n[... previous summary omitted to fit the summary context ...]\n"
 )
 
-// formatResponseError formats a model.ResponseError into a human-readable error.
-func formatResponseError(e *model.ResponseError) error {
+// formatResponseError formats a compat.ResponseError into a human-readable error.
+func formatResponseError(e *compat.ResponseError) error {
 	if e == nil {
 		return nil
 	}
@@ -110,16 +111,16 @@ func formatResponseError(e *model.ResponseError) error {
 // ToolCallFormatter formats a tool call for inclusion in the summary input.
 // It receives the tool call and returns a formatted string.
 // Return empty string to exclude this tool call from the summary.
-type ToolCallFormatter func(tc model.ToolCall) string
+type ToolCallFormatter func(tc compat.ToolCall) string
 
 // ToolResultFormatter formats a tool result for inclusion in the summary input.
 // It receives the message containing the tool result and returns a formatted string.
 // Return empty string to exclude this tool result from the summary.
-type ToolResultFormatter func(msg model.Message) string
+type ToolResultFormatter func(msg compat.Message) string
 
 // defaultToolCallFormatter is the default formatter for tool calls.
 // It formats as "[Called tool: name with args: {args}]".
-func defaultToolCallFormatter(tc model.ToolCall) string {
+func defaultToolCallFormatter(tc compat.ToolCall) string {
 	name := tc.Function.Name
 	if name == "" {
 		return ""
@@ -133,7 +134,7 @@ func defaultToolCallFormatter(tc model.ToolCall) string {
 
 // defaultToolResultFormatter is the default formatter for tool results.
 // It formats as "[toolName returned: content]".
-func defaultToolResultFormatter(msg model.Message) string {
+func defaultToolResultFormatter(msg compat.Message) string {
 	content := strings.TrimSpace(msg.Content)
 	if content == "" {
 		return ""
@@ -268,7 +269,7 @@ const standaloneSummarySourceBoundary = "The content above is source " +
 
 // sessionSummarizer implements the SessionSummarizer interface.
 type sessionSummarizer struct {
-	model               model.Model
+	model               compat.Model
 	name                string
 	prompt              string
 	systemPrompt        string
@@ -283,7 +284,7 @@ type sessionSummarizer struct {
 	hookAbortOnError bool
 
 	// modelCallbacks configures before/after model callbacks for summarization.
-	modelCallbacks *model.Callbacks
+	modelCallbacks *compat.Callbacks
 	// reportHook observes summary trigger and model-call accounting.
 	reportHook ReportHook
 
@@ -294,7 +295,7 @@ type sessionSummarizer struct {
 }
 
 // NewSummarizer creates a new session summarizer.
-func NewSummarizer(m model.Model, opts ...Option) SessionSummarizer {
+func NewSummarizer(m compat.Model, opts ...Option) SessionSummarizer {
 	s := &sessionSummarizer{
 		prompt:              "",                 // Will be set after processing options.
 		cacheSafeForkPrompt: "",                 // Will be set after processing options.
@@ -537,8 +538,8 @@ func (s *sessionSummarizer) selectSummaryEvents(
 func previousSummaryEvent(text string) event.Event {
 	return event.Event{
 		Author: authorSystem,
-		Response: &model.Response{Choices: []model.Choice{{
-			Message: model.NewSystemMessage(text),
+		Response: &compat.Response{Choices: []compat.Choice{{
+			Message: compat.NewSystemMessage(text),
 		}}},
 	}
 }
@@ -907,7 +908,7 @@ func (s *sessionSummarizer) buildCheckSessionWithSelection(
 		filtered = s.filterEventsForSummary(delta)
 	}
 	thresholdEvents := filterThresholdEventsForSession(filtered, checkSess)
-	var thresholdMessage model.Message
+	var thresholdMessage compat.Message
 	summaryInputEvents := filterSummaryInputEventsForSession(filtered, checkSess)
 	if s.hasSummarizableContent(summaryInputEvents) {
 		thresholdMessage = extractTokenThresholdMessage(thresholdEvents)
@@ -1064,7 +1065,7 @@ func (s *sessionSummarizer) SetPrompt(prompt string) {
 // This allows switching to different models at runtime based on different
 // scenarios or requirements. If nil is provided, it will be ignored and the
 // current model will remain unchanged.
-func (s *sessionSummarizer) SetModel(m model.Model) {
+func (s *sessionSummarizer) SetModel(m compat.Model) {
 	if m != nil {
 		s.model = m
 	}
@@ -1161,8 +1162,8 @@ func extractConversationText(
 	return strings.Join(parts, "\n")
 }
 
-func extractTokenThresholdMessage(events []event.Event) model.Message {
-	return model.Message{
+func extractTokenThresholdMessage(events []event.Event) compat.Message {
+	return compat.Message{
 		Content:          extractConversationText(events, nil, nil),
 		ReasoningContent: extractReasoningContent(events),
 	}
@@ -1234,23 +1235,23 @@ func (s *sessionSummarizer) generateSummary(
 	)
 	defer tracker.RecordMetrics()()
 
-	ensureTimingInfo := func(resp *model.Response) {
+	ensureTimingInfo := func(resp *compat.Response) {
 		if resp == nil {
 			return
 		}
 		if resp.Usage == nil {
-			resp.Usage = &model.Usage{}
+			resp.Usage = &compat.Usage{}
 		}
 		resp.Usage.TimingInfo = timingInfo
 	}
 
-	trackResponse := func(resp *model.Response) {
+	trackResponse := func(resp *compat.Response) {
 		tracker.TrackResponse(resp)
 		s.recordReportUsage(ctx, resp, nil)
 		ensureTimingInfo(resp)
 	}
 
-	var finalResp *model.Response
+	var finalResp *compat.Response
 	defer func() {
 		s.recordReportUsage(ctx, finalResp, err)
 		s.emitReport(ctx, err)
@@ -1281,12 +1282,12 @@ func (s *sessionSummarizer) generateSummary(
 
 func (s *sessionSummarizer) runSummaryAttempts(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	mode string,
 	source *summarySource,
-	trackResponse func(*model.Response),
-	ensureTimingInfo func(*model.Response),
-) (context.Context, string, *model.Response, error) {
+	trackResponse func(*compat.Response),
+	ensureTimingInfo func(*compat.Response),
+) (context.Context, string, *compat.Response, error) {
 	result := s.runSummaryAttemptWithPrefixFallback(
 		ctx,
 		request,
@@ -1363,12 +1364,12 @@ func (s *sessionSummarizer) runSummaryAttempts(
 
 func (s *sessionSummarizer) runSummaryAttemptWithPrefixFallback(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	mode string,
 	source *summarySource,
 	budgetLimit int,
-	trackResponse func(*model.Response),
-	ensureTimingInfo func(*model.Response),
+	trackResponse func(*compat.Response),
+	ensureTimingInfo func(*compat.Response),
 ) summaryAttemptResult {
 	for {
 		result := s.runSummaryAttempt(
@@ -1415,7 +1416,7 @@ func (s *sessionSummarizer) runSummaryAttemptWithPrefixFallback(
 func shouldRetrySummary(
 	summaryText string,
 	err error,
-	response *model.Response,
+	response *compat.Response,
 ) bool {
 	return isSummaryContextLengthError(err, response) ||
 		(err == nil && summaryText == "")
@@ -1434,7 +1435,7 @@ func summaryAttemptError(err error, input summaryPromptInput) error {
 type summaryAttemptResult struct {
 	ctx         context.Context
 	summaryText string
-	response    *model.Response
+	response    *compat.Response
 	custom      bool
 	mode        string
 	budget      int
@@ -1443,12 +1444,12 @@ type summaryAttemptResult struct {
 
 func (s *sessionSummarizer) runSummaryAttempt(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	mode string,
 	input summaryPromptInput,
 	budgetLimit int,
-	trackResponse func(*model.Response),
-	ensureTimingInfo func(*model.Response),
+	trackResponse func(*compat.Response),
+	ensureTimingInfo func(*compat.Response),
 ) summaryAttemptResult {
 	result := summaryAttemptResult{ctx: ctx, mode: mode}
 	result.budget = s.summaryRequestInputBudget(ctx, request)
@@ -1570,7 +1571,7 @@ func (s *sessionSummarizer) buildCacheSafeForkPrompt() (string, error) {
 func (s *sessionSummarizer) buildSummaryRequest(
 	ctx context.Context,
 	input summaryPromptInput,
-) (*model.Request, string, error) {
+) (*compat.Request, string, error) {
 	if s.cacheSafeForking {
 		if parent, ok := CacheSafeForkRequestFromContext(ctx); ok {
 			if itemIndexes, hasItems := modelVisibleItemsFromContext(ctx); hasItems {
@@ -1606,14 +1607,14 @@ func (s *sessionSummarizer) buildSummaryRequest(
 
 func (s *sessionSummarizer) buildStandaloneSummaryRequest(
 	input summaryPromptInput,
-) (*model.Request, error) {
-	messages := make([]model.Message, 0, 2)
+) (*compat.Request, error) {
+	messages := make([]compat.Message, 0, 2)
 	systemPrompt, err := s.buildSystemPrompt()
 	if err != nil {
 		return nil, fmt.Errorf("render system prompt: %w", err)
 	}
 	if trimmed := strings.TrimSpace(systemPrompt); trimmed != "" {
-		messages = append(messages, model.NewSystemMessage(systemPrompt))
+		messages = append(messages, compat.NewSystemMessage(systemPrompt))
 	}
 
 	userPrompt, err := s.buildSummaryPrompt(input)
@@ -1628,20 +1629,20 @@ func (s *sessionSummarizer) buildStandaloneSummaryRequest(
 		userPrompt = strings.TrimRight(userPrompt, "\n") + "\n\n" +
 			standaloneSummarySourceBoundary + "\n\n" + forkPrompt
 	}
-	messages = append(messages, model.NewUserMessage(userPrompt))
+	messages = append(messages, compat.NewUserMessage(userPrompt))
 	return newSummaryRequest(messages), nil
 }
 
 func (s *sessionSummarizer) buildCacheSafeForkRequest(
-	parent *model.Request,
-) (*model.Request, error) {
+	parent *compat.Request,
+) (*compat.Request, error) {
 	return s.buildCacheSafeForkRequestWithMessages(parent, nil)
 }
 
 func (s *sessionSummarizer) buildCacheSafeForkRequestWithMessages(
-	parent *model.Request,
-	messages []model.Message,
-) (*model.Request, error) {
+	parent *compat.Request,
+	messages []compat.Message,
+) (*compat.Request, error) {
 	request := cloneRequestForCacheSafeFork(parent)
 	if request == nil {
 		return nil, errors.New("parent request is nil")
@@ -1656,7 +1657,7 @@ func (s *sessionSummarizer) buildCacheSafeForkRequestWithMessages(
 	if err != nil {
 		return nil, fmt.Errorf("render cache-safe fork prompt: %w", err)
 	}
-	request.Messages = append(request.Messages, model.NewUserMessage(userPrompt))
+	request.Messages = append(request.Messages, compat.NewUserMessage(userPrompt))
 	request.GenerationConfig.Stream = false
 	request.StructuredOutput = nil
 	return request, nil
@@ -1664,17 +1665,17 @@ func (s *sessionSummarizer) buildCacheSafeForkRequestWithMessages(
 
 type summaryPayloadCandidate struct {
 	messageIndex int
-	replacement  model.Message
+	replacement  compat.Message
 	savedTokens  int
 }
 
 func (s *sessionSummarizer) prepareSummaryRequest(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	mode string,
 	input summaryPromptInput,
 	budget int,
-) (*model.Request, string, error) {
+) (*compat.Request, string, error) {
 	if mode == callModeStandalone {
 		bounded, err := s.buildBoundedStandaloneSummaryRequest(
 			ctx,
@@ -1716,7 +1717,7 @@ func (s *sessionSummarizer) buildBoundedStandaloneSummaryRequest(
 	ctx context.Context,
 	input summaryPromptInput,
 	budget int,
-) (*model.Request, error) {
+) (*compat.Request, error) {
 	request, err := s.buildStandaloneSummaryRequest(input)
 	if err != nil {
 		return nil, err
@@ -1802,7 +1803,7 @@ func truncateSummaryText(runes []rune, retain int, marker string) string {
 
 func summaryRequestFits(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	budget int,
 ) (bool, error) {
 	tokens, err := countSummaryRequestTokens(ctx, request)
@@ -1814,7 +1815,7 @@ func summaryRequestFits(
 
 func (s *sessionSummarizer) ensureSummaryRequestFits(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	compactToolPayloads bool,
 	budget int,
 ) error {
@@ -1869,14 +1870,14 @@ func (s *sessionSummarizer) ensureSummaryRequestFits(
 
 func (s *sessionSummarizer) summaryRequestInputBudget(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 ) int {
 	contextWindow := defaultContextThresholdFallbackWindow
 	if resolved, ok := modelcontext.ResolveContextWindow(s.model); ok {
 		contextWindow = resolved
 	}
 	budget := int(float64(contextWindow) * summaryRequestInputRatio)
-	var requestWithoutTools *model.Request
+	var requestWithoutTools *compat.Request
 	if request != nil {
 		cloned := *request
 		cloned.Tools = nil
@@ -1895,7 +1896,7 @@ func (s *sessionSummarizer) summaryRequestInputBudget(
 	return budget
 }
 
-func isSummaryContextLengthError(err error, response *model.Response) bool {
+func isSummaryContextLengthError(err error, response *compat.Response) bool {
 	var parts []string
 	if err != nil {
 		parts = append(parts, err.Error())
@@ -1926,7 +1927,7 @@ func isSummaryContextLengthError(err error, response *model.Response) bool {
 
 func countSummaryRequestTokens(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 ) (int, error) {
 	if request == nil {
 		return 0, nil
@@ -1946,14 +1947,15 @@ func countSummaryRequestTokens(
 		}
 	}
 
-	toolNames := make([]string, 0, len(request.Tools))
-	for name := range request.Tools {
+	toolsMap, _ := request.Tools.(map[string]tool.Tool)
+	toolNames := make([]string, 0, len(toolsMap))
+	for name := range toolsMap {
 		toolNames = append(toolNames, name)
 	}
 	sort.Strings(toolNames)
 	for _, name := range toolNames {
 		declaration := any(name)
-		if summaryTool := request.Tools[name]; summaryTool != nil {
+		if summaryTool := toolsMap[name]; summaryTool != nil {
 			if declared := summaryTool.Declaration(); declared != nil {
 				declaration = declared
 			}
@@ -1964,7 +1966,7 @@ func countSummaryRequestTokens(
 		}
 		toolTokens, err := counter.CountTokens(
 			ctx,
-			model.NewSystemMessage(string(encoded)),
+			compat.NewSystemMessage(string(encoded)),
 		)
 		if err != nil {
 			return 0, fmt.Errorf("count tool declaration %q: %w", name, err)
@@ -1976,7 +1978,7 @@ func countSummaryRequestTokens(
 
 func summaryToolPayloadCandidates(
 	ctx context.Context,
-	messages []model.Message,
+	messages []compat.Message,
 ) ([]summaryPayloadCandidate, error) {
 	counter := getTokenCounter()
 	candidates := make([]summaryPayloadCandidate, 0, len(messages))
@@ -2008,9 +2010,9 @@ func summaryToolPayloadCandidates(
 	return candidates, nil
 }
 
-func compactSummaryToolPayload(message model.Message) (model.Message, bool) {
+func compactSummaryToolPayload(message compat.Message) (compat.Message, bool) {
 	switch {
-	case message.Role == model.RoleTool && message.ToolID != "":
+	case message.Role == compat.RoleTool && message.ToolID != "":
 		replacement := cloneMessageForCacheSafeFork(message)
 		replacement.Content = fmt.Sprintf(
 			summaryToolResultOmittedFmt,
@@ -2035,13 +2037,13 @@ func compactSummaryToolPayload(message model.Message) (model.Message, bool) {
 		}
 		return replacement, changed
 	default:
-		return model.Message{}, false
+		return compat.Message{}, false
 	}
 }
 
-func hasSummarySourceContent(messages []model.Message) bool {
+func hasSummarySourceContent(messages []compat.Message) bool {
 	for _, message := range messages {
-		if message.Role == model.RoleSystem {
+		if message.Role == compat.RoleSystem {
 			continue
 		}
 		if strings.TrimSpace(message.Content) != "" ||
@@ -2053,10 +2055,10 @@ func hasSummarySourceContent(messages []model.Message) bool {
 	return false
 }
 
-func newSummaryRequest(messages []model.Message) *model.Request {
-	return &model.Request{
+func newSummaryRequest(messages []compat.Message) *compat.Request {
+	return &compat.Request{
 		Messages: messages,
-		GenerationConfig: model.GenerationConfig{
+		GenerationConfig: compat.GenerationConfig{
 			Stream: false, // Non-streaming for summarization.
 		},
 	}
@@ -2064,7 +2066,7 @@ func newSummaryRequest(messages []model.Message) *model.Request {
 
 func (s *sessionSummarizer) recordReportCall(
 	ctx context.Context,
-	request *model.Request,
+	request *compat.Request,
 	mode string,
 ) {
 	report, ok := reportFromContext(ctx)
@@ -2077,7 +2079,7 @@ func (s *sessionSummarizer) recordReportCall(
 
 func (s *sessionSummarizer) recordReportUsage(
 	ctx context.Context,
-	response *model.Response,
+	response *compat.Response,
 	err error,
 ) {
 	report, ok := reportFromContext(ctx)
@@ -2095,7 +2097,7 @@ func (s *sessionSummarizer) recordReportUsage(
 	report.Call.CachedTokens = response.Usage.PromptTokensDetails.CachedTokens
 }
 
-func usageHasTokenCounts(usage *model.Usage) bool {
+func usageHasTokenCounts(usage *compat.Usage) bool {
 	if usage == nil {
 		return false
 	}
@@ -2125,7 +2127,7 @@ func (s *sessionSummarizer) emitReport(ctx context.Context, err error) {
 	s.reportHook(ctx, cloned)
 }
 
-func estimateRequestPromptTokens(ctx context.Context, request *model.Request) int {
+func estimateRequestPromptTokens(ctx context.Context, request *compat.Request) int {
 	if request == nil || len(request.Messages) == 0 {
 		return 0
 	}
@@ -2147,15 +2149,15 @@ func estimateRequestPromptTokens(ctx context.Context, request *model.Request) in
 
 func (s *sessionSummarizer) runBeforeModelCallbacks(
 	ctx context.Context,
-	request *model.Request,
-) (context.Context, <-chan *model.Response, error) {
+	request *compat.Request,
+) (context.Context, <-chan *compat.Response, error) {
 	if s.modelCallbacks == nil {
 		return ctx, nil, nil
 	}
 
 	result, err := s.modelCallbacks.RunBeforeModel(
 		ctx,
-		&model.BeforeModelArgs{Request: request},
+		&compat.BeforeModelArgs{Request: request},
 	)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("before model callback failed: %w", err)
@@ -2167,13 +2169,13 @@ func (s *sessionSummarizer) runBeforeModelCallbacks(
 		return ctx, nil, nil
 	}
 
-	customChan := make(chan *model.Response, 1)
+	customChan := make(chan *compat.Response, 1)
 	customChan <- result.CustomResponse
 	close(customChan)
 	return ctx, customChan, nil
 }
 
-func modelErrFromResponse(resp *model.Response) error {
+func modelErrFromResponse(resp *compat.Response) error {
 	if resp == nil || resp.Error == nil {
 		return nil
 	}
@@ -2182,16 +2184,16 @@ func modelErrFromResponse(resp *model.Response) error {
 
 func (s *sessionSummarizer) runAfterModelCallbacks(
 	ctx context.Context,
-	request *model.Request,
-	response *model.Response,
-) (context.Context, *model.Response, error) {
+	request *compat.Request,
+	response *compat.Response,
+) (context.Context, *compat.Response, error) {
 	if s.modelCallbacks == nil {
 		return ctx, response, nil
 	}
 
 	result, err := s.modelCallbacks.RunAfterModel(
 		ctx,
-		&model.AfterModelArgs{
+		&compat.AfterModelArgs{
 			Request:  request,
 			Response: response,
 			Error:    modelErrFromResponse(response),
@@ -2225,18 +2227,18 @@ func inheritReportContext(next context.Context, current context.Context) context
 
 func (s *sessionSummarizer) collectSummaryFromResponses(
 	ctx context.Context,
-	request *model.Request,
-	responseChan <-chan *model.Response,
-	trackResponse func(resp *model.Response),
-	ensureTimingInfo func(resp *model.Response),
-) (context.Context, string, *model.Response, error) {
+	request *compat.Request,
+	responseChan <-chan *compat.Response,
+	trackResponse func(resp *compat.Response),
+	ensureTimingInfo func(resp *compat.Response),
+) (context.Context, string, *compat.Response, error) {
 	if responseChan == nil {
 		return ctx, "", nil, errors.New("model returned nil response channel")
 	}
 
 	var (
 		summary   strings.Builder
-		finalResp *model.Response
+		finalResp *compat.Response
 	)
 
 	for {

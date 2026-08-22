@@ -11,13 +11,13 @@ package promptinjection
 import (
 	"context"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/currentinput"
 	guardtranscript "github.com/LingByte/ling-base/agentkit/plugin/guardrail/internal/transcript"
 	promptreview "github.com/LingByte/ling-base/agentkit/plugin/guardrail/promptinjection/review"
 )
 
-func (p *Plugin) buildReviewRequest(ctx context.Context, messages []model.Message) *promptreview.Request {
+func (p *Plugin) buildReviewRequest(ctx context.Context, messages []compat.Message) *promptreview.Request {
 	req := currentinput.Build(ctx, messages, p.tokenCounter, func(entry guardtranscript.Entry) promptreview.TranscriptEntry {
 		return promptreview.TranscriptEntry{
 			Role:    entry.Role,

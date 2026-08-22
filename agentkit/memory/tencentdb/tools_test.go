@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/LingByte/ling-base/agentkit/agent"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
 )
@@ -123,11 +123,11 @@ func TestMemorySearchToolAndHelpers(t *testing.T) {
 	assert.Equal(t, maxSearchLimit, normalizeLimit(99))
 
 	partText := " content part text "
-	msg := model.Message{
-		Role: model.RoleUser,
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeFile},
-			{Type: model.ContentTypeText, Text: &partText},
+	msg := compat.Message{
+		Role: compat.RoleUser,
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeFile},
+			{Type: compat.ContentTypeText, Text: &partText},
 		},
 	}
 	assert.Equal(t, "content part text", messageText(msg))

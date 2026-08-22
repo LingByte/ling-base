@@ -19,22 +19,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/skill"
 )
 
 type recordingReviewModel struct {
-	request   *model.Request
-	responses []*model.Response
+	request   *compat.Request
+	responses []*compat.Response
 	err       error
 }
 
-func (m *recordingReviewModel) GenerateContent(_ context.Context, req *model.Request) (<-chan *model.Response, error) {
+func (m *recordingReviewModel) GenerateContent(_ context.Context, req *compat.Request) (<-chan *compat.Response, error) {
 	m.request = req
 	if m.err != nil {
 		return nil, m.err
 	}
-	ch := make(chan *model.Response, len(m.responses))
+	ch := make(chan *compat.Response, len(m.responses))
 	for _, resp := range m.responses {
 		ch <- resp
 	}
@@ -42,38 +42,38 @@ func (m *recordingReviewModel) GenerateContent(_ context.Context, req *model.Req
 	return ch, nil
 }
 
-func (m *recordingReviewModel) Info() model.Info { return model.Info{Name: "recording-review-model"} }
+func (m *recordingReviewModel) Info() compat.Info { return compat.Info{Name: "recording-review-model"} }
 
 type blockingReviewModel struct{}
 
-func (m blockingReviewModel) GenerateContent(_ context.Context, _ *model.Request) (<-chan *model.Response, error) {
-	return make(chan *model.Response), nil
+func (m blockingReviewModel) GenerateContent(_ context.Context, _ *compat.Request) (<-chan *compat.Response, error) {
+	return make(chan *compat.Response), nil
 }
 
-func (m blockingReviewModel) Info() model.Info { return model.Info{Name: "blocking-review-model"} }
+func (m blockingReviewModel) Info() compat.Info { return compat.Info{Name: "blocking-review-model"} }
 
 type blockingGenerateReviewModel struct {
 	started chan struct{}
 	release chan struct{}
 }
 
-func (m blockingGenerateReviewModel) GenerateContent(_ context.Context, _ *model.Request) (<-chan *model.Response, error) {
+func (m blockingGenerateReviewModel) GenerateContent(_ context.Context, _ *compat.Request) (<-chan *compat.Response, error) {
 	close(m.started)
 	<-m.release
-	ch := make(chan *model.Response)
+	ch := make(chan *compat.Response)
 	close(ch)
 	return ch, nil
 }
 
-func (m blockingGenerateReviewModel) Info() model.Info {
-	return model.Info{Name: "blocking-generate-review-model"}
+func (m blockingGenerateReviewModel) Info() compat.Info {
+	return compat.Info{Name: "blocking-generate-review-model"}
 }
 
 func TestLLMReviewer_Review_StripsCodeFenceAndNormalizes(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{
-				Message: model.Message{Content: "```json\n{\n  \"skills\": [{\n    \"name\": \"  Release Checklist  \",\n    \"description\": \"  Steps to release  \",\n    \"when_to_use\": \"  Before shipping  \",\n    \"steps\": [\" draft notes \", \" publish \", \"  \"],\n    \"pitfalls\": [\" forget tests \", \"  \"]\n  }]\n}\n```"},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Content: "```json\n{\n  \"skills\": [{\n    \"name\": \"  Release Checklist  \",\n    \"description\": \"  Steps to release  \",\n    \"when_to_use\": \"  Before shipping  \",\n    \"steps\": [\" draft notes \", \" publish \", \"  \"],\n    \"pitfalls\": [\" forget tests \", \"  \"]\n  }]\n}\n```"},
 			}},
 		}},
 	}
@@ -83,7 +83,7 @@ func TestLLMReviewer_Review_StripsCodeFenceAndNormalizes(t *testing.T) {
 		AppName:    "bench-app",
 		UserID:     "user-1",
 		SessionID:  "sess-1",
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "please make this repeatable"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "please make this repeatable"}},
 	})
 	require.NoError(t, err)
 	require.Len(t, decision.Skills, 1)
@@ -103,7 +103,7 @@ func TestLLMReviewer_Review_ReturnsWhenContextExpiresDuringResponse(t *testing.T
 		AppName:    "bench-app",
 		UserID:     "user-1",
 		SessionID:  "sess-1",
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "please make this repeatable"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "please make this repeatable"}},
 	})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
@@ -123,7 +123,7 @@ func TestLLMReviewer_Review_ReturnsWhenContextExpiresDuringGenerate(t *testing.T
 		AppName:    "bench-app",
 		UserID:     "user-1",
 		SessionID:  "sess-1",
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "please make this repeatable"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "please make this repeatable"}},
 	})
 	<-mdl.started
 	require.Error(t, err)
@@ -132,8 +132,8 @@ func TestLLMReviewer_Review_ReturnsWhenContextExpiresDuringGenerate(t *testing.T
 
 func TestLLMReviewer_Review_IncludesTranscriptAndToolCalls(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
@@ -144,7 +144,7 @@ func TestLLMReviewer_Review_IncludesTranscriptAndToolCalls(t *testing.T) {
 		SessionID: "sess-1",
 		Transcript: []ReviewMessage{
 			{
-				Role:    model.RoleAssistant,
+				Role:    compat.RoleAssistant,
 				Content: "I'll create a reusable release checklist.",
 				ToolCalls: []ReviewToolCall{{
 					ID:        "call-1",
@@ -153,7 +153,7 @@ func TestLLMReviewer_Review_IncludesTranscriptAndToolCalls(t *testing.T) {
 				}},
 			},
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: "workspace_exec",
 				Content:  "wrote skills/release/SKILL.md",
 			},
@@ -171,14 +171,14 @@ func TestLLMReviewer_Review_IncludesTranscriptAndToolCalls(t *testing.T) {
 
 func TestLLMReviewer_Review_SystemPromptRequiresScopeAccurateSkills(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "extract a reusable skill"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "extract a reusable skill"}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, reviewModel.request)
@@ -192,14 +192,14 @@ func TestLLMReviewer_Review_SystemPromptRequiresScopeAccurateSkills(t *testing.T
 
 func TestLLMReviewer_Review_InvalidJSON(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `definitely not valid reviewer json`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `definitely not valid reviewer json`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "teach me"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "teach me"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse reviewer output")
@@ -207,16 +207,16 @@ func TestLLMReviewer_Review_InvalidJSON(t *testing.T) {
 
 func TestLLMReviewer_Review_ParsesJSONWrappedInProse(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{
-				Message: model.Message{Content: "Here is the decision:\n{\"skip_reason\":\"nothing useful\"}\nThanks."},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Content: "Here is the decision:\n{\"skip_reason\":\"nothing useful\"}\nThanks."},
 			}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	decision, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "teach me"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "teach me"}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, decision)
@@ -225,16 +225,16 @@ func TestLLMReviewer_Review_ParsesJSONWrappedInProse(t *testing.T) {
 
 func TestLLMReviewer_Review_RepairsMalformedJSON(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{
-				Message: model.Message{Content: "```json\n{skip_reason: 'nothing useful', updates: [],}\n```"},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{
+				Message: compat.Message{Content: "```json\n{skip_reason: 'nothing useful', updates: [],}\n```"},
 			}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	decision, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "teach me"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "teach me"}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, decision)
@@ -243,14 +243,14 @@ func TestLLMReviewer_Review_RepairsMalformedJSON(t *testing.T) {
 
 func TestLLMReviewer_Review_ResponseError(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Error: &model.ResponseError{Message: "provider failed"},
+		responses: []*compat.Response{{
+			Error: &compat.ResponseError{Message: "provider failed"},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "teach me"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "teach me"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "provider failed")
@@ -263,7 +263,7 @@ func TestLLMReviewer_Review_GenerateError(t *testing.T) {
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "teach me"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "teach me"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dial failed")
@@ -271,8 +271,8 @@ func TestLLMReviewer_Review_GenerateError(t *testing.T) {
 
 func TestLLMReviewer_Review_TruncatesLongToolResults(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel, WithMessageContentMaxChars(200))
@@ -285,7 +285,7 @@ func TestLLMReviewer_Review_TruncatesLongToolResults(t *testing.T) {
 		SessionID: "sess-1",
 		Transcript: []ReviewMessage{
 			{
-				Role:     model.RoleTool,
+				Role:     compat.RoleTool,
 				ToolName: "weather_get_hourly",
 				Content:  huge,
 			},
@@ -306,8 +306,8 @@ func TestLLMReviewer_Review_TruncatesLongToolResults(t *testing.T) {
 
 func TestLLMReviewer_Review_RedactsSecretsInPrompt(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
@@ -315,7 +315,7 @@ func TestLLMReviewer_Review_RedactsSecretsInPrompt(t *testing.T) {
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
 		Transcript: []ReviewMessage{
 			{
-				Role:    model.RoleAssistant,
+				Role:    compat.RoleAssistant,
 				Content: "use OPENAI_API_KEY=sk-test-REDACT-ME-000 and Authorization: Bearer " + "eyJhbGciOiJIUzI1NiJ9" + ".payload.sig",
 				ToolCalls: []ReviewToolCall{{
 					Name:      "workspace_exec",
@@ -339,15 +339,15 @@ func TestLLMReviewer_Review_RedactsSecretsInPrompt(t *testing.T) {
 
 func TestLLMReviewer_Review_DefaultMessageMaxCharsApplied(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	huge := strings.Repeat("X", DefaultReviewerMessageMaxChars*4)
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleTool, ToolName: "huge_payload", Content: huge}},
+		Transcript: []ReviewMessage{{Role: compat.RoleTool, ToolName: "huge_payload", Content: huge}},
 	})
 	require.NoError(t, err)
 	prompt := reviewModel.request.Messages[1].Content
@@ -359,14 +359,14 @@ func TestLLMReviewer_Review_DefaultMessageMaxCharsApplied(t *testing.T) {
 
 func TestLLMReviewer_Review_ShortMessagesNotTruncated(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel, WithMessageContentMaxChars(500))
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleTool, ToolName: "tiny", Content: "small payload"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleTool, ToolName: "tiny", Content: "small payload"}},
 	})
 	require.NoError(t, err)
 	prompt := reviewModel.request.Messages[1].Content
@@ -404,14 +404,14 @@ func TestNormalizeReviewDecision_RejectsIncompleteSkill(t *testing.T) {
 
 func TestLLMReviewer_Review_RendersExistingSkillIndex(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"nothing useful"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"nothing useful"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 		ExistingSkills: []ExistingSkill{
 			{Name: "release-checklist", Description: "Steps to ship"},
 			{Name: "bare-name"},
@@ -428,15 +428,15 @@ func TestLLMReviewer_Review_RendersExistingSkillIndex(t *testing.T) {
 
 func TestLLMReviewer_Review_RendersBodyExcerptWhenProvided(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	excerpt := "## Steps\n1. fetch foo\n2. transform foo\n3. save bar"
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 		ExistingSkills: []ExistingSkill{{
 			Name:        "foo-to-bar",
 			Description: "Convert foo into bar",
@@ -455,14 +455,14 @@ func TestLLMReviewer_Review_RendersBodyExcerptWhenProvided(t *testing.T) {
 
 func TestLLMReviewer_Review_DoesNotFabricateBodyWhenCallerOmitsIt(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 		ExistingSkills: []ExistingSkill{{
 			Name:        "no-body",
 			Description: "description only",
@@ -478,14 +478,14 @@ func TestLLMReviewer_Review_DoesNotFabricateBodyWhenCallerOmitsIt(t *testing.T) 
 
 func TestLLMReviewer_Review_SystemPromptDescribesUpdatesAndDeletions(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 	})
 	require.NoError(t, err)
 	system := reviewModel.request.Messages[0].Content
@@ -498,14 +498,14 @@ func TestLLMReviewer_Review_SystemPromptDescribesUpdatesAndDeletions(t *testing.
 
 func TestLLMReviewer_Review_SystemPromptHasAntiProliferationRules(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 	})
 	require.NoError(t, err)
 	system := reviewModel.request.Messages[0].Content
@@ -522,15 +522,15 @@ func TestLLMReviewer_Review_SystemPromptHasAntiProliferationRules(t *testing.T) 
 
 func TestLLMReviewer_Review_SystemPromptCoversFutureWorkflowFeedback(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
 		Transcript: []ReviewMessage{{
-			Role:    model.RoleUser,
+			Role:    compat.RoleUser,
 			Content: "以后遇到周报默认按这个字段输出",
 		}},
 	})
@@ -669,15 +669,15 @@ func TestNormalizeReviewDecision_RejectsSkipWithUpdatesOrDeletions(t *testing.T)
 
 func TestLLMReviewer_Review_RendersOutcomeBlockWhenSet(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	score := 0.42
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 		Outcome: &Outcome{
 			Status:    OutcomeFail,
 			Score:     &score,
@@ -697,14 +697,14 @@ func TestLLMReviewer_Review_RendersOutcomeBlockWhenSet(t *testing.T) {
 
 func TestLLMReviewer_Review_OmitsOutcomeBlockWhenNil(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 	})
 	require.NoError(t, err)
 	prompt := reviewModel.request.Messages[1].Content
@@ -714,14 +714,14 @@ func TestLLMReviewer_Review_OmitsOutcomeBlockWhenNil(t *testing.T) {
 
 func TestLLMReviewer_Review_OutcomeWithUnknownStatusRendersUnknownLabel(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 		Outcome:    &Outcome{Notes: "no status reported"},
 	})
 	require.NoError(t, err)
@@ -802,26 +802,26 @@ func TestNormalizeSkillSpec_TrimsAndFiltersSteps(t *testing.T) {
 // --- Tests for messageText (ContentParts extraction) ---
 
 func TestMessageText_ContentFieldPreferred(t *testing.T) {
-	msg := model.Message{Content: "direct content"}
+	msg := compat.Message{Content: "direct content"}
 	assert.Equal(t, "direct content", messageText(msg))
 }
 
 func TestMessageText_ContentPartsExtraction(t *testing.T) {
 	text1 := "hello"
 	text2 := "world"
-	msg := model.Message{
+	msg := compat.Message{
 		Content: "", // empty content
-		ContentParts: []model.ContentPart{
-			{Type: model.ContentTypeText, Text: &text1},
-			{Type: model.ContentTypeImage}, // non-text part, skipped
-			{Type: model.ContentTypeText, Text: &text2},
+		ContentParts: []compat.ContentPart{
+			{Type: compat.ContentTypeText, Text: &text1},
+			{Type: compat.ContentTypeImage}, // non-text part, skipped
+			{Type: compat.ContentTypeText, Text: &text2},
 		},
 	}
 	assert.Equal(t, "hello\nworld", messageText(msg))
 }
 
 func TestMessageText_EmptyContentAndNoParts(t *testing.T) {
-	msg := model.Message{Content: ""}
+	msg := compat.Message{Content: ""}
 	assert.Equal(t, "", messageText(msg))
 }
 
@@ -856,14 +856,14 @@ func TestTruncateMessageContent_HeadTailWithPlaceholder(t *testing.T) {
 
 func TestLLMReviewer_Review_SystemPromptIncludesFailureAwareGuidance(t *testing.T) {
 	reviewModel := &recordingReviewModel{
-		responses: []*model.Response{{
-			Choices: []model.Choice{{Message: model.Message{Content: `{"skip_reason":"x"}`}}},
+		responses: []*compat.Response{{
+			Choices: []compat.Choice{{Message: compat.Message{Content: `{"skip_reason":"x"}`}}},
 		}},
 	}
 	reviewer := NewLLMReviewer(reviewModel)
 
 	_, err := reviewer.Review(context.Background(), &ReviewInput{
-		Transcript: []ReviewMessage{{Role: model.RoleUser, Content: "go"}},
+		Transcript: []ReviewMessage{{Role: compat.RoleUser, Content: "go"}},
 	})
 	require.NoError(t, err)
 	system := reviewModel.request.Messages[0].Content

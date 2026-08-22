@@ -18,7 +18,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/internal/util/message"
 	agentlog "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/tool"
 	"github.com/LingByte/ling-base/agentkit/tool/function"
 	"github.com/stretchr/testify/assert"
@@ -33,14 +33,14 @@ func (s stubTool) Declaration() *tool.Declaration { return s.decl }
 type sanitizeLogContextKey struct{}
 
 func TestSanitizeMessagesWithTools_DowngradesInvalidToolCallAndResult(t *testing.T) {
-	in := []model.Message{
-		model.NewUserMessage("hi"),
+	in := []compat.Message{
+		compat.NewUserMessage("hi"),
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte("{a:1}"),
 					},
@@ -48,7 +48,7 @@ func TestSanitizeMessagesWithTools_DowngradesInvalidToolCallAndResult(t *testing
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "test_tool",
 			Content:  "tool error",
@@ -56,14 +56,14 @@ func TestSanitizeMessagesWithTools_DowngradesInvalidToolCallAndResult(t *testing
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 3) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
-		assert.Equal(t, model.RoleUser, out[1].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[1].Role)
 		assert.Contains(t, out[1].Content, invalidToolCallTag)
-		assert.Equal(t, model.RoleUser, out[2].Role)
+		assert.Equal(t, compat.RoleUser, out[2].Role)
 		assert.Contains(t, out[2].Content, invalidToolResultTag)
 	}
 	for _, msg := range out {
-		assert.NotEqual(t, model.RoleTool, msg.Role)
+		assert.NotEqual(t, compat.RoleTool, msg.Role)
 		assert.Empty(t, msg.ToolCalls)
 	}
 }
@@ -71,13 +71,13 @@ func TestSanitizeMessagesWithTools_DowngradesInvalidToolCallAndResult(t *testing
 func TestSanitizeMessagesWithTools_DowngradesEmptyToolNameAndResult(t *testing.T) {
 	for _, name := range []string{"", " \t\n"} {
 		t.Run(fmt.Sprintf("name_%q", name), func(t *testing.T) {
-			in := []model.Message{
+			in := []compat.Message{
 				{
-					Role: model.RoleAssistant,
-					ToolCalls: []model.ToolCall{
+					Role: compat.RoleAssistant,
+					ToolCalls: []compat.ToolCall{
 						{
 							ID: "call_empty_name",
-							Function: model.FunctionDefinitionParam{
+							Function: compat.FunctionDefinitionParam{
 								Name:      name,
 								Arguments: []byte(`{"command":"pwd"}`),
 							},
@@ -85,7 +85,7 @@ func TestSanitizeMessagesWithTools_DowngradesEmptyToolNameAndResult(t *testing.T
 					},
 				},
 				{
-					Role:     model.RoleTool,
+					Role:     compat.RoleTool,
 					ToolID:   "call_empty_name",
 					ToolName: name,
 					Content:  "tool error",
@@ -94,14 +94,14 @@ func TestSanitizeMessagesWithTools_DowngradesEmptyToolNameAndResult(t *testing.T
 
 			out := SanitizeMessagesWithTools(context.Background(), in, nil)
 			if assert.Len(t, out, 2) {
-				assert.Equal(t, model.RoleUser, out[0].Role)
+				assert.Equal(t, compat.RoleUser, out[0].Role)
 				assert.Contains(t, out[0].Content, invalidToolCallTag)
 				assert.Contains(t, out[0].Content, errFunctionNameEmpty.Error())
-				assert.Equal(t, model.RoleUser, out[1].Role)
+				assert.Equal(t, compat.RoleUser, out[1].Role)
 				assert.Contains(t, out[1].Content, invalidToolResultTag)
 			}
 			for _, msg := range out {
-				assert.NotEqual(t, model.RoleTool, msg.Role)
+				assert.NotEqual(t, compat.RoleTool, msg.Role)
 				assert.Empty(t, msg.ToolCalls)
 			}
 		})
@@ -122,13 +122,13 @@ func TestSanitizeMessagesWithTools_WarnsOnDowngradeWithoutPayload(t *testing.T) 
 		agentlog.WarnfContext = original
 	}()
 	ctx := context.WithValue(context.Background(), sanitizeLogContextKey{}, "request")
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_invalid",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "invalid_tool",
 						Arguments: []byte("{SECRET_ARGS"),
 					},
@@ -136,17 +136,17 @@ func TestSanitizeMessagesWithTools_WarnsOnDowngradeWithoutPayload(t *testing.T) 
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_invalid",
 			ToolName: "invalid_tool",
 			Content:  "SECRET_RESULT",
 		},
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_orphan",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "orphan_tool",
 						Arguments: []byte(`{"secret":"SECRET_ORPHAN_ARGS"}`),
 					},
@@ -154,7 +154,7 @@ func TestSanitizeMessagesWithTools_WarnsOnDowngradeWithoutPayload(t *testing.T) 
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_orphan_result",
 			ToolName: "orphan_result_tool",
 			Content:  "SECRET_ORPHAN_RESULT",
@@ -180,27 +180,27 @@ func TestSanitizeMessagesWithTools_WarnsOnDowngradeWithoutPayload(t *testing.T) 
 }
 
 func TestSanitizeMessagesWithTools_PreservesNilMessagesSlice(t *testing.T) {
-	var in []model.Message
+	var in []compat.Message
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	assert.Nil(t, out)
 }
 
 func TestSanitizeMessagesWithTools_PreservesEmptyMessagesSlice(t *testing.T) {
-	in := make([]model.Message, 0)
+	in := make([]compat.Message, 0)
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	assert.NotNil(t, out)
 	assert.Len(t, out, 0)
 }
 
 func TestSanitizeMessagesWithTools_PreservesValidToolRound(t *testing.T) {
-	in := []model.Message{
-		model.NewUserMessage("hi"),
+	in := []compat.Message{
+		compat.NewUserMessage("hi"),
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
@@ -208,30 +208,30 @@ func TestSanitizeMessagesWithTools_PreservesValidToolRound(t *testing.T) {
 			},
 		},
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call_1",
 			Content: `{"ok":true}`,
 		},
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 3) {
-		assert.Equal(t, model.RoleAssistant, out[1].Role)
+		assert.Equal(t, compat.RoleAssistant, out[1].Role)
 		if assert.Len(t, out[1].ToolCalls, 1) {
 			assert.Equal(t, []byte(`{"a":1}`), out[1].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[2].Role)
+		assert.Equal(t, compat.RoleTool, out[2].Role)
 		assert.Equal(t, "call_1", out[2].ToolID)
 	}
 }
 
 func TestSanitizeMessagesWithTools_DowngradesDuplicateToolResult(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
@@ -239,12 +239,12 @@ func TestSanitizeMessagesWithTools_DowngradesDuplicateToolResult(t *testing.T) {
 			},
 		},
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call_1",
 			Content: "first result",
 		},
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call_1",
 			Content: "duplicate result",
 		},
@@ -252,23 +252,23 @@ func TestSanitizeMessagesWithTools_DowngradesDuplicateToolResult(t *testing.T) {
 
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 3) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "first result", out[1].Content)
-		assert.Equal(t, model.RoleUser, out[2].Role)
+		assert.Equal(t, compat.RoleUser, out[2].Role)
 		assert.Contains(t, out[2].Content, orphanToolResultTag)
 		assert.Contains(t, out[2].Content, "duplicate result")
 	}
 }
 
 func TestSanitizeMessagesWithTools_NormalizesEmptyArgumentsToEmptyObject(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "no_args_tool",
 						Arguments: []byte(""),
 					},
@@ -276,7 +276,7 @@ func TestSanitizeMessagesWithTools_NormalizesEmptyArgumentsToEmptyObject(t *test
 			},
 		},
 		{
-			Role:   model.RoleTool,
+			Role:   compat.RoleTool,
 			ToolID: "call_1",
 		},
 	}
@@ -287,20 +287,20 @@ func TestSanitizeMessagesWithTools_NormalizesEmptyArgumentsToEmptyObject(t *test
 }
 
 func TestSanitizeMessagesWithTools_SplitsMixedValidityToolRound(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_ok",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "ok_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
 				},
 				{
 					ID: "call_bad",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "bad_tool",
 						Arguments: []byte("not-json"),
 					},
@@ -308,54 +308,54 @@ func TestSanitizeMessagesWithTools_SplitsMixedValidityToolRound(t *testing.T) {
 			},
 		},
 		{
-			Role:   model.RoleTool,
+			Role:   compat.RoleTool,
 			ToolID: "call_ok",
 		},
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call_bad",
 			Content: "bad tool error",
 		},
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 4) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, "call_ok", out[0].ToolCalls[0].ID)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_ok", out[1].ToolID)
-		assert.Equal(t, model.RoleUser, out[2].Role)
+		assert.Equal(t, compat.RoleUser, out[2].Role)
 		assert.Contains(t, out[2].Content, invalidToolCallTag)
-		assert.Equal(t, model.RoleUser, out[3].Role)
+		assert.Equal(t, compat.RoleUser, out[3].Role)
 		assert.Contains(t, out[3].Content, invalidToolResultTag)
 	}
 }
 
 func TestSanitizeMessagesWithToolsResult_TracksSplitRoundSources(t *testing.T) {
-	in := []model.Message{
-		model.NewUserMessage("start"),
+	in := []compat.Message{
+		compat.NewUserMessage("start"),
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_ok",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "ok_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
 				},
 				{
 					ID: "call_bad",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "bad_tool",
 						Arguments: []byte("not-json"),
 					},
 				},
 			},
 		},
-		{Role: model.RoleTool, ToolID: "call_ok", Content: "ok"},
-		{Role: model.RoleTool, ToolID: "call_bad", Content: "bad"},
+		{Role: compat.RoleTool, ToolID: "call_ok", Content: "ok"},
+		{Role: compat.RoleTool, ToolID: "call_bad", Content: "bad"},
 	}
 
 	result := SanitizeMessagesWithToolsResult(
@@ -369,9 +369,9 @@ func TestSanitizeMessagesWithToolsResult_TracksSplitRoundSources(t *testing.T) {
 }
 
 func TestSanitizeMessagesWithToolsResultOmitsIdentitySources(t *testing.T) {
-	in := []model.Message{
-		model.NewUserMessage("start"),
-		model.NewAssistantMessage("answer"),
+	in := []compat.Message{
+		compat.NewUserMessage("start"),
+		compat.NewAssistantMessage("answer"),
 	}
 
 	result := SanitizeMessagesWithToolsResult(
@@ -385,18 +385,18 @@ func TestSanitizeMessagesWithToolsResultOmitsIdentitySources(t *testing.T) {
 }
 
 func TestSanitizeMessagesWithToolsResultOmitsIdentityToolRoundSources(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{{
 				ID: "call_1",
-				Function: model.FunctionDefinitionParam{
+				Function: compat.FunctionDefinitionParam{
 					Name:      "lookup",
 					Arguments: []byte(`{"query":"benchmark"}`),
 				},
 			}},
 		},
-		model.NewToolMessage("call_1", "lookup", "result"),
+		compat.NewToolMessage("call_1", "lookup", "result"),
 	}
 
 	result := SanitizeMessagesWithToolsResult(
@@ -410,28 +410,28 @@ func TestSanitizeMessagesWithToolsResultOmitsIdentityToolRoundSources(t *testing
 }
 
 func TestSanitizeMessagesWithTools_DowngradesOrphanToolResult(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role:    model.RoleTool,
+			Role:    compat.RoleTool,
 			ToolID:  "call_orphan",
 			Content: "orphan",
 		},
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, orphanToolResultTag)
 	}
 }
 
 func TestSanitizeMessagesWithTools_DowngradesOrphanToolCall(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`"string"`),
 					},
@@ -441,21 +441,21 @@ func TestSanitizeMessagesWithTools_DowngradesOrphanToolCall(t *testing.T) {
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, orphanToolCallTag)
 		assert.Contains(t, out[0].Content, "call_1")
 	}
 }
 
 func TestSanitizeMessagesWithTools_DropsReasoningOnlyAssistantAfterOrphanToolCall(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role:             model.RoleAssistant,
+			Role:             compat.RoleAssistant,
 			ReasoningContent: "I should call the tool.",
-			ToolCalls: []model.ToolCall{
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
@@ -466,27 +466,27 @@ func TestSanitizeMessagesWithTools_DropsReasoningOnlyAssistantAfterOrphanToolCal
 
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, orphanToolCallTag)
 		assert.Contains(t, out[0].Content, "call_1")
 	}
 }
 
 func TestSanitizeMessagesWithTools_SplitsMatchedAndOrphanToolCalls(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_keep",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"a":1}`),
 					},
 				},
 				{
 					ID: "call_orphan",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"b":2}`),
 					},
@@ -494,7 +494,7 @@ func TestSanitizeMessagesWithTools_SplitsMatchedAndOrphanToolCalls(t *testing.T)
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_keep",
 			ToolName: "test_tool",
 			Content:  "ok",
@@ -502,26 +502,26 @@ func TestSanitizeMessagesWithTools_SplitsMatchedAndOrphanToolCalls(t *testing.T)
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 3) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, "call_keep", out[0].ToolCalls[0].ID)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_keep", out[1].ToolID)
-		assert.Equal(t, model.RoleUser, out[2].Role)
+		assert.Equal(t, compat.RoleUser, out[2].Role)
 		assert.Contains(t, out[2].Content, orphanToolCallTag)
 		assert.Contains(t, out[2].Content, "call_orphan")
 	}
 }
 
 func TestSanitizeMessagesWithTools_PreservesNonObjectJSONArgumentsWhenToolsUnknown(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`"string"`),
 					},
@@ -529,7 +529,7 @@ func TestSanitizeMessagesWithTools_PreservesNonObjectJSONArgumentsWhenToolsUnkno
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "test_tool",
 			Content:  "ok",
@@ -537,11 +537,11 @@ func TestSanitizeMessagesWithTools_PreservesNonObjectJSONArgumentsWhenToolsUnkno
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 2) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, []byte(`"string"`), out[0].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_1", out[1].ToolID)
 	}
 }
@@ -558,13 +558,13 @@ func TestSanitizeMessagesWithTools_DowngradesSchemaTypeMismatch(t *testing.T) {
 	tools := map[string]tool.Tool{
 		"test_tool": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"a":"not-an-int"}`),
 					},
@@ -574,7 +574,7 @@ func TestSanitizeMessagesWithTools_DowngradesSchemaTypeMismatch(t *testing.T) {
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, invalidToolCallTag)
 		assert.Contains(t, out[0].Content, "expected integer")
 		assert.Contains(t, out[0].Content, "$.a")
@@ -593,13 +593,13 @@ func TestSanitizeMessagesWithTools_DowngradesNonObjectJSONArgumentsWhenSchemaExp
 	tools := map[string]tool.Tool{
 		"test_tool": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`"string"`),
 					},
@@ -609,7 +609,7 @@ func TestSanitizeMessagesWithTools_DowngradesNonObjectJSONArgumentsWhenSchemaExp
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, invalidToolCallTag)
 		assert.Contains(t, out[0].Content, "expected object")
 	}
@@ -624,13 +624,13 @@ func TestSanitizeMessagesWithTools_PreservesStringArgumentsWhenSchemaAllows(t *t
 	tools := map[string]tool.Tool{
 		"echo": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo",
 						Arguments: []byte(`"hi"`),
 					},
@@ -638,7 +638,7 @@ func TestSanitizeMessagesWithTools_PreservesStringArgumentsWhenSchemaAllows(t *t
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "echo",
 			Content:  "ok",
@@ -646,11 +646,11 @@ func TestSanitizeMessagesWithTools_PreservesStringArgumentsWhenSchemaAllows(t *t
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 2) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, []byte(`"hi"`), out[0].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_1", out[1].ToolID)
 	}
 }
@@ -664,13 +664,13 @@ func TestSanitizeMessagesWithTools_PreservesArrayArgumentsWhenSchemaAllows(t *te
 	tools := map[string]tool.Tool{
 		"echo_list": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "echo_list",
 						Arguments: []byte(`["a","b"]`),
 					},
@@ -678,7 +678,7 @@ func TestSanitizeMessagesWithTools_PreservesArrayArgumentsWhenSchemaAllows(t *te
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "echo_list",
 			Content:  "ok",
@@ -686,23 +686,23 @@ func TestSanitizeMessagesWithTools_PreservesArrayArgumentsWhenSchemaAllows(t *te
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 2) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, []byte(`["a","b"]`), out[0].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_1", out[1].ToolID)
 	}
 }
 
 func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenToolsUnknown(t *testing.T) {
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`null`),
 					},
@@ -710,7 +710,7 @@ func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenToolsUnknown(t *tes
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "test_tool",
 			Content:  "ok",
@@ -718,11 +718,11 @@ func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenToolsUnknown(t *tes
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, nil)
 	if assert.Len(t, out, 2) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, []byte(`null`), out[0].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_1", out[1].ToolID)
 	}
 }
@@ -739,13 +739,13 @@ func TestSanitizeMessagesWithTools_DowngradesNullArgumentsWhenSchemaExpectsObjec
 	tools := map[string]tool.Tool{
 		"test_tool": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`null`),
 					},
@@ -755,7 +755,7 @@ func TestSanitizeMessagesWithTools_DowngradesNullArgumentsWhenSchemaExpectsObjec
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, invalidToolCallTag)
 		assert.Contains(t, out[0].Content, "expected object")
 		assert.Contains(t, out[0].Content, "$")
@@ -772,13 +772,13 @@ func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenSchemaAllowsNull(t 
 	tools := map[string]tool.Tool{
 		"nil_tool": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "nil_tool",
 						Arguments: []byte(`null`),
 					},
@@ -786,7 +786,7 @@ func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenSchemaAllowsNull(t 
 			},
 		},
 		{
-			Role:     model.RoleTool,
+			Role:     compat.RoleTool,
 			ToolID:   "call_1",
 			ToolName: "nil_tool",
 			Content:  "ok",
@@ -794,11 +794,11 @@ func TestSanitizeMessagesWithTools_PreservesNullArgumentsWhenSchemaAllowsNull(t 
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 2) {
-		assert.Equal(t, model.RoleAssistant, out[0].Role)
+		assert.Equal(t, compat.RoleAssistant, out[0].Role)
 		if assert.Len(t, out[0].ToolCalls, 1) {
 			assert.Equal(t, []byte(`null`), out[0].ToolCalls[0].Function.Arguments)
 		}
-		assert.Equal(t, model.RoleTool, out[1].Role)
+		assert.Equal(t, compat.RoleTool, out[1].Role)
 		assert.Equal(t, "call_1", out[1].ToolID)
 	}
 }
@@ -965,13 +965,13 @@ func TestSanitizeMessagesWithTools_DowngradesSchemaPatternMismatch(t *testing.T)
 	tools := map[string]tool.Tool{
 		"test_tool": fn,
 	}
-	in := []model.Message{
+	in := []compat.Message{
 		{
-			Role: model.RoleAssistant,
-			ToolCalls: []model.ToolCall{
+			Role: compat.RoleAssistant,
+			ToolCalls: []compat.ToolCall{
 				{
 					ID: "call_1",
-					Function: model.FunctionDefinitionParam{
+					Function: compat.FunctionDefinitionParam{
 						Name:      "test_tool",
 						Arguments: []byte(`{"user_id":"bad value"}`),
 					},
@@ -981,7 +981,7 @@ func TestSanitizeMessagesWithTools_DowngradesSchemaPatternMismatch(t *testing.T)
 	}
 	out := SanitizeMessagesWithTools(context.Background(), in, tools)
 	if assert.Len(t, out, 1) {
-		assert.Equal(t, model.RoleUser, out[0].Role)
+		assert.Equal(t, compat.RoleUser, out[0].Role)
 		assert.Contains(t, out[0].Content, invalidToolCallTag)
 		assert.Contains(t, out[0].Content, "does not match pattern")
 		assert.Contains(t, out[0].Content, "$.user_id")
@@ -1001,11 +1001,11 @@ func TestValidateValueAgainstSchema_ArrayTypeMismatch(t *testing.T) {
 }
 
 func TestSplitToolResults_GroupsByIDs(t *testing.T) {
-	toolResults := []model.Message{
-		{Role: model.RoleTool, ToolID: ""},
-		{Role: model.RoleTool, ToolID: "valid"},
-		{Role: model.RoleTool, ToolID: "invalid"},
-		{Role: model.RoleTool, ToolID: "unknown"},
+	toolResults := []compat.Message{
+		{Role: compat.RoleTool, ToolID: ""},
+		{Role: compat.RoleTool, ToolID: "valid"},
+		{Role: compat.RoleTool, ToolID: "invalid"},
+		{Role: compat.RoleTool, ToolID: "unknown"},
 	}
 	validIDs := map[string]struct{}{"valid": {}}
 	invalidIDs := map[string]struct{}{"invalid": {}}
@@ -1018,9 +1018,9 @@ func TestSplitToolResults_GroupsByIDs(t *testing.T) {
 }
 
 func TestIsEmptyAssistantMessage(t *testing.T) {
-	assert.True(t, message.IsEmptyAssistantMessage(model.Message{Role: model.RoleAssistant}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{Role: model.RoleUser}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{Role: model.RoleAssistant, Content: "x"}))
-	assert.True(t, message.IsEmptyAssistantMessage(model.Message{Role: model.RoleAssistant, ReasoningContent: "x"}))
-	assert.False(t, message.IsEmptyAssistantMessage(model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{{ID: "call_1"}}}))
+	assert.True(t, message.IsEmptyAssistantMessage(compat.Message{Role: compat.RoleAssistant}))
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{Role: compat.RoleUser}))
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{Role: compat.RoleAssistant, Content: "x"}))
+	assert.True(t, message.IsEmptyAssistantMessage(compat.Message{Role: compat.RoleAssistant, ReasoningContent: "x"}))
+	assert.False(t, message.IsEmptyAssistantMessage(compat.Message{Role: compat.RoleAssistant, ToolCalls: []compat.ToolCall{{ID: "call_1"}}}))
 }

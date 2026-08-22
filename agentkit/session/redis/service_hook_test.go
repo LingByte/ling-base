@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/LingByte/ling-base/agentkit/event"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,16 +44,16 @@ func TestAppendEventHook(t *testing.T) {
 
 		// Add a user message first
 		userEvt := event.New("inv0", "user")
-		userEvt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Hello"}}},
+		userEvt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Hello"}}},
 		}
 		err = service.AppendEvent(ctx, sess, userEvt)
 		require.NoError(t, err)
 
 		// Then add assistant message
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hi there"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hi there"}}},
 		}
 
 		err = service.AppendEvent(ctx, sess, evt)
@@ -85,8 +85,8 @@ func TestAppendEventHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = service.AppendEvent(ctx, sess, evt)
@@ -124,8 +124,8 @@ func TestAppendEventHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt := event.New("inv1", "assistant")
-		evt.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "Hello"}}},
+		evt.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "Hello"}}},
 		}
 
 		err = service.AppendEvent(ctx, sess, evt)
@@ -194,16 +194,16 @@ func TestGetSessionHook(t *testing.T) {
 		require.NoError(t, err)
 
 		evt1 := event.New("inv1", "user")
-		evt1.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleUser, Content: "Q1"}}},
+		evt1.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleUser, Content: "Q1"}}},
 		}
 		evt1.Tag = "skip"
 		err = service.AppendEvent(ctx, sess, evt1)
 		require.NoError(t, err)
 
 		evt2 := event.New("inv2", "assistant")
-		evt2.Response = &model.Response{
-			Choices: []model.Choice{{Message: model.Message{Role: model.RoleAssistant, Content: "A1"}}},
+		evt2.Response = &compat.Response{
+			Choices: []compat.Choice{{Message: compat.Message{Role: compat.RoleAssistant, Content: "A1"}}},
 		}
 		err = service.AppendEvent(ctx, sess, evt2)
 		require.NoError(t, err)

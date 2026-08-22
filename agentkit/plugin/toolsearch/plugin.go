@@ -19,7 +19,7 @@ import (
 
 	"github.com/LingByte/ling-base/agentkit/agent"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 	"github.com/LingByte/ling-base/agentkit/plugin"
 	"github.com/LingByte/ling-base/agentkit/session"
 	"github.com/LingByte/ling-base/agentkit/tool"
@@ -504,8 +504,8 @@ func (p *Plugin) isDeferred(name string) bool {
 // and the rendered catalog before each model call.
 func (p *Plugin) beforeModel(
 	ctx context.Context,
-	args *model.BeforeModelArgs,
-) (*model.BeforeModelResult, error) {
+	args *compat.BeforeModelArgs,
+) (*compat.BeforeModelResult, error) {
 	if args == nil || args.Request == nil {
 		return nil, nil
 	}
@@ -514,8 +514,10 @@ func (p *Plugin) beforeModel(
 		return nil, nil
 	}
 
-	if args.Request.Tools == nil {
-		args.Request.Tools = make(map[string]tool.Tool)
+	toolsMap, _ := args.Request.Tools.(map[string]tool.Tool)
+	if toolsMap == nil {
+		toolsMap = make(map[string]tool.Tool)
+		args.Request.Tools = toolsMap
 	}
 
 	// Materialize all MCP servers once per turn before schema injection and
@@ -536,11 +538,11 @@ func (p *Plugin) beforeModel(
 		p.mu.RLock()
 		for _, toolName := range discoveredTools {
 			// Inject only tools still present in the current snapshot.
-			if _, alreadySet := args.Request.Tools[toolName]; alreadySet {
+			if _, alreadySet := toolsMap[toolName]; alreadySet {
 				continue
 			}
 			if t, exists := p.toolsByName[toolName]; exists {
-				args.Request.Tools[toolName] = t
+				toolsMap[toolName] = t
 			}
 		}
 		p.mu.RUnlock()
@@ -551,11 +553,11 @@ func (p *Plugin) beforeModel(
 	// (permission-filtered) toolbox catalog so the model sees the catalog
 	// alongside the tool that consumes it.
 	searchName := p.searchTool.Declaration().Name
-	if _, exists := args.Request.Tools[searchName]; !exists {
+	if _, exists := toolsMap[searchName]; !exists {
 		if p.catalogInDescription {
-			args.Request.Tools[searchName] = p.searchToolWithCatalog(allDeferredAllowed)
+			toolsMap[searchName] = p.searchToolWithCatalog(allDeferredAllowed)
 		} else {
-			args.Request.Tools[searchName] = p.searchTool
+			toolsMap[searchName] = p.searchTool
 		}
 	}
 
@@ -563,8 +565,8 @@ func (p *Plugin) beforeModel(
 	// model can invoke any loaded deferred tool through it.
 	if p.invocationMode == DispatchToolCalls && p.callTool != nil {
 		callName := p.callTool.Declaration().Name
-		if _, exists := args.Request.Tools[callName]; !exists {
-			args.Request.Tools[callName] = p.callTool
+		if _, exists := toolsMap[callName]; !exists {
+			toolsMap[callName] = p.callTool
 		}
 	}
 
@@ -580,7 +582,7 @@ func (p *Plugin) beforeModel(
 	// context and hand it downstream. tool_search calls this turn fold their
 	// embedding token usage into it, readable via ToolSearchUsageFromContext.
 	if p.semanticIndex != nil {
-		return &model.BeforeModelResult{Context: withUsageAccumulator(ctx)}, nil
+		return &compat.BeforeModelResult{Context: withUsageAccumulator(ctx)}, nil
 	}
 	return nil, nil
 }
@@ -666,7 +668,7 @@ func (p *Plugin) beforeTool(
 // prompt; we only strip a literal {deferred_tools_section} placeholder so it
 // does not leak to the model.
 func (p *Plugin) replaceDeferredToolsPlaceholder(
-	args *model.BeforeModelArgs,
+	args *compat.BeforeModelArgs,
 	allDeferredAllowed map[string]bool,
 ) {
 	var replacement string
@@ -680,7 +682,7 @@ func (p *Plugin) replaceDeferredToolsPlaceholder(
 	// leaks to the model.
 	firstSystem := -1
 	for i, msg := range args.Request.Messages {
-		if msg.Role != model.RoleSystem {
+		if msg.Role != compat.RoleSystem {
 			continue
 		}
 		if firstSystem < 0 {
@@ -705,7 +707,7 @@ func (p *Plugin) replaceDeferredToolsPlaceholder(
 	}
 
 	args.Request.Messages = append(
-		[]model.Message{model.NewSystemMessage(replacement)},
+		[]compat.Message{compat.NewSystemMessage(replacement)},
 		args.Request.Messages...,
 	)
 }

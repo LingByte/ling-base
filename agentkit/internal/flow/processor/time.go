@@ -17,7 +17,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/agent"
 	"github.com/LingByte/ling-base/agentkit/event"
 	log "github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/agentkit/model"
+	compat "github.com/LingByte/ling-base/relay/compat"
 )
 
 const (
@@ -92,7 +92,7 @@ func NewTimeRequestProcessor(opts ...TimeOption) *TimeRequestProcessor {
 func (p *TimeRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 	ch chan<- *event.Event,
 ) {
 	if !p.AddCurrentTime {
@@ -138,7 +138,7 @@ func (p *TimeRequestProcessor) SupportsContextCompactionRebuild(
 func (p *TimeRequestProcessor) RebuildRequestForContextCompaction(
 	ctx context.Context,
 	invocation *agent.Invocation,
-	req *model.Request,
+	req *compat.Request,
 ) {
 	p.ProcessRequest(ctx, invocation, req, nil)
 }
@@ -199,7 +199,7 @@ func (p *TimeRequestProcessor) effectiveTimeFormat() string {
 }
 
 // addTimeToSystemMessage adds time information to the system message.
-func (p *TimeRequestProcessor) addTimeToSystemMessage(req *model.Request, timeContent string) {
+func (p *TimeRequestProcessor) addTimeToSystemMessage(req *compat.Request, timeContent string) {
 	// Find existing system message or create new one.
 	systemMsgIndex := findLastSystemMessageIndex(req.Messages)
 
@@ -216,8 +216,8 @@ func (p *TimeRequestProcessor) addTimeToSystemMessage(req *model.Request, timeCo
 		}
 	} else {
 		// No existing system message, create new one.
-		timeMsg := model.NewSystemMessage(timeContent)
-		req.Messages = append([]model.Message{timeMsg}, req.Messages...)
+		timeMsg := compat.NewSystemMessage(timeContent)
+		req.Messages = append([]compat.Message{timeMsg}, req.Messages...)
 	}
 }
 
