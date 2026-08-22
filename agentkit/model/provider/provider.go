@@ -21,6 +21,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/model/hunyuan"
 	"github.com/LingByte/ling-base/agentkit/model/ollama"
 	"github.com/LingByte/ling-base/agentkit/model/openai"
+	relaymodel "github.com/LingByte/ling-base/agentkit/model/relay"
 )
 
 func init() {
@@ -29,6 +30,7 @@ func init() {
 	Register("gemini", geminiProvider)
 	Register("ollama", ollamaProvider)
 	Register("hunyuan", hunyuanProvider)
+	Register("relay", relayProvider)
 }
 
 // Provider builds a model.Model instance.
@@ -328,4 +330,35 @@ func hunyuanProvider(opts *Options) (model.Model, error) {
 	}
 	res = append(res, opts.HunyuanOption...)
 	return hunyuan.New(opts.ModelName, res...), nil
+}
+
+// relayProvider builds a relay-backed model instance. The relay layer
+// supports 40+ provider adaptors (OpenAI, Anthropic, Gemini, Ollama,
+// DeepSeek, ...) through a single unified interface. Use the "channel"
+// option to select the relay channel (default: "openai").
+func relayProvider(opts *Options) (model.Model, error) {
+	var res []relaymodel.Option
+	if opts.APIKey != "" {
+		res = append(res, relaymodel.WithAPIKey(opts.APIKey))
+	}
+	if opts.BaseURL != "" {
+		res = append(res, relaymodel.WithBaseURL(opts.BaseURL))
+	}
+	if opts.Variant != "" {
+		res = append(res, relaymodel.WithChannel(relaymodel.Channel(opts.Variant)))
+	}
+	if len(opts.Headers) > 0 {
+		res = append(res, relaymodel.WithHeaders(opts.Headers))
+	}
+	if len(opts.ExtraFields) > 0 {
+		res = append(res, relaymodel.WithExtraFields(opts.ExtraFields))
+	}
+	if opts.ChannelBufferSize != nil {
+		res = append(res, relaymodel.WithChannelBufferSize(*opts.ChannelBufferSize))
+	}
+	if opts.ContextWindow != nil {
+		res = append(res, relaymodel.WithContextWindow(*opts.ContextWindow))
+	}
+	res = append(res, opts.RelayOption...)
+	return relaymodel.New(opts.ModelName, res...), nil
 }

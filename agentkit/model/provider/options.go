@@ -19,6 +19,7 @@ import (
 	"github.com/LingByte/ling-base/agentkit/model/hunyuan"
 	"github.com/LingByte/ling-base/agentkit/model/ollama"
 	"github.com/LingByte/ling-base/agentkit/model/openai"
+	relaymodel "github.com/LingByte/ling-base/agentkit/model/relay"
 )
 
 // Option configures how a model instance should be constructed.
@@ -48,6 +49,7 @@ type Options struct {
 	GeminiOption         []gemini.Option             // GeminiOption stores additional Gemini options.
 	OllamaOption         []ollama.Option             // OllamaOption stores additional Ollama options.
 	HunyuanOption        []hunyuan.Option            // HunyuanOption stores additional Hunyuan options.
+	RelayOption          []relaymodel.Option         // RelayOption stores additional relay model options.
 }
 
 // Callbacks collects provider specific callback hooks.
@@ -316,5 +318,12 @@ func WithOllamaOption(opt ...ollama.Option) Option {
 func WithHunyuanOption(opt ...hunyuan.Option) Option {
 	return func(o *Options) {
 		o.HunyuanOption = append(o.HunyuanOption, opt...)
+	}
+}
+
+// WithRelayOption appends raw relay model options.
+func WithRelayOption(opt ...relaymodel.Option) Option {
+	return func(o *Options) {
+		o.RelayOption = append(o.RelayOption, opt...)
 	}
 }

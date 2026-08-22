@@ -4,6 +4,8 @@ use (
 	.
 	./agent
 	./agentkit
+	./agentkit/model/relay
+	./agentkit/model/provider
 	./agentkit/flowcraft/core
 	./agentkit/flowcraft/backends/checkpoint
 	./agentkit/flowcraft/backends/plugin
