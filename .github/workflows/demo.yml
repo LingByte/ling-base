@@ -42,6 +42,7 @@ jobs:
         run: pnpm build:static
         env:
           NEXT_PUBLIC_BASE_PATH: /ling-base
+          NEXT_PUBLIC_STATIC_DEPLOY: '1'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

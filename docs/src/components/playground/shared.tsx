@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { isStaticDeploy } from '@/lib/shared';
 
 export function ResultBox({ result, error, children }: { result: unknown; error: string | null; children?: React.ReactNode }) {
   if (error) {
@@ -58,6 +59,14 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function ApiKeyNotice() {
+  if (isStaticDeploy) {
+    return (
+      <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+        GitHub Pages 为静态站点，请在下方填写 <strong>OpenRouter API Key</strong>（<code className="mx-0.5">sk-or-...</code>），
+        浏览器将直连 OpenRouter（支持 CORS）。Key 仅保存在本页内存，不会上传。
+      </p>
+    );
+  }
   return (
     <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
       本地 <code className="mx-0.5">pnpm dev</code> 会走服务端代理（无 CORS）。可在页面填写 Key，或在{' '}
@@ -68,6 +77,14 @@ export function ApiKeyNotice() {
 }
 
 export function RealtimeKeyNotice({ provider }: { provider: 'aliyun_omni' | 'openai_realtime' }) {
+  if (isStaticDeploy) {
+    return (
+      <p className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+        GitHub Pages 不支持 WebSocket 语音代理，已切换为<strong>文本多轮对话</strong>（浏览器直连 OpenRouter）。
+        完整 voice/realtime 语音请本地运行 <code className="mx-0.5">pnpm dev</code>。
+      </p>
+    );
+  }
   const envKey = provider === 'aliyun_omni' ? 'DASHSCOPE_API_KEY' : 'OPENAI_API_KEY';
   return (
     <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">

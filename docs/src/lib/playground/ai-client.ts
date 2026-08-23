@@ -1,4 +1,4 @@
-import { asset } from '@/lib/shared';
+import { asset, isStaticDeploy } from '@/lib/shared';
 
 /** AI Playground：优先走同源服务端代理（绕过 CORS），仅在代理不可用时直连 */
 
@@ -38,14 +38,19 @@ function providerHeaders(apiKey: string): HeadersInit {
 }
 
 async function tryProxy(path: string, body: Record<string, unknown>): Promise<Response | null> {
+  // 静态站点（GitHub Pages）无服务端 API，直接走浏览器直连
+  if (isStaticDeploy) return null;
+
   try {
     const res = await fetch(asset(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    // 静态导出站点没有 API 路由时会 404/405
+    // 静态导出或 GitHub Pages 可能返回 HTML 404 页面
     if (res.status === 404 || res.status === 405) return null;
+    const ct = res.headers.get('content-type') ?? '';
+    if (!ct.includes('application/json')) return null;
     return res;
   } catch {
     return null;

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "build:static": "STATIC_EXPORT=1 next build",
+    "build:static": "STATIC_EXPORT=1 NEXT_PUBLIC_STATIC_DEPLOY=1 next build",
     "build:wasm": "cd wasm && GOOS=js GOARCH=wasm go build -o ../public/lingbase.wasm main.go",
     "dev": "node server.mjs",
     "start": "NODE_ENV=production node server.mjs",
