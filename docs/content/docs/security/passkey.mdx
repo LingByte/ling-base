@@ -1,50 +1,42 @@
 ---
-title: Passkey 无密码认证
-description: WebAuthn / Passkey 认证
+title: Passkey
+description: WebAuthn 无密码认证
 ---
 
-# Passkey 无密码认证
+# Passkey
 
-## 安装
+> 以下为 `common/passkey` README 全文。
 
-```bash
-go get github.com/LingByte/ling-base/common/passkey
-```
 
-## 初始化
+Thin wrapper around go-webauthn that implements the WebAuthn / Passkey server-side ceremony (registration and authentication) for passwordless login.
+
+The package is a stateless facade. The caller provides two pieces of persistent state: a `CredentialStore` (mapping user handles to registered credentials) and a `SessionStore` (ephemeral challenge storage between the Begin and Finish steps). This separation lets the package work with any backing store (memory, Redis, SQL).
+
+## Key types
+
+- `Config` — configures the WebAuthn Relying Party (RPID, RPDisplayName, RPOrigins)
+- `User` — interface a user entity must satisfy
+- `Credential` — wraps a registered WebAuthn credential
+- `SessionData` — JSON-serializable ceremony session state
+- `RegistrationOptions` / `LoginOptions` — ceremony tuning
+- `DiscoverableUserHandler` — looks up a user by handle for usernameless login
+
+## Quick start
 
 ```go
 import "github.com/LingByte/ling-base/common/passkey"
 
-rp := passkey.New(passkey.Config{
-    RPName:   "MyApp",
-    RPID:     "myapp.com",
-    RPOrigins: []string{"https://myapp.com"},
+wa, err := passkey.New(passkey.Config{
+    RPID:          "example.com",
+    RPDisplayName: "My App",
+    RPOrigins:     []string{"https://example.com"},
 })
 
-// 需要一个 SessionStore 存储挑战
-store := passkey.NewMemoryStore()
-```
+// Registration
+cred, session, err := wa.BeginRegistration(user, nil)
+newCred, err := wa.FinishRegistration(user, storedSession, r)
 
-## 注册
-
-```go
-// 1. 开始注册
-options, session, err := rp.BeginRegistration(ctx, userID, userDisplayName, store)
-
-// 2. 前端用 options 调用 navigator.credentials.create()
-// 3. 前端返回 credential，验证
-credential, err := rp.FinishRegistration(ctx, session, credentialResponse, store)
-// 保存 credential 到数据库
-```
-
-## 登录
-
-```go
-// 1. 开始登录
-options, session, err := rp.BeginLogin(ctx, store)
-
-// 2. 前端用 options 调用 navigator.credentials.get()
-// 3. 前端返回 assertion，验证
-err = rp.FinishLogin(ctx, session, assertionResponse, storedCredentials, store)
+// Discoverable (usernameless) login
+assertion, session, err := wa.BeginDiscoverableLogin(nil)
+user, cred, err := wa.FinishDiscoverableLogin(userHandler, storedSession, r)
 ```

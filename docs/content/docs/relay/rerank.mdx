@@ -1,0 +1,64 @@
+---
+title: Rerank 重排序
+description: 文档重排序与检索精排
+---
+
+# Rerank 重排序
+
+`Client.Rerank` 对候选文档按与 query 的相关性重新排序，常用于 RAG 检索后精排。
+
+## 基本用法
+
+```go
+resp, err := client.Rerank(ctx, &relay.RerankRequest{
+    Model:     "rerank-english-v3.0",
+    Query:     "What is vector search?",
+    Documents: []string{
+        "Vector databases store embeddings.",
+        "Redis is an in-memory data store.",
+        "RAG combines retrieval with generation.",
+    },
+    TopN: 3,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, r := range resp.Results {
+    fmt.Printf("index=%d score=%.4f doc=%s\n", r.Index, r.RelevanceScore, r.Document)
+}
+```
+
+## 与 knowledge 包配合
+
+```go
+// 1. knowledge 向量检索 TopK=20
+candidates := kb.Search(ctx, query, 20)
+
+// 2. relay Rerank 精排 TopN=5
+docs := extractTexts(candidates)
+ranked, _ := client.Rerank(ctx, &relay.RerankRequest{
+    Model: "jina-reranker-v2-base-multilingual",
+    Query: query,
+    Documents: docs,
+    TopN: 5,
+})
+```
+
+## 支持的 Provider
+
+| Provider | 模块 | 模型示例 |
+|----------|------|----------|
+| Cohere | `relay/channel/cohere` | rerank-english-v3.0 |
+| Jina | `relay/channel/jina` | jina-reranker-v2-base-multilingual |
+| Voyage / 自建 | 通过 openai 兼容端点 | 视部署而定 |
+
+## 请求字段
+
+| 字段 | 说明 |
+|------|------|
+| `Model` | 重排模型 ID |
+| `Query` | 查询文本 |
+| `Documents` | 待排序文档列表 |
+| `TopN` | 返回前 N 条 |
+| `ReturnDocuments` | 是否返回原文 |

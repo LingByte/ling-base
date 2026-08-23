@@ -1,38 +1,255 @@
 ---
 title: 内容审核
-description: 3 个 provider
+description: 文本/图片/音视频审核，阿里云/腾讯云/七牛
 ---
 
-# 内容审核
+# 内容审核 (censor)
 
-## Provider 列表
+统一内容审核抽象，覆盖**文本、图片（同步）**与**音频、视频（异步任务）**。核心包零云 SDK；阿里云、腾讯云、七牛各为独立 Go module。
 
-Aliyun / Qcloud / Qiniu
+## 架构
+
+```
+providers/censor/
+├── censor.go    # CensorResult、JobSnapshot、Suggestion 常量
+├── text.go      # TextCensor 接口
+├── image.go     # ImageCensor 接口
+├── audio.go     # AudioCensor 接口
+├── video.go     # VideoCensor 接口
+├── aliyun/      # 阿里云内容安全
+├── qcloud/      # 腾讯云天御
+└── qiniu/       # 七牛审核
+```
 
 ## 安装
 
 ```bash
 go get github.com/LingByte/ling-base/providers/censor
 go get github.com/LingByte/ling-base/providers/censor/aliyun
+go get github.com/LingByte/ling-base/providers/censor/qcloud
+go get github.com/LingByte/ling-base/providers/censor/qiniu
 ```
 
-## 使用示例
+## 统一类型
+
+### CensorResult（同步：文本、图片）
+
+| 字段 | 说明 |
+|------|------|
+| `Suggestion` | `pass` / `review` / `block` |
+| `Label` | `normal` / `spam` / `porn` / `politics` / ... |
+| `Score` | 置信度 0.0–1.0 |
+| `Details` | 厂商扩展信息 |
+| `Msg` | 英文可读描述 |
+
+### JobSnapshot（异步：音频、视频）
+
+| 字段 | 说明 |
+|------|------|
+| `Status` | `WAITING` / `DOING` / `FINISHED` / `FAILED` |
+| `Suggestion` / `Label` / `Score` | 任务完成时填充 |
+| `Error` | 失败原因 |
+| `Raw` | 原始厂商响应 |
 
 ```go
-import "github.com/LingByte/ling-base/providers/censor/aliyun"
+import "github.com/LingByte/ling-base/providers/censor"
 
-client := aliyun.New(aliyun.Config{
-    AccessKeyID:     "xxx",
-    AccessKeySecret: "xxx",
-})
-
-result, err := client.CensorText(ctx, &censor.TextRequest{
-    Content: "需要审核的文本",
-})
-if result.Pass {
-    // 通过
-} else {
-    // 不通过
-    fmt.Println(result.Reason)
+switch result.Suggestion {
+case censor.SuggestionPass:
+    // 放行
+case censor.SuggestionReview:
+    // 人工复审
+case censor.SuggestionBlock:
+    // 拦截
 }
+```
+
+## 接口一览
+
+```go
+// 同步
+type TextCensor interface {
+    CensorText(ctx context.Context, text string) (*CensorResult, error)
+}
+type ImageCensor interface {
+    CensorImage(ctx context.Context, imageURL string) (*CensorResult, error)
+}
+
+// 异步：Submit → 轮询 GetCensorResult
+type AudioCensor interface {
+    SubmitCensorAudio(ctx context.Context, audioURL string) (taskID string, err error)
+    GetCensorResult(ctx context.Context, taskID string) (*JobSnapshot, error)
+}
+type VideoCensor interface {
+    SubmitCensorVideo(ctx context.Context, videoURL string) (taskID string, err error)
+    GetCensorResult(ctx context.Context, taskID string) (*JobSnapshot, error)
+}
+```
+
+## 文本审核（同步）
+
+### 七牛
+
+```go
+import (
+    "context"
+    "github.com/LingByte/ling-base/providers/censor"
+    qiniu "github.com/LingByte/ling-base/providers/censor/qiniu"
+)
+
+c, err := qiniu.NewTextCensor(qiniu.Config{
+    AccessKey: "your-access-key",
+    SecretKey: "your-secret-key",
+})
+if err != nil {
+    panic(err)
+}
+
+result, err := c.CensorText(context.Background(), "待审核的用户评论内容")
+fmt.Printf("suggestion=%s label=%s score=%.2f\n",
+    result.Suggestion, result.Label, result.Score)
+```
+
+### 阿里云
+
+```go
+import aliyun "github.com/LingByte/ling-base/providers/censor/aliyun"
+
+c, err := aliyun.NewTextCensor(aliyun.Config{
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+    Endpoint:        "green-cip.cn-shanghai.aliyuncs.com",
+})
+result, err := c.CensorText(ctx, text)
+```
+
+### 腾讯云
+
+```go
+import qcloud "github.com/LingByte/ling-base/providers/censor/qcloud"
+
+c, err := qcloud.NewTextCensor(qcloud.Config{
+    SecretID:  "...",
+    SecretKey: "...",
+    Region:    "ap-guangzhou",
+    BizType:   "default",
+})
+```
+
+## 图片审核（同步）
+
+```go
+import qcloud "github.com/LingByte/ling-base/providers/censor/qcloud"
+
+c, _ := qcloud.NewImageCensor(qcloud.Config{
+    SecretID:  "...",
+    SecretKey: "...",
+    Region:    "ap-guangzhou",
+})
+
+// 传入可公网访问的图片 URL
+result, err := c.CensorImage(ctx, "https://cdn.example.com/user-upload.jpg")
+```
+
+## 音频/视频审核（异步）
+
+```go
+import (
+    "time"
+    "github.com/LingByte/ling-base/providers/censor"
+    aliyun "github.com/LingByte/ling-base/providers/censor/aliyun"
+)
+
+c, _ := aliyun.NewVideoCensor(aliyun.Config{
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+})
+
+taskID, err := c.SubmitCensorVideo(ctx, "https://cdn.example.com/video.mp4")
+if err != nil {
+    panic(err)
+}
+
+for {
+    snap, err := c.GetCensorResult(ctx, taskID)
+    if err != nil {
+        panic(err)
+    }
+    switch snap.Status {
+    case censor.JobFinished:
+        fmt.Println(snap.Suggestion, snap.Label, snap.Score)
+        return
+    case censor.JobFailed:
+        panic(snap.Error)
+    case censor.JobWaiting, censor.JobDoing:
+        time.Sleep(5 * time.Second)
+    }
+}
+```
+
+生产环境应对轮询加指数退避与总超时。
+
+## 业务集成：发帖前审核
+
+```go
+func publishPost(ctx context.Context, text, imageURL string) error {
+    textResult, err := textCensor.CensorText(ctx, text)
+    if err != nil {
+        return err
+    }
+    if textResult.Suggestion == censor.SuggestionBlock {
+        return ErrContentBlocked
+    }
+
+    if imageURL != "" {
+        imgResult, err := imageCensor.CensorImage(ctx, imageURL)
+        if err != nil {
+            return err
+        }
+        if imgResult.Suggestion != censor.SuggestionPass {
+            return ErrContentReview
+        }
+    }
+    return savePost(text, imageURL)
+}
+```
+
+## Provider 配置参考
+
+### 七牛 `qiniu.Config`
+
+| 字段 | 说明 | 默认 |
+|------|------|------|
+| AccessKey | 七牛 AK | 必填 |
+| SecretKey | 七牛 SK | 必填 |
+| Host | API 主机 | `ai.qiniuapi.com` |
+
+### 阿里云 `aliyun.Config`
+
+| 字段 | 说明 | 默认 |
+|------|------|------|
+| AccessKeyID / AccessKeySecret | 阿里云凭证 | 必填 |
+| Endpoint | Green 接入点 | `green-cip.cn-shanghai.aliyuncs.com` |
+
+### 腾讯云 `qcloud.Config`
+
+| 字段 | 说明 | 默认 |
+|------|------|------|
+| SecretID / SecretKey | 腾讯云凭证 | 必填 |
+| Region | 地域 | `ap-guangzhou` |
+| BizType | 业务类型 | `default` |
+
+## 辅助函数
+
+```go
+msg := censor.BuildCensorMsg(censor.LabelPorn) // "pornographic content"
+```
+
+## 测试
+
+```bash
+cd providers/censor && go test -cover
+cd providers/censor/qiniu && go test -cover
+cd providers/censor/aliyun && go test -cover
+cd providers/censor/qcloud && go test -cover
 ```

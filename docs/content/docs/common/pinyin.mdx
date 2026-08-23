@@ -1,0 +1,32 @@
+---
+title: 拼音
+description: ling-base common/pinyin 模块文档
+---
+
+# pinyin
+
+Converts Chinese characters to pinyin readings. A pure-Go port covering the entire CJK Unified Ideographs basic block (U+4E00-U+9FA5, 20,812 characters) with multi-tone (多音字) support.
+
+## Key functions
+
+- `Convert(s string, opts ...Option) string` — convert a string to pinyin (first reading per character)
+- `ConvertAll(s string) [][]string` — return all readings per character for multi-tone characters
+- `Pinyin(r rune) string` — all readings for a single character, space-separated
+- `PinyinFirst(r rune) string` — first (primary) reading for a character
+- `PinyinAll(r rune) []string` — all readings as a slice
+- `IsCJK(r rune) bool` / `HasPinyin(r rune) bool` — character classification
+
+## Options
+
+`WithSeparator`, `WithKeepNonCJK`, `WithAllTones`, `WithUppercase`, `WithTitleCase`, `WithNoSeparator`, `WithUnderscoreSeparator`, `WithHyphenSeparator`.
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/pinyin"
+
+pinyin.Convert("你好世界")                       // "ni hao shi jie"
+pinyin.Convert("Hello世界", pinyin.WithKeepNonCJK(true)) // "Hello shi jie"
+pinyin.Pinyin('乐')                              // "le luo yao yue"
+pinyin.PinyinFirst('乐')                         // "le"
+```

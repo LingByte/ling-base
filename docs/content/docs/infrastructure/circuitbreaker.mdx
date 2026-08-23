@@ -1,39 +1,112 @@
 ---
 title: 熔断器
-description: Closed / Open / HalfOpen 三态
+description: Closed/Open/Half-Open 熔断状态机
 ---
 
 # 熔断器
 
-## 安装
+线程安全熔断器，Closed → Open → Half-Open 状态转换。
 
 ```bash
 go get github.com/LingByte/ling-base/common/circuitbreaker
 ```
 
-## 使用
+> 以下为 `common/circuitbreaker` 包 README 全文。
+
+
+A thread-safe circuit breaker with Closed / Open / Half-Open state machine,
+sliding-window failure-rate statistics, and configurable thresholds.
+
+## States
+
+```
+       failure rate >= threshold          recovery timeout
+  ┌──────────────────────────┐      ┌─────────────────────┐
+  │                          ▼      │                     ▼
+CLOSED ◄─────────────────── HALF-OPEN ◄───────────────── OPEN
+  ▲   all trial requests succeed    │   any trial request fails
+  └─────────────────────────────────┘
+```
+
+- **Closed**: requests pass through. Failures are tracked in a sliding window.
+  When the failure rate exceeds the threshold, the breaker trips to Open.
+- **Open**: requests are rejected immediately with `ErrCircuitOpen`.
+  After the recovery timeout, the breaker transitions to Half-Open.
+- **Half-Open**: a limited number of trial requests are allowed.
+  If all succeed, the breaker closes. If any fails, it re-opens.
+
+## Quick start
 
 ```go
 import "github.com/LingByte/ling-base/common/circuitbreaker"
 
 cb := circuitbreaker.New(circuitbreaker.Config{
-    FailureThreshold: 5,       // 连续失败 5 次后熔断
-    RecoveryTimeout:  30 * time.Second, // 30s 后尝试恢复
-    HalfOpenMaxCalls: 3,       // 半开状态最多 3 次试探
+    MaxRequests:      5,      // trial requests in Half-Open
+    FailureThreshold: 0.5,    // 50% failure rate trips the breaker
+    MinRequests:      10,     // need at least 10 requests before evaluating
+    RecoveryTimeout:  30 * time.Second,
+    Name:             "my-service",
+    OnStateChange: func(name string, from, to circuitbreaker.State) {
+        log.Printf("breaker %s: %s → %s", name, from, to)
+    },
 })
 
-err := cb.Execute(func() error {
-    return callUpstream()
+err := cb.Execute(ctx, func(ctx context.Context) error {
+    return callRemoteService(ctx)
 })
 if errors.Is(err, circuitbreaker.ErrCircuitOpen) {
-    // 熔断器开启，快速失败
+    // fallback / return cached response
 }
 ```
 
-## 状态
+## Integration with retry
 
-| 状态 | 说明 |
-|------|------|
-| Closed | 正常，请求通过 |
-| Open | 熔断，所有请求快速失败 |
-| HalfOpen | 半开，允许少量试探请求 |
+Combine circuit breaker with retry for resilient remote calls — retry handles
+transient failures within a single call, while the circuit breaker prevents
+cascading failures across calls:
+
+```go
+err := cb.Execute(ctx, func(ctx context.Context) error {
+    return retry.Do(ctx, func(ctx context.Context) error {
+        return callRemote(ctx)
+    },
+        retry.WithMaxAttempts(3),
+        retry.WithExponentialBackoff(100*time.Millisecond, 5*time.Second, 2.0, true),
+    )
+})
+```
+
+Or use the `retry.WithCircuitBreaker` option:
+
+```go
+err := retry.Do(ctx, op,
+    retry.WithMaxAttempts(3),
+    retry.WithCircuitBreaker(cb),
+)
+```
+
+When the breaker is open, the retry loop stops immediately with
+`ErrCircuitOpen` — no further attempts are made.
+
+## Configuration
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `MaxRequests` | Trial requests allowed in Half-Open | 5 |
+| `FailureThreshold` | Failure rate (0.0–1.0) that trips the breaker | 0.5 |
+| `MinRequests` | Minimum requests before evaluating failure rate | 10 |
+| `RecoveryTimeout` | How long the breaker stays Open | 30s |
+| `SlidingWindowSize` | Number of recent outcomes in the window | 100 |
+| `OnStateChange` | Callback on state transitions | nil |
+| `Name` | Breaker identifier (for logs/metrics) | "" |
+
+## Metrics
+
+```go
+m := cb.Metrics()
+// m.State, m.WindowLen, m.Failures, m.Successes, m.FailureRate, m.Generation
+```
+
+## License
+
+MIT

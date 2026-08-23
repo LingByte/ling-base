@@ -1,42 +1,237 @@
 ---
 title: Realtime 实时对话
-description: 8 个 provider，多模态实时语音
+description: 8 个 provider，全双工 ASR+LLM+TTS WebSocket 语音助手
 ---
 
 # Realtime 实时对话
 
-## Provider 列表
+`voice/realtime` 将 **ASR + LLM + TTS** 合并为单一全双工 WebSocket 会话，适合语音助手、实时客服等低延迟场景。与 `recognizer`（仅 ASR）、`synthesizer`（仅 TTS）并列，按场景选用。
 
-OpenAI / Gemini / AliyunOmni / VolcDialogue / Iflytek / MiniMax / Stepfun / TencentSTS
+## 架构
 
-## 使用示例
+```
+voice/realtime/
+├── types.go        # Agent、Options、Event、EventType
+├── factory.go      # NewAgentFromCredential
+├── openai/         # GPT-4o Realtime
+├── gemini/         # Gemini Live
+├── aliyunomni/     # 阿里云 Omni
+├── volcdialogue/   # 火山对话
+├── minimax/        # MiniMax
+├── iflytek/        # 讯飞
+├── stepfun/        # 阶跃
+└── tencentsts/     # 腾讯 STS
+```
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/voice/realtime
+go get github.com/LingByte/ling-base/voice/realtime/openai
+```
+
+应用入口 **blank import** 注册 provider：
 
 ```go
-import "github.com/LingByte/ling-base/voice/realtime/openai"
+import (
+    _ "github.com/LingByte/ling-base/voice/realtime/openai"
+    _ "github.com/LingByte/ling-base/voice/realtime/gemini"
+)
+```
 
-session, err := openai.NewSession(ctx, openai.Config{
-    APIKey: "sk-xxx",
-    Model:  "gpt-4o-realtime",
-    Voice:  "alloy",
-})
-if err != nil {
-    log.Fatal(err)
-}
-defer session.Close()
+## Agent 接口
 
-// 发送音频
-session.SendAudio(audioBytes)
-
-// 接收响应
-for {
-    msg, err := session.Recv()
-    if err != nil {
-        break
-    }
-    if msg.Type == realtime.MsgTypeAudio {
-        playAudio(msg.Audio)
-    } else if msg.Type == realtime.MsgTypeText {
-        fmt.Println(msg.Text)
-    }
+```go
+type Agent interface {
+    Start(ctx context.Context) error       // 建立 WS，等待 session.ready
+    PushAudio(pcm []byte) error            // 推送 PCM16LE mono 输入
+    CommitInputAudio() error               // 手动结束一轮（关闭 server VAD 时用）
+    Cancel() error                         // 打断当前 AI 回复（barge-in）
+    Close() error                          // 关闭会话
+    UpdateInstructions(instructions string) error
 }
 ```
+
+## 事件模型
+
+所有事件通过 `Options.OnEvent` 回调（在 WS 读 goroutine 中触发，**勿阻塞**）：
+
+| EventType | 说明 |
+|-----------|------|
+| `session.open` | 握手完成，可开始推音频 |
+| `session.close` | 连接关闭 |
+| `user.speech.started` | 服务端 VAD 检测到用户开口 → 立即停止播放 AI 音频 |
+| `user.speech.ended` | 用户说完 |
+| `user.transcript` | 用户 ASR 文本（`Final` 表示本句结束） |
+| `assistant.text` | AI 文本片段 |
+| `assistant.audio` | AI 音频 PCM（`Event.AudioPC`，24kHz 常见） |
+| `assistant.turn.end` | AI 一轮回复结束 |
+| `error` | 错误（`Fatal=true` 不可恢复） |
+
+```go
+type Event struct {
+    Type    EventType
+    Text    string
+    Final   bool
+    AudioPC []byte
+    Err     error
+    Fatal   bool
+    Vendor  string
+}
+```
+
+## OpenAI Realtime 完整示例
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+    "sync"
+
+    "github.com/LingByte/ling-base/voice/realtime"
+    _ "github.com/LingByte/ling-base/voice/realtime/openai"
+)
+
+func main() {
+    events := make(chan realtime.Event, 64)
+    var wg sync.WaitGroup
+
+    agent, err := realtime.NewAgentFromCredential(map[string]any{
+        "provider": "openai_realtime",
+        "apiKey":   os.Getenv("OPENAI_API_KEY"),
+        "model":    "gpt-4o-realtime-preview",
+        "voice":    "alloy",
+    }, realtime.Options{
+        SystemPrompt:     "你是一个简洁的中文语音助手。",
+        InputSampleRate:  16000,
+        OutputSampleRate: 24000,
+        OnEvent: func(ev realtime.Event) {
+            events <- ev // 转发到 worker，避免阻塞 WS
+        },
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    ctx := context.Background()
+    if err := agent.Start(ctx); err != nil {
+        panic(err)
+    }
+    defer agent.Close()
+
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        for ev := range events {
+            switch ev.Type {
+            case realtime.EventUserTranscript:
+                if ev.Final {
+                    fmt.Println("用户:", ev.Text)
+                }
+            case realtime.EventAssistantAudio:
+                playPCM(ev.AudioPC, 24000)
+            case realtime.EventAssistantText:
+                fmt.Print(ev.Text)
+            case realtime.EventUserSpeechStarted:
+                stopPlayback() // barge-in
+            case realtime.EventError:
+                fmt.Printf("error (fatal=%v): %v\n", ev.Fatal, ev.Err)
+            }
+        }
+    }()
+
+    pcm, _ := os.ReadFile("mic_chunk.pcm")
+    _ = agent.PushAudio(pcm)
+
+    wg.Wait()
+}
+```
+
+## 凭证驱动工厂
+
+租户控制面存储 JSON，`NewAgentFromCredential` 按 `provider` 字段解析，**调用方无需 import 具体 vendor**：
+
+```go
+cfg := map[string]any{
+    "provider": "gemini",           // 或 aliyun_omni, volc_dialogue, minimax, ...
+    "apiKey":   "...",
+    // vendor 特定字段见各子包 Config
+}
+agent, err := realtime.NewAgentFromCredential(cfg, opts)
+```
+
+```go
+// 列出已注册 slug
+for _, slug := range realtime.AllProviders() {
+    fmt.Println(slug)
+}
+```
+
+## 支持的 Provider
+
+| Slug（示例） | 包 | 说明 |
+|--------------|-----|------|
+| `openai_realtime` | `realtime/openai` | GPT-4o Realtime |
+| `gemini` | `realtime/gemini` | Gemini Live |
+| `aliyun_omni` | `realtime/aliyunomni` | 阿里云 Omni |
+| `volc_dialogue` | `realtime/volcdialogue` | 火山对话 |
+| `minimax` | `realtime/minimax` | MiniMax |
+| `iflytek` | `realtime/iflytek` | 讯飞 |
+| `stepfun` | `realtime/stepfun` | 阶跃 |
+| `tencent_sts` | `realtime/tencentsts` | 腾讯 STS |
+
+各包在 `init()` 中调用 `realtime.Register(...)` 注册多个别名。
+
+## Options 配置
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `SystemPrompt` | — | 模型 instructions |
+| `Voice` | vendor 默认 | 音色 |
+| `InputSampleRate` | 16000 | 输入 PCM 采样率 |
+| `OutputSampleRate` | 24000 | 输出 PCM 采样率 |
+| `OnEvent` | **必填** | 事件回调 |
+| `DisableServerVAD` | false | 关闭服务端 VAD 时需手动 `CommitInputAudio` |
+| `Modalities` | vendor 默认 | 输出模态 `["text","audio"]` |
+| `Temperature` | vendor 默认 | 采样温度 |
+| `Tools` / `ToolHandler` | — | Function calling |
+
+## 工具调用（Function Calling）
+
+```go
+agent, _ := realtime.NewAgentFromCredential(cfg, realtime.Options{
+    OnEvent: handleEvent,
+    Tools: []realtime.Tool{
+        {Name: "get_weather", Description: "查询天气", Parameters: weatherSchema},
+    },
+    ToolHandler: func(ctx context.Context, name string, args json.RawMessage) (string, error) {
+        if name == "get_weather" {
+            return `{"temp": 25}`, nil
+        }
+        return "", fmt.Errorf("unknown tool")
+    },
+})
+```
+
+## 音频契约
+
+- **输入**：PCM16LE mono，`Options.InputSampleRate`（通常 16000）
+- **输出**：`EventAssistantAudio` 为 PCM16LE mono，`OutputSampleRate`（通常 24000）
+- **并发**：`PushAudio` 建议单 goroutine 调用；`Cancel` / `Close` 任意 goroutine 安全
+
+## 生命周期
+
+```
+NewAgentFromCredential → Start → PushAudio (循环) → Cancel (可选) → Close
+                              ↑
+                    session.open 后才开始推流
+```
+
+## 错误
+
+- `ErrUnknownProvider`：`provider` 未注册或拼写错误
+- `Options.OnEvent` 为 nil：构造失败
+- `EventError` + `Fatal=true`：需重建 Agent

@@ -1,0 +1,108 @@
+---
+title: Tool
+description: 函数/MCP/OpenAPI/文件/代码执行等 Agent 工具
+---
+
+# Tool
+
+`agentkit/tool` 定义 Agent 可调用的工具抽象。LLM 通过 function calling 选择工具，Runner 执行并回传结果。
+
+## 核心接口
+
+```go
+type Tool interface {
+    Declaration() *Declaration  // JSON Schema
+    Name() string
+}
+
+type CallableTool interface {
+    Tool
+    Call(ctx context.Context, argsJSON string) (any, error)
+}
+
+type StreamableTool interface {
+    Tool
+    Stream(ctx context.Context, argsJSON string) (<-chan any, error)
+}
+```
+
+## 函数工具
+
+```go
+import "github.com/LingByte/ling-base/agentkit/tool/function"
+
+weatherTool, _ := function.NewFunctionTool(
+    "get_weather",
+    "根据城市名查询当前天气",
+    map[string]any{
+        "type": "object",
+        "properties": map[string]any{
+            "city": map[string]any{"type": "string"},
+        },
+        "required": []string{"city"},
+    },
+    func(ctx context.Context, args map[string]any) (any, error) {
+        city := args["city"].(string)
+        return map[string]string{"city": city, "temp": "25°C"}, nil
+    },
+)
+
+ag, _ := llmagent.New("bot", llmagent.WithTools([]tool.Tool{weatherTool}))
+```
+
+## 内置工具一览
+
+| 包 | 工具 |
+|----|------|
+| `tool/file` | 读/写/搜索工作区文件 |
+| `tool/hostexec` | 主机 shell 执行 |
+| `tool/workspaceexec` | 策略约束的工作区执行 |
+| `tool/codeexec` | 封装 `codeexecutor` |
+| `tool/mcp` | MCP 协议工具 |
+| `tool/openapi` | 从 OpenAPI spec 生成工具 |
+| `tool/duckduckgo` | DuckDuckGo 搜索 |
+| `tool/google/search` | Google 搜索 |
+| `tool/wikipedia` | Wikipedia |
+| `tool/webfetch/*` | HTTP / Claude / Gemini 抓取 |
+| `tool/transfer` | Agent 间转移 |
+| `tool/todo` | Todo 列表 |
+| `tool/skill` | 加载 SKILL.md |
+| `tool/agent` | Agent-as-Tool |
+| `tool/vision` | 图像理解 |
+
+## MCP 工具
+
+```go
+import "github.com/LingByte/ling-base/agentkit/tool/mcp"
+
+cfg := mcp.Config{
+    Command: "npx",
+    Args:    []string{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
+}
+toolSet, _ := mcp.NewToolSet(cfg)
+ag, _ := llmagent.New("bot", llmagent.WithToolSets([]tool.ToolSet{toolSet}))
+```
+
+## 代码执行
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
+    "github.com/LingByte/ling-base/agentkit/tool/codeexec"
+)
+
+exec := local.New()
+codeTool := codeexec.New(exec)
+```
+
+后端可选：`codeexecutor/sandbox`、`container`、`jupyter`、`e2b`。
+
+## 权限检查
+
+```go
+type PermissionChecker interface {
+    Check(ctx context.Context, toolName string, args map[string]any) error
+}
+```
+
+在敏感环境为工具调用增加审批或策略校验。

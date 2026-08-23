@@ -5,6 +5,19 @@ description: 非流式和流式 Chat Completions
 
 # Chat 对话
 
+## 创建 Client
+
+```go
+import (
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+client := relay.New(
+    relay.WithProvider(openai.NewProvider("sk-xxx")),
+)
+```
+
 ## 非流式 Chat
 
 ```go
@@ -14,8 +27,8 @@ resp, err := client.Chat(ctx, &relay.ChatRequest{
         {Role: "system", Content: "You are a helpful assistant."},
         {Role: "user", Content: "Hello!"},
     },
-    Temperature: 0.7,
-    MaxTokens:   1000,
+    Temperature: ptr(0.7),
+    MaxTokens:   ptr(1000),
 })
 if err != nil {
     log.Fatal(err)
@@ -25,7 +38,9 @@ fmt.Printf("Usage: prompt=%d completion=%d\n",
     resp.Usage.PromptTokens, resp.Usage.CompletionTokens)
 ```
 
-## 流式 Chat (SSE)
+## 流式 Chat
+
+`ChatStream` 返回 channel，消费完 channel 后可在 `result.Usage` 读取最终用量：
 
 ```go
 result, err := client.ChatStream(ctx, &relay.ChatRequest{
@@ -37,18 +52,22 @@ result, err := client.ChatStream(ctx, &relay.ChatRequest{
 if err != nil {
     log.Fatal(err)
 }
-defer result.Close()
 
-for {
-    chunk, err := result.Read()
-    if err != nil {
+for chunk := range result.Ch {
+    if chunk.Err != nil {
+        log.Fatal(chunk.Err)
+    }
+    if chunk.Delta != "" {
+        fmt.Print(chunk.Delta)
+    }
+    if chunk.Done {
         break
     }
-    if chunk.Choices[0].Delta.Content != "" {
-        fmt.Print(chunk.Choices[0].Delta.Content)
-    }
 }
+fmt.Printf("final usage: %+v\n", result.Usage)
 ```
+
+流式 chunk 还可能携带 `Reasoning`（推理模型）、`ToolCalls`（工具调用增量）和 `FinishReason`。
 
 ## 多轮对话
 
@@ -57,14 +76,45 @@ messages := []relay.Message{
     {Role: "system", Content: "You are a helpful assistant."},
 }
 
-// 第一轮
 messages = append(messages, relay.Message{Role: "user", Content: "Hi!"})
 resp, _ := client.Chat(ctx, &relay.ChatRequest{Model: "gpt-4o", Messages: messages})
-messages = append(messages, relay.Message{Role: "assistant", Content: resp.Choices[0].Message.Content})
+messages = append(messages, relay.Message{
+    Role:    "assistant",
+    Content: resp.Choices[0].Message.Content,
+})
 
-// 第二轮（带上下文）
 messages = append(messages, relay.Message{Role: "user", Content: "Tell me more."})
 resp, _ = client.Chat(ctx, &relay.ChatRequest{Model: "gpt-4o", Messages: messages})
+```
+
+## 工具调用（Function Calling）
+
+```go
+import "github.com/LingByte/ling-base/relay/relaykit/dto"
+
+resp, err := client.Chat(ctx, &relay.ChatRequest{
+    Model: "gpt-4o",
+    Messages: []relay.Message{
+        {Role: "user", Content: "What's the weather in Beijing?"},
+    },
+    Tools: []relay.Tool{
+        {
+            Type: "function",
+            Function: dto.FunctionRequest{
+                Name:        "get_weather",
+                Description: "Get weather for a city",
+                Parameters: map[string]any{
+                    "type": "object",
+                    "properties": map[string]any{
+                        "city": map[string]any{"type": "string"},
+                    },
+                    "required": []string{"city"},
+                },
+            },
+        },
+    },
+})
+// 解析 resp.Choices[0].Message.ToolCalls，执行工具后把 tool_result 消息追加进 Messages 再 Chat
 ```
 
 ## 错误处理
@@ -83,3 +133,5 @@ if err != nil {
     }
 }
 ```
+
+辅助函数 `ptr` 用于可选字段：`func ptr[T any](v T) *T { return &v }`

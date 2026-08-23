@@ -1,0 +1,41 @@
+---
+title: Passkey
+description: ling-base common/passkey 模块文档
+---
+
+> 另见专题文档：[Passkey 安全文档](/docs/security/passkey)。以下为 `common/passkey` 包 README 全文。
+
+# passkey
+
+Thin wrapper around go-webauthn that implements the WebAuthn / Passkey server-side ceremony (registration and authentication) for passwordless login.
+
+The package is a stateless facade. The caller provides two pieces of persistent state: a `CredentialStore` (mapping user handles to registered credentials) and a `SessionStore` (ephemeral challenge storage between the Begin and Finish steps). This separation lets the package work with any backing store (memory, Redis, SQL).
+
+## Key types
+
+- `Config` — configures the WebAuthn Relying Party (RPID, RPDisplayName, RPOrigins)
+- `User` — interface a user entity must satisfy
+- `Credential` — wraps a registered WebAuthn credential
+- `SessionData` — JSON-serializable ceremony session state
+- `RegistrationOptions` / `LoginOptions` — ceremony tuning
+- `DiscoverableUserHandler` — looks up a user by handle for usernameless login
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/passkey"
+
+wa, err := passkey.New(passkey.Config{
+    RPID:          "example.com",
+    RPDisplayName: "My App",
+    RPOrigins:     []string{"https://example.com"},
+})
+
+// Registration
+cred, session, err := wa.BeginRegistration(user, nil)
+newCred, err := wa.FinishRegistration(user, storedSession, r)
+
+// Discoverable (usernameless) login
+assertion, session, err := wa.BeginDiscoverableLogin(nil)
+user, cred, err := wa.FinishDiscoverableLogin(userHandler, storedSession, r)
+```

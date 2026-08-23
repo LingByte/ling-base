@@ -5,6 +5,8 @@ description: SSE 流式输出
 
 # Streaming (SSE)
 
+relay 的流式 API 基于 **Go channel**，不是 `Read()` 迭代器。`ChatStream` 返回 `*ChatStreamResult`，通过 `result.Ch` 接收 `ChatStreamChunk`。
+
 ## 基本流式
 
 ```go
@@ -17,19 +19,27 @@ result, err := client.ChatStream(ctx, &relay.ChatRequest{
 if err != nil {
     log.Fatal(err)
 }
-defer result.Close()
 
-for {
-    chunk, err := result.Read()
-    if err != nil {
-        if errors.Is(err, io.EOF) {
-            break
-        }
-        log.Fatal(err)
+for chunk := range result.Ch {
+    if chunk.Err != nil {
+        log.Fatal(chunk.Err)
     }
-    fmt.Print(chunk.Choices[0].Delta.Content)
+    fmt.Print(chunk.Delta)
 }
+fmt.Println("\nusage:", result.Usage)
 ```
+
+## Chunk 字段说明
+
+| 字段 | 说明 |
+|------|------|
+| `Delta` | 文本增量 |
+| `Reasoning` | 推理模型思考内容增量 |
+| `ToolCalls` | 工具调用增量（OpenAI streaming 格式） |
+| `FinishReason` | `stop` / `tool_calls` / `length` 等 |
+| `Done` | 是否为最后一个 chunk |
+| `Usage` | 部分 provider 在最终 chunk 上报用量 |
+| `Err` | 流内错误 |
 
 ## Context 取消
 
@@ -38,12 +48,31 @@ ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 defer cancel()
 
 result, err := client.ChatStream(ctx, req)
-// 当 ctx 超时或取消时，流会自动断开
+if err != nil {
+    log.Fatal(err)
+}
+
+for chunk := range result.Ch {
+    if chunk.Err != nil {
+        if errors.Is(chunk.Err, context.Canceled) {
+            log.Println("stream cancelled")
+            break
+        }
+        log.Fatal(chunk.Err)
+    }
+    fmt.Print(chunk.Delta)
+}
 ```
+
+当 `ctx` 超时或取消时，channel 会关闭，上游 HTTP/WebSocket 连接随之断开。
+
+## 工具调用流式
+
+流式响应中通过 `chunk.ToolCalls` 聚合工具调用参数，当 `chunk.FinishReason == "tool_calls"` 时执行工具并发起下一轮请求。
 
 ## WebSocket 流式（Xunfei）
 
-Xunfei 使用 WebSocket 协议，relay 已处理 context 取消：
+Xunfei 使用 WebSocket，relay 已封装为同样的 channel 接口：
 
 ```go
 import "github.com/LingByte/ling-base/relay/channel/xunfei"
@@ -51,6 +80,11 @@ import "github.com/LingByte/ling-base/relay/channel/xunfei"
 provider := xunfei.NewProvider(appid, apiKey, apiSecret)
 client := relay.New(relay.WithProvider(provider))
 
-// 当 context 取消时，WebSocket 连接会自动关闭
-result, err := client.ChatStream(ctx, req)
+result, err := client.ChatStream(ctx, &relay.ChatRequest{
+    Model:    "generalv3.5",
+    Messages: []relay.Message{{Role: "user", Content: "你好"}},
+})
+for chunk := range result.Ch {
+    fmt.Print(chunk.Delta)
+}
 ```

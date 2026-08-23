@@ -1,0 +1,66 @@
+---
+title: Event 事件
+description: Agent 运行时事件模型与流式通信
+---
+
+# Event
+
+`agentkit/event` 定义 Agent 运行时的**统一事件模型**，所有 `Agent.Run` 通过 `<-chan *event.Event` 流式返回进度。
+
+## Event 结构
+
+```go
+type Event struct {
+    // 作者：user / assistant / tool / system
+    Author string
+    // 内容部分：文本、工具调用、工具结果、转移等
+    Content Content
+    // 元数据：request_id、trace_id、标签
+    Metadata map[string]any
+    // 是否最终事件
+    IsFinal bool
+}
+```
+
+## 事件类型
+
+通过 `Content` 的多态类型区分：
+
+- **文本增量** — 模型流式输出
+- **ToolCall** — 模型请求调用工具
+- **ToolResult** — 工具执行结果
+- **Transfer** — Agent 间转移（`TransferTag`）
+- **CodeExecution** — 代码执行状态（`CodeExecutionTag`）
+
+## 消费事件
+
+```go
+events, err := agent.Run(ctx, invocation)
+for ev := range events {
+    switch {
+    case ev.HasText():
+        fmt.Print(ev.Text())
+    case ev.HasToolCall():
+        fmt.Println("tool:", ev.ToolCall().Name)
+    case ev.IsFinal:
+        return
+    }
+}
+```
+
+## Server 协议转换
+
+| Server | 转换 |
+|--------|------|
+| `server/openai` | Event → SSE ChatCompletionChunk |
+| `server/a2a` | Event → A2A Message |
+| `server/agui` | Event → AG-UI 事件流 |
+
+## 与 common/eventbus 区别
+
+| | agentkit/event | common/eventbus |
+|---|----------------|-----------------|
+| 范围 | Agent 推理流 | 应用内 pub/sub |
+| 消费者 | Runner、Server | 业务服务 |
+
+两者可在应用层桥接：Agent 完成事件发布到 eventbus 触发下游业务。

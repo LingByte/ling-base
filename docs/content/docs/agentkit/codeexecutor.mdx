@@ -1,0 +1,75 @@
+---
+title: 代码执行
+description: 本地/沙箱/容器/Jupyter/E2B 代码执行引擎
+---
+
+# Code Executor
+
+`agentkit/codeexecutor` 为 Agent 提供**安全代码执行**能力，支持多种隔离级别与运行时。
+
+## CodeExecutor 接口
+
+```go
+type CodeExecutor interface {
+    Execute(ctx context.Context, req *ExecuteRequest) (*ExecuteResult, error)
+}
+```
+
+LLM Agent 通过 `tool/codeexec` 或 `WithCodeExecutor` 接入。
+
+## 后端一览
+
+| 包 | 隔离级别 | 说明 |
+|----|----------|------|
+| `codeexecutor/local` | 低 | 本机进程执行（开发） |
+| `codeexecutor/sandbox` | 中 | OS 沙箱（bwrap/seatbelt） |
+| `codeexecutor/container` | 高 | Docker 容器 |
+| `codeexecutor/jupyter` | 中 | Jupyter Kernel |
+| `codeexecutor/e2b` | 高 | E2B 云沙箱 |
+| `codeexecutor/codeact` | 中 | CodeAct Python 网关 |
+
+## 本地执行
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/codeexecutor/local"
+    "github.com/LingByte/ling-base/agentkit/agent/llmagent"
+)
+
+exec := local.New()
+ag, _ := llmagent.New("coder",
+    llmagent.WithCodeExecutor(exec),
+    llmagent.WithInstruction("You can run Python to solve problems."),
+)
+```
+
+## 沙箱执行
+
+```go
+import "github.com/LingByte/ling-base/agentkit/codeexecutor/sandbox"
+
+exec, _ := sandbox.New(
+    sandbox.WithAllowedPaths([]string{"/tmp/workspace"}),
+    sandbox.WithNetworkPolicy(sandbox.NetworkDeny),
+)
+```
+
+## 工作区
+
+`WorkspaceManager` / `WorkspaceFS` 管理 Agent 可访问的文件系统视图，配合 `tool/file` 与 `tool/workspaceexec` 使用。
+
+## CodeAct 模式
+
+`codeexecutor/codeact` 实现 CodeAct 范式：LLM 生成 Python → 网关执行 → 结果回传。
+
+```go
+import "github.com/LingByte/ling-base/agentkit/codeexecutor/codeact"
+
+gateway, _ := codeact.NewGateway(tools...)
+```
+
+## 安全建议
+
+- 生产环境**禁止**裸 `local` 执行用户可控代码
+- 使用 `sandbox` 或 `container` + 路径白名单
+- 配合 `plugin/guardrail` 人工审批高危工具调用

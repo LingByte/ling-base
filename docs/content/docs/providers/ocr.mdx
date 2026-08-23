@@ -1,13 +1,24 @@
 ---
 title: OCR 光学字符识别
-description: 6 个 provider
+description: 6 个云 OCR 后端，统一 Provider 接口与注册表
 ---
 
-# OCR
+# OCR 光学字符识别
 
-## Provider 列表
+`providers/ocr` 提供厂商无关的 OCR 抽象。核心包零外部依赖；阿里云、腾讯云、AWS、Azure、百度、Google 在独立子 module 中实现。
 
-AWS / Google / Aliyun / Baidu / Azure / Qcloud
+## 架构
+
+```
+providers/ocr/
+├── ocr.go       # Provider 接口、Options、全局注册表
+├── aliyun/      # 阿里云 OCR
+├── qcloud/      # 腾讯云 OCR
+├── aws/         # AWS Textract
+├── azure/       # Azure Computer Vision
+├── baidu/       # 百度 OCR
+└── google/      # Google Cloud Vision
+```
 
 ## 安装
 
@@ -16,20 +27,217 @@ go get github.com/LingByte/ling-base/providers/ocr
 go get github.com/LingByte/ling-base/providers/ocr/aliyun
 ```
 
-## 使用示例
+## Provider 接口
+
+```go
+type Provider interface {
+    Name() string
+    Recognize(ctx context.Context, imageBytes []byte, opts *Options) (string, error)
+}
+
+type Options struct {
+    Language string         // "zh" | "en" | "auto" 等
+    Extra    map[string]any // 厂商特定参数
+}
+```
+
+## 注册表 API
+
+| 函数 | 说明 |
+|------|------|
+| `RegisterProvider(driver, p)` | 按名称注册实现（如 `"aliyun"`） |
+| `SetProvider(p)` | 直接设置全局 active provider |
+| `SetProviderByDriver(driver)` | 从注册表切换 active |
+| `GetProvider()` | 获取当前 active（可能为 nil） |
+| `RegisteredDrivers()` | 列出已注册名称 |
+
+```go
+import (
+    "github.com/LingByte/ling-base/providers/ocr"
+    "github.com/LingByte/ling-base/providers/ocr/aliyun"
+)
+
+p := aliyun.New("key-id", "key-secret", "ocr-api.cn-hangzhou.aliyuncs.com")
+ocr.RegisterProvider("aliyun", p)
+_ = ocr.SetProviderByDriver("aliyun")
+
+active := ocr.GetProvider()
+if active == nil {
+    return ocr.ErrNoProvider
+}
+```
+
+## 完整识别流程
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+
+    "github.com/LingByte/ling-base/providers/ocr"
+    "github.com/LingByte/ling-base/providers/ocr/aliyun"
+)
+
+func main() {
+    p := aliyun.NewFromEnv() // 或 aliyun.New(id, secret, endpoint)
+    ocr.RegisterProvider("aliyun", p)
+    _ = ocr.SetProviderByDriver("aliyun")
+
+    img, err := os.ReadFile("invoice.png")
+    if err != nil {
+        panic(err)
+    }
+
+    text, err := ocr.GetProvider().Recognize(context.Background(), img, &ocr.Options{
+        Language: "zh",
+    })
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(text)
+}
+```
+
+## 各 Provider 初始化
+
+### 阿里云
 
 ```go
 import "github.com/LingByte/ling-base/providers/ocr/aliyun"
 
-client := aliyun.New(aliyun.Config{
-    AccessKeyID:     "xxx",
-    AccessKeySecret: "xxx",
-})
+// 显式凭证
+p := aliyun.New(accessKeyID, accessKeySecret, "ocr-api.cn-hangzhou.aliyuncs.com")
 
-result, err := client.Recognize(ctx, &ocr.Request{
-    ImageURL: "https://example.com/image.png",
+// 或环境变量 ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET / ALIBABA_CLOUD_OCR_ENDPOINT
+p = aliyun.NewFromEnv()
+```
+
+### 腾讯云
+
+```go
+import "github.com/LingByte/ling-base/providers/ocr/qcloud"
+
+p, err := qcloud.New(qcloud.Config{
+    SecretID:  "...",
+    SecretKey: "...",
+    Region:    "ap-guangzhou",
 })
-for _, text := range result.Texts {
-    fmt.Println(text)
+```
+
+### AWS Textract
+
+```go
+import "github.com/LingByte/ling-base/providers/ocr/aws"
+
+p, err := aws.New(aws.Config{
+    Region:          "us-east-1",
+    AccessKeyID:     "...",
+    SecretAccessKey: "...",
+})
+```
+
+### Azure / 百度 / Google
+
+```go
+import (
+    "github.com/LingByte/ling-base/providers/ocr/azure"
+    "github.com/LingByte/ling-base/providers/ocr/baidu"
+    "github.com/LingByte/ling-base/providers/ocr/google"
+)
+
+az, _ := azure.New(azure.Config{Endpoint: "...", APIKey: "..."})
+bd, _ := baidu.New(baidu.Config{APIKey: "...", SecretKey: "..."})
+gg, _ := google.New(google.Config{CredentialsJSON: credJSON})
+```
+
+## 多 Provider 切换
+
+```go
+func initOCR(vendor string) error {
+    switch vendor {
+    case "aliyun":
+        p := aliyun.NewFromEnv()
+        ocr.RegisterProvider("aliyun", p)
+        return ocr.SetProviderByDriver("aliyun")
+    case "qcloud":
+        p, err := qcloud.New(qcloudCfg)
+        if err != nil {
+            return err
+        }
+        ocr.RegisterProvider("qcloud", p)
+        return ocr.SetProviderByDriver("qcloud")
+    default:
+        return fmt.Errorf("unknown ocr vendor %q", vendor)
+    }
 }
 ```
+
+## HTTP 上传识别 Handler
+
+```go
+func ocrHandler(w http.ResponseWriter, r *http.Request) {
+    p := ocr.GetProvider()
+    if p == nil {
+        http.Error(w, "ocr not configured", 503)
+        return
+    }
+
+    file, _, err := r.FormFile("image")
+    if err != nil {
+        http.Error(w, err.Error(), 400)
+        return
+    }
+    defer file.Close()
+
+    img, err := io.ReadAll(file)
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
+
+    lang := r.FormValue("lang")
+    if lang == "" {
+        lang = "auto"
+    }
+
+    text, err := p.Recognize(r.Context(), img, &ocr.Options{Language: lang})
+    if err != nil {
+        http.Error(w, err.Error(), 502)
+        return
+    }
+
+    json.NewEncoder(w).Encode(map[string]string{"text": text})
+}
+```
+
+## Options.Extra 示例
+
+部分厂商支持通过 `Extra` 传高级参数：
+
+```go
+text, err := p.Recognize(ctx, img, &ocr.Options{
+    Language: "zh",
+    Extra: map[string]any{
+        "detect_direction": true,
+        "paragraph":        true,
+    },
+})
+```
+
+## 错误处理
+
+- 未配置 provider：`GetProvider()` 返回 `nil`，可检查 `ocr.ErrNoProvider`
+- 云 API 错误：由各子包包装为 `error`，带厂商原始信息
+- 使用 `context.Context` 控制超时与取消
+
+## 测试
+
+```bash
+cd providers/ocr && go test -cover
+cd providers/ocr/aliyun && go test -cover
+```
+
+单元测试覆盖注册表与参数校验；真实识别需配置云凭证。

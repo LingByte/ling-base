@@ -1,57 +1,56 @@
 ---
-title: Logger 日志
-description: zap + lumberjack 结构化日志
+title: 日志
+description: 基于 zap 的结构化日志，轮转、脱敏与 Request ID
 ---
 
-# Logger
+# logger
 
-## 安装
+Structured logging for ling-base, built on zap with lumberjack rotation, colored console output, sensitive field redaction, request ID tracking, and panic-safe goroutines.
 
-```bash
-go get github.com/LingByte/ling-base/common/logger
-```
+## Features
 
-## 初始化
+- JSON file output with lumberjack rotation (optional daily filenames)
+- Colored console output in local/dev/prod modes (stdout info, stderr error)
+- Sensitive field redaction (passwords, tokens, phone numbers, SIP URIs, emails)
+- Request ID generation, context binding, and message prefixing
+- Context-aware logging helpers (InfoCtx, ErrorCtx, ...)
+- SafeGo for panic-safe background goroutines
+- Log retention purge for expired files
+
+## Key types
+
+- `LogConfig` -- logger configuration (level, filename, max size/age/backups, retention, sensitive fields)
+
+## Key functions
+
+- `InitTimezone(name)` -- set the package-level timezone (call before Init)
+- `Init(config, mode)` -- initialize the global zap logger
+- `Info`, `Debug`, `Warn`, `Error`, `Fatal` -- structured logging
+- `InfoCtx`, `ErrorCtx`, ... -- context-aware variants with request ID
+- `GenReqID()` -- generate URL-safe request ID
+- `WithRequestID(ctx, reqID)`, `RequestIDFromContext(ctx)`, `ZapReqID(ctx)`
+- `SafeGo(name, fn)` -- panic-recovered goroutine launcher
+- `PurgeExpiredLogFiles(logDir, retentionDays)` -- remove old log files
+- `RedactString`, `RedactEmail`, `RedactPhone`, `RedactSIPURI`, `RedactField`
+
+## Quick start
 
 ```go
 import "github.com/LingByte/ling-base/common/logger"
 
-logger.Init(logger.Config{
-    Level:  "info",
-    Format: "json",
-    Output: "file",
-    File: logger.FileConfig{
-        Path:     "logs/app.log",
-        MaxSize:  100, // MB
-        MaxBackups: 10,
-        MaxAge:   30, // days
-    },
-})
+logger.InitTimezone("Asia/Shanghai")
+_ = logger.Init(&logger.LogConfig{
+    Level:    "info",
+    Filename: "./logs/app.log",
+    MaxSize:  100,
+    MaxAge:   30,
+    Daily:    true,
+}, "dev")
+
+logger.Info("server started", zap.String("addr", ":8080"))
+logger.SafeGo("worker", func() { runWorker() })
 ```
 
-## 使用
+## License
 
-```go
-logger.Info("user logged in",
-    zap.Int("user_id", 123),
-    zap.String("ip", "1.2.3.4"),
-)
-
-logger.Error("database error",
-    zap.Error(err),
-    zap.String("query", sql),
-)
-
-logger.Debug("cache miss",
-    zap.String("key", key),
-)
-```
-
-## Gin 中间件
-
-```go
-import "github.com/LingByte/ling-base/common/logger/gin"
-
-r := gin.New()
-r.Use(gin.Logger())
-```
+MIT

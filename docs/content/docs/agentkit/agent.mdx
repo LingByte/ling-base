@@ -1,0 +1,120 @@
+---
+title: Agent
+description: Agent 接口与 LLM/Graph/Chain/Parallel 实现
+---
+
+# Agent
+
+`agentkit/agent` 定义所有 Agent 必须实现的 `Agent` 接口；常用实现包括 `llmagent`、`graphagent`、`chainagent`、`parallelagent`、`team` 等。
+
+## Agent 接口
+
+```go
+type Agent interface {
+    Run(ctx context.Context, invocation *Invocation) (<-chan *event.Event, error)
+    Tools() []tool.Tool
+    Info() Info
+    SubAgents() []Agent
+    FindSubAgent(name string) (Agent, bool)
+}
+```
+
+`Invocation` 携带用户消息、会话状态、工具上下文等；`Run` 返回**事件流**（文本增量、工具调用、转移等）。
+
+## LLM Agent（最常用）
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/agent/llmagent"
+    "github.com/LingByte/ling-base/agentkit/relaymodel"
+    compat "github.com/LingByte/ling-base/relay/compat"
+)
+
+model := relaymodel.New("gpt-4o",
+    relaymodel.WithAPIKey("sk-xxx"),
+    relaymodel.WithChannel(relaymodel.ChannelOpenAI),
+)
+
+ag, err := llmagent.New("assistant",
+    llmagent.WithModel(model),
+    llmagent.WithInstruction("你是专业 Go 开发助手。"),
+    llmagent.WithDescription("帮助用户编写和审查 Go 代码"),
+    llmagent.WithGenerationConfig(compat.GenerationConfig{
+        Temperature: 0.7,
+        MaxTokens:   4096,
+    }),
+    llmagent.WithMaxToolIterations(10),
+)
+```
+
+### 常用 Option
+
+| Option | 说明 |
+|--------|------|
+| `WithModel` | 主 LLM（`compat.Model`） |
+| `WithModels` / `WithModelSelector` | 多模型切换 |
+| `WithInstruction` / `WithGlobalInstruction` | 系统提示词 |
+| `WithTools` / `WithToolSets` | 注册工具 |
+| `WithSubAgents` | 子 Agent 委托 |
+| `WithPlanner` | 注入规划器（ReAct 等） |
+| `WithCodeExecutor` | 代码执行后端 |
+| `WithOutputSchema` | 结构化 JSON 输出 |
+| `WithSkills` | SKILL.md 技能仓库 |
+
+## Graph Agent
+
+将 `graph.StateGraph` 包装为 Agent，适合多步骤工作流：
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/agent/graphagent"
+    "github.com/LingByte/ling-base/agentkit/graph"
+)
+
+sg := graph.NewStateGraph[MyState]()
+// sg.AddNode(...).AddEdge(...)
+ga, _ := graphagent.New("workflow", graphagent.WithGraph(sg))
+```
+
+## Chain / Parallel / Cycle
+
+| 包 | 模式 |
+|----|------|
+| `agent/chainagent` | 顺序执行多个 Agent |
+| `agent/parallelagent` | 并行执行后合并 |
+| `agent/cycleagent` | 循环直到条件满足 |
+
+## Team 多 Agent
+
+```go
+import "github.com/LingByte/ling-base/agentkit/team"
+
+t := team.NewCoordinatorTeam("support",
+    team.WithMembers(agentA, agentB),
+    team.WithCoordinatorModel(model),
+)
+```
+
+支持 **coordinator**（协调者分配任务）与 **swarm**（`transfer_to_agent` 自由转移）两种模式。
+
+## 外部平台集成
+
+| 包 | 平台 |
+|----|------|
+| `agent/a2aagent` | Agent-to-Agent 协议 |
+| `agent/dify` | Dify 工作流 |
+| `agent/n8n` | n8n 工作流 |
+| `agent/claudecode` | Claude Code |
+| `agent/codex` | Codex 风格 |
+
+## 停止与错误
+
+```go
+// Agent 主动停止
+return agent.NewStopError("task completed")
+
+// 判断停止错误
+if stopErr, ok := agent.AsStopError(err); ok {
+    fmt.Println(stopErr.Message)
+}
+```

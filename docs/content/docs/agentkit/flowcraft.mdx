@@ -1,0 +1,83 @@
+---
+title: FlowCraft
+description: 声明式 Agent 运行时与多模型驱动
+---
+
+# FlowCraft
+
+`agentkit/flowcraft` 是**声明式 Agent 运行时**：通过 YAML 定义 Agent、工具、模型路由与沙箱策略，支持插件化后端与本地 Forge TUI 调试。
+
+## 核心概念
+
+```
+flowcraft/
+├── core/           # 运行时引擎（agent、graph、inference、tool、sandbox）
+├── driver/         # LLM 驱动（openai、anthropic、qwen、deepseek…）
+├── backends/       # 检查点、插件 shell
+└── forge/          # 本地 TUI 调试与场景测试
+```
+
+## Runtime Agent
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/flowcraft/core/runtime"
+    "github.com/LingByte/ling-base/agentkit/flowcraft/core/agent"
+)
+
+rt, _ := runtime.NewBuilder().
+    WithDeployYAML("deploy.yaml").
+    Build()
+
+ag := rt.Agent("my-agent")
+result, _ := ag.Execute(ctx, input)
+```
+
+### deploy.yaml 示例结构
+
+```yaml
+agents:
+  - name: assistant
+    model: gpt-4o
+    instructions: "你是一个助手"
+    tools:
+      - web_search
+    sandbox:
+      mode: local
+      allowed_paths:
+        - /tmp/workspace
+```
+
+## LLM 驱动 (driver)
+
+| 包 | 厂商 |
+|----|------|
+| `driver/openai` | OpenAI 兼容 |
+| `driver/anthropic` | Claude |
+| `driver/azure` | Azure OpenAI |
+| `driver/qwen` | 通义千问 |
+| `driver/deepseek` | DeepSeek |
+| `driver/kimi` | Moonshot |
+| `driver/minimax` | MiniMax |
+| `driver/bytedance` | 豆包 |
+
+## 沙箱
+
+`core/sandbox` 支持 `local`、`bwrap`（Linux）、`seatbelt`（macOS），路径白名单与执行审批。
+
+## 插件后端
+
+`backends/plugin` 通过 JSON-RPC 子进程加载 layer/service/native 插件，适合隔离不可信扩展。
+
+## Forge 本地调试
+
+```bash
+cd agentkit/flowcraft/forge
+go run . --scenario scenarios/basic.yaml
+```
+
+Forge 提供 TUI、raid×persona 模拟与场景回归测试。详见 `flowcraft/forge/README.md`。
+
+## 与 trpc-agent-go 栈的关系
+
+FlowCraft 可与 `runner` + `llmagent` **并存**：简单场景用 Go 代码 Agent；复杂多模型部署用 FlowCraft YAML。

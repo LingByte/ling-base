@@ -1,0 +1,55 @@
+---
+title: Artifact 制品
+description: 会话级版本化文件存储
+---
+
+# Artifact
+
+`agentkit/artifact` 管理 Agent 会话中的**版本化文件**（生成代码、报告、图片等），支持多版本与回滚。
+
+## Service 接口
+
+```go
+type Service interface {
+    Save(ctx context.Context, info SessionInfo, name string, data []byte) (*Artifact, error)
+    Load(ctx context.Context, info SessionInfo, name string, version int) (*Artifact, error)
+    List(ctx context.Context, info SessionInfo) ([]*Artifact, error)
+    Delete(ctx context.Context, info SessionInfo, name string, version int) error
+}
+```
+
+## 内存后端
+
+```go
+import "github.com/LingByte/ling-base/agentkit/artifact/inmemory"
+
+art := inmemory.NewService()
+r := runner.NewRunner("app", ag, runner.WithArtifactService(art))
+```
+
+## 云存储后端
+
+| 包 | 后端 |
+|----|------|
+| `artifact/s3` | AWS S3 |
+| `artifact/cos` | 腾讯云 COS |
+
+```go
+import "github.com/LingByte/ling-base/agentkit/artifact/s3"
+
+art, _ := s3.New(s3.Config{
+    Bucket:   "my-artifacts",
+    Region:   "us-east-1",
+    Prefix:   "sessions/",
+})
+```
+
+## 与 stores 的区别
+
+| | artifact | stores |
+|---|----------|--------|
+| 粒度 | 会话 + 版本 | 通用对象 key |
+| 用途 | Agent 产出物追踪 | 业务文件存储 |
+| 版本 | 内置多版本 | 需自行实现 |
+
+业务用户上传用 [stores](/docs/providers/stores)；Agent 中间产物用 artifact。

@@ -1,0 +1,40 @@
+---
+title: 链路追踪
+description: ling-base common/tracing 模块文档
+---
+
+# tracing
+
+Reusable, library-friendly wrapper around the OpenTelemetry Go SDK for distributed tracing.
+
+It handles the boilerplate of constructing a `TracerProvider` with a configurable exporter (OTLP gRPC, OTLP HTTP, stdout, or no-op), a Resource describing the service, a sampler, and W3C Trace Context propagation — while leaving the application in full control of when to start, flush, and shut down the pipeline.
+
+## Key types
+
+- `Config` — service name/version, exporter kind, OTLP endpoint, sample ratio, batch settings
+- `Provider` — holds the TracerProvider; call `Shutdown` to flush
+- `ExporterKind` — `ExporterOTLPGRPC`, `ExporterOTLPHTTP`, `ExporterStdout`, `ExporterNoop`
+- `Init(ctx, cfg) (func(context.Context) error, error)` — create and register the global tracer
+- `NewProvider(ctx, cfg) (*Provider, error)` — create a standalone provider for library use
+- `Start(ctx, name)` — start a span using the global tracer
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/tracing"
+
+shutdown, err := tracing.Init(ctx, tracing.Config{
+    ServiceName:    "my-service",
+    ServiceVersion: "1.0.0",
+    Exporter:       tracing.ExporterOTLPGRPC,
+    OTLPEndpoint:   "localhost:4317",
+    SampleRatio:    0.1,
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer shutdown(ctx)
+
+ctx, span := tracing.Start(ctx, "operation-name")
+defer span.End()
+```

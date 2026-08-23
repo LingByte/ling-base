@@ -1,0 +1,75 @@
+---
+title: 异步任务
+description: Midjourney、Suno 与通用 Task 提交轮询
+---
+
+# 异步任务
+
+部分 AI 能力（图像生成、音乐）为**异步任务**：提交 → 轮询 → 获取结果。relay 提供 `SubmitTask` / `FetchTask` 及 Midjourney、Suno 专用 API。
+
+## 通用 Task API
+
+```go
+result, err := client.SubmitTask(ctx, taskProvider, bodyReader)
+if err != nil {
+    log.Fatal(err)
+}
+taskID := result.TaskID
+
+// 轮询
+for {
+    info, err := client.FetchTask(ctx, taskProvider, baseURL, apiKey, map[string]any{
+        "task_id": taskID,
+    }, proxy)
+    if info.Status == "SUCCESS" {
+        break
+    }
+    time.Sleep(3 * time.Second)
+}
+```
+
+## Midjourney
+
+```go
+resp, err := client.MidjourneySubmit(ctx, baseURL, apiKey, mode, &relay.MidjourneyRequest{
+    Prompt:      "a cat in space",
+    Base64Array: nil,
+})
+
+task, err := client.MidjourneyFetch(ctx, baseURL, apiKey, resp.Result)
+fmt.Println(task.ImageURL)
+
+// 按条件批量查询
+tasks, _ := client.MidjourneyFetchByCondition(ctx, baseURL, apiKey, map[string]any{
+    "status": "SUCCESS",
+})
+```
+
+### 回调
+
+```go
+notify, err := client.MidjourneyNotify(ctx, requestBody)
+// 处理 webhook 推送
+```
+
+## Suno 音乐生成
+
+```go
+submit, err := client.SubmitSunoTask(ctx, baseURL, apiKey, "generate", &relay.SunoSubmitRequest{
+    Prompt: "upbeat electronic dance music",
+})
+
+tasks, err := client.FetchSunoTask(ctx, baseURL, apiKey, []string{submit.Data.TaskID})
+for _, t := range tasks {
+    fmt.Println(t.AudioURL)
+}
+
+// 单任务查询
+one, _ := client.FetchSunoTaskByID(ctx, baseURL, apiKey, taskID)
+```
+
+## 最佳实践
+
+- 设置总超时与最大轮询次数
+- 生产环境用 webhook（MidjourneyNotify）替代忙等
+- 任务结果 URL 通常有时效，及时转存到 [stores](/docs/providers/stores)

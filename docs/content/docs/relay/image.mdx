@@ -1,0 +1,69 @@
+---
+title: 图像生成
+description: 文生图、图生图与 Image Edit
+---
+
+# 图像生成
+
+`Client.Image` 统一调用各 provider 的文生图 API；`ImageEdit` 支持 inpainting / 局部编辑。
+
+## 文生图
+
+```go
+resp, err := client.Image(ctx, &relay.ImageRequest{
+    Model:  "dall-e-3",
+    Prompt: "A serene lake at sunset, watercolor style",
+    N:      1,
+    Size:   "1024x1024",
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, img := range resp.Data {
+    fmt.Println(img.URL) // 或 img.B64JSON
+}
+```
+
+## 常用参数
+
+| 字段 | 说明 |
+|------|------|
+| `Model` | `dall-e-3`、`stable-diffusion-xl`、Jimeng 等 |
+| `Prompt` | 正向提示词 |
+| `NegativePrompt` | 负向提示词（部分 provider） |
+| `N` | 生成张数 |
+| `Size` | `1024x1024`、`1792x1024` 等 |
+| `Quality` | `standard` / `hd`（OpenAI） |
+| `Style` | `vivid` / `natural`（OpenAI） |
+
+## 图像编辑
+
+```go
+resp, err := client.ImageEdit(ctx, &relay.ImageEditRequest{
+    Model:  "dall-e-2",
+    Image:  imageFile,      // io.Reader
+    Mask:   maskFile,       // 可选
+    Prompt: "add a red hat",
+    N:      1,
+    Size:   "1024x1024",
+})
+```
+
+## 支持的 Provider
+
+| Provider | 模块 | 能力 |
+|----------|------|------|
+| OpenAI | `relay/channel/openai` | DALL·E 2/3 |
+| Ali | `relay/channel/ali` | 通义万相 |
+| Baidu | `relay/channel/baidu` | 文心一格 |
+| Jimeng | `relay/channel/jimeng` | 即梦 |
+| Replicate | `relay/channel/replicate` | SD/Flux 等 |
+| Vertex / Gemini | `vertex` / `gemini` | Imagen |
+
+## Midjourney（异步）
+
+Midjourney 通过独立 API 提交异步任务，见 [异步任务](/docs/relay/tasks#midjourney)。
+
+## 用量
+
+图像请求用量记录在 `resp.Usage`（图片张数等），配合 `WithMeter` 计费。

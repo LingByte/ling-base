@@ -1,0 +1,87 @@
+---
+title: Session
+description: 会话持久化、摘要与多后端存储
+---
+
+# Session
+
+`agentkit/session` 管理对话会话：消息历史、状态 Map、窗口截断与自动摘要。
+
+## Service 接口
+
+```go
+type Service interface {
+    CreateSession(ctx context.Context, userID, sessionID string) (*Session, error)
+    GetSession(ctx context.Context, userID, sessionID string) (*Session, error)
+    ListSessions(ctx context.Context, userID string) ([]*Session, error)
+    DeleteSession(ctx context.Context, userID, sessionID string) error
+    AppendEvent(ctx context.Context, session *Session, ev *event.Event) error
+}
+```
+
+扩展接口：`SearchableService`（搜索历史）、`WindowService`（滑动窗口）、`TrackService`（追踪元数据）。
+
+## 内存后端（开发）
+
+```go
+import "github.com/LingByte/ling-base/agentkit/session/inmemory"
+
+sess := inmemory.NewSessionService()
+r := runner.NewRunner("app", ag, runner.WithSessionService(sess))
+```
+
+## 持久化后端
+
+| 包 | 后端 |
+|----|------|
+| `session/sqlite` | SQLite（单机） |
+| `session/postgres` | PostgreSQL |
+| `session/mysql` | MySQL |
+| `session/redis` | Redis |
+| `session/mongodb` | MongoDB |
+| `session/clickhouse` | ClickHouse |
+| `session/pgvector` | PG + 向量索引 |
+
+```go
+import "github.com/LingByte/ling-base/agentkit/session/sqlite"
+
+sess, err := sqlite.NewSessionService(sqlite.Config{
+    DSN: "file:sessions.db?cache=shared&_fk=1",
+})
+```
+
+## 会话摘要
+
+长对话超出上下文窗口时自动压缩历史：
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/session/summary"
+    "github.com/LingByte/ling-base/agentkit/relaymodel"
+)
+
+summarizer := summary.NewContextAwareSummarizer(model)
+r := runner.NewRunner("app", ag,
+    runner.WithSessionService(sess),
+    runner.WithSummarizer(summarizer),
+)
+```
+
+## Session 结构
+
+```go
+type Session struct {
+    ID        string
+    UserID    string
+    Events    []*event.Event
+    State     StateMap          // 跨轮次 KV 状态
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+```
+
+`StateMap` 用于 Agent 在 `output_key`、工作流变量等场景持久化中间结果。
+
+## 导出与迁移
+
+`session/externalization` 支持会话导出/导入，便于备份或跨环境迁移。

@@ -1,6 +1,6 @@
 ---
 title: 基础设施
-description: 限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
+description: 限流 / 熔断 / 重试 / 缓存 / 分布式锁
 icon: Settings2
 ---
 
@@ -8,22 +8,81 @@ import { Cards, Card } from 'fumadocs-ui/components/card'
 
 # 基础设施
 
+生产环境常用的弹性组件，均可独立 `go get`，按需组合。
+
 ## 模块
 
 <Cards>
   <Card title="限流器" href="/docs/infrastructure/limiter">
-    令牌桶 / 滑动窗口 / 并发数
+    令牌桶 / 并发控制 / Redis 分布式
   </Card>
   <Card title="熔断器" href="/docs/infrastructure/circuitbreaker">
-    Closed / Open / HalfOpen 三态
+    失败率熔断 / Half-Open 试探
   </Card>
   <Card title="重试" href="/docs/infrastructure/retry">
-    指数退避 / 固定间隔
+    指数退避 / 固定间隔 / 熔断集成
   </Card>
   <Card title="缓存" href="/docs/infrastructure/cache">
-    LRU / Memory / Redis / BigCache
+    LRU / Redis / 多级缓存
   </Card>
   <Card title="分布式锁" href="/docs/infrastructure/lock">
-    Redis / Etcd / Zookeeper / Consul
+    Redis / Etcd / RedLock
+  </Card>
+  <Card title="布隆过滤器" href="/docs/common/bloom">
+    内存 / Redis 布隆过滤器
+  </Card>
+  <Card title="事件总线" href="/docs/common/eventbus">
+    进程内 pub/sub
+  </Card>
+  <Card title="任务队列" href="/docs/common/queue">
+    内存任务队列
+  </Card>
+  <Card title="调度器" href="/docs/common/scheduler">
+    Cron 分布式调度
   </Card>
 </Cards>
+
+## 推荐组合
+
+对外部 API（如 relay 调用上游 LLM）：
+
+```
+retry（瞬时错误） + circuitbreaker（级联保护） + limiter（保护自身）
+```
+
+对热点数据：
+
+```
+cache/lru（L1） + cache/redis（L2） + lock/redis（防击穿）
+```
+
+## relay 集成示例
+
+```go
+import (
+    "time"
+
+    "github.com/LingByte/ling-base/common/circuitbreaker"
+    "github.com/LingByte/ling-base/common/retry"
+    "github.com/LingByte/ling-base/relay"
+)
+
+cb := circuitbreaker.New(circuitbreaker.Config{
+    FailureThreshold: 0.5,
+    MinRequests:      10,
+    RecoveryTimeout:  30 * time.Second,
+})
+
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithRetry(
+        retry.WithMaxAttempts(3),
+        retry.WithExponentialBackoff(100*time.Millisecond, 2*time.Second, 2.0, true),
+    ),
+    relay.WithCircuitBreaker(cb),
+)
+```
+
+## 相关模块
+
+`common/bloom`（布隆过滤器）、`common/eventbus`（进程内事件总线）等见 [通用工具](/docs/common) 完整列表。

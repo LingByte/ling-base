@@ -1,0 +1,89 @@
+---
+title: Go Agent
+description: UTCP 编程 Agent 与 ADK 模块组装
+---
+
+# Go Agent (goagent)
+
+`agentkit/goagent` 面向**编程/编码 Agent** 场景，基于 UTCP 工具协议，提供子 Agent 目录、安全策略与格式强制。
+
+## Agent 接口
+
+```go
+type Agent interface {
+    Run(ctx context.Context, input string) (string, error)
+    Tools() ToolCatalog
+    SubAgents() SubAgentDirectory
+}
+```
+
+## ADK 模块组装
+
+`agentkit/adk` 提供依赖注入式启动：
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/adk"
+    "github.com/LingByte/ling-base/agentkit/adk/modules"
+)
+
+kit := adk.New(
+    modules.NewModelModule(modelConfig),
+    modules.NewToolModule(toolRegistry),
+    modules.NewSubAgentModule(subAgentDir),
+)
+
+agent, _ := kit.BuildAgent()
+```
+
+| 模块 | 职责 |
+|------|------|
+| `ModelModule` | 注入 LLM |
+| `ToolModule` | 注册 UTCP 工具 |
+| `SubAgentModule` | 子 Agent 目录 |
+
+## 子 Agent
+
+```go
+type SubAgent interface {
+    Name() string
+    Description() string
+    Run(ctx context.Context, task string) (string, error)
+}
+
+type SubAgentDirectory interface {
+    Get(name string) (SubAgent, bool)
+    List() []SubAgent
+}
+```
+
+典型模式：主 Agent 将子任务委托给 `explorer`、`reviewer` 等专用子 Agent。
+
+## 安全策略
+
+```go
+type SafetyPolicy interface {
+    AllowTool(ctx context.Context, name string, args map[string]any) error
+    AllowExec(ctx context.Context, cmd []string) error
+}
+```
+
+限制危险 shell 命令与敏感路径访问。
+
+## 工作区索引
+
+配合 `agentkit/workspace` 对 Go 仓库做符号索引，供编码 Agent 精准定位函数与类型：
+
+```go
+import "github.com/LingByte/ling-base/agentkit/workspace"
+
+idx, _ := workspace.NewIndex(workspace.Config{Root: "/path/to/repo"})
+```
+
+## 与 llmagent 选型
+
+| 场景 | 推荐 |
+|------|------|
+| 通用对话 + 工具 | `llmagent` + `runner` |
+| 代码库 Agent、UTCP | `goagent` + `adk` |
+| 声明式部署 | `flowcraft` |

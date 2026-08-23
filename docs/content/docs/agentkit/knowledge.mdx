@@ -1,0 +1,90 @@
+---
+title: Knowledge
+description: RAG 管道，分块/嵌入/向量库/重排
+---
+
+# Knowledge (RAG)
+
+`agentkit/knowledge` 实现完整 RAG 管道：文档摄入 → 分块 → 嵌入 → 向量存储 → 检索 → 可选重排。
+
+## Knowledge 接口
+
+```go
+type Knowledge interface {
+    Ingest(ctx context.Context, source Source) error
+    Search(ctx context.Context, req *SearchRequest) ([]*SearchResult, error)
+}
+```
+
+## 快速搭建
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/knowledge"
+    "github.com/LingByte/ling-base/agentkit/knowledge/source/dir"
+    "github.com/LingByte/ling-base/agentkit/knowledge/embedder/openai"
+    "github.com/LingByte/ling-base/agentkit/knowledge/vectorstore/sqlitevec"
+)
+
+emb := openai.New(openai.Config{APIKey: "sk-xxx", Model: "text-embedding-3-small"})
+vs, _ := sqlitevec.New(sqlitevec.Config{Path: "vectors.db"})
+
+kb, _ := knowledge.New(knowledge.Config{
+    Embedder:    emb,
+    VectorStore: vs,
+})
+
+src := dir.New(dir.Config{Path: "./docs"})
+_ = kb.Ingest(ctx, src)
+
+results, _ := kb.Search(ctx, &knowledge.SearchRequest{
+    Query: "如何配置限流器？",
+    TopK:  5,
+})
+```
+
+## 文档来源 (source)
+
+| 包 | 来源 |
+|----|------|
+| `source/file` | 单文件 |
+| `source/dir` | 目录递归 |
+| `source/url` | HTTP URL |
+| `source/repo` | Git 仓库 |
+| `source/auto` | 自动检测类型 |
+
+## 文档解析 (document/reader)
+
+支持 PDF、DOCX、Markdown、CSV、JSON、Python/Go 源码 AST 等。
+
+## 向量库 (vectorstore)
+
+| 包 | 后端 |
+|----|------|
+| `vectorstore/inmemory` | 内存 |
+| `vectorstore/sqlitevec` | SQLite-vec |
+| `vectorstore/pgvector` | PostgreSQL pgvector |
+| `vectorstore/qdrant` | Qdrant |
+| `vectorstore/milvus` | Milvus |
+| `vectorstore/elasticsearch` | Elasticsearch |
+
+## 嵌入 (embedder)
+
+`openai`、`gemini`、`ollama`、`huggingface` 等。
+
+## 重排 (reranker)
+
+`cohere`、`infinity`、`topk` 对初检结果精排。
+
+## 接入 Agent
+
+```go
+import knowledgetool "github.com/LingByte/ling-base/agentkit/knowledge/tool"
+
+searchTool := knowledgetool.NewSearchTool(kb)
+ag, _ := llmagent.New("rag-bot", llmagent.WithTools([]tool.Tool{searchTool}))
+```
+
+## 知识图谱
+
+`knowledge/graph` + `graphstore/age` 支持图结构知识存储与检索。

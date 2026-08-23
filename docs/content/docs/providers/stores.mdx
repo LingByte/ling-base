@@ -1,33 +1,567 @@
 ---
 title: 对象存储
-description: 9 个 provider
+description: 9 个云存储后端，Store 接口、桶与对象管理、分片上传与统计
 ---
 
-# 对象存储
+# 对象存储 (stores)
 
-## Provider 列表
+`stores` 提供跨厂商的统一对象存储抽象。核心包 **零云 SDK 依赖**，每个云厂商在独立子 module 中实现；业务只 import 实际用到的后端。
 
-Local / S3 / OSS / COS / MinIO / Kodo / TOS / OBS / KS3
+## 架构
+
+```
+stores/              # Store 接口、错误类型、预签名辅助
+├── local/           # 本地文件系统（无 SDK）
+├── s3/              # AWS S3 / 兼容 S3 的端点
+├── oss/             # 阿里云 OSS
+├── cos/             # 腾讯云 COS
+├── minio/           # MinIO
+├── kodo/            # 七牛 Kodo
+├── tos/             # 火山引擎 TOS
+├── obs/             # 华为云 OBS
+└── ks3/             # 金山云 KS3
+```
 
 ## 安装
 
 ```bash
+# 核心类型（无 SDK）
 go get github.com/LingByte/ling-base/stores
+
+# 按需引入后端（示例）
 go get github.com/LingByte/ling-base/stores/oss
+go get github.com/LingByte/ling-base/stores/s3
+go get github.com/LingByte/ling-base/stores/local
 ```
 
-## 使用示例
+## Store 接口
+
+所有后端实现同一组 5 个方法：
+
+```go
+type Store interface {
+    // Read 返回对象流与字节大小
+    Read(key string) (io.ReadCloser, int64, error)
+    // Write 写入对象（key 为逻辑路径，如 uploads/2026/file.pdf）
+    Write(key string, r io.Reader) error
+    // Delete 删除对象（不存在时不报错）
+    Delete(key string) error
+    // Exists 检查对象是否存在
+    Exists(key string) (bool, error)
+    // PublicURL 返回公网可访问 URL；无私有桶能力时可能返回 ""
+    PublicURL(key string) string
+}
+```
+
+### 错误类型
+
+| 错误 | 含义 |
+|------|------|
+| `stores.ErrInvalidPath` | key 路径非法或目录穿越 |
+| `stores.ErrAttachmentNotExist` | 对象不存在 |
+| `*stores.StoreError` | 结构化错误，`Code` 为 HTTP 状态码 |
+
+```go
+import (
+    "errors"
+    "github.com/LingByte/ling-base/stores"
+)
+
+r, size, err := store.Read("missing.txt")
+if errors.Is(err, stores.ErrAttachmentNotExist) {
+    // 404 处理
+}
+var se *stores.StoreError
+if errors.As(err, &se) {
+    log.Printf("store error code=%d msg=%s", se.Code, se.Message)
+}
+```
+
+## 完整 CRUD 示例
+
+```go
+package main
+
+import (
+    "bytes"
+    "fmt"
+    "io"
+    "log"
+
+    "github.com/LingByte/ling-base/stores/oss"
+)
+
+func main() {
+    store := oss.New(oss.Config{
+        AccessKeyID:     os.Getenv("OSS_ACCESS_KEY_ID"),
+        AccessKeySecret: os.Getenv("OSS_ACCESS_KEY_SECRET"),
+        Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
+        BucketName:      "my-bucket",
+        BaseURL:         "https://cdn.example.com", // 可选：自定义 PublicURL 前缀
+    })
+
+    key := "uploads/2026/hello.txt"
+    payload := []byte("hello world")
+
+    // Write
+    if err := store.Write(key, bytes.NewReader(payload)); err != nil {
+        log.Fatal(err)
+    }
+
+    // Exists
+    ok, err := store.Exists(key)
+    if err != nil || !ok {
+        log.Fatal("expected object to exist")
+    }
+
+    // Read
+    rc, size, err := store.Read(key)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer rc.Close()
+    got, _ := io.ReadAll(rc)
+    fmt.Printf("size=%d body=%q\n", size, got)
+
+    // Public URL（公网桶或配置了 BaseURL 时）
+    fmt.Println(store.PublicURL(key))
+
+    // Delete
+    if err := store.Delete(key); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+## 各 Provider 配置与初始化
+
+配置**全部显式注入**，库内不读取环境变量。
+
+### Local（开发/测试）
+
+```go
+import "github.com/LingByte/ling-base/stores/local"
+
+store := local.New(local.Config{
+    Root:       "/var/uploads",
+    NewDirPerm: 0755,
+})
+```
+
+适合单元测试与本地开发；`PublicURL` 通常返回 `file://` 或空。
+
+### AWS S3
+
+```go
+import "github.com/LingByte/ling-base/stores/s3"
+
+store := s3.New(s3.Config{
+    Region:          "us-east-1",
+    AccessKeyID:     "AKIA...",
+    AccessKeySecret: "...",
+    BucketName:      "my-bucket",
+    Endpoint:        "", // 留空用 AWS 默认；MinIO 等兼容端点填完整 URL
+    ForcePathStyle:  false,
+})
+```
+
+### 阿里云 OSS
 
 ```go
 import "github.com/LingByte/ling-base/stores/oss"
 
 store := oss.New(oss.Config{
-    AccessKeyID:     "xxx",
-    AccessKeySecret: "xxx",
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
     Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
-    Bucket:          "my-bucket",
+    BucketName:      "my-bucket",
+    BaseURL:         "https://my-bucket.oss-cn-hangzhou.aliyuncs.com",
+})
+```
+
+### 腾讯云 COS
+
+```go
+import "github.com/LingByte/ling-base/stores/cos"
+
+store := cos.New(cos.Config{
+    SecretID:   "...",
+    SecretKey:  "...",
+    Region:     "ap-guangzhou",
+    BucketName: "my-bucket-1250000000",
+})
+```
+
+### MinIO
+
+```go
+import "github.com/LingByte/ling-base/stores/minio"
+
+store := minio.New(minio.Config{
+    Endpoint:  "minio.local:9000",
+    AccessKey: "minioadmin",
+    SecretKey: "minioadmin",
+    Bucket:    "my-bucket",
+    UseSSL:    false,
+})
+```
+
+### 七牛 Kodo
+
+```go
+import "github.com/LingByte/ling-base/stores/kodo"
+
+store := kodo.New(kodo.Config{
+    AccessKey:  "...",
+    SecretKey:  "...",
+    BucketName: "my-bucket",
+    Domain:     "https://cdn.example.com",
+    Private:    true, // 私有空间需配合 SignedURL
+})
+```
+
+### 火山引擎 TOS
+
+```go
+import "github.com/LingByte/ling-base/stores/tos"
+
+store := tos.New(tos.Config{
+    Endpoint:        "https://tos-cn-beijing.volces.com",
+    Region:          "cn-beijing",
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+    BucketName:      "my-bucket",
+})
+```
+
+### 华为云 OBS
+
+```go
+import "github.com/LingByte/ling-base/stores/obs"
+
+store := obs.New(obs.Config{
+    Endpoint:        "https://obs.cn-north-4.myhuaweicloud.com",
+    Region:          "cn-north-4",
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+    BucketName:      "my-bucket",
+})
+```
+
+### 金山云 KS3
+
+```go
+import "github.com/LingByte/ling-base/stores/ks3"
+
+store := ks3.New(ks3.Config{
+    Endpoint:        "https://ks3-cn-beijing.ksyuncs.com",
+    Region:          "BEIJING",
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+    BucketName:      "my-bucket",
+})
+```
+
+## 私有桶：预签名下载 URL
+
+实现 `PrivateURLSigner` 的后端（S3、OSS、COS 等）可生成带过期时间的 GET 链接：
+
+```go
+import (
+    "time"
+    "github.com/LingByte/ling-base/stores"
+)
+
+// 推荐：使用包级辅助函数（自动 clamp TTL，默认 1h，最大 24h）
+url, err := stores.SignedURL(store, "private/report.pdf", 30*time.Minute)
+
+// 或类型断言
+if signer, ok := store.(stores.PrivateURLSigner); ok {
+    url, err = signer.SignedURL("private/report.pdf", time.Hour)
+}
+```
+
+TTL 规则：`expires <= 0` 时使用默认值；超过 `MaxPresignTTL`（24h）会被截断。
+
+## 客户端直传（Presign Upload）
+
+浏览器/移动端直传对象到云存储，文件不经过业务服务器：
+
+```go
+du, err := stores.PresignUpload(store, "uploads/avatar.png", "image/png", time.Hour)
+if errors.Is(err, stores.ErrDirectUploadUnsupported) {
+    // local 等后端不支持，回退到服务端 Write
+}
+
+// du.Method == "PUT"：客户端 PUT 到 du.URL，附带 du.Headers
+// du.Method == "POST"：multipart 表单上传（七牛风格），文件字段 du.FileField
+fmt.Println(du.Method, du.URL, du.ExpiresAt)
+```
+
+前端 PUT 示例（S3 预签名）：
+
+```javascript
+await fetch(presign.url, {
+  method: 'PUT',
+  headers: presign.headers,
+  body: file,
+});
+```
+
+## HTTP 上传 Handler 示例
+
+```go
+func uploadHandler(store stores.Store) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        if err := r.ParseMultipartForm(32 << 20); err != nil {
+            http.Error(w, err.Error(), 400)
+            return
+        }
+        file, header, err := r.FormFile("file")
+        if err != nil {
+            http.Error(w, err.Error(), 400)
+            return
+        }
+        defer file.Close()
+
+        key := "uploads/" + uuid.NewString() + filepath.Ext(header.Filename)
+        if err := store.Write(key, file); err != nil {
+            http.Error(w, err.Error(), 500)
+            return
+        }
+
+        json.NewEncoder(w).Encode(map[string]string{
+            "key": key,
+            "url": store.PublicURL(key),
+        })
+    }
+}
+```
+
+## 接口能力对照
+
+| 后端 | Store | PrivateURLSigner | DirectUploadPresigner | ObjectStorageManager | MultipartUploader | StorageStatsProvider |
+|------|-------|------------------|----------------------|----------------------|-------------------|---------------------|
+| local | ✅ | ❌ | ❌ | ✅ | ❌ | ✅（本地快照） |
+| s3 | ✅ | ✅ | ✅ (PUT) | ✅ | ✅ | ✅ |
+| oss | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| cos | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| minio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| kodo | ✅ | ✅ | ✅ (POST 表单) | ✅ | ✅ | ✅ |
+| tos | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| obs | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ks3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+## 存储管理（ObjectStorageManager）
+
+除基础 `Store` CRUD 外，各云后端（及 local）还实现 **`ObjectStorageManager`**，用于控制台/后台类场景：桶管理、对象列表、复制移动、带 bucket 参数的上传等。
+
+### 检测能力
+
+```go
+import "github.com/LingByte/ling-base/stores"
+
+if stores.SupportsManagement(store) {
+    mgr := stores.AsManager(store)
+    // mgr 实现 ObjectStorageManager
+}
+
+if stores.SupportsMultipart(store) {
+    mp := stores.AsMultipartUploader(store)
+    // 大文件分片上传
+}
+
+if stores.SupportsStats(store) {
+    stats := stores.AsStatsProvider(store)
+    // 存储用量、CDN、API 请求统计
+}
+```
+
+### ObjectStorageManager 接口
+
+在 `Store` 基础上扩展：
+
+```go
+type ObjectStorageManager interface {
+    Store
+
+    // 桶管理
+    ListBuckets(req *ListBucketsRequest) (*ListBucketsResponse, error)
+    CreateBucket(req *CreateBucketRequest) error
+    DeleteBucket(bucket string) error
+    GetBucketInfo(bucket string) (*BucketInfo, error)
+    SetBucketPrivate(bucket string, isPrivate bool) error
+    GetBucketDomains(bucket string) ([]string, error)
+
+    // 对象管理（显式 bucket 参数）
+    ListFiles(bucket string, req *ListFilesRequest) (*ListFilesResponse, error)
+    GetFileInfo(bucket, key string) (*FileInfo, error)
+    UploadFile(bucket, key string, reader io.Reader, size int64) error
+    DeleteFile(bucket, key string) error
+    CopyFile(req *CopyObjectRequest) error
+    MoveFile(req *CopyObjectRequest) error
+    GetFileURL(bucket, key string, expires time.Duration) (string, error)
+}
+```
+
+`bucket` 参数可为空：单桶配置的后端（如已配置 `BucketName` 的 OSS）会使用默认桶。
+
+### 列出对象（管理后台）
+
+```go
+mgr := stores.AsManager(store)
+if mgr == nil {
+    return errors.New("backend does not support management API")
+}
+
+resp, err := mgr.ListFiles("", &stores.ListFilesRequest{
+    Prefix:    "uploads/2026/",
+    Delimiter: "/",
+    Limit:     100,
+})
+if err != nil {
+    return err
+}
+
+for _, f := range resp.Files {
+    fmt.Printf("%s  size=%d  modified=%s\n", f.Key, f.Size, f.LastModified)
+}
+for _, dir := range resp.CommonPrefixes {
+    fmt.Println("dir:", dir)
+}
+```
+
+### 复制 / 移动对象
+
+```go
+err := mgr.CopyFile(&stores.CopyObjectRequest{
+    SrcBucket:  "source-bucket",
+    SrcKey:     "a/old-path.pdf",
+    DestBucket: "dest-bucket",
+    DestKey:    "b/new-path.pdf",
 })
 
-err := store.Upload(ctx, "path/to/file.txt", fileBytes)
-url := store.URL("path/to/file.txt")
+// MoveFile 语义相同，由后端实现为 copy + delete
+err = mgr.MoveFile(&stores.CopyObjectRequest{
+    SrcBucket: "", SrcKey: "tmp/upload.png",
+    DestBucket: "", DestKey: "avatars/final.png",
+})
 ```
+
+### 桶管理（运维）
+
+```go
+// 列出账号下所有桶
+buckets, err := mgr.ListBuckets(&stores.ListBucketsRequest{MaxKeys: 50})
+
+// 创建桶
+_ = mgr.CreateBucket(&stores.CreateBucketRequest{
+    Name:      "new-bucket",
+    Region:    "cn-hangzhou",
+    IsPrivate: true,
+})
+
+// 查看桶信息、切换公私读
+info, _ := mgr.GetBucketInfo("my-bucket")
+_ = mgr.SetBucketPrivate("my-bucket", true)
+domains, _ := mgr.GetBucketDomains("my-bucket")
+```
+
+## 分片上传（MultipartUploader）
+
+大文件（视频、安装包）应使用分片上传，支持断点续传与并行上传：
+
+```go
+mp := stores.AsMultipartUploader(store)
+if mp == nil {
+    // 回退到单次 Write
+    return store.Write(key, reader)
+}
+
+bucket := "" // 使用默认桶
+init, err := mp.InitiateMultipartUpload(bucket, &stores.InitiateMultipartUploadRequest{
+    Key:         "videos/large.mp4",
+    ContentType: "video/mp4",
+})
+uploadID := init.UploadID
+
+// 按 part 上传（可并行）
+partResp, err := mp.UploadPart(bucket, init.Key, &stores.UploadPartRequest{
+    UploadID:   uploadID,
+    PartNumber: 1,
+    Body:       part1Reader,
+})
+
+// 完成合并
+loc, err := mp.CompleteMultipartUpload(bucket, init.Key, &stores.CompleteMultipartUploadRequest{
+    UploadID: uploadID,
+    Parts: []stores.CompletedPart{
+        {PartNumber: 1, ETag: partResp.ETag},
+        // ...更多分片
+    },
+})
+
+// 失败时取消
+_ = mp.AbortMultipartUpload(bucket, init.Key, uploadID)
+```
+
+## 存储统计（StorageStatsProvider）
+
+云厂商后端可实现 **`StorageStatsProvider`**，用于监控面板：
+
+```go
+sp := stores.AsStatsProvider(store)
+if sp == nil {
+    return stores.ErrStatsUnsupported
+}
+
+// 桶用量快照
+bucketStats, _ := sp.GetBucketStats("my-bucket")
+fmt.Printf("objects=%d totalBytes=%d\n", bucketStats.ObjectCount, bucketStats.Size)
+
+// CDN 流量（时间序列）
+cdn, _ := sp.GetCDNStats(&stores.CDNStatsRequest{
+    Bucket: "my-bucket",
+    Range:  stores.TimeRange{Start: start, End: end},
+})
+
+// API 请求与回源统计
+apiStats, _ := sp.GetAPIRequestStats(&stores.APIStatsRequest{Bucket: "my-bucket", Range: tr})
+origin, _ := sp.GetOriginFetchStats(&stores.OriginStatsRequest{Bucket: "my-bucket", Range: tr})
+```
+
+local 后端提供简化的本地目录统计；无 CDN 集成时 `GetCDNStats` 返回 `ErrStatsUnsupported`。
+
+## 管理后台 HTTP 示例
+
+```go
+func listFilesHandler(store stores.Store) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        mgr := stores.AsManager(store)
+        if mgr == nil {
+            http.Error(w, "management not supported", 501)
+            return
+        }
+        prefix := r.URL.Query().Get("prefix")
+        resp, err := mgr.ListFiles("", &stores.ListFilesRequest{
+            Prefix: prefix,
+            Limit:  50,
+        })
+        if err != nil {
+            http.Error(w, err.Error(), 500)
+            return
+        }
+        json.NewEncoder(w).Encode(resp)
+    }
+}
+```
+
+## 测试
+
+```bash
+cd stores && go test -cover
+cd stores/local && go test -cover
+cd stores/s3 && go test -cover
+```
+
+云厂商模块的单元测试覆盖构造与 URL 拼接；真实 API 调用需配置凭证后在集成环境验证。

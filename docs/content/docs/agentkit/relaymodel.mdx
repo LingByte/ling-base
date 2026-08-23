@@ -1,0 +1,83 @@
+---
+title: Relay Model
+description: 通过 relay 对接 40+ LLM Provider
+---
+
+# Relay Model
+
+`agentkit/relaymodel` 将 `relay/compat.Model` 接口桥接到 **ling-base/relay** 的 40+ provider，Agent 无需直接依赖各云 SDK。
+
+## 创建模型
+
+```go
+import "github.com/LingByte/ling-base/agentkit/relaymodel"
+
+// OpenAI 兼容（也适用于 DeepSeek、SiliconFlow 等 OpenAI 格式端点）
+m := relaymodel.New("gpt-4o",
+    relaymodel.WithAPIKey("sk-xxx"),
+    relaymodel.WithBaseURL("https://api.openai.com"),
+    relaymodel.WithChannel(relaymodel.ChannelOpenAI),
+)
+
+// Claude 原生 Messages API
+m = relaymodel.New("claude-sonnet-4-20250514",
+    relaymodel.WithAPIKey("sk-ant-xxx"),
+    relaymodel.WithChannel(relaymodel.ChannelClaude),
+)
+```
+
+## Option 一览
+
+| Option | 说明 |
+|--------|------|
+| `WithAPIKey` | API 密钥 |
+| `WithBaseURL` | 自定义端点 |
+| `WithChannel` | `ChannelOpenAI` 或 `ChannelClaude` |
+| `WithContextWindow` | 上报上下文窗口大小 |
+| `WithHeaders` | 额外 HTTP 头 |
+| `WithExtraFields` | 请求体扩展字段 |
+| `WithClient` | 注入预配置的 `relay.Client`（含熔断/重试） |
+
+## 使用预配置 relay.Client
+
+需要 relay 生产特性（熔断、fallback、meter）时：
+
+```go
+import (
+    "github.com/LingByte/ling-base/relay"
+    relayopenai "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+client := relay.New(
+    relay.WithProvider(relayopenai.NewProvider("sk-xxx")),
+    relay.WithRetry(retryPolicy),
+)
+
+m := relaymodel.New("gpt-4o", relaymodel.WithClient(client))
+```
+
+## GenerateContent
+
+实现 `compat.Model`，流式返回 `*compat.Response`：
+
+```go
+ch, err := m.GenerateContent(ctx, &compat.Request{
+    Messages: []compat.Message{compat.NewUserMessage("Hello")},
+    GenerationConfig: compat.GenerationConfig{Stream: true},
+})
+for resp := range ch {
+    fmt.Print(resp.Text())
+}
+```
+
+## 接入 LLM Agent
+
+```go
+ag, _ := llmagent.New("bot", llmagent.WithModel(m))
+```
+
+## 扩展更多 Channel
+
+当前 `relaymodel` 内置 OpenAI/Claude 通道选择；其他 relay channel（Gemini、Ollama、DeepSeek 等）通过 `WithClient` + 对应 `relay/channel/*` Provider 接入。
+
+完整 channel 列表见 [Provider 列表](/docs/relay/providers)。

@@ -1,6 +1,6 @@
 ---
 title: ling-base
-description: Go 多模块基础库，175+ modules，覆盖 AI 中继、语音处理、安全认证、基础设施
+description: Go 多模块基础库，Agent/AI 中继/语音/安全/基础设施/51 个 common 工具包
 ---
 
 import { Cards, Card } from 'fumadocs-ui/components/card'
@@ -8,16 +8,30 @@ import { Steps, Step } from 'fumadocs-ui/components/steps'
 
 # ling-base
 
-Go 多模块基础库，按需引入，覆盖 AI 中继、语音处理、安全认证、基础设施、第三方服务对接等场景。
+Go 多模块基础库，按需引入。覆盖 **Agent 框架**、AI 中继、语音处理、应用启动、API 文档、安全认证、基础设施、第三方云服务与 **51 个 common 工具包**。
 
 ## 特性
 
-- **多模块按需引入** — 业务只 import 用到的模块，不会拉入无关 SDK
-- **40+ AI Provider** — OpenAI / Claude / Gemini / AWS / Ali / Baidu / Tencent / Xunfei 等
-- **16 个 TTS + 12 个 ASR + 8 个 Realtime** — 全覆盖语音处理链路
-- **生产级基础设施** — 限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
-- **安全认证** — TOTP 两步验证 / Passkey 无密码认证 / 密码哈希 / JWT
-- **第三方服务对接** — OCR / 内容审核 / 对象存储 / 消息队列
+- **Agent 框架 (agentkit)** — LLM Agent、RAG、记忆、FlowCraft 声明式运行时
+- **40+ AI Provider** — relay 统一 Chat / Embed / Image / Audio
+- **16 TTS + 14 ASR + 8 Realtime** — 完整语音链路
+- **51 个 common 子包** — 日志、缓存、限流、JWT、MQ 等独立 module
+- **应用框架** — bootstrap 启动器、apidocs OpenAPI 文档、lingcli 脚手架
+- **第三方服务** — OCR / 审核 / 对象存储（含管理 API）/ 消息队列
+- **生产级基础设施** — 限流 / 熔断 / 重试 / 缓存 / 分布式锁
+
+## 在线 Playground
+
+每个文档页顶部都有 **Playground 入口**，可直接在浏览器中体验：
+
+| 类型 | 演示 | 说明 |
+|------|------|------|
+| **AI 调用** | Chat / 流式 Chat / Embeddings | 本地 `pnpm dev` 走服务端代理（无 CORS）；可填 Key 或配置 `OPENROUTER_API_KEY` |
+| **安全** | TOTP / JWT / 密码哈希 / 验证码 / AES | 浏览器 WASM |
+| **工具** | 压缩 / 哈希 / 校验 / 二维码 / 条形码 / ID / 随机 / 拼音 / 手机号 / 转换 / 时间 / Bloom | 本地 WASM 执行 |
+| **基础设施** | 令牌桶限流 | 交互式模拟 |
+
+WASM 演示首次加载约十几 MB；AI 演示在本地开发时由 Next.js API 代理转发，Key 不会写入日志。GitHub Pages 静态部署请使用 `pnpm build:static`。
 
 ## 快速开始
 
@@ -26,12 +40,11 @@ Go 多模块基础库，按需引入，覆盖 AI 中继、语音处理、安全�
 <Step>
 ### 安装
 
-每个模块都是独立的 Go module，按需引入：
-
 ```bash
 go get github.com/LingByte/ling-base/relay
-go get github.com/LingByte/ling-base/common/totp
-go get github.com/LingByte/ling-base/providers/ocr
+go get github.com/LingByte/ling-base/agentkit
+go get github.com/LingByte/ling-base/common/logger
+go get github.com/LingByte/ling-base/bootstrap
 ```
 
 </Step>
@@ -40,15 +53,15 @@ go get github.com/LingByte/ling-base/providers/ocr
 ### 使用 relay 中继
 
 ```go
-import "github.com/LingByte/ling-base/relay"
-import "github.com/LingByte/ling-base/relay/channel/openai"
-
-client := relay.New(
-    relay.WithProvider(openai.NewProvider("sk-xxx")),
+import (
+    "context"
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
 )
 
-resp, err := client.Chat(ctx, &relay.ChatRequest{
-    Model:    "gpt-4o",
+client := relay.New(relay.WithProvider(openai.NewProvider("sk-xxx")))
+resp, _ := client.Chat(context.Background(), &relay.ChatRequest{
+    Model: "gpt-4o",
     Messages: []relay.Message{{Role: "user", Content: "Hello"}},
 })
 ```
@@ -56,15 +69,14 @@ resp, err := client.Chat(ctx, &relay.ChatRequest{
 </Step>
 
 <Step>
-### 使用 TOTP 两步验证
+### 使用 bootstrap 启动应用
 
 ```go
-import "github.com/LingByte/ling-base/common/totp"
+import "github.com/LingByte/ling-base/bootstrap"
 
-secret := totp.GenerateSecret()
-uri := totp.KeyURI("user@example.com", "MyApp", secret)
-qrPNG := totp.QRCodePNG(uri, 256, 256)
-valid := totp.Validate(secret, "123456", 30, 6)
+app := bootstrap.New("myapp", bootstrap.WithProfile(bootstrap.ProfileProd))
+app.MustRegister("api", &APIServer{})
+_ = app.Run()
 ```
 
 </Step>
@@ -74,22 +86,40 @@ valid := totp.Validate(secret, "123456", 30, 6)
 ## 模块导航
 
 <Cards>
+  <Card title="Agent 框架" href="/docs/agentkit">
+    agentkit：Agent/Runner/Tool/RAG/FlowCraft
+  </Card>
   <Card title="AI 中继" href="/docs/relay">
-    40+ provider 统一接口，支持 Chat / Embed / Image / Audio / Responses
+    Chat/Embed/Image/Audio/Rerank/Tasks/Realtime
   </Card>
   <Card title="语音处理" href="/docs/voice">
-    TTS 语音合成 / ASR 语音识别 / 实时多模态对话
+    TTS / ASR / Realtime 实时对话
+  </Card>
+  <Card title="应用框架" href="/docs/bootstrap">
+    bootstrap 启动器 + apidocs + version
   </Card>
   <Card title="安全认证" href="/docs/security">
-    TOTP / Passkey / 密码哈希 / JWT
+    TOTP / Passkey / 密码 / JWT
   </Card>
   <Card title="基础设施" href="/docs/infrastructure">
-    限流 / 熔断 / 重试 / 缓存 / 分布式锁 / 布隆过滤器
+    限流 / 熔断 / 重试 / 缓存 / 锁
   </Card>
   <Card title="第三方服务" href="/docs/providers">
-    OCR / 内容审核 / 对象存储 / 消息队列
+    OCR / 审核 / 对象存储 / MQ
   </Card>
   <Card title="通用工具" href="/docs/common">
-    日志 / 配置 / 压缩 / 二维码 / 拼音 / IP 查询
+    51 个 common 子包完整文档
+  </Card>
+  <Card title="API 文档" href="/docs/apidocs">
+    Huma OpenAPI 一行挂载
+  </Card>
+  <Card title="渗透测试" href="/docs/pentest">
+    27 个 Web 安全测试工具
+  </Card>
+  <Card title="lingcli" href="/docs/lingcli">
+    项目脚手架
+  </Card>
+  <Card title="示例" href="/docs/example">
+    example/ 与 relay/example 演示
   </Card>
 </Cards>

@@ -1,0 +1,185 @@
+---
+title: 校验
+description: Struct tag 驱动的数据校验与自定义规则
+---
+
+# common/validate
+
+Struct-tag-driven data validation with built-in rules, custom rule
+registration, nested struct validation, and slice validation.
+
+## Quick Start
+
+```go
+import "github.com/LingByte/ling-base/common/validate"
+
+type User struct {
+    Name     string `validate:"required,min=3,max=50"`
+    Email    string `validate:"required,email"`
+    Age      int    `validate:"min=18,max=120"`
+    Password string `validate:"required,min=8"`
+    Confirm  string `validate:"eqfield=Password"`
+}
+
+user := User{Name: "ab", Email: "invalid-email", Age: 5}
+err := validate.Validate(user)
+// err is *validate.Errors with field-specific messages
+
+if errs, ok := err.(validate.Errors); ok {
+    for _, fe := range errs {
+        fmt.Printf("%s: %s\n", fe.Field, fe.Message)
+    }
+}
+```
+
+## Built-in Rules
+
+| Rule | Description | Example |
+|------|-------------|---------|
+| `required` | Must not be zero value | `validate:"required"` |
+| `min=N` | Min value (numbers) or length (strings/slices) | `validate:"min=3"` |
+| `max=N` | Max value or length | `validate:"max=50"` |
+| `len=N` | Exact length or value | `validate:"len=10"` |
+| `eq=N` | Must equal N | `validate:"eq=42"` |
+| `ne=N` | Must not equal N | `validate:"ne=0"` |
+| `gt=N` | Greater than N | `validate:"gt=0"` |
+| `gte=N` | Greater than or equal | `validate:"gte=18"` |
+| `lt=N` | Less than N | `validate:"lt=100"` |
+| `lte=N` | Less than or equal | `validate:"lte=120"` |
+| `oneof=a b c` | Must be one of listed values | `validate:"oneof=red green blue"` |
+| `email` | Valid email address | `validate:"email"` |
+| `url` | Valid URL | `validate:"url"` |
+| `ip` | Valid IP address | `validate:"ip"` |
+| `ipv4` | Valid IPv4 | `validate:"ipv4"` |
+| `ipv6` | Valid IPv6 | `validate:"ipv6"` |
+| `alpha` | Only alpha characters | `validate:"alpha"` |
+| `alphanum` | Only alphanumeric | `validate:"alphanum"` |
+| `numeric` | Only numeric characters | `validate:"numeric"` |
+| `contains=s` | Must contain substring | `validate:"contains=@` |
+| `startswith=s` | Must start with s | `validate:"startswith=usr_"` |
+| `endswith=s` | Must end with s | `validate:"endswith=.com"` |
+| `regex=pattern` | Must match regex | `validate:"regex=^[A-Z]{2}$"` |
+| `eqfield=Name` | Must equal another field | `validate:"eqfield=Password"` |
+| `nefield=Name` | Must not equal another field | `validate:"nefield=Username"` |
+| `gtfield=Name` | Must be greater than field | `validate:"gtfield=MinPrice"` |
+| `gtefield=Name` | Must be ≥ field | `validate:"gtefield=StartDate"` |
+| `ltefield=Name` | Must be ≤ field | `validate:"ltefield=EndDate"` |
+| `unique` | Slice elements must be unique | `validate:"unique"` |
+| `dive` | Validate slice/map elements | `validate:"dive"` |
+| `nostructlevel` | Skip nested struct validation | `validate:"nostructlevel"` |
+
+## Custom Rules
+
+```go
+import (
+    "fmt"
+    "regexp"
+    "github.com/LingByte/ling-base/common/validate"
+)
+
+var phoneRegex = regexp.MustCompile(`^\d{11}$`)
+
+validate.AddRule("phone", func(value any, param string, parent any) error {
+    s, ok := value.(string)
+    if !ok {
+        return validate.ErrInvalidType
+    }
+    if !phoneRegex.MatchString(s) {
+        return fmt.Errorf("invalid phone number")
+    }
+    return nil
+})
+
+type Contact struct {
+    Phone string `validate:"required,phone"`
+}
+```
+
+## Nested Validation
+
+Nested structs are validated automatically:
+
+```go
+type Address struct {
+    Street string `validate:"required"`
+    City   string `validate:"required"`
+}
+
+type User struct {
+    Name    string  `validate:"required"`
+    Address Address `validate:"required"`
+}
+
+// If Address fields are empty, errors will include "Address.Street" etc.
+```
+
+## Slice Validation with `dive`
+
+```go
+type Team struct {
+    Members []Member `validate:"required,dive"`
+}
+
+type Member struct {
+    Name  string `validate:"required,min=2"`
+    Email string `validate:"required,email"`
+}
+
+// Each element in Members is validated individually.
+// Errors include "Members[0].Email", "Members[1].Name", etc.
+```
+
+## Single Value Validation
+
+```go
+err := validate.ValidateWithTag("test@example.com", "required,email")
+// nil if valid
+```
+
+## Error Handling
+
+```go
+err := validate.Validate(user)
+if err != nil {
+    errs := err.(validate.Errors)
+    if errs.Has("Email") {
+        // handle email error
+    }
+    for _, fe := range errs {
+        fmt.Printf("%s: %s (rule: %s)\n", fe.Field, fe.Message, fe.Rule)
+    }
+}
+```
+
+## Slice / Map Validation (standalone)
+
+Validate slices and maps outside of a struct context:
+
+```go
+// Validate each element of a slice
+errs := validate.ValidateSlice([]string{"a", "ab", "abc"}, "min=2")
+// errs[0] = error for "a" (length < 2)
+// errs is nil if all valid
+
+// Validate each value in a map
+errs := validate.ValidateMap(map[string]int{"a": 1, "b": 5}, "gt=3")
+// errs["a"] = error for 1 (not > 3)
+```
+
+## Rule Introspection
+
+```go
+// Check if a rule exists
+validate.HasRule("email")    // true
+validate.HasRule("phone")    // false (unless custom-added)
+
+// List all registered rules
+rules := validate.RegisteredRules()
+
+// Reset to default rules (removes custom rules)
+validate.ResetRules()
+```
+
+## License
+
+MIT

@@ -1,0 +1,71 @@
+---
+title: 示例项目
+description: example/ 目录下各模块演示程序索引
+---
+
+# 示例项目 (example)
+
+`example/` 目录包含 ling-base 各模块的**可运行演示**，用于快速验证 API 与本地调试。
+
+```bash
+cd example
+go mod tidy
+```
+
+## 应用演示
+
+| 命令 | 说明 |
+|------|------|
+| `go run ./cmd/app-demo` | Bootstrap 完整 Web 应用（GORM + 迁移 + 中间件） |
+| `go run ./cmd/version-demo` | version 包 ldflags 与版本信息 |
+| `go run ./cmd/jwt-demo` | JWT 签发与校验 |
+| `go run ./cmd/otel-demo` | OpenTelemetry 链路追踪 |
+
+## 基础设施
+
+| 命令 | 说明 |
+|------|------|
+| `go run ./cmd/scheduler-demo` | 分布式定时任务 scheduler |
+| `go run ./cmd/migration-demo` | SQL 文件迁移 |
+| `go run ./cmd/search-demo` | Bleve 全文搜索 |
+
+## 多媒体与工具
+
+| 命令 | 说明 |
+|------|------|
+| `go run ./cmd/barcode-demo` | 条形码生成 |
+| `go run ./cmd/qrcode-demo` | 二维码生成 |
+| `go run ./cmd/image-demo` | 图像处理 imageutil |
+| `go run ./cmd/video-demo` | FFmpeg videoutil |
+| `go run ./cmd/parser-demo` | PDF/DOCX 等文档解析 |
+
+## 其他
+
+| 命令 | 说明 |
+|------|------|
+| `go run ./cmd/imap-demo` | IMAP 邮件 |
+| `go run ./cmd/sendcloud-demo` | SendCloud 邮件发送 |
+
+## relay 示例
+
+位于 `relay/example/`：
+
+| 路径 | 说明 |
+|------|------|
+| `relay/example/basic` | 基础 Chat |
+| `relay/example/realtime` | Realtime WebSocket |
+| `relay/example/gemini` | Gemini channel |
+| `relay/example/midjourney` | Midjourney 异步任务 |
+| `relay/example/suno` | Suno 音乐生成 |
+
+```bash
+cd relay/example/basic && go run .
+```
+
+## 配置
+
+`example/config/` 提供 dev/prod YAML 样例；`example/testdata/` 含各格式测试文件（PDF、CSV、ICS 等）。
+
+## 与 lingcli 的关系
+
+`lingcli create` 生成的项目结构类似 `app-demo`，但可按 `--modules` 预选 ling-base 模块。见 [lingcli](/docs/lingcli)。

@@ -1,0 +1,75 @@
+---
+title: Server
+description: OpenAI API、A2A、AG-UI HTTP 服务
+---
+
+# Server
+
+`agentkit/server` 将 `Runner` 暴露为 HTTP/WebSocket API，兼容 OpenAI Chat Completions、Agent-to-Agent (A2A) 与 AG-UI 流式 UI 协议。
+
+## OpenAI 兼容 API
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/server/openai"
+    "github.com/LingByte/ling-base/agentkit/runner"
+)
+
+r := runner.NewRunner("myapp", ag, runner.WithSessionService(sess))
+
+srv := openai.NewServer(openai.Config{
+    Runner: r,
+    Path:   "/v1/chat/completions",
+})
+http.Handle("/v1/chat/completions", srv)
+```
+
+客户端可用标准 OpenAI SDK 调用，支持流式 SSE。
+
+## A2A（Agent-to-Agent）
+
+```go
+import "github.com/LingByte/ling-base/agentkit/server/a2a"
+
+srv := a2a.NewServer(a2a.Config{Runner: r})
+```
+
+用于 Agent 间互操作，符合 A2A 消息格式。
+
+## AG-UI（流式 UI）
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/server/agui"
+    aguiservice "github.com/LingByte/ling-base/agentkit/server/agui/service"
+)
+
+svc := aguiservice.New(aguiservice.Config{Runner: r})
+handler := agui.NewHandler(agui.Config{Service: svc})
+http.Handle("/agui", handler)
+```
+
+AG-UI 将 `event.Event` 转为前端可消费的 SSE 流（文本、工具调用、多模态）。
+
+## 评测端点
+
+```go
+import "github.com/LingByte/ling-base/agentkit/server/evaluation"
+
+eval := evaluation.New(evaluation.Config{Runner: r})
+eval.RegisterRoutes(mux) // Langfuse 等集成
+```
+
+## 架构
+
+```
+HTTP Request
+    → server/openai | a2a | agui
+    → Runner.Run(userID, sessionID, message)
+    → Agent.Run → event stream
+    → 协议转换 → SSE/JSON 响应
+```
+
+## 与 apidocs 配合
+
+业务 API 用 [apidocs](/docs/apidocs) 挂载 OpenAPI 文档；Agent 服务用 `server/openai` 提供 LLM 兼容端点，两者可共存于同一 Gin 引擎。

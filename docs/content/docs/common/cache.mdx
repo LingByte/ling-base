@@ -1,0 +1,114 @@
+---
+title: Cache 缓存
+description: 统一缓存接口，LRU、Redis、多级缓存等后端
+---
+
+> 另见专题文档：[缓存完整文档](/docs/infrastructure/cache)。以下为 `common/cache` 包 README 全文。
+
+# Cache
+
+Unified caching for [ling-base](https://github.com/LingByte/ling-base).
+
+## On-demand modules
+
+| Module path | Third-party deps |
+|-------------|------------------|
+| `github.com/LingByte/ling-base/common/cache` | **none** (interface + lru/memory/noop/multilevel) |
+| `.../cache/bigcache` | allegro/bigcache |
+| `.../cache/redis` | go-redis |
+| `.../cache/memcache` | gomemcache |
+| `.../cache/freecache` | freecache |
+| `.../cache/ristretto` | ristretto |
+
+```bash
+go get github.com/LingByte/ling-base/common/cache              # 纯标准库
+go get github.com/LingByte/ling-base/common/cache/bigcache     # 仅拉 bigcache
+```
+
+## Features
+
+- Common `cache.Cache` interface
+- In-memory **LRU** / **memory** / **noop** / **multilevel**
+- **freecache**, **bigcache**, **ristretto**, **Memcached**, **Redis** adapters
+- Helpers: `GetString` / `SetString` / `GetJSON` / `SetJSON` / `GetOrSet`
+
+## Backends
+
+| Package | Description |
+|---------|-------------|
+| `cache/lru` | Thread-safe LRU with optional TTL and background cleanup |
+| `cache/memory` | Simple concurrent map cache with TTL |
+| `cache/noop` | No-op implementation |
+| `cache/multilevel` | Composes two `cache.Cache` instances (L1 + L2) |
+| `cache/freecache` | [FreeCache](https://github.com/coocood/freecache) |
+| `cache/bigcache` | [BigCache](https://github.com/allegro/bigcache) — global LifeWindow only |
+| `cache/ristretto` | [Ristretto](https://github.com/dgraph-io/ristretto) |
+| `cache/memcache` | Memcached via [gomemcache](https://github.com/bradfitz/gomemcache) |
+| `cache/redis` | Redis via [go-redis](https://github.com/redis/go-redis) |
+
+## Quick start
+
+### LRU
+
+```go
+import (
+    "context"
+    "time"
+
+    "github.com/LingByte/ling-base/common/cache/lru"
+)
+
+c, err := lru.New(1024,
+    lru.WithPrefix("app:"),
+    lru.WithDefaultTTL(5*time.Minute),
+)
+if err != nil {
+    panic(err)
+}
+defer c.Close()
+
+ctx := context.Background()
+_ = c.Set(ctx, "user:1", []byte(`{"id":1}`), 0)
+val, err := c.Get(ctx, "user:1")
+_ = val
+```
+
+### BigCache
+
+```go
+import (
+    "time"
+    cachebig "github.com/LingByte/ling-base/common/cache/bigcache"
+)
+
+// LifeWindow is the only TTL mechanism. Optional WithStrictTTL rejects per-key ttl.
+c, err := cachebig.New(10*time.Minute, cachebig.WithStrictTTL())
+```
+
+### Redis
+
+```go
+import (
+    "github.com/redis/go-redis/v9"
+    cacheredis "github.com/LingByte/ling-base/common/cache/redis"
+)
+
+c, err := cacheredis.New(&redis.Options{Addr: "127.0.0.1:6379"},
+    cacheredis.WithPrefix("app:"),
+)
+```
+
+## Interface
+
+```go
+type Cache interface {
+    Get(ctx context.Context, key string) ([]byte, error)
+    Set(ctx context.Context, key string, value []byte, ttl time.Duration) error
+    Delete(ctx context.Context, key string) error
+    Exists(ctx context.Context, key string) (bool, error)
+    Clear(ctx context.Context) error
+    Close() error
+}
+```
+
+`ttl == 0` means no expiration unless `WithDefaultTTL` is set (backend permitting).

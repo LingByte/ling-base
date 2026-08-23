@@ -1,0 +1,191 @@
+---
+title: Agent 框架
+description: 生产级 AI Agent 框架，Agent/Runner/Tool/Session/Memory/RAG/FlowCraft
+icon: Bot
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card'
+
+# Agent 框架 (agentkit)
+
+`agentkit` 是 ling-base 的 **AI Agent 运行时框架**（基于 trpc-agent-go 扩展），集成 `relay` 40+ LLM provider、工具调用、会话持久化、长期记忆、RAG 知识库、状态图执行与 FlowCraft 声明式运行时。
+
+```bash
+go get github.com/LingByte/ling-base/agentkit
+```
+
+## 架构
+
+```
+                    ┌─────────────┐
+                    │   server    │  OpenAI / A2A / AG-UI HTTP API
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │   runner    │  会话 + 插件编排
+                    └──────┬──────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+  ┌──────▼──────┐   ┌──────▼──────┐  ┌──────▼──────┐
+  │    agent    │   │    graph    │  │  flowcraft  │
+  │ llm/chain/  │   │ StateGraph  │  │  YAML 运行时 │
+  │ parallel... │   │             │  │             │
+  └──────┬──────┘   └──────┬──────┘  └──────┬──────┘
+         │                 │                 │
+  ┌──────▼─────────────────▼─────────────────▼──────┐
+  │ tool │ session │ memory │ knowledge │ skill    │
+  │ codeexecutor │ artifact │ plugin │ team        │
+  └──────────────────────┬──────────────────────────┘
+                         │
+                  ┌──────▼──────┐
+                  │ relaymodel  │ → relay (40+ LLM)
+                  └─────────────┘
+```
+
+## 三条技术栈
+
+| 栈 | 包 | 适用场景 |
+|----|-----|----------|
+| **trpc-agent-go** | `agent` + `runner` + `tool` + `graph` | 通用 LLM Agent、工具调用、多 Agent 协作 |
+| **FlowCraft** | `flowcraft/core` + `flowcraft/driver` | 声明式 YAML 部署、多模型路由、沙箱执行 |
+| **go-agent / UTCP** | `goagent` + `adk` | 编程 Agent、子 Agent 目录、UTCP 工具协议 |
+
+## 核心接口
+
+| 接口 | 包 | 职责 |
+|------|-----|------|
+| `agent.Agent` | `agent` | `Run(ctx, invocation) <-chan *event.Event` |
+| `runner.Runner` | `runner` | 会话感知执行、插件链、取消/steer |
+| `tool.Tool` | `tool` | Agent 可调用工具 |
+| `session.Service` | `session` | 会话持久化与摘要 |
+| `memory.Service` | `memory` | 长期记忆（fact/episode） |
+| `knowledge.Knowledge` | `knowledge` | RAG 语义检索 |
+| `graph.StateGraph` | `graph` | LangGraph 风格状态图 |
+| `compat.Model` | `relaymodel` | 对接 ling-base/relay |
+
+## 快速开始
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/LingByte/ling-base/agentkit/agent/llmagent"
+    "github.com/LingByte/ling-base/agentkit/runner"
+    "github.com/LingByte/ling-base/agentkit/relaymodel"
+    "github.com/LingByte/ling-base/agentkit/session/inmemory"
+    compat "github.com/LingByte/ling-base/relay/compat"
+)
+
+func main() {
+    model := relaymodel.New("gpt-4o",
+        relaymodel.WithChannel(relaymodel.ChannelOpenAI),
+        relaymodel.WithAPIKey("sk-xxx"),
+    )
+
+    ag, _ := llmagent.New("assistant",
+        llmagent.WithModel(model),
+        llmagent.WithInstruction("你是一个有帮助的助手。"),
+    )
+
+    sess := inmemory.NewSessionService()
+    r := runner.NewRunner("myapp", ag, runner.WithSessionService(sess))
+
+    events, err := r.Run(context.Background(), "user-1", "session-1",
+        compat.NewUserMessage("北京今天天气怎么样？"))
+    if err != nil {
+        panic(err)
+    }
+    for ev := range events {
+        fmt.Println(ev)
+    }
+}
+```
+
+## 模块导航
+
+<Cards>
+  <Card title="Agent" href="/docs/agentkit/agent">
+    LLM/Graph/Chain/Parallel Agent
+  </Card>
+  <Card title="Runner" href="/docs/agentkit/runner">
+    会话执行、插件、取消与 steer
+  </Card>
+  <Card title="Tool" href="/docs/agentkit/tool">
+    函数/MCP/OpenAPI/文件/代码执行工具
+  </Card>
+  <Card title="Session" href="/docs/agentkit/session">
+    SQLite/Redis/Postgres 会话存储
+  </Card>
+  <Card title="Memory" href="/docs/agentkit/memory">
+    长期记忆与向量检索
+  </Card>
+  <Card title="Knowledge" href="/docs/agentkit/knowledge">
+    RAG 管道：分块/嵌入/向量库/重排
+  </Card>
+  <Card title="Graph" href="/docs/agentkit/graph">
+    状态图与检查点
+  </Card>
+  <Card title="Server" href="/docs/agentkit/server">
+    OpenAI API / A2A / AG-UI 服务
+  </Card>
+  <Card title="FlowCraft" href="/docs/agentkit/flowcraft">
+    声明式 Agent 运行时
+  </Card>
+  <Card title="Go Agent" href="/docs/agentkit/goagent">
+    UTCP 编程 Agent
+  </Card>
+  <Card title="Relay Model" href="/docs/agentkit/relaymodel">
+    relay 模型桥接
+  </Card>
+  <Card title="Event" href="/docs/agentkit/event">
+    运行时事件流模型
+  </Card>
+  <Card title="Code Executor" href="/docs/agentkit/codeexecutor">
+    沙箱/容器代码执行
+  </Card>
+  <Card title="Plugin" href="/docs/agentkit/plugin">
+    Guardrail 与 Runner 插件
+  </Card>
+  <Card title="Planner" href="/docs/agentkit/planner">
+    ReAct 规划器
+  </Card>
+  <Card title="Skill" href="/docs/agentkit/skill">
+    SKILL.md 技能仓库
+  </Card>
+  <Card title="Artifact" href="/docs/agentkit/artifact">
+    会话制品存储
+  </Card>
+  <Card title="Team" href="/docs/agentkit/team">
+    多 Agent 协作
+  </Card>
+  <Card title="Arena" href="/docs/agentkit/arena">
+    Agent 评测基准
+  </Card>
+  <Card title="Telemetry" href="/docs/agentkit/telemetry">
+    OTel / Langfuse
+  </Card>
+  <Card title="Workspace" href="/docs/agentkit/workspace">
+    代码库符号索引
+  </Card>
+  <Card title="Evolution" href="/docs/agentkit/evolution">
+    技能版本演进
+  </Card>
+  <Card title="ADK" href="/docs/agentkit/adk">
+    依赖注入模块组装
+  </Card>
+</Cards>
+
+## 其他子包
+
+| 包 | 文档 |
+|----|------|
+| `storage` | 底层 DB/向量/S3 客户端（knowledge/memory 后端使用） |
+| `prompt` | 模板渲染 + Langfuse 远程 prompt |
+
+## 与 ling-agent 的关系
+
+独立仓库 [ling-agent](https://github.com/LingByte/ling-agent) 基于 `agentkit` 构建开箱即用的 Agent 应用；`agentkit` 本身是**可嵌入的框架库**。

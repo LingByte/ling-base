@@ -1,0 +1,54 @@
+---
+title: Planner 规划器
+description: ReAct 与内置规划指令注入
+---
+
+# Planner
+
+`agentkit/planner` 在 LLM 调用前注入**规划指令**，引导模型分步推理（ReAct、Plan-and-Execute 等）。
+
+## Planner 接口
+
+```go
+type Planner interface {
+    Plan(ctx context.Context, invocation *agent.Invocation) (string, error)
+}
+```
+
+返回附加到 system prompt 的规划文本。
+
+## 内置实现
+
+| 包 | 说明 |
+|----|------|
+| `planner/builtin` | 默认规划提示 |
+| `planner/react` | ReAct（Thought → Action → Observation） |
+| `planner/a2ui` | 带 UI 上下文的规划 |
+
+## 接入 LLM Agent
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/agent/llmagent"
+    "github.com/LingByte/ling-base/agentkit/planner/react"
+)
+
+pl := react.New(react.Config{
+    MaxSteps: 10,
+})
+
+ag, _ := llmagent.New("planner-agent",
+    llmagent.WithModel(model),
+    llmagent.WithPlanner(pl),
+)
+```
+
+## 与 Graph 的区别
+
+| | Planner | Graph |
+|---|---------|-------|
+| 控制流 | LLM 自主决定下一步 | 预定义节点与边 |
+| 灵活性 | 高 | 中（流程固定） |
+| 可观测 | 依赖模型输出 | 节点级检查点 |
+
+复杂业务流程用 [Graph](/docs/agentkit/graph)；开放式任务用 Planner。

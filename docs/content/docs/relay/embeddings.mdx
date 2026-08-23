@@ -5,10 +5,34 @@ description: 文本向量化
 
 # Embeddings
 
+## 安装与 Client
+
+```bash
+go get github.com/LingByte/ling-base/relay
+```
+
 ```go
-resp, err := client.Embeddings(ctx, &relay.EmbedRequest{
+import (
+    "encoding/json"
+
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+client := relay.New(
+    relay.WithProvider(openai.NewProvider("sk-xxx")),
+)
+```
+
+## 批量向量化
+
+方法名为 **`Embed`**（不是 `Embeddings`）：
+
+```go
+input, _ := json.Marshal([]string{"Hello world", "Go is awesome"})
+resp, err := client.Embed(ctx, &relay.EmbedRequest{
     Model: "text-embedding-3-small",
-    Input: []string{"Hello world", "Go is awesome"},
+    Input: input,
 })
 if err != nil {
     log.Fatal(err)
@@ -20,14 +44,26 @@ for i, emb := range resp.Data {
 }
 ```
 
+## 单条文本
+
+```go
+input, _ := json.Marshal("single sentence")
+resp, err := client.Embed(ctx, &relay.EmbedRequest{
+    Model: "text-embedding-3-small",
+    Input: input,
+})
+```
+
 ## 支持的 Provider
 
-| Provider | 模型 |
-|----------|------|
+| Provider | 模型示例 |
+|----------|----------|
 | OpenAI | text-embedding-3-small / large |
 | Cohere | embed-english-v3 / multilingual-v3 |
 | Ali | text-embedding-v2 / v3 |
 | Baidu | embedding-v1 |
 | Zhipu | embedding-2 / embedding-3 |
-| Voyage | voyage-2 / voyage-3 |
 | Jina | jina-embeddings-v3 |
+| Gemini / Vertex / AWS | 各平台 embedding 模型 |
+
+切换 provider 只需替换 `relay.WithProvider(...)`，请求结构保持不变。

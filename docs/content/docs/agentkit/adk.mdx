@@ -1,0 +1,67 @@
+---
+title: ADK 开发套件
+description: 依赖注入式 Agent 模块组装
+---
+
+# ADK (Agent Development Kit)
+
+`agentkit/adk` 提供**依赖注入**式 Agent 组装，类似 Spring 的模块系统，用于 `goagent` 编程 Agent 场景。
+
+## 核心类型
+
+```go
+type Module interface {
+    Name() string
+    Configure(ctx context.Context, kit *AgentDevelopmentKit) error
+}
+
+type AgentDevelopmentKit struct { ... }
+
+func New(modules ...Module) *AgentDevelopmentKit
+func (k *AgentDevelopmentKit) BuildAgent() (goagent.Agent, error)
+```
+
+## 内置模块
+
+| 模块 | 包 | 职责 |
+|------|-----|------|
+| ModelModule | `adk/modules` | 注入 LLM（relaymodel） |
+| ToolModule | `adk/modules` | 注册 UTCP 工具目录 |
+| SubAgentModule | `adk/modules` | 子 Agent 目录 |
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/adk"
+    "github.com/LingByte/ling-base/agentkit/adk/modules"
+)
+
+kit := adk.New(
+    modules.NewModelModule(modelConfig),
+    modules.NewToolModule(toolRegistry),
+    modules.NewSubAgentModule(subAgentDir),
+)
+
+agent, err := kit.BuildAgent()
+```
+
+## Workflow
+
+`adk/workflow` 提供工作流图原语（`Node`、`Edge`、`Route`），`adk/workflowagent` 将其包装为 Agent。
+
+```go
+import "github.com/LingByte/ling-base/agentkit/adk/workflow"
+
+wf := workflow.New()
+wf.AddNode("plan", planNode)
+wf.AddNode("execute", executeNode)
+wf.AddEdge("plan", "execute")
+```
+
+## 与 llmagent 选型
+
+| | adk + goagent | llmagent + runner |
+|---|---------------|-----------------|
+| 风格 | DI 模块、UTCP | 选项函数、标准 Agent |
+| 场景 | 编程 Agent 产品 | 通用对话 Agent |
+
+详见 [Go Agent](/docs/agentkit/goagent)。

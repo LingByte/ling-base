@@ -1,0 +1,508 @@
+---
+title: 布隆过滤器
+description: ling-base common/bloom 模块文档
+---
+
+# bloom
+
+布隆过滤器（Bloom Filter）抽象与多种后端实现。采用与 `cache` / `lock` 一致的**多 module 按需引入**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。
+
+## 什么是布隆过滤器
+
+布隆过滤器是一种空间高效的概率数据结构，用于判断元素**是否可能在集合中**。核心特性：
+
+- **假阴性不可能**：`Test` 返回 `false` 时，元素一定没被加入过。
+- **假阳性可能**：`Test` 返回 `true` 时，元素**可能**在，受配置的误判率（false-positive rate）约束。
+
+基本原理：一个 m 位的位数组 + k 个哈希函数。`Add(key)` 时将 k 个哈希位置全部置 1；`Test(key)` 时检查 k 个位置是否全为 1——全为 1 返回"可能在"，任一为 0 返回"一定不在"。
+
+## 模块结构
+
+```
+ling-base/
+├─ bloom/                    # module: .../bloom  （接口 + 估算 + 共享哈希，纯标准库）
+│  ├─ bloom.go               # Filter / Remover / Batcher 接口 + 标准错误
+│  ├─ params.go              # Estimate(n, p) -> (m, k)  最优参数估算
+│  └─ hash.go                # 双哈希技巧（FNV-1a），所有内存 driver 复用
+├─ bloom/memory/             # 独立 module，标准位数组布隆（纯标准库）
+├─ bloom/counting/           # 独立 module，计数布隆（4-bit 饱和计数器，支持删除）
+├─ bloom/scalable/           # 独立 module，可扩展布隆（Scalable Bloom Filter，自动扩容）
+├─ bloom/redis/              # 独立 module，Redis 分布式布隆（SETBIT/GETBIT，依赖 go-redis）
+└─ bloom/redisbloom/         # 独立 module，RedisBloom 模块布隆（BF.* 命令，依赖 go-redis）
+```
+
+## 公共接口
+
+```go
+type Filter interface {
+    Add(ctx context.Context, key string) error            // 加入元素（幂等）
+    Test(ctx context.Context, key string) (bool, error)   // false=一定不在, true=可能在
+    Reset(ctx context.Context) error                      // 清空
+    Close() error                                          // 释放资源
+}
+
+// 支持删除的后端实现（如 counting）。
+type Remover interface {
+    Remove(ctx context.Context, key string) error
+}
+
+// 支持批量操作的后端实现（如 redis / redisbloom，单次往返完成）。
+type Batcher interface {
+    AddBatch(ctx context.Context, keys []string) error
+    TestBatch(ctx context.Context, keys []string) ([]bool, error)
+}
+```
+
+标准错误：`ErrNotFound` / `ErrClosed` / `ErrInvalidCapacity` / `ErrInvalidFalsePositiveRate` / `ErrEmptyKey` / `ErrNotSupported`。
+
+## 参数估算
+
+```go
+ps, _ := bloom.Estimate(1_000_000, 0.01)
+// ps.M = 位数, ps.K = 哈希函数数
+```
+
+公式（经典最优解）：
+
+```
+m = -n * ln(p) / (ln(2))^2    // 位数组长度
+k = (m / n) * ln(2)           // 哈希函数个数
+```
+
+其中 n 为预期元素数量，p 为目标误判率。返回值向上取整，k 至少为 1。
+
+## 后端对比
+
+| 后端 | 底层结构 | 删除 | 扩容 | 分布式 | 依赖 | 适用场景 |
+|---|---|---|---|---|---|---|
+| memory | 位数组 | 否 | 否 | 否 | 无 | 单进程、固定容量、最省内存 |
+| counting | 4-bit 计数器数组 | 是 | 否 | 否 | 无 | 单进程、需要删除元素 |
+| scalable | SBF 子过滤器序列 | 否 | 是（自动） | 否 | 无 | 单进程、容量不可预知 |
+| redis | Redis 位数组（SETBIT/GETBIT） | 否 | 否 | 是 | go-redis | 多进程共享、兼容所有 Redis |
+| redisbloom | RedisBloom 模块（BF.* 命令） | 否 | 是（服务端） | 是 | go-redis + RedisBloom 模块 | 多进程共享、服务端管理几何/扩容 |
+
+所有后端均不产生假阴性（counting 的误删场景除外）。
+
+## 按需安装
+
+```bash
+# 只要标准内存布隆（零第三方依赖）
+go get github.com/LingByte/ling-base/common/bloom/memory
+
+# 要可删除的计数布隆
+go get github.com/LingByte/ling-base/common/bloom/counting
+
+# 要自动扩容的可扩展布隆
+go get github.com/LingByte/ling-base/common/bloom/scalable
+
+# 要 Redis 分布式布隆（只会拉 go-redis + bloom 抽象）
+go get github.com/LingByte/ling-base/common/bloom/redis
+
+# 要 RedisBloom 模块布隆（需 Redis 加载 RedisBloom 模块）
+go get github.com/LingByte/ling-base/common/bloom/redisbloom
+```
+
+```go
+import (
+    "github.com/LingByte/ling-base/common/bloom"
+    "github.com/LingByte/ling-base/common/bloom/memory" // 不会间接引入 redis
+)
+```
+
+---
+
+## 各驱动详解
+
+### 1. bloom/memory -- 标准位数组布隆
+
+**实现原理**
+
+最经典的布隆过滤器实现。使用一个 `[]byte` 作为位数组（每位代表一个哈希槽），通过双哈希技巧合成 k 个哈希函数：
+
+```
+g_i(key) = (h1 + i * h2) mod m    (i = 0, 1, ..., k-1)
+```
+
+其中 `h1`、`h2` 是两个独立的 FNV-1a 64 位哈希（`h2` 用固定盐 `0x5ac391d7` 区分于 `h1`，避免相关性）。
+
+- `Add`：计算 k 个位置，将对应位全部置 1（`bits[i/8] |= 1 << (i%8)`）。
+- `Test`：检查 k 个位置是否全为 1。全为 1 返回 `true`（可能在），任一为 0 返回 `false`（一定不在）。
+- `Reset`：`clear(bits)` 清零整个位数组。
+- 不支持删除：清零一个位可能影响其他共享该位的元素。
+
+**线程安全**：`sync.Mutex` 保护所有读写操作。
+
+**使用示例**
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/LingByte/ling-base/common/bloom/memory"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // 方式一：指定容量和误判率，自动计算 m 和 k
+    f, err := memory.New(memory.WithCapacity(1_000_000, 0.01))
+    if err != nil {
+        panic(err)
+    }
+    defer f.Close()
+
+    // 方式二：直接指定几何参数（m=位数, k=哈希函数数）
+    // f, _ := memory.New(memory.WithParams(bloom.Params{M: 9585059, K: 7}))
+
+    _ = f.Add(ctx, "user:42")
+    _ = f.Add(ctx, "user:43")
+
+    ok, _ := f.Test(ctx, "user:42")  // true（一定在）
+    ok, _ = f.Test(ctx, "user:99")   // false（一定不在）或 true（假阳性，概率约 1%）
+
+    fmt.Println(f.M(), f.K())  // 查询几何参数
+
+    _ = f.Reset(ctx)  // 清空
+}
+```
+
+**Options**
+
+| Option | 说明 |
+|---|---|
+| `WithCapacity(n, p)` | 预期元素数 n + 目标误判率 p，自动计算 m 和 k |
+| `WithParams(Params{M, K})` | 直接指定位数 m 和哈希函数数 k |
+
+---
+
+### 2. bloom/counting -- 计数布隆（支持删除）
+
+**实现原理**
+
+用计数器代替单个位。每个 cell 是一个 **4-bit 饱和计数器**（最大值 15），两个 cell 打包在一个 byte 中（低 nibble = 偶数 cell，高 nibble = 奇数 cell），内存占用为朴素 byte-per-counter 方案的一半。
+
+- `Add`：k 个位置的计数器各 +1（饱和在 15）。
+- `Remove`：k 个位置的计数器各 -1（不低于 0）。
+- `Test`：k 个位置的计数器是否全 > 0。
+- 删除安全：因为计数器记录了共享同一位置的元素个数，删除一个元素只会递减计数，不会影响其他元素。
+
+**为什么是 4-bit？** 经典论文（Fan et al., 2000）证明 4-bit 计数器在实践中足够：计数器溢出概率极低（约 1.37e-15），且饱和处理保证不会回绕。相比 8-bit 方案节省一半内存。
+
+**注意事项**：
+- 删除一个从未加入的 key，或对同一 key 删除次数多于加入次数，会引入**假阴性**。只删除确定加入过的 key。
+- 计数器饱和后（达到 15），再 Add 不会递增，此时 Remove 一次不会让计数归零，元素仍被正确报告为"可能在"。
+
+**内存开销**：约为标准布隆的 4 倍（4 bit/cell vs 1 bit/cell）。
+
+**使用示例**
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/LingByte/ling-base/common/bloom/counting"
+)
+
+func main() {
+    ctx := context.Background()
+
+    f, err := counting.New(counting.WithCapacity(1_000_000, 0.01))
+    if err != nil {
+        panic(err)
+    }
+    defer f.Close()
+
+    _ = f.Add(ctx, "user:42")
+    _ = f.Add(ctx, "user:43")
+
+    ok, _ := f.Test(ctx, "user:42")  // true
+
+    // 安全删除：只删除确实加入过的 key
+    _ = f.Remove(ctx, "user:42")
+
+    ok, _ = f.Test(ctx, "user:42")   // false
+    ok, _ = f.Test(ctx, "user:43")   // true（不受 user:42 删除影响）
+}
+```
+
+**Options**
+
+| Option | 说明 |
+|---|---|
+| `WithCapacity(n, p)` | 预期元素数 n + 目标误判率 p，自动计算 m 和 k |
+| `WithParams(Params{M, K})` | 直接指定 cell 数 m 和哈希函数数 k |
+
+---
+
+### 3. bloom/scalable -- 可扩展布隆（Scalable Bloom Filter）
+
+**实现原理**
+
+基于 Almeida et al. (2007) 的 Scalable Bloom Filter 论文。核心思想：将布隆过滤器表示为一个**子过滤器序列**，每个子过滤器是一个独立的标准布隆过滤器。
+
+当当前子过滤器达到预期容量时，自动分配一个新的、更大的子过滤器：
+
+- **容量几何增长**：第 i 个子过滤器的容量为 `n0 * s^i`（s 为增长比，默认 2）。
+- **误判率几何收紧**：第 i 个子过滤器的误判率为 `p0 * r^i`（r 为收紧比，默认 0.9）。
+
+`Test` 时遍历所有子过滤器，任一命中即返回 `true`。`Add` 时只在当前（最后一个）子过滤器中写入。
+
+**为什么误判率有上界？** 因为每个子过滤器的误判率按 r 倍递减，所有子过滤器的聚合误判率是一个等比级数求和：
+
+```
+P_total = p0 + p0*r + p0*r^2 + ... = p0 / (1 - r)
+```
+
+无论创建多少个子过滤器，总误判率都不超过 `p0 / (1 - r)`。默认参数下为 `0.01 / (1 - 0.9) = 0.1`。
+
+**适用场景**：无法预先准确估算元素数量的场景。过滤器会自动增长以适应数据量，无需重新构建。
+
+**使用示例**
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/LingByte/ling-base/common/bloom/scalable"
+)
+
+func main() {
+    ctx := context.Background()
+
+    f, err := scalable.New(
+        scalable.WithInitialCapacity(1000),     // 第一个子过滤器预期 1000 元素
+        scalable.WithFalsePositiveRate(0.01),   // 第一个子过滤器误判率 1%
+        // 以下为可选参数（均为默认值）：
+        // scalable.WithGrowthRatio(2),         // 容量每轮翻倍
+        // scalable.WithFPRRatio(0.9),          // 误判率每轮收紧 0.9 倍
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer f.Close()
+
+    // 无需预先知道总量，持续 Add 即可
+    for i := 0; i < 1_000_000; i++ {
+        _ = f.Add(ctx, fmt.Sprintf("user:%d", i))
+    }
+
+    fmt.Println(f.NumSubFilters())      // 子过滤器数量（随容量增长而增加）
+    fmt.Println(f.ApproximateCount())   // 近似元素数（下界估计）
+
+    ok, _ := f.Test(ctx, "user:42")     // true
+}
+```
+
+**Options**
+
+| Option | 说明 | 默认值 |
+|---|---|---|
+| `WithInitialCapacity(n)` | 第一个子过滤器的预期元素数（必填） | - |
+| `WithFalsePositiveRate(p)` | 第一个子过滤器的目标误判率（必填） | - |
+| `WithGrowthRatio(s)` | 子过滤器容量增长比，必须 > 1 | 2 |
+| `WithFPRRatio(r)` | 子过滤器误判率收紧比，必须在 (0, 1) | 0.9 |
+
+---
+
+### 4. bloom/redis -- Redis 分布式布隆（SETBIT/GETBIT）
+
+**实现原理**
+
+使用 Redis 原生的 `SETBIT` / `GETBIT` 命令在一个普通 string key 上构建布隆过滤器。位偏移在客户端本地计算（与内存 driver 相同的双哈希技巧），然后通过 Redis pipeline 批量发送到服务端。
+
+- `Add`：本地计算 k 个位偏移，通过 pipeline 发送 k 个 `SETBIT key offset 1`。
+- `Test`：本地计算 k 个位偏移，通过 pipeline 发送 k 个 `GETBIT key offset`，全部为 1 则返回 `true`。
+- `AddBatch` / `TestBatch`：将多个 key 的所有位操作合并到一次 pipeline 中，大幅减少网络往返。
+- `Reset`：`DEL key`。
+- `WithTTL`：可选，每次 Add 后对 key 设置过期时间（整个过滤器统一过期）。
+
+**为什么用 pipeline？** 单次 Add 需要 k 次 SETBIT（通常 7 次），逐条发送会产生 k 次网络往返。用 pipeline 合并为 1 次往返，延迟降低 k 倍。批量操作时效果更显著。
+
+**共享机制**：多个进程用相同的 `Key` + 相同的 m 和 k 参数即可共享同一个过滤器。位偏移在客户端计算，所有进程必须使用一致的几何参数，否则会产生错误结果。
+
+**兼容性**：兼容所有 Redis 版本（包括集群模式），无需加载任何模块。
+
+**使用示例**
+
+```go
+package main
+
+import (
+    "context"
+    "time"
+    goredis "github.com/redis/go-redis/v9"
+    bloomredis "github.com/LingByte/ling-base/common/bloom/redis"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // 方式一：从 go-redis Options 创建（内部创建 client，Close 时关闭）
+    f, err := bloomredis.New(&goredis.Options{Addr: "127.0.0.1:6379"},
+        bloomredis.WithKey("bf:users"),
+        bloomredis.WithCapacity(1_000_000, 0.01),
+        bloomredis.WithTTL(time.Hour),  // 可选：整个过滤器 1 小时后过期
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer f.Close()
+
+    // 方式二：复用已有 client
+    // client := goredis.NewClient(&goredis.Options{Addr: "127.0.0.1:6379"})
+    // f, _ := bloomredis.NewWithClient(client,
+    //     bloomredis.WithKey("bf:users"),
+    //     bloomredis.WithParams(bloom.Params{M: 9585059, K: 7}),
+    // )
+
+    _ = f.Add(ctx, "user:42")
+    ok, _ := f.Test(ctx, "user:42")  // true
+
+    // 批量操作（单次 pipeline，省往返）
+    _ = f.AddBatch(ctx, []string{"a", "b", "c"})
+    results, _ := f.TestBatch(ctx, []string{"a", "b", "missing"})
+    // results = [true, true, false]
+
+    _ = f.Reset(ctx)  // DEL bf:users
+}
+```
+
+**Options**
+
+| Option | 说明 |
+|---|---|
+| `WithKey(key)` | Redis key 名（必填） |
+| `WithCapacity(n, p)` | 预期元素数 n + 目标误判率 p，自动计算 m 和 k |
+| `WithParams(Params{M, K})` | 直接指定位数 m 和哈希函数数 k |
+| `WithTTL(ttl)` | 整个过滤器的过期时间，0 表示永不过期 |
+
+---
+
+### 5. bloom/redisbloom -- RedisBloom 模块布隆（BF.* 命令）
+
+**实现原理**
+
+使用 [RedisBloom 模块](https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/)提供的 `BF.*` 命令族。与 `bloom/redis` 的根本区别：**概率逻辑完全在服务端执行**，客户端不计算位偏移，只传递容量和误判率，由 RedisBloom 模块在服务端管理位图、哈希函数和子过滤器扩容。
+
+命令映射：
+
+| 操作 | 命令 | 说明 |
+|---|---|---|
+| 创建过滤器 | `BF.RESERVE key errorRate capacity [EXPANSION n] [NONSCALING]` | 按容量和误判率预分配 |
+| 添加单个 | `BF.ADD key item` | 返回 1=新增, 0=已存在 |
+| 测试单个 | `BF.EXISTS key item` | 返回 1=可能在, 0=一定不在 |
+| 批量添加 | `BF.MADD key item1 item2 ...` | 返回数组，每个元素 1/0 |
+| 批量测试 | `BF.MEXISTS key item1 item2 ...` | 返回数组，每个元素 1/0 |
+
+**自动创建**：首次 `Add` / `AddBatch` 时自动调用 `BF.RESERVE`。如果过滤器已被其他进程创建，`BF.RESERVE` 返回的 `item exists` 错误会被静默忽略。`WithNoCreate()` 可跳过自动创建，依赖 `BF.ADD` 的隐式创建（使用 RedisBloom 默认参数）。
+
+**服务端扩容**：RedisBloom 内部实现了类似 SBF 的扩容机制。当过滤器满时，自动创建更大的子过滤器。`EXPANSION` 参数控制增长比（默认 2），`NONSCALING` 标志禁止扩容。
+
+**Backend 接口抽象**：由于 miniredis 不支持 `BF.*` 命令，驱动通过 `Backend` 接口抽象命令层。默认实现 `redisBackend` 用 `client.Do()` 发送原生命令；测试使用内存 `fakeBackend`。这也允许用户在需要时自定义命令执行层。
+
+**使用示例**
+
+```go
+package main
+
+import (
+    "context"
+    "time"
+    goredis "github.com/redis/go-redis/v9"
+    bloomredisbloom "github.com/LingByte/ling-base/common/bloom/redisbloom"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // 需 Redis 服务端加载 RedisBloom 模块
+    f, err := bloomredisbloom.New(&goredis.Options{Addr: "127.0.0.1:6379"},
+        bloomredisbloom.WithKey("bf:users"),
+        bloomredisbloom.WithCapacity(1_000_000, 0.001),  // 100 万元素, 0.1% 误判率
+        bloomredisbloom.WithExpansion(2),                // 满时子过滤器容量翻倍（默认）
+        // bloomredisbloom.WithNonScaling(),             // 禁止扩容
+        // bloomredisbloom.WithNoCreate(),               // 跳过 BF.RESERVE
+        bloomredisbloom.WithTTL(time.Hour),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer f.Close()
+
+    _ = f.Add(ctx, "user:42")
+    ok, _ := f.Test(ctx, "user:42")  // true
+
+    // 批量（BF.MADD / BF.MEXISTS，单次往返）
+    _ = f.AddBatch(ctx, []string{"a", "b", "c"})
+    results, _ := f.TestBatch(ctx, []string{"a", "b", "missing"})
+    // results = [true, true, false]
+
+    fmt.Println(f.IsReserved())  // true（BF.RESERVE 已调用）
+    fmt.Println(f.Capacity())    // 1000000
+    fmt.Println(f.ErrorRate())   // 0.001
+
+    _ = f.Reset(ctx)  // DEL bf:users，下次 Add 会重新 BF.RESERVE
+}
+```
+
+**Options**
+
+| Option | 说明 | 默认值 |
+|---|---|---|
+| `WithKey(key)` | Redis key 名（必填） | - |
+| `WithCapacity(n, p)` | 预期元素数 n + 目标误判率 p | n=1000, p=0.001 |
+| `WithErrorRate(p)` | 仅设置误判率 | 0.001 |
+| `WithExpectedCapacity(n)` | 仅设置预期元素数 | 1000 |
+| `WithTTL(ttl)` | 整个过滤器的过期时间 | 0（永不过期） |
+| `WithExpansion(n)` | 子过滤器容量增长比，≥ 1 | 2 |
+| `WithNonScaling()` | 禁止扩容（满时 Add 返回错误） | false |
+| `WithNoCreate()` | 跳过 BF.RESERVE，依赖 BF.ADD 隐式创建 | false |
+
+---
+
+## 哈希策略
+
+所有内存后端（memory / counting / scalable）使用 **双哈希技巧**（Kirsch-Mitzenmacher, 2006）：
+
+```
+g_i(key) = (h1 + i * h2) mod m    (i = 0, 1, ..., k-1)
+```
+
+用两个 FNV-1a 64 位哈希 `h1`、`h2` 合成 k 个哈希函数。`h2` 用固定盐 `0x5ac391d7` 与 `h1` 区分，避免相关性。若 `h2` 为 0（极小概率），用黄金分割常数 `0x9e3779b97f4a7c15` 替代，防止所有 k 个索引坍缩到同一位。
+
+此方案只需 2 次哈希计算即可合成 k 个哈希函数，零第三方依赖，分布均匀性在实践中足够。
+
+- **Redis 后端**：在本地计算位偏移，通过 `SETBIT`/`GETBIT` 作用于远端位图。
+- **RedisBloom 后端**：不计算位偏移，将容量与误判率传给 `BF.RESERVE`，由 RedisBloom 模块在服务端管理全部几何与哈希。
+
+## 选型指南
+
+```
+需要删除元素?
+  +-- 是 --> counting
+  +-- 否 --> 需要多进程共享?
+                +-- 否 --> 能预估容量?
+                             +-- 是 --> memory
+                             +-- 否 --> scalable
+                +-- 是 --> Redis 加载了 RedisBloom 模块?
+                             +-- 是 --> redisbloom（服务端管理，更省心）
+                             +-- 否 --> redis（兼容所有 Redis）
+```
+
+## 开发
+
+```bash
+go work sync
+# 按 module 测试：
+(cd bloom && go test ./...)
+(cd bloom/memory && go test ./...)
+(cd bloom/counting && go test ./...)
+(cd bloom/scalable && go test ./...)
+(cd bloom/redis && go test ./...)
+(cd bloom/redisbloom && go test ./...)
+```

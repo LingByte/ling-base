@@ -1,0 +1,84 @@
+---
+title: Graph
+description: LangGraph 风格状态图与检查点
+---
+
+# Graph
+
+`agentkit/graph` 提供 **LangGraph 风格**的有状态图执行：节点、边、条件路由、并行分支与检查点恢复。
+
+## 核心类型
+
+```go
+type StateGraph[S any] struct { ... }
+
+type Graph interface {
+    Invoke(ctx context.Context, input S) (S, error)
+    Stream(ctx context.Context, input S) (<-chan StreamEvent, error)
+}
+
+type CheckpointSaver interface {
+    Get(ctx context.Context, checkpointID string) (*Checkpoint, error)
+    Put(ctx context.Context, checkpoint *Checkpoint) error
+}
+```
+
+## 构建状态图
+
+```go
+import "github.com/LingByte/ling-base/agentkit/graph"
+
+type AgentState struct {
+    Messages []compat.Message
+    Step     int
+}
+
+sg := graph.NewStateGraph[AgentState]()
+
+sg.AddNode("llm", llmNodeFunc)
+sg.AddNode("tools", toolNodeFunc)
+sg.AddEdge("llm", "tools")
+sg.AddConditionalEdge("tools", shouldContinue, map[string]string{
+    "continue": "llm",
+    "end":      graph.END,
+})
+
+g, _ := sg.Compile()
+final, err := g.Invoke(ctx, AgentState{Messages: initialMsgs})
+```
+
+## 检查点后端
+
+| 包 | 说明 |
+|----|------|
+| `graph/checkpoint/inmemory` | 内存（开发） |
+| `graph/checkpoint/sqlite` | SQLite 持久化 |
+| `graph/checkpoint/redis` | Redis 分布式 |
+
+```go
+import "github.com/LingByte/ling-base/agentkit/graph/checkpoint/sqlite"
+
+saver, _ := sqlite.NewSaver("checkpoints.db")
+g, _ := sg.Compile(graph.WithCheckpointSaver(saver))
+```
+
+## Graph Agent 包装
+
+```go
+import "github.com/LingByte/ling-base/agentkit/agent/graphagent"
+
+ga, _ := graphagent.New("workflow", graphagent.WithGraph(g))
+r := runner.NewRunner("app", ga)
+```
+
+## 与 FlowCraft 的区别
+
+| | graph | flowcraft |
+|---|-------|-----------|
+| 定义方式 | Go 代码 | YAML 声明式 |
+| 适用 | 嵌入式工作流 | 多模型部署、插件沙箱 |
+| 检查点 | graph/checkpoint | flowcraft/backends/checkpoint |
+
+## 可恢复执行
+
+`RecoverableExecutionError` 允许节点失败后从最近检查点重试，适合长流程 Human-in-the-loop 场景。

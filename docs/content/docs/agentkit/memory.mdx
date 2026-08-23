@@ -1,0 +1,74 @@
+---
+title: Memory
+description: 长期记忆 fact/episode 与向量检索
+---
+
+# Memory
+
+`agentkit/memory` 提供跨会话的**长期记忆**：用户偏好、事实、对话片段（episode），支持关键词与向量检索。
+
+## Service 接口
+
+```go
+type Service interface {
+    Create(ctx context.Context, entry *Entry) error
+    Update(ctx context.Context, entry *Entry) error
+    Delete(ctx context.Context, id string) error
+    Get(ctx context.Context, id string) (*Entry, error)
+    Search(ctx context.Context, req *SearchRequest) ([]*Entry, error)
+}
+
+type Entry struct {
+    ID      string
+    UserID  string
+    Kind    Kind    // fact | episode
+    Content string
+    Metadata map[string]any
+}
+```
+
+## 内存后端
+
+```go
+import "github.com/LingByte/ling-base/agentkit/memory/inmemory"
+
+mem := inmemory.NewService()
+r := runner.NewRunner("app", ag, runner.WithMemoryService(mem))
+```
+
+## 持久化与向量后端
+
+| 包 | 说明 |
+|----|------|
+| `memory/sqlite` / `postgres` / `mysql` | SQL 存储 |
+| `memory/redis` | Redis |
+| `memory/pgvector` / `sqlitevec` / `mysqlvec` | 向量相似度搜索 |
+| `memory/chromadb` / `mem0` / `neo4j` | 外部记忆服务 |
+| `memory/gomemory` | Go 原生记忆引擎（含 embed + summarize） |
+
+## 自动提取
+
+```go
+import "github.com/LingByte/ling-base/agentkit/memory/extractor"
+
+ext := extractor.New(model)
+// 从对话中自动提取 fact 写入 memory
+```
+
+## Memory 工具
+
+Agent 可通过内置 memory 工具主动读写记忆：
+
+```go
+import memorytool "github.com/LingByte/ling-base/agentkit/memory/tool"
+
+tools := memorytool.NewDefaultTools(memService)
+```
+
+## 与 Session 的区别
+
+| | Session | Memory |
+|---|---------|--------|
+| 范围 | 单次对话线程 | 跨会话用户级 |
+| 内容 | 完整消息事件流 | 提炼后的事实/片段 |
+| 用途 | 多轮上下文 | 个性化、长期偏好 |

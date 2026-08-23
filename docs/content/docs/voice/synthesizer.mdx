@@ -1,29 +1,204 @@
 ---
 title: TTS 语音合成
-description: 16 个 provider，文本转语音
+description: 16+ provider，流式 PCM 分片与词级时间戳
 ---
 
 # TTS 语音合成
 
-## Provider 列表
+`voice/synthesizer` 提供文本转语音（TTS）抽象。各云厂商实现 `Engine` 接口，通过 `Handler` 回调流式返回音频块；支持词级时间戳、缓存 Key 与 emoji 过滤等工具函数。
 
-Aliyun / Baidu / Qcloud / Volcengine / Xunfei / AWS / Azure / Google / OpenAI / ElevenLabs / FishAudio / FishSpeech / Coqui / MiniMax / Qiniu / Local
+## 架构
 
-## 使用示例
+```
+voice/synthesizer/
+├── types.go      # Engine、Handler、StreamFormat、Provider 常量
+├── factory.go    # Factory 注册表
+├── openai/       # OpenAI TTS
+├── aliyun/       # 阿里云
+├── volcengine/   # 火山引擎（含 clone / llm / stream 变体）
+├── qcloud/       # 腾讯云
+├── minimax/      # MiniMax
+├── elevenlabs/   # ElevenLabs
+├── local/        # 本地引擎
+└── ...           # aws, azure, baidu, google, coqui, fishaudio, fishspeech, qiniu, xunfei
+```
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/voice/synthesizer
+go get github.com/LingByte/ling-base/voice/synthesizer/openai
+go get github.com/LingByte/ling-base/voice/synthesizer/volcengine
+```
+
+## Engine 接口
 
 ```go
-import "github.com/LingByte/ling-base/voice/synthesizer/aliyun"
+type Engine interface {
+    Provider() Provider
+    Format() StreamFormat
+    CacheKey(text string) string
+    Synthesize(ctx context.Context, handler Handler, text string) error
+    Close() error
+}
 
-tts := aliyun.New(aliyun.Config{
-    AccessKeyID:     "xxx",
-    AccessKeySecret: "xxx",
-    AppKey:          "xxx",
-})
+type Handler interface {
+    OnMessage(data []byte)                      // 每个音频分片
+    OnTimestamp(ts SentenceTimestamp)           // 词级时间戳（若 vendor 支持）
+}
 
-audio, err := tts.Synthesize(ctx, &synthesizer.Request{
-    Text:     "你好世界",
-    Voice:    "xiaoyun",
-    Format:   "mp3",
-    SampleRate: 16000,
-})
+// 函数式实现
+type HandlerFunc struct {
+    OnMessageFn   func(data []byte)
+    OnTimestampFn func(ts SentenceTimestamp)
+}
 ```
+
+默认输出格式（`DefaultFormat()`）：16kHz / 16-bit / mono / PCM，20ms 帧。
+
+## OpenAI TTS 完整示例
+
+```go
+package main
+
+import (
+    "context"
+    "os"
+
+    "github.com/LingByte/ling-base/voice/synthesizer"
+    openai "github.com/LingByte/ling-base/voice/synthesizer/openai"
+)
+
+func main() {
+    cfg := openai.NewOpenAIConfig(os.Getenv("OPENAI_API_KEY"))
+    cfg.Model = "tts-1"
+    cfg.Voice = "alloy"
+    cfg.Codec = "mp3" // 或 pcm
+
+    engine := openai.NewOpenAIService(cfg)
+    defer engine.Close()
+
+    var audio []byte
+    err := engine.Synthesize(context.Background(), synthesizer.HandlerFunc{
+        OnMessageFn: func(data []byte) {
+            audio = append(audio, data...)
+        },
+    }, "你好，欢迎使用 ling-base 语音合成。")
+    if err != nil {
+        panic(err)
+    }
+
+    _ = os.WriteFile("output.mp3", audio, 0644)
+}
+```
+
+## 火山引擎 TTS
+
+```go
+import volc "github.com/LingByte/ling-base/voice/synthesizer/volcengine"
+
+cfg := volc.NewConfig(appID, token, cluster)
+cfg.Voice = "zh_female_shuangkuaisisi"
+engine := volc.NewService(cfg)
+
+err := engine.Synthesize(ctx, synthesizer.HandlerFunc{
+    OnMessageFn: func(pcm []byte) {
+        playAudio(pcm) // 实时播放 PCM 分片
+    },
+}, text)
+```
+
+## Factory 模式
+
+```go
+import (
+    "github.com/LingByte/ling-base/voice/synthesizer"
+    openai "github.com/LingByte/ling-base/voice/synthesizer/openai"
+)
+
+f := synthesizer.NewFactory()
+f.RegisterCreator(synthesizer.ProviderOpenAI, func(cfg synthesizer.Config) (synthesizer.Engine, error) {
+    c := cfg.(openai.OpenAIConfig)
+    return openai.NewOpenAIService(c), nil
+})
+
+cfg := openai.NewOpenAIConfig(apiKey)
+engine, err := f.CreateEngine(cfg)
+
+// 或全局：synthesizer.Create(cfg) / synthesizer.MustCreate(cfg)
+```
+
+## 支持的 Provider
+
+| Provider 常量 | 字符串 | 说明 |
+|---------------|--------|------|
+| `ProviderAliyun` | `aliyun` | 阿里云 |
+| `ProviderTencent` | `qcloud` | 腾讯云 |
+| `ProviderVolcengine` | `volcengine` | 火山引擎 |
+| `ProviderVolcengineClone` | `volcengine_clone` | 火山声音克隆 |
+| `ProviderVolcengineLLM` | `volcengine_llm` | 火山 LLM TTS |
+| `ProviderOpenAI` | `openai` | OpenAI |
+| `ProviderElevenLabs` | `elevenlabs` | ElevenLabs |
+| `ProviderMinimax` | `minimax` | MiniMax |
+| `ProviderGoogle` | `google` | Google |
+| `ProviderAWS` | `aws` | AWS Polly |
+| `ProviderAzure` | `azure` | Azure |
+| `ProviderBaidu` | `baidu` | 百度 |
+| `ProviderQiniu` | `qiniu` | 七牛 |
+| `ProviderXunfei` | `xunfei` | 讯飞 |
+| `ProviderFishSpeech` | `fishspeech` | Fish Speech |
+| `ProviderFishAudio` | `fishaudio` | Fish Audio |
+| `ProviderCoqui` | `coqui` | Coqui |
+| `ProviderLocal` | `local` | 本地 |
+
+## 工具函数
+
+```go
+// 缓存 key（SHA256 前 16 位）
+key := synthesizer.HashText("要合成的文本")
+
+// 去除 emoji（部分 TTS 不支持）
+clean := synthesizer.StripEmoji("Hello 👋 world")
+
+// 帧周期校验（10–300ms，默认 20ms）
+period := synthesizer.NormalizeFramePeriod("20ms")
+
+// 采样字节率
+bps := synthesizer.ComputeSampleByteCount(24000, 16, 1)
+```
+
+## 写入文件 / HTTP 流式响应
+
+```go
+func ttsHandler(w http.ResponseWriter, r *http.Request) {
+    text := r.FormValue("text")
+    w.Header().Set("Content-Type", "audio/mpeg")
+
+    engine := openai.NewOpenAIService(openai.NewOpenAIConfig(apiKey))
+    defer engine.Close()
+
+    _ = engine.Synthesize(r.Context(), synthesizer.HandlerFunc{
+        OnMessageFn: func(chunk []byte) {
+            _, _ = w.Write(chunk)
+            if f, ok := w.(http.Flusher); ok {
+                f.Flush()
+            }
+        },
+    }, text)
+}
+```
+
+## 与 recognizer / realtime 选型
+
+| 场景 | 推荐 |
+|------|------|
+| 仅播报固定/动态文本 | `synthesizer` |
+| 仅听写 | `recognizer` |
+| 语音助手（低延迟全双工） | `realtime` |
+| 自有 LLM + 自定义 TTS | `recognizer` + LLM + `synthesizer` |
+
+## 错误与资源
+
+- 调用 `Close()` 释放 HTTP 连接、WebSocket 等资源
+- `Synthesize` 在 `ctx` 取消时中断
+- 空 API Key 等配置错误在 `Synthesize` 时返回 error

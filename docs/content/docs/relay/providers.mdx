@@ -1,49 +1,178 @@
 ---
 title: Provider 列表
-description: 40+ AI provider 适配器
+description: 40 个 channel 适配器、能力与初始化示例
 ---
 
 # Provider 列表
 
-## Chat / Completions
+`relay/channel` 下每个子目录实现一个 AI provider，统一实现 `common.Adaptor` 接口，通过 `relay.New(relay.WithProvider(...))` 接入。
 
-| Provider | 模块路径 | 支持 Chat | 支持 Stream | 支持 Embed | 支持 Image |
-|----------|---------|-----------|-------------|------------|------------|
-| OpenAI | `relay/channel/openai` | ✅ | ✅ | ✅ | ✅ |
-| Claude (Anthropic) | `relay/channel/claude` | ✅ | ✅ | ❌ | ❌ |
-| Gemini | `relay/channel/gemini` | ✅ | ✅ | ✅ | ✅ |
-| AWS Bedrock | `relay/channel/aws` | ✅ | ✅ | ✅ | ❌ |
-| Vertex AI | `relay/channel/vertex` | ✅ | ✅ | ✅ | ✅ |
-| Azure OpenAI | `relay/channel/azure` | ✅ | ✅ | ✅ | ✅ |
-| Ali (通义) | `relay/channel/ali` | ✅ | ✅ | ✅ | ✅ |
-| Baidu (文心) | `relay/channel/baidu` | ✅ | ✅ | ✅ | ✅ |
-| Tencent | `relay/channel/tencent` | ✅ | ✅ | ✅ | ❌ |
-| Xunfei (星火) | `relay/channel/xunfei` | ✅ | ✅ | ❌ | ❌ |
-| Zhipu (智谱) | `relay/channel/zhipu` | ✅ | ✅ | ✅ | ✅ |
-| Moonshot (月之暗面) | `relay/channel/moonshot` | ✅ | ✅ | ❌ | ❌ |
-| DeepSeek | `relay/channel/deepseek` | ✅ | ✅ | ✅ | ❌ |
-| Cohere | `relay/channel/cohere` | ✅ | ✅ | ✅ | ❌ |
-| Mistral | `relay/channel/mistral` | ✅ | ✅ | ✅ | ❌ |
-| Perplexity | `relay/channel/perplexity` | ✅ | ✅ | ❌ | ❌ |
-| xAI (Grok) | `relay/channel/xai` | ✅ | ✅ | ❌ | ❌ |
-| Coze | `relay/channel/coze` | ✅ | ✅ | ❌ | ❌ |
-| Dify | `relay/channel/dify` | ✅ | ✅ | ❌ | ❌ |
-| Cloudflare | `relay/channel/cloudflare` | ✅ | ✅ | ✅ | ❌ |
-| Replicate | `relay/channel/replicate` | ✅ | ❌ | ❌ | ❌ |
-| Minimax | `relay/channel/minimax` | ✅ | ✅ | ✅ | ❌ |
-| Volcengine (火山) | `relay/channel/volcengine` | ✅ | ✅ | ✅ | ✅ |
-| Siliconflow | `relay/channel/siliconflow` | ✅ | ✅ | ✅ | ❌ |
-| Ollama | `relay/channel/ollama` | ✅ | ✅ | ✅ | ❌ |
-| OpenRouter | `relay/channel/openrouter` | ✅ | ✅ | ❌ | ❌ |
+## Adaptor 请求流
 
-## 使用方式
+```
+Init → ConvertXxxRequest → GetRequestURL → SetupRequestHeader → DoRequest → DoResponse
+```
+
+```go
+type Adaptor interface {
+    Init(info *RelayInfo)
+    GetRequestURL(info *RelayInfo) (string, error)
+    SetupRequestHeader(ctx, header, info) error
+    ConvertOpenAIRequest(ctx, info, request) (any, error)
+    ConvertClaudeRequest(ctx, info, request) (any, error)
+    ConvertGeminiRequest(ctx, info, request) (any, error)
+    ConvertImageRequest(ctx, info, request) (any, error)
+    ConvertEmbeddingRequest(ctx, info, request) (any, error)
+    ConvertAudioRequest(ctx, info, request) (io.Reader, error)
+    ConvertRerankRequest(ctx, relayMode, request) (any, error)
+    ConvertOpenAIResponsesRequest(ctx, info, request) (any, error)
+    DoRequest(ctx, info, body) (*http.Response, error)
+    DoResponse(ctx, resp, info, w) (usage any, err *types.NewAPIError)
+    GetModelList() []string
+    GetChannelName() string
+}
+```
+
+## 全部 Channel（40）
+
+| Channel | 厂商/平台 | Chat | Stream | Embed | Image | Audio | Rerank |
+|---------|-----------|------|--------|-------|-------|-------|--------|
+| `openai` | OpenAI / 兼容端点 | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `claude` | Anthropic | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `gemini` | Google Gemini | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `vertex` | Google Vertex | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `aws` | AWS Bedrock | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `azure` | Azure OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `ollama` | 本地 Ollama | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `deepseek` | DeepSeek | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `moonshot` | Moonshot/Kimi | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `zhipu` | 智谱 AI | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `zhipu_4v` | 智谱多模态 | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `ali` | 阿里云百炼 | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `baidu` | 百度文心 | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `baidu_v2` | 百度文心 v2 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `tencent` | 腾讯混元 | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `xunfei` | 讯飞星火 | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `volcengine` | 火山引擎/豆包 | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `minimax` | MiniMax | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `cohere` | Cohere | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `mistral` | Mistral | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `perplexity` | Perplexity | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `openrouter` | OpenRouter 聚合 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `siliconflow` | SiliconFlow | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `huggingface` | HuggingFace | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `replicate` | Replicate | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `jina` | Jina AI | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `jimeng` | 即梦 | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `lingyiwanwu` | 零一万物 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `mokaai` | MokaAI | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `ai360` | 360 智脑 | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `xai` | xAI Grok | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `xinference` | Xinference 自建 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `cloudflare` | Cloudflare AI | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `coze` | 扣子 | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `dify` | Dify | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `codex` | Codex | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `palm` | Google PaLM（旧） | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `sub2api` | Sub2API 代理 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `submodel` | SubModel | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `newapi` | New API 网关 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `advancedcustom` | 自定义适配 | ✅ | ✅ | 视实现 | 视实现 | 视实现 | ❌ |
+
+> 能力因上游 API 变化可能更新，以各 channel 源码 `Convert*` 方法为准。
+
+## 初始化示例
+
+### OpenAI / 兼容代理
 
 ```go
 import "github.com/LingByte/ling-base/relay/channel/openai"
 
-provider := openai.NewProvider("sk-xxx")
-// 或自定义 baseURL
-provider := openai.NewProviderWithBase("sk-xxx", "https://api.your-proxy.com")
-
-client := relay.New(relay.WithProvider(provider))
+p := openai.NewProvider("sk-xxx",
+    openai.WithBaseURL("https://api.openai.com/v1"),
+)
+client := relay.New(relay.WithProvider(p))
 ```
+
+### Claude
+
+```go
+import "github.com/LingByte/ling-base/relay/channel/claude"
+
+client := relay.New(relay.WithProvider(claude.NewProvider("sk-ant-xxx")))
+```
+
+### Gemini
+
+```go
+import "github.com/LingByte/ling-base/relay/channel/gemini"
+
+client := relay.New(relay.WithProvider(gemini.NewProvider(apiKey)))
+```
+
+### 国内云
+
+```go
+import (
+    "github.com/LingByte/ling-base/relay/channel/ali"
+    "github.com/LingByte/ling-base/relay/channel/deepseek"
+    "github.com/LingByte/ling-base/relay/channel/volcengine"
+)
+
+// 阿里云
+relay.New(relay.WithProvider(ali.NewProvider(apiKey)))
+
+// DeepSeek
+relay.New(relay.WithProvider(deepseek.NewProvider("sk-...")))
+
+// 火山引擎
+relay.New(relay.WithProvider(volcengine.NewProvider(accessKey, secretKey)))
+```
+
+### 本地 Ollama
+
+```go
+import "github.com/LingByte/ling-base/relay/channel/ollama"
+
+relay.New(relay.WithProvider(ollama.NewProvider(
+    ollama.WithBaseURL("http://127.0.0.1:11434"),
+)))
+```
+
+### 聚合网关
+
+```go
+import (
+    "github.com/LingByte/ling-base/relay/channel/openrouter"
+    "github.com/LingByte/ling-base/relay/channel/siliconflow"
+)
+
+relay.New(relay.WithProvider(openrouter.NewProvider(key)))
+relay.New(relay.WithProvider(siliconflow.NewProvider(key)))
+```
+
+## 多 Provider 工厂
+
+```go
+func newClient(cfg Config) *relay.Client {
+    switch cfg.Provider {
+    case "openai":
+        return relay.New(relay.WithProvider(openai.NewProvider(cfg.Key)))
+    case "claude":
+        return relay.New(relay.WithProvider(claude.NewProvider(cfg.Key)))
+    case "deepseek":
+        return relay.New(relay.WithProvider(deepseek.NewProvider(cfg.Key)))
+    default:
+        panic("unknown provider: " + cfg.Provider)
+    }
+}
+```
+
+## 新增 Channel
+
+1. 在 `relay/channel/<name>/` 实现 `common.Adaptor`
+2. 在 `relay/constant/channel.go` 注册 channel 类型
+3. 提供 `NewProvider(apiKey, ...Option)` 包装
+4. 编写单元测试（请求 URL 拼接、header 等）
+
+详见 `relay/channel/README.md`。

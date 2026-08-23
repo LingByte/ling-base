@@ -1,0 +1,64 @@
+---
+title: 音频
+description: 语音转写、翻译与 TTS（经 relay）
+---
+
+# 音频 API
+
+relay 封装上游 **语音转写（Transcription）** 与 **语音翻译（Translation）**，部分 channel 也支持 TTS。
+
+## 语音转写
+
+```go
+file, _ := os.Open("meeting.mp3")
+defer file.Close()
+
+resp, err := client.Audio(ctx, &relay.AudioRequest{
+    Model:    "whisper-1",
+    File:     file,
+    FileName: "meeting.mp3",
+}, true) // true = transcription
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(resp.Text)
+```
+
+## 语音翻译（译为英文）
+
+```go
+resp, err := client.AudioTranslation(ctx, &relay.AudioRequest{
+    Model:    "whisper-1",
+    File:     file,
+    FileName: "speech.mp3",
+})
+fmt.Println(resp.Text)
+```
+
+## 请求字段
+
+| 字段 | 说明 |
+|------|------|
+| `Model` | `whisper-1`、各云 ASR 模型 |
+| `File` | 音频 `io.Reader` |
+| `FileName` | 文件名（影响 MIME 推断） |
+| `Language` | 源语言 hint（可选） |
+| `Prompt` | 上下文提示（可选） |
+| `ResponseFormat` | `json` / `text` / `srt` / `verbose_json` |
+
+## 支持的 Provider
+
+| Provider | 说明 |
+|----------|------|
+| OpenAI | Whisper |
+| Ali / Tencent / Xunfei | 国内云 ASR |
+| AWS | Transcribe |
+
+## 与 voice/recognizer 的区别
+
+| | relay.Audio | voice/recognizer |
+|---|-------------|------------------|
+| 场景 | 单次文件转写 HTTP API | 流式 WebSocket 实时 ASR |
+| 集成 | 统一 relay.Client | 独立 recognizer.Engine |
+
+实时语音场景优先 [voice/recognizer](/docs/voice/recognizer)；批量文件转写用 relay。

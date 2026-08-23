@@ -1,0 +1,61 @@
+---
+title: JWT 工具
+description: ling-base common/jwtutil 模块文档
+---
+
+> 另见专题文档：[JWT 安全文档](/docs/security/jwt)。以下为 `common/jwtutil` 包 README 全文。
+
+# jwtutil
+
+Reusable JWT authentication layer built on `common/crypto`, adding token pairs, refresh flows, revocation, and HTTP helpers.
+
+## Features
+
+- Token pairs: short-lived access token + long-lived refresh token
+- Refresh flow: issue new access token from a valid refresh token
+- Revocation / blacklist via pluggable `TokenStore`
+- Claims builder with roles and permissions
+- HTTP helpers: bearer token extraction, context-based claim retrieval
+
+## Key types
+
+- `Auth` -- the main JWT auth manager
+- `Config` -- manager configuration (secret/keys, TTLs, store, leeway)
+- `Claims` -- decoded JWT claims with auth-specific fields (roles, permissions)
+- `TokenPair` -- access + refresh token response
+- `TokenStore` -- revocation interface (`Revoke`, `IsRevoked`, `MarkUsed`)
+- `MemoryTokenStore` -- in-process token store implementation
+- `TokenType` -- `TokenTypeAccess`, `TokenTypeRefresh`
+
+## Key functions
+
+- `New(cfg)` -- create an Auth manager
+- `Auth.Login(subject, opts...)` -- issue a token pair
+- `Auth.Verify(token)` -- verify and return claims
+- `Auth.Refresh(refreshToken)` -- issue new pair from refresh token
+- `Auth.Revoke(ctx, token)` -- revoke a token
+- `ExtractBearerToken(header)` -- extract token from Authorization header
+- `NewMemoryTokenStore()` -- in-memory revocation store
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/jwtutil"
+
+auth, err := jwtutil.New(jwtutil.Config{
+    Secret:     []byte("my-32-byte-secret-1234567890123456"),
+    Issuer:     "my-app",
+    AccessTTL:  15 * time.Minute,
+    RefreshTTL: 7 * 24 * time.Hour,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+pair, err := auth.Login("user-123", jwtutil.Roles("admin"))
+claims, err := auth.Verify(pair.AccessToken)
+```
+
+## License
+
+MIT

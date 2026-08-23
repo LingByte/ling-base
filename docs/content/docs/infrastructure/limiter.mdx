@@ -1,53 +1,112 @@
 ---
 title: 限流器
-description: 令牌桶 / 滑动窗口 / 并发数
+description: 令牌桶、滑动窗口与分布式限流
 ---
 
 # 限流器
 
-## 安装
+统一限流与并发控制，支持令牌桶、按 Key 限流及 Redis/MongoDB/etcd 分布式后端。
 
 ```bash
 go get github.com/LingByte/ling-base/common/limiter
 go get github.com/LingByte/ling-base/common/limiter/tokenbucket
 ```
 
-## 令牌桶
+> 以下为 `common/limiter` 包 README 全文。
+
+
+A unified rate-limiting and concurrency-control interface with multiple
+pluggable backends. Follows the "one interface, many backends" pattern.
+
+## Interfaces
 
 ```go
-import "github.com/LingByte/ling-base/common/limiter/tokenbucket"
+// Core concurrency control
+type Limiter interface {
+    Running() int
+    Acquire(ctx context.Context, key []byte) error
+    Release(key []byte)
+}
 
-// 每秒 100 个请求，桶容量 200
-bucket := tokenbucket.New(100, 200)
-defer bucket.Close()
+// String-keyed convenience variant
+type StringLimiter interface {
+    Running() int
+    Acquire(ctx context.Context, key string) error
+    Release(key string)
+}
 
-if bucket.Acquire(ctx) {
-    // 通过
-} else {
-    // 被限流
+// Byte-size-aware (bandwidth / storage quotas)
+type SizeLimiter interface {
+    Running() int64
+    Acquire(ctx context.Context, key []byte, size int64) error
+    Release(key []byte, size int64)
+    Remaining(key []byte) int64
 }
 ```
 
-## 滑动窗口
+## Implementations
+
+| Package | Type | Description |
+|---------|------|-------------|
+| `count/` | Concurrency | Global concurrency cap (atomic or blocking) |
+| `keycount/` | Concurrency | Per-key concurrency cap (mutex, sync-atomic, or blocking) |
+| `keysize/` | Size | Per-key cumulative byte-size cap |
+| `tokenbucket/` | Rate | Token-bucket rate limiter (QPS / burst) |
+| `null/` | — | No-op implementation (disable limiting) |
+| `redis/` | Distributed | Redis-backed sliding window, token bucket, concurrency |
+| `memcached/` | Distributed | Memcached-backed sliding window, concurrency |
+| `mongodb/` | Distributed | MongoDB-backed rate limit, concurrency |
+| `etcd/` | Distributed | etcd-backed rate limit, concurrency |
+
+## Usage
 
 ```go
-import "github.com/LingByte/ling-base/common/limiter"
+import (
+    "github.com/LingByte/ling-base/common/limiter"
+    "github.com/LingByte/ling-base/common/limiter/count"
+    "github.com/LingByte/ling-base/common/limiter/keycount"
+    "github.com/LingByte/ling-base/common/limiter/tokenbucket"
+)
 
-limiter := limiter.NewSlidingWindow(100, time.Second)
-if limiter.Allow() {
-    // 通过
+// Global max 100 concurrent
+l := count.New(100)
+if err := l.Acquire(nil); err != nil {
+    // limit exceeded
 }
+defer l.Release(nil)
+
+// Per-user max 5 concurrent
+l := keycount.New(5)
+l.Acquire(nil, []byte("user123"))
+defer l.Release([]byte("user123"))
+
+// 100 QPS, burst 200
+l := tokenbucket.New(100, 200)
+if err := l.Acquire(nil); err != nil {
+    // rate limited
+}
+
+// String-keyed helper
+if err := limiter.AcquireString(l, ctx, "user123"); err != nil {
+    // limit exceeded
+}
+defer limiter.ReleaseString(l, "user123")
 ```
 
-## Redis 分布式限流
+## Errors
 
-```go
-import "github.com/LingByte/ling-base/common/limiter/redis"
+| Error | Meaning |
+|-------|---------|
+| `ErrLimitExceeded` | Acquire cannot grant a permit (non-blocking mode) |
+| `ErrKeyRequired` | Implementation requires a non-empty key |
+| `ErrInvalidLimit` | Configured limit is ≤ 0 |
+| `ErrInvalidSize` | Requested size is ≤ 0 |
 
-rdb := redis.NewClient(...)
-limiter := redis.New(rdb, redis.Config{
-    Key:   "api:rate:user:123",
-    Rate:  100,
-    Burst: 200,
-})
-```
+## Testing
+
+All implementations have unit tests. Distributed backends use in-memory mocks
+or `miniredis` — no external servers required.
+
+## License
+
+MIT

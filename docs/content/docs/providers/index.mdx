@@ -8,19 +8,134 @@ import { Cards, Card } from 'fumadocs-ui/components/card'
 
 # 第三方服务
 
-## 模块
+对接云厂商 OCR、内容审核、对象存储和消息队列。核心包只定义接口，各厂商在**独立子 module** 中实现，避免拉入不需要的 SDK。
+
+## 模块导航
 
 <Cards>
+  <Card title="对象存储" href="/docs/providers/stores">
+    9 个后端：S3/OSS/COS/MinIO/Kodo/TOS/OBS/KS3/Local
+  </Card>
   <Card title="OCR" href="/docs/providers/ocr">
-    6 个 provider，光学字符识别
+    6 个 provider：阿里云/腾讯云/AWS/Azure/百度/Google
   </Card>
   <Card title="内容审核" href="/docs/providers/censor">
-    3 个 provider，文本/图片/视频审核
-  </Card>
-  <Card title="对象存储" href="/docs/providers/stores">
-    9 个 provider，S3/OSS/COS/MinIO 等
+    文本/图片同步 + 音视频异步任务
   </Card>
   <Card title="消息队列" href="/docs/providers/mq">
-    5 个 broker，Kafka/RabbitMQ 等
+    RabbitMQ/Kafka/RocketMQ/ActiveMQ/Redis Streams
   </Card>
 </Cards>
+
+## 能力对照
+
+| 模块 | 核心接口 | 后端数量 | 典型场景 |
+|------|----------|----------|----------|
+| [stores](/docs/providers/stores) | `Store`（Read/Write/Delete/Exists/PublicURL） | 9 | 用户上传、静态资源、预签名直传 |
+| [ocr](/docs/providers/ocr) | `Provider.Recognize` | 6 | 发票/证件识别、图片转文字 |
+| [censor](/docs/providers/censor) | `TextCensor` / `ImageCensor` / `VideoCensor` | 3 云 | UGC 发帖前审核、直播回放审核 |
+| [mq](/docs/providers/mq) | `Broker` / `Producer` / `Consumer` | 5 | 异步任务、事件驱动、解耦服务 |
+
+## 按需安装
+
+每个云厂商是**独立 Go module**，只拉你用的 SDK：
+
+```bash
+# 对象存储 — 阿里云 OSS
+go get github.com/LingByte/ling-base/stores/oss
+
+# OCR — 腾讯云
+go get github.com/LingByte/ling-base/providers/ocr/qcloud
+
+# 内容审核 — 七牛
+go get github.com/LingByte/ling-base/providers/censor/qiniu
+
+# 消息队列 — RabbitMQ
+go get github.com/LingByte/ling-base/common/mq/rabbitmq
+```
+
+## 对象存储快速示例
+
+```go
+import (
+    "bytes"
+    "github.com/LingByte/ling-base/stores"
+    "github.com/LingByte/ling-base/stores/oss"
+)
+
+store, _ := oss.New(oss.Config{
+    Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
+    AccessKeyID:     "...",
+    AccessKeySecret: "...",
+    Bucket:          "my-bucket",
+})
+
+key := "uploads/2026/photo.jpg"
+_ = store.Write(key, bytes.NewReader(imageBytes))
+
+rc, size, _ := store.Read(key)
+defer rc.Close()
+
+url, _ := stores.SignedURL(store, key, time.Hour) // 私有桶临时链接
+```
+
+## OCR 快速示例
+
+```go
+import (
+    "github.com/LingByte/ling-base/providers/ocr"
+    "github.com/LingByte/ling-base/providers/ocr/aliyun"
+)
+
+p := aliyun.NewFromEnv()
+ocr.RegisterProvider("aliyun", p)
+_ = ocr.SetProviderByDriver("aliyun")
+
+text, err := ocr.GetProvider().Recognize(ctx, imageBytes, &ocr.Options{Language: "zh"})
+```
+
+## 内容审核快速示例
+
+```go
+import qiniu "github.com/LingByte/ling-base/providers/censor/qiniu"
+
+c, _ := qiniu.NewTextCensor(qiniu.Config{AccessKey: "...", SecretKey: "..."})
+result, _ := c.CensorText(ctx, userComment)
+if result.Suggestion == "block" {
+    return ErrBlocked
+}
+```
+
+## 消息队列快速示例
+
+```go
+import (
+    "github.com/LingByte/ling-base/common/mq"
+    "github.com/LingByte/ling-base/common/mq/factory"
+    "github.com/LingByte/ling-base/common/mq/rabbitmq"
+)
+
+broker, _ := factory.NewBroker(mq.BrokerConfig{
+    Type: mq.BrokerRabbitMQ,
+    RabbitMQConfig: &rabbitmq.Config{URL: "amqp://guest:guest@localhost:5672/"},
+})
+_ = broker.Connect()
+defer broker.Close()
+
+producer, _ := broker.Producer("events", mq.PublishOptions{})
+_ = producer.Publish(ctx, &mq.Message{Body: []byte(`{"event":"order.created"}`)})
+```
+
+## 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| 接口统一 | 业务依赖 `stores.Store`、`ocr.Provider`、`censor.TextCensor`、`mq.Broker` |
+| 厂商隔离 | 每个云厂商独立 module，未使用的 SDK 不进入依赖树 |
+| 可替换 | 换云通常只需换 import 与构造参数 |
+| 零核心依赖 | `stores`、`ocr`、`censor` 核心包无云 SDK |
+
+## 与 common / infrastructure 的关系
+
+- **mq** 源码在 `common/mq`，文档入口在 [消息队列](/docs/providers/mq)，`common/mq` 页为 API 参考
+- 限流/缓存/重试等基础设施见 [Infrastructure](/docs/infrastructure) 与 [Common](/docs/common)

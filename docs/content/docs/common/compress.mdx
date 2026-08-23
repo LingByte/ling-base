@@ -1,45 +1,49 @@
 ---
-title: Compress 压缩
-description: zstd / snappy / lz4
+title: 压缩
+description: ling-base common/compress 模块文档
 ---
 
-# Compress
+# compress
 
-<DemoButton demo="compress" />
+Compression and decompression utilities supporting multiple algorithms.
 
-## 安装
+## Supported algorithms
 
-```bash
-go get github.com/LingByte/ling-base/common/compress
-```
+Gzip, Zlib, Flate/Deflate, Zstd, Snappy (block format), LZ4 (frame format).
 
-## Zstd
+## Key types
+
+- `Algorithm` -- algorithm identifier (`AlgGzip`, `AlgZstd`, `AlgSnappy`, `AlgLZ4`, ...)
+- Compression level constants: `LevelNone`, `LevelBest`, `LevelFastest`, `LevelDefault`
+
+## Key functions
+
+- `GzipCompress(data, level)` / `GzipDecompress(data)`
+- `ZlibCompress(data, level)` / `ZlibDecompress(data)`
+- `FlateCompress(data, level)` / `FlateDecompress(data)`
+- `ZstdCompress(data)` / `ZstdDecompress(data)`
+- `SnappyCompress(data)` / `SnappyDecompress(data)`
+- `LZ4Compress(data)` / `LZ4Decompress(data)`
+- `NewGzipWriter(w, level)` / `NewGzipReader(r)` -- streaming helpers
+
+## Quick start
 
 ```go
 import "github.com/LingByte/ling-base/common/compress"
 
-compressed, err := compress.ZstdCompress(data)
-decompressed, err := compress.ZstdDecompress(compressed)
+data := []byte("hello world hello world hello world")
+
+compressed, err := compress.GzipCompress(data, compress.LevelBest)
+if err != nil {
+    log.Fatal(err)
+}
+
+decompressed, err := compress.GzipDecompress(compressed)
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
-## Snappy
+## License
 
-```go
-compressed, err := compress.SnappyCompress(data)
-decompressed, err := compress.SnappyDecompress(compressed)
-```
-
-## LZ4
-
-```go
-compressed, err := compress.LZ4Compress(data)
-decompressed, err := compress.LZ4Decompress(compressed)
-```
-
-## 性能对比
-
-| 算法 | 压缩率 | 速度 | 适用场景 |
-|------|--------|------|----------|
-| Zstd | 高 | 中 | 需要高压缩率 |
-| Snappy | 中 | 快 | 需要快速压缩 |
-| LZ4 | 低 | 最快 | 极低延迟 |
+MIT

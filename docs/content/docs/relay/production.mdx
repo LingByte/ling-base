@@ -18,24 +18,37 @@ relay 内置了生产级 HTTP 客户端配置：
 | TLSHandshakeTimeout | 10s |
 | ResponseHeaderTimeout | 30s |
 
-## 重试
+也可传入自定义客户端：
 
 ```go
 client := relay.New(
     relay.WithProvider(provider),
-    relay.WithRetry(relay.RetryConfig{
-        MaxAttempts:  3,
-        InitialDelay: 100 * time.Millisecond,
-        MaxDelay:     2 * time.Second,
-        Multiplier:   2,
-    }),
+    relay.WithHTTPClient(customHTTPClient),
 )
 ```
 
-重试触发条件：
-- 网络错误
-- HTTP 429 (Rate Limit)
-- HTTP 5xx (Server Error)
+## 重试
+
+`WithRetry` 接受 `common/retry` 的选项：
+
+```go
+import (
+    "time"
+
+    "github.com/LingByte/ling-base/common/retry"
+    "github.com/LingByte/ling-base/relay"
+)
+
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithRetry(
+        retry.WithMaxAttempts(3),
+        retry.WithExponentialBackoff(100*time.Millisecond, 2*time.Second, 2.0, true),
+    ),
+)
+```
+
+重试触发条件：网络错误、HTTP 429、HTTP 5xx。
 
 ## 熔断器
 
@@ -43,8 +56,11 @@ client := relay.New(
 import "github.com/LingByte/ling-base/common/circuitbreaker"
 
 cb := circuitbreaker.New(circuitbreaker.Config{
-    FailureThreshold: 5,
+    MaxRequests:      5,
+    FailureThreshold: 0.5, // 失败率 50% 触发熔断
+    MinRequests:      10,
     RecoveryTimeout:  30 * time.Second,
+    Name:             "openai",
 })
 
 client := relay.New(
@@ -64,18 +80,32 @@ client := relay.New(
 )
 ```
 
-当主模型失败时，自动按顺序尝试备选模型。
+主模型在**建立连接阶段**失败时，按顺序尝试备选模型。流式请求一旦开始，不会在流中途切换模型。
 
 ## Request Hook（可观测性）
 
 ```go
 client := relay.New(
     relay.WithProvider(provider),
-    relay.WithRequestHook(func(ctx context.Context, req *http.Request) {
-        // 记录 metrics / tracing
-        metric.RequestCount.Inc(req.URL.String())
-        tracer.StartSpan(ctx, "relay.request")
+    relay.WithRequestHook(func(ctx context.Context, provider, model string, mode int) func(err error) {
+        start := time.Now()
+        return func(err error) {
+            metric.Record(provider, model, time.Since(start), err)
+        }
     }),
+)
+```
+
+Hook 在请求前调用，返回的闭包在请求结束后执行，适合 metrics / tracing。
+
+## 用量计量
+
+```go
+import "github.com/LingByte/ling-base/relay/meter"
+
+client := relay.New(
+    relay.WithProvider(provider),
+    relay.WithMeter(meter.NewMemoryMeter()),
 )
 ```
 

@@ -8,19 +8,47 @@ import { Cards, Card } from 'fumadocs-ui/components/card'
 
 # 安全认证
 
+面向 Web 应用的常见认证能力：两步验证、无密码登录、密码存储、JWT 会话。
+
 ## 模块
 
 <Cards>
   <Card title="TOTP 两步验证" href="/docs/security/totp">
-    TOTP/HOTP + QR 码生成
+    TOTP/HOTP + QR 码 + 恢复码
   </Card>
   <Card title="Passkey 无密码" href="/docs/security/passkey">
-    WebAuthn / Passkey 认证
+    WebAuthn 注册与登录
   </Card>
   <Card title="密码哈希" href="/docs/security/password">
-    argon2 / bcrypt / scrypt
+    Argon2id / bcrypt
   </Card>
   <Card title="JWT" href="/docs/security/jwt">
-    JWT 生成与验证
+    Access/Refresh Token、吊销、角色
+  </Card>
+  <Card title="渗透测试" href="/docs/pentest">
+    27 个 Web 安全测试工具（授权使用）
   </Card>
 </Cards>
+
+## 典型登录流程
+
+```
+1. 密码登录 → password.Verify
+2. 若开启 2FA → totp.Validate
+3. 签发会话 → jwtutil.Auth.Login → 返回 TokenPair
+4. 后续请求 → jwtutil.ExtractBearerToken + Verify
+```
+
+## 快速示例
+
+```go
+// 密码注册
+hash, _ := password.Hash(plainPassword, nil)
+
+// 登录后签发 JWT
+auth, _ := jwtutil.New(jwtutil.Config{Secret: []byte("..."), Issuer: "app"})
+pair, _ := auth.Login(userID, jwtutil.WithRoles("user"))
+
+// 可选：绑定 Passkey（无密码后续登录）
+wa, _ := passkey.New(passkey.Config{RPID: "example.com", RPOrigins: []string{"https://example.com"}})
+```

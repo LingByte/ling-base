@@ -1,0 +1,59 @@
+---
+title: Evolution 技能演进
+description: 技能版本晋升、评审与回滚
+---
+
+# Evolution
+
+`agentkit/evolution` 管理 **Skill 版本生命周期**：候选版本 → 评审门禁 → 晋升生产 → 回滚。
+
+## 核心概念
+
+```go
+type Revision struct {
+    ID        string
+    SkillName string
+    Content   string
+    Status    RevisionStatus // candidate | active | rejected | rolled_back
+    Score     float64
+}
+
+type CandidateStore interface {
+    Save(ctx context.Context, rev *Revision) error
+    List(ctx context.Context, skillName string) ([]*Revision, error)
+}
+
+type ActivePointer interface {
+    Get(ctx context.Context, skillName string) (revisionID string, error)
+    Set(ctx context.Context, skillName, revisionID string) error
+}
+```
+
+## 工作流
+
+```
+1. 生成候选技能版本（人工或自动优化）
+2. arena 评测 → 得分写入 Revision
+3. ReviewPolicy 检查门禁（最低分、回归测试）
+4. 晋升：ActivePointer 指向新版本
+5. 失败：回滚到上一 active 版本
+```
+
+## ReviewPolicy
+
+```go
+type ReviewPolicy interface {
+    Approve(ctx context.Context, rev *Revision, evalResults []arena.Result) (bool, string)
+}
+```
+
+## 优化 passes
+
+`evolution/optimization` 提供自动优化迭代（prompt 微调、示例增补等）。
+
+## 与 skill 包关系
+
+- [Skill](/docs/agentkit/skill) 负责加载与执行
+- Evolution 负责**哪个版本**在生产环境激活
+
+适合需要持续改进 Agent 技能且需审计的生产场景。

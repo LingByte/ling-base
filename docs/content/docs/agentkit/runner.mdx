@@ -1,0 +1,101 @@
+---
+title: Runner
+description: 会话感知 Agent 执行、插件链与取消控制
+---
+
+# Runner
+
+`agentkit/runner` 在 `Agent` 之上提供**会话管理、插件链、取消/steer、摘要恢复**等生产级能力。应用通常通过 `Runner` 而非直接调用 `Agent.Run`。
+
+## Runner 接口
+
+```go
+type Runner interface {
+    Run(ctx context.Context, userID, sessionID string, message compat.Message, runOpts ...agent.RunOption) (<-chan *event.Event, error)
+    Close() error
+}
+
+type ManagedRunner interface {
+    Runner
+    Cancel(requestID string) bool
+    RunStatus(requestID string) (RunStatus, bool)
+}
+
+type SteerableRunner interface {
+    ManagedRunner
+    EnqueueUserMessage(requestID string, message compat.Message) error
+}
+```
+
+## 创建 Runner
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/runner"
+    "github.com/LingByte/ling-base/agentkit/session/inmemory"
+    compat "github.com/LingByte/ling-base/relay/compat"
+)
+
+sess := inmemory.NewSessionService()
+r := runner.NewRunner("myapp", llmAgent,
+    runner.WithSessionService(sess),
+    runner.WithPlugins(myPlugin),
+)
+defer r.Close()
+
+events, err := r.Run(ctx, "user-123", "session-abc",
+    compat.NewUserMessage("你好"))
+for ev := range events {
+  // 处理 event.Event
+}
+```
+
+## 常用 Option
+
+| Option | 说明 |
+|--------|------|
+| `WithSessionService` | 会话持久化（sqlite/redis/postgres） |
+| `WithMemoryService` | 长期记忆服务 |
+| `WithArtifactService` | 会话文件 artifact |
+| `WithPlugins` | 插件链（guardrail、日志等） |
+| `WithSummarizer` | 会话超长时自动摘要 |
+
+## 取消与 Steer
+
+```go
+// ManagedRunner：按 requestID 取消
+if mr, ok := r.(runner.ManagedRunner); ok {
+    mr.Cancel(requestID)
+}
+
+// SteerableRunner：在工具调用边界安全插入用户消息
+if sr, ok := r.(runner.SteerableRunner); ok {
+    _ = sr.EnqueueUserMessage(requestID, compat.NewUserMessage("等等，换个问题"))
+}
+```
+
+## Plugin 插件
+
+`agentkit/plugin` 在 Runner 生命周期注入钩子：
+
+| 插件 | 作用 |
+|------|------|
+| `plugin/guardrail` | 提示注入检测、不安全意图、人工审批 |
+| `plugin/toolsearch` | 动态工具发现（MCP + 知识库） |
+| `plugin/identity` | 身份上下文注入 |
+| `plugin/debuglog` | 调试快照 |
+
+```go
+import "github.com/LingByte/ling-base/agentkit/plugin/guardrail"
+
+p := guardrail.NewApprovalPlugin(approvalHandler)
+r := runner.NewRunner("app", ag, runner.WithPlugins(p))
+```
+
+## Ralph Loop 验证
+
+Runner 支持 Ralph 循环：Agent 输出 → 验证器 → 不通过则重试（见 `runner` 包 `Verifier` 接口）。
+
+## 与 Server 的关系
+
+`server/openai`、`server/agui` 等 HTTP 服务内部使用 `Runner` 处理请求，将 HTTP 转为 `compat.Message` 并流式返回事件。

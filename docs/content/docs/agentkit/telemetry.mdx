@@ -1,0 +1,60 @@
+---
+title: Telemetry 可观测性
+description: OpenTelemetry、Langfuse 与指标
+---
+
+# Telemetry
+
+`agentkit/telemetry` 为 Agent 运行时提供 **OpenTelemetry 追踪、Langfuse 集成与指标**。
+
+## OpenTelemetry
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/telemetry/trace"
+    semconv "github.com/LingByte/ling-base/agentkit/telemetry/semconv/trace"
+)
+
+// Runner / Agent 内部已集成 OTel span
+// 配置全局 TracerProvider 即可导出到 Jaeger / OTLP
+```
+
+语义约定见 `telemetry/semconv/trace` 与 `semconv/metrics`。
+
+## Langfuse
+
+```go
+import (
+    "github.com/LingByte/ling-base/agentkit/telemetry/langfuse"
+    lfconfig "github.com/LingByte/ling-base/agentkit/telemetry/langfuse/config"
+)
+
+tracer, _ := langfuse.New(lfconfig.Config{
+    PublicKey: "pk-...",
+    SecretKey: "sk-...",
+    Host:      "https://cloud.langfuse.com",
+})
+```
+
+配合 `server/evaluation` 暴露评测端点。
+
+## 指标
+
+```go
+import "github.com/LingByte/ling-base/agentkit/telemetry/metric"
+
+// histogram 辅助：记录 token 延迟分布
+```
+
+## Prompt 追踪
+
+`prompt/provider/langfuse` 从 Langfuse 拉取远程 prompt 模板，实现 prompt 版本管理与 A/B。
+
+## 与 common 可观测性模块
+
+| 层级 | 包 |
+|------|-----|
+| Agent 专用 | `agentkit/telemetry` |
+| 通用 HTTP/服务 | `common/opentelemetry`、`common/tracing`、`common/metrics` |
+
+两者可同时使用：服务层用 common，Agent 层用 agentkit/telemetry。

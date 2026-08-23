@@ -1,0 +1,73 @@
+---
+title: Realtime WebSocket
+description: OpenAI Realtime API WebSocket 桥接
+---
+
+# Realtime WebSocket
+
+`relay/realtime` 提供**框架无关**的 WebSocket 抽象，在客户端与上游 OpenAI Realtime API 之间双向转发事件，并累计用量。
+
+> 端到端语音助手也可使用 [voice/realtime](/docs/voice/realtime)，封装了 ASR+LLM+TTS 全链路。
+
+## 核心类型
+
+```go
+type Conn interface {
+    ReadMessage() (messageType int, p []byte, err error)
+    WriteMessage(messageType int, data []byte) error
+    Close() error
+}
+
+type Connector interface {
+    Dial(ctx context.Context, cfg SessionConfig) (Conn, error)
+}
+
+type Session struct { ... } // 桥接 client ↔ upstream
+```
+
+## 基本用法
+
+```go
+import "github.com/LingByte/ling-base/relay/realtime"
+
+session := realtime.NewSession(clientWSConn, realtime.SessionConfig{
+    Model:             "gpt-4o-realtime-preview",
+    Modalities:        []string{"text", "audio"},
+    InputAudioFormat:  "pcm16",
+    OutputAudioFormat: "pcm16",
+    APIKey:            apiKey,
+    Instructions:      "You are a helpful assistant.",
+})
+session.SetMeter(meter.NewMemoryMeter(), "openai")
+
+connector := realtime.NewOpenAIConnector(apiKey, "gpt-4o-realtime-preview")
+if err := session.Connect(ctx, connector); err != nil {
+    log.Printf("session ended: %v", err)
+}
+fmt.Printf("Usage: %+v\n", session.Usage())
+```
+
+## SessionConfig
+
+| 字段 | 说明 |
+|------|------|
+| `Model` | Realtime 模型 |
+| `Voice` | 音色 |
+| `Instructions` | 系统指令 |
+| `Modalities` | `text` / `audio` |
+| `InputAudioFormat` | 通常 `pcm16` |
+| `OutputAudioFormat` | 通常 `pcm16` |
+| `Tools` | Function calling 定义 |
+| `APIKey` / `BaseURL` | 鉴权与端点 |
+
+## 与 voice/realtime 对比
+
+| | relay/realtime | voice/realtime |
+|---|----------------|----------------|
+| 层级 | WebSocket 透传桥 | 高级 Agent 事件模型 |
+| 适用 | 已有 WS 客户端、代理网关 | 应用内集成语音助手 |
+| 事件 | 原始 OpenAI 事件 JSON | 统一 `EventType` 枚举 |
+
+## 示例
+
+完整示例见 `relay/example/realtime/`。

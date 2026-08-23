@@ -1,0 +1,37 @@
+---
+title: 视频工具
+description: FFmpeg 与 FFprobe 视频处理封装
+---
+
+# videoutil
+
+High-level Go wrapper around FFmpeg and FFprobe for video processing: transcoding, screenshot extraction, watermarking, and media probing.
+
+The package is a pure library — no web framework, no job manager, no global state. All operations are context-aware (cancelable, timeout-able) and return explicit errors. Three API layers are provided: preset one-call helpers, a fluent command builder, and low-level FFmpeg/FFprobe execution with progress callbacks.
+
+## Key types
+
+- `MediaInfo` / `VideoStream` / `AudioStream` / `StreamInfo` — probed metadata
+- `Progress` — FFmpeg processing progress (frame, FPS, percent, done)
+- `Position` — overlay placement (`PositionTopLeft`, `PositionCenter`, `PositionBottomRight`, ...)
+- `Command` — fluent FFmpeg command builder
+
+## Preset functions
+
+`TranscodeMP4`, `Screenshot`, `AddImageWatermark`, `AddTextWatermark`, `Probe`, and functional options like `WithCRF`, `WithPreset`, `WithScreenshotSize`, `WithWatermarkPosition`.
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/videoutil"
+
+err := videoutil.TranscodeMP4("input.mov", "output.mp4",
+    videoutil.WithCRF(23), videoutil.WithPreset("medium"))
+
+err = videoutil.Screenshot("input.mp4", "thumb.jpg", 10.0,
+    videoutil.WithScreenshotSize(1280, 720))
+
+info, err := videoutil.Probe("input.mp4")
+fmt.Printf("Duration: %.1fs, Resolution: %dx%d\n",
+    info.Duration.Seconds(), info.Video.Width, info.Video.Height)
+```

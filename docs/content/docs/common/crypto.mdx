@@ -1,0 +1,57 @@
+---
+title: 加密
+description: AES、RSA、HMAC 等加密工具
+---
+
+# crypto
+
+Encryption, signing, and JWT utilities: AES (GCM/CBC/CFB), RSA, HMAC-SHA, RC4, and JSON Web Tokens.
+
+## Features
+
+- AES-GCM, AES-CBC (PKCS7), AES-CFB encryption/decryption
+- RSA key generation, encrypt/decrypt, sign/verify, PEM serialization
+- HMAC-SHA256 / HMAC-SHA512 signing and constant-time verification
+- RC4 (legacy) stream cipher
+- JWT create and parse (HS256, HS512, RS256)
+- Base64-encoded convenience variants for AES-GCM
+
+## Key types
+
+- `JWTAlgorithm` -- `JWTAlgHS256`, `JWTAlgHS512`, `JWTAlgRS256`
+- `JWTConfig` -- JWT signer configuration (algorithm, secret/keys, issuer, TTL)
+- `JWTClaims` -- standard JWT claims plus arbitrary `Extra` map
+- `JWT` -- JWT token signer/verifier
+
+## Key functions
+
+- `RandomKey(n)` / `MustRandomKey(n)` -- cryptographically secure random bytes
+- `AESGCMEncrypt` / `AESGCMDecrypt` (+ `Base64` variants)
+- `AESCBCEncrypt` / `AESCBCDecrypt`, `AESCFBEncrypt` / `AESCFBDecrypt`
+- `GenerateRSAKeyPair(bits)`, `RSAEncrypt`, `RSADecrypt`, `RSASign`, `RSAVerify`
+- `MarshalRSAPrivateKeyPEM`, `ParseRSAPrivateKeyPEM`, `ParseRSAPublicKeyPEM`
+- `SignSHA256` / `VerifySHA256`, `SignSHA512` / `VerifySHA512`
+- `NewJWT(cfg)`, `JWT.Sign(claims)`, `JWT.Verify(token)`
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/crypto"
+
+// AES-GCM
+key, _ := crypto.RandomKey(32) // AES-256
+ciphertext, _ := crypto.AESGCMEncrypt(key, []byte("secret"))
+plaintext, _ := crypto.AESGCMDecrypt(key, ciphertext)
+
+// JWT
+jwt := crypto.NewJWT(crypto.JWTConfig{
+    Secret:    []byte("my-32-byte-secret-1234567890123456"),
+    ExpiresIn: 15 * time.Minute,
+})
+token, _ := jwt.Sign(crypto.JWTClaims{Subject: "user-123"})
+claims, err := jwt.Verify(token)
+```
+
+## License
+
+MIT

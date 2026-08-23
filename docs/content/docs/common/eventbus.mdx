@@ -1,0 +1,56 @@
+---
+title: 事件总线
+description: ling-base common/eventbus 模块文档
+---
+
+# eventbus
+
+Lightweight in-process event bus with wildcard topic matching, middleware support, and observability metrics.
+
+## Features
+
+- Dispatch modes: Sync (default), Async (background workers), Parallel (concurrent)
+- Wildcard topic matching: `user.*` (single level), `user.>` (multi level)
+- Middleware: logging, recover, retry with backoff, dead-letter, per-topic metrics
+- Built-in metrics: published, delivered, failed, pending, average latency
+
+## Key types
+
+- `Event` -- message with `ID`, `Name`, `Time`, `Payload`, `Headers`, `Attempt`
+- `Handler` -- `func(ctx, *Event) error`
+- `Middleware` -- `func(next Handler) Handler`
+- `Bus` -- core interface (Publish, Subscribe, Unsubscribe, Close, Metrics)
+- `Subscription` -- active subscription handle
+- `Metrics` / `MetricsCollector` -- observability snapshot
+- `DispatchMode` -- `Sync`, `Async`, `Parallel`
+
+## Key functions
+
+- `NewBus(opts...)` -- create an in-memory bus
+- `New(name, payload)` / `NewWithSource(name, source, payload)` -- create events
+- `WithDispatchMode`, `WithMiddleware`, `WithAsyncBufferSize` -- bus options
+- `LoggingMiddleware`, `RecoverMiddleware`, `RetryMiddleware`, `DeadLetterMiddleware`, `MetricsMiddleware`
+- `TopicMatches(pattern, name)` -- wildcard match helper
+
+## Quick start
+
+```go
+import (
+    "context"
+    "github.com/LingByte/ling-base/common/eventbus"
+)
+
+bus := eventbus.NewBus()
+defer bus.Close()
+
+bus.Subscribe("user.created", func(ctx context.Context, e *eventbus.Event) error {
+    log.Printf("user created: %v", e.Payload)
+    return nil
+})
+
+_ = bus.Publish(ctx, eventbus.New("user.created", "user-123"))
+```
+
+## License
+
+MIT

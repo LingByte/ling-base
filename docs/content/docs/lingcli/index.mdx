@@ -1,15 +1,11 @@
 ---
-title: lingcli
-description: LingByte 项目脚手架 — 一键生成完整 Go 项目骨架
-icon: Terminal
+title: lingcli 脚手架
+description: 一键生成集成 ling-base 的 Go 项目
 ---
-
-import { Cards, Card } from 'fumadocs-ui/components/card'
-import { Steps, Step } from 'fumadocs-ui/components/steps'
 
 # lingcli
 
-LingByte 项目脚手架 CLI — 一键生成完整 Go 项目骨架，集成 ling-base 模块。
+LingByte 项目脚手架 — 一键生成完整 Go 项目骨架。
 
 ## 安装
 
@@ -25,48 +21,29 @@ cd ling-base/lingcli
 go build -o /usr/local/bin/lingcli .
 ```
 
-## 快速开始
-
-<Steps>
-
-<Step>
-### 创建项目
+## 用法
 
 ```bash
 # 交互模式（推荐）
 lingcli create myapp
-```
 
-CLI 会引导你选择模板、填写 module 路径、选择要集成的 ling-base 模块。
+# 在当前目录初始化
+lingcli create .
 
-</Step>
-
-<Step>
-### 非交互模式
-
-```bash
+# 非交互模式
 lingcli create myapp \
     --template web-api \
     --module github.com/me/myapp \
     --modules apidocs,limiter,circuitbreaker,middleware,jwt \
     --port 8080 \
     --author "Your Name"
+
+# 列出可用模板
+lingcli list
+
+# 版本号
+lingcli version
 ```
-
-</Step>
-
-<Step>
-### 运行
-
-```bash
-cd myapp
-go mod tidy
-make run
-```
-
-</Step>
-
-</Steps>
 
 ## 命令
 
@@ -82,23 +59,85 @@ make run
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--template` | 项目模板 | 交互选择 |
+| `--template` | 项目模板（web-api/grpc-service/cli-tool/library/worker） | 交互选择 |
 | `--module` | Go module 路径 | 交互输入 |
 | `--author` | 作者名称 | 空 |
-| `--port` | 服务端口 | 8080 / 50051 |
+| `--port` | 服务端口（web-api/grpc-service） | 8080 / 50051 |
 | `--modules` | 要集成的 ling-base 模块（逗号分隔） | 空 |
 | `--docker` | 生成 Docker 部署文件 | true |
 | `--no-docker` | 不生成 Docker 部署文件 | - |
 | `--git` | 初始化 git 仓库 | true |
 | `--no-git` | 不初始化 git 仓库 | - |
 
-## 文档
+## 可用模板
 
-<Cards>
-  <Card title="项目模板" href="/docs/lingcli/templates">
-    web-api / grpc-service / cli-tool / library / worker
-  </Card>
-  <Card title="可集成模块" href="/docs/lingcli/modules">
-    19 个 ling-base 模块可选集成
-  </Card>
-</Cards>
+| 模板 | 说明 |
+|------|------|
+| `web-api` | HTTP REST API 服务（Gin + GORM + Bootstrap） |
+| `grpc-service` | gRPC 服务 |
+| `cli-tool` | 命令行工具 |
+| `library` | 可复用 Go 库 |
+| `worker` | 后台任务 / 消费者服务 |
+
+## 可集成的 ling-base 模块
+
+| 模块 ID | 说明 |
+|---------|------|
+| `apidocs` | API 文档 UI + OpenAPI 3.1 spec |
+| `limiter` | 令牌桶限流 |
+| `circuitbreaker` | 熔断 + 超时中间件 |
+| `middleware` | HTTP 中间件合集 |
+| `jwt` | JWT 鉴权 + 登录/刷新路由 |
+| `cache` | 缓存抽象 |
+| `lock` | 分布式锁 |
+| `retry` | 重试策略 |
+| `scheduler` | 分布式定时任务 |
+| `eventbus` | 本地事件总线 |
+| `stats` | 统计采集 |
+| `notification` | 通知调度 |
+| `mq` | 消息队列 |
+| `stores` | 对象存储 |
+| `search` | 全文搜索 |
+| `bloom` | 布隆过滤器 |
+| `captcha` | 验证码 |
+| `opentelemetry` | OpenTelemetry 链路追踪 |
+| `i18n` | 国际化 |
+
+## 生成后的项目结构（web-api）
+
+```
+myapp/
+├── cmd/server/main.go              # 入口
+├── internal/
+│   ├── app/app.go                  # 启动 + 路由注册
+│   ├── auth/auth.go                # JWT 鉴权（选 jwt 时）
+│   ├── config/config.go            # 配置（YAML + 环境变量覆盖）
+│   ├── handler/handler.go          # HTTP 处理器（DTO 校验）
+│   ├── middleware/middleware.go    # 中间件
+│   ├── model/user.go               # 数据模型
+│   ├── repository/                 # DAO 层
+│   └── service/                    # 业务逻辑层
+├── pkg/response/                   # 统一响应封装
+├── configs/                        # YAML 配置
+├── .github/workflows/ci.yml        # CI
+├── Dockerfile                      # 多阶段构建
+├── docker-compose.yml              # App + MySQL + Redis
+├── Makefile                        # 构建命令
+└── README.md
+```
+
+## 生成后操作
+
+```bash
+cd myapp
+go mod tidy
+make run          # 本地运行
+make test         # 测试
+make test-race    # 竞态检测
+make lint         # golangci-lint
+make docker-up    # Docker Compose 启动
+```
+
+## License
+
+MIT

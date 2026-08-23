@@ -1,55 +1,46 @@
 ---
 title: TOTP 两步验证
-description: TOTP/HOTP + QR 码生成
+description: TOTP 生成、校验与 QR 码
 ---
 
 # TOTP 两步验证
 
-<DemoButton demo="totp" />
+> 以下为 `common/totp` README 全文。
 
-## 安装
 
-```bash
-go get github.com/LingByte/ling-base/common/totp
-```
+Implements RFC 6238 Time-based One-Time Password (TOTP) and RFC 4226 HMAC-based One-Time Password (HOTP) for two-factor authentication with authenticator apps (Google Authenticator, Authy, 1Password).
 
-## 生成密钥
+## Features
+
+- Secret generation with configurable digits, period, and algorithm
+- `otpauth://` URL construction for authenticator app provisioning
+- QR code rendering (PNG bytes / data URL) for 2FA setup display
+- TOTP validation with configurable time-window skew
+- HOTP validation (counter-based) for clock-less use cases
+- Current code generation (testing / server-side flows)
+- Backup / recovery codes: generation, validation, and hashing
+
+## Key functions
+
+- `Generate(opts Options) (*Key, error)` — generate a TOTP secret and provisioning URL
+- `Validate(code, secret string, opts *ValidateOptions) bool` — validate a TOTP code
+- `ValidateHOTP(code, secret string, counter uint64) bool` — validate a HOTP code
+- `QRPNG(url string, size int) ([]byte, error)` / `QRDataURL` — render QR for setup
+- `GenerateBackupCodes(opts BackupOptions) (codes, hashes []string, err error)`
+- `ValidateBackupCode(code string, hashes []string) (int, bool)` — single-use validation
+
+## Quick start
 
 ```go
 import "github.com/LingByte/ling-base/common/totp"
 
-secret := totp.GenerateSecret()
-// 保存 secret 到数据库，与用户关联
-```
+key, _ := totp.Generate(totp.Options{Issuer: "MyApp", AccountName: "alice@example.com"})
+qrPNG, _ := totp.QRPNG(key.URL(), 256)
 
-## 生成 otpauth URI
-
-```go
-uri := totp.KeyURI("user@example.com", "MyApp", secret)
-// otpauth://totp/MyApp:user@example.com?secret=XXX&issuer=MyApp
-```
-
-## 生成 QR 码
-
-```go
-qrPNG, err := totp.QRCodePNG(uri, 256, 256)
-// 写入 HTTP 响应或保存为文件
-```
-
-## 验证
-
-```go
-valid := totp.Validate(secret, "123456", 30, 6)
-if valid {
-    // 验证通过
+if totp.Validate(code, key.Secret(), nil) {
+    // 2FA passed
 }
-```
 
-## 恢复码
-
-```go
-codes := totp.GenerateRecoveryCodes(10)
-// 保存到数据库，用户丢失设备时使用
-
-valid := totp.ValidateRecoveryCode(inputCode, savedCodes)
+codes, hashes, _ := totp.GenerateBackupCodes(totp.BackupOptions{})
+// show codes once; store hashes
 ```

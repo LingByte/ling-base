@@ -1,6 +1,6 @@
 ---
 title: 通用工具
-description: 日志 / 配置 / 压缩 / 二维码 / 拼音 / IP 查询等 50+ 工具包
+description: 日志 / 配置 / 压缩 / 二维码 / 拼音 / IP 查询等 51 个工具包
 icon: Wrench
 ---
 
@@ -8,73 +8,212 @@ import { Cards, Card } from 'fumadocs-ui/components/card'
 
 # 通用工具
 
-50+ 通用工具包，覆盖日志、配置、压缩、二维码、拼音、IP 查询等场景。
+50+ 独立 Go module（**共 51 个 common 子包**），每个包可单独 `go get`，覆盖日志、安全、基础设施、多媒体、本地化等场景。
 
-## 模块
+## 核心
 
 <Cards>
-  <Card title="Logger 日志" href="/docs/common/logger">
-    zap + lumberjack 结构化日志
+  <Card title="根工具包" href="/docs/common/root">
+    BaseModel、环境变量、GORM 初始化、文件工具
   </Card>
-  <Card title="Compress 压缩" href="/docs/common/compress">
-    zstd / snappy / lz4
+  <Card title="Logger" href="/docs/common/logger">
+    zap 结构化日志、Context、Gin 集成
   </Card>
-  <Card title="GeoIP" href="/docs/common/geoip">
-    IP 地理位置查询
+  <Card title="Config" href="/docs/common/config">
+    YAML/.env 分层加载
   </Card>
-  <Card title="i18n 国际化" href="/docs/common/i18n">
-    翻译 + 格式化 + locale 检测
+  <Card title="Validate" href="/docs/common/validate">
+    struct tag 校验
+  </Card>
+  <Card title="Response" href="/docs/common/response">
+    统一 HTTP 错误信封
+  </Card>
+  <Card title="Middleware" href="/docs/common/middleware">
+    Gin CORS、限流、Recovery
   </Card>
 </Cards>
 
-## 完整列表
+## 安全
 
-| 模块 | 说明 |
-|------|------|
-| audioutil | 音频处理 |
-| barcode | 条形码 |
-| bloom | 布隆过滤器 |
-| captcha | 验证码 |
-| compress | 压缩（zstd/snappy/lz4） |
-| config | 配置管理 |
-| constants | 常量 |
-| convert | 类型转换 |
-| cron | 定时任务 |
-| crypto | 加密 |
-| eventbus | 事件总线 |
-| geoip | IP 地理位置 |
-| hash | 哈希 |
-| i18n | 国际化 |
-| idgen | ID 生成 |
-| imageutil | 图片处理 |
-| jwtutil | JWT |
-| limiter | 限流 |
-| lock | 分布式锁 |
-| logger | 日志 |
-| mathutil | 数学工具 |
-| metrics | Prometheus 指标 |
-| migration | 数据库迁移 |
-| netutil | 网络工具 |
-| nltime | 自然语言时间 |
-| notification | 通知 |
-| opentelemetry | OpenTelemetry |
-| parser | 文档解析 |
-| passkey | Passkey 认证 |
-| password | 密码哈希 |
-| phone | 手机号归属地 |
-| pinyin | 拼音 |
-| pool | 连接池 |
-| qrcode | 二维码 |
-| queue | 任务队列 |
-| random | 随机数 |
-| response | 响应封装 |
-| retry | 重试 |
-| scheduler | 调度器 |
-| search | 全文搜索 |
-| stats | 统计 |
-| system | 系统信息 |
-| timeutil | 时间工具 |
-| totp | TOTP 两步验证 |
-| tracing | 链路追踪 |
-| validate | 数据校验 |
-| videoutil | 视频处理 |
+<Cards>
+  <Card title="Crypto" href="/docs/common/crypto">
+    AES/RSA/HMAC/JWT
+  </Card>
+  <Card title="JWT" href="/docs/common/jwtutil">
+    Token 对、刷新、吊销
+  </Card>
+  <Card title="TOTP" href="/docs/common/totp">
+    两步验证
+  </Card>
+  <Card title="Password" href="/docs/common/password">
+    Argon2id/bcrypt
+  </Card>
+  <Card title="Passkey" href="/docs/common/passkey">
+    WebAuthn
+  </Card>
+  <Card title="Hash" href="/docs/common/hash">
+    MD5/SHA/HMAC
+  </Card>
+</Cards>
+
+## 基础设施
+
+<Cards>
+  <Card title="Limiter" href="/docs/common/limiter">
+    限流与并发控制
+  </Card>
+  <Card title="Circuitbreaker" href="/docs/common/circuitbreaker">
+    熔断器
+  </Card>
+  <Card title="Retry" href="/docs/common/retry">
+    重试与退避
+  </Card>
+  <Card title="Cache" href="/docs/common/cache">
+    LRU/Redis/多级缓存
+  </Card>
+  <Card title="Lock" href="/docs/common/lock">
+    分布式锁
+  </Card>
+  <Card title="Eventbus" href="/docs/common/eventbus">
+    进程内事件总线
+  </Card>
+  <Card title="Queue" href="/docs/common/queue">
+    任务队列
+  </Card>
+  <Card title="Scheduler" href="/docs/common/scheduler">
+    Cron 分布式调度
+  </Card>
+  <Card title="Pool" href="/docs/common/pool">
+    连接池/协程池
+  </Card>
+  <Card title="Bloom" href="/docs/common/bloom">
+    布隆过滤器
+  </Card>
+  <Card title="MQ" href="/docs/common/mq">
+    消息队列（RabbitMQ/Kafka 等）
+  </Card>
+</Cards>
+
+## 可观测性
+
+<Cards>
+  <Card title="Metrics" href="/docs/common/metrics">
+    OTel + Prometheus
+  </Card>
+  <Card title="Tracing" href="/docs/common/tracing">
+    分布式追踪
+  </Card>
+  <Card title="OpenTelemetry" href="/docs/common/opentelemetry">
+    三支柱统一 Init
+  </Card>
+  <Card title="Stats" href="/docs/common/stats">
+    PV/UV 统计
+  </Card>
+  <Card title="System" href="/docs/common/system">
+    CPU/内存/磁盘监控
+  </Card>
+</Cards>
+
+## 数据与存储
+
+<Cards>
+  <Card title="Migration" href="/docs/common/migration">
+    SQL 数据库迁移
+  </Card>
+  <Card title="Search" href="/docs/common/search">
+    Bleve 全文搜索
+  </Card>
+  <Card title="Parser" href="/docs/common/parser">
+    PDF/DOCX 等文档解析
+  </Card>
+  <Card title="Cron" href="/docs/common/cron">
+    Cron 表达式解析
+  </Card>
+  <Card title="Nltime" href="/docs/common/nltime">
+    自然语言时间
+  </Card>
+  <Card title="Timeutil" href="/docs/common/timeutil">
+    时区与计时
+  </Card>
+  <Card title="Idgen" href="/docs/common/idgen">
+    Snowflake/UUID
+  </Card>
+</Cards>
+
+## 多媒体
+
+<Cards>
+  <Card title="Compress" href="/docs/common/compress">
+    zstd/snappy/lz4/gzip
+  </Card>
+  <Card title="Imageutil" href="/docs/common/imageutil">
+    图像处理
+  </Card>
+  <Card title="Audioutil" href="/docs/common/audioutil">
+    音频处理
+  </Card>
+  <Card title="Videoutil" href="/docs/common/videoutil">
+    FFmpeg 视频
+  </Card>
+  <Card title="Barcode" href="/docs/common/barcode">
+    一维/二维条码
+  </Card>
+  <Card title="Qrcode" href="/docs/common/qrcode">
+    二维码
+  </Card>
+</Cards>
+
+## 文本与本地化
+
+<Cards>
+  <Card title="i18n" href="/docs/common/i18n">
+    国际化
+  </Card>
+  <Card title="Pinyin" href="/docs/common/pinyin">
+    汉字拼音
+  </Card>
+  <Card title="GeoIP" href="/docs/common/geoip">
+    IP 地理位置
+  </Card>
+  <Card title="Phone" href="/docs/common/phone">
+    手机号归属地
+  </Card>
+  <Card title="Constants" href="/docs/common/constants">
+    平台常量
+  </Card>
+  <Card title="Convert" href="/docs/common/convert">
+    类型与格式转换
+  </Card>
+</Cards>
+
+## 网络与其他
+
+<Cards>
+  <Card title="Netutil" href="/docs/common/netutil">
+    端口/IP/HTTP 客户端
+  </Card>
+  <Card title="Notification" href="/docs/common/notification">
+    多通道通知
+  </Card>
+  <Card title="Captcha" href="/docs/common/captcha">
+    验证码
+  </Card>
+  <Card title="Random" href="/docs/common/random">
+    安全随机数
+  </Card>
+  <Card title="Mathutil" href="/docs/common/mathutil">
+    数学工具
+  </Card>
+</Cards>
+
+## 安装方式
+
+每个子包独立 module：
+
+```bash
+go get github.com/LingByte/ling-base/common/logger
+go get github.com/LingByte/ling-base/common/cache/lru
+go get github.com/LingByte/ling-base/common/bloom/memory
+```
+
+在 monorepo 内开发时通过 `go.work` 引用本地路径即可。

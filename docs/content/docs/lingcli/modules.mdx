@@ -39,10 +39,28 @@ lingcli create myapp --template web-api \
 
 ## 生成后操作
 
+以 `web-api` 模板 + `jwt,cache,limiter` 模块为例：
+
 ```bash
-cd myapp
+lingcli create myshop --template web-api --modules jwt,cache,limiter
+cd myshop
 go mod tidy
-make run          # 本地运行
+make run
+```
+
+生成物包括：
+
+```
+myshop/
+├── cmd/server/main.go      # 入口
+├── internal/handler/       # HTTP handlers
+├── internal/middleware/    # JWT、限流等（由 --modules 决定）
+├── configs/config.yaml
+├── docker-compose.yml
+└── Makefile
+```
+
+```bash
 make test         # 测试
 make test-race    # 竞态检测
 make lint         # golangci-lint

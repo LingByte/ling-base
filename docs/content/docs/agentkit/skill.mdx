@@ -1,0 +1,69 @@
+---
+title: Skill 技能
+description: SKILL.md 技能仓库与动态加载
+---
+
+# Skill
+
+`agentkit/skill` 管理 **Agent Skills**——以 `SKILL.md` 文件夹形式组织的可复用技能包（指令、脚本、资源）。
+
+## Repository 接口
+
+```go
+type Repository interface {
+    List(ctx context.Context) ([]Summary, error)
+    Load(ctx context.Context, name string) (*Skill, error)
+}
+
+type Skill struct {
+    Name        string
+    Description string
+    Instruction string   // SKILL.md 正文
+    Files       map[string][]byte
+}
+```
+
+## 文件布局
+
+```
+skills/
+├── web-search/
+│   ├── SKILL.md          # 技能说明与使用指南
+│   └── scripts/
+│       └── search.sh
+└── code-review/
+    └── SKILL.md
+```
+
+## 加载技能
+
+```go
+import "github.com/LingByte/ling-base/agentkit/skill"
+
+repo := skill.NewRootedRepository("/path/to/skills")
+summaries, _ := repo.List(ctx)
+for _, s := range summaries {
+    fmt.Println(s.Name, s.Description)
+}
+
+sk, _ := repo.Load(ctx, "web-search")
+```
+
+## 接入 Agent
+
+```go
+ag, _ := llmagent.New("agent",
+    llmagent.WithSkillsRepository(repo),
+    llmagent.WithSkillsEnabled([]string{"web-search", "code-review"}),
+)
+```
+
+或通过 `tool/skill` 在运行时动态加载执行。
+
+## Skill v2
+
+`skill/v2` 提供 `SkillEvaluator` 用于技能质量评估与编译优化。
+
+## 与 evolution 配合
+
+[Evolution](/docs/agentkit/evolution) 管理技能版本晋升：候选 → 评审 → 生产激活。

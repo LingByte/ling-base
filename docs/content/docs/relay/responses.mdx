@@ -1,0 +1,74 @@
+---
+title: Responses API
+description: OpenAI Responses API 与 Completions 兼容
+---
+
+# Responses API
+
+relay 支持 OpenAI **Responses API**（新一代有状态对话 API）及旧版 **Completions**、**Moderations**。
+
+## Responses（同步）
+
+```go
+resp, err := client.Responses(ctx, &relay.ResponsesRequest{
+    Model: "gpt-4o",
+    Input: []relay.ResponsesInputItem{
+        {Type: "message", Role: "user", Content: "Hello"},
+    },
+    Instructions: "You are a helpful assistant.",
+})
+fmt.Println(resp.Output)
+```
+
+## Responses Compact
+
+精简版请求，适合简单单轮：
+
+```go
+resp, err := client.ResponsesCompact(ctx, &relay.ResponsesRequest{
+    Model: "gpt-4o",
+    Input: []relay.ResponsesInputItem{{Role: "user", Content: "Hi"}},
+})
+```
+
+## Alpha Search
+
+部分 provider 支持的搜索增强 Responses：
+
+```go
+resp, err := client.AlphaSearch(ctx, &relay.AlphaSearchRequest{
+    Model: "gpt-4o",
+    Query: "latest Go 1.26 features",
+})
+```
+
+## 旧版 Completions
+
+```go
+resp, err := client.Completions(ctx, &relay.CompletionsRequest{
+    Model:  "gpt-3.5-turbo-instruct",
+    Prompt: "Write a tagline for a coffee shop:",
+})
+fmt.Println(resp.Choices[0].Text)
+```
+
+## 内容审核 Moderations
+
+```go
+resp, err := client.Moderations(ctx, &relay.ModerationsRequest{
+    Model: "text-moderation-latest",
+    Input: "content to check",
+})
+for _, r := range resp.Results {
+    fmt.Println(r.Flagged, r.Categories)
+}
+```
+
+## 与 Chat 的选型
+
+| API | 适用 |
+|-----|------|
+| `Chat` / `ChatStream` | 主流多轮对话、工具调用 |
+| `Responses` | OpenAI 新 Responses 协议、有状态会话 |
+| `Completions` | 旧版 completion 模型 |
+| `Moderations` | 内容安全检测 |

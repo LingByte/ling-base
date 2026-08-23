@@ -1,0 +1,39 @@
+---
+title: 时间工具
+description: ling-base common/timeutil 模块文档
+---
+
+# timeutil
+
+Time utilities: formatting and parsing with timezone support, time ranges, timers, common duration helpers, and business-day calculations.
+
+## Features
+
+- **Formatting and parsing**: `FormatIn`, `ParseIn` with named timezones
+- **Time ranges**: `StartOfDay`, `EndOfDay`, `StartOfWeek`, `StartOfMonth`, `StartOfYear`
+- **Timers**: `Stopwatch`, `Countdown`, `Debounce`
+- **Common layouts**: `LayoutDate`, `LayoutDateTime`, `LayoutISO8601`, `LayoutRFC3339`, `LayoutCNDate`, etc.
+- **Duration constants**: `Day`, `Week` alongside standard `time` durations
+- **Business days**: calculations excluding weekends/holidays
+
+## Key functions
+
+- `Location(name string) (*time.Location, error)` — resolve a timezone
+- `FormatIn(t time.Time, layout, tz string) string` — format in a timezone
+- `ParseIn(value, layout, tz string) (time.Time, error)` — parse in a timezone
+- `NewStopwatch()` — create a stopwatch (`Start`, `Stop`, `Elapsed`, `Reset`)
+
+## Quick start
+
+```go
+import "github.com/LingByte/ling-base/common/timeutil"
+
+s := timeutil.FormatIn(time.Now(), "2006-01-02 15:04:05", "Asia/Shanghai")
+t, err := timeutil.ParseIn("2026-08-15 10:00:00", "2006-01-02 15:04:05", "Asia/Shanghai")
+start := timeutil.StartOfDay(time.Now())
+
+sw := timeutil.NewStopwatch()
+sw.Start()
+// ... do work ...
+elapsed := sw.Elapsed()
+```

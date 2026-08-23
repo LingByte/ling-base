@@ -1,0 +1,60 @@
+---
+title: Workspace 工作区
+description: Go 仓库符号索引与编码 Agent
+---
+
+# Workspace
+
+`agentkit/workspace` 为**编码 Agent** 提供 Go 仓库的符号索引：函数、类型、方法定位，支持增量更新与文件监听。
+
+## WorkspaceIndex
+
+```go
+import "github.com/LingByte/ling-base/agentkit/workspace"
+
+idx, err := workspace.NewIndex(workspace.Config{
+    Root:        "/path/to/repo",
+    IncludeTest: false,
+    Languages:   []string{"go"},
+})
+if err != nil {
+    panic(err)
+}
+
+// 语义搜索符号
+hits, _ := idx.Search(ctx, "NewRunner", 10)
+for _, h := range hits {
+    fmt.Printf("%s %s:%d\n", h.Symbol.Name, h.File, h.Line)
+}
+```
+
+## 能力
+
+- **符号解析**：基于 Go AST 提取 package、func、type、method
+- **增量索引**：文件变更时局部更新
+- **Watcher**：`fsnotify` 监听仓库变更
+- **语义搜索**：结合 embedding 的模糊符号查找（视配置）
+
+## 与 tool/file 配合
+
+| 工具 | 作用 |
+|------|------|
+| `tool/file` | 读写文件内容 |
+| `workspace` | 理解代码结构、快速定位 |
+| `tool/workspaceexec` | 在策略约束下执行命令 |
+
+## goagent 集成
+
+`goagent` 编码 Agent 默认使用 workspace 索引辅助导航大型代码库。
+
+## 配置项
+
+```go
+type Config struct {
+    Root          string
+    IncludeTest   bool
+    ExcludeDirs   []string // vendor, node_modules
+    MaxFileSize   int64
+    WatchInterval time.Duration
+}
+```

@@ -1,0 +1,83 @@
+---
+title: Arena 评测
+description: Agent 基准测试与多 Agent 对比
+---
+
+# Arena 评测
+
+`agentkit/arena` 将 **Agent 执行与评测分离**，用统一任务集对比不同 Agent、模型或配置。
+
+## 核心类型
+
+```go
+type Task struct {
+    Name      string
+    Input     string
+    Evaluator Evaluator
+    SessionID string // 可选，默认 arena:<task-name>
+}
+
+type Runner interface {
+    Run(ctx context.Context, task Task) (Result, error)
+}
+
+type Evaluator interface {
+    Evaluate(ctx context.Context, task Task, output string) (score float64, pass bool, feedback string)
+}
+```
+
+## 单 Agent 评测
+
+```go
+import "github.com/LingByte/ling-base/agentkit/arena"
+
+tasks := []arena.Task{
+    {
+        Name:  "capital",
+        Input: "What is the capital of France?",
+        Evaluator: arena.ContainsEvaluator{Required: []string{"Paris"}},
+    },
+    {
+        Name:  "math",
+        Input: "What is 17 * 23?",
+        Evaluator: arena.ExactEvaluator{Expected: "391"},
+    },
+}
+
+results := (&arena.Arena{Runner: myRunner}).RunAll(ctx, tasks, 4)
+fmt.Println(arena.Summarize(results))
+```
+
+## 多 Agent 对比
+
+```go
+suite := arena.RunSuite(ctx, tasks, []arena.Competitor{
+    {Name: "gpt-4o", Runner: runnerA},
+    {Name: "claude", Runner: runnerB},
+}, 4)
+
+for _, entry := range arena.RankSuite(suite) {
+    fmt.Printf("%s: avg=%.2f pass=%.0f%%\n",
+        entry.Name, entry.Summary.AverageScore, entry.Summary.PassRate*100)
+}
+```
+
+## 内置 Evaluator
+
+| Evaluator | 说明 |
+|-----------|------|
+| `ExactEvaluator` | 标准化精确匹配 |
+| `ContainsEvaluator` | 必须包含指定片段，支持部分得分 |
+| `FuncEvaluator` | 自定义 bool 判定 |
+| `ScoreEvaluator` | 自定义 0–1 分数 |
+
+## 接入 go-agent
+
+```go
+runner := arena.AgentRunner{Agent: myLLMAgent}
+arena.Arena{Runner: runner}.RunAll(ctx, tasks, 1)
+```
+
+## 结果指标
+
+`Result` 可记录：耗时、Token 用量、工具调用次数、重试次数、成本、元数据（Runner 提供时）。

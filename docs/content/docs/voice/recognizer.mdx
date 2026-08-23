@@ -1,26 +1,242 @@
 ---
 title: ASR 语音识别
-description: 12 个 provider，语音转文本
+description: 14 个 vendor，Factory + Engine 与 WebSocket Recognizer 双模式
 ---
 
 # ASR 语音识别
 
-## Provider 列表
+`voice/recognizer` 提供语音识别（ASR）抽象，支持 **14 个云厂商/本地引擎**。每个 vendor 在独立子 module 中实现 `Engine` 接口；部分厂商（如火山引擎 LLM ASR）内部复用高层 `Recognizer` WebSocket 客户端。
 
-Aliyun / Baidu / Qcloud / Volcengine / AWS / Google / Deepgram / Gladia / FunASR / Whisper / VoiceAPI / Local
+## 架构
 
-## 使用示例
+```
+voice/recognizer/
+├── types.go        # Engine 接口、Result、回调类型
+├── factory.go      # Factory 注册表、Create(config)
+├── config.go       # WebSocket Recognizer 配置
+├── recognizer.go   # 高层 Recognizer（缓冲 + 回调）
+├── client.go       # 底层 WebSocket 二进制协议客户端
+├── qcloud/         # 腾讯云流式 ASR
+├── aliyun/         # 阿里云
+├── volcengine/     # 火山引擎
+├── whisper/        # Whisper API
+├── deepgram/       # Deepgram
+├── local/          # 本地命令行 ASR（whisper.cpp、vosk 等）
+└── ...             # google, aws, baidu, gladia, funasr, xfyun_mul, voiceapi
+```
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/voice/recognizer
+go get github.com/LingByte/ling-base/voice/recognizer/qcloud
+go get github.com/LingByte/ling-base/voice/recognizer/volcengine
+```
+
+## Engine 接口（推荐）
+
+所有 vendor 实现同一套流式 ASR 生命周期：
 
 ```go
-import "github.com/LingByte/ling-base/voice/recognizer/whisper"
+type Engine interface {
+    Init(resultCallback ResultFunc, errorCallback ErrorFunc)
+    Vendor() string
+    ConnAndReceive(dialogID string) error
+    Activity() bool
+    RestartClient()
+    SendAudioBytes(data []byte) error
+    SendEnd() error
+    StopConn() error
+}
 
-asr := whisper.New(whisper.Config{
-    APIKey: "xxx",
-})
-
-result, err := asr.Recognize(ctx, &recognizer.Request{
-    AudioData: audioBytes,
-    Format:    "wav",
-    Language:  "zh",
-})
+// 结果回调：text 文本，isLast 是否为本轮最终句，duration 耗时，dialogID 会话 ID
+type ResultFunc func(text string, isLast bool, duration time.Duration, dialogID string)
+type ErrorFunc func(err error, isFatal bool)
 ```
+
+## 腾讯云流式 ASR 完整示例
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    "time"
+
+    "github.com/LingByte/ling-base/voice/recognizer/qcloud"
+    gonanoid "github.com/matoous/go-nanoid"
+)
+
+func main() {
+    opt := qcloud.NewQcloudASROption(
+        os.Getenv("QCLOUD_APP_ID"),
+        os.Getenv("QCLOUD_SECRET_ID"),
+        os.Getenv("QCLOUD_SECRET_KEY"),
+    )
+    opt.ModelType = "16k_zh"
+    opt.VadSilenceTime = 300 // 静音 300ms 判定一句话结束
+
+    engine := qcloud.NewQcloudASR(opt)
+
+    engine.Init(
+        func(text string, isLast bool, duration time.Duration, dialogID string) {
+            fmt.Printf("[%s] isLast=%v text=%q\n", dialogID, isLast, text)
+        },
+        func(err error, isFatal bool) {
+            fmt.Printf("error (fatal=%v): %v\n", isFatal, err)
+        },
+    )
+
+    dialogID, _ := gonanoid.Nanoid()
+    if err := engine.ConnAndReceive(dialogID); err != nil {
+        panic(err)
+    }
+    defer engine.StopConn()
+
+    pcm, _ := os.ReadFile("sample.pcm") // PCM 16kHz 16-bit mono
+    chunkSize := 3200 // 100ms @ 16kHz mono 16-bit
+    for i := 0; i < len(pcm); i += chunkSize {
+        end := i + chunkSize
+        if end > len(pcm) {
+            end = len(pcm)
+        }
+        _ = engine.SendAudioBytes(pcm[i:end])
+        time.Sleep(100 * time.Millisecond)
+    }
+    _ = engine.SendEnd()
+
+    time.Sleep(2 * time.Second) // 等待最终结果
+}
+```
+
+## Factory 模式（多 vendor 切换）
+
+```go
+import (
+    "github.com/LingByte/ling-base/voice/recognizer"
+    "github.com/LingByte/ling-base/voice/recognizer/qcloud"
+    "github.com/LingByte/ling-base/voice/recognizer/deepgram"
+)
+
+f := recognizer.NewFactory()
+f.RegisterCreator(recognizer.VendorQCloud, func(cfg recognizer.TranscriberConfig) (recognizer.Engine, error) {
+    opt, ok := cfg.(qcloud.QCloudASROption)
+    if !ok {
+        return nil, fmt.Errorf("expected QCloudASROption")
+    }
+    return qcloud.NewQcloudASR(opt), nil
+})
+f.RegisterCreator(recognizer.VendorDeepgram, func(cfg recognizer.TranscriberConfig) (recognizer.Engine, error) {
+    opt := cfg.(deepgram.DeepgramASROption)
+    return deepgram.NewDeepgramASR(opt), nil
+})
+
+opt := qcloud.NewQcloudASROption(appID, secretID, secretKey)
+engine, err := f.CreateTranscriber(opt)
+```
+
+也可用全局工厂：`recognizer.Create(config)` / `recognizer.MustCreate(config)`（需各 vendor 已 `RegisterCreator`）。
+
+## 支持的 Vendor
+
+| Vendor 常量 | 字符串 | 说明 |
+|-------------|--------|------|
+| `VendorQCloud` | `qcloud` | 腾讯云流式 ASR |
+| `VendorAliyun` | `aliyun` | 阿里云 |
+| `VendorVolcengine` | `volcengine` | 火山引擎 |
+| `VendorVolcengineLLM` | `volcllmasr` | 火山 LLM ASR（内部用 Recognizer） |
+| `VendorGoogle` | `google` | Google Cloud Speech |
+| `VendorAWS` | `aws` | AWS Transcribe |
+| `VendorBaidu` | `baidu` | 百度 |
+| `VendorDeepgram` | `deepgram` | Deepgram |
+| `VendorGladia` | `gladia` | Gladia |
+| `VendorWhisper` | `whisper` | Whisper HTTP API |
+| `VendorFunASR` | `funasr` | FunASR |
+| `VendorFunASRRealtime` | `funasr_realtime` | FunASR 实时 |
+| `VendorXfyunMul` | `xfyun_mul` | 讯飞多语种 |
+| `VendorVoiceAPI` | `voiceapi` | 通用 Voice API |
+| `VendorLocal` | `local` | 本地 CLI 工具 |
+
+```go
+for _, v := range recognizer.AllVendors() {
+    fmt.Println(recognizer.VendorString(v))
+}
+```
+
+## 高层 Recognizer（WebSocket 协议）
+
+部分场景使用 `Recognizer` 包装底层 `Client`，自动做音频分片缓冲与 `Result` 回调：
+
+```go
+cfg := recognizer.DefaultConfig().
+    WithURL("wss://your-asr-endpoint").
+    WithAuth(recognizer.AuthConfig{
+        AccessKey: "your-key",
+        AppKey:    "your-app",
+    }).
+    WithAudio(recognizer.AudioConfig{
+        Rate: 16000, Bits: 16, Channel: 1, Format: "pcm",
+    })
+
+rec := recognizer.NewRecognizer(cfg)
+
+rec.OnResult(func(r *recognizer.Result) {
+    fmt.Printf("final=%v text=%q\n", r.IsFinal, r.Text)
+})
+rec.OnError(func(err error) {
+    log.Println(err)
+})
+
+rec.Start()
+defer rec.Stop()
+
+// 发送音频帧（自动缓冲到 segment 大小）
+_ = rec.SendAudioFrame(&recognizer.AudioFrame{Data: pcmChunk})
+// 结束并 flush
+_ = rec.SendAudioFrame(&recognizer.AudioFrame{IsEnd: true})
+```
+
+### Config 字段
+
+| 分组 | 字段 | 说明 |
+|------|------|------|
+| `Auth` | `AccessKey`, `AppKey`, `ResourceId` | 鉴权 |
+| `Audio` | `Rate`, `Bits`, `Channel`, `Format` | 默认 16kHz / 16-bit / mono / pcm |
+| `Request` | `ModelName`, `EnableITN`, `EnablePUNC`, `EndWindowSize` | 识别模型与标点 |
+| `Buffer` | `SegmentDurationMs` | 分片时长，默认 200ms |
+
+## 热词（腾讯云）
+
+```go
+opt.HotWords = []recognizer.HotWord{
+    {Word: "ling-base", Weight: 10},
+    {Word: "语音识别", Weight: 5},
+}
+```
+
+## 音频格式约定
+
+绝大多数 vendor 要求 **PCM 16-bit little-endian mono**，采样率 **16000 Hz**。发送前请对照各 vendor 文档确认 `Format` / `ModelType`（如腾讯云 `16k_zh`）。
+
+字节率计算：
+
+```go
+bytesPerSecond := recognizer.ComputeSampleByteCount(16000, 16, 1) // 32000
+```
+
+## 错误处理
+
+- `ErrClientClosed`：客户端已关闭，停止发送
+- `ErrorFunc` 中 `isFatal=true` 表示需重建连接（`RestartClient` 或重新 `ConnAndReceive`）
+- 使用 `context` 控制上层超时；Engine 本身通过回调异步返回
+
+## 与 synthesizer / realtime 的关系
+
+| 包 | 职责 |
+|----|------|
+| `recognizer` | 仅 ASR（语音 → 文本） |
+| `synthesizer` | 仅 TTS（文本 → 语音） |
+| `realtime` | ASR + LLM + TTS 端到端实时对话 |
+
+自定义流水线：`recognizer` + 自有 LLM + `synthesizer`；语音助手场景优先 `realtime`。

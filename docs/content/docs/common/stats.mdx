@@ -1,0 +1,412 @@
+---
+title: 统计
+description: ling-base common/stats 模块文档
+---
+
+# common/stats — 网站统计指标库
+
+抽象统一的统计指标基础库，提供 Counter / Gauge / Set / HLL / Timer 五种原语，
+内置 memory / redis / file 三种后端实现，附带 Gin 中间件和 TTL 过期回调。
+
+## 架构
+
+```
+┌──────────────┐     ┌──────────────────────────────────┐
+│  Your App    │────▶│  stats.Collector (interface)     │
+│  (PV/UV/...) │     │  Counter / Gauge / Set / HLL     │
+└──────────────┘     └──────────┬───────────────────────┘
+                                │
+        ┌───────────┬───────────┼───────────┐
+        ▼           ▼           ▼           ▼
+  ┌──────────┐ ┌────────┐ ┌─────────┐ ┌─────────┐
+  │ memory   │ │ redis  │ │  file   │ │ custom  │
+  │ (单机)   │ │(分布式)│ │(持久化) │ │ (自实现) │
+  └──────────┘ └────────┘ └─────────┘ └─────────┘
+```
+
+## 模块
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| stats | `common/stats` | 核心接口 + WebsiteMetrics 便捷层 |
+| memory | `common/stats/memory` | 单机内存实现（含蓄水池采样 / Bloom filter / TTL） |
+| redis | `common/stats/redis` | Redis 分布式实现 |
+| file | `common/stats/file` | 文件持久化实现 |
+| gin | `common/stats/gin` | Gin 中间件（自动采集 PV/UV/响应时间等） |
+
+## 快速开始
+
+### 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/stats
+go get github.com/LingByte/ling-base/common/stats/memory
+```
+
+### 基础用法
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/LingByte/ling-base/common/stats"
+    "github.com/LingByte/ling-base/common/stats/memory"
+)
+
+func main() {
+    c := memory.New()
+    wm := stats.NewWebsiteMetrics(c)
+    date := "2026-08-18"
+
+    // PV
+    wm.RecordPV(date, "/home")
+    wm.RecordPV(date, "/home")
+    fmt.Println(wm.GetPV(date, "/home")) // 2
+
+    // UV (HyperLogLog, ~12KB, 误差 ~0.81%)
+    wm.RecordUV(date, "user-001")
+    wm.RecordUV(date, "user-002")
+    wm.RecordUV(date, "user-001") // 重复
+    fmt.Println(wm.GetUV(date))   // 2
+
+    // IP
+    wm.RecordIP(date, "192.168.1.1")
+    fmt.Println(wm.GetIP(date)) // 1
+}
+```
+
+## 五种原语
+
+| 原语 | 接口 | 典型用途 | 内存 |
+|------|------|----------|------|
+| Counter | `Incr() / IncrBy() / Get()` | PV、点击、错误、QPS | 8 bytes/key |
+| Gauge | `Set() / Incr() / Decr() / Get()` | 活跃连接数、队列深度 | 8 bytes/key |
+| Set | `Add() / Has() / Count() / Members()` | 精确去重（留存、新用户） | ~80 bytes/element |
+| HLL | `Add() / Estimate() / Merge()` | 近似去重（UV、IP、DAU） | ~12 KB/key（固定） |
+| Timer | `Record() / Mean() / Percentile()` | 响应时间、首屏加载 | 8 bytes/sample 或固定 32KB（蓄水池） |
+
+```go
+c := memory.New()
+
+// Counter
+pv := c.Counter("pv:2026-08-18:/home")
+pv.Incr()
+pv.IncrBy(10)
+fmt.Println(pv.Get()) // 11
+
+// Gauge
+conn := c.Gauge("active_connections")
+conn.Set(100)
+conn.Incr()
+conn.Decr()
+fmt.Println(conn.Get()) // 100
+
+// Set (精确去重)
+s := c.Set("daily_users:2026-08-18")
+s.Add("user-1")
+s.Add("user-2")
+s.Add("user-1") // 重复
+fmt.Println(s.Count()) // 2
+
+// HLL (近似去重, 大规模)
+h := c.HLL("uv:2026-08-18")
+for i := 0; i < 1000000; i++ {
+    h.Add(fmt.Sprintf("user-%d", i))
+}
+fmt.Println(h.Estimate()) // ~996000 (误差 <1%)
+
+// Timer
+t := c.Timer("response_time:2026-08-18")
+t.Record(50_000_000)  // 50ms in nanoseconds
+t.Record(100_000_000) // 100ms
+t.Record(200_000_000) // 200ms
+fmt.Printf("P50=%.0fms P95=%.0fms\n",
+    t.Percentile(50)/1e6,
+    t.Percentile(95)/1e6)
+```
+
+## WebsiteMetrics 便捷层
+
+`WebsiteMetrics` 在 Collector 之上封装了常用网站指标，无需手动拼 key：
+
+```go
+wm := stats.NewWebsiteMetrics(c)
+date := "2026-08-18"
+
+// 流量指标
+wm.RecordPV(date, "/home")       // PV
+wm.RecordUV(date, "user-001")    // UV
+wm.RecordIP(date, "1.2.3.4")     // IP
+wm.RecordVV(date)                // VV (访问次数)
+
+// 会话指标
+wm.RecordBounce(date)            // 跳出
+wm.RecordSessionDuration(date, 30*time.Second) // 会话时长
+wm.RecordVisitDepth(date, 3)     // 访问深度
+
+// 转化指标
+wm.RecordImpression(date, "/ad") // 曝光
+wm.RecordClick(date, "/ad")      // 点击
+wm.RecordConversion(date)        // 转化
+
+// 用户指标
+wm.RecordDAU(date, "user-001")   // DAU
+wm.RecordMAU("2026-08", "user-001") // MAU
+wm.RecordNewUser(date, "user-001")  // 新用户
+
+// 性能指标
+wm.RecordResponseTime(date, 50_000_000) // 响应时间(ns)
+wm.RecordRequest(date)                   // 总请求数
+wm.RecordError(date)                     // 错误数
+
+// 查询
+fmt.Println(wm.GetPV(date, "/home"))
+fmt.Println(wm.GetUV(date))
+fmt.Println(wm.GetBounceRate(date))
+fmt.Println(wm.GetAvgSessionDuration(date))
+fmt.Println(wm.GetCTR(date))
+fmt.Println(wm.GetCVR(date))
+fmt.Println(wm.GetDAU(date))
+fmt.Println(wm.GetErrorRate(date))
+fmt.Printf("响应时间 P95: %.1fms\n", wm.GetResponseTimeP95(date)/1e6)
+```
+
+## 后端选择
+
+### memory（单机内存）
+
+```go
+c := memory.New()
+```
+
+适合：单机部署、低延迟、高频写入。
+
+### redis（分布式）
+
+```go
+import "github.com/LingByte/ling-base/common/stats/redis"
+import "github.com/redis/go-redis/v9"
+
+client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
+c := redisstats.New(client, redisstats.WithKeyPrefix("myapp:"))
+```
+
+适合：多实例共享、分布式部署、持久化。
+
+### file（文件持久化）
+
+```go
+import "github.com/LingByte/ling-base/common/stats/file"
+
+c, _ := file.New("data/stats.json")
+defer c.Close()
+```
+
+适合：单机部署 + 进程重启后恢复数据。
+
+## 内存优化（memory 后端）
+
+### 蓄水池采样 Timer
+
+固定内存，无论样本量多大：
+
+```go
+c := memory.New(
+    memory.WithReservoirTimer(4096), // 每个 Timer 固定 32KB
+)
+```
+
+| 样本量 | 默认内存 | 蓄水池内存 | P95 误差 |
+|--------|----------|------------|----------|
+| 1万 | 80 KB | 32 KB | &lt;0.1% |
+| 100万 | 7.6 MB | 32 KB | &lt;0.3% |
+| 1亿 | 760 MB | 32 KB | &lt;0.3% |
+
+### Bloom filter Set
+
+大规模去重，固定内存：
+
+```go
+c := memory.New(
+    memory.WithBloomSet(1000000, 0.001), // 100万用户, 0.1%误判率
+)
+```
+
+| 用户量 | 精确 Set | Bloom filter | 误判率 |
+|--------|----------|--------------|--------|
+| 10万 | 8 MB | 0.18 MB | 0.1% |
+| 100万 | 80 MB | 1.4 MB | 0.1% |
+| 1000万 | 800 MB | 14 MB | 0.1% |
+
+> Bloom filter 无漏判（Has 返回 false 一定不存在），Count() 为估算值。
+
+## TTL 过期 + 持久化回调
+
+内存只保留最近 N 天热数据，过期前通过回调落盘到任意数据库：
+
+```go
+c := memory.New(
+    memory.WithReservoirTimer(4096),
+    memory.WithBloomSet(1000000, 0.001),
+    memory.WithTTL(memory.TTLConfig{
+        RetentionDays:  7,           // 内存保留 7 天
+        CheckInterval:  time.Hour,   // 每小时检查一次
+        OnExpire: func(ek stats.ExpiredKey) error {
+            // 随便写哪：SQLite / MySQL / Postgres / Kafka / 文件 / HTTP...
+            _, err := db.Exec(
+                "INSERT INTO stats_archive (key, type, value, date) VALUES (?, ?, ?, ?)",
+                ek.Key, ek.Type, ek.Value, ek.Date,
+            )
+            return err
+        },
+    }),
+)
+defer c.Close()
+```
+
+### ExpiredKey 结构
+
+```go
+type ExpiredKey struct {
+    Key       string // "pv:2026-08-18:/home"
+    Type      string // "counter" / "gauge" / "set" / "hll" / "timer"
+    Value     any    // int64 / int64 / int / uint64 / TimerSummary
+    Date      string // "2026-08-18"
+    ExpiredAt string // "2026-08-25T10:30:00Z"
+}
+```
+
+### 回调失败自动重试
+
+`OnExpire` 返回 error 时，key 不会被删除，下次清理周期会重试。
+
+### 手动触发清理
+
+```go
+removed := c.CleanupNow() // 立即清理过期 key，返回清理数量
+fmt.Println(c.KeyCount()) // 查看当前 key 总数
+```
+
+## Gin 中间件
+
+零侵入采集 PV/UV/IP/响应时间/错误率，自动归一化动态路径：
+
+```go
+import (
+    ginstats "github.com/LingByte/ling-base/common/stats/gin"
+    "github.com/LingByte/ling-base/common/stats"
+    "github.com/LingByte/ling-base/common/stats/memory"
+    "github.com/gin-gonic/gin"
+)
+
+func main() {
+    c := memory.New(
+        memory.WithReservoirTimer(4096),
+        memory.WithBloomSet(1000000, 0.001),
+        memory.WithTTL(memory.TTLConfig{
+            RetentionDays: 7,
+            OnExpire: func(ek stats.ExpiredKey) error {
+                // 落盘到数据库
+                return saveToDB(ek)
+            },
+        }),
+    )
+    defer c.Close()
+    wm := stats.NewWebsiteMetrics(c)
+
+    r := gin.New()
+    r.Use(ginstats.Middleware(wm, ginstats.Config{
+        GetUserID: func(c *gin.Context) string {
+            return c.GetString("userID") // 从 JWT/cookie/header 提取
+        },
+        SkipPaths: []string{"/health", "/metrics"},
+    }))
+
+    r.GET("/users/:id", handler)
+    r.Run(":8080")
+}
+```
+
+### Path 归一化
+
+防止动态 ID 导致 key 爆炸：
+
+| 原始路径 | 归一化后 |
+|----------|----------|
+| `/users/123` | `/users/:id` |
+| `/users/456` | `/users/:id` |
+| `/files/550e8400-e29b-...` | `/files/:id` |
+| `/static/css/main.a1b2c3.css` | `/static/css/main.css` |
+| `/api/v1/posts/789/comments` | `/api/v1/posts/:id/comments` |
+
+10000 个不同 ID 只产生 1 个 key。
+
+### 中间件采集的指标
+
+| 指标 | key 模式 | 原语 |
+|------|---------|------|
+| PV (按路径) | `pv:{\<date\>}:<path>` | Counter |
+| PV (总计) | `pv_total:{\<date\>}` | Counter |
+| UV | `uv:{\<date\>}` | HLL |
+| IP | `ip:{\<date\>}` | HLL |
+| VV | `vv:{\<date\>}` | Counter |
+| 请求数 | `requests:{\<date\>}` | Counter |
+| 错误数 | `errors:{\<date\>}` | Counter |
+| 响应时间 | `response_time:{\<date\>}` | Timer |
+
+## 性能基准
+
+环境：Intel i5-7360U @ 2.30GHz, macOS, Go 1.26
+
+### 并发量
+
+| 操作 | 并发 | Memory QPS | Redis QPS |
+|------|------|-----------|-----------|
+| Counter.Incr | 1 | 14M | 4K |
+| Counter.Incr | 16 | 11M | 14K |
+| Counter.Incr | 64 | 10M | 17K |
+| HLL.Add | 1 | 2.4M | 1.3K |
+| HLL.Add | 64 | 1.0M | 4.5K |
+
+### 计算效率
+
+| 操作 | Memory | Redis |
+|------|--------|-------|
+| Counter.Incr | 71 ns | 245 µs |
+| HLL.Add | 416 ns | 786 µs |
+| HLL.Estimate (1M 数据) | 673 µs | 216 µs |
+| Timer.Percentile (1万样本) | 382 µs | 8.8 ms |
+| WebsiteMetrics (5指标) | 1.6 µs | 1.3 ms |
+
+### Gin 中间件开销
+
+| 场景 | 耗时 | 内存 |
+|------|------|------|
+| 无中间件（基线） | 2.5 µs | 1456 B |
+| 有 stats 中间件 | 5.7 µs | 1808 B |
+| **额外开销** | **+3.1 µs** | **+352 B** |
+
+### 内存优化效果
+
+30天 × 10万用户 + 100万 Timer 样本：
+
+| 模式 | 内存 | 节省 |
+|------|------|------|
+| 默认 | 161.6 MB | - |
+| 蓄水池 + Bloom | 5.5 MB | 97% |
+
+## 选型建议
+
+| 场景 | 推荐配置 |
+|------|----------|
+| 单机、小规模 (&lt;10万用户) | `memory.New()` |
+| 单机、中大规模 | `memory.New(WithReservoirTimer(4096), WithBloomSet(1M, 0.001))` |
+| 单机 + 长期数据 | 上面 + `WithTTL(OnExpire=写数据库)` |
+| 多实例共享 | `redis.New(client)` |
+| 进程重启恢复 | `file.New("stats.json")` |
+| 生产最佳实践 | memory(热数据) + TTL回调落盘(冷数据) + Gin中间件 |
+
+## License
+
+MIT

@@ -1,0 +1,50 @@
+---
+title: Team 多 Agent
+description: Coordinator 与 Swarm 多 Agent 协作
+---
+
+# Team
+
+`agentkit/team` 将多个 Agent 组合为**团队**，支持协调者分配任务或 Swarm 自由转移。
+
+## Team 接口
+
+`Team` 本身实现 `agent.Agent`，对外表现为单一 Agent，内部路由到成员。
+
+## Coordinator 模式
+
+协调者 Agent 分析任务并分配给最合适的子 Agent：
+
+```go
+import "github.com/LingByte/ling-base/agentkit/team"
+
+t := team.NewCoordinatorTeam("support-team",
+    team.WithMembers(researcher, writer, reviewer),
+    team.WithCoordinatorModel(model),
+    team.WithInstruction("根据用户问题分配给合适的专家。"),
+)
+
+r := runner.NewRunner("app", t)
+```
+
+## Swarm 模式
+
+成员通过 `transfer_to_agent` 工具自由交接：
+
+```go
+t := team.NewSwarmTeam("dev-team",
+    team.WithMembers(coder, tester, devops),
+)
+```
+
+## 子 Agent 要求
+
+每个成员需实现 `agent.Agent` 并设置清晰的 `Info().Name` 与 `Description`，供协调者选择。
+
+## 与 goagent SubAgent 对比
+
+| | team | goagent SubAgent |
+|---|------|------------------|
+| 协议 | agent.Agent 标准接口 | UTCP 目录 |
+| 路由 | Coordinator / Swarm | 主 Agent 委托 |
+| 场景 | 通用多角色协作 | 编程 Agent 专用 |

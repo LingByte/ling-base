@@ -1,0 +1,74 @@
+---
+title: Plugin 插件
+description: Guardrail、工具搜索、身份注入等 Runner 插件
+---
+
+# Plugin
+
+`agentkit/plugin` 在 Runner 生命周期注入横切能力：安全护栏、日志、工具搜索、错误格式化等。
+
+## Plugin 接口
+
+```go
+type Plugin interface {
+    Name() string
+    // 在 agent 运行前后、工具调用前后等钩子点执行
+}
+```
+
+通过 `runner.WithPlugins(p1, p2, ...)` 注册，按顺序组成插件链。
+
+## Guardrail 安全护栏
+
+| 子包 | 功能 |
+|------|------|
+| `plugin/guardrail/promptinjection` | 提示注入检测 |
+| `plugin/guardrail/unsafeintent` | 不安全意图检测 |
+| `plugin/guardrail/approval` | 人工审批（Human-in-the-loop） |
+
+```go
+import "github.com/LingByte/ling-base/agentkit/plugin/guardrail/approval"
+
+ap := approval.New(approval.Config{
+    OnApprovalRequired: func(ctx context.Context, req approval.Request) (bool, error) {
+        // 返回 true 允许执行
+        return askUser(req), nil
+    },
+})
+r := runner.NewRunner("app", ag, runner.WithPlugins(ap))
+```
+
+## 工具相关
+
+| 插件 | 说明 |
+|------|------|
+| `plugin/toolsearch` | 动态发现 MCP / 知识库工具 |
+| `plugin/toolcallid` | Tool call ID 规范化 |
+| `plugin/toolerror` | 工具错误友好格式化 |
+
+## 其他
+
+| 插件 | 说明 |
+|------|------|
+| `plugin/identity` | 注入用户身份上下文 |
+| `plugin/debuglog` | 调试快照 |
+| `plugin/messagemerger` | 消息合并优化 |
+| `plugin/errormessage` | 自定义错误文案 |
+
+## 自定义 Plugin
+
+```go
+type MyPlugin struct{}
+
+func (p *MyPlugin) Name() string { return "my-plugin" }
+// 实现 EventHook 接口方法 ...
+
+r := runner.NewRunner("app", ag, runner.WithPlugins(&MyPlugin{}))
+```
+
+## 与 middleware 对比
+
+| | Gin middleware | agentkit plugin |
+|---|----------------|-----------------|
+| 层级 | HTTP 请求 | Agent 推理/工具调用 |
+| 场景 | REST API | LLM Agent 运行时 |
