@@ -276,6 +276,19 @@
 | censor/qcloud | `github.com/LingByte/ling-base/censor/qcloud` | 腾讯云内容安全 |
 | ocr | `github.com/LingByte/ling-base/providers/ocr` | OCR 统一接口 |
 
+## 渗透测试
+
+### pentest
+- **import**: `github.com/LingByte/ling-base/pentest`
+- Web 渗透测试工具库，27 个独立的主动安全测试工具，全部仅依赖 Go 标准库
+- 工具分类：
+  - 注入类：SQL 注入、XSS、命令注入、模板注入、XXE、SSRF、反序列化
+  - 遍历类：路径遍历、文件包含、文件上传
+  - 扫描类：端口扫描、目录扫描、子域名枚举、信息收集
+  - 认证类：JWT 安全、密码爆破、会话安全、CSRF、IDOR
+  - 分析类：HTTP 安全头、加密强度、API 安全、业务逻辑、速率限制绕过、敏感信息扫描、安全基线、日志分析
+- 用法: `tester := pentest.NewSQLInjectionTester(10*time.Second); result, _ := tester.TestURL(ctx, "https://example.com/page?id=1")`
+
 ## 项目工具
 
 ### lingcli

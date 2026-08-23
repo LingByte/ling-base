@@ -126,6 +126,7 @@ use (
 	./docs/wasm
 	./example
 	./lingcli
+	./pentest
 	./providers/censor
 	./providers/censor/aliyun
 	./providers/censor/qcloud
