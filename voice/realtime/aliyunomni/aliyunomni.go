@@ -25,7 +25,7 @@ const (
 	ProviderSlug   = "aliyun_omni"
 	DefaultBaseURL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
 	DefaultModel   = "qwen3.5-omni-flash-realtime-2026-03-15"
-	DefaultVoice   = "Cherry"
+	DefaultVoice   = "Tina"
 	DefaultDialMs  = 10000
 	DefaultSendBuf = 64
 )
