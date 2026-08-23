@@ -12,6 +12,8 @@ import { getMDXComponents } from '@/components/mdx';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { gitConfig } from '@/lib/shared';
+import { getDemosForSlug } from '@/lib/playground/doc-demos';
+import { PlaygroundBanner } from '@/components/playground/PlaygroundBanner';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -20,6 +22,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
 
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
+  const playgroundDemos = getDemosForSlug(params.slug);
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
@@ -33,6 +36,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
         />
       </div>
       <DocsBody>
+        <PlaygroundBanner demos={playgroundDemos} />
         <MDX
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths

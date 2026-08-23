@@ -9,10 +9,11 @@ let wasmState: WasmState = 'idle';
 let wasmPromise: Promise<void> | null = null;
 let goExited = false;
 
-export function useWasm() {
+export function useWasm(enabled = true) {
   const [state, setState] = useState<WasmState>(wasmState);
 
   useEffect(() => {
+    if (!enabled) return;
     if (wasmState === 'ready') {
       setState('ready');
       return;
@@ -36,7 +37,7 @@ export function useWasm() {
           setState('error');
         });
     }
-  }, []);
+  }, [enabled]);
 
   return {
     loaded: state === 'ready',

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { asset } from '@/lib/shared';
+import { PlaygroundLink } from '@/components/playground/PlaygroundLink';
 import {
   Bot,
   Mic,
@@ -174,6 +175,7 @@ export default function HomePage() {
               <GithubIcon className="size-4" />
               GitHub
             </a>
+            <PlaygroundLink />
           </div>
 
           {/* Install command */}

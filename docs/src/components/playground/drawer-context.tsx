@@ -1,8 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-
-type DemoId = 'totp' | 'compress';
+import type { DemoId } from '@/lib/playground/types';
 
 interface PlaygroundContextValue {
   open: boolean;
