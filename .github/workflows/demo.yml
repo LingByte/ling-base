@@ -39,7 +39,7 @@ jobs:
 
       - name: Build
         working-directory: docs
-        run: pnpm build
+        run: pnpm build:static
         env:
           NEXT_PUBLIC_BASE_PATH: /ling-base
 
