@@ -743,16 +743,19 @@ func TestEncode_TIFF(t *testing.T) {
 
 func TestEncode_WebP(t *testing.T) {
 	var buf bytes.Buffer
-	err := Encode(&buf, createTestImage(), FormatWebP, 0)
-	if err == nil {
-		t.Fatal("Encode WebP should fail (decode-only)")
+	err := Encode(&buf, createTestImage(), FormatWebP, 80)
+	if err != nil {
+		t.Fatalf("Encode WebP failed: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("Encode WebP produced empty output")
 	}
 }
 
 func TestSave_WebP(t *testing.T) {
-	err := Save(createTestImage(), filepath.Join(t.TempDir(), "test.webp"), FormatWebP, 0)
-	if err == nil {
-		t.Fatal("Save WebP should fail (decode-only)")
+	err := Save(createTestImage(), filepath.Join(t.TempDir(), "test.webp"), FormatWebP, 80)
+	if err != nil {
+		t.Fatalf("Save WebP failed: %v", err)
 	}
 }
 
@@ -963,8 +966,11 @@ func TestToBytes_TIFF(t *testing.T) {
 }
 
 func TestToBytes_WebP(t *testing.T) {
-	_, err := ToBytes(createTestImage(), FormatWebP, 0)
-	if err == nil {
-		t.Fatal("ToBytes WebP should fail (decode-only)")
+	data, err := ToBytes(createTestImage(), FormatWebP, 80)
+	if err != nil {
+		t.Fatalf("ToBytes WebP failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("ToBytes WebP produced empty output")
 	}
 }

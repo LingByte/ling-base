@@ -5,7 +5,8 @@
 // Go standard library and the official golang.org/x/image subrepository plus
 // the widely-used disintegration/imaging package:
 //
-//   - Decode/Encode: JPEG, PNG, GIF, BMP, TIFF, WebP (WebP decode only)
+//   - Decode/Encode: JPEG, PNG, GIF, BMP, TIFF, WebP (encode via
+//     github.com/deepteams/webp — pure Go, no CGo)
 //   - Resize: nearest-neighbor, bilinear, CatmullRom (Lanczos-quality),
 //     Lanczos — via golang.org/x/image/draw kernels and imaging filters;
 //     plus fit-with-padding (letterbox)
@@ -18,7 +19,9 @@
 //     temperature, tint
 //   - Filters: box blur, gaussian blur (imaging), sharpen (imaging unsharp
 //     mask), edge detect (Sobel), emboss
-//   - Effects: invert, sepia, posterize, threshold (binarize)
+//   - Cinematic looks: vintage, cool, warm (per-pixel, strength-controlled)
+//   - Effects: invert, sepia, posterize, threshold (binarize), vignette,
+//     noise/grain, pixelate (mosaic)
 //   - Quality: JPEG re-encode with quality control
 //   - Thumbnail: proportional downscale (with optional padding)
 //   - Watermark: image overlay (center/bottom-right/tiled) and text watermark
@@ -26,7 +29,9 @@
 //   - Composite: blend modes (multiply/screen/overlay/add/...), border,
 //     padding
 //   - Info: dimensions, format detection, histogram & statistics
-//   - Convert: format conversion (e.g. PNG → JPEG)
+//   - Convert: format conversion (e.g. PNG → JPEG), PNG → ICO (favicon)
+//   - Animated GIF: per-frame resize/optimize preserving animation
+//   - Color: hex color parsing (#rgb / #rgba / #rrggbb / #rrggbbaa)
 //
 // # Quick start
 //
@@ -37,6 +42,8 @@
 //	blurred := imageutil.GaussianBlur(img, 3, 0)
 //	rounded := imageutil.RoundCorners(img, 24)
 //	imageutil.SaveJPEG(resized, "output.jpg", 85)
+//	imageutil.SaveWebP(resized, "output.webp", 80)      // WebP encode
+//	imageutil.SaveICO(img, "favicon.ico", nil)          // multi-size ICO
 package imageutil
 
 import (
@@ -132,8 +139,9 @@ func DecodeFile(path string) (image.Image, Format, error) {
 }
 
 // Encode encodes an image to the specified format and writes to w.
-// WebP is not supported for encoding (golang.org/x/image/webp is decode-only);
-// use a dedicated WebP encoder if needed.
+// WebP encoding is supported via github.com/deepteams/webp (pure Go, no CGo).
+// For WebP, quality is in [1, 100] (lossy); pass a negative quality to use
+// lossless encoding.
 func Encode(w io.Writer, img image.Image, format Format, quality int) error {
 	switch format {
 	case FormatJPEG:
@@ -145,7 +153,7 @@ func Encode(w io.Writer, img image.Image, format Format, quality int) error {
 	case FormatTIFF:
 		return xtiff.Encode(w, img, &xtiff.Options{Compression: xtiff.Deflate})
 	case FormatWebP:
-		return fmt.Errorf("imageutil: webp encode is not supported (decode-only)")
+		return encodeWebP(w, img, quality)
 	default:
 		return fmt.Errorf("imageutil: unsupported encode format %q", format)
 	}
@@ -191,8 +199,20 @@ func SaveTIFF(img image.Image, path string) error {
 	return xtiff.Encode(f, img, &xtiff.Options{Compression: xtiff.Deflate})
 }
 
-// Save saves an image in the specified format. WebP is not supported for
-// encoding (decode-only); use a dedicated WebP encoder if needed.
+// SaveWebP saves an image as WebP with the given quality (1-100, lossy).
+// Pass a negative quality to use lossless encoding.
+func SaveWebP(img image.Image, path string, quality int) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("imageutil: create %s: %w", path, err)
+	}
+	defer f.Close()
+	return encodeWebP(f, img, quality)
+}
+
+// Save saves an image in the specified format. WebP encoding is supported
+// via github.com/deepteams/webp. For WebP, pass a negative quality for
+// lossless encoding.
 func Save(img image.Image, path string, format Format, quality int) error {
 	switch format {
 	case FormatJPEG:
@@ -204,7 +224,7 @@ func Save(img image.Image, path string, format Format, quality int) error {
 	case FormatTIFF:
 		return SaveTIFF(img, path)
 	case FormatWebP:
-		return fmt.Errorf("imageutil: webp encode is not supported (decode-only)")
+		return SaveWebP(img, path, quality)
 	default:
 		return fmt.Errorf("imageutil: unsupported format %q", format)
 	}
