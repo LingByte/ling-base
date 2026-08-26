@@ -97,6 +97,12 @@ use (
 	./common/parser
 	./common/passkey
 	./common/password
+	./common/payment
+	./common/payment/creem
+	./common/payment/epay
+	./common/payment/stripe
+	./common/payment/waffo
+	./common/payment/waffopancake
 	./common/phone
 	./common/pinyin
 	./common/pool
