@@ -43,3 +43,17 @@ type PaymentProvider interface {
 type Configured interface {
 	Configured() bool
 }
+
+// Refunder is an optional capability interface for providers that support
+// refund submission. Adapters implement this alongside PaymentProvider
+// when the gateway exposes a refund API.
+type Refunder interface {
+	Refund(ctx context.Context, req *RefundRequest) (*RefundResult, error)
+}
+
+// BalanceQuerier is an optional capability interface for providers that
+// support account balance queries. Adapters implement this alongside
+// PaymentProvider when the gateway exposes a balance API.
+type BalanceQuerier interface {
+	QueryBalance(ctx context.Context) (*BalanceResult, error)
+}

@@ -113,6 +113,10 @@ type CheckoutRequest struct {
 	// supported. Useful for tying orders to internal entities.
 	Metadata map[string]string
 
+	// ClientIP is the payer's IP address. Required by some providers'
+	// API-mode checkout (e.g. Epay /mapi.php) for risk control.
+	ClientIP string
+
 	// ExpiresInSeconds optionally limits the checkout session lifetime.
 	ExpiresInSeconds *int
 }
@@ -269,4 +273,57 @@ var (
 	// ErrOrderNotFound indicates the provider did not find the referenced
 	// order.
 	ErrOrderNotFound = errors.New("payment: order not found")
+
+	// ErrRefundFailed indicates the provider rejected a refund request.
+	ErrRefundFailed = errors.New("payment: refund failed")
 )
+
+// RefundRequest is the provider-neutral input for submitting a refund.
+type RefundRequest struct {
+	// TradeNo is the merchant order reference. Either TradeNo or
+	// ProviderOrderID must be set.
+	TradeNo string
+
+	// ProviderOrderID is the provider's own order identifier.
+	ProviderOrderID string
+
+	// Money is the amount to refund. Some providers require this to
+	// match the original charge exactly.
+	Money Money
+
+	// Reason is an optional refund reason.
+	Reason string
+}
+
+// RefundResult is the provider-neutral output of a refund request.
+type RefundResult struct {
+	// TradeNo is the merchant order reference.
+	TradeNo string
+
+	// ProviderOrderID is the provider's own order identifier.
+	ProviderOrderID string
+
+	// ProviderRefundID is the provider's refund transaction id, when
+	// available.
+	ProviderRefundID string
+
+	// Status is the refund status (typically StatusRefunded or
+	// StatusPending).
+	Status OrderStatus
+
+	// Raw is the raw provider response.
+	Raw any
+}
+
+// BalanceResult is the provider-neutral output of an account balance
+// query.
+type BalanceResult struct {
+	// Balance is the current account balance.
+	Balance Money
+
+	// Currency is the balance currency, when reported.
+	Currency Currency
+
+	// Raw is the raw provider response.
+	Raw any
+}
