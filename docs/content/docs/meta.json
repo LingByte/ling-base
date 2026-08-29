@@ -97,6 +97,7 @@
     "common/scheduler",
     "common/pool",
     "common/bloom",
+    "common/bitmap",
     "common/mq",
     "---通用工具 / 可观测性---",
     "common/metrics",

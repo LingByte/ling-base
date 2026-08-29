@@ -18,6 +18,7 @@ const COMMON_MODULE_DEMOS: Record<string, DemoId[]> = {
   phone: ['phone'],
   pinyin: ['pinyin'],
   bloom: ['bloom'],
+  bitmap: ['bloom'],
   idgen: ['idgen', 'random'],
   nltime: ['nltime', 'timeutil'],
   timeutil: ['timeutil', 'nltime'],

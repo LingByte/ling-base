@@ -3,11 +3,9 @@ go 1.26.2
 use (
 	.
 	./agentkit
-	./agentkit/relaymodel
-	./agentkit/flowcraft/core
-	./relay/compat
 	./agentkit/flowcraft/backends/checkpoint
 	./agentkit/flowcraft/backends/plugin
+	./agentkit/flowcraft/core
 	./agentkit/flowcraft/driver/anthropic
 	./agentkit/flowcraft/driver/azure
 	./agentkit/flowcraft/driver/bytedance
@@ -17,11 +15,16 @@ use (
 	./agentkit/flowcraft/driver/openai
 	./agentkit/flowcraft/driver/qwen
 	./agentkit/flowcraft/forge
+	./agentkit/relaymodel
 	./apidocs
 	./bootstrap
 	./common
 	./common/audioutil
 	./common/barcode
+	./common/bitmap
+	./common/bitmap/memory
+	./common/bitmap/redis
+	./common/bitmap/roaring
 	./common/bloom
 	./common/bloom/counting
 	./common/bloom/memory
@@ -145,6 +148,7 @@ use (
 	./providers/ocr/google
 	./providers/ocr/qcloud
 	./relay
+	./relay/compat
 	./relay/relaykit
 	./stores
 	./stores/cos

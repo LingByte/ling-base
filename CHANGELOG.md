@@ -19,6 +19,15 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 - `CONTRIBUTING.md` — 贡献指南
 - `Makefile` 新增 `vuln` target — 本地运行 govulncheck
 
+## [common/bitmap] v0.1.0 — 2026-08-29
+
+### Added
+- `common/bitmap` — 精确位图统一接口（`Bitmap` / `Batcher` / `Snapshotter`）
+- `common/bitmap/memory` — 稠密本地实现（可增长 / `WithFixed`，支持快照）
+- `common/bitmap/roaring` — Roaring 压缩实现（稀疏大 offset，交并运算）
+- `common/bitmap/redis` — Redis SETBIT/GETBIT/BITCOUNT/BITOP 分布式实现
+- 单测、压力测试与基准；文档页 `/docs/common/bitmap`
+
 ## [lingcli] v0.1.0 — 2026-08-19
 
 ### Added

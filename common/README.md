@@ -51,6 +51,7 @@ func GetEnv(key string) string
 | audioutil        | WAV/MP3 audio read, write, and decode utilities              |
 | barcode          | 1D/2D barcode generation (Code128, EAN, PDF417, DataMatrix)  |
 | bloom            | Unified Bloom-filter interface (in-memory + distributed)     |
+| bitmap           | Exact bitmap (memory / roaring / redis)                      |
 | cache            | Generic Cache[K,V] interface with multiple backends          |
 | captcha          | CAPTCHA generation                                           |
 | circuitbreaker   | Thread-safe circuit breaker (Closed/Open/Half-Open)          |

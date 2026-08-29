@@ -1,0 +1,101 @@
+---
+title: 位图 Bitmap
+description: ling-base common/bitmap 模块文档
+---
+
+# bitmap
+
+精确位图（Bitmap / Bitset）抽象与多种后端实现。采用与 `cache` / `bloom` / `lock` 一致的**多 module 按需引入**。
+
+## 与 Bloom 的区别
+
+| | Bitmap | Bloom |
+|---|---|---|
+| 语义 | 精确：offset 是否为 1 | 概率：元素是否「可能在」 |
+| 假阳性 | 无 | 有 |
+| 典型场景 | 签到、在线、权限位、标签集合 | 缓存穿透、海量「是否见过」 |
+
+## 模块结构
+
+```
+bitmap/           # 接口 Bitmap / Batcher / Snapshotter
+bitmap/memory/    # 稠密 []byte（本地）
+bitmap/roaring/   # Roaring 压缩（本地稀疏）
+bitmap/redis/     # Redis SETBIT/GETBIT（分布式）
+```
+
+## 接口
+
+```go
+type Bitmap interface {
+    Set(ctx context.Context, offset uint64) error
+    Get(ctx context.Context, offset uint64) (bool, error)
+    Clear(ctx context.Context, offset uint64) error
+    Count(ctx context.Context) (uint64, error)
+    Reset(ctx context.Context) error
+    Close() error
+}
+```
+
+可选：`Batcher`（批量）、`Snapshotter`（`WriteTo` / `ReadFrom` 过重启）。
+
+## 后端选型
+
+| 后端 | 重启行为 | 适用 |
+|---|---|---|
+| **memory** | 默认丢失；可用快照文件恢复 | 稠密、小宇宙、极致延迟 |
+| **roaring** | 默认丢失；Roaring 可移植序列化 | 稀疏大 ID |
+| **redis** | 应用重启不丢；跟 Redis RDB/AOF | 多实例共享 |
+
+> Redis 位串是稠密的：极大稀疏 offset 会按 `offset/8` 占内存。
+
+## 系统重启
+
+1. **可丢**：纯内存，启动后从业务表回填或接受空集合  
+2. **跟 Redis**：用 `bitmap/redis`，配置好 AOF/RDB  
+3. **本地快照**：`memory` / `roaring` 实现 `Snapshotter`，定期落盘、启动加载  
+
+## 示例
+
+### memory
+
+```go
+import "github.com/LingByte/ling-base/common/bitmap/memory"
+
+bm, _ := memory.New(memory.WithFixed(366))
+_ = bm.Set(ctx, uint64(time.Now().YearDay()))
+ok, _ := bm.Get(ctx, 42)
+```
+
+### roaring
+
+```go
+import bmroaring "github.com/LingByte/ling-base/common/bitmap/roaring"
+
+bm := bmroaring.New()
+_ = bm.Set(ctx, 1_000_000)
+```
+
+### redis
+
+```go
+import (
+    goredis "github.com/redis/go-redis/v9"
+    bmredis "github.com/LingByte/ling-base/common/bitmap/redis"
+)
+
+bm, _ := bmredis.New(&goredis.Options{Addr: "127.0.0.1:6379"},
+    bmredis.WithKey("checkin:2026-08"),
+)
+_ = bm.Set(ctx, userID)
+```
+
+## 安装
+
+```bash
+go get github.com/LingByte/ling-base/common/bitmap/memory
+go get github.com/LingByte/ling-base/common/bitmap/roaring
+go get github.com/LingByte/ling-base/common/bitmap/redis
+```
+
+完整说明见仓库 `common/bitmap/README.md`。

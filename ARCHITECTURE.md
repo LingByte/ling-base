@@ -140,7 +140,7 @@ voice/
 | 分类 | 模块 |
 |------|------|
 | 并发控制 | limiter（10 种）, lock（5 种）, circuitbreaker, retry |
-| 缓存 | cache（redis/ristretto）, bloom（5 种）, queue（3 种） |
+| 缓存 | cache（redis/ristretto）, bloom（5 种）, bitmap（memory/roaring/redis）, queue（3 种） |
 | 安全 | totp, passkey, password, jwtutil, captcha |
 | IO | compress, imageutil, videoutil, audioutil |
 | 网络 | netutil, httpclient, opentelemetry, tracing |
