@@ -20,6 +20,7 @@ use (
 	./bootstrap
 	./common
 	./common/abtest
+	./common/antispam
 	./common/audioutil
 	./common/auditlog
 	./common/backup
@@ -44,6 +45,7 @@ use (
 	./common/circuitbreaker
 	./common/compress
 	./common/config
+	./common/consistent
 	./common/constants
 	./common/convert
 	./common/cron
@@ -142,6 +144,7 @@ use (
 	./common/timeutil
 	./common/totp
 	./common/tracing
+	./common/trie
 	./common/validate
 	./common/videoutil
 	./common/webhook

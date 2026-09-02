@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/diff
+module github.com/LingByte/ling-base/common/upload
 
 go 1.26.2
 
