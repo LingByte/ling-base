@@ -75,6 +75,8 @@ ling-base/
 │  │
 │  ├─ geoip/                 # IP 地理位置查询（国内 pconline + 国际 ip-api）
 │  ├─ geocode/               # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
+│  ├─ dnsutil/               # 高级 DNS 查询（miekg/dns，10+ 记录类型，自定义服务器，反向解析）
+│  ├─ curlutil/              # curl 命令解析 + 调试型 HTTP 客户端（重定向链/TLS/二进制识别）
 │  ├─ phone/                 # 手机号归属地查询（内置离线号段库）
 │  ├─ i18n/                  # 国际化（翻译 + 格式化 + locale 检测）
 │  │  ├─ gin/                # Gin 中间件
@@ -209,6 +211,12 @@ go get github.com/LingByte/ling-base/common/geoip
 # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
 go get github.com/LingByte/ling-base/common/geocode
 
+# 高级 DNS 查询（自定义服务器，10+ 记录类型，反向解析）
+go get github.com/LingByte/ling-base/common/dnsutil
+
+# curl 命令解析 + 调试型 HTTP 客户端
+go get github.com/LingByte/ling-base/common/curlutil
+
 # 手机号归属地查询（内置离线号段库，无需联网）
 go get github.com/LingByte/ling-base/common/phone
 ```
@@ -334,6 +342,57 @@ dist := geocode.HaversineDistance(39.9042, 116.4074, 31.2304, 121.4737)
 
 // 判断两点是否在半径内
 inRadius := geocode.IsInRadius(lat1, lon1, lat2, lon2, 5.0) // 5km
+```
+
+### dnsutil 快速上手
+
+高级 DNS 查询，支持自定义服务器、10+ 记录类型、反向解析、并发查询：
+
+```go
+import "github.com/LingByte/ling-base/common/dnsutil"
+
+// 查询 A 记录（指定 Google DNS）
+records, _ := dnsutil.QueryA("google.com", dnsutil.ServerGoogle)
+// → [{Name:"google.com.", Type:"A", TTL:300, Value:"142.250.191.14"}]
+
+// 查询 MX 记录（用 Cloudflare DNS）
+records, _ = dnsutil.QueryMX("google.com", dnsutil.ServerCloudflare)
+
+// 反向 DNS 查询
+records, _ = dnsutil.ReverseLookup("8.8.8.8", dnsutil.ServerGoogle)
+// → [{Type:"PTR", Value:"dns.google."}]
+
+// 并发查询所有记录类型
+result, _ := dnsutil.QueryAll("example.com", "8.8.8.8:53")
+// → AllRecords{A, AAAA, CNAME, MX, NS, TXT, SOA, ...}
+
+// 可配置 Client（阿里 DNS + DNSSEC）
+client := dnsutil.NewClient(
+    dnsutil.WithServer("223.5.5.5:53"),
+    dnsutil.WithDNSSEC(),
+)
+records, _ = client.Query("example.com", "A")
+```
+
+### curlutil 快速上手
+
+curl 命令解析 + 调试型 HTTP 客户端：
+
+```go
+import "github.com/LingByte/ling-base/common/curlutil"
+
+// 解析 curl 命令
+req, _ := curlutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"key":"value"}' -L`)
+
+// 执行并获取调试信息
+resp, _ := curlutil.Execute(req)
+fmt.Printf("Status: %d, Time: %dms, TLS: %s\n", resp.StatusCode, resp.ResponseTime, resp.RequestInfo.TLSVersion)
+fmt.Printf("Redirects: %v\n", resp.RedirectChain)
+
+// 快捷函数
+resp, _ = curlutil.Get("https://example.com")
+resp, _ = curlutil.Post("https://httpbin.org/post", `{"key":"value"}`)
+resp, _ = curlutil.Head("https://example.com")
 ```
 
 ### phone 快速上手
@@ -538,6 +597,8 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [circuitbreaker/README.md](circuitbreaker/README.md)
 - [pool/README.md](pool/README.md)
 - [common/geocode/README.md](common/geocode/README.md)
+- [common/dnsutil/README.md](common/dnsutil/README.md)
+- [common/curlutil/README.md](common/curlutil/README.md)
 
 ## 开发
 
