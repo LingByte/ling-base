@@ -8,6 +8,8 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
 	"strings"
 	"testing"
 	"time"
@@ -845,4 +847,441 @@ func TestPBKDF2_MultiBlock(t *testing.T) {
 	key, err := PBKDF2([]byte("pw"), []byte("salt"), 100, 64)
 	require.NoError(t, err)
 	assert.Len(t, key, 64)
+}
+
+// ──────────────────────────────────────────────
+// Random reader
+// ──────────────────────────────────────────────
+
+func TestRandomReader(t *testing.T) {
+	r := RandomReader()
+	assert.NotNil(t, r)
+}
+
+// ──────────────────────────────────────────────
+// AES-GCM additional error paths
+// ──────────────────────────────────────────────
+
+func TestAESGCMDecrypt_InvalidKey(t *testing.T) {
+	_, err := AESGCMDecrypt([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestAESGCMEncryptBase64_InvalidKey(t *testing.T) {
+	_, err := AESGCMEncryptBase64([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// AES-CBC additional error paths
+// ──────────────────────────────────────────────
+
+func TestAESCBC_EncryptInvalidKey(t *testing.T) {
+	_, err := AESCBCEncrypt([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestAESCBC_DecryptInvalidKey(t *testing.T) {
+	_, err := AESCBCDecrypt([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestAESCBC_NotMultipleBlockSize(t *testing.T) {
+	key := MustRandomKey(16)
+	// 16 bytes IV + 1 byte ciphertext → not a multiple of block size.
+	data := append(make([]byte, 16), 0x42)
+	_, err := AESCBCDecrypt(key, data)
+	assert.Error(t, err)
+}
+
+func TestPkcs7Unpad_Errors(t *testing.T) {
+	// Empty data.
+	_, err := pkcs7Unpad([]byte{}, 16)
+	assert.Error(t, err)
+
+	// Data not a multiple of block size.
+	_, err = pkcs7Unpad([]byte{0x01, 0x02}, 16)
+	assert.Error(t, err)
+
+	// Padding length 0 (invalid).
+	_, err = pkcs7Unpad([]byte{0x00, 0x00, 0x00, 0x00}, 4)
+	assert.Error(t, err)
+
+	// Padding length > blockSize (invalid).
+	_, err = pkcs7Unpad([]byte{0x05, 0x05, 0x05, 0x05}, 4)
+	assert.Error(t, err)
+
+	// Padding bytes inconsistent.
+	_, err = pkcs7Unpad([]byte{0x03, 0x03, 0x02, 0x03}, 4)
+	assert.Error(t, err)
+}
+
+func TestPkcs7Unpad_Valid(t *testing.T) {
+	// Valid PKCS7 padding of 3 bytes on a 4-byte block.
+	out, err := pkcs7Unpad([]byte{0xAA, 0x03, 0x03, 0x03}, 4)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0xAA}, out)
+}
+
+// ──────────────────────────────────────────────
+// AES-CFB
+// ──────────────────────────────────────────────
+
+func TestAESCFB_EncryptDecrypt(t *testing.T) {
+	key := MustRandomKey(32)
+	plaintext := []byte("hello CFB mode")
+	ciphertext, err := AESCFBEncrypt(key, plaintext)
+	require.NoError(t, err)
+	decrypted, err := AESCFBDecrypt(key, ciphertext)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestAESCFB_DifferentCiphertexts(t *testing.T) {
+	key := MustRandomKey(16)
+	c1, _ := AESCFBEncrypt(key, []byte("data"))
+	c2, _ := AESCFBEncrypt(key, []byte("data"))
+	assert.False(t, bytes.Equal(c1, c2), "CFB should produce different ciphertexts")
+}
+
+func TestAESCFB_InvalidKey(t *testing.T) {
+	_, err := AESCFBEncrypt([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+	_, err = AESCFBDecrypt([]byte("short"), []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestAESCFB_ShortCiphertext(t *testing.T) {
+	key := MustRandomKey(16)
+	_, err := AESCFBDecrypt(key, []byte("short"))
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// RC4
+// ──────────────────────────────────────────────
+
+func TestRC4_EncryptDecrypt(t *testing.T) {
+	key := []byte("secret-key")
+	plaintext := "hello RC4"
+	encrypted := RC4Encrypt(plaintext, key)
+	assert.NotEmpty(t, encrypted)
+	assert.NotEqual(t, plaintext, encrypted)
+	decrypted := RC4Decrypt(encrypted, key)
+	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestRC4_InvalidKey(t *testing.T) {
+	// Empty key causes rc4.NewCipher to fail.
+	result := RC4Encrypt("data", []byte{})
+	assert.Empty(t, result)
+	result = RC4Decrypt("aabbccdd", []byte{})
+	assert.Empty(t, result)
+}
+
+func TestRC4_DecryptInvalidHex(t *testing.T) {
+	// Non-hex string produces empty ciphertext → returns "".
+	result := RC4Decrypt("not-hex!", []byte("key"))
+	assert.Empty(t, result)
+}
+
+// ──────────────────────────────────────────────
+// RSA additional error paths
+// ──────────────────────────────────────────────
+
+func TestRSA_EncryptTooLarge(t *testing.T) {
+	_, pub, _ := GenerateRSAKeyPair(2048)
+	// RSA-OAEP with SHA-256 can encrypt at most pub.Size()-2*32-2 bytes.
+	tooLarge := make([]byte, pub.Size()-2*32-1)
+	_, err := RSAEncrypt(pub, tooLarge)
+	assert.Error(t, err)
+}
+
+func TestRSA_DecryptBadCiphertext(t *testing.T) {
+	priv, _, _ := GenerateRSAKeyPair(2048)
+	_, err := RSADecrypt(priv, []byte("garbage ciphertext that is not valid"))
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// RSA PEM PKCS1 and cross-type parsing
+// ──────────────────────────────────────────────
+
+func TestRSA_PKCS1PrivateKeyRoundTrip(t *testing.T) {
+	priv, _, _ := GenerateRSAKeyPair(2048)
+	der := x509.MarshalPKCS1PrivateKey(priv)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: der}))
+
+	parsed, err := ParseRSAPrivateKeyPEM(pemStr)
+	require.NoError(t, err)
+	assert.NotNil(t, parsed)
+}
+
+func TestRSA_PKCS1PublicKeyRoundTrip(t *testing.T) {
+	_, pub, _ := GenerateRSAKeyPair(2048)
+	der := x509.MarshalPKCS1PublicKey(pub)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: der}))
+
+	parsed, err := ParseRSAPublicKeyPEM(pemStr)
+	require.NoError(t, err)
+	assert.NotNil(t, parsed)
+}
+
+func TestRSA_ParsePrivateKeyNotRSA(t *testing.T) {
+	// Parse an ECDSA private key (PKCS8) as RSA → type assertion fails.
+	ecPriv, _, _ := GenerateECDSAKeyPair()
+	der, _ := x509.MarshalPKCS8PrivateKey(ecPriv)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+
+	_, err := ParseRSAPrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an RSA private key")
+}
+
+func TestRSA_ParsePublicKeyNotRSA(t *testing.T) {
+	// Parse an ECDSA public key (PKIX) as RSA → type assertion fails.
+	_, ecPub, _ := GenerateECDSAKeyPair()
+	der, _ := x509.MarshalPKIXPublicKey(ecPub)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
+
+	_, err := ParseRSAPublicKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an RSA public key")
+}
+
+func TestRSA_ParsePrivateKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not a key")}))
+	_, err := ParseRSAPrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+func TestRSA_ParsePublicKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("not a key")}))
+	_, err := ParseRSAPublicKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// ECDSA additional error paths
+// ──────────────────────────────────────────────
+
+func TestECDSA_PKCS8RoundTrip(t *testing.T) {
+	priv, pub, _ := GenerateECDSAKeyPair()
+
+	// Marshal as PKCS8 (the ExportECDSAPrivateKeyPEM uses SEC1, so the
+	// PKCS8 path in ParseECDSAPrivateKeyPEM is untested).
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	require.NoError(t, err)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+
+	parsed, err := ParseECDSAPrivateKeyPEM(pemStr)
+	require.NoError(t, err)
+	assert.NotNil(t, parsed)
+
+	// Verify cross-compatibility: sign with parsed, verify with original pub.
+	sig, err := ECDSASign(parsed, []byte("test"))
+	require.NoError(t, err)
+	assert.NoError(t, ECDSAVerify(pub, []byte("test"), sig))
+}
+
+func TestECDSA_ParsePrivateKeyNotECDSA(t *testing.T) {
+	// Parse an RSA private key (PKCS8) as ECDSA → type assertion fails.
+	rsaPriv, _, _ := GenerateRSAKeyPair(2048)
+	der, _ := x509.MarshalPKCS8PrivateKey(rsaPriv)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+
+	_, err := ParseECDSAPrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an ECDSA private key")
+}
+
+func TestECDSA_ParsePublicKeyNotECDSA(t *testing.T) {
+	// Parse an RSA public key (PKIX) as ECDSA → type assertion fails.
+	_, rsaPub, _ := GenerateRSAKeyPair(2048)
+	der, _ := x509.MarshalPKIXPublicKey(rsaPub)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
+
+	_, err := ParseECDSAPublicKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an ECDSA public key")
+}
+
+func TestECDSA_ParsePrivateKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: []byte("not a key")}))
+	_, err := ParseECDSAPrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+func TestECDSA_ParsePublicKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("not a key")}))
+	_, err := ParseECDSAPublicKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// Ed25519 additional error paths
+// ──────────────────────────────────────────────
+
+func TestEd25519_ParsePrivateKeyNotEd25519(t *testing.T) {
+	// Parse an RSA private key (PKCS8) as Ed25519 → type assertion fails.
+	rsaPriv, _, _ := GenerateRSAKeyPair(2048)
+	der, _ := x509.MarshalPKCS8PrivateKey(rsaPriv)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+
+	_, err := ParseEd25519PrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an Ed25519 private key")
+}
+
+func TestEd25519_ParsePublicKeyNotEd25519(t *testing.T) {
+	// Parse an RSA public key (PKIX) as Ed25519 → type assertion fails.
+	_, rsaPub, _ := GenerateRSAKeyPair(2048)
+	der, _ := x509.MarshalPKIXPublicKey(rsaPub)
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
+
+	_, err := ParseEd25519PublicKeyPEM(pemStr)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not an Ed25519 public key")
+}
+
+func TestEd25519_ParsePrivateKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not a key")}))
+	_, err := ParseEd25519PrivateKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+func TestEd25519_ParsePublicKeyInvalidDER(t *testing.T) {
+	pemStr := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("not a key")}))
+	_, err := ParseEd25519PublicKeyPEM(pemStr)
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// JWT additional edge cases
+// ──────────────────────────────────────────────
+
+func TestJWT_UnsupportedAlgorithmSign(t *testing.T) {
+	j := NewJWT(JWTConfig{Algorithm: "unknown", Secret: []byte("key")})
+	_, err := j.Sign(JWTClaims{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported algorithm")
+}
+
+func TestJWT_UnsupportedAlgorithmVerify(t *testing.T) {
+	j := NewJWT(JWTConfig{Algorithm: "unknown", Secret: []byte("key")})
+	_, err := j.Verify("a.b.c")
+	assert.Error(t, err)
+}
+
+func TestJWT_HS512_InvalidSignature(t *testing.T) {
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgHS512, Secret: []byte("key")})
+	token, _ := j.Sign(JWTClaims{Subject: "user"})
+
+	// Tamper with the signature.
+	parts := strings.Split(token, ".")
+	parts[2] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	tampered := strings.Join(parts, ".")
+
+	_, err := j.Verify(tampered)
+	assert.Error(t, err)
+}
+
+func TestJWT_ParseDecodePayloadError(t *testing.T) {
+	// Craft a token where the signature is valid but the payload is
+	// not valid base64. We sign the exact signing input manually.
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgHS256, Secret: []byte("key")})
+
+	headerB64 := Base64URLEncode([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadB64 := "!!!invalid-base64!!!" // not valid RawURLEncoding
+	signingInput := headerB64 + "." + payloadB64
+	sig := SignSHA256([]byte(signingInput), []byte("key"))
+	token := signingInput + "." + Base64URLEncode(sig)
+
+	_, err := j.Parse(token)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "decode payload")
+}
+
+func TestJWT_ParsePayloadJSONError(t *testing.T) {
+	// Craft a token where the payload is valid base64 but not valid JSON.
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgHS256, Secret: []byte("key")})
+
+	headerB64 := Base64URLEncode([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadB64 := Base64URLEncode([]byte("{invalid json"))
+	signingInput := headerB64 + "." + payloadB64
+	sig := SignSHA256([]byte(signingInput), []byte("key"))
+	token := signingInput + "." + Base64URLEncode(sig)
+
+	_, err := j.Parse(token)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "parse payload")
+}
+
+func TestJWT_RS256_VerifyWrongData(t *testing.T) {
+	priv, pub, _ := GenerateRSAKeyPair(2048)
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgRS256, RSAPriv: priv, RSAPub: pub})
+	token, _ := j.Sign(JWTClaims{Subject: "user"})
+
+	// Tamper with the payload so the RS256 signature no longer matches.
+	parts := strings.Split(token, ".")
+	parts[1] = parts[1] + "x" // change payload portion
+	tampered := strings.Join(parts, ".")
+
+	_, err := j.Verify(tampered)
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// HKDF additional edge cases
+// ──────────────────────────────────────────────
+
+func TestHKDF_EmptySecret(t *testing.T) {
+	key, err := HKDF(nil, []byte("salt"), []byte("info"), 16)
+	require.NoError(t, err)
+	assert.Len(t, key, 16)
+}
+
+func TestHKDF_BothNilSaltAndInfo(t *testing.T) {
+	key, err := HKDF([]byte("secret"), nil, nil, 32)
+	require.NoError(t, err)
+	assert.Len(t, key, 32)
+}
+
+func TestHKDF_DifferentLengths(t *testing.T) {
+	for _, length := range []int{1, 16, 32, 64, 100} {
+		key, err := HKDF([]byte("secret"), []byte("salt"), []byte("info"), length)
+		require.NoError(t, err)
+		assert.Len(t, key, length)
+	}
+}
+
+// ──────────────────────────────────────────────
+// PBKDF2 additional edge cases
+// ──────────────────────────────────────────────
+
+func TestPBKDF2_DifferentLengths(t *testing.T) {
+	for _, length := range []int{1, 16, 32, 48, 64} {
+		key, err := PBKDF2([]byte("pw"), []byte("salt"), 100, length)
+		require.NoError(t, err)
+		assert.Len(t, key, length)
+	}
+}
+
+func TestPBKDF2_NegativeIterations(t *testing.T) {
+	_, err := PBKDF2([]byte("pw"), []byte("salt"), -1, 32)
+	assert.Error(t, err)
+}
+
+func TestPBKDF2_NegativeLength(t *testing.T) {
+	_, err := PBKDF2([]byte("pw"), []byte("salt"), 100, -1)
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// Base64 URL decode error
+// ──────────────────────────────────────────────
+
+func TestBase64URLDecode_Invalid(t *testing.T) {
+	_, err := Base64URLDecode("!!!invalid!!!")
+	assert.Error(t, err)
 }

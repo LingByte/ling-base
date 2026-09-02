@@ -152,3 +152,128 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+func TestAddExperiment_Nil(t *testing.T) {
+	a := NewAssigner()
+	a.AddExperiment(nil) // should be a no-op
+	assert.Equal(t, 0, len(a.Assign("u")))
+}
+
+func TestAddExperiment_ReplaceExisting(t *testing.T) {
+	a := NewAssigner()
+	a.AddExperiment(&Experiment{
+		Name: "color",
+		Variants: []Variant{
+			{Name: "red", Weight: 1},
+		},
+	})
+	a.AddExperiment(&Experiment{
+		Name: "color",
+		Variants: []Variant{
+			{Name: "blue", Weight: 1},
+		},
+	})
+	v, err := a.AssignOne("color", "u-1")
+	require.NoError(t, err)
+	assert.Equal(t, "blue", v)
+}
+
+func TestAssign_EmptyVariants(t *testing.T) {
+	a := NewAssigner()
+	a.AddExperiment(&Experiment{Name: "empty", Variants: nil})
+	res := a.Assign("u-1")
+	assert.Equal(t, "", res["empty"])
+
+	v, err := a.AssignOne("empty", "u-1")
+	require.NoError(t, err)
+	assert.Equal(t, "", v)
+}
+
+func TestAssign_SingleVariant(t *testing.T) {
+	a := NewAssigner()
+	a.AddExperiment(&Experiment{
+		Name: "single",
+		Variants: []Variant{
+			{Name: "only", Weight: 5},
+		},
+	})
+	for i := 0; i < 50; i++ {
+		v, err := a.AssignOne("single", "u-"+itoa(i))
+		require.NoError(t, err)
+		assert.Equal(t, "only", v)
+	}
+}
+
+func TestAssign_NegativeWeightSkipped(t *testing.T) {
+	a := NewAssigner()
+	a.AddExperiment(&Experiment{
+		Name: "neg",
+		Variants: []Variant{
+			{Name: "a", Weight: -1},
+			{Name: "b", Weight: 2},
+		},
+	})
+	for i := 0; i < 100; i++ {
+		v, err := a.AssignOne("neg", "u-"+itoa(i))
+		require.NoError(t, err)
+		assert.Equal(t, "b", v)
+	}
+}
+
+func TestPickVariant_FallbackPath(t *testing.T) {
+	// pct of 1.0 makes target == total, so no variant satisfies target < cum,
+	// exercising the last-valid-variant fallback.
+	exp := &Experiment{
+		Name: "fb",
+		Variants: []Variant{
+			{Name: "a", Weight: 1},
+			{Name: "b", Weight: 1},
+		},
+	}
+	assert.Equal(t, "b", pickVariant(exp, 1.0))
+}
+
+func TestPickVariant_AllNegativeWeight(t *testing.T) {
+	exp := &Experiment{
+		Name: "allneg",
+		Variants: []Variant{
+			{Name: "a", Weight: -1},
+			{Name: "b", Weight: -2},
+		},
+	}
+	assert.Equal(t, "", pickVariant(exp, 0.5))
+}
+
+func TestPickVariant_FallbackAllNegative(t *testing.T) {
+	// total == 0 short-circuits before the fallback loop, returning "".
+	exp := &Experiment{
+		Name: "fbneg",
+		Variants: []Variant{
+			{Name: "a", Weight: -1},
+		},
+	}
+	assert.Equal(t, "", pickVariant(exp, 1.0))
+}
+
+func TestAssign_EmptyAssigner(t *testing.T) {
+	a := NewAssigner()
+	res := a.Assign("u-1")
+	assert.NotNil(t, res)
+	assert.Empty(t, res)
+}
+
+func TestAssign_ConcurrentSafety(t *testing.T) {
+	a := newTestAssigner()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 1000; i++ {
+			_ = a.Assign("u-" + itoa(i))
+		}
+	}()
+	for i := 0; i < 1000; i++ {
+		_, err := a.AssignOne("color", "u-"+itoa(i))
+		require.NoError(t, err)
+	}
+	<-done
+}

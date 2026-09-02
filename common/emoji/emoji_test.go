@@ -83,3 +83,66 @@ func TestCountEmoji_MultiRune(t *testing.T) {
 	assert.Equal(t, 1, CountEmoji("❤️"))
 	assert.Equal(t, 2, CountEmoji("❤️🔥"))
 }
+
+func TestMatchEmojiAt2_OutOfBounds(t *testing.T) {
+	// Index at or beyond the rune slice length should return false.
+	runes := []rune("😄")
+	_, _, ok := matchEmojiAt2(runes, len(runes))
+	assert.False(t, ok)
+	// Far past the end.
+	_, _, ok = matchEmojiAt2(runes, len(runes)+5)
+	assert.False(t, ok)
+}
+
+func TestMatchEmojiAt2_FirstRuneNotInMap(t *testing.T) {
+	// A plain ASCII rune is not the start of any emoji.
+	runes := []rune("abc")
+	_, _, ok := matchEmojiAt2(runes, 0)
+	assert.False(t, ok)
+}
+
+func TestMatchEmojiAt2_PartialEmojiNoMatch(t *testing.T) {
+	// "❤" (U+2764 without the variation selector) is the first rune of the
+	// "heart" emoji ("❤️") so it is in firstRuneIndex, but the bare rune does
+	// not match any full emoji — exercising the final return-false branch.
+	runes := []rune("❤")
+	_, _, ok := matchEmojiAt2(runes, 0)
+	assert.False(t, ok)
+}
+
+func TestShortcodeToUnicode_MultipleAndMixed(t *testing.T) {
+	// Multiple consecutive emoji with surrounding text.
+	assert.Equal(t, "a😄b🔥c⭐d", ShortcodeToUnicode("a:smile:b:fire:c:star:d"))
+}
+
+func TestShortcodeToUnicode_NoClosingColon(t *testing.T) {
+	// A shortcode without a closing colon should be left as-is.
+	assert.Equal(t, "hello :smile world", ShortcodeToUnicode("hello :smile world"))
+	assert.Equal(t, ":smile", ShortcodeToUnicode(":smile"))
+}
+
+func TestUnicodeToShortcode_MixedText(t *testing.T) {
+	// Mixed emoji and plain text.
+	assert.Equal(t, "hello :smile: world :fire:!", UnicodeToShortcode("hello 😄 world 🔥!"))
+}
+
+func TestRemoveEmoji_Empty(t *testing.T) {
+	assert.Equal(t, "", RemoveEmoji(""))
+}
+
+func TestRemoveEmoji_OnlyEmoji(t *testing.T) {
+	assert.Equal(t, "", RemoveEmoji("😄🔥😎"))
+}
+
+func TestContainsEmoji_MultipleEmoji(t *testing.T) {
+	assert.True(t, ContainsEmoji("😄🔥😎"))
+	assert.True(t, ContainsEmoji("text 😄 more 🔥"))
+}
+
+func TestCountEmoji_Empty(t *testing.T) {
+	assert.Equal(t, 0, CountEmoji(""))
+}
+
+func TestCountEmoji_ConsecutiveEmoji(t *testing.T) {
+	assert.Equal(t, 3, CountEmoji("😄🔥😄"))
+}

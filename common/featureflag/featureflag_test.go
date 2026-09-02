@@ -178,6 +178,108 @@ func TestManager_SetFlagClampsPercentage(t *testing.T) {
 	assert.Equal(t, 0, f.Percentage)
 }
 
+func TestManager_SetFlagNilAndEmptyName(t *testing.T) {
+	m := NewManager()
+	// nil flag is a no-op.
+	m.SetFlag(nil)
+	assert.Empty(t, m.AllFlags())
+	// Empty name is a no-op.
+	m.SetFlag(&Flag{Name: "", Enabled: true})
+	assert.Empty(t, m.AllFlags())
+}
+
+func TestManager_SetFlagCopiesSlicesAndMetadata(t *testing.T) {
+	m := NewManager()
+	wl := []string{"a", "b"}
+	bl := []string{"x"}
+	md := map[string]any{"k": "v"}
+	m.SetFlag(&Flag{Name: "cp", Enabled: true, Percentage: 100, Whitelist: wl, Blacklist: bl, Metadata: md})
+
+	// Mutate the original slices/map; the manager's copy must be unaffected.
+	wl[0] = "changed"
+	bl[0] = "changed"
+	md["k"] = "changed"
+	f := m.GetFlag("cp")
+	require.NotNil(t, f)
+	assert.Equal(t, []string{"a", "b"}, f.Whitelist)
+	assert.Equal(t, []string{"x"}, f.Blacklist)
+	assert.Equal(t, "v", f.Metadata["k"])
+}
+
+func TestManager_SetPercentageClamps(t *testing.T) {
+	m := NewManager()
+	// Negative clamps to 0 and still enables the flag.
+	m.SetPercentage("p", -10)
+	f := m.GetFlag("p")
+	require.NotNil(t, f)
+	assert.True(t, f.Enabled)
+	assert.Equal(t, 0, f.Percentage)
+	assert.False(t, m.IsEnabled("p", "u"))
+
+	// Over 100 clamps to 100.
+	m.SetPercentage("p", 999)
+	f = m.GetFlag("p")
+	require.NotNil(t, f)
+	assert.Equal(t, 100, f.Percentage)
+	assert.True(t, m.IsEnabled("p", "u"))
+}
+
+func TestManager_AddWhitelistDuplicate(t *testing.T) {
+	m := NewManager()
+	m.AddWhitelist("w", "u1")
+	m.AddWhitelist("w", "u1") // duplicate, should be ignored
+	m.AddWhitelist("w", "u2")
+	f := m.GetFlag("w")
+	require.NotNil(t, f)
+	assert.ElementsMatch(t, []string{"u1", "u2"}, f.Whitelist)
+	assert.True(t, f.Enabled)
+}
+
+func TestManager_AllFlagsEmpty(t *testing.T) {
+	m := NewManager()
+	all := m.AllFlags()
+	assert.Empty(t, all)
+}
+
+func TestManager_IsEnabledConcurrent(t *testing.T) {
+	m := NewManager()
+	m.SetFlag(&Flag{Name: "cc", Enabled: true, Percentage: 50})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			uid := "u" + itoa(i%30)
+			_ = m.IsEnabled("cc", uid)
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestManager_PercentageBoundaries(t *testing.T) {
+	m := NewManager()
+	// 0% with no whitelist: everyone disabled.
+	m.SetFlag(&Flag{Name: "zero", Enabled: true, Percentage: 0})
+	assert.False(t, m.IsEnabled("zero", "any"))
+	// 100% with no blacklist: everyone enabled.
+	m.SetFlag(&Flag{Name: "full", Enabled: true, Percentage: 100})
+	assert.True(t, m.IsEnabled("full", "any"))
+}
+
+func TestManager_WhitelistAndBlacklistSameUser(t *testing.T) {
+	m := NewManager()
+	// When the same user is in both whitelist and blacklist, blacklist wins.
+	m.SetFlag(&Flag{
+		Name:       "wb",
+		Enabled:    true,
+		Percentage: 100,
+		Whitelist:  []string{"u"},
+		Blacklist:  []string{"u"},
+	})
+	assert.False(t, m.IsEnabled("wb", "u"))
+}
+
 // itoa is a tiny dependency-free int->string helper to keep the test file
 // free of strconv imports (purely stylistic).
 func itoa(i int) string {

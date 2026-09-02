@@ -177,3 +177,155 @@ func TestXSSAttackVectors(t *testing.T) {
 		assert.NotContains(t, low, "javascript:", v)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Additional coverage tests
+// ---------------------------------------------------------------------------
+
+func TestCleanStrict_Empty(t *testing.T) {
+	assert.Equal(t, "", CleanStrict(""))
+}
+
+func TestCleanUGC_Empty(t *testing.T) {
+	assert.Equal(t, "", CleanUGC(""))
+}
+
+func TestCleanUGC_KeepsClassAndTitle(t *testing.T) {
+	out := CleanUGC(`<div class="note">x</div><a href="https://e.com" title="t">l</a>`)
+	assert.Contains(t, out, "note")
+	assert.Contains(t, out, `title="t"`)
+}
+
+func TestCleanUGC_KeepsTableTags(t *testing.T) {
+	in := `<table><thead><tr><th>H</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>`
+	out := CleanUGC(in)
+	assert.Contains(t, out, "<table>")
+	assert.Contains(t, out, "<th>H</th>")
+	assert.Contains(t, out, "<td>1</td>")
+}
+
+func TestCleanUGC_KeepsHeadings(t *testing.T) {
+	out := CleanUGC(`<h1>Title</h1><h2>Sub</h2>`)
+	assert.Contains(t, out, "<h1>Title</h1>")
+	assert.Contains(t, out, "<h2>Sub</h2>")
+}
+
+func TestCleanUGC_KeepsBlockquote(t *testing.T) {
+	out := CleanUGC(`<blockquote>quote</blockquote>`)
+	assert.Contains(t, out, "<blockquote>quote</blockquote>")
+}
+
+func TestCleanUGC_KeepsImg(t *testing.T) {
+	out := CleanUGC(`<img src="https://e.com/a.png" alt="alt">`)
+	assert.Contains(t, out, "<img")
+	assert.Contains(t, out, "https://e.com/a.png")
+}
+
+func TestCleanMarkdown_Empty(t *testing.T) {
+	assert.Equal(t, "", CleanMarkdown(""))
+}
+
+func TestCleanMarkdown_KeepsMarkdownSyntax(t *testing.T) {
+	in := "# Title\n\n**bold** *italic* `code`\n\n- item\n\n[link](https://e.com)"
+	out := CleanMarkdown(in)
+	assert.Contains(t, out, "Title")
+	assert.Contains(t, out, "**bold**")
+	assert.Contains(t, out, "*italic*")
+	assert.Contains(t, out, "`code`")
+	assert.Contains(t, out, "- item")
+	assert.Contains(t, out, "[link](https://e.com)")
+}
+
+func TestCleanMarkdown_StripsOnAttrs(t *testing.T) {
+	out := CleanMarkdown(`<p onclick="evil()">text</p>`)
+	assert.NotContains(t, out, "onclick")
+	assert.NotContains(t, out, "evil")
+	assert.Contains(t, out, "text")
+}
+
+func TestCleanMarkdown_StripsScript(t *testing.T) {
+	out := CleanMarkdown(`text <script>alert(1)</script> more`)
+	assert.NotContains(t, out, "script")
+	assert.NotContains(t, out, "alert")
+	assert.Contains(t, out, "text")
+	assert.Contains(t, out, "more")
+}
+
+func TestStripTags_NestedAndStyleIframe(t *testing.T) {
+	out := StripTags(`<div><span>a</span><style>b{}</style><iframe>c</iframe></div>`)
+	assert.Contains(t, out, "a")
+	assert.NotContains(t, out, "b{}")
+	assert.NotContains(t, out, "c")
+}
+
+func TestStripTags_WhitespaceOnly(t *testing.T) {
+	assert.Equal(t, "", StripTags("   "))
+	assert.Equal(t, "", StripTags("<br>"))
+}
+
+func TestSanitizeURL_RelativeAndFTP(t *testing.T) {
+	assert.Equal(t, "/rel/path", SanitizeURL("/rel/path"))
+	assert.Equal(t, "ftp://h.com/f", SanitizeURL("ftp://h.com/f"))
+}
+
+func TestSanitizeURL_TrimsWhitespace(t *testing.T) {
+	assert.Equal(t, "https://e.com", SanitizeURL("  https://e.com  "))
+}
+
+func TestSanitizeURL_UnsafeAbsoluteScheme(t *testing.T) {
+	// An absolute URL with an unhandled but non-dangerous scheme returns "".
+	assert.Equal(t, "", SanitizeURL("foo://bar"))
+}
+
+func TestSanitizeURL_EmptyAfterTrim(t *testing.T) {
+	assert.Equal(t, "", SanitizeURL("   "))
+}
+
+func TestIsSafeURL_Relative(t *testing.T) {
+	assert.True(t, IsSafeURL("/relative"))
+	assert.True(t, IsSafeURL("relative.html"))
+}
+
+func TestIsSafeURL_OtherScheme(t *testing.T) {
+	assert.False(t, IsSafeURL("foo://bar"))
+	assert.False(t, IsSafeURL("myapp:thing"))
+}
+
+func TestIsSafeURL_TrimsWhitespace(t *testing.T) {
+	assert.True(t, IsSafeURL("  https://e.com  "))
+}
+
+func TestIsSafeURL_FTPAndMailtoAndTel(t *testing.T) {
+	assert.True(t, IsSafeURL("ftp://h.com"))
+	assert.True(t, IsSafeURL("mailto:a@b.com"))
+	assert.True(t, IsSafeURL("tel:+1234"))
+}
+
+func TestSanitizeURL_DangerousWithSpaces(t *testing.T) {
+	assert.Equal(t, "", SanitizeURL("  javascript:alert(1)  "))
+	assert.False(t, IsSafeURL("  javascript:alert(1)  "))
+}
+
+func TestSanitizeURL_ParseError(t *testing.T) {
+	// Invalid URL escape triggers a url.Parse error.
+	assert.Equal(t, "", SanitizeURL("%zz"))
+}
+
+func TestIsSafeURL_ParseError(t *testing.T) {
+	// Invalid URL escape triggers a url.Parse error.
+	assert.False(t, IsSafeURL("%zz"))
+}
+
+func TestClean_KeepsTableTags(t *testing.T) {
+	in := `<table><tr><td>1</td></tr></table>`
+	out := Clean(in)
+	assert.Contains(t, out, "<table")
+	assert.Contains(t, out, "<td>1</td>")
+}
+
+func TestClean_StripsStyleAndIframe(t *testing.T) {
+	out := Clean(`<style>body{}</style><iframe src=x></iframe>text`)
+	assert.NotContains(t, out, "body{}")
+	assert.NotContains(t, out, "iframe")
+	assert.Contains(t, out, "text")
+}

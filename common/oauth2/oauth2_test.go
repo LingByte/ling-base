@@ -6,6 +6,7 @@ package oauth2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -454,4 +455,426 @@ func TestAuthURL_ContainsExistingQuery(t *testing.T) {
 	got := client.AuthURL("s")
 	assert.True(t, strings.Contains(got, "foo=bar"))
 	assert.True(t, strings.Contains(got, "state=s"))
+}
+
+// errBody is an io.ReadCloser that always returns an error on Read.
+type errBody struct{}
+
+func (errBody) Read(p []byte) (int, error) { return 0, fmt.Errorf("read boom") }
+func (errBody) Close() error               { return nil }
+
+// newClientWithReadErrorTransport returns a Client whose http client uses a
+// transport that returns a 200 response whose body fails to read.
+func newClientWithReadErrorTransport(t *testing.T, provider *Provider) *Client {
+	t.Helper()
+	rt := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       errBody{},
+		}, nil
+	})
+	hc := &http.Client{Transport: rt}
+	c := NewClient(provider)
+	c.SetHTTPClient(hc)
+	return c
+}
+
+// roundTripFunc is an http.RoundTripper backed by a function.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+func TestExchange_BuildRequestError(t *testing.T) {
+	provider := &Provider{Name: "custom", TokenURL: "http://exa mple.com/token"}
+	client := NewClient(provider)
+	tok, err := client.Exchange(context.Background(), "code")
+	require.Error(t, err)
+	assert.Nil(t, tok)
+	assert.Contains(t, err.Error(), "build token request")
+}
+
+func TestExchange_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := &Provider{Name: "custom", TokenURL: "https://example.com/token"}
+	client := NewClient(provider)
+	tok, err := client.Exchange(ctx, "code")
+	require.Error(t, err)
+	assert.Nil(t, tok)
+	assert.Contains(t, err.Error(), "token request")
+}
+
+func TestExchange_ReadBodyError(t *testing.T) {
+	provider := &Provider{Name: "custom", TokenURL: "https://example.com/token"}
+	client := newClientWithReadErrorTransport(t, provider)
+	tok, err := client.Exchange(context.Background(), "code")
+	require.Error(t, err)
+	assert.Nil(t, tok)
+	assert.Contains(t, err.Error(), "read token response")
+}
+
+func TestRefresh_ErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"server_error"}`))
+	}))
+	defer srv.Close()
+
+	provider := &Provider{Name: "custom", TokenURL: srv.URL, ClientID: "cid", ClientSecret: "cs"}
+	client := NewClient(provider)
+	tok, err := client.Refresh(context.Background(), "rt-old")
+	require.Error(t, err)
+	assert.Nil(t, tok)
+	assert.Contains(t, err.Error(), "status 500")
+}
+
+func TestRefresh_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := &Provider{Name: "custom", TokenURL: "https://example.com/token", ClientID: "cid"}
+	client := NewClient(provider)
+	tok, err := client.Refresh(ctx, "rt-old")
+	require.Error(t, err)
+	assert.Nil(t, tok)
+	assert.Contains(t, err.Error(), "token request")
+}
+
+func TestParseToken_JSONExpiresInString(t *testing.T) {
+	tok, err := parseToken([]byte(`{"access_token":"at","expires_in":"3600"}`))
+	require.NoError(t, err)
+	assert.Equal(t, "at", tok.AccessToken)
+	assert.Equal(t, int64(3600), tok.ExpiresIn)
+	assert.False(t, tok.ExpiresAt.IsZero())
+}
+
+func TestParseToken_JSONNull(t *testing.T) {
+	// "null" unmarshals to a nil map, so the form-encoded fallback runs.
+	tok, err := parseToken([]byte("null"))
+	require.NoError(t, err)
+	assert.Equal(t, "", tok.AccessToken)
+	assert.NotNil(t, tok.Raw)
+}
+
+func TestParseToken_FormEncodedExpiresInInvalid(t *testing.T) {
+	// Invalid JSON -> form-encoded path; expires_in non-numeric so ExpiresAt stays zero.
+	tok, err := parseToken([]byte("access_token=at&expires_in=notanumber"))
+	require.NoError(t, err)
+	assert.Equal(t, "at", tok.AccessToken)
+	assert.Equal(t, int64(0), tok.ExpiresIn)
+	assert.True(t, tok.ExpiresAt.IsZero())
+}
+
+func TestParseToken_BothPathsFail(t *testing.T) {
+	// Invalid JSON and invalid query (semicolon) -> error.
+	_, err := parseToken([]byte("a=b;c=d"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse token response")
+}
+
+func TestGetUserInfo_NoAccessToken(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"id": "1"}))
+	}))
+	defer srv.Close()
+
+	provider := &Provider{Name: "custom", UserInfoURL: srv.URL}
+	client := NewClient(provider)
+	raw, err := client.GetUserInfo(context.Background(), &Token{})
+	require.NoError(t, err)
+	assert.Equal(t, "1", raw["id"])
+}
+
+func TestGetUserInfo_CustomTokenType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Mac at-1", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{}))
+	}))
+	defer srv.Close()
+
+	provider := &Provider{Name: "custom", UserInfoURL: srv.URL}
+	client := NewClient(provider)
+	_, err := client.GetUserInfo(context.Background(), &Token{AccessToken: "at-1", TokenType: "Mac"})
+	require.NoError(t, err)
+}
+
+func TestGetUserInfo_BuildRequestError(t *testing.T) {
+	provider := &Provider{Name: "custom", UserInfoURL: "http://exa mple.com/u"}
+	client := NewClient(provider)
+	_, err := client.GetUserInfo(context.Background(), &Token{AccessToken: "at"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build user-info request")
+}
+
+func TestGetUserInfo_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := &Provider{Name: "custom", UserInfoURL: "https://example.com/u"}
+	client := NewClient(provider)
+	_, err := client.GetUserInfo(ctx, &Token{AccessToken: "at"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user-info request")
+}
+
+func TestGetUserInfo_ReadBodyError(t *testing.T) {
+	provider := &Provider{Name: "custom", UserInfoURL: "https://example.com/u"}
+	client := newClientWithReadErrorTransport(t, provider)
+	_, err := client.GetUserInfo(context.Background(), &Token{AccessToken: "at"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read user-info response")
+}
+
+func TestGetUserInfo_ParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer srv.Close()
+
+	provider := &Provider{Name: "custom", UserInfoURL: srv.URL}
+	client := NewClient(provider)
+	_, err := client.GetUserInfo(context.Background(), &Token{AccessToken: "at"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse user-info response")
+}
+
+func TestGetUser_NilToken(t *testing.T) {
+	client := NewClient(&Provider{Name: "custom", UserInfoURL: "https://example.com/u"})
+	_, err := client.GetUser(context.Background(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nil")
+}
+
+func TestGetUser_WeChat_NoOpenID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		assert.Equal(t, "at-wx", q.Get("access_token"))
+		assert.Empty(t, q.Get("openid"))
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"openid": "x", "nickname": "n"}))
+	}))
+	defer srv.Close()
+
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	user, err := client.GetUser(context.Background(), &Token{AccessToken: "at-wx", Raw: map[string]any{}})
+	require.NoError(t, err)
+	assert.Equal(t, "x", user.ID)
+}
+
+func TestGetUser_WeChat_InvalidUserInfoURL(t *testing.T) {
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = "http://exa mple.com/u"
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-wx", Raw: map[string]any{"openid": "o"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse wechat user-info url")
+}
+
+func TestGetUser_WeChat_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	client := NewClient(provider)
+	_, err := client.GetUser(ctx, &Token{AccessToken: "at-wx", Raw: map[string]any{"openid": "o"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "wechat user-info request")
+}
+
+func TestGetUser_WeChat_ReadBodyError(t *testing.T) {
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	client := newClientWithReadErrorTransport(t, provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-wx", Raw: map[string]any{"openid": "o"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read wechat user-info response")
+}
+
+func TestGetUser_WeChat_ErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"errcode":40001}`))
+	}))
+	defer srv.Close()
+
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-wx", Raw: map[string]any{"openid": "o"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 401")
+}
+
+func TestGetUser_WeChat_ParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer srv.Close()
+
+	provider := WeChatProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-wx", Raw: map[string]any{"openid": "o"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse wechat user-info response")
+}
+
+func TestGetUser_DingTalk_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := DingTalkProvider("cid", "csecret", "https://example.com/cb")
+	client := NewClient(provider)
+	_, err := client.GetUser(ctx, &Token{AccessToken: "at-dt"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dingtalk user-info request")
+}
+
+func TestGetUser_DingTalk_ReadBodyError(t *testing.T) {
+	provider := DingTalkProvider("cid", "csecret", "https://example.com/cb")
+	client := newClientWithReadErrorTransport(t, provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-dt"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read dingtalk user-info response")
+}
+
+func TestGetUser_DingTalk_ErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`forbidden`))
+	}))
+	defer srv.Close()
+
+	provider := DingTalkProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-dt"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 403")
+}
+
+func TestGetUser_DingTalk_ParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer srv.Close()
+
+	provider := DingTalkProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-dt"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse dingtalk user-info response")
+}
+
+func TestGetUser_Feishu_RequestError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	provider := FeishuProvider("cid", "csecret", "https://example.com/cb")
+	client := NewClient(provider)
+	_, err := client.GetUser(ctx, &Token{AccessToken: "at-fs"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "feishu user-info request")
+}
+
+func TestGetUser_Feishu_ReadBodyError(t *testing.T) {
+	provider := FeishuProvider("cid", "csecret", "https://example.com/cb")
+	client := newClientWithReadErrorTransport(t, provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-fs"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read feishu user-info response")
+}
+
+func TestGetUser_Feishu_ErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`unauthorized`))
+	}))
+	defer srv.Close()
+
+	provider := FeishuProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-fs"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 401")
+}
+
+func TestGetUser_Feishu_ParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer srv.Close()
+
+	provider := FeishuProvider("cid", "csecret", "https://example.com/cb")
+	provider.UserInfoURL = srv.URL
+	client := NewClient(provider)
+	_, err := client.GetUser(context.Background(), &Token{AccessToken: "at-fs"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse feishu user-info response")
+}
+
+func TestMapUserInfo_Default(t *testing.T) {
+	client := NewClient(&Provider{Name: "custom"})
+	ui := client.mapUserInfo(map[string]any{
+		"id":     "9",
+		"name":   "Eve",
+		"email":  "eve@example.com",
+		"avatar": "https://example.com/eve.png",
+	})
+	assert.Equal(t, "9", ui.ID)
+	assert.Equal(t, "Eve", ui.Name)
+	assert.Equal(t, "eve@example.com", ui.Email)
+	assert.Equal(t, "https://example.com/eve.png", ui.Avatar)
+	assert.Equal(t, "custom", ui.Provider)
+}
+
+func TestMapUserInfo_DingTalk_OpenIDFallback(t *testing.T) {
+	client := NewClient(DingTalkProvider("cid", "cs", "https://example.com/cb"))
+	ui := client.mapUserInfo(map[string]any{
+		"openId":    "open-2",
+		"nick":      "N",
+		"avatarUrl": "https://example.com/n.png",
+	})
+	assert.Equal(t, "open-2", ui.ID)
+	assert.Equal(t, "N", ui.Name)
+	assert.Equal(t, "https://example.com/n.png", ui.Avatar)
+}
+
+func TestMapUserInfo_Feishu_UserIDFallback(t *testing.T) {
+	client := NewClient(FeishuProvider("cid", "cs", "https://example.com/cb"))
+	ui := client.mapUserInfo(map[string]any{
+		"user_id": "u-3",
+		"name":    "F",
+		"avatar":  "https://example.com/f.png",
+	})
+	assert.Equal(t, "u-3", ui.ID)
+	assert.Equal(t, "F", ui.Name)
+	assert.Equal(t, "https://example.com/f.png", ui.Avatar)
+}
+
+func TestMapUserInfo_NilRaw(t *testing.T) {
+	client := NewClient(&Provider{Name: "custom"})
+	ui := client.mapUserInfo(nil)
+	assert.Equal(t, "custom", ui.Provider)
+	assert.Empty(t, ui.ID)
+}
+
+func TestAsString_NonString(t *testing.T) {
+	assert.Equal(t, "", asString(123))
+	assert.Equal(t, "", asString(nil))
+	assert.Equal(t, "x", asString("x"))
+}
+
+func TestAsInt64(t *testing.T) {
+	assert.Equal(t, int64(42), asInt64(float64(42)))
+	assert.Equal(t, int64(7), asInt64(int64(7)))
+	assert.Equal(t, int64(3), asInt64(float32(3)))
+	assert.Equal(t, int64(0), asInt64("not a number"))
+	assert.Equal(t, int64(0), asInt64(nil))
 }

@@ -1,0 +1,1110 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>crypto: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/LingByte/ling-base/common/crypto/crypto.go (93.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Copyright (c) 2026 LingByte. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+// Package crypto provides encryption and signing utilities:
+//
+//   - AES: GCM and CBC modes with padding
+//   - RSA: key generation, encryption/decryption, signing/verification
+//   - HMAC-SHA signatures
+//   - JWT: create and parse JSON Web Tokens (HS256/RS256)
+//
+// # Quick start
+//
+//        // AES-GCM
+//        key := crypto.RandomKey(32) // AES-256
+//        ciphertext, _ := crypto.AESGCMEncrypt(key, []byte("secret"))
+//        plaintext, _ := crypto.AESGCMDecrypt(key, ciphertext)
+//
+//        // RSA
+//        priv, pub, _ := crypto.GenerateRSAKeyPair(2048)
+//        enc, _ := crypto.RSAEncrypt(pub, []byte("data"))
+//        dec, _ := crypto.RSADecrypt(priv, enc)
+//
+//        // JWT
+//        token, _ := crypto.NewJWT(crypto.JWTConfig{Secret: []byte("key")}).Sign(claims)
+package crypto
+
+import (
+        "crypto/aes"
+        "crypto/cipher"
+        "crypto/ecdsa"
+        "crypto/ed25519"
+        "crypto/elliptic"
+        "crypto/hmac"
+        "crypto/rand"
+        "crypto/rc4"
+        "crypto/rsa"
+        "crypto/sha256"
+        "crypto/sha512"
+        "crypto/x509"
+        "encoding/base64"
+        "encoding/hex"
+        "encoding/json"
+        "encoding/pem"
+        "errors"
+        "fmt"
+        "io"
+        "strings"
+        "time"
+)
+
+// ──────────────────────────────────────────────
+// Random key generation
+// ──────────────────────────────────────────────
+
+// RandomKey returns n cryptographically secure random bytes.
+func RandomKey(n int) ([]byte, error) <span class="cov8" title="1">{
+        key := make([]byte, n)
+        if _, err := rand.Read(key); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: generate key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return key, nil</span>
+}
+
+// MustRandomKey is like RandomKey but panics on error.
+func MustRandomKey(n int) []byte <span class="cov8" title="1">{
+        key, err := RandomKey(n)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">return key</span>
+}
+
+// ──────────────────────────────────────────────
+// AES-GCM
+// ──────────────────────────────────────────────
+
+// AESGCMEncrypt encrypts plaintext using AES-GCM with the given key.
+// The key must be 16, 24, or 32 bytes (AES-128/192/256).
+// Returns nonce + ciphertext concatenated.
+func AESGCMEncrypt(key, plaintext []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES cipher: %w", err)
+        }</span>
+        <span class="cov8" title="1">gcm, err := cipher.NewGCM(block)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: GCM: %w", err)
+        }</span>
+        <span class="cov8" title="1">nonce := make([]byte, gcm.NonceSize())
+        if _, err := rand.Read(nonce); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: nonce: %w", err)
+        }</span>
+        <span class="cov8" title="1">ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+        return append(nonce, ciphertext...), nil</span>
+}
+
+// AESGCMDecrypt decrypts data produced by AESGCMEncrypt.
+func AESGCMDecrypt(key, data []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES cipher: %w", err)
+        }</span>
+        <span class="cov8" title="1">gcm, err := cipher.NewGCM(block)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: GCM: %w", err)
+        }</span>
+        <span class="cov8" title="1">nonceSize := gcm.NonceSize()
+        if len(data) &lt; nonceSize </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: ciphertext too short")
+        }</span>
+        <span class="cov8" title="1">nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+        plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: GCM decrypt: %w", err)
+        }</span>
+        <span class="cov8" title="1">return plaintext, nil</span>
+}
+
+// AESGCMEncryptBase64 encrypts and returns base64-encoded result.
+func AESGCMEncryptBase64(key, plaintext []byte) (string, error) <span class="cov8" title="1">{
+        data, err := AESGCMEncrypt(key, plaintext)
+        if err != nil </span><span class="cov8" title="1">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return base64.StdEncoding.EncodeToString(data), nil</span>
+}
+
+// AESGCMDecryptBase64 decrypts a base64-encoded ciphertext.
+func AESGCMDecryptBase64(key []byte, encoded string) ([]byte, error) <span class="cov8" title="1">{
+        data, err := base64.StdEncoding.DecodeString(encoded)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: base64 decode: %w", err)
+        }</span>
+        <span class="cov8" title="1">return AESGCMDecrypt(key, data)</span>
+}
+
+// ──────────────────────────────────────────────
+// AES-CBC (with PKCS7 padding)
+// ──────────────────────────────────────────────
+
+// AESCBCEncrypt encrypts plaintext using AES-CBC with PKCS7 padding.
+// The key must be 16, 24, or 32 bytes. A random IV is prepended to the output.
+func AESCBCEncrypt(key, plaintext []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES cipher: %w", err)
+        }</span>
+        // PKCS7 padding.
+        <span class="cov8" title="1">blockSize := block.BlockSize()
+        padded := pkcs7Pad(plaintext, blockSize)
+
+        iv := make([]byte, blockSize)
+        if _, err := rand.Read(iv); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: IV: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">mode := cipher.NewCBCEncrypter(block, iv)
+        ciphertext := make([]byte, len(padded))
+        mode.CryptBlocks(ciphertext, padded)
+
+        return append(iv, ciphertext...), nil</span>
+}
+
+// AESCBCDecrypt decrypts data produced by AESCBCEncrypt.
+func AESCBCDecrypt(key, data []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES cipher: %w", err)
+        }</span>
+        <span class="cov8" title="1">blockSize := block.BlockSize()
+        if len(data) &lt; blockSize </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: ciphertext too short")
+        }</span>
+        <span class="cov8" title="1">iv, ciphertext := data[:blockSize], data[blockSize:]
+        if len(ciphertext)%blockSize != 0 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: ciphertext not a multiple of block size")
+        }</span>
+
+        <span class="cov8" title="1">mode := cipher.NewCBCDecrypter(block, iv)
+        plaintext := make([]byte, len(ciphertext))
+        mode.CryptBlocks(plaintext, ciphertext)
+
+        return pkcs7Unpad(plaintext, blockSize)</span>
+}
+
+// pkcs7Pad applies PKCS7 padding.
+func pkcs7Pad(data []byte, blockSize int) []byte <span class="cov8" title="1">{
+        padding := blockSize - len(data)%blockSize
+        pad := make([]byte, padding)
+        for i := range pad </span><span class="cov8" title="1">{
+                pad[i] = byte(padding)
+        }</span>
+        <span class="cov8" title="1">return append(data, pad...)</span>
+}
+
+// pkcs7Unpad removes PKCS7 padding.
+func pkcs7Unpad(data []byte, blockSize int) ([]byte, error) <span class="cov8" title="1">{
+        if len(data) == 0 || len(data)%blockSize != 0 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid padding")
+        }</span>
+        <span class="cov8" title="1">padding := int(data[len(data)-1])
+        if padding &lt; 1 || padding &gt; blockSize </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid padding length")
+        }</span>
+        <span class="cov8" title="1">for i := len(data) - padding; i &lt; len(data); i++ </span><span class="cov8" title="1">{
+                if int(data[i]) != padding </span><span class="cov8" title="1">{
+                        return nil, errors.New("crypto: invalid padding bytes")
+                }</span>
+        }
+        <span class="cov8" title="1">return data[:len(data)-padding], nil</span>
+}
+
+// ──────────────────────────────────────────────
+// AES-CFB
+// ──────────────────────────────────────────────
+
+// AESCFBEncrypt encrypts plaintext using AES in CFB mode.
+// The returned ciphertext includes a random IV prepended to the encrypted data.
+func AESCFBEncrypt(key, plaintext []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES CFB: %w", err)
+        }</span>
+        <span class="cov8" title="1">ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+        iv := ciphertext[:aes.BlockSize]
+        if _, err = io.ReadFull(rand.Reader, iv); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: read IV: %w", err)
+        }</span>
+        <span class="cov8" title="1">cfb := cipher.NewCFBEncrypter(block, iv)
+        cfb.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+        return ciphertext, nil</span>
+}
+
+// AESCFBDecrypt decrypts AES-CFB ciphertext (IV prepended).
+func AESCFBDecrypt(key, ciphertext []byte) ([]byte, error) <span class="cov8" title="1">{
+        block, err := aes.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: AES CFB: %w", err)
+        }</span>
+        <span class="cov8" title="1">if len(ciphertext) &lt; aes.BlockSize </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: ciphertext too short")
+        }</span>
+        <span class="cov8" title="1">iv := ciphertext[:aes.BlockSize]
+        ciphertext = ciphertext[aes.BlockSize:]
+        cfb := cipher.NewCFBDecrypter(block, iv)
+        cfb.XORKeyStream(ciphertext, ciphertext)
+        return ciphertext, nil</span>
+}
+
+// ──────────────────────────────────────────────
+// RC4 (legacy)
+// ──────────────────────────────────────────────
+
+// RC4Encrypt encrypts str with RC4 and returns hex-encoded result.
+// RC4 is considered insecure; prefer AES for new code.
+func RC4Encrypt(str string, key []byte) string <span class="cov8" title="1">{
+        plaintext := []byte(str)
+        c, err := rc4.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">out := make([]byte, len(plaintext))
+        c.XORKeyStream(out, plaintext)
+        return hex.EncodeToString(out)</span>
+}
+
+// RC4Decrypt decrypts a hex-encoded RC4 ciphertext.
+func RC4Decrypt(str string, key []byte) string <span class="cov8" title="1">{
+        ciphertext, _ := hex.DecodeString(str)
+        if len(ciphertext) == 0 </span><span class="cov8" title="1">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">c, err := rc4.NewCipher(key)
+        if err != nil </span><span class="cov8" title="1">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">out := make([]byte, len(ciphertext))
+        c.XORKeyStream(out, ciphertext)
+        return string(out)</span>
+}
+
+// ──────────────────────────────────────────────
+// RSA
+// ──────────────────────────────────────────────
+
+// GenerateRSAKeyPair generates an RSA key pair of the given bit size.
+func GenerateRSAKeyPair(bits int) (*rsa.PrivateKey, *rsa.PublicKey, error) <span class="cov8" title="1">{
+        priv, err := rsa.GenerateKey(rand.Reader, bits)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, fmt.Errorf("crypto: generate RSA key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return priv, &amp;priv.PublicKey, nil</span>
+}
+
+// RSAEncrypt encrypts plaintext using RSA-OAEP with SHA-256.
+func RSAEncrypt(pub *rsa.PublicKey, plaintext []byte) ([]byte, error) <span class="cov8" title="1">{
+        ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, plaintext, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: RSA encrypt: %w", err)
+        }</span>
+        <span class="cov8" title="1">return ciphertext, nil</span>
+}
+
+// RSADecrypt decrypts ciphertext using RSA-OAEP with SHA-256.
+func RSADecrypt(priv *rsa.PrivateKey, ciphertext []byte) ([]byte, error) <span class="cov8" title="1">{
+        plaintext, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, priv, ciphertext, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: RSA decrypt: %w", err)
+        }</span>
+        <span class="cov8" title="1">return plaintext, nil</span>
+}
+
+// RSASign signs data using RSASSA-PKCS1-v1.5 with SHA-256.
+func RSASign(priv *rsa.PrivateKey, data []byte) ([]byte, error) <span class="cov8" title="1">{
+        hashed := sha256.Sum256(data)
+        sig, err := rsa.SignPKCS1v15(rand.Reader, priv, 0, hashed[:])
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: RSA sign: %w", err)
+        }</span>
+        <span class="cov8" title="1">return sig, nil</span>
+}
+
+// RSAVerify verifies an RSASSA-PKCS1-v1.5 signature.
+func RSAVerify(pub *rsa.PublicKey, data, sig []byte) error <span class="cov8" title="1">{
+        hashed := sha256.Sum256(data)
+        return rsa.VerifyPKCS1v15(pub, 0, hashed[:], sig)
+}</span>
+
+// ExportRSAPrivateKeyPEM exports a private key as PEM-encoded string.
+func ExportRSAPrivateKeyPEM(priv *rsa.PrivateKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalPKCS8PrivateKey(priv)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "PRIVATE KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ExportRSAPublicKeyPEM exports a public key as PEM-encoded string.
+func ExportRSAPublicKeyPEM(pub *rsa.PublicKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalPKIXPublicKey(pub)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal public key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "PUBLIC KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ParseRSAPrivateKeyPEM parses a PEM-encoded RSA private key.
+func ParseRSAPrivateKeyPEM(pemStr string) (*rsa.PrivateKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+        <span class="cov8" title="1">key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                // Try PKCS1.
+                key2, err2 := x509.ParsePKCS1PrivateKey(block.Bytes)
+                if err2 != nil </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("crypto: parse private key: %w", err)
+                }</span>
+                <span class="cov8" title="1">return key2, nil</span>
+        }
+        <span class="cov8" title="1">rsaKey, ok := key.(*rsa.PrivateKey)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: not an RSA private key")
+        }</span>
+        <span class="cov8" title="1">return rsaKey, nil</span>
+}
+
+// ParseRSAPublicKeyPEM parses a PEM-encoded RSA public key.
+func ParseRSAPublicKeyPEM(pemStr string) (*rsa.PublicKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+        <span class="cov8" title="1">key, err := x509.ParsePKIXPublicKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                // Try PKCS1.
+                key2, err2 := x509.ParsePKCS1PublicKey(block.Bytes)
+                if err2 != nil </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("crypto: parse public key: %w", err)
+                }</span>
+                <span class="cov8" title="1">return key2, nil</span>
+        }
+        <span class="cov8" title="1">rsaKey, ok := key.(*rsa.PublicKey)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: not an RSA public key")
+        }</span>
+        <span class="cov8" title="1">return rsaKey, nil</span>
+}
+
+// ──────────────────────────────────────────────
+// HMAC-SHA signatures
+// ──────────────────────────────────────────────
+
+// SignSHA256 signs data using HMAC-SHA256.
+func SignSHA256(data, key []byte) []byte <span class="cov8" title="1">{
+        h := hmac.New(sha256.New, key)
+        h.Write(data)
+        return h.Sum(nil)
+}</span>
+
+// VerifySHA256 verifies an HMAC-SHA256 signature in constant time.
+func VerifySHA256(data, key, sig []byte) bool <span class="cov8" title="1">{
+        expected := SignSHA256(data, key)
+        return hmac.Equal(expected, sig)
+}</span>
+
+// SignSHA512 signs data using HMAC-SHA512.
+func SignSHA512(data, key []byte) []byte <span class="cov8" title="1">{
+        h := hmac.New(sha512.New, key)
+        h.Write(data)
+        return h.Sum(nil)
+}</span>
+
+// VerifySHA512 verifies an HMAC-SHA512 signature in constant time.
+func VerifySHA512(data, key, sig []byte) bool <span class="cov8" title="1">{
+        expected := SignSHA512(data, key)
+        return hmac.Equal(expected, sig)
+}</span>
+
+// ──────────────────────────────────────────────
+// JWT (JSON Web Token)
+// ──────────────────────────────────────────────
+
+// JWTAlgorithm represents a JWT signing algorithm.
+type JWTAlgorithm string
+
+const (
+        JWTAlgHS256 JWTAlgorithm = "HS256"
+        JWTAlgHS512 JWTAlgorithm = "HS512"
+        JWTAlgRS256 JWTAlgorithm = "RS256"
+)
+
+// JWTConfig configures the JWT signer.
+type JWTConfig struct {
+        Algorithm JWTAlgorithm    // default HS256
+        Secret    []byte          // for HS256/HS512
+        RSAPriv   *rsa.PrivateKey // for RS256 signing
+        RSAPub    *rsa.PublicKey  // for RS256 verification
+        Issuer    string          // iss claim
+        Audience  string          // aud claim
+        ExpiresIn time.Duration   // exp claim
+}
+
+// JWTClaims represents JWT claims.
+type JWTClaims struct {
+        Issuer    string                 `json:"iss,omitempty"`
+        Subject   string                 `json:"sub,omitempty"`
+        Audience  string                 `json:"aud,omitempty"`
+        ExpiresAt int64                  `json:"exp,omitempty"`
+        NotBefore int64                  `json:"nbf,omitempty"`
+        IssuedAt  int64                  `json:"iat,omitempty"`
+        ID        string                 `json:"jti,omitempty"`
+        Extra     map[string]interface{} `json:"-"`
+}
+
+// JWT is a JWT token signer/verifier.
+type JWT struct {
+        config JWTConfig
+}
+
+// NewJWT creates a new JWT signer with the given config.
+func NewJWT(cfg JWTConfig) *JWT <span class="cov8" title="1">{
+        if cfg.Algorithm == "" </span><span class="cov8" title="1">{
+                cfg.Algorithm = JWTAlgHS256
+        }</span>
+        <span class="cov8" title="1">return &amp;JWT{config: cfg}</span>
+}
+
+// Sign creates a signed JWT token from the given claims.
+func (j *JWT) Sign(claims JWTClaims) (string, error) <span class="cov8" title="1">{
+        header := map[string]string{
+                "alg": string(j.config.Algorithm),
+                "typ": "JWT",
+        }
+        headerJSON, err := json.Marshal(header)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: JWT header: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">now := time.Now()
+        if claims.Issuer == "" </span><span class="cov8" title="1">{
+                claims.Issuer = j.config.Issuer
+        }</span>
+        <span class="cov8" title="1">if claims.Audience == "" </span><span class="cov8" title="1">{
+                claims.Audience = j.config.Audience
+        }</span>
+        <span class="cov8" title="1">if claims.IssuedAt == 0 </span><span class="cov8" title="1">{
+                claims.IssuedAt = now.Unix()
+        }</span>
+        <span class="cov8" title="1">if claims.NotBefore == 0 </span><span class="cov8" title="1">{
+                claims.NotBefore = now.Unix()
+        }</span>
+        <span class="cov8" title="1">if claims.ExpiresAt == 0 &amp;&amp; j.config.ExpiresIn != 0 </span><span class="cov8" title="1">{
+                claims.ExpiresAt = now.Add(j.config.ExpiresIn).Unix()
+        }</span>
+
+        // Build payload map.
+        <span class="cov8" title="1">payload := map[string]interface{}{}
+        if claims.Issuer != "" </span><span class="cov8" title="1">{
+                payload["iss"] = claims.Issuer
+        }</span>
+        <span class="cov8" title="1">if claims.Subject != "" </span><span class="cov8" title="1">{
+                payload["sub"] = claims.Subject
+        }</span>
+        <span class="cov8" title="1">if claims.Audience != "" </span><span class="cov0" title="0">{
+                payload["aud"] = claims.Audience
+        }</span>
+        <span class="cov8" title="1">if claims.ExpiresAt != 0 </span><span class="cov8" title="1">{
+                payload["exp"] = claims.ExpiresAt
+        }</span>
+        <span class="cov8" title="1">if claims.NotBefore != 0 </span><span class="cov8" title="1">{
+                payload["nbf"] = claims.NotBefore
+        }</span>
+        <span class="cov8" title="1">if claims.IssuedAt != 0 </span><span class="cov8" title="1">{
+                payload["iat"] = claims.IssuedAt
+        }</span>
+        <span class="cov8" title="1">if claims.ID != "" </span><span class="cov0" title="0">{
+                payload["jti"] = claims.ID
+        }</span>
+        <span class="cov8" title="1">for k, v := range claims.Extra </span><span class="cov8" title="1">{
+                payload[k] = v
+        }</span>
+
+        <span class="cov8" title="1">payloadJSON, err := json.Marshal(payload)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: JWT payload: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+        payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+        signingInput := headerB64 + "." + payloadB64
+
+        sig, err := j.sign([]byte(signingInput))
+        if err != nil </span><span class="cov8" title="1">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">sigB64 := base64.RawURLEncoding.EncodeToString(sig)
+        return signingInput + "." + sigB64, nil</span>
+}
+
+// Parse parses and verifies a JWT token, returning the claims.
+// Does not check expiration; use Verify for full validation.
+func (j *JWT) Parse(token string) (*JWTClaims, error) <span class="cov8" title="1">{
+        parts := strings.Split(token, ".")
+        if len(parts) != 3 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: JWT: invalid token format")
+        }</span>
+
+        <span class="cov8" title="1">signingInput := parts[0] + "." + parts[1]
+        sig, err := base64.RawURLEncoding.DecodeString(parts[2])
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: JWT: decode signature: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := j.verify([]byte(signingInput), sig); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: JWT: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: JWT: decode payload: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">var raw map[string]interface{}
+        if err := json.Unmarshal(payloadJSON, &amp;raw); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: JWT: parse payload: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">claims := &amp;JWTClaims{Extra: map[string]interface{}{}}
+        for k, v := range raw </span><span class="cov8" title="1">{
+                switch k </span>{
+                case "iss":<span class="cov8" title="1">
+                        if s, ok := v.(string); ok </span><span class="cov8" title="1">{
+                                claims.Issuer = s
+                        }</span>
+                case "sub":<span class="cov8" title="1">
+                        if s, ok := v.(string); ok </span><span class="cov8" title="1">{
+                                claims.Subject = s
+                        }</span>
+                case "aud":<span class="cov0" title="0">
+                        if s, ok := v.(string); ok </span><span class="cov0" title="0">{
+                                claims.Audience = s
+                        }</span>
+                case "exp":<span class="cov8" title="1">
+                        if f, ok := v.(float64); ok </span><span class="cov8" title="1">{
+                                claims.ExpiresAt = int64(f)
+                        }</span>
+                case "nbf":<span class="cov8" title="1">
+                        if f, ok := v.(float64); ok </span><span class="cov8" title="1">{
+                                claims.NotBefore = int64(f)
+                        }</span>
+                case "iat":<span class="cov8" title="1">
+                        if f, ok := v.(float64); ok </span><span class="cov8" title="1">{
+                                claims.IssuedAt = int64(f)
+                        }</span>
+                case "jti":<span class="cov0" title="0">
+                        if s, ok := v.(string); ok </span><span class="cov0" title="0">{
+                                claims.ID = s
+                        }</span>
+                default:<span class="cov8" title="1">
+                        claims.Extra[k] = v</span>
+                }
+        }
+        <span class="cov8" title="1">return claims, nil</span>
+}
+
+// Verify parses, verifies, and checks expiration of a JWT token.
+func (j *JWT) Verify(token string) (*JWTClaims, error) <span class="cov8" title="1">{
+        claims, err := j.Parse(token)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">now := time.Now().Unix()
+        if claims.ExpiresAt &gt; 0 &amp;&amp; now &gt; claims.ExpiresAt </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: JWT: token expired")
+        }</span>
+        <span class="cov8" title="1">if claims.NotBefore &gt; 0 &amp;&amp; now &lt; claims.NotBefore </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: JWT: token not valid yet")
+        }</span>
+        <span class="cov8" title="1">return claims, nil</span>
+}
+
+// sign signs the signing input using the configured algorithm.
+func (j *JWT) sign(data []byte) ([]byte, error) <span class="cov8" title="1">{
+        switch j.config.Algorithm </span>{
+        case JWTAlgHS256:<span class="cov8" title="1">
+                return SignSHA256(data, j.config.Secret), nil</span>
+        case JWTAlgHS512:<span class="cov8" title="1">
+                return SignSHA512(data, j.config.Secret), nil</span>
+        case JWTAlgRS256:<span class="cov8" title="1">
+                if j.config.RSAPriv == nil </span><span class="cov8" title="1">{
+                        return nil, errors.New("crypto: JWT: RS256 requires private key")
+                }</span>
+                <span class="cov8" title="1">return RSASign(j.config.RSAPriv, data)</span>
+        default:<span class="cov8" title="1">
+                return nil, fmt.Errorf("crypto: JWT: unsupported algorithm %q", j.config.Algorithm)</span>
+        }
+}
+
+// verify verifies the signature using the configured algorithm.
+func (j *JWT) verify(data, sig []byte) error <span class="cov8" title="1">{
+        switch j.config.Algorithm </span>{
+        case JWTAlgHS256:<span class="cov8" title="1">
+                if !VerifySHA256(data, j.config.Secret, sig) </span><span class="cov8" title="1">{
+                        return errors.New("invalid signature")
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        case JWTAlgHS512:<span class="cov8" title="1">
+                if !VerifySHA512(data, j.config.Secret, sig) </span><span class="cov8" title="1">{
+                        return errors.New("invalid signature")
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        case JWTAlgRS256:<span class="cov8" title="1">
+                if j.config.RSAPub == nil </span><span class="cov0" title="0">{
+                        return errors.New("RS256 requires public key")
+                }</span>
+                <span class="cov8" title="1">return RSAVerify(j.config.RSAPub, data, sig)</span>
+        default:<span class="cov0" title="0">
+                return fmt.Errorf("unsupported algorithm %q", j.config.Algorithm)</span>
+        }
+}
+
+// ──────────────────────────────────────────────
+// Base64 helpers
+// ──────────────────────────────────────────────
+
+// Base64Encode returns standard base64 encoding.
+func Base64Encode(data []byte) string <span class="cov8" title="1">{
+        return base64.StdEncoding.EncodeToString(data)
+}</span>
+
+// Base64Decode decodes a standard base64 string.
+func Base64Decode(s string) ([]byte, error) <span class="cov8" title="1">{
+        return base64.StdEncoding.DecodeString(s)
+}</span>
+
+// Base64URLEncode returns URL-safe base64 encoding (no padding).
+func Base64URLEncode(data []byte) string <span class="cov8" title="1">{
+        return base64.RawURLEncoding.EncodeToString(data)
+}</span>
+
+// Base64URLDecode decodes a URL-safe base64 string (no padding).
+func Base64URLDecode(s string) ([]byte, error) <span class="cov8" title="1">{
+        return base64.RawURLEncoding.DecodeString(s)
+}</span>
+
+// ──────────────────────────────────────────────
+// Random ID generation
+// ──────────────────────────────────────────────
+
+// RandomHex returns n cryptographically secure random bytes as a hex string.
+func RandomHex(n int) (string, error) <span class="cov8" title="1">{
+        b, err := RandomKey(n)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return fmt.Sprintf("%x", b), nil</span>
+}
+
+// RandomBase64 returns n cryptographically secure random bytes as base64.
+func RandomBase64(n int) (string, error) <span class="cov8" title="1">{
+        b, err := RandomKey(n)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return base64.StdEncoding.EncodeToString(b), nil</span>
+}
+
+// RandomReader returns the crypto/rand reader for io.Copy usage.
+func RandomReader() io.Reader <span class="cov8" title="1">{
+        return rand.Reader
+}</span>
+
+// ──────────────────────────────────────────────
+// ECDSA (P-256)
+// ──────────────────────────────────────────────
+
+// GenerateECDSAKeyPair generates an ECDSA key pair on the P-256 curve
+// (secp256r1 / NIST P-256). This curve provides 128-bit security and
+// is widely supported.
+func GenerateECDSAKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) <span class="cov8" title="1">{
+        priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, fmt.Errorf("crypto: generate ECDSA key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return priv, &amp;priv.PublicKey, nil</span>
+}
+
+// ECDSASign signs data using ECDSA with SHA-256. The returned signature
+// is ASN.1-encoded (DER format), compatible with most verification
+// libraries.
+func ECDSASign(priv *ecdsa.PrivateKey, data []byte) ([]byte, error) <span class="cov8" title="1">{
+        if priv == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: ECDSA sign: private key is nil")
+        }</span>
+        <span class="cov8" title="1">hashed := sha256.Sum256(data)
+        sig, err := ecdsa.SignASN1(rand.Reader, priv, hashed[:])
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("crypto: ECDSA sign: %w", err)
+        }</span>
+        <span class="cov8" title="1">return sig, nil</span>
+}
+
+// ECDSAVerify verifies an ECDSA signature (ASN.1/DER-encoded) against
+// the given data using the public key.
+func ECDSAVerify(pub *ecdsa.PublicKey, data, sig []byte) error <span class="cov8" title="1">{
+        if pub == nil </span><span class="cov8" title="1">{
+                return errors.New("crypto: ECDSA verify: public key is nil")
+        }</span>
+        <span class="cov8" title="1">hashed := sha256.Sum256(data)
+        if !ecdsa.VerifyASN1(pub, hashed[:], sig) </span><span class="cov8" title="1">{
+                return errors.New("crypto: ECDSA verify: signature is invalid")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ExportECDSAPrivateKeyPEM exports an ECDSA private key as a
+// PEM-encoded string (SEC1 / EC PRIVATE KEY format).
+func ExportECDSAPrivateKeyPEM(priv *ecdsa.PrivateKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalECPrivateKey(priv)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal ECDSA private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "EC PRIVATE KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ExportECDSAPublicKeyPEM exports an ECDSA public key as a
+// PEM-encoded string (PKIX format).
+func ExportECDSAPublicKeyPEM(pub *ecdsa.PublicKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalPKIXPublicKey(pub)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal ECDSA public key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "PUBLIC KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ParseECDSAPrivateKeyPEM parses a PEM-encoded ECDSA private key
+// (SEC1 or PKCS8 format).
+func ParseECDSAPrivateKeyPEM(pemStr string) (*ecdsa.PrivateKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+
+        // Try PKCS8 first, then fall back to SEC1.
+        <span class="cov8" title="1">if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil </span><span class="cov8" title="1">{
+                ecdsaKey, ok := key.(*ecdsa.PrivateKey)
+                if !ok </span><span class="cov8" title="1">{
+                        return nil, errors.New("crypto: not an ECDSA private key")
+                }</span>
+                <span class="cov8" title="1">return ecdsaKey, nil</span>
+        }
+
+        <span class="cov8" title="1">key, err := x509.ParseECPrivateKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: parse ECDSA private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return key, nil</span>
+}
+
+// ParseECDSAPublicKeyPEM parses a PEM-encoded ECDSA public key
+// (PKIX format).
+func ParseECDSAPublicKeyPEM(pemStr string) (*ecdsa.PublicKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+        <span class="cov8" title="1">key, err := x509.ParsePKIXPublicKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: parse ECDSA public key: %w", err)
+        }</span>
+        <span class="cov8" title="1">ecdsaKey, ok := key.(*ecdsa.PublicKey)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: not an ECDSA public key")
+        }</span>
+        <span class="cov8" title="1">return ecdsaKey, nil</span>
+}
+
+// ──────────────────────────────────────────────
+// Ed25519
+// ──────────────────────────────────────────────
+
+// GenerateEd25519KeyPair generates an Ed25519 key pair. Ed25519
+// provides fast signing and verification with 128-bit security and
+// 64-byte signatures.
+func GenerateEd25519KeyPair() (ed25519.PrivateKey, ed25519.PublicKey, error) <span class="cov8" title="1">{
+        pub, priv, err := ed25519.GenerateKey(rand.Reader)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, fmt.Errorf("crypto: generate Ed25519 key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return priv, pub, nil</span>
+}
+
+// Ed25519Sign signs data using the Ed25519 private key. The returned
+// signature is 64 bytes.
+func Ed25519Sign(priv ed25519.PrivateKey, data []byte) ([]byte, error) <span class="cov8" title="1">{
+        if len(priv) != ed25519.PrivateKeySize </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: Ed25519 sign: invalid private key size")
+        }</span>
+        <span class="cov8" title="1">return ed25519.Sign(priv, data), nil</span>
+}
+
+// Ed25519Verify verifies an Ed25519 signature against the given data
+// using the public key.
+func Ed25519Verify(pub ed25519.PublicKey, data, sig []byte) error <span class="cov8" title="1">{
+        if len(pub) != ed25519.PublicKeySize </span><span class="cov8" title="1">{
+                return errors.New("crypto: Ed25519 verify: invalid public key size")
+        }</span>
+        <span class="cov8" title="1">if !ed25519.Verify(pub, data, sig) </span><span class="cov8" title="1">{
+                return errors.New("crypto: Ed25519 verify: signature is invalid")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ExportEd25519PrivateKeyPEM exports an Ed25519 private key as a
+// PEM-encoded string (PKCS8 format).
+func ExportEd25519PrivateKeyPEM(priv ed25519.PrivateKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalPKCS8PrivateKey(priv)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal Ed25519 private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "PRIVATE KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ExportEd25519PublicKeyPEM exports an Ed25519 public key as a
+// PEM-encoded string (PKIX format).
+func ExportEd25519PublicKeyPEM(pub ed25519.PublicKey) (string, error) <span class="cov8" title="1">{
+        der, err := x509.MarshalPKIXPublicKey(pub)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("crypto: marshal Ed25519 public key: %w", err)
+        }</span>
+        <span class="cov8" title="1">pemBlock := pem.EncodeToMemory(&amp;pem.Block{Type: "PUBLIC KEY", Bytes: der})
+        return string(pemBlock), nil</span>
+}
+
+// ParseEd25519PrivateKeyPEM parses a PEM-encoded Ed25519 private key
+// (PKCS8 format).
+func ParseEd25519PrivateKeyPEM(pemStr string) (ed25519.PrivateKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+        <span class="cov8" title="1">key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: parse Ed25519 private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">edKey, ok := key.(ed25519.PrivateKey)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: not an Ed25519 private key")
+        }</span>
+        <span class="cov8" title="1">return edKey, nil</span>
+}
+
+// ParseEd25519PublicKeyPEM parses a PEM-encoded Ed25519 public key
+// (PKIX format).
+func ParseEd25519PublicKeyPEM(pemStr string) (ed25519.PublicKey, error) <span class="cov8" title="1">{
+        block, _ := pem.Decode([]byte(pemStr))
+        if block == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: invalid PEM block")
+        }</span>
+        <span class="cov8" title="1">key, err := x509.ParsePKIXPublicKey(block.Bytes)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: parse Ed25519 public key: %w", err)
+        }</span>
+        <span class="cov8" title="1">edKey, ok := key.(ed25519.PublicKey)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: not an Ed25519 public key")
+        }</span>
+        <span class="cov8" title="1">return edKey, nil</span>
+}
+
+// ──────────────────────────────────────────────
+// Key Derivation Functions
+// ──────────────────────────────────────────────
+
+// HKDF derives a key of the given length from the input secret using
+// HMAC-based Key Derivation (RFC 5869) with SHA-256.
+//
+//   - secret: the input keying material (IKM)
+//   - salt:   optional salt (use nil or empty for no salt)
+//   - info:   optional context/application-specific information
+//   - length: desired output length in bytes (must be &gt; 0 and &lt;= 255*32)
+//
+// The derivation follows the two-step HKDF process: extract (PRK) then
+// expand (OKM).
+func HKDF(secret, salt, info []byte, length int) ([]byte, error) <span class="cov8" title="1">{
+        if length &lt;= 0 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: HKDF: length must be positive")
+        }</span>
+        <span class="cov8" title="1">if length &gt; 255*sha256.Size </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("crypto: HKDF: length %d exceeds maximum %d", length, 255*sha256.Size)
+        }</span>
+
+        // Extract: PRK = HMAC-SHA256(salt, IKM)
+        <span class="cov8" title="1">if salt == nil </span><span class="cov8" title="1">{
+                salt = make([]byte, sha256.Size)
+        }</span>
+        <span class="cov8" title="1">prk := hmac.New(sha256.New, salt)
+        prk.Write(secret)
+        prkBytes := prk.Sum(nil)
+
+        // Expand: OKM = T(1) | T(2) | ... | T(N), truncated to length
+        var okm []byte
+        t := make([]byte, 0, sha256.Size)
+        for i := 1; len(okm) &lt; length; i++ </span><span class="cov8" title="1">{
+                h := hmac.New(sha256.New, prkBytes)
+                h.Write(t)
+                h.Write(info)
+                h.Write([]byte{byte(i)})
+                t = h.Sum(nil)
+                okm = append(okm, t...)
+        }</span>
+
+        <span class="cov8" title="1">return okm[:length], nil</span>
+}
+
+// PBKDF2 derives a key from a password using PBKDF2 with HMAC-SHA256
+// (RFC 2898).
+//
+//   - password:   the password/passphrase
+//   - salt:       the salt value
+//   - iterations: number of iterations (use &gt;= 100000 for security)
+//   - length:     desired output length in bytes
+func PBKDF2(password, salt []byte, iterations, length int) ([]byte, error) <span class="cov8" title="1">{
+        if iterations &lt;= 0 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: PBKDF2: iterations must be positive")
+        }</span>
+        <span class="cov8" title="1">if length &lt;= 0 </span><span class="cov8" title="1">{
+                return nil, errors.New("crypto: PBKDF2: length must be positive")
+        }</span>
+
+        <span class="cov8" title="1">hLen := sha256.Size
+        numBlocks := (length + hLen - 1) / hLen
+
+        result := make([]byte, 0, numBlocks*hLen)
+
+        for block := 1; block &lt;= numBlocks; block++ </span><span class="cov8" title="1">{
+                // U1 = HMAC-SHA256(password, salt || INT_32_BE(block))
+                mac := hmac.New(sha256.New, password)
+                mac.Write(salt)
+                mac.Write([]byte{byte(block &gt;&gt; 24), byte(block &gt;&gt; 16), byte(block &gt;&gt; 8), byte(block)})
+                u := mac.Sum(nil)
+
+                t := make([]byte, hLen)
+                copy(t, u)
+
+                for i := 1; i &lt; iterations; i++ </span><span class="cov8" title="1">{
+                        mac := hmac.New(sha256.New, password)
+                        mac.Write(u)
+                        u = mac.Sum(nil)
+                        for j := range t </span><span class="cov8" title="1">{
+                                t[j] ^= u[j]
+                        }</span>
+                }
+
+                <span class="cov8" title="1">result = append(result, t...)</span>
+        }
+
+        <span class="cov8" title="1">return result[:length], nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

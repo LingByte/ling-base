@@ -154,3 +154,151 @@ func TestNewID_Uniqueness(t *testing.T) {
 		seen[id] = struct{}{}
 	}
 }
+
+func TestLogger_NilLogger(t *testing.T) {
+	// Calling Log on a nil *Logger must return an error, not panic.
+	var l *Logger
+	err := l.Log(context.Background(), &Entry{UserID: "u"})
+	assert.Error(t, err)
+}
+
+func TestLogger_LogAction_NoOptions(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	// LogAction with no options still records a valid entry.
+	err := logger.LogAction(ctx, "u", "a", "r", "rid")
+	require.NoError(t, err)
+
+	entries, err := store.Query(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	e := entries[0]
+	assert.Equal(t, "u", e.UserID)
+	assert.Equal(t, "a", e.Action)
+	assert.Equal(t, "r", e.Resource)
+	assert.Equal(t, "rid", e.ResourceID)
+	assert.Empty(t, e.IP)
+	assert.Empty(t, e.Status)
+	assert.NotEmpty(t, e.ID)
+	assert.False(t, e.Timestamp.IsZero())
+}
+
+func TestLogger_LogAction_AllOptions(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	err := logger.LogAction(ctx, "u", "a", "r", "rid",
+		WithIP("1.2.3.4"),
+		WithUserAgent("test-agent"),
+		WithStatus("ok"),
+		WithDetail(map[string]any{"k": "v"}),
+		WithRequestID("req-x"),
+	)
+	require.NoError(t, err)
+
+	entries, err := store.Query(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	e := entries[0]
+	assert.Equal(t, "1.2.3.4", e.IP)
+	assert.Equal(t, "test-agent", e.UserAgent)
+	assert.Equal(t, "ok", e.Status)
+	assert.Equal(t, "v", e.Detail["k"])
+	assert.Equal(t, "req-x", e.RequestID)
+}
+
+func TestMemoryStorage_EmptyFilter(t *testing.T) {
+	store := NewMemoryStorage()
+	ctx := context.Background()
+
+	// Querying an empty store with an empty filter returns no entries.
+	res, err := store.Query(ctx, &Filter{})
+	require.NoError(t, err)
+	assert.Empty(t, res)
+
+	// Querying an empty store with nil filter also returns no entries.
+	res, err = store.Query(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, res)
+}
+
+func TestMemoryStorage_FilterEndTimeExcludes(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	base := time.Now()
+	entries := []*Entry{
+		{UserID: "u", Action: "old", Timestamp: base.Add(-2 * time.Hour)},
+		{UserID: "u", Action: "new", Timestamp: base},
+	}
+	for _, e := range entries {
+		require.NoError(t, logger.Log(ctx, e))
+	}
+
+	// EndTime that excludes the newest entry.
+	end := base.Add(-1 * time.Hour)
+	res, err := store.Query(ctx, &Filter{EndTime: &end})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, "old", res[0].Action)
+}
+
+func TestMemoryStorage_FilterStartTimeExcludes(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	base := time.Now()
+	entries := []*Entry{
+		{UserID: "u", Action: "old", Timestamp: base.Add(-2 * time.Hour)},
+		{UserID: "u", Action: "new", Timestamp: base},
+	}
+	for _, e := range entries {
+		require.NoError(t, logger.Log(ctx, e))
+	}
+
+	// StartTime that excludes the oldest entry.
+	start := base.Add(-1 * time.Hour)
+	res, err := store.Query(ctx, &Filter{StartTime: &start})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, "new", res[0].Action)
+}
+
+func TestMemoryStorage_FilterLimit(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		require.NoError(t, logger.Log(ctx, &Entry{UserID: "u", Action: "a"}))
+	}
+
+	// Limit caps the result count.
+	res, err := store.Query(ctx, &Filter{Limit: 2})
+	require.NoError(t, err)
+	assert.Len(t, res, 2)
+}
+
+func TestMemoryStorage_FilterActionAndResourceMismatch(t *testing.T) {
+	store := NewMemoryStorage()
+	logger := NewLogger(store)
+	ctx := context.Background()
+
+	require.NoError(t, logger.Log(ctx, &Entry{UserID: "u", Action: "create", Resource: "order"}))
+	require.NoError(t, logger.Log(ctx, &Entry{UserID: "u", Action: "update", Resource: "user"}))
+
+	// Action mismatch.
+	res, err := store.Query(ctx, &Filter{Action: "delete"})
+	require.NoError(t, err)
+	assert.Empty(t, res)
+
+	// Resource mismatch.
+	res, err = store.Query(ctx, &Filter{Resource: "product"})
+	require.NoError(t, err)
+	assert.Empty(t, res)
+}

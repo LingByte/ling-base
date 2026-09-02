@@ -99,3 +99,99 @@ func TestHTMLDiff_EscapeAmp(t *testing.T) {
 	out := HTMLDiff("a&b", "a&b")
 	assert.Contains(t, out, "a&amp;b")
 }
+
+func TestSplitLines_Empty(t *testing.T) {
+	assert.Nil(t, splitLines(""))
+}
+
+func TestSplitLines_CRLF(t *testing.T) {
+	// \r\n should be normalized to \n before splitting.
+	parts := splitLines("a\r\nb\r\nc")
+	assert.Equal(t, []string{"a", "b", "c"}, parts)
+}
+
+func TestSplitLines_TrailingNewline(t *testing.T) {
+	// A trailing newline should not produce an extra empty element.
+	parts := splitLines("a\nb\n")
+	assert.Equal(t, []string{"a", "b"}, parts)
+}
+
+func TestSplitLines_NoTrailingNewline(t *testing.T) {
+	parts := splitLines("a\nb")
+	assert.Equal(t, []string{"a", "b"}, parts)
+}
+
+func TestSplitLines_SingleLine(t *testing.T) {
+	parts := splitLines("only")
+	assert.Equal(t, []string{"only"}, parts)
+}
+
+func TestLineDiff_CRLF(t *testing.T) {
+	// CRLF endings on both sides should be normalized and compared as equal.
+	lines := LineDiff("a\r\nb", "a\nb")
+	require.Len(t, lines, 2)
+	for _, l := range lines {
+		assert.Equal(t, Unchanged, l.Type)
+	}
+}
+
+func TestWordDiff_Empty(t *testing.T) {
+	// Both empty => no tokens.
+	lines := WordDiff("", "")
+	assert.Empty(t, lines)
+
+	// Pure addition.
+	lines = WordDiff("", "hello world")
+	require.Len(t, lines, 2)
+	assert.Equal(t, Added, lines[0].Type)
+	assert.Equal(t, "hello", lines[0].Content)
+	assert.Equal(t, Added, lines[1].Type)
+	assert.Equal(t, "world", lines[1].Content)
+
+	// Pure deletion.
+	lines = WordDiff("hello world", "")
+	require.Len(t, lines, 2)
+	assert.Equal(t, Removed, lines[0].Type)
+	assert.Equal(t, "hello", lines[0].Content)
+	assert.Equal(t, Removed, lines[1].Type)
+	assert.Equal(t, "world", lines[1].Content)
+}
+
+func TestWordDiff_Same(t *testing.T) {
+	lines := WordDiff("hello world", "hello world")
+	require.Len(t, lines, 2)
+	for _, l := range lines {
+		assert.Equal(t, Unchanged, l.Type)
+	}
+}
+
+func TestHTMLDiff_SpecialChars(t *testing.T) {
+	// All four significant HTML characters should be escaped.
+	out := HTMLDiff(`<a href="x">`, `<b>c</b>`)
+	assert.Contains(t, out, "&lt;a href=&quot;x&quot;&gt;")
+	assert.Contains(t, out, "&lt;b&gt;c&lt;/b&gt;")
+}
+
+func TestHTMLDiff_Empty(t *testing.T) {
+	out := HTMLDiff("", "")
+	// No diff entries when both sides are empty.
+	assert.NotPanics(t, func() { _ = HTMLDiff("", "") })
+	_ = out
+}
+
+func TestTextDiff_Empty(t *testing.T) {
+	out := TextDiff("", "")
+	assert.Empty(t, strings.TrimSpace(out))
+}
+
+func TestTextDiff_PureAdd(t *testing.T) {
+	out := TextDiff("", "a\nb")
+	assert.Contains(t, out, "+ a")
+	assert.Contains(t, out, "+ b")
+}
+
+func TestTextDiff_PureRemove(t *testing.T) {
+	out := TextDiff("a\nb", "")
+	assert.Contains(t, out, "- a")
+	assert.Contains(t, out, "- b")
+}

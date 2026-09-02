@@ -5,6 +5,7 @@ package export
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// errWriter is an io.Writer that always returns an error.
+type errWriter struct{ err error }
+
+func (w errWriter) Write(p []byte) (int, error) { return 0, w.err }
 
 func sampleRows() []map[string]any {
 	return []map[string]any{
@@ -212,4 +218,159 @@ func TestToStr(t *testing.T) {
 	assert.Equal(t, "hello", toStr("hello"))
 	assert.Equal(t, "42", toStr(42))
 	assert.Equal(t, "3.14", toStr(3.14))
+}
+
+// stringerVal implements fmt.Stringer.
+type stringerVal struct{ s string }
+
+func (v stringerVal) String() string { return v.s }
+
+func TestToStr_Stringer(t *testing.T) {
+	assert.Equal(t, "stringer-out", toStr(stringerVal{"stringer-out"}))
+}
+
+func TestCSVExporter_BOMWriteError(t *testing.T) {
+	exp := CSVExporter{}
+	err := exp.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write csv bom")
+}
+
+func TestCSVExporter_FlushError(t *testing.T) {
+	no := false
+	exp := CSVExporter{WithBOM: &no}
+	err := exp.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "flush csv")
+}
+
+func TestCSVExporter_RowWriteError(t *testing.T) {
+	// Generate enough data to fill the csv.Writer's internal buffer so that a
+	// Write call flushes and surfaces the underlying writer error.
+	no := false
+	exp := CSVExporter{WithBOM: &no, Headers: []string{"big"}}
+	rows := make([]map[string]any, 200)
+	for i := range rows {
+		rows[i] = map[string]any{"big": strings.Repeat("x", 100)}
+	}
+	err := exp.Export(rows, errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write csv row")
+}
+
+func TestCSVExporter_HeaderWriteError(t *testing.T) {
+	// A header larger than the csv.Writer's internal buffer forces a flush
+	// during cw.Write(headers), surfacing the underlying writer error.
+	no := false
+	exp := CSVExporter{WithBOM: &no, Headers: []string{strings.Repeat("h", 5000)}}
+	err := exp.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write csv header")
+}
+
+func TestExcelExporter_InvalidSheetName(t *testing.T) {
+	// Sheet names containing ':' are rejected by excelize.
+	exp := ExcelExporter{SheetName: "A:B"}
+	var buf bytes.Buffer
+	err := exp.Export(sampleRows(), &buf)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "set excel sheet name")
+}
+
+func TestExcelExporter_WriteToError(t *testing.T) {
+	exp := ExcelExporter{}
+	err := exp.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write excel")
+}
+
+func TestJSONExporter_EncodeError(t *testing.T) {
+	err := JSONExporter{}.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "encode json")
+}
+
+func TestMarkdownExporter_WriteError(t *testing.T) {
+	err := MarkdownExporter{}.Export(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write markdown")
+}
+
+func TestExportFile_CreateError(t *testing.T) {
+	// Filename inside a nonexistent directory -> os.Create fails.
+	err := ExportFile("csv", sampleRows(), filepath.Join(t.TempDir(), "nodir", "out.csv"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create file")
+}
+
+func TestExportFile_XLSXFormat(t *testing.T) {
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "out.txt")
+	require.NoError(t, ExportFile("xlsx", sampleRows(), fn))
+	data, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Equal(t, "PK", string(data[:2]))
+}
+
+func TestExportFile_MarkdownFormat(t *testing.T) {
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "out.txt")
+	require.NoError(t, ExportFile("markdown", sampleRows(), fn))
+	data, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "| name |")
+}
+
+func TestExportFile_MDFormat(t *testing.T) {
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "out.txt")
+	require.NoError(t, ExportFile("md", sampleRows(), fn))
+	data, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "| --- |")
+}
+
+func TestExportFile_MarkdownExtension(t *testing.T) {
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "out.markdown")
+	require.NoError(t, ExportFile("", sampleRows(), fn))
+	data, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "Alice")
+}
+
+func TestFormatFromExt(t *testing.T) {
+	assert.Equal(t, "csv", formatFromExt("a.CSV"))
+	assert.Equal(t, "excel", formatFromExt("a.XLSX"))
+	assert.Equal(t, "json", formatFromExt("a.Json"))
+	assert.Equal(t, "markdown", formatFromExt("a.MD"))
+	assert.Equal(t, "markdown", formatFromExt("a.Markdown"))
+	assert.Equal(t, "", formatFromExt("a.unknown"))
+	assert.Equal(t, "", formatFromExt("noext"))
+}
+
+func TestExportCSV_NilWriter(t *testing.T) {
+	// Passing a writer that errors on every write exercises the BOM error path.
+	err := ExportCSV(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+}
+
+func TestExportExcel_NilWriter(t *testing.T) {
+	err := ExportExcel(sampleRows(), errWriter{err: errors.New("boom")})
+	require.Error(t, err)
+}
+
+func TestExcelExporter_TooManyColumns(t *testing.T) {
+	// excelize.CoordinatesToCellName errors when the column index exceeds the
+	// maximum (16384). With more headers than that, header writing fails with
+	// a cell-name error.
+	headers := make([]string, 16385)
+	for i := range headers {
+		headers[i] = "h"
+	}
+	exp := ExcelExporter{Headers: headers}
+	var buf bytes.Buffer
+	err := exp.Export(sampleRows(), &buf)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "excel cell name")
 }
