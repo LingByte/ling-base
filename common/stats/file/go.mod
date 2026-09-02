@@ -12,5 +12,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
 	github.com/kamstrup/intmap v0.5.1 // indirect
+	github.com/stretchr/testify v1.12.1 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 )

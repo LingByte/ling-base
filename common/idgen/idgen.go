@@ -389,6 +389,170 @@ func randRunes(n int, source []rune) string {
 }
 
 // ============================================================
+// ULID (Universally Unique Lexicographically Sortable Identifier)
+// ============================================================
+
+// crockfordBase32 is the Crockford Base32 encoding alphabet used by
+// ULID. It excludes the letters I, L, O and U to avoid confusion.
+const crockfordBase32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+// ulidTime is the timestamp captured at package init, used to detect
+// clock rollback in ULID generation.
+var ulidMu sync.Mutex
+var ulidLastMs int64
+
+// ULID generates a 26-character Crockford Base32 encoded ULID
+// (Universally Unique Lexicographically Sortable Identifier).
+//
+// The first 10 characters encode a 48-bit Unix millisecond timestamp,
+// making ULIDs lexicographically sortable by creation time. The
+// remaining 16 characters are 80 bits of cryptographic randomness.
+//
+// Example: "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+func ULID() string {
+	return ulIDFromTime(time.Now().UnixMilli())
+}
+
+// ulIDFromTime builds a ULID string from the given millisecond
+// timestamp. It guards against clock rollback so that timestamps are
+// monotonically non-decreasing within a single process.
+func ulIDFromTime(ms int64) string {
+	ulidMu.Lock()
+	defer ulidMu.Unlock()
+
+	if ms < ulidLastMs {
+		ms = ulidLastMs
+	}
+	ulidLastMs = ms
+
+	var b [16]byte
+	// 48-bit timestamp (big-endian) into b[0:6].
+	b[0] = byte(ms >> 40)
+	b[1] = byte(ms >> 32)
+	b[2] = byte(ms >> 24)
+	b[3] = byte(ms >> 16)
+	b[4] = byte(ms >> 8)
+	b[5] = byte(ms)
+
+	// 80 bits of randomness into b[6:16].
+	if _, err := rand.Read(b[6:]); err != nil {
+		mathrand.Read(b[6:])
+	}
+
+	return encodeCrockfordBase32(b[:])
+}
+
+// encodeCrockfordBase32 encodes 16 bytes into a 26-character Crockford
+// Base32 string. The encoding processes the 128 bits in 5-bit groups
+// from the most-significant bit, padding the final group with zero
+// bits as needed.
+func encodeCrockfordBase32(b []byte) string {
+	// 128 bits → 26 groups of 5 bits (with 2 padding bits at the end).
+	var result [26]byte
+
+	// Bit buffer approach: read bits from the most-significant end.
+	// We process 5 bits at a time.
+	bitIdx := 0
+	totalBits := len(b) * 8
+	for i := 0; i < 26; i++ {
+		var val byte
+		bitsNeeded := 5
+		for bitsNeeded > 0 && bitIdx < totalBits {
+			byteIdx := bitIdx / 8
+			bitInByte := 7 - (bitIdx % 8) // MSB first
+			bit := (b[byteIdx] >> bitInByte) & 1
+			val = (val << 1) | bit
+			bitIdx++
+			bitsNeeded--
+		}
+		// Pad remaining bits with zeros.
+		val <<= bitsNeeded
+		if bitsNeeded > 0 {
+			val <<= 0 // already shifted above
+		}
+		result[i] = crockfordBase32[val]
+	}
+
+	return string(result[:])
+}
+
+// ============================================================
+// NanoID
+// ============================================================
+
+// nanoIDDefaultAlphabet is the default URL-safe alphabet used by
+// NanoID. It contains 64 characters (A-Za-z0-9_-) which maps cleanly
+// to 6-bit values.
+const nanoIDDefaultAlphabet = "_-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// nanoIDDefaultSize is the default NanoID length.
+const nanoIDDefaultSize = 21
+
+// NanoID generates a NanoID string of the given size using the default
+// URL-safe alphabet. If size <= 0 the default size (21) is used.
+//
+// Example: "V1StGXR8_Z5jdHi6B-myT"
+func NanoID(size int) string {
+	if size <= 0 {
+		size = nanoIDDefaultSize
+	}
+	return NanoIDWithAlphabet(size, nanoIDDefaultAlphabet)
+}
+
+// NanoIDWithAlphabet generates a NanoID string of the given size using
+// a custom alphabet. The alphabet must be non-empty; if it is empty
+// the default alphabet is used instead.
+//
+// The implementation uses crypto/rand to securely select characters
+// from the alphabet, avoiding modulo bias by masking random bytes.
+func NanoIDWithAlphabet(size int, alphabet string) string {
+	if size <= 0 {
+		size = nanoIDDefaultSize
+	}
+	if alphabet == "" {
+		alphabet = nanoIDDefaultAlphabet
+	}
+
+	abcLen := len(alphabet)
+	// Calculate the mask: smallest power of 2 minus 1 that is >= abcLen.
+	// This reduces the rejection rate in the unbiased selection loop.
+	mask := 1
+	for mask < abcLen {
+		mask <<= 1
+	}
+	mask-- // e.g. 63 for a 64-char alphabet
+
+	result := make([]byte, size)
+	// step is how many random bytes to fetch per batch; we use a
+	// reasonable batch size to amortise rand.Read calls.
+	step := (size*6 + 7) / 8
+	if step < 4 {
+		step = 4
+	}
+
+	idx := 0
+	for idx < size {
+		randBuf := make([]byte, step)
+		if _, err := rand.Read(randBuf); err != nil {
+			mathrand.Read(randBuf)
+		}
+
+		for _, b := range randBuf {
+			val := int(b) & mask
+			if val < abcLen {
+				result[idx] = alphabet[val]
+				idx++
+				if idx >= size {
+					break
+				}
+			}
+		}
+	}
+
+	return string(result)
+}
+
+// ============================================================
 // Errors
 // ============================================================
 

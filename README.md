@@ -86,7 +86,21 @@ ling-base/
 │  ├─ tracing/               # 链路追踪工具
 │  ├─ metrics/               # Prometheus 指标
 │  ├─ system/                # 系统信息（磁盘缓存/pprof/健康检查）
-│  └─ parser/                # 文档解析（PDF/DOCX/XLSX/HTML/EPUB/...）
+│  ├─ parser/                # 文档解析（PDF/DOCX/XLSX/HTML/EPUB/...）
+│  │
+│  ├─ slug/                  # URL slug 生成（中文→拼音→slug）
+│  ├─ sanitize/              # HTML/XSS 过滤（bluemonday 封装）
+│  ├─ markdown/              # Markdown→HTML 渲染（goldmark，GFM/emoji/高亮/TOC）
+│  ├─ export/                # 数据导出（Excel/CSV/JSON/Markdown）
+│  ├─ diff/                  # 文本 diff（Myers 算法，unified/HTML 格式）
+│  ├─ emoji/                 # Emoji 处理（短代码↔Unicode，检测/移除/计数）
+│  ├─ signature/             # 请求签名（HMAC/RSA，API 签名验证）
+│  ├─ oauth2/                # OAuth2 客户端（Google/GitHub/微信/钉钉/飞书）
+│  ├─ featureflag/           # 功能开关（灰度发布，百分比/白名单/黑名单）
+│  ├─ auditlog/              # 审计日志（结构化，Storage 接口，不可篡改）
+│  ├─ webhook/               # Webhook 发送（签名+重试+事件过滤）
+│  ├─ backup/                # 数据备份/恢复（gzip 压缩，SHA256 校验）
+│  └─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
 │
 ├─ relay/                    # AI provider 中继库（生产级，40+ channel 适配器）
 │  ├─ client.go              # 统一 Client API（Chat/Stream/Embed/Image/Audio/Responses）
@@ -219,6 +233,45 @@ go get github.com/LingByte/ling-base/common/curlutil
 
 # 手机号归属地查询（内置离线号段库，无需联网）
 go get github.com/LingByte/ling-base/common/phone
+
+# URL slug 生成（中文→拼音→slug）
+go get github.com/LingByte/ling-base/common/slug
+
+# HTML/XSS 过滤（bluemonday 封装）
+go get github.com/LingByte/ling-base/common/sanitize
+
+# Markdown→HTML 渲染（GFM/emoji/高亮/TOC）
+go get github.com/LingByte/ling-base/common/markdown
+
+# 数据导出（Excel/CSV/JSON/Markdown）
+go get github.com/LingByte/ling-base/common/export
+
+# OAuth2 客户端（Google/GitHub/微信/钉钉/飞书）
+go get github.com/LingByte/ling-base/common/oauth2
+
+# 功能开关（灰度发布）
+go get github.com/LingByte/ling-base/common/featureflag
+
+# 请求签名（HMAC/RSA）
+go get github.com/LingByte/ling-base/common/signature
+
+# Webhook 发送（签名+重试）
+go get github.com/LingByte/ling-base/common/webhook
+
+# 审计日志
+go get github.com/LingByte/ling-base/common/auditlog
+
+# 数据备份/恢复
+go get github.com/LingByte/ling-base/common/backup
+
+# A/B 测试分流
+go get github.com/LingByte/ling-base/common/abtest
+
+# 文本 diff
+go get github.com/LingByte/ling-base/common/diff
+
+# Emoji 处理
+go get github.com/LingByte/ling-base/common/emoji
 ```
 
 ```go
@@ -599,6 +652,19 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/geocode/README.md](common/geocode/README.md)
 - [common/dnsutil/README.md](common/dnsutil/README.md)
 - [common/curlutil/README.md](common/curlutil/README.md)
+- [common/slug/README.md](common/slug/README.md)
+- [common/sanitize/README.md](common/sanitize/README.md)
+- [common/markdown/README.md](common/markdown/README.md)
+- [common/export/README.md](common/export/README.md)
+- [common/oauth2/README.md](common/oauth2/README.md)
+- [common/featureflag/README.md](common/featureflag/README.md)
+- [common/signature/README.md](common/signature/README.md)
+- [common/webhook/README.md](common/webhook/README.md)
+- [common/auditlog/README.md](common/auditlog/README.md)
+- [common/backup/README.md](common/backup/README.md)
+- [common/abtest/README.md](common/abtest/README.md)
+- [common/diff/README.md](common/diff/README.md)
+- [common/emoji/README.md](common/emoji/README.md)
 
 ## 开发
 

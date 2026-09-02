@@ -146,6 +146,10 @@ voice/
 | 网络 | netutil, httpclient, dnsutil（高级 DNS）, curlutil（curl 解析+调试 HTTP）, opentelemetry, tracing |
 | 地理位置 | geoip（IP→位置）, geocode（经纬度↔地址，Nominatim+BigDataCloud）, phone（手机号归属地） |
 | 支付 | payment（stripe/creem/epay/waffo/waffopancake） |
+| 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff）, emoji（短代码↔Unicode） |
+| 数据导出 | export（Excel/CSV/JSON/Markdown） |
+| 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名） |
+| 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, webhook（Webhook 发送）, backup（数据备份） |
 | 工具 | convert, parser, pinyin, qrcode, barcode, random, hash |
 
 ## 日志

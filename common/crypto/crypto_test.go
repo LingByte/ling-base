@@ -5,9 +5,15 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/sha256"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ──────────────────────────────────────────────
@@ -548,4 +554,295 @@ func TestBase64Decode_Invalid(t *testing.T) {
 	if err == nil {
 		t.Fatal("Decode of invalid base64 should fail")
 	}
+}
+
+// ──────────────────────────────────────────────
+// ECDSA (P-256)
+// ──────────────────────────────────────────────
+
+func TestECDSA_GenerateKeyPair(t *testing.T) {
+	priv, pub, err := GenerateECDSAKeyPair()
+	require.NoError(t, err)
+	require.NotNil(t, priv)
+	require.NotNil(t, pub)
+	assert.Equal(t, elliptic.P256(), priv.Curve)
+}
+
+func TestECDSA_SignVerify(t *testing.T) {
+	priv, pub, _ := GenerateECDSAKeyPair()
+	data := []byte("message to sign")
+	sig, err := ECDSASign(priv, data)
+	require.NoError(t, err)
+	assert.NotEmpty(t, sig)
+
+	err = ECDSAVerify(pub, data, sig)
+	assert.NoError(t, err)
+}
+
+func TestECDSA_VerifyWrongData(t *testing.T) {
+	priv, pub, _ := GenerateECDSAKeyPair()
+	sig, _ := ECDSASign(priv, []byte("original"))
+	err := ECDSAVerify(pub, []byte("tampered"), sig)
+	assert.Error(t, err)
+}
+
+func TestECDSA_VerifyTamperedSignature(t *testing.T) {
+	priv, pub, _ := GenerateECDSAKeyPair()
+	sig, _ := ECDSASign(priv, []byte("data"))
+	sig[0] ^= 0xff // tamper
+	err := ECDSAVerify(pub, []byte("data"), sig)
+	assert.Error(t, err)
+}
+
+func TestECDSA_SignNilKey(t *testing.T) {
+	_, err := ECDSASign(nil, []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestECDSA_VerifyNilKey(t *testing.T) {
+	err := ECDSAVerify(nil, []byte("data"), []byte("sig"))
+	assert.Error(t, err)
+}
+
+func TestECDSA_PEMExportImport(t *testing.T) {
+	priv, pub, _ := GenerateECDSAKeyPair()
+
+	privPEM, err := ExportECDSAPrivateKeyPEM(priv)
+	require.NoError(t, err)
+	assert.Contains(t, privPEM, "EC PRIVATE KEY")
+
+	pubPEM, err := ExportECDSAPublicKeyPEM(pub)
+	require.NoError(t, err)
+	assert.Contains(t, pubPEM, "PUBLIC KEY")
+
+	parsedPriv, err := ParseECDSAPrivateKeyPEM(privPEM)
+	require.NoError(t, err)
+	parsedPub, err := ParseECDSAPublicKeyPEM(pubPEM)
+	require.NoError(t, err)
+
+	// Sign with original, verify with parsed.
+	sig, _ := ECDSASign(priv, []byte("test"))
+	err = ECDSAVerify(parsedPub, []byte("test"), sig)
+	assert.NoError(t, err)
+
+	// Sign with parsed, verify with original.
+	sig2, _ := ECDSASign(parsedPriv, []byte("test2"))
+	err = ECDSAVerify(pub, []byte("test2"), sig2)
+	assert.NoError(t, err)
+}
+
+func TestECDSA_InvalidPEM(t *testing.T) {
+	_, err := ParseECDSAPrivateKeyPEM("invalid pem")
+	assert.Error(t, err)
+	_, err = ParseECDSAPublicKeyPEM("invalid pem")
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// Ed25519
+// ──────────────────────────────────────────────
+
+func TestEd25519_GenerateKeyPair(t *testing.T) {
+	priv, pub, err := GenerateEd25519KeyPair()
+	require.NoError(t, err)
+	assert.Equal(t, ed25519.PrivateKeySize, len(priv))
+	assert.Equal(t, ed25519.PublicKeySize, len(pub))
+}
+
+func TestEd25519_SignVerify(t *testing.T) {
+	priv, pub, _ := GenerateEd25519KeyPair()
+	data := []byte("message to sign")
+	sig, err := Ed25519Sign(priv, data)
+	require.NoError(t, err)
+	assert.Equal(t, ed25519.SignatureSize, len(sig))
+
+	err = Ed25519Verify(pub, data, sig)
+	assert.NoError(t, err)
+}
+
+func TestEd25519_VerifyWrongData(t *testing.T) {
+	priv, pub, _ := GenerateEd25519KeyPair()
+	sig, _ := Ed25519Sign(priv, []byte("original"))
+	err := Ed25519Verify(pub, []byte("tampered"), sig)
+	assert.Error(t, err)
+}
+
+func TestEd25519_VerifyTamperedSignature(t *testing.T) {
+	priv, pub, _ := GenerateEd25519KeyPair()
+	sig, _ := Ed25519Sign(priv, []byte("data"))
+	sig[0] ^= 0xff // tamper
+	err := Ed25519Verify(pub, []byte("data"), sig)
+	assert.Error(t, err)
+}
+
+func TestEd25519_SignInvalidKey(t *testing.T) {
+	_, err := Ed25519Sign(ed25519.PrivateKey{}, []byte("data"))
+	assert.Error(t, err)
+}
+
+func TestEd25519_VerifyInvalidKey(t *testing.T) {
+	err := Ed25519Verify(ed25519.PublicKey{}, []byte("data"), []byte("sig"))
+	assert.Error(t, err)
+}
+
+func TestEd25519_PEMExportImport(t *testing.T) {
+	priv, pub, _ := GenerateEd25519KeyPair()
+
+	privPEM, err := ExportEd25519PrivateKeyPEM(priv)
+	require.NoError(t, err)
+	assert.Contains(t, privPEM, "PRIVATE KEY")
+
+	pubPEM, err := ExportEd25519PublicKeyPEM(pub)
+	require.NoError(t, err)
+	assert.Contains(t, pubPEM, "PUBLIC KEY")
+
+	parsedPriv, err := ParseEd25519PrivateKeyPEM(privPEM)
+	require.NoError(t, err)
+	parsedPub, err := ParseEd25519PublicKeyPEM(pubPEM)
+	require.NoError(t, err)
+
+	// Sign with original, verify with parsed.
+	sig, _ := Ed25519Sign(priv, []byte("test"))
+	err = Ed25519Verify(parsedPub, []byte("test"), sig)
+	assert.NoError(t, err)
+
+	// Sign with parsed, verify with original.
+	sig2, _ := Ed25519Sign(parsedPriv, []byte("test2"))
+	err = Ed25519Verify(pub, []byte("test2"), sig2)
+	assert.NoError(t, err)
+}
+
+func TestEd25519_InvalidPEM(t *testing.T) {
+	_, err := ParseEd25519PrivateKeyPEM("invalid pem")
+	assert.Error(t, err)
+	_, err = ParseEd25519PublicKeyPEM("invalid pem")
+	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// HKDF
+// ──────────────────────────────────────────────
+
+func TestHKDF(t *testing.T) {
+	secret := []byte("input key material")
+	salt := []byte("salt")
+	info := []byte("context")
+	length := 32
+
+	key, err := HKDF(secret, salt, info, length)
+	require.NoError(t, err)
+	assert.Len(t, key, length)
+}
+
+func TestHKDF_Deterministic(t *testing.T) {
+	secret := []byte("secret")
+	salt := []byte("salt")
+	info := []byte("info")
+
+	key1, _ := HKDF(secret, salt, info, 32)
+	key2, _ := HKDF(secret, salt, info, 32)
+	assert.True(t, bytes.Equal(key1, key2), "HKDF should be deterministic")
+}
+
+func TestHKDF_DifferentInputs(t *testing.T) {
+	secret := []byte("secret")
+
+	key1, _ := HKDF(secret, []byte("salt1"), []byte("info"), 32)
+	key2, _ := HKDF(secret, []byte("salt2"), []byte("info"), 32)
+	assert.False(t, bytes.Equal(key1, key2), "different salts should produce different keys")
+
+	key3, _ := HKDF(secret, []byte("salt"), []byte("info1"), 32)
+	key4, _ := HKDF(secret, []byte("salt"), []byte("info2"), 32)
+	assert.False(t, bytes.Equal(key3, key4), "different info should produce different keys")
+}
+
+func TestHKDF_NilSalt(t *testing.T) {
+	key, err := HKDF([]byte("secret"), nil, []byte("info"), 16)
+	require.NoError(t, err)
+	assert.Len(t, key, 16)
+}
+
+func TestHKDF_EmptyInfo(t *testing.T) {
+	key, err := HKDF([]byte("secret"), []byte("salt"), nil, 16)
+	require.NoError(t, err)
+	assert.Len(t, key, 16)
+}
+
+func TestHKDF_InvalidLength(t *testing.T) {
+	_, err := HKDF([]byte("secret"), []byte("salt"), []byte("info"), 0)
+	assert.Error(t, err)
+
+	_, err = HKDF([]byte("secret"), []byte("salt"), []byte("info"), -1)
+	assert.Error(t, err)
+}
+
+func TestHKDF_LongLength(t *testing.T) {
+	_, err := HKDF([]byte("secret"), []byte("salt"), []byte("info"), 255*sha256.Size+1)
+	assert.Error(t, err)
+}
+
+func TestHKDF_MaxLength(t *testing.T) {
+	key, err := HKDF([]byte("secret"), []byte("salt"), []byte("info"), 255*sha256.Size)
+	require.NoError(t, err)
+	assert.Len(t, key, 255*sha256.Size)
+}
+
+// ──────────────────────────────────────────────
+// PBKDF2
+// ──────────────────────────────────────────────
+
+func TestPBKDF2(t *testing.T) {
+	password := []byte("password")
+	salt := []byte("salt")
+	key, err := PBKDF2(password, salt, 1000, 32)
+	require.NoError(t, err)
+	assert.Len(t, key, 32)
+}
+
+func TestPBKDF2_Deterministic(t *testing.T) {
+	password := []byte("password")
+	salt := []byte("salt")
+
+	key1, _ := PBKDF2(password, salt, 1000, 32)
+	key2, _ := PBKDF2(password, salt, 1000, 32)
+	assert.True(t, bytes.Equal(key1, key2), "PBKDF2 should be deterministic")
+}
+
+func TestPBKDF2_DifferentPasswords(t *testing.T) {
+	salt := []byte("salt")
+	key1, _ := PBKDF2([]byte("password1"), salt, 1000, 32)
+	key2, _ := PBKDF2([]byte("password2"), salt, 1000, 32)
+	assert.False(t, bytes.Equal(key1, key2), "different passwords should produce different keys")
+}
+
+func TestPBKDF2_DifferentSalts(t *testing.T) {
+	password := []byte("password")
+	key1, _ := PBKDF2(password, []byte("salt1"), 1000, 32)
+	key2, _ := PBKDF2(password, []byte("salt2"), 1000, 32)
+	assert.False(t, bytes.Equal(key1, key2), "different salts should produce different keys")
+}
+
+func TestPBKDF2_DifferentIterations(t *testing.T) {
+	password := []byte("password")
+	salt := []byte("salt")
+	key1, _ := PBKDF2(password, salt, 1000, 32)
+	key2, _ := PBKDF2(password, salt, 2000, 32)
+	assert.False(t, bytes.Equal(key1, key2), "different iterations should produce different keys")
+}
+
+func TestPBKDF2_InvalidIterations(t *testing.T) {
+	_, err := PBKDF2([]byte("pw"), []byte("salt"), 0, 32)
+	assert.Error(t, err)
+}
+
+func TestPBKDF2_InvalidLength(t *testing.T) {
+	_, err := PBKDF2([]byte("pw"), []byte("salt"), 100, 0)
+	assert.Error(t, err)
+}
+
+func TestPBKDF2_MultiBlock(t *testing.T) {
+	// Request more than one SHA-256 block (32 bytes).
+	key, err := PBKDF2([]byte("pw"), []byte("salt"), 100, 64)
+	require.NoError(t, err)
+	assert.Len(t, key, 64)
 }

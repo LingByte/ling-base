@@ -19,7 +19,10 @@ use (
 	./apidocs
 	./bootstrap
 	./common
+	./common/abtest
 	./common/audioutil
+	./common/auditlog
+	./common/backup
 	./common/barcode
 	./common/bitmap
 	./common/bitmap/memory
@@ -45,7 +48,11 @@ use (
 	./common/convert
 	./common/cron
 	./common/crypto
+	./common/diff
+	./common/emoji
 	./common/eventbus
+	./common/export
+	./common/featureflag
 	./common/geoip
 	./common/hash
 	./common/i18n
@@ -75,6 +82,7 @@ use (
 	./common/lock/zookeeper
 	./common/logger
 	./common/logger/gin
+	./common/markdown
 	./common/mathutil
 	./common/metrics
 	./common/middleware
@@ -96,6 +104,7 @@ use (
 	./common/notification/push
 	./common/notification/sms
 	./common/notification/webhook
+	./common/oauth2
 	./common/opentelemetry
 	./common/parser
 	./common/passkey
@@ -117,10 +126,13 @@ use (
 	./common/response
 	./common/response/gin
 	./common/retry
+	./common/sanitize
 	./common/scheduler
 	./common/search
 	./common/search/bleve
 	./common/search/elasticsearch
+	./common/signature
+	./common/slug
 	./common/stats
 	./common/stats/file
 	./common/stats/gin
@@ -132,6 +144,7 @@ use (
 	./common/tracing
 	./common/validate
 	./common/videoutil
+	./common/webhook
 	./docs/wasm
 	./example
 	./lingcli

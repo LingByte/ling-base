@@ -27,6 +27,9 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rc4"
@@ -710,4 +713,295 @@ func RandomBase64(n int) (string, error) {
 // RandomReader returns the crypto/rand reader for io.Copy usage.
 func RandomReader() io.Reader {
 	return rand.Reader
+}
+
+// ──────────────────────────────────────────────
+// ECDSA (P-256)
+// ──────────────────────────────────────────────
+
+// GenerateECDSAKeyPair generates an ECDSA key pair on the P-256 curve
+// (secp256r1 / NIST P-256). This curve provides 128-bit security and
+// is widely supported.
+func GenerateECDSAKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("crypto: generate ECDSA key: %w", err)
+	}
+	return priv, &priv.PublicKey, nil
+}
+
+// ECDSASign signs data using ECDSA with SHA-256. The returned signature
+// is ASN.1-encoded (DER format), compatible with most verification
+// libraries.
+func ECDSASign(priv *ecdsa.PrivateKey, data []byte) ([]byte, error) {
+	if priv == nil {
+		return nil, errors.New("crypto: ECDSA sign: private key is nil")
+	}
+	hashed := sha256.Sum256(data)
+	sig, err := ecdsa.SignASN1(rand.Reader, priv, hashed[:])
+	if err != nil {
+		return nil, fmt.Errorf("crypto: ECDSA sign: %w", err)
+	}
+	return sig, nil
+}
+
+// ECDSAVerify verifies an ECDSA signature (ASN.1/DER-encoded) against
+// the given data using the public key.
+func ECDSAVerify(pub *ecdsa.PublicKey, data, sig []byte) error {
+	if pub == nil {
+		return errors.New("crypto: ECDSA verify: public key is nil")
+	}
+	hashed := sha256.Sum256(data)
+	if !ecdsa.VerifyASN1(pub, hashed[:], sig) {
+		return errors.New("crypto: ECDSA verify: signature is invalid")
+	}
+	return nil
+}
+
+// ExportECDSAPrivateKeyPEM exports an ECDSA private key as a
+// PEM-encoded string (SEC1 / EC PRIVATE KEY format).
+func ExportECDSAPrivateKeyPEM(priv *ecdsa.PrivateKey) (string, error) {
+	der, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return "", fmt.Errorf("crypto: marshal ECDSA private key: %w", err)
+	}
+	pemBlock := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: der})
+	return string(pemBlock), nil
+}
+
+// ExportECDSAPublicKeyPEM exports an ECDSA public key as a
+// PEM-encoded string (PKIX format).
+func ExportECDSAPublicKeyPEM(pub *ecdsa.PublicKey) (string, error) {
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return "", fmt.Errorf("crypto: marshal ECDSA public key: %w", err)
+	}
+	pemBlock := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
+	return string(pemBlock), nil
+}
+
+// ParseECDSAPrivateKeyPEM parses a PEM-encoded ECDSA private key
+// (SEC1 or PKCS8 format).
+func ParseECDSAPrivateKeyPEM(pemStr string) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, errors.New("crypto: invalid PEM block")
+	}
+
+	// Try PKCS8 first, then fall back to SEC1.
+	if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		ecdsaKey, ok := key.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, errors.New("crypto: not an ECDSA private key")
+		}
+		return ecdsaKey, nil
+	}
+
+	key, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: parse ECDSA private key: %w", err)
+	}
+	return key, nil
+}
+
+// ParseECDSAPublicKeyPEM parses a PEM-encoded ECDSA public key
+// (PKIX format).
+func ParseECDSAPublicKeyPEM(pemStr string) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, errors.New("crypto: invalid PEM block")
+	}
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: parse ECDSA public key: %w", err)
+	}
+	ecdsaKey, ok := key.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("crypto: not an ECDSA public key")
+	}
+	return ecdsaKey, nil
+}
+
+// ──────────────────────────────────────────────
+// Ed25519
+// ──────────────────────────────────────────────
+
+// GenerateEd25519KeyPair generates an Ed25519 key pair. Ed25519
+// provides fast signing and verification with 128-bit security and
+// 64-byte signatures.
+func GenerateEd25519KeyPair() (ed25519.PrivateKey, ed25519.PublicKey, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("crypto: generate Ed25519 key: %w", err)
+	}
+	return priv, pub, nil
+}
+
+// Ed25519Sign signs data using the Ed25519 private key. The returned
+// signature is 64 bytes.
+func Ed25519Sign(priv ed25519.PrivateKey, data []byte) ([]byte, error) {
+	if len(priv) != ed25519.PrivateKeySize {
+		return nil, errors.New("crypto: Ed25519 sign: invalid private key size")
+	}
+	return ed25519.Sign(priv, data), nil
+}
+
+// Ed25519Verify verifies an Ed25519 signature against the given data
+// using the public key.
+func Ed25519Verify(pub ed25519.PublicKey, data, sig []byte) error {
+	if len(pub) != ed25519.PublicKeySize {
+		return errors.New("crypto: Ed25519 verify: invalid public key size")
+	}
+	if !ed25519.Verify(pub, data, sig) {
+		return errors.New("crypto: Ed25519 verify: signature is invalid")
+	}
+	return nil
+}
+
+// ExportEd25519PrivateKeyPEM exports an Ed25519 private key as a
+// PEM-encoded string (PKCS8 format).
+func ExportEd25519PrivateKeyPEM(priv ed25519.PrivateKey) (string, error) {
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return "", fmt.Errorf("crypto: marshal Ed25519 private key: %w", err)
+	}
+	pemBlock := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+	return string(pemBlock), nil
+}
+
+// ExportEd25519PublicKeyPEM exports an Ed25519 public key as a
+// PEM-encoded string (PKIX format).
+func ExportEd25519PublicKeyPEM(pub ed25519.PublicKey) (string, error) {
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return "", fmt.Errorf("crypto: marshal Ed25519 public key: %w", err)
+	}
+	pemBlock := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
+	return string(pemBlock), nil
+}
+
+// ParseEd25519PrivateKeyPEM parses a PEM-encoded Ed25519 private key
+// (PKCS8 format).
+func ParseEd25519PrivateKeyPEM(pemStr string) (ed25519.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, errors.New("crypto: invalid PEM block")
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: parse Ed25519 private key: %w", err)
+	}
+	edKey, ok := key.(ed25519.PrivateKey)
+	if !ok {
+		return nil, errors.New("crypto: not an Ed25519 private key")
+	}
+	return edKey, nil
+}
+
+// ParseEd25519PublicKeyPEM parses a PEM-encoded Ed25519 public key
+// (PKIX format).
+func ParseEd25519PublicKeyPEM(pemStr string) (ed25519.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, errors.New("crypto: invalid PEM block")
+	}
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: parse Ed25519 public key: %w", err)
+	}
+	edKey, ok := key.(ed25519.PublicKey)
+	if !ok {
+		return nil, errors.New("crypto: not an Ed25519 public key")
+	}
+	return edKey, nil
+}
+
+// ──────────────────────────────────────────────
+// Key Derivation Functions
+// ──────────────────────────────────────────────
+
+// HKDF derives a key of the given length from the input secret using
+// HMAC-based Key Derivation (RFC 5869) with SHA-256.
+//
+//   - secret: the input keying material (IKM)
+//   - salt:   optional salt (use nil or empty for no salt)
+//   - info:   optional context/application-specific information
+//   - length: desired output length in bytes (must be > 0 and <= 255*32)
+//
+// The derivation follows the two-step HKDF process: extract (PRK) then
+// expand (OKM).
+func HKDF(secret, salt, info []byte, length int) ([]byte, error) {
+	if length <= 0 {
+		return nil, errors.New("crypto: HKDF: length must be positive")
+	}
+	if length > 255*sha256.Size {
+		return nil, fmt.Errorf("crypto: HKDF: length %d exceeds maximum %d", length, 255*sha256.Size)
+	}
+
+	// Extract: PRK = HMAC-SHA256(salt, IKM)
+	if salt == nil {
+		salt = make([]byte, sha256.Size)
+	}
+	prk := hmac.New(sha256.New, salt)
+	prk.Write(secret)
+	prkBytes := prk.Sum(nil)
+
+	// Expand: OKM = T(1) | T(2) | ... | T(N), truncated to length
+	var okm []byte
+	t := make([]byte, 0, sha256.Size)
+	for i := 1; len(okm) < length; i++ {
+		h := hmac.New(sha256.New, prkBytes)
+		h.Write(t)
+		h.Write(info)
+		h.Write([]byte{byte(i)})
+		t = h.Sum(nil)
+		okm = append(okm, t...)
+	}
+
+	return okm[:length], nil
+}
+
+// PBKDF2 derives a key from a password using PBKDF2 with HMAC-SHA256
+// (RFC 2898).
+//
+//   - password:   the password/passphrase
+//   - salt:       the salt value
+//   - iterations: number of iterations (use >= 100000 for security)
+//   - length:     desired output length in bytes
+func PBKDF2(password, salt []byte, iterations, length int) ([]byte, error) {
+	if iterations <= 0 {
+		return nil, errors.New("crypto: PBKDF2: iterations must be positive")
+	}
+	if length <= 0 {
+		return nil, errors.New("crypto: PBKDF2: length must be positive")
+	}
+
+	hLen := sha256.Size
+	numBlocks := (length + hLen - 1) / hLen
+
+	result := make([]byte, 0, numBlocks*hLen)
+
+	for block := 1; block <= numBlocks; block++ {
+		// U1 = HMAC-SHA256(password, salt || INT_32_BE(block))
+		mac := hmac.New(sha256.New, password)
+		mac.Write(salt)
+		mac.Write([]byte{byte(block >> 24), byte(block >> 16), byte(block >> 8), byte(block)})
+		u := mac.Sum(nil)
+
+		t := make([]byte, hLen)
+		copy(t, u)
+
+		for i := 1; i < iterations; i++ {
+			mac := hmac.New(sha256.New, password)
+			mac.Write(u)
+			u = mac.Sum(nil)
+			for j := range t {
+				t[j] ^= u[j]
+			}
+		}
+
+		result = append(result, t...)
+	}
+
+	return result[:length], nil
 }

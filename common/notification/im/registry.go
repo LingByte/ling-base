@@ -37,6 +37,22 @@ func init() {
 		}
 		return NewFeishuProvider(cfg), nil
 	})
+
+	RegisterProvider(ProviderDingTalk, func(configJSON string) (Provider, error) {
+		var cfg DingTalkConfig
+		if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+			return nil, fmt.Errorf("im: parse dingtalk config: %w", err)
+		}
+		return NewDingTalkProvider(cfg), nil
+	})
+
+	RegisterProvider(ProviderWeChat, func(configJSON string) (Provider, error) {
+		var cfg WeChatConfig
+		if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+			return nil, fmt.Errorf("im: parse wechat config: %w", err)
+		}
+		return NewWeChatProvider(cfg), nil
+	})
 }
 
 // RegisterProvider registers or replaces a provider factory under the

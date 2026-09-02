@@ -622,6 +622,9 @@ func TestRuleUnique(t *testing.T) {
 // ──────────────────────────────────────────────
 
 func TestAddRule_AndGetRule(t *testing.T) {
+	// Save the original "phone" rule so we can restore it after the test.
+	original := GetRule("phone")
+
 	// register a custom rule
 	AddRule("phone", func(value any, param string, parent any) error {
 		s, ok := value.(string)
@@ -642,6 +645,11 @@ func TestAddRule_AndGetRule(t *testing.T) {
 	// use it in validation via ValidateWithTag
 	assert.NoError(t, ValidateWithTag("1234567890", "phone"))
 	assert.Error(t, ValidateWithTag("123", "phone"))
+
+	// restore the original rule so other tests are not affected
+	if original != nil {
+		AddRule("phone", original)
+	}
 }
 
 func TestGetRule_NonExistent(t *testing.T) {
@@ -684,3 +692,221 @@ type customErr string
 func (c customErr) Error() string { return string(c) }
 
 func errCustom(s string) error { return customErr(s) }
+
+// ──────────────────────────────────────────────
+// phone
+// ──────────────────────────────────────────────
+
+func TestRulePhone(t *testing.T) {
+	rule := GetRule("phone")
+	require.NotNil(t, rule)
+
+	// valid Chinese mobile numbers
+	assert.NoError(t, rule("13812345678", "", nil))
+	assert.NoError(t, rule("15912345678", "", nil))
+	assert.NoError(t, rule("18612345678", "", nil))
+	assert.NoError(t, rule("17012345678", "", nil))
+
+	// invalid
+	assert.Error(t, rule("12345678901", "", nil))  // starts with 12
+	assert.Error(t, rule("10012345678", "", nil))  // starts with 10
+	assert.Error(t, rule("1381234567", "", nil))   // too short (10 digits)
+	assert.Error(t, rule("138123456789", "", nil)) // too long (12 digits)
+	assert.Error(t, rule("23812345678", "", nil))  // doesn't start with 1
+	assert.Error(t, rule("", "", nil))
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+// ──────────────────────────────────────────────
+// uuid
+// ──────────────────────────────────────────────
+
+func TestRuleUUID(t *testing.T) {
+	rule := GetRule("uuid")
+	require.NotNil(t, rule)
+
+	// valid UUID (any version)
+	assert.NoError(t, rule("550e8400-e29b-41d4-a716-446655440000", "", nil))
+	assert.NoError(t, rule("550e8400-e29b-31d4-a716-446655440000", "", nil)) // v3
+	assert.NoError(t, rule("550e8400-e29b-51d4-a716-446655440000", "", nil)) // v5
+
+	// invalid
+	assert.Error(t, rule("not-a-uuid", "", nil))
+	assert.Error(t, rule("550e8400-e29b-41d4-a716", "", nil))     // too short
+	assert.Error(t, rule("550e8400-e29b-41d4-a716-44665544000g", "", nil)) // invalid char
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+func TestRuleUUID_V4(t *testing.T) {
+	rule := GetRule("uuid")
+	require.NotNil(t, rule)
+
+	// valid UUID v4
+	assert.NoError(t, rule("550e8400-e29b-41d4-a716-446655440000", "v4", nil))
+	assert.NoError(t, rule("f47ac10b-58cc-4372-a567-0e02b2c3d479", "v4", nil))
+
+	// invalid UUID v4 (version 3)
+	assert.Error(t, rule("550e8400-e29b-31d4-a716-446655440000", "v4", nil))
+	// invalid UUID v4 (version 5)
+	assert.Error(t, rule("550e8400-e29b-51d4-a716-446655440000", "v4", nil))
+	// invalid UUID v4 (wrong variant)
+	assert.Error(t, rule("550e8400-e29b-41d4-c716-446655440000", "v4", nil))
+}
+
+// ──────────────────────────────────────────────
+// slug
+// ──────────────────────────────────────────────
+
+func TestRuleSlug(t *testing.T) {
+	rule := GetRule("slug")
+	require.NotNil(t, rule)
+
+	// valid slugs
+	assert.NoError(t, rule("hello", "", nil))
+	assert.NoError(t, rule("hello-world", "", nil))
+	assert.NoError(t, rule("hello-world-123", "", nil))
+	assert.NoError(t, rule("a-b-c", "", nil))
+	assert.NoError(t, rule("123", "", nil))
+	assert.NoError(t, rule("a1-b2-c3", "", nil))
+
+	// invalid
+	assert.Error(t, rule("Hello", "", nil))           // uppercase
+	assert.Error(t, rule("hello_world", "", nil))     // underscore
+	assert.Error(t, rule("hello--world", "", nil))    // double hyphen
+	assert.Error(t, rule("-hello", "", nil))          // leading hyphen
+	assert.Error(t, rule("hello-", "", nil))          // trailing hyphen
+	assert.Error(t, rule("hello world", "", nil))     // space
+	assert.Error(t, rule("", "", nil))
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+// ──────────────────────────────────────────────
+// creditcard (Luhn)
+// ──────────────────────────────────────────────
+
+func TestRuleCreditCard(t *testing.T) {
+	rule := GetRule("creditcard")
+	require.NotNil(t, rule)
+
+	// valid credit card numbers (Luhn-valid test numbers)
+	assert.NoError(t, rule("4111111111111111", "", nil)) // Visa test
+	assert.NoError(t, rule("4242424242424242", "", nil)) // Visa test
+	assert.NoError(t, rule("5555555555554444", "", nil)) // Mastercard test
+	assert.NoError(t, rule("378282246310005", "", nil))  // Amex test
+
+	// with spaces and hyphens
+	assert.NoError(t, rule("4111 1111 1111 1111", "", nil))
+	assert.NoError(t, rule("4111-1111-1111-1111", "", nil))
+
+	// invalid (Luhn check fails)
+	assert.Error(t, rule("4111111111111112", "", nil))
+	assert.Error(t, rule("1234567890123456", "", nil))
+
+	// invalid length
+	assert.Error(t, rule("4111111", "", nil))       // too short
+	assert.Error(t, rule("41111111111111111111", "", nil)) // too long
+
+	// non-numeric
+	assert.Error(t, rule("abcd1234efgh5678", "", nil))
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+func TestLuhnCheck(t *testing.T) {
+	assert.True(t, luhnCheck("4111111111111111"))
+	assert.True(t, luhnCheck("5555555555554444"))
+	assert.True(t, luhnCheck("378282246310005"))
+	assert.False(t, luhnCheck("4111111111111112"))
+	assert.False(t, luhnCheck("1234567890123456"))
+	assert.False(t, luhnCheck("abcdef"))
+}
+
+// ──────────────────────────────────────────────
+// json
+// ──────────────────────────────────────────────
+
+func TestRuleJSON(t *testing.T) {
+	rule := GetRule("json")
+	require.NotNil(t, rule)
+
+	// valid JSON
+	assert.NoError(t, rule(`{"key":"value"}`, "", nil))
+	assert.NoError(t, rule(`[1,2,3]`, "", nil))
+	assert.NoError(t, rule(`"string"`, "", nil))
+	assert.NoError(t, rule(`123`, "", nil))
+	assert.NoError(t, rule(`true`, "", nil))
+	assert.NoError(t, rule(`null`, "", nil))
+	assert.NoError(t, rule(`{"nested":{"a":1},"arr":[1,2]}`, "", nil))
+
+	// invalid
+	assert.Error(t, rule(`{key:"value"}`, "", nil))  // unquoted key
+	assert.Error(t, rule(`not json`, "", nil))
+	assert.Error(t, rule(`{`, "", nil))
+	assert.Error(t, rule(`[1,2,`, "", nil))
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+// ──────────────────────────────────────────────
+// base64
+// ──────────────────────────────────────────────
+
+func TestRuleBase64(t *testing.T) {
+	rule := GetRule("base64")
+	require.NotNil(t, rule)
+
+	// valid Base64
+	assert.NoError(t, rule("aGVsbG8=", "", nil))       // "hello"
+	assert.NoError(t, rule("aGVsbG8gd29ybGQ=", "", nil)) // "hello world"
+	assert.NoError(t, rule("dGVzdA==", "", nil))       // "test"
+	assert.NoError(t, rule("SGVsbG8gV29ybGQh", "", nil))
+
+	// invalid
+	assert.Error(t, rule("not base64!", "", nil))
+	assert.Error(t, rule("aGVsbG8", "", nil))  // missing padding
+	assert.Error(t, rule("", "", nil))
+	assert.Error(t, rule("!!!", "", nil))
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}
+
+// ──────────────────────────────────────────────
+// hex
+// ──────────────────────────────────────────────
+
+func TestRuleHex(t *testing.T) {
+	rule := GetRule("hex")
+	require.NotNil(t, rule)
+
+	// valid hex
+	assert.NoError(t, rule("0123456789abcdef", "", nil))
+	assert.NoError(t, rule("ABCDEF", "", nil))
+	assert.NoError(t, rule("0x"[:0] + "deadbeef", "", nil))
+	assert.NoError(t, rule("123456", "", nil))
+	assert.NoError(t, rule("a", "", nil))
+
+	// invalid
+	assert.Error(t, rule("xyz", "", nil))
+	assert.Error(t, rule("12g4", "", nil))
+	assert.Error(t, rule("", "", nil))
+	assert.Error(t, rule("0xdeadbeef", "", nil)) // contains 'x'
+
+	// non-string
+	assert.Error(t, rule(123, "", nil))
+	assert.ErrorIs(t, rule(123, "", nil), ErrInvalidType)
+}

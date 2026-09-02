@@ -4,6 +4,8 @@
 package validate
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/mail"
@@ -76,6 +78,13 @@ func registerBuiltinRules() {
 	builtinRules["gtefield"] = ruleGteField
 	builtinRules["ltefield"] = ruleLteField
 	builtinRules["unique"] = ruleUnique
+	builtinRules["phone"] = rulePhone
+	builtinRules["uuid"] = ruleUUID
+	builtinRules["slug"] = ruleSlug
+	builtinRules["creditcard"] = ruleCreditCard
+	builtinRules["json"] = ruleJSON
+	builtinRules["base64"] = ruleBase64
+	builtinRules["hex"] = ruleHex
 }
 
 // ──────────────────────────────────────────────
@@ -562,4 +571,146 @@ func extractField(parent any, path string) any {
 		}
 	}
 	return rv.Interface()
+}
+
+// ──────────────────────────────────────────────
+// phone / uuid / slug / creditcard / json / base64 / hex
+// ──────────────────────────────────────────────
+
+// Pre-compiled regexes for rules that use regex matching.
+var (
+	phoneRegex      = regexp.MustCompile(`^1[3-9]\d{9}$`)
+	uuidRegex       = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	uuidV4Regex     = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+	slugRegex       = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	hexRegex        = regexp.MustCompile(`^[0-9a-fA-F]+$`)
+)
+
+// rulePhone validates a Chinese mobile phone number: 11 digits starting
+// with 1[3-9].
+func rulePhone(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if !phoneRegex.MatchString(s) {
+		return fmt.Errorf("must be a valid Chinese phone number (1[3-9]xxxxxxxxx)")
+	}
+	return nil
+}
+
+// ruleUUID validates a UUID string. By default it accepts any UUID
+// version; when the param is "v4" it restricts to UUID v4 format.
+func ruleUUID(value any, param string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if strings.EqualFold(param, "v4") {
+		if !uuidV4Regex.MatchString(s) {
+			return fmt.Errorf("must be a valid UUID v4")
+		}
+		return nil
+	}
+	if !uuidRegex.MatchString(s) {
+		return fmt.Errorf("must be a valid UUID")
+	}
+	return nil
+}
+
+// ruleSlug validates a URL slug: lowercase alphanumeric segments
+// separated by single hyphens.
+func ruleSlug(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if !slugRegex.MatchString(s) {
+		return fmt.Errorf("must be a valid slug (lowercase alphanumeric with hyphens)")
+	}
+	return nil
+}
+
+// ruleCreditCard validates a credit card number using the Luhn
+// algorithm. Spaces and hyphens are stripped before validation.
+func ruleCreditCard(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	// Strip spaces and hyphens.
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "-", "")
+	if len(s) < 13 || len(s) > 19 {
+		return fmt.Errorf("must be a valid credit card number")
+	}
+	if !luhnCheck(s) {
+		return fmt.Errorf("must be a valid credit card number (Luhn check failed)")
+	}
+	return nil
+}
+
+// luhnCheck implements the Luhn checksum algorithm.
+func luhnCheck(s string) bool {
+	sum := 0
+	alt := false
+	for i := len(s) - 1; i >= 0; i-- {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return false
+		}
+		d := int(c - '0')
+		if alt {
+			d *= 2
+			if d > 9 {
+				d -= 9
+			}
+		}
+		sum += d
+		alt = !alt
+	}
+	return sum%10 == 0
+}
+
+// ruleJSON validates that the string is valid JSON.
+func ruleJSON(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if !json.Valid([]byte(s)) {
+		return fmt.Errorf("must be valid JSON")
+	}
+	return nil
+}
+
+// ruleBase64 validates that the string is valid standard Base64.
+func ruleBase64(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if s == "" {
+		return fmt.Errorf("must be valid Base64")
+	}
+	if _, err := base64.StdEncoding.DecodeString(s); err != nil {
+		return fmt.Errorf("must be valid Base64")
+	}
+	return nil
+}
+
+// ruleHex validates that the string contains only hexadecimal
+// characters (0-9, a-f, A-F).
+func ruleHex(value any, _ string, _ any) error {
+	s, ok := value.(string)
+	if !ok {
+		return ErrInvalidType
+	}
+	if s == "" {
+		return fmt.Errorf("must be valid hexadecimal")
+	}
+	if !hexRegex.MatchString(s) {
+		return fmt.Errorf("must be valid hexadecimal")
+	}
+	return nil
 }

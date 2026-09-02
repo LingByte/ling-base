@@ -31,6 +31,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/LingByte/ling-base/common/imageutil v0.1.0 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
+	github.com/deepteams/webp v1.2.7 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

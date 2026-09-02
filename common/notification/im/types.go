@@ -11,8 +11,10 @@ import (
 // Provider name constants. These are the canonical, lower-case
 // identifiers used throughout the im package and by the registry.
 const (
-	ProviderWeCom  = "wecom"
-	ProviderFeishu = "feishu"
+	ProviderWeCom    = "wecom"
+	ProviderFeishu   = "feishu"
+	ProviderDingTalk = "dingtalk"
+	ProviderWeChat   = "wechat"
 )
 
 // Message is the unified payload delivered to an IM provider. Content
@@ -56,6 +58,24 @@ type FeishuConfig struct {
 	Secret     string // optional signing secret
 	AppID      string // application ID (application API only)
 	AppSecret  string // application secret (application API only)
+}
+
+// DingTalkConfig holds the settings for a DingTalk (钉钉) group robot
+// webhook bot. AccessToken is the access_token query parameter from
+// the webhook URL; Secret is the optional signing secret (加签).
+// When Secret is set, every request is signed with HMAC-SHA256 as
+// required by DingTalk's signed webhook.
+type DingTalkConfig struct {
+	WebhookURL  string // full webhook URL (https://oapi.dingtalk.com/robot/send?access_token=...)
+	AccessToken string // access token (extracted from the webhook URL)
+	Secret      string // optional signing secret (加签)
+}
+
+// WeChatConfig holds the settings for a WeCom (企业微信) group robot
+// webhook bot. This is a simpler config that only requires the
+// WebhookURL.
+type WeChatConfig struct {
+	WebhookURL string // group robot webhook URL (https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...)
 }
 
 // NormalizeProvider returns the canonical, lower-case form of a

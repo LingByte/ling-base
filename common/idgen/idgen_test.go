@@ -301,3 +301,114 @@ func TestRandText_Uniqueness(t *testing.T) {
 		seen[s] = true
 	}
 }
+
+// ===== ULID =====
+
+var ulidRegex = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
+
+func TestULID_Length(t *testing.T) {
+	u := ULID()
+	assert.Len(t, u, 26, "ULID should be 26 characters")
+}
+
+func TestULID_Format(t *testing.T) {
+	u := ULID()
+	assert.Regexp(t, ulidRegex, u, "ULID should match Crockford Base32")
+}
+
+func TestULID_NoLowercase(t *testing.T) {
+	u := ULID()
+	for _, c := range u {
+		assert.False(t, c >= 'a' && c <= 'z', "ULID should not contain lowercase, got %q", c)
+	}
+}
+
+func TestULID_Sortable(t *testing.T) {
+	u1 := ULID()
+	time.Sleep(2 * time.Millisecond)
+	u2 := ULID()
+	assert.Less(t, u1, u2, "ULID should be lexicographically sortable by time")
+}
+
+func TestULID_Unique(t *testing.T) {
+	seen := make(map[string]bool, 1000)
+	for i := 0; i < 1000; i++ {
+		u := ULID()
+		assert.False(t, seen[u], "duplicate ULID: %s", u)
+		seen[u] = true
+	}
+}
+
+func TestULID_CrockfordAlphabet(t *testing.T) {
+	// Crockford Base32 excludes I, L, O, U.
+	u := ULID()
+	for _, c := range u {
+		assert.NotContains(t, "ILOU", string(c), "ULID should not contain excluded chars I/L/O/U")
+	}
+}
+
+// ===== NanoID =====
+
+func TestNanoID_DefaultSize(t *testing.T) {
+	id := NanoID(0)
+	assert.Len(t, id, 21, "NanoID with size 0 should use default 21")
+}
+
+func TestNanoID_CustomSize(t *testing.T) {
+	id := NanoID(10)
+	assert.Len(t, id, 10)
+}
+
+func TestNanoID_NegativeSize(t *testing.T) {
+	id := NanoID(-5)
+	assert.Len(t, id, 21, "NanoID with negative size should use default 21")
+}
+
+func TestNanoID_URLSafeAlphabet(t *testing.T) {
+	id := NanoID(100)
+	for _, c := range id {
+		assert.True(t,
+			(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-',
+			"NanoID should be URL-safe, got %q", c)
+	}
+}
+
+func TestNanoID_Unique(t *testing.T) {
+	seen := make(map[string]bool, 1000)
+	for i := 0; i < 1000; i++ {
+		id := NanoID(21)
+		assert.False(t, seen[id], "duplicate NanoID: %s", id)
+		seen[id] = true
+	}
+}
+
+func TestNanoIDWithAlphabet_Custom(t *testing.T) {
+	id := NanoIDWithAlphabet(20, "abcdef")
+	assert.Len(t, id, 20)
+	for _, c := range id {
+		assert.True(t, strings.ContainsRune("abcdef", c), "NanoID should only use custom alphabet, got %q", c)
+	}
+}
+
+func TestNanoIDWithAlphabet_EmptyAlphabet(t *testing.T) {
+	// Empty alphabet falls back to default.
+	id := NanoIDWithAlphabet(10, "")
+	assert.Len(t, id, 10)
+}
+
+func TestNanoIDWithAlphabet_SingleChar(t *testing.T) {
+	id := NanoIDWithAlphabet(10, "X")
+	assert.Len(t, id, 10)
+	for _, c := range id {
+		assert.Equal(t, 'X', c)
+	}
+}
+
+func TestNanoIDWithAlphabet_Unique(t *testing.T) {
+	seen := make(map[string]bool, 500)
+	for i := 0; i < 500; i++ {
+		id := NanoIDWithAlphabet(16, "0123456789")
+		assert.False(t, seen[id], "duplicate NanoID with custom alphabet: %s", id)
+		seen[id] = true
+	}
+}
