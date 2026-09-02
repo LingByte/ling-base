@@ -100,7 +100,17 @@ ling-base/
 │  ├─ auditlog/              # 审计日志（结构化，Storage 接口，不可篡改）
 │  ├─ webhook/               # Webhook 发送（签名+重试+事件过滤）
 │  ├─ backup/                # 数据备份/恢复（gzip 压缩，SHA256 校验）
-│  └─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
+│  ├─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
+│  │
+│  ├─ money/                 # 金额处理（int64 存储，运算/比较/分配/舍入）
+│  ├─ sse/                   # Server-Sent Events（Writer + Client + 事件解析）
+│  ├─ archive/               # 归档工具（zip/tar/tar.gz，zip slip 防护）
+│  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
+│  ├─ upload/                # 文件上传（验证/安全文件名/分片上传/MIME 检测）
+│  ├─ turnstile/             # Cloudflare Turnstile 验证
+│  ├─ antispam/              # 反垃圾（关键词过滤/频率限制/内容评分）
+│  ├─ trie/                  # 前缀树（路由匹配/自动补全/线程安全版）
+│  └─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │
 ├─ relay/                    # AI provider 中继库（生产级，40+ channel 适配器）
 │  ├─ client.go              # 统一 Client API（Chat/Stream/Embed/Image/Audio/Responses）
@@ -272,6 +282,33 @@ go get github.com/LingByte/ling-base/common/diff
 
 # Emoji 处理
 go get github.com/LingByte/ling-base/common/emoji
+
+# 金额处理（避免浮点误差）
+go get github.com/LingByte/ling-base/common/money
+
+# Server-Sent Events
+go get github.com/LingByte/ling-base/common/sse
+
+# 归档工具（zip/tar/tar.gz）
+go get github.com/LingByte/ling-base/common/archive
+
+# WebSocket 工具
+go get github.com/LingByte/ling-base/common/wsutil
+
+# 文件上传（分片/验证/MIME 检测）
+go get github.com/LingByte/ling-base/common/upload
+
+# Cloudflare Turnstile 验证
+go get github.com/LingByte/ling-base/common/turnstile
+
+# 反垃圾（关键词过滤/频率限制/内容评分）
+go get github.com/LingByte/ling-base/common/antispam
+
+# 前缀树（路由匹配/自动补全）
+go get github.com/LingByte/ling-base/common/trie
+
+# 一致性哈希（分布式分片）
+go get github.com/LingByte/ling-base/common/consistent
 ```
 
 ```go
@@ -665,6 +702,15 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/abtest/README.md](common/abtest/README.md)
 - [common/diff/README.md](common/diff/README.md)
 - [common/emoji/README.md](common/emoji/README.md)
+- [common/money/README.md](common/money/README.md)
+- [common/sse/README.md](common/sse/README.md)
+- [common/archive/README.md](common/archive/README.md)
+- [common/wsutil/README.md](common/wsutil/README.md)
+- [common/upload/README.md](common/upload/README.md)
+- [common/turnstile/README.md](common/turnstile/README.md)
+- [common/antispam/README.md](common/antispam/README.md)
+- [common/trie/README.md](common/trie/README.md)
+- [common/consistent/README.md](common/consistent/README.md)
 
 ## 开发
 
