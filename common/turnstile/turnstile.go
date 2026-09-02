@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -127,9 +128,9 @@ func (c *Client) VerifyRequest(ctx context.Context, r *http.Request, fieldName s
 		token = r.Header.Get("cf-turnstile-response")
 	}
 	remoteIP := r.RemoteAddr
-	// Strip port if present.
-	if idx := strings.LastIndex(remoteIP, ":"); idx >= 0 && !strings.Contains(remoteIP[idx:], ":") {
-		remoteIP = remoteIP[:idx]
+	// Strip port if present (handles both IPv4 and IPv6 [::1]:port).
+	if host, _, err := net.SplitHostPort(remoteIP); err == nil {
+		remoteIP = host
 	}
 	return c.Verify(ctx, token, remoteIP)
 }

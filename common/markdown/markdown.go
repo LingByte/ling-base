@@ -25,6 +25,7 @@ package markdown
 
 import (
 	"bytes"
+	stdhtml "html"
 	"fmt"
 	"strings"
 
@@ -239,10 +240,12 @@ func slugify(s string) string {
 }
 
 func escapeHTML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, `"`, "&quot;")
+	s = stdhtml.EscapeString(s)
+	// html.EscapeString escapes ' to &#39; and " to &#34;. Restore single
+	// quotes (the previous implementation did not escape them) and use
+	// &quot; for double quotes for output compatibility.
+	s = strings.ReplaceAll(s, "&#39;", "'")
+	s = strings.ReplaceAll(s, "&#34;", "&quot;")
 	return s
 }
 

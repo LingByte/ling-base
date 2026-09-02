@@ -340,32 +340,46 @@ func TestHandler_SaveFromRequest_Server(t *testing.T) {
 
 func TestValidateFile_Success(t *testing.T) {
 	header := &multipart.FileHeader{Filename: "test.png", Size: 100}
-	err := ValidateFile(header, []string{"image/png"}, 200)
+	err := ValidateFile(header, []string{"image/png"}, 200, -1)
 	assert.NoError(t, err)
 }
 
 func TestValidateFile_TooLarge(t *testing.T) {
 	header := &multipart.FileHeader{Filename: "test.png", Size: 200}
-	err := ValidateFile(header, nil, 100)
+	err := ValidateFile(header, nil, 100, -1)
 	assert.ErrorIs(t, err, ErrFileTooLarge)
 }
 
 func TestValidateFile_Empty(t *testing.T) {
 	header := &multipart.FileHeader{Filename: "test.png", Size: 0}
-	err := ValidateFile(header, nil, 100)
+	err := ValidateFile(header, nil, 100, -1)
 	assert.ErrorIs(t, err, ErrEmptyFile)
 }
 
 func TestValidateFile_TypeNotAllowed(t *testing.T) {
 	header := &multipart.FileHeader{Filename: "test.txt", Size: 100}
-	err := ValidateFile(header, []string{"image/png"}, 200)
+	err := ValidateFile(header, []string{"image/png"}, 200, -1)
 	assert.ErrorIs(t, err, ErrFileTypeNotAllowed)
 }
 
 func TestValidateFile_NoMaxSize(t *testing.T) {
 	header := &multipart.FileHeader{Filename: "test.png", Size: 999999}
-	err := ValidateFile(header, nil, 0)
+	err := ValidateFile(header, nil, 0, -1)
 	assert.NoError(t, err)
+}
+
+func TestValidateFile_ActualSizeTooLarge(t *testing.T) {
+	// Client claims Size=50 but actual bytes written exceed MaxSize.
+	header := &multipart.FileHeader{Filename: "test.png", Size: 50}
+	err := ValidateFile(header, nil, 100, 150)
+	assert.ErrorIs(t, err, ErrFileTooLarge)
+}
+
+func TestValidateFile_ActualSizeEmpty(t *testing.T) {
+	// Client claims Size=100 but actual bytes written is 0.
+	header := &multipart.FileHeader{Filename: "test.png", Size: 100}
+	err := ValidateFile(header, nil, 200, 0)
+	assert.ErrorIs(t, err, ErrEmptyFile)
 }
 
 // ──────────────────────────────────────────────
@@ -890,4 +904,126 @@ func TestChunkUploader_Cleanup_RemoveAllError(t *testing.T) {
 	_ = cu.Cleanup(uploadID)
 	// Restore permissions for temp dir cleanup.
 	_ = os.Chmod(parentDir, 0o755)
+}
+
+// ──────────────────────────────────────────────
+// Streaming Save tests
+// ──────────────────────────────────────────────
+
+// errMultipartFile implements multipart.File but fails on Read.
+type errMultipartFile struct{}
+
+func (e *errMultipartFile) Read(p []byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (e *errMultipartFile) Close() error                { return nil }
+func (e *errMultipartFile) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
+}
+func (e *errMultipartFile) ReadAt(p []byte, offset int64) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+func TestHandler_Save_StreamCopyError(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHandler(dir, WithMaxSize(1 << 20))
+
+	header := &multipart.FileHeader{Filename: "test.png", Size: 100}
+	_, err := h.Save(&errMultipartFile{}, header)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "write file")
+}
+
+// hardReadErrMultipartFile fails with a non-EOF error on Read, triggering
+// the ReadFull error path in Save.
+type hardReadErrMultipartFile struct{}
+
+func (h *hardReadErrMultipartFile) Read(p []byte) (int, error) {
+	return 0, io.ErrNoProgress
+}
+func (h *hardReadErrMultipartFile) Close() error { return nil }
+func (h *hardReadErrMultipartFile) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
+}
+func (h *hardReadErrMultipartFile) ReadAt(p []byte, offset int64) (int, error) {
+	return 0, io.ErrNoProgress
+}
+
+func TestHandler_Save_ReadFileError(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHandler(dir, WithMaxSize(1 << 20))
+
+	header := &multipart.FileHeader{Filename: "test.png", Size: 100}
+	_, err := h.Save(&hardReadErrMultipartFile{}, header)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "read file")
+}
+
+// lyingMultipartFile implements multipart.File returning more data than
+// header.Size claims, to test the actual-size validation.
+type lyingMultipartFile struct {
+	data []byte
+	pos  int
+}
+
+func (l *lyingMultipartFile) Read(p []byte) (int, error) {
+	if l.pos >= len(l.data) {
+		return 0, io.EOF
+	}
+	n := copy(p, l.data[l.pos:])
+	l.pos += n
+	return n, nil
+}
+func (l *lyingMultipartFile) Close() error { return nil }
+func (l *lyingMultipartFile) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
+}
+func (l *lyingMultipartFile) ReadAt(p []byte, offset int64) (int, error) {
+	return 0, io.EOF
+}
+
+func TestHandler_Save_ActualSizeExceedsMaxSize(t *testing.T) {
+	dir := t.TempDir()
+	// MaxSize=100, but the actual data is 200 bytes. header.Size lies (50).
+	h := NewHandler(dir, WithMaxSize(100))
+
+	bigData := bytes.Repeat([]byte("A"), 200)
+	header := &multipart.FileHeader{Filename: "test.bin", Size: 50}
+	_, err := h.Save(&lyingMultipartFile{data: bigData}, header)
+	assert.ErrorIs(t, err, ErrFileTooLarge)
+}
+
+func TestHandler_Save_StreamingLargeFile(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHandler(dir, WithMaxSize(10<<20))
+
+	// 5 MB of data — would OOM with io.ReadAll in a constrained env.
+	largeData := bytes.Repeat([]byte("X"), 5<<20)
+	header := &multipart.FileHeader{Filename: "big.bin", Size: int64(len(largeData))}
+	info, err := h.Save(&lyingMultipartFile{data: largeData}, header)
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(largeData)), info.Size)
+	assert.FileExists(t, info.Path)
+
+	saved, err := os.ReadFile(info.Path)
+	require.NoError(t, err)
+	assert.Equal(t, largeData, saved)
+}
+
+func TestHandler_Save_CreateTempError(t *testing.T) {
+	// Skip if running as root — root bypasses file permission checks.
+	if os.Geteuid() == 0 {
+		t.Skip("skipping when running as root")
+	}
+	dir := t.TempDir()
+	h := NewHandler(dir, WithMaxSize(1 << 20))
+
+	// MkdirAll succeeds on the existing dir, but CreateTemp fails because
+	// the directory is read-only.
+	require.NoError(t, os.Chmod(dir, 0o444))
+	defer os.Chmod(dir, 0o755)
+
+	pngData := makePNG(t)
+	header := &multipart.FileHeader{Filename: "test.png", Size: int64(len(pngData))}
+	_, err := h.Save(&lyingMultipartFile{data: pngData}, header)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create temp file")
 }

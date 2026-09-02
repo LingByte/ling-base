@@ -263,7 +263,7 @@ func (c *Client) nominatimSearch(params url.Values) (*GeocodeResult, error) {
 		return nil, fmt.Errorf("geocode: no results found")
 	}
 
-	return c.parseNominatimResult(&results[0]), nil
+	return c.parseNominatimResult(&results[0])
 }
 
 // ─── Reverse Geocoding (lat/lon → address) ─────────────────────
@@ -412,14 +412,14 @@ func (c *Client) reverseBigDataCloud(lat, lon float64) (*ReverseResult, error) {
 func HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	const earthRadiusKm = 6371.0
 
-	lat1Rad := lat1 * (pi / 180)
-	lat2Rad := lat2 * (pi / 180)
-	dLat := (lat2 - lat1) * (pi / 180)
-	dLon := (lon2 - lon1) * (pi / 180)
+	lat1Rad := lat1 * (math.Pi / 180)
+	lat2Rad := lat2 * (math.Pi / 180)
+	dLat := (lat2 - lat1) * (math.Pi / 180)
+	dLon := (lon2 - lon1) * (math.Pi / 180)
 
-	a := sin(dLat/2)*sin(dLat/2) +
-		cos(lat1Rad)*cos(lat2Rad)*sin(dLon/2)*sin(dLon/2)
-	c := 2 * atan2(sqrt(a), sqrt(1-a))
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
 	return earthRadiusKm * c
 }
@@ -435,13 +435,6 @@ func IsInRadius(lat1, lon1, lat2, lon2, radiusKm float64) bool {
 }
 
 // ─── Internal types ─────────────────────────────────────────────
-
-const pi = 3.14159265358979323846
-
-func sin(x float64) float64      { return math.Sin(x) }
-func cos(x float64) float64      { return math.Cos(x) }
-func sqrt(x float64) float64     { return math.Sqrt(x) }
-func atan2(y, x float64) float64 { return math.Atan2(y, x) }
 
 // nominatimSearchResponse is the JSON response from Nominatim /search.
 type nominatimSearchResponse struct {
@@ -537,9 +530,15 @@ type bigDataCloudResponse struct {
 	LocalityInfo       map[string]any `json:"localityInfo"`
 }
 
-func (c *Client) parseNominatimResult(r *nominatimSearchResponse) *GeocodeResult {
-	lat, _ := strconv.ParseFloat(r.Lat, 64)
-	lon, _ := strconv.ParseFloat(r.Lon, 64)
+func (c *Client) parseNominatimResult(r *nominatimSearchResponse) (*GeocodeResult, error) {
+	lat, err := strconv.ParseFloat(r.Lat, 64)
+	if err != nil {
+		return nil, fmt.Errorf("geocode: parse lat %q: %w", r.Lat, err)
+	}
+	lon, err := strconv.ParseFloat(r.Lon, 64)
+	if err != nil {
+		return nil, fmt.Errorf("geocode: parse lon %q: %w", r.Lon, err)
+	}
 
 	city := r.Address.City
 	if city == "" {
@@ -565,5 +564,5 @@ func (c *Client) parseNominatimResult(r *nominatimSearchResponse) *GeocodeResult
 		Type:        r.Type,
 		Importance:  r.Importance,
 		Provider:    ProviderNominatim,
-	}
+	}, nil
 }

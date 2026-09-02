@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -273,7 +274,7 @@ func (s *StreamReader) Next() (*Event, error) {
 		case "data":
 			s.data = append(s.data, value)
 		case "retry":
-			if n, err := parseInt(value); err == nil {
+			if n, err := strconv.Atoi(value); err == nil {
 				s.retry = n
 			}
 		default:
@@ -324,18 +325,6 @@ func (s *StreamReader) Close() error {
 	return s.resp.Body.Close()
 }
 
-// parseInt is a small helper to avoid importing strconv just for this.
-func parseInt(s string) (int, error) {
-	n := 0
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return 0, fmt.Errorf("sse: invalid integer %q", s)
-		}
-		n = n*10 + int(r-'0')
-	}
-	return n, nil
-}
-
 // ──────────────────────────────────────────────
 // ParseEvent
 // ──────────────────────────────────────────────
@@ -369,7 +358,7 @@ func ParseEvent(data string) *Event {
 			}
 			ev.Data += value
 		case "retry":
-			if n, err := parseInt(value); err == nil {
+			if n, err := strconv.Atoi(value); err == nil {
 				ev.Retry = n
 			}
 		}

@@ -14,6 +14,7 @@ package diff
 
 import (
 	"fmt"
+	"html"
 	"strings"
 )
 
@@ -73,7 +74,7 @@ func HTMLDiff(old, new string) string {
 	lines := LineDiff(old, new)
 	var b strings.Builder
 	for _, l := range lines {
-		escaped := htmlEscape(l.Content)
+		escaped := escapeHTML(l.Content)
 		switch l.Type {
 		case Added:
 			fmt.Fprintf(&b, `<div class="diff-added">%s</div>`, escaped)
@@ -160,11 +161,12 @@ func max(a, b int) int {
 	return b
 }
 
-// htmlEscape escapes the four significant XML/HTML characters.
-func htmlEscape(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, `"`, "&quot;")
+// escapeHTML escapes HTML special characters using html.EscapeString, then
+// restores single quotes (the previous implementation did not escape them)
+// and normalizes double quotes to &quot; for output compatibility.
+func escapeHTML(s string) string {
+	s = html.EscapeString(s)
+	s = strings.ReplaceAll(s, "&#39;", "'")
+	s = strings.ReplaceAll(s, "&#34;", "&quot;")
 	return s
 }

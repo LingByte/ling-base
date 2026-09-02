@@ -25,6 +25,7 @@
 package backup
 
 import (
+	"bufio"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -85,7 +86,7 @@ type Manager struct {
 	dst        Destination
 	compressed bool
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	backups map[string]*Backup
 }
 
@@ -160,6 +161,9 @@ func (m *Manager) Backup(ctx context.Context, name string) (*Backup, error) {
 
 	path, err := m.dst.Write(name, tee)
 	if err != nil {
+		// Close the pipe reader to unblock the goroutine whose Write
+		// to the pipe would otherwise block forever (deadlock).
+		_ = pipeReader.Close()
 		<-copyErr
 		return nil, fmt.Errorf("backup: write destination: %w", err)
 	}
@@ -217,6 +221,13 @@ func (m *Manager) Restore(ctx context.Context, backup *Backup) error {
 		return errors.New("backup: restore only supported for FileDestination")
 	}
 
+	// Check early that the source supports restore. Silently discarding
+	// the data would mislead the caller into thinking restore succeeded.
+	fs, ok := m.src.(*FileSource)
+	if !ok {
+		return errors.New("backup: restore only supported for FileSource")
+	}
+
 	srcPath := backup.Path
 	if srcPath == "" {
 		srcPath = filepath.Join(fd.Dir, backup.Name)
@@ -237,15 +248,6 @@ func (m *Manager) Restore(ctx context.Context, backup *Backup) error {
 		r = gz
 	}
 
-	// Determine where to restore. If the source is a *FileSource, write
-	// back to its Path; otherwise discard (callers can wrap as needed).
-	fs, ok := m.src.(*FileSource)
-	if !ok {
-		// Drain to discard to verify readability.
-		_, err := io.Copy(io.Discard, r)
-		return err
-	}
-
 	out, err := os.Create(fs.Path)
 	if err != nil {
 		return fmt.Errorf("backup: create restore target: %w", err)
@@ -260,8 +262,8 @@ func (m *Manager) Restore(ctx context.Context, backup *Backup) error {
 
 // List returns all recorded backups sorted by name.
 func (m *Manager) List() ([]*Backup, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	out := make([]*Backup, 0, len(m.backups))
 	for _, bp := range m.backups {
 		out = append(out, bp)
@@ -274,13 +276,12 @@ func (m *Manager) List() ([]*Backup, error) {
 // the underlying artifact file.
 func (m *Manager) Delete(name string) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	bp, ok := m.backups[name]
 	if !ok {
-		m.mu.Unlock()
 		return fmt.Errorf("backup: %q not found", name)
 	}
 	delete(m.backups, name)
-	m.mu.Unlock()
 
 	if fd, ok := m.dst.(*FileDestination); ok {
 		path := bp.Path
@@ -330,8 +331,9 @@ func (d *FileDestination) Write(name string, r io.Reader) (string, error) {
 	}
 
 	// Sniff for gzip magic to decide the file extension. We peek the
-	// first 2 bytes; if it's gzip magic (0x1f 0x8b) we append .gz.
-	br := newPeekReader(r, 2)
+	// first 2 bytes using bufio.Reader; if it's gzip magic (0x1f 0x8b)
+	// we append .gz.
+	br := bufio.NewReader(r)
 	peek, _ := br.Peek(2)
 	fname := name
 	if len(peek) == 2 && peek[0] == 0x1f && peek[1] == 0x8b {
@@ -353,47 +355,8 @@ func (d *FileDestination) Write(name string, r io.Reader) (string, error) {
 	return path, nil
 }
 
-// peekReader wraps a reader allowing a small fixed peek without
-// consuming the bytes.
-type peekReader struct {
-	r       io.Reader
-	buf     []byte
-	bufLen  int
-	bufRead bool
-}
-
-func newPeekReader(r io.Reader, n int) *peekReader {
-	return &peekReader{r: r, buf: make([]byte, n)}
-}
-
-func (p *peekReader) Peek(n int) ([]byte, error) {
-	if !p.bufRead {
-		_, err := io.ReadFull(p.r, p.buf)
-		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-			return nil, err
-		}
-		p.bufLen = len(p.buf) // may be short if EOF
-		p.bufRead = true
-	}
-	if n > p.bufLen {
-		return p.buf[:p.bufLen], io.EOF
-	}
-	return p.buf[:n], nil
-}
-
-func (p *peekReader) Read(dst []byte) (int, error) {
-	var n int
-	if p.bufRead && p.bufLen > 0 {
-		n = copy(dst, p.buf[:p.bufLen])
-		p.bufLen -= n
-		p.buf = p.buf[n:]
-	}
-	if n < len(dst) {
-		m, err := p.r.Read(dst[n:])
-		n += m
-		if err != nil {
-			return n, err
-		}
-	}
-	return n, nil
+// newPeekReader wraps r in a bufio.Reader with enough buffer for peeking.
+// It is retained for backward compatibility with tests.
+func newPeekReader(r io.Reader, n int) *bufio.Reader {
+	return bufio.NewReaderSize(r, n)
 }

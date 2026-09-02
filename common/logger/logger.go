@@ -327,6 +327,16 @@ func Sync() {
 	}
 }
 
+// Close flushes buffered log entries and releases underlying resources
+// (e.g. lumberjack file handles). After Close, the global logger Lg is
+// set to nil and subsequent log calls will use a no-op fallback.
+func Close() {
+	if Lg != nil {
+		_ = Lg.Sync()
+		Lg = nil
+	}
+}
+
 // Context keys for extracting values from context
 type contextKey string
 

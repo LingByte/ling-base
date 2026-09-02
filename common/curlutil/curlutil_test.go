@@ -176,7 +176,7 @@ func TestGenerateBinaryPreview(t *testing.T) {
 	assert.Contains(t, preview, "Size: 8 bytes")
 	assert.Contains(t, preview, "[Image file]")
 	assert.Contains(t, preview, "Hex preview")
-	assert.Contains(t, preview, "8950 4e47")
+	assert.Contains(t, preview, "89 50 4e 47")
 }
 
 func TestBase64Encode(t *testing.T) {

@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/logger
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/constants v0.1.0
+	github.com/LingByte/ling-base/common/constants v0.1.1
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0

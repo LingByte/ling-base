@@ -174,7 +174,7 @@ func newID() (string, error) {
 // MemoryStorage is an in-memory [Storage] implementation suitable for
 // testing and simple in-process use. It is safe for concurrent use.
 type MemoryStorage struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	entries []*Entry
 }
 
@@ -193,8 +193,8 @@ func (s *MemoryStorage) Save(_ context.Context, entry *Entry) error {
 
 // Query returns entries matching the filter, ordered newest-first.
 func (s *MemoryStorage) Query(_ context.Context, filter *Filter) ([]*Entry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	limit := 0
 	if filter != nil {

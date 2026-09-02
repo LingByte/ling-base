@@ -19,6 +19,7 @@
 package upload
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -114,32 +115,75 @@ func NewHandler(destDir string, opts ...HandlerOption) *Handler {
 }
 
 // Save saves a single file from a multipart.File and its header.
+// The file is streamed to a temporary file on disk using io.Copy with an
+// io.LimitReader to enforce MaxSize, avoiding loading the entire file
+// into memory. MIME detection is performed on the first 512 bytes read
+// from the file.
 func (h *Handler) Save(file multipart.File, header *multipart.FileHeader) (*FileInfo, error) {
-	if err := ValidateFile(header, h.AllowedTypes, h.MaxSize); err != nil {
+	// Pre-write validation based on the client-provided header (actualSize
+	// unknown at this point).
+	if err := ValidateFile(header, h.AllowedTypes, h.MaxSize, -1); err != nil {
 		return nil, err
 	}
 
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("upload: read file: %w", err)
-	}
-	if len(data) == 0 {
-		return nil, ErrEmptyFile
+	if err := os.MkdirAll(h.DestDir, 0o755); err != nil {
+		return nil, fmt.Errorf("upload: create dir: %w", err)
 	}
 
-	mimeType := DetectMIME(data)
-	if !IsAllowedType(mimeType, h.AllowedTypes) {
-		return nil, ErrFileTypeNotAllowed
+	// Read the first 512 bytes for MIME detection. The rest of the file
+	// is streamed to disk without holding it all in memory.
+	head := make([]byte, 512)
+	hn, err := io.ReadFull(file, head)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return nil, fmt.Errorf("upload: read file: %w", err)
 	}
+	head = head[:hn]
 
 	savedName := h.generateFilename(header.Filename)
 	ext := filepath.Ext(savedName)
 	destPath := filepath.Join(h.DestDir, savedName)
 
-	if err := os.MkdirAll(h.DestDir, 0o755); err != nil {
-		return nil, fmt.Errorf("upload: create dir: %w", err)
+	// Stream the combined head + rest of the file to a temp file in the
+	// same directory (so the final rename is atomic on the same
+	// filesystem), limiting total bytes to MaxSize+1 when MaxSize is set
+	// so we can detect oversize uploads.
+	tmp, err := os.CreateTemp(h.DestDir, ".upload-tmp-*")
+	if err != nil {
+		return nil, fmt.Errorf("upload: create temp file: %w", err)
 	}
-	if err := os.WriteFile(destPath, data, 0o644); err != nil {
+	tmpPath := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath) // no-op if successfully renamed
+	}()
+
+	combined := io.MultiReader(bytes.NewReader(head), file)
+	var src io.Reader = combined
+	if h.MaxSize > 0 {
+		src = io.LimitReader(combined, h.MaxSize+1)
+	}
+
+	n, err := io.Copy(tmp, src)
+	if err != nil {
+		return nil, fmt.Errorf("upload: write file: %w", err)
+	}
+
+	// Post-write validation: check the actual byte count, which is more
+	// reliable than the client-provided header.Size.
+	if err := ValidateFile(header, h.AllowedTypes, h.MaxSize, n); err != nil {
+		return nil, err
+	}
+
+	mimeType := DetectMIME(head)
+	if !IsAllowedType(mimeType, h.AllowedTypes) {
+		return nil, ErrFileTypeNotAllowed
+	}
+
+	// Close the temp file and rename it to the final destination.
+	if err := tmp.Close(); err != nil {
+		return nil, fmt.Errorf("upload: close temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, destPath); err != nil {
 		return nil, fmt.Errorf("upload: write file: %w", err)
 	}
 
@@ -147,7 +191,7 @@ func (h *Handler) Save(file multipart.File, header *multipart.FileHeader) (*File
 		OriginalName: header.Filename,
 		SavedName:    savedName,
 		Path:         destPath,
-		Size:         int64(len(data)),
+		Size:         n,
 		MIMEType:     mimeType,
 		Extension:    ext,
 	}, nil
@@ -205,11 +249,18 @@ func (h *Handler) generateFilename(original string) string {
 // ──────────────────────────────────────────────
 
 // ValidateFile checks a file header against size and type constraints.
-func ValidateFile(header *multipart.FileHeader, allowedTypes []string, maxSize int64) error {
-	if maxSize > 0 && header.Size > maxSize {
+// actualSize is the number of bytes actually written to disk (-1 if
+// unknown, e.g. during a pre-write check). When actualSize >= 0 it takes
+// precedence over the client-provided header.Size, which can be spoofed.
+func ValidateFile(header *multipart.FileHeader, allowedTypes []string, maxSize int64, actualSize int64) error {
+	size := header.Size
+	if actualSize >= 0 {
+		size = actualSize
+	}
+	if maxSize > 0 && size > maxSize {
 		return ErrFileTooLarge
 	}
-	if header.Size == 0 {
+	if size == 0 {
 		return ErrEmptyFile
 	}
 	if len(allowedTypes) > 0 {

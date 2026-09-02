@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -218,7 +219,8 @@ func (discardDest) Write(name string, r io.Reader) (string, error) {
 }
 
 func TestManager_RestoreNonFileSource(t *testing.T) {
-	// Restore with a non-FileSource drains the stream successfully.
+	// Restore with a non-FileSource now returns an error instead of
+	// silently discarding the data.
 	content := []byte("restore me")
 	srcPath := writeSourceFile(t, content)
 	dstDir := t.TempDir()
@@ -228,7 +230,8 @@ func TestManager_RestoreNonFileSource(t *testing.T) {
 
 	mgr2 := NewManager(&bytesSource{b: content}, &FileDestination{Dir: dstDir})
 	err = mgr2.Restore(context.Background(), bp)
-	assert.NoError(t, err) // drained to discard
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "restore only supported for FileSource")
 }
 
 // bytesSource is a Source backed by an in-memory byte slice.
@@ -296,6 +299,29 @@ func TestManager_Backup_DestinationWriteError(t *testing.T) {
 	_, err := mgr.Backup(context.Background(), "x")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "write destination")
+}
+
+func TestManager_Backup_DestinationWriteErrorNoDeadlock(t *testing.T) {
+	// Large source with compression: if the destination fails mid-write,
+	// the compression goroutine must not block forever on the pipe.
+	// This test verifies the pipeReader.Close() fix prevents a deadlock.
+	content := bytes.Repeat([]byte("data chunk "), 10000)
+	srcPath := writeSourceFile(t, content)
+	mgr := NewManager(&FileSource{Path: srcPath}, errDest{}, WithCompression())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, err := mgr.Backup(context.Background(), "big")
+		assert.Error(t, err)
+	}()
+
+	select {
+	case <-done:
+		// Success: no deadlock.
+	case <-time.After(10 * time.Second):
+		t.Fatal("Backup deadlocked: destination write error did not unblock goroutine")
+	}
 }
 
 func TestManager_Backup_NilSourceOrDest(t *testing.T) {
@@ -389,13 +415,15 @@ func TestManager_Restore_CreateTargetError(t *testing.T) {
 
 func TestManager_Restore_NonFileSourceDrainsError(t *testing.T) {
 	dstDir := t.TempDir()
-	// Build a compressed backup whose artifact is corrupt gzip so draining fails.
+	// Build a compressed backup whose artifact is corrupt gzip. With a
+	// non-FileSource, Restore now returns an error immediately rather
+	// than attempting to drain the corrupt stream.
 	artPath := filepath.Join(dstDir, "badgz2")
 	require.NoError(t, os.WriteFile(artPath, []byte("not gzip"), 0o644))
 	mgr := NewManager(&bytesSource{b: []byte("x")}, &FileDestination{Dir: dstDir})
 	err := mgr.Restore(context.Background(), &Backup{Name: "badgz2", Path: artPath, Compressed: true})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "open gzip")
+	assert.Contains(t, err.Error(), "restore only supported for FileSource")
 }
 
 func TestManager_Delete_EmptyPathFallback(t *testing.T) {
@@ -489,34 +517,31 @@ func TestPeekReader_ReadError(t *testing.T) {
 }
 
 func TestPeekReader_PastEOF(t *testing.T) {
-	// Empty reader: io.ReadFull returns io.EOF (swallowed); bufLen is set to
-	// the buffer capacity, so Peek returns the zero-filled buffer with no
-	// error. This documents the current (lenient) peek behavior.
+	// Empty reader: bufio.Reader.Peek returns io.EOF with 0 bytes.
 	pr := newPeekReader(strings.NewReader(""), 2)
 	peek, err := pr.Peek(2)
-	require.NoError(t, err)
-	assert.Len(t, peek, 2)
-	// Subsequent Read drains the zero buffer and returns EOF from the source.
-	_, err = io.ReadAll(pr)
-	// EOF terminates ReadAll without error.
-	_ = err
+	assert.ErrorIs(t, err, io.EOF)
+	assert.Empty(t, peek)
+	// Subsequent ReadAll returns empty data (io.ReadAll treats EOF as nil).
+	out, rerr := io.ReadAll(pr)
+	assert.Empty(t, out)
+	assert.NoError(t, rerr)
 }
 
 func TestPeekReader_ShortReadThenRead(t *testing.T) {
-	// One-byte stream: io.ReadFull returns ErrUnexpectedEOF (swallowed), and
-	// the peek buffer reflects the short read. Subsequent Read drains the
-	// buffered data and then hits EOF from the underlying reader.
+	// One-byte stream: bufio.Reader.Peek returns io.EOF with the 1 byte
+	// that was available. Subsequent Read returns the buffered byte then
+	// EOF from the exhausted source.
 	pr := newPeekReader(strings.NewReader("a"), 2)
 	peek, err := pr.Peek(2)
-	require.NoError(t, err)
-	assert.NotEmpty(t, peek)
+	assert.ErrorIs(t, err, io.EOF)
+	assert.Len(t, peek, 1)
 	assert.Equal(t, byte('a'), peek[0])
 
 	// Read drains the buffer then returns EOF from the exhausted source.
-	out, err := io.ReadAll(pr)
-	// io.ReadAll returns nil error on EOF; the buffered 'a' is returned.
-	_ = out
-	_ = err
+	out, rerr := io.ReadAll(pr)
+	assert.Equal(t, []byte("a"), out)
+	assert.NoError(t, rerr) // io.ReadAll treats EOF as nil
 }
 
 func TestManager_List_Empty(t *testing.T) {

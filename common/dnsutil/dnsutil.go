@@ -23,6 +23,7 @@ package dnsutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -235,7 +236,7 @@ func (c *Client) QueryContext(ctx context.Context, domain, recordType string) ([
 	}
 
 	if resp.Rcode != dns.RcodeSuccess {
-		return nil, fmt.Errorf("dnsutil: server returned %s", dns.RcodeToString[resp.Rcode])
+		return nil, &RcodeError{Rcode: resp.Rcode}
 	}
 
 	records := make([]DNSRecord, 0, len(resp.Answer))
@@ -282,13 +283,15 @@ func (c *Client) QueryAll(domain string) (*AllRecords, error) {
 
 			records, err := c.Query(domain, recordType)
 			if err != nil {
-				// Ignore "no records" type errors, only collect real errors
-				if !strings.Contains(err.Error(), "NXDOMAIN") &&
-					!strings.Contains(err.Error(), "no records") {
-					mu.Lock()
-					errs = append(errs, err)
-					mu.Unlock()
+				// Ignore NXDOMAIN (domain does not exist for this type),
+				// only collect real errors.
+				var rcodeErr *RcodeError
+				if errors.As(err, &rcodeErr) && rcodeErr.Rcode == dns.RcodeNameError {
+					return
 				}
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
 				return
 			}
 
@@ -336,6 +339,16 @@ func (c *Client) ReverseLookup(ip string) ([]DNSRecord, error) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
+
+// RcodeError is returned when the DNS server responds with a non-success
+// rcode. Callers can use errors.As to inspect the rcode (e.g. NXDOMAIN).
+type RcodeError struct {
+	Rcode int
+}
+
+func (e *RcodeError) Error() string {
+	return fmt.Sprintf("dnsutil: server returned %s", dns.RcodeToString[e.Rcode])
+}
 
 // SupportedRecordTypes returns all supported record type names.
 func SupportedRecordTypes() []string {

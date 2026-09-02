@@ -90,7 +90,8 @@ func TestClient_Forward(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
-	parsed := client.parseNominatimResult(&results[0])
+	parsed, err := client.parseNominatimResult(&results[0])
+	require.NoError(t, err)
 	assert.Equal(t, 48.8584, parsed.Lat)
 	assert.Equal(t, 2.2945, parsed.Lon)
 	assert.Equal(t, "Eiffel Tower, Avenue Anatole France, Paris, France", parsed.DisplayName)
@@ -277,7 +278,8 @@ func TestParseNominatimResult_TownFallback(t *testing.T) {
 	}
 
 	c := NewClient()
-	result := c.parseNominatimResult(r)
+	result, err := c.parseNominatimResult(r)
+	require.NoError(t, err)
 	assert.Equal(t, "SmallTown", result.City) // falls back to Town
 }
 
@@ -294,6 +296,7 @@ func TestParseNominatimResult_VillageFallback(t *testing.T) {
 	}
 
 	c := NewClient()
-	result := c.parseNominatimResult(r)
+	result, err := c.parseNominatimResult(r)
+	require.NoError(t, err)
 	assert.Equal(t, "SmallVillage", result.City) // falls back to Village
 }

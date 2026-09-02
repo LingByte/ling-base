@@ -369,6 +369,9 @@ func TestRoundHalfEvenInternal(t *testing.T) {
 	assert.Equal(t, -4.0, roundHalfEven(-3.5))
 	assert.Equal(t, 2.0, roundHalfEven(2.4))
 	assert.Equal(t, 3.0, roundHalfEven(2.6))
+	// Negative non-tie cases.
+	assert.Equal(t, -2.0, roundHalfEven(-2.4))
+	assert.Equal(t, -3.0, roundHalfEven(-2.6))
 }
 
 func TestRoundUpInternal(t *testing.T) {
@@ -394,4 +397,58 @@ func TestLeftPad(t *testing.T) {
 func TestDecimalFloatAccuracy(t *testing.T) {
 	m := New(123456, "USD")
 	assert.InDelta(t, 1234.56, m.Decimal(), math.Pow(10, -6))
+}
+
+// ──────────────────────────────────────────────
+// String-based precision (large amounts & edge cases)
+// ──────────────────────────────────────────────
+
+func TestFromDecimal_LargeAmount(t *testing.T) {
+	// Large amount that would lose precision with float64 multiplication.
+	// 123456789.99 * 100 = 12345678999 which is within int64 range but
+	// float64 multiplication can introduce rounding errors.
+	m := FromDecimal(123456789.99, "USD")
+	assert.Equal(t, int64(12345678999), m.Amount())
+
+	m2 := FromDecimal(9999999999.99, "USD")
+	assert.Equal(t, int64(999999999999), m2.Amount())
+}
+
+func TestRound_NonFinite(t *testing.T) {
+	assert.Equal(t, int64(0), Round(math.NaN(), "USD", RoundHalfUp).Amount())
+	assert.Equal(t, int64(0), Round(math.Inf(1), "USD", RoundHalfUp).Amount())
+	assert.Equal(t, int64(0), Round(math.Inf(-1), "USD", RoundHalfUp).Amount())
+}
+
+func TestRound_HalfEvenWithMoreAfterTie(t *testing.T) {
+	// 0.1255 with 2 decimals: kept=12, rest=55 -> first digit 5, hasMore=true -> round up.
+	assert.Equal(t, int64(13), Round(0.1255, "USD", RoundHalfEven).Amount())
+}
+
+func TestRound_HalfEvenGreaterThanFive(t *testing.T) {
+	// 0.126 with 2 decimals: kept=12, rest=6 -> 6 > 5 -> round up.
+	assert.Equal(t, int64(13), Round(0.126, "USD", RoundHalfEven).Amount())
+}
+
+func TestRound_HalfDownWithMoreAfterTie(t *testing.T) {
+	// 0.1255 with 2 decimals: kept=12, rest=55 -> first digit 5, hasMore=true -> round up.
+	assert.Equal(t, int64(13), Round(0.1255, "USD", RoundHalfDown).Amount())
+}
+
+func TestRound_OverflowIntPart(t *testing.T) {
+	// Integer part overflows int64 -> returns 0.
+	m := Round(1e30, "USD", RoundHalfUp)
+	assert.Equal(t, int64(0), m.Amount())
+}
+
+func TestHasNonZero(t *testing.T) {
+	assert.False(t, hasNonZero(""))
+	assert.False(t, hasNonZero("000"))
+	assert.True(t, hasNonZero("001"))
+	assert.True(t, hasNonZero("1"))
+}
+
+func TestDecimal_LargeAmount(t *testing.T) {
+	m := New(12345678999, "USD")
+	assert.InDelta(t, 123456789.99, m.Decimal(), 1e-6)
 }

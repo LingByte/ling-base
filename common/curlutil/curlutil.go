@@ -477,21 +477,21 @@ func generateBinaryPreview(data []byte, contentType string) string {
 			end = maxBytes
 		}
 
-		hexPart := ""
+		var hexPart strings.Builder
 		for j := i; j < end; j++ {
-			hexPart += fmt.Sprintf("%02x ", data[j])
+			fmt.Fprintf(&hexPart, "%02x ", data[j])
 		}
 
-		asciiPart := ""
+		var asciiPart strings.Builder
 		for j := i; j < end; j++ {
 			if data[j] >= 32 && data[j] <= 126 {
-				asciiPart += string(data[j])
+				asciiPart.WriteByte(data[j])
 			} else {
-				asciiPart += "."
+				asciiPart.WriteByte('.')
 			}
 		}
 
-		fmt.Fprintf(&sb, "%04x: %-48s |%s|\n", i, hexPart, asciiPart)
+		fmt.Fprintf(&sb, "%04x: %-48s |%s|\n", i, hexPart.String(), asciiPart.String())
 	}
 
 	if len(data) > maxBytes {

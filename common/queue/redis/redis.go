@@ -429,7 +429,9 @@ func (q *Queue) Stats(ctx context.Context) (queue.QueueStats, error) {
 	return stats, nil
 }
 
-// Close releases Redis resources (no-op for shared clients).
+// Close is a no-op: the Redis client is owned by the caller (passed to New)
+// and must be closed by the caller when appropriate. This method exists to
+// satisfy the queue.Queue interface.
 func (q *Queue) Close() error { return nil }
 
 // Name returns the queue name.

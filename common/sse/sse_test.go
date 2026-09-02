@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -360,18 +361,17 @@ func TestStreamReader_CRLFLines(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
-// parseInt helper
+// strconv.Atoi helper (replaces former hand-written parseInt)
 // ──────────────────────────────────────────────
 
 func TestParseInt(t *testing.T) {
-	n, err := parseInt("123")
+	n, err := strconv.Atoi("123")
 	require.NoError(t, err)
 	assert.Equal(t, 123, n)
 
-	_, err = parseInt("abc")
+	_, err = strconv.Atoi("abc")
 	assert.Error(t, err)
 
-	n, err = parseInt("")
-	require.NoError(t, err)
-	assert.Equal(t, 0, n)
+	_, err = strconv.Atoi("")
+	assert.Error(t, err)
 }

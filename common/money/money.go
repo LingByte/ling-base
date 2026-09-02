@@ -224,28 +224,119 @@ func FromDecimal(value float64, currency string) Money {
 
 // Round creates a Money value from a decimal float using the given rounding
 // mode and the currency's precision.
+//
+// The value is first formatted to its shortest round-trippable decimal string
+// via strconv.FormatFloat and then parsed with integer arithmetic. This avoids
+// the float64 multiplication (value * 10^precision) which loses precision for
+// large amounts.
 func Round(value float64, currency string, mode RoundingMode) Money {
 	precision := CurrencyPrecision(currency)
-	scale := math.Pow(10, float64(precision))
-	scaled := value * scale
 
-	var rounded float64
-	switch mode {
-	case RoundHalfUp:
-		rounded = math.Round(scaled) // math.Round ties away from zero
-	case RoundHalfDown:
-		rounded = roundHalfDown(scaled)
-	case RoundHalfEven:
-		rounded = roundHalfEven(scaled)
-	case RoundDown:
-		rounded = math.Trunc(scaled)
-	case RoundUp:
-		rounded = roundUp(scaled)
-	default:
-		rounded = math.Round(scaled)
+	// Format to the shortest decimal representation that round-trips. This
+	// sidesteps float64 multiplication precision loss on large amounts.
+	s := strconv.FormatFloat(value, 'f', -1, 64)
+
+	// Guard against non-finite values.
+	if s == "NaN" || s == "Inf" || s == "-Inf" || s == "+Inf" {
+		return Money{amount: 0, currency: currency}
 	}
 
-	return Money{amount: int64(rounded), currency: currency}
+	negative := false
+	if s != "" && s[0] == '-' {
+		negative = true
+		s = s[1:]
+	}
+
+	var intPart, fracPart string
+	if dot := strings.Index(s, "."); dot >= 0 {
+		intPart = s[:dot]
+		fracPart = s[dot+1:]
+	} else {
+		intPart = s
+	}
+
+	// kept = the first `precision` fractional digits (zero-padded).
+	// rest  = the remaining fractional digits used for rounding decisions.
+	kept := fracPart
+	if len(kept) > precision {
+		kept = kept[:precision]
+	}
+	for len(kept) < precision {
+		kept += "0"
+	}
+	rest := ""
+	if len(fracPart) > precision {
+		rest = fracPart[precision:]
+	}
+
+	intVal, err := strconv.ParseInt(intPart, 10, 64)
+	if err != nil {
+		return Money{amount: 0, currency: currency}
+	}
+	var fracVal int64
+	if kept != "" {
+		fracVal, err = strconv.ParseInt(kept, 10, 64)
+		if err != nil {
+			return Money{amount: 0, currency: currency}
+		}
+	}
+
+	amount := intVal*pow10(precision) + fracVal
+
+	// Decide whether to round the absolute value up by one unit based on
+	// the digits beyond the kept precision.
+	if len(rest) > 0 {
+		roundUp := false
+		switch mode {
+		case RoundHalfUp:
+			if rest[0] >= '5' {
+				roundUp = true
+			}
+		case RoundHalfDown:
+			if rest[0] > '5' {
+				roundUp = true
+			} else if rest[0] == '5' {
+				roundUp = hasNonZero(rest[1:])
+			}
+		case RoundHalfEven:
+			if rest[0] > '5' {
+				roundUp = true
+			} else if rest[0] == '5' {
+				if hasNonZero(rest[1:]) {
+					roundUp = true
+				} else if fracVal%2 != 0 {
+					// Exact tie: round to even.
+					roundUp = true
+				}
+			}
+		case RoundDown:
+			// Truncation toward zero: never round up.
+		case RoundUp:
+			roundUp = hasNonZero(rest)
+		default:
+			if rest[0] >= '5' {
+				roundUp = true
+			}
+		}
+		if roundUp {
+			amount++
+		}
+	}
+
+	if negative {
+		amount = -amount
+	}
+	return Money{amount: amount, currency: currency}
+}
+
+// hasNonZero reports whether s contains any digit other than '0'.
+func hasNonZero(s string) bool {
+	for _, c := range s {
+		if c != '0' {
+			return true
+		}
+	}
+	return false
 }
 
 // roundHalfDown rounds to nearest, ties toward zero.
@@ -401,10 +492,34 @@ func (m Money) Currency() string {
 }
 
 // Decimal converts the amount to a float64 in major units (e.g. dollars).
+// The conversion is performed via integer division/modulo to build a decimal
+// string and then strconv.ParseFloat, so no intermediate float64 arithmetic
+// is used on the stored int64 amount.
 func (m Money) Decimal() float64 {
 	precision := CurrencyPrecision(m.currency)
-	scale := math.Pow(10, float64(precision))
-	return float64(m.amount) / scale
+	scale := pow10(precision)
+
+	negative := m.amount < 0
+	abs := m.amount
+	if negative {
+		abs = -abs
+	}
+
+	intPart := abs / scale
+	fracPart := abs % scale
+
+	var s string
+	if precision == 0 {
+		s = strconv.FormatInt(intPart, 10)
+	} else {
+		s = strconv.FormatInt(intPart, 10) + "." + leftPad(strconv.FormatInt(fracPart, 10), precision)
+	}
+	if negative {
+		s = "-" + s
+	}
+
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
 }
 
 // String formats the money as "CUR X.YY" using the currency's precision.
