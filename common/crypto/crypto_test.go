@@ -5,6 +5,7 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/sha256"
@@ -1284,4 +1285,197 @@ func TestPBKDF2_NegativeLength(t *testing.T) {
 func TestBase64URLDecode_Invalid(t *testing.T) {
 	_, err := Base64URLDecode("!!!invalid!!!")
 	assert.Error(t, err)
+}
+
+// ──────────────────────────────────────────────
+// Additional error-path coverage
+// ──────────────────────────────────────────────
+
+func TestGenerateRSAKeyPair_InvalidBits(t *testing.T) {
+	_, _, err := GenerateRSAKeyPair(0)
+	assert.Error(t, err)
+
+	_, _, err = GenerateRSAKeyPair(-1)
+	assert.Error(t, err)
+}
+
+func TestRSASign_NilKey(t *testing.T) {
+	assert.Panics(t, func() {
+		_, _ = RSASign(nil, []byte("data"))
+	})
+}
+
+func TestRSADecrypt_NilKey(t *testing.T) {
+	assert.Panics(t, func() {
+		_, _ = RSADecrypt(nil, []byte("ciphertext"))
+	})
+}
+
+func TestExportRSAPrivateKeyPEM_NilKey(t *testing.T) {
+	assert.Panics(t, func() {
+		_, _ = ExportRSAPrivateKeyPEM(nil)
+	})
+}
+
+func TestExportRSAPublicKeyPEM_NilKey(t *testing.T) {
+	assert.Panics(t, func() {
+		_, _ = ExportRSAPublicKeyPEM(nil)
+	})
+}
+
+func TestExportECDSAPrivateKeyPEM_InvalidKey(t *testing.T) {
+	// Zero-value ECDSA key with nil curve → marshal error.
+	_, err := ExportECDSAPrivateKeyPEM(&ecdsa.PrivateKey{})
+	assert.Error(t, err)
+}
+
+func TestExportECDSAPublicKeyPEM_InvalidKey(t *testing.T) {
+	// Zero-value ECDSA public key with nil curve → marshal error.
+	_, err := ExportECDSAPublicKeyPEM(&ecdsa.PublicKey{})
+	assert.Error(t, err)
+}
+
+func TestExportEd25519PrivateKeyPEM_InvalidKey(t *testing.T) {
+	// Wrong-size Ed25519 private key → panic from x509 marshal.
+	assert.Panics(t, func() {
+		_, _ = ExportEd25519PrivateKeyPEM(ed25519.PrivateKey(make([]byte, 1)))
+	})
+}
+
+func TestExportEd25519PublicKeyPEM_InvalidKey(t *testing.T) {
+	// Short Ed25519 public key — x509 marshal still succeeds (no length check).
+	pem, err := ExportEd25519PublicKeyPEM(ed25519.PublicKey(make([]byte, 1)))
+	require.NoError(t, err)
+	assert.Contains(t, pem, "PUBLIC KEY")
+}
+
+// ──────────────────────────────────────────────
+// JWT additional coverage
+// ──────────────────────────────────────────────
+
+func TestJWT_SignAllClaims(t *testing.T) {
+	j := NewJWT(JWTConfig{
+		Secret:   []byte("key"),
+		Issuer:   "config-issuer",
+		Audience: "config-audience",
+	})
+
+	token, err := j.Sign(JWTClaims{
+		Issuer:    "my-issuer",
+		Subject:   "my-subject",
+		Audience:  "my-audience",
+		ExpiresAt: 9999999999,
+		NotBefore: 1000000000,
+		IssuedAt:  1000000001,
+		ID:        "my-jti",
+		Extra:     map[string]interface{}{"role": "admin"},
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, token)
+
+	// Parse back and verify all fields.
+	claims, err := j.Parse(token)
+	require.NoError(t, err)
+	assert.Equal(t, "my-issuer", claims.Issuer)
+	assert.Equal(t, "my-subject", claims.Subject)
+	assert.Equal(t, "my-audience", claims.Audience)
+	assert.Equal(t, int64(9999999999), claims.ExpiresAt)
+	assert.Equal(t, int64(1000000000), claims.NotBefore)
+	assert.Equal(t, int64(1000000001), claims.IssuedAt)
+	assert.Equal(t, "my-jti", claims.ID)
+	assert.Equal(t, "admin", claims.Extra["role"])
+}
+
+func TestJWT_SignWithConfigDefaults(t *testing.T) {
+	j := NewJWT(JWTConfig{
+		Secret:    []byte("key"),
+		Issuer:    "config-issuer",
+		Audience:  "config-audience",
+		ExpiresIn: time.Hour,
+	})
+
+	// Sign with empty claims — should use config defaults.
+	token, err := j.Sign(JWTClaims{})
+	require.NoError(t, err)
+
+	claims, err := j.Parse(token)
+	require.NoError(t, err)
+	assert.Equal(t, "config-issuer", claims.Issuer)
+	assert.Equal(t, "config-audience", claims.Audience)
+	assert.NotZero(t, claims.ExpiresAt)
+	assert.NotZero(t, claims.IssuedAt)
+	assert.NotZero(t, claims.NotBefore)
+}
+
+func TestJWT_ParseInvalidSignatureBase64(t *testing.T) {
+	j := NewJWT(JWTConfig{Secret: []byte("key")})
+	// 3-part token with invalid base64 in the signature part.
+	_, err := j.Parse("a.b.!!!invalid-base64!!!")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "decode signature")
+}
+
+func TestJWT_ParseNonStandardClaimTypes(t *testing.T) {
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgHS256, Secret: []byte("key")})
+
+	// Craft a token where string claims are numbers and numeric claims are strings.
+	headerB64 := Base64URLEncode([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadB64 := Base64URLEncode([]byte(`{"iss":123,"sub":456,"aud":789,"exp":"not-num","nbf":"not-num","iat":"not-num","jti":100,"custom":"value"}`))
+	signingInput := headerB64 + "." + payloadB64
+	sig := SignSHA256([]byte(signingInput), []byte("key"))
+	token := signingInput + "." + Base64URLEncode(sig)
+
+	claims, err := j.Parse(token)
+	require.NoError(t, err)
+	// String fields with non-string values should be empty (type assertion fails).
+	assert.Empty(t, claims.Issuer)
+	assert.Empty(t, claims.Subject)
+	assert.Empty(t, claims.Audience)
+	assert.Empty(t, claims.ID)
+	// Numeric fields with non-numeric values should be zero (type assertion fails).
+	assert.Zero(t, claims.ExpiresAt)
+	assert.Zero(t, claims.NotBefore)
+	assert.Zero(t, claims.IssuedAt)
+	// Extra fields should still be populated.
+	assert.Equal(t, "value", claims.Extra["custom"])
+}
+
+func TestJWT_ParseAllStandardClaimTypes(t *testing.T) {
+	j := NewJWT(JWTConfig{Algorithm: JWTAlgHS256, Secret: []byte("key")})
+
+	// Craft a token with all standard claim types as correct types.
+	headerB64 := Base64URLEncode([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadB64 := Base64URLEncode([]byte(`{"iss":"issuer","sub":"subject","aud":"audience","exp":1234567890,"nbf":1234567891,"iat":1234567892,"jti":"jti-id","extra":"val"}`))
+	signingInput := headerB64 + "." + payloadB64
+	sig := SignSHA256([]byte(signingInput), []byte("key"))
+	token := signingInput + "." + Base64URLEncode(sig)
+
+	claims, err := j.Parse(token)
+	require.NoError(t, err)
+	assert.Equal(t, "issuer", claims.Issuer)
+	assert.Equal(t, "subject", claims.Subject)
+	assert.Equal(t, "audience", claims.Audience)
+	assert.Equal(t, int64(1234567890), claims.ExpiresAt)
+	assert.Equal(t, int64(1234567891), claims.NotBefore)
+	assert.Equal(t, int64(1234567892), claims.IssuedAt)
+	assert.Equal(t, "jti-id", claims.ID)
+	assert.Equal(t, "val", claims.Extra["extra"])
+}
+
+func TestJWT_VerifyNotBeforeInPast(t *testing.T) {
+	j := NewJWT(JWTConfig{Secret: []byte("key")})
+	token, _ := j.Sign(JWTClaims{
+		NotBefore: time.Now().Add(-time.Hour).Unix(),
+	})
+	claims, err := j.Verify(token)
+	require.NoError(t, err)
+	assert.NotNil(t, claims)
+}
+
+func TestJWT_VerifyNoExpiry(t *testing.T) {
+	j := NewJWT(JWTConfig{Secret: []byte("key")})
+	token, _ := j.Sign(JWTClaims{Subject: "user"})
+	claims, err := j.Verify(token)
+	require.NoError(t, err)
+	assert.Equal(t, "user", claims.Subject)
 }

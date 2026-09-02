@@ -145,3 +145,45 @@ func TestDingTalkSign_DirectCall(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, sign, sign3)
 }
+
+func TestDingTalkSign_EmptySecret(t *testing.T) {
+	sign, err := dingTalkSign(1700000000000, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, sign)
+}
+
+func TestDingTalkProvider_BuildSignedURL_InvalidURL(t *testing.T) {
+	p := NewDingTalkProvider(DingTalkConfig{WebhookURL: "://[invalid", Secret: "secret"})
+	_, err := p.buildSignedURL()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse webhook url")
+}
+
+func TestDingTalkProvider_SendWithSecret_InvalidURL(t *testing.T) {
+	p := NewDingTalkProvider(DingTalkConfig{WebhookURL: "://[invalid", Secret: "secret"})
+	err := p.Send(context.Background(), Message{Title: "t", Content: "c"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse webhook url")
+}
+
+func TestDingTalkProvider_BuildSignedURL_Valid(t *testing.T) {
+	p := NewDingTalkProvider(DingTalkConfig{WebhookURL: "https://oapi.dingtalk.com/robot/send?access_token=tk", Secret: "secret"})
+	signedURL, err := p.buildSignedURL()
+	require.NoError(t, err)
+	assert.Contains(t, signedURL, "timestamp=")
+	assert.Contains(t, signedURL, "sign=")
+	assert.Contains(t, signedURL, "access_token=tk")
+}
+
+func TestDingTalkProvider_SendWithSecret_Non2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`server error`))
+	}))
+	defer srv.Close()
+
+	p := NewDingTalkProvider(DingTalkConfig{WebhookURL: srv.URL + "?access_token=tk", Secret: "secret"})
+	err := p.Send(context.Background(), Message{Title: "t", Content: "c"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
+}

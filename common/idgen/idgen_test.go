@@ -4,6 +4,8 @@
 package idgen
 
 import (
+	"crypto/rand"
+	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -13,6 +15,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// failingReader is an io.Reader that always returns an error, used to
+// exercise crypto/rand error fallback paths.
+type failingReader struct{}
+
+func (f *failingReader) Read(p []byte) (int, error) {
+	return 0, errors.New("failingReader: simulated read error")
+}
 
 // ===== Snowflake =====
 
@@ -411,4 +421,163 @@ func TestNanoIDWithAlphabet_Unique(t *testing.T) {
 		assert.False(t, seen[id], "duplicate NanoID with custom alphabet: %s", id)
 		seen[id] = true
 	}
+}
+
+// ===== Additional coverage tests =====
+
+func TestSnowflake_NextID_ClockRollback(t *testing.T) {
+	s, err := NewSnowflakeWithID(1)
+	require.NoError(t, err)
+
+	// Generate one ID to set lastStamp.
+	id1 := s.NextID()
+	require.NotZero(t, id1)
+
+	// Manually advance lastStamp into the future to simulate clock rollback.
+	s.mu.Lock()
+	s.lastStamp = s.lastStamp + 10_000_000 // 10 seconds in the future
+	s.mu.Unlock()
+
+	// NextID should return 0 due to clock rollback.
+	id2 := s.NextID()
+	assert.Zero(t, id2, "NextID should return 0 on clock rollback")
+}
+
+func TestSnowflakeNext_NilDefault(t *testing.T) {
+	orig := defaultSnowflake
+	defaultSnowflake = nil
+	defer func() { defaultSnowflake = orig }()
+
+	assert.Zero(t, SnowflakeNext(), "SnowflakeNext should return 0 when defaultSnowflake is nil")
+}
+
+func TestSnowflakeNextUint_NilDefault(t *testing.T) {
+	orig := defaultSnowflake
+	defaultSnowflake = nil
+	defer func() { defaultSnowflake = orig }()
+
+	assert.Zero(t, SnowflakeNextUint(), "SnowflakeNextUint should return 0 when defaultSnowflake is nil")
+}
+
+func TestShortID_FallbackToRandom(t *testing.T) {
+	orig := defaultSnowflake
+	defaultSnowflake = nil
+	defer func() { defaultSnowflake = orig }()
+
+	// When defaultSnowflake is nil, SnowflakeNext returns 0, so ShortID
+	// falls back to RandomShortID(12).
+	s := ShortID()
+	assert.Len(t, s, 12, "ShortID fallback should produce 12-char string")
+	for _, c := range s {
+		assert.True(t, (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'),
+			"ShortID fallback should be base62, got %q", c)
+	}
+}
+
+func TestRandRunes_RandReaderError(t *testing.T) {
+	// Override crypto/rand.Reader to force rand.Int to fail, exercising
+	// the math/rand fallback path in randRunes.
+	origReader := rand.Reader
+	rand.Reader = &failingReader{}
+	defer func() { rand.Reader = origReader }()
+
+	s := RandText(16)
+	assert.Len(t, s, 16)
+	for _, c := range s {
+		assert.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z'),
+			"RandText fallback should be lowercase alphanumeric, got %q", c)
+	}
+}
+
+func TestRandNumberText_RandReaderError(t *testing.T) {
+	origReader := rand.Reader
+	rand.Reader = &failingReader{}
+	defer func() { rand.Reader = origReader }()
+
+	s := RandNumberText(8)
+	assert.Len(t, s, 8)
+	for _, c := range s {
+		assert.True(t, c >= '0' && c <= '9', "RandNumberText fallback should be numeric, got %q", c)
+	}
+}
+
+func TestRandTextWithCharset_RandReaderError(t *testing.T) {
+	origReader := rand.Reader
+	rand.Reader = &failingReader{}
+	defer func() { rand.Reader = origReader }()
+
+	s := RandTextWithCharset(10, "ABC")
+	assert.Len(t, s, 10)
+	for _, c := range s {
+		assert.True(t, strings.ContainsRune("ABC", c), "charset mismatch in fallback")
+	}
+}
+
+func TestULIDFromTime_ClockRollback(t *testing.T) {
+	ulidMu.Lock()
+	ulidLastMs = 0
+	ulidMu.Unlock()
+
+	// Generate a ULID with a large timestamp.
+	large := ulIDFromTime(1_700_000_000_000) // year 2023+
+
+	// Now generate with a smaller timestamp — should be clamped to ulidLastMs.
+	small := ulIDFromTime(1_000_000)
+
+	// The timestamp portion should be the same (clamped). The first 9 chars
+	// (45 bits) are purely timestamp; char 9 includes 2 random bits so we
+	// only compare the first 9.
+	assert.Equal(t, large[:9], small[:9], "ULID timestamp should be clamped on rollback")
+
+	// Reset for other tests.
+	ulidMu.Lock()
+	ulidLastMs = 0
+	ulidMu.Unlock()
+}
+
+func TestNanoIDWithAlphabet_ZeroSize(t *testing.T) {
+	id := NanoIDWithAlphabet(0, "X")
+	assert.Len(t, id, nanoIDDefaultSize, "size 0 should default to %d", nanoIDDefaultSize)
+}
+
+func TestNanoIDWithAlphabet_NegativeSize(t *testing.T) {
+	id := NanoIDWithAlphabet(-5, "X")
+	assert.Len(t, id, nanoIDDefaultSize, "negative size should default to %d", nanoIDDefaultSize)
+}
+
+func TestNanoIDWithAlphabet_EmptyAlphabetZeroSize(t *testing.T) {
+	id := NanoIDWithAlphabet(0, "")
+	assert.Len(t, id, nanoIDDefaultSize)
+}
+
+func TestOrderedUUID_Format(t *testing.T) {
+	u := OrderedUUID()
+	assert.Len(t, u, 32)
+	// First 12 hex chars encode timestamp — should be non-zero for current time.
+	assert.NotEqual(t, "000000000000", u[:12], "timestamp prefix should be non-zero")
+}
+
+func TestRandomShortID_ZeroLength(t *testing.T) {
+	s := RandomShortID(0)
+	assert.Empty(t, s)
+}
+
+func TestRandomShortID_SingleChar(t *testing.T) {
+	s := RandomShortID(50)
+	assert.Len(t, s, 50)
+}
+
+func TestSnowflake_NextID_SequenceOverflow(t *testing.T) {
+	s, err := NewSnowflakeWithID(1)
+	require.NoError(t, err)
+
+	// Force sequence to max and timestamp to current, so the next call
+	// triggers the sequence-overflow spin-wait loop.
+	s.mu.Lock()
+	s.lastStamp = currentMicro()
+	s.sequence = maxSequence
+	s.mu.Unlock()
+
+	id := s.NextID()
+	assert.NotZero(t, id, "NextID should return valid ID after sequence overflow spin-wait")
 }

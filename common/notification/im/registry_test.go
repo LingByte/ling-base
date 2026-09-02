@@ -85,3 +85,58 @@ func TestNewProviderFromConfig_EmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "wecom", p.Kind())
 }
+
+func TestNewProviderFromConfig_DingTalk(t *testing.T) {
+	cfg := `{"webhook_url":"https://oapi.dingtalk.com/robot/send?access_token=test","secret":"sec"}`
+	p, err := NewProviderFromConfig("dingtalk", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "dingtalk", p.Kind())
+}
+
+func TestNewProviderFromConfig_DingTalk_CaseInsensitive(t *testing.T) {
+	cfg := `{"webhook_url":"https://oapi.dingtalk.com/robot/send?access_token=test"}`
+	p, err := NewProviderFromConfig("DingTalk", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "dingtalk", p.Kind())
+}
+
+func TestNewProviderFromConfig_DingTalk_InvalidJSON(t *testing.T) {
+	_, err := NewProviderFromConfig("dingtalk", `{not json`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse dingtalk config")
+}
+
+func TestNewProviderFromConfig_WeChat(t *testing.T) {
+	cfg := `{"webhook_url":"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test"}`
+	p, err := NewProviderFromConfig("wechat", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "wechat", p.Kind())
+}
+
+func TestNewProviderFromConfig_WeChat_CaseInsensitive(t *testing.T) {
+	cfg := `{"webhook_url":"https://example.com/wechat"}`
+	p, err := NewProviderFromConfig("WECHAT", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "wechat", p.Kind())
+}
+
+func TestNewProviderFromConfig_WeChat_InvalidJSON(t *testing.T) {
+	_, err := NewProviderFromConfig("wechat", `{not json`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse wechat config")
+}
+
+func TestNewProviderFromConfig_Feishu_InvalidJSON(t *testing.T) {
+	_, err := NewProviderFromConfig("feishu", `{not json`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse feishu config")
+}
+
+func TestRegisteredProviders_AllBuiltIn(t *testing.T) {
+	names := RegisteredProviders()
+	assert.Contains(t, names, "wecom")
+	assert.Contains(t, names, "feishu")
+	assert.Contains(t, names, "dingtalk")
+	assert.Contains(t, names, "wechat")
+	assert.Len(t, names, 4)
+}

@@ -137,6 +137,51 @@ func TestFeishuSign_DirectCall(t *testing.T) {
 	assert.NotEqual(t, sign, sign3)
 }
 
+func TestFeishuSign_EmptySecret(t *testing.T) {
+	sign, err := feishuSign(1700000000, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, sign)
+}
+
+func TestFeishuSign_DifferentSecretsProduceDifferentSigns(t *testing.T) {
+	sign1, _ := feishuSign(1700000000, "secret1")
+	sign2, _ := feishuSign(1700000000, "secret2")
+	assert.NotEqual(t, sign1, sign2)
+}
+
+func TestFeishuProvider_SendWithSecret_Non2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`unavailable`))
+	}))
+	defer srv.Close()
+
+	p := NewFeishuProvider(FeishuConfig{WebhookURL: srv.URL, Secret: "secret"})
+	err := p.Send(context.Background(), Message{Title: "t", Content: "c"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "503")
+}
+
+func TestFeishuProvider_SendWithSecret_VerifyPayload(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &got)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"StatusCode":0}`))
+	}))
+	defer srv.Close()
+
+	p := NewFeishuProvider(FeishuConfig{WebhookURL: srv.URL, Secret: "secret"})
+	err := p.Send(context.Background(), Message{Title: "T", Content: "C"})
+	require.NoError(t, err)
+
+	// Verify payload has both timestamp and sign.
+	assert.Contains(t, got, "timestamp")
+	assert.Contains(t, got, "sign")
+	assert.Equal(t, "text", got["msg_type"])
+}
+
 // ──────────────────────────────────────────────
 // helpers
 // ──────────────────────────────────────────────
