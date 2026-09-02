@@ -74,6 +74,7 @@ ling-base/
 │  ├─ middleware/            # HTTP 中间件（限流/熔断/CORS/API 版本）
 │  │
 │  ├─ geoip/                 # IP 地理位置查询（国内 pconline + 国际 ip-api）
+│  ├─ geocode/               # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
 │  ├─ phone/                 # 手机号归属地查询（内置离线号段库）
 │  ├─ i18n/                  # 国际化（翻译 + 格式化 + locale 检测）
 │  │  ├─ gin/                # Gin 中间件
@@ -205,6 +206,9 @@ go get github.com/LingByte/ling-base/common/passkey
 # IP 地理位置查询（国内/国际自动切换，零第三方依赖）
 go get github.com/LingByte/ling-base/common/geoip
 
+# 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
+go get github.com/LingByte/ling-base/common/geocode
+
 # 手机号归属地查询（内置离线号段库，无需联网）
 go get github.com/LingByte/ling-base/common/phone
 ```
@@ -296,6 +300,40 @@ addr := geoip.GetRealAddressByIP("8.8.8.8")
 // 内网 IP 自动识别
 addr = geoip.GetRealAddressByIP("192.168.1.1")
 // → "内网IP"
+```
+
+### geocode 快速上手
+
+经纬度与地址互转，使用免费无 Key 服务（Nominatim/OpenStreetMap + BigDataCloud）：
+
+```go
+import "github.com/LingByte/ling-base/common/geocode"
+
+// 逆向编码：经纬度 → 地址
+result, err := geocode.Reverse(39.9042, 116.4074) // 天安门
+// → DisplayName: "天安门广场, 东城区, 北京市, 中国"
+
+// 正向编码：地址 → 经纬度
+result, err := geocode.Forward("Chengdu, Sichuan, China")
+// → Lat: 30.659867, Lon: 104.063315
+
+// 结构化正向编码
+result, err = geocode.ForwardStructured(&geocode.GeocodeQuery{
+    City:    "London",
+    Country: "UK",
+})
+
+// 使用 BigDataCloud（无速率限制）
+client := geocode.NewClient(geocode.WithProvider(geocode.ProviderBigDataCloud))
+result, err = client.ReverseBigDataCloud(31.1872, 121.6047) // 上海浦东
+// → Locality: "Pudong Xinqu"
+
+// Haversine 距离计算（纯本地，无需网络）
+dist := geocode.HaversineDistance(39.9042, 116.4074, 31.2304, 121.4737)
+// → 1067 km（北京 → 上海）
+
+// 判断两点是否在半径内
+inRadius := geocode.IsInRadius(lat1, lon1, lat2, lon2, 5.0) // 5km
 ```
 
 ### phone 快速上手
@@ -499,6 +537,7 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [sandbox/README.md](sandbox/README.md)
 - [circuitbreaker/README.md](circuitbreaker/README.md)
 - [pool/README.md](pool/README.md)
+- [common/geocode/README.md](common/geocode/README.md)
 
 ## 开发
 

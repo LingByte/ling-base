@@ -144,6 +144,8 @@ voice/
 | 安全 | totp, passkey, password, jwtutil, captcha |
 | IO | compress, imageutil, videoutil, audioutil |
 | 网络 | netutil, httpclient, opentelemetry, tracing |
+| 地理位置 | geoip（IP→位置）, geocode（经纬度↔地址，Nominatim+BigDataCloud）, phone（手机号归属地） |
+| 支付 | payment（stripe/creem/epay/waffo/waffopancake） |
 | 工具 | convert, parser, pinyin, qrcode, barcode, random, hash |
 
 ## 日志
