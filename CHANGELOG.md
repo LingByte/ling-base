@@ -19,6 +19,107 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 - `CONTRIBUTING.md` — 贡献指南
 - `Makefile` 新增 `vuln` target — 本地运行 govulncheck
 
+---
+
+## P0 基础设施统一 & pentest 工具扩充 — 2026-09-02
+
+本轮发版涵盖 8 个提交（`d50b3ca`..`dd084f1`），涉及 common 审计修复、common 重复实现收敛、pentest 模块完善 + 45 个新工具、以及 P0 基础设施统一（HTTP 客户端 / 日志 / 哈希 / 随机）。
+
+### [common] 审计修复 — v0.3.2
+
+#### Fixed
+- `common/auditlog` — 修复审计日志写入竞态
+- `common/backup` — 修复备份文件路径校验
+- `common/curlutil` — 修复 cURL 命令解析边界情况
+- `common/diff` — 修复 diff 输出格式
+- `common/dnsutil` — 修复 DNS 查询超时处理
+- `common/geocode` — 修复经纬度计算精度
+- `common/logger` — 修复日志轮转竞态
+- `common/markdown` — 修复 Markdown 渲染边界
+- `common/money` — 修复金额计算精度
+- `common/queue/redis` — 修复 Redis 队列重连
+- `common/sse` — 修复 SSE 连接断开处理
+- `common/turnstile` — 修复 Cloudflare Turnstile 校验
+- `common/upload` — 修复上传文件大小校验
+
+### [common] 重复实现收敛 — 各子模块 v0.1.1 / v0.2.1
+
+#### Changed
+- `common/archive` — 内部实现收敛，委托到规范模块
+- `common/curlutil` — 内部实现收敛
+- `common/hash` — 作为哈希/HMAC 规范模块，被 crypto/signature/sms 引用
+- `common/idgen` — `RandomShortID` 改用 `random.StringWithCharset`（避免模偏差）→ v0.2.1
+- `common/middleware` — 内部实现收敛
+- `common/notification/httpclient` — HTTP 客户端统一（首次发版 v0.1.0）
+- `common/notification/push` — 内部哈希实现改用 `common/hash`
+- `common/notification/sms` — `SHA1Hex`/`SHA256Base64`/`SHA256Hex`/`MD5Hex` 改用 `common/hash` → v0.1.1
+- `common/notification/webhook` — 内部实现收敛
+- `common/validate` — 内部实现收敛
+- `common/webhook` — 内部实现收敛
+
+### [common/crypto] v0.2.1
+
+#### Changed
+- `SignSHA256`/`VerifySHA256`/`SignSHA512`/`VerifySHA512` 改用 `common/hash` 等价函数
+
+### [common/signature] v0.1.1
+
+#### Changed
+- `SignHMACSHA256`/`VerifyHMACSHA256`/`SignHMACSHA512`/`VerifyHMACSHA512`/`SignMD5` 改用 `common/hash` 等价函数
+
+### [common/netutil] v0.2.0
+
+#### Added
+- `NewStandardHTTPClient` — 统一标准 HTTP 客户端工厂，支持 `CheckRedirect` 和 `Jar`，自动配置 TLS（环境变量驱动）
+
+### [pentest] v0.2.0
+
+#### Added
+- 20 个网络安全测试工具（端口扫描 / Web 指纹 / SQL 注入 / XSS / 目录爆破 等）
+- 5 个高级类安全测试工具（SSRF / SSTI / 反序列化 / 权限提升 / 业务逻辑）
+- 10 个信息收集 / 认证类工具（子域名 / WHOIS / DNS 枚举 / 凭证喷洒 / JWT 分析 等）
+- 10 个 Fuzz / 竞态 / 云安全工具（参数 Fuzz / 竞态条件 / S3 / IAM / Lambda 探测 等）
+- 覆盖率从 44.5% 提升至 96.7%
+
+#### Changed
+- `pentest/base.go` — HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+- 模块完善 + 消除重复实现
+
+### [relay] v0.1.1
+
+#### Changed
+- `DefaultHTTPClient()` 替换为 `common/netutil.NewStandardHTTPClient`
+
+### [bootstrap] v0.1.6
+
+#### Changed
+- 标准库 `log` 调用替换为 `common/logger`
+
+### [voice/recognizer] 全模块 v0.1.2
+
+#### Changed
+- `logrus` 日志替换为 `common/logger`（aws/baidu/deepgram/funasr/gladia/google/local/qcloud/voiceapi/volcengine/volcengine_llm/whisper）
+- HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+
+### [voice/synthesizer] 全模块 v0.1.2
+
+#### Changed
+- `logrus` 日志替换为 `common/logger`（aliyun/aws/azure/baidu/coqui/elevenlabs/fishaudio/fishspeech/google/local/minimax/openai/qcloud/qiniu/volcengine/xunfei）
+- HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+
+### [providers] v0.1.1
+
+#### Changed
+- `providers/censor/qiniu` — HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+- `providers/ocr/azure` — HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+- `providers/ocr/baidu` — HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`
+
+### [agentkit] v0.1.0
+
+#### Changed
+- HTTP 客户端改用 `common/netutil.NewStandardHTTPClient`（codeexecutor/e2b、knowledge/embedder、knowledge/document/reader/pdf、memory/chromadb、memory/mem0、memory/tencentdb）
+- 首次发版
+
 ## [common/bitmap] v0.1.0 — 2026-08-29
 
 ### Added
