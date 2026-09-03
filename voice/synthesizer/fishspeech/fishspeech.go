@@ -16,9 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard to ensure FishSpeechService implements base.Engine.
@@ -142,7 +143,7 @@ func (fs *FishSpeechService) synthesizeV2(ctx context.Context, handler base.Hand
 
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		logrus.WithError(err).Errorf("failed to connect to FishSpeech WebSocket: %s", wsURL)
+		logger.Error(fmt.Sprintf("failed to connect to FishSpeech WebSocket: %s", wsURL), logger.WithError(err))
 		return fmt.Errorf("failed to connect to WebSocket: %w", err)
 	}
 	defer conn.Close()
@@ -166,7 +167,7 @@ func (fs *FishSpeechService) synthesizeV2(ctx context.Context, handler base.Hand
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, requestData); err != nil {
-		logrus.WithError(err).Error("failed to send FishSpeech request")
+		logger.Error("failed to send FishSpeech request", logger.WithError(err))
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -178,14 +179,14 @@ func (fs *FishSpeechService) synthesizeV2(ctx context.Context, handler base.Hand
 		default:
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {
-				logrus.WithError(err).Error("failed to read FishSpeech response")
+				logger.Error("failed to read FishSpeech response", logger.WithError(err))
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
 			if messageType == websocket.TextMessage {
 				var response FishSpeechV2Response
 				if err := json.Unmarshal(message, &response); err != nil {
-					logrus.WithError(err).Error("failed to unmarshal FishSpeech response")
+					logger.Error("failed to unmarshal FishSpeech response", logger.WithError(err))
 					continue
 				}
 
@@ -197,7 +198,7 @@ func (fs *FishSpeechService) synthesizeV2(ctx context.Context, handler base.Hand
 					// 解码 base64 音频数据
 					audioData, err := decodeBase64Audio(response.Data)
 					if err != nil {
-						logrus.WithError(err).Error("failed to decode audio data")
+						logger.Error("failed to decode audio data", logger.WithError(err))
 						return fmt.Errorf("failed to decode audio: %w", err)
 					}
 
@@ -286,14 +287,14 @@ func GetFishSpeechVoices(apiKey string) ([]FishSpeechVoiceOption, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// 执行请求
-	client := &http.Client{
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 			},
 		},
-	}
+	})
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call FishSpeech API: %w", err)

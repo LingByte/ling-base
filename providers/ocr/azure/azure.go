@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/providers/ocr"
 )
 
@@ -28,6 +29,10 @@ type Provider struct {
 }
 
 var _ ocr.Provider = (*Provider)(nil)
+
+// defaultHTTPClient is the standard HTTP client used for Azure Computer
+// Vision API requests, configured with a 30s timeout.
+var defaultHTTPClient = netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
 
 // New creates a Provider from explicit credentials.
 func New(endpoint, key string) *Provider {
@@ -97,7 +102,7 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.O
 	req.Header.Set("Ocp-Apim-Subscription-Key", key)
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("azure ocr: submit: %w", err)
 	}

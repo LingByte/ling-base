@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/providers/censor/qiniu
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/LingByte/ling-base/providers/censor v0.0.0
 	github.com/qiniu/go-sdk/v7 v7.27.0
 )

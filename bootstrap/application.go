@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/LingByte/ling-base/common/eventbus"
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/version"
 )
 
@@ -276,7 +276,7 @@ func (a *Application) Run() error {
 	a.events.Publish(ctx, eventbus.New(EventAppStarted, a))
 	a.events.Publish(ctx, eventbus.New(EventAppReady, a))
 
-	log.Printf("[app] %s started (profile=%v, components=%d, uptime=%s)",
+	logger.Infof("[app] %s started (profile=%v, components=%d, uptime=%s)",
 		a.name, a.profiles.ActiveProfiles(), a.registry.Count(), a.Uptime())
 
 	// Register shutdown hook to stop lifecycle.
@@ -370,7 +370,7 @@ func (a *Application) printBanner() {
 		StartTime: time.Now(),
 	}
 	if err := PrintBannerWithInfoFromFile(a.output, a.bannerText, a.bannerFile, info); err != nil {
-		log.Printf("[app] banner print failed: %v", err)
+		logger.Infof("[app] banner print failed: %v", err)
 	}
 }
 

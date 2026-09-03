@@ -5,6 +5,7 @@ go 1.26.2
 require (
 	github.com/LingByte/ling-base/agentkit/relaymodel v0.0.0-00010101000000-000000000000
 	github.com/LingByte/ling-base/common/logger v0.1.0
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/LingByte/ling-base/relay/compat v0.0.0-00010101000000-000000000000
 	github.com/alpkeskin/gotoon v0.1.1
 	github.com/anush008/fastembed-go v1.0.0

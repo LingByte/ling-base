@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/transcribestreaming"
 	"github.com/aws/aws-sdk-go-v2/service/transcribestreaming/types"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring AWSASR implements base.Engine.
@@ -152,7 +152,7 @@ func (a *AWSASR) ConnAndReceive(dialogID string) error {
 			MediaSampleRateHertz: &sampleRate,
 		})
 		if err != nil {
-			logrus.WithError(err).Error("aws asr: start stream")
+			logger.Error("aws asr: start stream", logger.WithError(err))
 			if a.er != nil {
 				a.er(err, true)
 			}
@@ -188,7 +188,7 @@ func (a *AWSASR) handleAudioWrite(stream *transcribestreaming.StartStreamTranscr
 				Value: types.AudioEvent{AudioChunk: data},
 			})
 			if err != nil {
-				logrus.WithError(err).Error("aws asr: fail to send audio event")
+				logger.Error("aws asr: fail to send audio event", logger.WithError(err))
 				if a.er != nil {
 					a.er(err, false)
 				}
@@ -216,7 +216,7 @@ func (a *AWSASR) handleTranscriptEvents(stream *transcribestreaming.StartStreamT
 			return
 		case event, ok := <-events:
 			if !ok {
-				logrus.Info("aws asr: event stream closed")
+				logger.Info("aws asr: event stream closed")
 				return
 			}
 

@@ -26,6 +26,7 @@ import (
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/knowledge/embedder"
 	log "github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 )
 
@@ -136,7 +137,7 @@ func New(opts ...Option) *Embedder {
 		host:       "http://localhost:11434",
 		model:      DefaultModel,
 		dimensions: DefaultDimensions,
-		httpClient: http.DefaultClient,
+		httpClient: netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 60 * time.Second}),
 	}
 	if ollamaHost := os.Getenv(OllamaHost); ollamaHost != "" {
 		e.host = ollamaHost

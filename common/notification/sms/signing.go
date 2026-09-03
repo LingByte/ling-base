@@ -4,10 +4,7 @@
 package sms
 
 import (
-	"crypto/md5"
 	"crypto/rand"
-	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -17,20 +14,17 @@ import (
 
 // SHA1Hex returns the hex-encoded SHA-1 digest of s.
 func SHA1Hex(s string) string {
-	sum := sha1.Sum([]byte(s))
-	return hex.EncodeToString(sum[:])
+	return hash.SHA1String(s)
 }
 
 // SHA256Base64 returns the base64-encoded SHA-256 digest of s.
 func SHA256Base64(s string) string {
-	sum := sha256.Sum256([]byte(s))
-	return base64.StdEncoding.EncodeToString(sum[:])
+	return base64.StdEncoding.EncodeToString(hash.SHA256([]byte(s)))
 }
 
 // SHA256Hex returns the hex-encoded SHA-256 digest of s.
 func SHA256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sum[:])
+	return hash.SHA256String(s)
 }
 
 // hmacSHA256Raw returns the raw HMAC-SHA256 of message under key.
@@ -52,8 +46,7 @@ func HMACSHA1Base64(key, message string) string {
 
 // MD5Hex returns the hex-encoded MD5 digest of s.
 func MD5Hex(s string) string {
-	sum := md5.Sum([]byte(s))
-	return hex.EncodeToString(sum[:])
+	return hash.MD5String(s)
 }
 
 // RandHex returns a random hex string of n bytes (2*n hex characters).

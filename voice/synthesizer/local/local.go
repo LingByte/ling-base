@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guards ensuring both services satisfy the base Engine interface.
@@ -128,10 +128,10 @@ func (ls *LocalService) Synthesize(ctx context.Context, handler base.Handler, te
 		return fmt.Errorf("TTS command not found: %s, please install a TTS tool", opt.Command)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("local tts: starting synthesis", logger.WithFields(map[string]interface{}{
 		"command": cmdPath,
 		"text":    text,
-	}).Info("local tts: starting synthesis")
+	})...)
 
 	// 根据不同的命令构建不同的参数
 	audioData, err := ls.synthesizeWithCommand(ctx, text, cmdPath, opt)
@@ -147,11 +147,11 @@ func (ls *LocalService) Synthesize(ctx context.Context, handler base.Handler, te
 		return fmt.Errorf("no audio data generated")
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("local tts: synthesis completed", logger.WithFields(map[string]interface{}{
 		"provider":   "local",
 		"text":       text,
 		"audio_size": len(audioData),
-	}).Info("local tts: synthesis completed")
+	})...)
 
 	return nil
 }
@@ -175,7 +175,7 @@ func (ls *LocalService) synthesizeWithCommand(ctx context.Context, text, cmdPath
 func (ls *LocalService) synthesizeWithSay(ctx context.Context, text, cmdPath string, opt LocalTTSConfig) ([]byte, error) {
 	// macOS say 命令无法直接输出音频文件，这里返回占位符
 	// 在实际应用中，可能需要使用 afconvert 或其他工具
-	logrus.Warn("macOS say command cannot output audio directly, using placeholder")
+	logger.Warn("macOS say command cannot output audio directly, using placeholder")
 
 	// 返回一个占位符音频数据（静音）
 	// 实际应用中需要使用更复杂的实现
@@ -338,7 +338,6 @@ func NewLocalGoSpeechConfig(provider LocalGoSpeechProvider, modelPath string) *L
 type LocalGoSpeechService struct {
 	config *LocalGoSpeechConfig
 	mu     sync.RWMutex
-	logger *logrus.Logger
 	closed bool
 }
 
@@ -350,7 +349,6 @@ func NewLocalGoSpeechService(config *LocalGoSpeechConfig) (*LocalGoSpeechService
 
 	service := &LocalGoSpeechService{
 		config: config,
-		logger: logrus.New(),
 	}
 
 	// 验证命令是否可用
@@ -437,12 +435,12 @@ func (s *LocalGoSpeechService) Synthesize(ctx context.Context, handler base.Hand
 		return fmt.Errorf("文本不能为空")
 	}
 
-	s.logger.WithFields(logrus.Fields{
+	logger.Info("开始本地TTS合成", logger.WithFields(map[string]interface{}{
 		"provider": s.config.Provider,
 		"language": s.config.Language,
 		"speaker":  s.config.Speaker,
 		"text":     text,
-	}).Info("开始本地TTS合成")
+	})...)
 
 	startTime := time.Now()
 
@@ -467,17 +465,17 @@ func (s *LocalGoSpeechService) Synthesize(ctx context.Context, handler base.Hand
 	}
 
 	if err != nil {
-		s.logger.WithError(err).Error("本地TTS合成失败")
+		logger.Error("本地TTS合成失败", logger.WithError(err))
 		return err
 	}
 
 	duration := time.Since(startTime)
-	s.logger.WithFields(logrus.Fields{
+	logger.Info("本地TTS合成完成", logger.WithFields(map[string]interface{}{
 		"provider": s.config.Provider,
 		"text":     text,
 		"duration": duration,
 		"size":     len(audioData),
-	}).Info("本地TTS合成完成")
+	})...)
 
 	// 检查上下文是否已取消
 	select {
@@ -652,7 +650,7 @@ func (s *LocalGoSpeechService) Close() error {
 	}
 
 	s.closed = true
-	s.logger.Info("本地TTS服务已关闭")
+	logger.Info("本地TTS服务已关闭")
 	return nil
 }
 

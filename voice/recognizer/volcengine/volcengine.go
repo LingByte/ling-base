@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -349,19 +349,19 @@ func (volc *Volcengine) buildClient() error {
 	var tokenHeader = http.Header{"Authorization": []string{fmt.Sprintf("Bearer;%s", volc.opt.Token)}}
 	conn, _, err := websocket.DefaultDialer.Dial(volc.opt.Url, tokenHeader)
 	if err != nil {
-		logrus.WithError(err).Error("volcengine asr: fail to dial")
+		logger.Error("volcengine asr: fail to dial", logger.WithError(err))
 		return err
 	}
 	if err = volc.sendFullClientMsg(conn); err != nil {
-		logrus.WithError(err).Error("volcengine asr: fail to send full client msg")
+		logger.Error("volcengine asr: fail to send full client msg", logger.WithError(err))
 		return err
 	}
 
 	ctx, clientCancel := context.WithCancel(context.Background())
 	client := VolcengineClient{uuid: uuid.New().String(), conn: conn, sendLastAudio: false, ctx: ctx, cancel: clientCancel}
-	logrus.WithFields(logrus.Fields{
+	logger.Info("volcengine asr: build client", logger.WithFields(map[string]interface{}{
 		"client": client.String(),
-	}).Info("volcengine asr: build client")
+	})...)
 	volc.client = &client
 
 	go volc.recvFrames(&client)
@@ -370,7 +370,7 @@ func (volc *Volcengine) buildClient() error {
 }
 
 func (volc *Volcengine) restartClient() {
-	logrus.Info("volcengine asr: restart client")
+	logger.Info("volcengine asr: restart client")
 	if volc.client != nil && volc.client.cancel != nil {
 		volc.client.cancel()
 	}
@@ -406,7 +406,7 @@ func (volc *Volcengine) sendFrames(client *VolcengineClient) {
 				pendingData = pendingData[sendSize:]
 
 				if err := volc.sendAudioMsg(client, toSend, false); err != nil {
-					logrus.WithError(err).Error("volcengine asr: fail to send audio msg")
+					logger.Error("volcengine asr: fail to send audio msg", logger.WithError(err))
 					volc.restartClient()
 					return
 				}
@@ -415,12 +415,12 @@ func (volc *Volcengine) sendFrames(client *VolcengineClient) {
 		case <-volc.closeChan:
 			if len(pendingData) > 0 {
 				if err := volc.sendAudioMsg(client, pendingData, false); err != nil {
-					logrus.WithError(err).Error("volcengine asr: fail to send remaining audio")
+					logger.Error("volcengine asr: fail to send remaining audio", logger.WithError(err))
 				}
 			}
 			client.sendLastAudio = true
 			if err := volc.sendAudioMsg(client, nil, true); err != nil {
-				logrus.WithError(err).Error("volcengine asr: fail to send audio msg")
+				logger.Error("volcengine asr: fail to send audio msg", logger.WithError(err))
 				volc.restartClient()
 			}
 			return
@@ -462,9 +462,9 @@ func (volc *Volcengine) recvFrames(client *VolcengineClient) {
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-					logrus.Info("volcengine asr: recv close message, connection closed")
+					logger.Info("volcengine asr: recv close message, connection closed")
 				} else {
-					logrus.WithError(err).Error("volcengine asr: recv error, connection closed")
+					logger.Error("volcengine asr: recv error, connection closed", logger.WithError(err))
 				}
 				if strings.TrimSpace(volc.Sentence) != "" {
 					volc.emitFinal(volc.Sentence)
@@ -475,15 +475,15 @@ func (volc *Volcengine) recvFrames(client *VolcengineClient) {
 
 			response, err := volc.parseResponse(message)
 			if err != nil {
-				logrus.WithError(err).Error("volcengine asr: fail to parse response")
+				logger.Error("volcengine asr: fail to parse response", logger.WithError(err))
 				volc.restartClient()
 				return
 			}
 			if response.Code != SuccessCode {
-				logrus.WithFields(logrus.Fields{
+				logger.Error("volcengine asr: receive error message", logger.WithFields(map[string]interface{}{
 					"code":    response.Code,
 					"message": response.Message,
-				}).Error("volcengine asr: receive error message")
+				})...)
 				volc.restartClient()
 				return
 			}
@@ -495,9 +495,9 @@ func (volc *Volcengine) recvFrames(client *VolcengineClient) {
 				if !volc.ttfbDone {
 					volc.ttfbDone = true
 				}
-				logrus.WithFields(logrus.Fields{
+				logger.Info("volcengine asr: recv frame", logger.WithFields(map[string]interface{}{
 					"Sentence": latestResult.Text,
-				}).Info("volcengine asr: recv frame")
+				})...)
 				volc.emitPartial(latestResult.Text)
 			}
 
@@ -535,7 +535,7 @@ func (volc *Volcengine) sendFullClientMsg(conn *websocket.Conn) error {
 	}
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
-		logrus.WithError(err).Error("volcengine asr: fail to read message")
+		logger.Error("volcengine asr: fail to read message", logger.WithError(err))
 		return err
 	}
 	_, err = volc.parseResponse(msg)
@@ -590,7 +590,7 @@ func (volc *Volcengine) parseResponse(msg []byte) (VolcEngineResponse, error) {
 			payloadSize = int(binary.BigEndian.Uint32(payload[4:8]))
 			payloadMsg = payload[8:]
 		}
-		logrus.Debug("volcengine asr: server ack seq: ", seq)
+		logger.Debug(fmt.Sprintf("volcengine asr: server ack seq: %d", seq))
 	} else if messageType == byte(ServerErrorResponse) {
 		code := int32(binary.BigEndian.Uint32(payload[:4]))
 		payloadSize = int(binary.BigEndian.Uint32(payload[4:8]))
@@ -611,7 +611,7 @@ func (volc *Volcengine) parseResponse(msg []byte) (VolcEngineResponse, error) {
 	if serializationMethod == byte(base.SerializationJSON) {
 		err = json.Unmarshal(payloadMsg, &asrResponse)
 		if err != nil {
-			logrus.Error("volcengine asr: fail to unmarshal response, ", err.Error())
+			logger.Error(fmt.Sprintf("volcengine asr: fail to unmarshal response, %s", err.Error()))
 			return VolcEngineResponse{}, err
 		}
 	}

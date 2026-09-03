@@ -14,9 +14,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -193,20 +193,20 @@ func (ms *MinimaxService) Synthesize(ctx context.Context, handler base.Handler, 
 	}
 	ms.conn = ws
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("minimax: using established connection", logger.WithFields(map[string]interface{}{
 		"connSessionID": ms.GetConnSessionID(),
 		"traceID":       ms.GetTraceID(),
-	}).Info("minimax: using established connection")
+	})...)
 
 	if err := ms.startTask(ws); err != nil {
 		return fmt.Errorf("minimax: failed to start task: %w", err)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("minimax: start task cost time", logger.WithFields(map[string]interface{}{
 		"connSessionID": ms.GetConnSessionID(),
 		"traceID":       ms.GetTraceID(),
 		"latency":       time.Since(ms.startAt).Milliseconds(),
-	}).Info("minimax: start task cost time")
+	})...)
 
 	err = ms.continueTask(ws, text, handler)
 	if err != nil {
@@ -214,7 +214,7 @@ func (ms *MinimaxService) Synthesize(ctx context.Context, handler base.Handler, 
 	}
 
 	if err := ms.closeConnection(ws); err != nil {
-		logrus.WithError(err).Warn("minimax: failed to close connection gracefully")
+		logger.Warn("minimax: failed to close connection gracefully", logger.WithError(err))
 	}
 
 	return nil
@@ -252,12 +252,12 @@ func (ms *MinimaxService) establishConnection() (*websocket.Conn, error) {
 	ms.ConnSessionID = connResponse.SessionID
 	ms.TraceID = connResponse.TraceID
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("minimax: websocket connection established successfully", logger.WithFields(map[string]interface{}{
 		"connSessionID": connResponse.SessionID,
 		"traceID":       connResponse.TraceID,
 		"statusCode":    connResponse.BaseResp.StatusCode,
 		"statusMsg":     connResponse.BaseResp.StatusMsg,
-	}).Info("minimax: websocket connection established successfully")
+	})...)
 
 	return ws, nil
 }
@@ -318,7 +318,7 @@ func (ms *MinimaxService) startTask(ws *websocket.Conn) error {
 		return fmt.Errorf("minimax: task start failed, unexpected event: %s", response.Event)
 	}
 
-	logrus.Info("minimax: task started successfully")
+	logger.Info("minimax: task started successfully")
 	return nil
 }
 
@@ -360,18 +360,18 @@ func (ms *MinimaxService) continueTask(ws *websocket.Conn, text string, handler 
 		if response.Data.Audio != "" {
 			audioBytes, err := hex.DecodeString(response.Data.Audio)
 			if err != nil {
-				logrus.WithError(err).Warn("minimax: failed to decode hex audio chunk, skipping")
+				logger.Warn("minimax: failed to decode hex audio chunk, skipping", logger.WithError(err))
 				continue
 			}
 
 			if len(audioBytes) > 0 {
 				if !ttfbDone {
 					ttfbDone = true
-					logrus.WithFields(logrus.Fields{
+					logger.Info("minimax: ttfb", logger.WithFields(map[string]interface{}{
 						"connSessionID": ms.GetConnSessionID(),
 						"traceID":       ms.GetTraceID(),
 						"ttfb":          time.Since(ms.startAt).Milliseconds(),
-					}).Info("minimax: ttfb")
+					})...)
 				}
 
 				handler.OnMessage(audioBytes)
@@ -383,10 +383,10 @@ func (ms *MinimaxService) continueTask(ws *websocket.Conn, text string, handler 
 		}
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("minimax: streaming synthesis completed", logger.WithFields(map[string]interface{}{
 		"connSessionID": ms.GetConnSessionID(),
 		"traceID":       ms.GetTraceID(),
-	}).Info("minimax: streaming synthesis completed")
+	})...)
 
 	return nil
 }
@@ -409,7 +409,7 @@ func (ms *MinimaxService) closeConnection(ws *websocket.Conn) error {
 		return fmt.Errorf("failed to close websocket: %w", err)
 	}
 
-	logrus.Info("minimax: connection closed successfully")
+	logger.Info("minimax: connection closed successfully")
 	return nil
 }
 

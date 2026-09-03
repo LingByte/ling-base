@@ -18,9 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -195,7 +196,7 @@ func (b *BaiduASR) SendAudioBytes(data []byte) error {
 	if b.sendReqTime == nil {
 		n := time.Now()
 		b.sendReqTime = &n
-		logrus.Info("baidu asr start accumulating audio")
+		logger.Info("baidu asr start accumulating audio")
 	}
 	b.audioBuffer = append(b.audioBuffer, data...)
 	return nil
@@ -217,7 +218,7 @@ func (b *BaiduASR) SendEnd() error {
 	b.mu.Unlock()
 
 	if len(audioData) == 0 {
-		logrus.Warn("baidu asr: no audio data to recognize")
+		logger.Warn("baidu asr: no audio data to recognize")
 		b.dispatchResult("", true)
 		return nil
 	}
@@ -295,7 +296,8 @@ func (b *BaiduASR) getAccessToken() error {
 		return fmt.Errorf("baidu asr: build token request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("baidu asr: token request failed: %w", err)
 	}
@@ -329,9 +331,9 @@ func (b *BaiduASR) getAccessToken() error {
 	b.tokenExpiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second - 60*time.Second)
 	b.mu.Unlock()
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("baidu asr: access token acquired", logger.WithFields(map[string]interface{}{
 		"expiresIn": tokenResp.ExpiresIn,
-	}).Info("baidu asr: access token acquired")
+	})...)
 	return nil
 }
 
@@ -393,7 +395,8 @@ func (b *BaiduASR) recognizeAudio(audioData []byte) (string, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("baidu asr: recognize request failed: %w", err)
 	}

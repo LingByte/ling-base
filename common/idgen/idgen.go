@@ -286,15 +286,11 @@ func ShortIDFromInt(id uint64) string {
 
 // RandomShortID generates a random Base62 string of the given length.
 // Use length >= 10 for reasonable collision resistance.
+//
+// Delegates to random.StringWithCharset with CharsetBase62, which uses
+// rejection sampling to avoid modulo bias.
 func RandomShortID(length int) string {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		mathrand.Read(b)
-	}
-	for i := range b {
-		b[i] = base62Chars[int(b[i])%62]
-	}
-	return string(b)
+	return random.StringWithCharset(length, random.CharsetBase62)
 }
 
 // encodeBase62 encodes a uint64 into a Base62 string.

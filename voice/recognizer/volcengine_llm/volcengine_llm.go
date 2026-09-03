@@ -10,10 +10,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	gonanoid "github.com/matoous/go-nanoid"
-
-	"github.com/sirupsen/logrus"
 )
 
 // VolcengineLLMASR is the Volcengine big-model (SAUC) ASR engine.
@@ -136,10 +135,10 @@ func (v *VolcengineLLMASR) ConnAndReceive(dialogID string) error {
 		v.er(fmt.Errorf("recognizer error: %s", err), true)
 	})
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info(fmt.Sprintf("volcenginellm asr: start recognize"), logger.WithFields(map[string]interface{}{
 		"dialogId": v.dialogID,
 		"traceId":  v.recognizer.GetTraceID(),
-	}).Infof("volcenginellm asr: start recognize")
+	})...)
 
 	return nil
 }
@@ -150,16 +149,16 @@ func (v *VolcengineLLMASR) handleRecognitionResult(result *base.Result) {
 	duration := time.Since(v.sendReqTime)
 	v.tr(result.Text, result.IsFinal, duration, v.dialogID)
 	if result.IsFinal {
-		logrus.WithFields(logrus.Fields{
+		logger.Info(fmt.Sprintf("volcenginellm asr: recv last result: %s", result.Text), logger.WithFields(map[string]interface{}{
 			"dialogId": v.dialogID,
 			"traceId":  v.recognizer.GetTraceID(),
-		}).Infof("volcenginellm asr: recv last result: %s", result.Text)
+		})...)
 
 		if v.recognizer != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.Info(fmt.Sprintf("volcenginellm asr: stop recognize"), logger.WithFields(map[string]interface{}{
 				"dialogId": v.dialogID,
 				"traceId":  v.recognizer.GetTraceID(),
-			}).Infof("volcenginellm asr: stop recognize")
+			})...)
 			v.recognizer.Stop()
 			v.recognizer = nil
 		}
@@ -195,10 +194,10 @@ func (v *VolcengineLLMASR) SendAudioBytes(data []byte) error {
 // SendEnd signals the end of the audio stream.
 func (v *VolcengineLLMASR) SendEnd() error {
 	if v.recognizer != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Info(fmt.Sprintf("volcenginellm asr: end recognize"), logger.WithFields(map[string]interface{}{
 			"dialogId": v.dialogID,
 			"traceId":  v.recognizer.GetTraceID(),
-		}).Infof("volcenginellm asr: end recognize")
+		})...)
 		return v.recognizer.SendAudioFrame(&base.AudioFrame{IsEnd: true})
 	}
 	return nil
@@ -207,10 +206,10 @@ func (v *VolcengineLLMASR) SendEnd() error {
 // StopConn stops the connection and cleans up resources.
 func (v *VolcengineLLMASR) StopConn() error {
 	if v.recognizer != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Info(fmt.Sprintf("volcenginellm asr: stop recognize"), logger.WithFields(map[string]interface{}{
 			"dialogId": v.dialogID,
 			"traceId":  v.recognizer.GetTraceID(),
-		}).Infof("volcenginellm asr: stop recognize")
+		})...)
 		v.recognizer.Stop()
 		v.recognizer = nil
 	}

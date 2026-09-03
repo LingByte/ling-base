@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 )
 
@@ -74,7 +76,7 @@ func NewOpenAIConfig(apiKey string) OpenAIConfig {
 func NewOpenAIService(opt OpenAIConfig) *OpenAIService {
 	return &OpenAIService{
 		opt:    opt,
-		client: &http.Client{},
+		client: netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second}),
 	}
 }
 

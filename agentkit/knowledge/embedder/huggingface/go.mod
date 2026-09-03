@@ -4,7 +4,10 @@ go 1.26.0
 
 replace github.com/LingByte/ling-base/agentkit => ../../..
 
-require github.com/LingByte/ling-base/agentkit v0.5.0
+require (
+	github.com/LingByte/ling-base/agentkit v0.5.0
+	github.com/LingByte/ling-base/common/netutil v0.1.0
+)
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

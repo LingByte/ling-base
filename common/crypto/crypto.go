@@ -35,7 +35,6 @@ import (
 	"crypto/rc4"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -46,6 +45,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/hash"
 )
 
 // ──────────────────────────────────────────────
@@ -396,28 +397,22 @@ func ParseRSAPublicKeyPEM(pemStr string) (*rsa.PublicKey, error) {
 
 // SignSHA256 signs data using HMAC-SHA256.
 func SignSHA256(data, key []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	h.Write(data)
-	return h.Sum(nil)
+	return hash.HMACSHA256(data, key)
 }
 
 // VerifySHA256 verifies an HMAC-SHA256 signature in constant time.
 func VerifySHA256(data, key, sig []byte) bool {
-	expected := SignSHA256(data, key)
-	return hmac.Equal(expected, sig)
+	return hash.HMACEqual(hash.HMACSHA256(data, key), sig)
 }
 
 // SignSHA512 signs data using HMAC-SHA512.
 func SignSHA512(data, key []byte) []byte {
-	h := hmac.New(sha512.New, key)
-	h.Write(data)
-	return h.Sum(nil)
+	return hash.HMACSHA512(data, key)
 }
 
 // VerifySHA512 verifies an HMAC-SHA512 signature in constant time.
 func VerifySHA512(data, key, sig []byte) bool {
-	expected := SignSHA512(data, key)
-	return hmac.Equal(expected, sig)
+	return hash.HMACEqual(hash.HMACSHA512(data, key), sig)
 }
 
 // ──────────────────────────────────────────────

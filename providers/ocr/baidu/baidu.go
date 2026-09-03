@@ -15,7 +15,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/providers/ocr"
 )
 
@@ -32,6 +34,10 @@ type Provider struct {
 }
 
 var _ ocr.Provider = (*Provider)(nil)
+
+// defaultHTTPClient is the standard HTTP client used for Baidu Cloud API
+// requests, configured with a 30s timeout.
+var defaultHTTPClient = netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
 
 // New creates a Provider from explicit credentials.
 func New(apiKey, secretKey string) *Provider {
@@ -83,7 +89,7 @@ func (p *Provider) fetchAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("baidu ocr: fetch token: %w", err)
 	}
@@ -137,7 +143,7 @@ func (p *Provider) Recognize(ctx context.Context, imageBytes []byte, opts *ocr.O
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("baidu ocr: request: %w", err)
 	}

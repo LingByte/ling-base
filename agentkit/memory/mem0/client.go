@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/netutil"
 )
 
 const (
@@ -71,7 +73,7 @@ func newClient(opts serviceOpts) (*client, error) {
 	}
 	hc := opts.client
 	if hc == nil {
-		hc = &http.Client{}
+		hc = netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 60 * time.Second})
 	}
 	return &client{
 		host:      strings.TrimRight(opts.host, "/"),

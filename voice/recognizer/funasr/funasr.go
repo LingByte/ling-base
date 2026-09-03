@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // endSpeaking is the JSON payload sent to FunASR to signal that the user
@@ -221,11 +221,11 @@ func (fun *FunASR) ConnAndReceive(dialogID string) error {
 	}
 	conn, _, err := dialer.Dial(fun.opt.URL, nil)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Error("funasr asr: dial failed", append(logger.WithFields(map[string]interface{}{
 			"url":       fun.opt.URL,
 			"dialogID":  dialogID,
 			"sessionID": fun.sessionID(),
-		}).WithError(err).Error("funasr asr: dial failed")
+		}), logger.WithError(err))...)
 		return err
 	}
 
@@ -246,11 +246,11 @@ func (fun *FunASR) ConnAndReceive(dialogID string) error {
 	fun.ctx = ctx
 	fun.cancel = cancel
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("funasr asr: connected", logger.WithFields(map[string]interface{}{
 		"url":       fun.opt.URL,
 		"dialogID":  dialogID,
 		"sessionID": fun.sessionID(),
-	}).Info("funasr asr: connected")
+	})...)
 
 	go fun.handleReadLoop(ctx, conn)
 	return nil
@@ -266,7 +266,7 @@ func (fun *FunASR) Activity() bool {
 // RestartClient stops the current connection and re-establishes a new one.
 func (fun *FunASR) RestartClient() {
 	if err := fun.StopConn(); err != nil {
-		logrus.WithError(err).Error("funasr asr: close client encountered an error")
+		logger.Error("funasr asr: close client encountered an error", logger.WithError(err))
 	}
 	id := strings.TrimSpace(fun.dialogID)
 	if id == "" {
@@ -346,10 +346,10 @@ func (fun *FunASR) handleReadLoop(ctx context.Context, conn *websocket.Conn) {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				logrus.WithFields(logrus.Fields{
+				logger.Debug("funasr asr: recv close message, connection closed", logger.WithFields(map[string]interface{}{
 					"sessionID": fun.sessionID(),
 					"dialogID":  fun.dialogID,
-				}).Debug("funasr asr: recv close message, connection closed")
+				})...)
 				fun.emitFinalOnClose()
 				if fun.er != nil {
 					fun.er(nil, false)
@@ -357,12 +357,12 @@ func (fun *FunASR) handleReadLoop(ctx context.Context, conn *websocket.Conn) {
 				return
 			}
 
-			logrus.WithFields(logrus.Fields{
+			logger.Error("funasr asr: recv error, connection closed", append(logger.WithFields(map[string]interface{}{
 				"sessionID":   fun.sessionID(),
 				"dialogID":    fun.dialogID,
 				"message":     string(message),
 				"messageType": messageType,
-			}).WithError(err).Error("funasr asr: recv error, connection closed")
+			}), logger.WithError(err))...)
 			fun.emitFinalOnClose()
 			if fun.er != nil {
 				fun.er(err, false)
@@ -372,12 +372,12 @@ func (fun *FunASR) handleReadLoop(ctx context.Context, conn *websocket.Conn) {
 
 		var msg FunASRResponse
 		if err = json.Unmarshal(message, &msg); err != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.Error("funasr asr: serialize frame failed", append(logger.WithFields(map[string]interface{}{
 				"sessionID": fun.sessionID(),
 				"dialogID":  fun.dialogID,
 				"url":       fun.opt.URL,
 				"raw":       string(message),
-			}).WithError(err).Error("funasr asr: serialize frame failed")
+			}), logger.WithError(err))...)
 			if fun.er != nil {
 				fun.er(err, false)
 			}

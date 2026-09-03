@@ -1,4 +1,6 @@
 github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/LingByte/ling-base/common/netutil v0.1.0 h1:4PsfkOtAnjxrUI4wUdh5K4gGS/e8/55DKK6KFrBbz+I=
+github.com/LingByte/ling-base/common/netutil v0.1.0/go.mod h1:F//MWWcV9HHfYJHZVqmAMqOhEfGxnU3OJEdLc5GvFw4=
 github.com/qiniu/go-sdk/v7 v7.27.0 h1:n+2U0S5fhbmG/lN/agO8KcYJaQDqROUVShtnp56Mkw8=
 github.com/qiniu/go-sdk/v7 v7.27.0/go.mod h1:pTwVR1B+8SXcPLhDzBUasiKFTD9F7jRglRDR553BW3k=

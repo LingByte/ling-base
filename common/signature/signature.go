@@ -21,8 +21,6 @@ package signature
 import (
 	"crypto/hmac"
 	"crypto/md5"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"net/url"
@@ -30,41 +28,38 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/hash"
 )
 
 // SignHMACSHA256 returns the hex-encoded HMAC-SHA256 of data keyed by key.
 func SignHMACSHA256(data string, key []byte) string {
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
+	return hash.HMACSHA256Hex([]byte(data), key)
 }
 
 // VerifyHMACSHA256 reports whether sig is a valid HMAC-SHA256 of data keyed by
 // key. The comparison is constant-time.
 func VerifyHMACSHA256(data string, key []byte, sig string) bool {
 	expected := SignHMACSHA256(data, key)
-	return hmac.Equal([]byte(expected), []byte(sig))
+	return hash.HMACEqual([]byte(expected), []byte(sig))
 }
 
 // SignHMACSHA512 returns the hex-encoded HMAC-SHA512 of data keyed by key.
 func SignHMACSHA512(data string, key []byte) string {
-	h := hmac.New(sha512.New, key)
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
+	return hash.HMACSHA512Hex([]byte(data), key)
 }
 
 // VerifyHMACSHA512 reports whether sig is a valid HMAC-SHA512 of data keyed by
 // key. The comparison is constant-time.
 func VerifyHMACSHA512(data string, key []byte, sig string) bool {
 	expected := SignHMACSHA512(data, key)
-	return hmac.Equal([]byte(expected), []byte(sig))
+	return hash.HMACEqual([]byte(expected), []byte(sig))
 }
 
 // SignMD5 returns the hex-encoded MD5 of data. MD5 is cryptographically broken
 // and should only be used for compatibility with legacy systems.
 func SignMD5(data string) string {
-	sum := md5.Sum([]byte(data))
-	return hex.EncodeToString(sum[:])
+	return hash.MD5String(data)
 }
 
 // SignRequest signs an HTTP request following the standard flow:

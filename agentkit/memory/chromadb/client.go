@@ -27,6 +27,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/LingByte/ling-base/common/netutil"
 )
 
 const (
@@ -116,9 +118,9 @@ func copyHTTPClient(client *http.Client) (*http.Client, *http.Transport) {
 	}
 	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
 		owned := transport.Clone()
-		return &http.Client{Transport: owned}, owned
+		return netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Transport: owned}), owned
 	}
-	return &http.Client{Transport: http.DefaultTransport}, nil
+	return netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{}), nil
 }
 
 // collectSecretValues gathers configured credentials for response redaction.

@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // WhisperResponse is the parsed ASR response from a Whisper-compatible server.
@@ -148,16 +148,16 @@ func (w *WhisperASR) ConnAndReceive(dialogID string) error {
 
 	conn, _, err := websocket.DefaultDialer.Dial(w.opt.URL, nil)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Error("whisper asr: dial failed", append(logger.WithFields(map[string]interface{}{
 			"dialogID": w.dialogID,
 			"url":      w.opt.URL,
-		}).WithError(err).Error("whisper asr: dial failed")
+		}), logger.WithError(err))...)
 		return err
 	}
 	w.conn = conn
 
 	if err = w.sendConfig(conn); err != nil {
-		logrus.WithError(err).Error("whisper asr: fail to send config")
+		logger.Error("whisper asr: fail to send config", logger.WithError(err))
 		_ = conn.Close()
 		w.conn = nil
 		return err
@@ -167,10 +167,10 @@ func (w *WhisperASR) ConnAndReceive(dialogID string) error {
 	w.ctx = ctx
 	w.cancel = cancel
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("whisper asr: connected", logger.WithFields(map[string]interface{}{
 		"dialogID": w.dialogID,
 		"url":      w.opt.URL,
-	}).Info("whisper asr: connected")
+	})...)
 
 	go w.handleReadLoop(ctx)
 	go w.handleSendLoop(ctx)
@@ -258,7 +258,7 @@ func (w *WhisperASR) SendEnd() error {
 	// Send an empty binary frame to signal end-of-stream.
 	if w.conn != nil {
 		if err := w.conn.WriteMessage(websocket.BinaryMessage, []byte{}); err != nil {
-			logrus.WithError(err).Error("whisper asr: fail to send end frame")
+			logger.Error("whisper asr: fail to send end frame", logger.WithError(err))
 			return err
 		}
 	}
@@ -354,7 +354,7 @@ func (w *WhisperASR) handleSendLoop(ctx context.Context) {
 				return
 			}
 			if err := conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
-				logrus.WithError(err).Error("whisper asr: fail to send audio")
+				logger.Error("whisper asr: fail to send audio", logger.WithError(err))
 				w.causeErr(err)
 				return
 			}
@@ -382,14 +382,14 @@ func (w *WhisperASR) handleReadLoop(ctx context.Context) {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				logrus.Info("whisper asr: recv close message, connection closed")
+				logger.Info("whisper asr: recv close message, connection closed")
 			} else {
-				logrus.WithFields(logrus.Fields{
+				logger.Error("whisper asr: recv error, connection closed", append(logger.WithFields(map[string]interface{}{
 					"dialogID":    w.dialogID,
 					"err":         err,
 					"message":     string(message),
 					"messageType": messageType,
-				}).WithError(err).Error("whisper asr: recv error, connection closed")
+				}), logger.WithError(err))...)
 				w.causeErr(err)
 			}
 			w.mu.Lock()
@@ -408,18 +408,18 @@ func (w *WhisperASR) handleReadLoop(ctx context.Context) {
 
 		var result WhisperResponse
 		if err = json.Unmarshal(message, &result); err != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.Error("whisper asr: unmarshal result failed", append(logger.WithFields(map[string]interface{}{
 				"dialogID": w.dialogID,
-			}).WithError(err).Error("whisper asr: unmarshal result failed")
+			}), logger.WithError(err))...)
 			continue
 		}
 
 		if !ttfbDone && result.Text != "" {
 			ttfbDone = true
-			logrus.WithFields(logrus.Fields{
+			logger.Info("whisper asr: time to first byte", logger.WithFields(map[string]interface{}{
 				"dialogID": w.dialogID,
 				"ttfb":     w.sinceSend(),
-			}).Info("whisper asr: time to first byte")
+			})...)
 		}
 
 		w.mu.Lock()
@@ -432,11 +432,11 @@ func (w *WhisperASR) handleReadLoop(ctx context.Context) {
 			w.emitPartial(result.Text)
 		}
 
-		logrus.WithFields(logrus.Fields{
+		logger.Debug("whisper asr: recv frame", logger.WithFields(map[string]interface{}{
 			"dialogID": w.dialogID,
 			"word":     result.Text,
 			"isFinal":  result.IsFinal,
-		}).Debug("whisper asr: recv frame")
+		})...)
 	}
 }
 

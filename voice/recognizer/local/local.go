@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring LocalASR implements base.Engine.
@@ -225,10 +225,10 @@ func (l *LocalASR) runASRCommand(audioFile string) (string, error) {
 	execCmd.Stdout = &stdout
 	execCmd.Stderr = &stderr
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("local asr: running command", logger.WithFields(map[string]interface{}{
 		"command": parts[0],
 		"args":    args,
-	}).Info("local asr: running command")
+	})...)
 
 	if err := execCmd.Run(); err != nil {
 		return "", fmt.Errorf("local asr: command failed: %w, stderr: %s", err, stderr.String())

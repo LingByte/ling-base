@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	gonanoid "github.com/matoous/go-nanoid"
-	"github.com/sirupsen/logrus"
 	"github.com/tencentcloud/tencentcloud-speech-sdk-go/asr"
 	"github.com/tencentcloud/tencentcloud-speech-sdk-go/common"
 )
@@ -151,13 +151,13 @@ func (asq *QCloudASR) ConnAndReceive(dialogID string) error {
 	}
 	recognizer.HotwordList = strings.TrimSuffix(hotWordsStr, ",")
 	if len(hotWordsStr) > 0 {
-		logrus.WithFields(logrus.Fields{
+		logger.Info("qcloud: hotwords", logger.WithFields(map[string]interface{}{
 			"hotwords": recognizer.HotwordList,
-		}).Info("qcloud: hotwords")
+		})...)
 	}
 	err := recognizer.Start()
 	if err != nil {
-		logrus.WithError(err).Error("qcloud: recognizer.Start")
+		logger.Error("qcloud: recognizer.Start", logger.WithError(err))
 		return err
 	}
 	asq.recognizer = recognizer
@@ -230,7 +230,7 @@ func (asq *QCloudASR) StopConn() error {
 
 // OnRecognitionStart implementation of asr.SpeechRecognitionListener
 func (asq *QCloudASR) OnRecognitionStart(response *asr.SpeechRecognitionResponse) {
-	logrus.WithField("voice_id", response.VoiceID).Info("OnRecognitionStart")
+	logger.Info("OnRecognitionStart", logger.WithFields(map[string]interface{}{"voice_id": response.VoiceID})...)
 }
 
 // OnSentenceBegin implementation of asr.SpeechRecognitionListener
@@ -253,9 +253,9 @@ func (asq *QCloudASR) OnRecognitionResultChange(response *asr.SpeechRecognitionR
 
 // OnSentenceEnd — 一句说完，isLast 应为 true
 func (asq *QCloudASR) OnSentenceEnd(response *asr.SpeechRecognitionResponse) {
-	logrus.WithFields(logrus.Fields{
+	logger.Info("qcloud: on sentence end", logger.WithFields(map[string]interface{}{
 		"voiceTextStr": response.Result.VoiceTextStr,
-	}).Info("qcloud: on sentence end")
+	})...)
 
 	asq.sentence += response.Result.VoiceTextStr
 	asq.sliceType = response.Result.SliceType
@@ -288,10 +288,10 @@ func (asq *QCloudASR) OnRecognitionComplete(response *asr.SpeechRecognitionRespo
 	asq.sentence = ""
 	asq.sliceType = 0
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("qcloud: on recognition complete", logger.WithFields(map[string]interface{}{
 		"voiceTextStr":  response.Result.VoiceTextStr,
 		"finalSentence": finalSentence,
-	}).Info("qcloud: on recognition complete")
+	})...)
 
 	if finalSentence != "" {
 		duration := time.Duration(0)
@@ -317,16 +317,16 @@ func (asq *QCloudASR) OnFail(response *asr.SpeechRecognitionResponse, err error)
 		return
 	}
 	if strings.Contains(err.Error(), "EOF") {
-		logrus.WithFields(logrus.Fields{
+		logger.Warn("qcloud: eof onfail", logger.WithFields(map[string]interface{}{
 			"voice_id": response.VoiceID,
 			"error":    err,
-		}).Warn("qcloud: eof onfail")
+		})...)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	logger.Error("OnFail", logger.WithFields(map[string]interface{}{
 		"voice_id": response.VoiceID,
 		"error":    err,
-	}).Error("OnFail")
+	})...)
 
 	// 优先使用 processError 回调
 	if asq.processError != nil {

@@ -37,6 +37,7 @@ import (
 
 	"github.com/LingByte/ling-base/common/circuitbreaker"
 	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/common/retry"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/meter"
@@ -299,7 +300,8 @@ func WithRequestHook(h RequestHook) Option {
 }
 
 // DefaultHTTPClient returns a production-ready HTTP client with sensible
-// timeouts and connection pooling.
+// timeouts and connection pooling. The underlying *http.Client is
+// created via common/netutil so that transport tuning stays centralised.
 func DefaultHTTPClient() *http.Client {
 	transport := &http.Transport{
 		MaxIdleConns:          100,
@@ -309,10 +311,10 @@ func DefaultHTTPClient() *http.Client {
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	return &http.Client{
+	return netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{
 		Timeout:   120 * time.Second,
 		Transport: transport,
-	}
+	})
 }
 
 // New creates a new Client.

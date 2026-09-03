@@ -15,6 +15,9 @@ use (
 	./agentkit/flowcraft/driver/openai
 	./agentkit/flowcraft/driver/qwen
 	./agentkit/flowcraft/forge
+	./agentkit/knowledge/embedder/huggingface
+	./agentkit/knowledge/embedder/ollama
+	./agentkit/knowledge/document/reader/pdf
 	./agentkit/relaymodel
 	./apidocs
 	./bootstrap

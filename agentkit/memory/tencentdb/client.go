@@ -21,6 +21,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/netutil"
 )
 
 const (
@@ -84,7 +86,7 @@ func newGatewayClient(opts Options) (*gatewayClient, error) {
 	}
 	hc := opts.HTTPClient
 	if hc == nil {
-		hc = &http.Client{}
+		hc = netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 60 * time.Second})
 	}
 	maxBodyBytes := opts.MaxBodyBytes
 	if maxBodyBytes <= 0 {

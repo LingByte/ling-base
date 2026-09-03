@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // VoiceAPIASR is the VoiceAPI streaming ASR engine. It speaks a simple
@@ -138,9 +138,9 @@ func (vapi *VoiceAPIASR) ConnAndReceive(dialogID string) error {
 
 	conn, _, err := websocket.DefaultDialer.Dial(vapi.opt.URL, header)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Error("voiceapi asr: failed to dial websocket", append(logger.WithFields(map[string]interface{}{
 			"url": vapi.opt.URL,
-		}).WithError(err).Error("voiceapi asr: failed to dial websocket")
+		}), logger.WithError(err))...)
 		return err
 	}
 
@@ -156,10 +156,10 @@ func (vapi *VoiceAPIASR) ConnAndReceive(dialogID string) error {
 	vapi.endReqTime = nil
 	vapi.startTime = now
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("voiceapi asr: connection established", logger.WithFields(map[string]interface{}{
 		"dialogID": dialogID,
 		"url":      vapi.opt.URL,
-	}).Info("voiceapi asr: connection established")
+	})...)
 
 	go vapi.handleReadLoop()
 	go vapi.handleSendLoop()
@@ -234,7 +234,7 @@ func (vapi *VoiceAPIASR) SendEnd() error {
 		"finished": true,
 	})
 	if err := vapi.writeMessage(websocket.TextMessage, endMsg); err != nil {
-		logrus.WithError(err).Error("voiceapi asr: failed to send end marker")
+		logger.Error("voiceapi asr: failed to send end marker", logger.WithError(err))
 		return err
 	}
 	return nil
@@ -327,7 +327,7 @@ func (vapi *VoiceAPIASR) handleSendLoop() {
 		select {
 		case data := <-vapi.audioQueue:
 			if err := vapi.writeMessage(websocket.BinaryMessage, data); err != nil {
-				logrus.WithError(err).Error("voiceapi asr: failed to send audio bytes")
+				logger.Error("voiceapi asr: failed to send audio bytes", logger.WithError(err))
 				vapi.causeErr(err)
 				return
 			}
@@ -356,15 +356,15 @@ func (vapi *VoiceAPIASR) handleReadLoop() {
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-					logrus.WithFields(logrus.Fields{
+					logger.Info("voiceapi asr: recv close message, connection closed", logger.WithFields(map[string]interface{}{
 						"dialogID": vapi.dialogID,
-					}).Info("voiceapi asr: recv close message, connection closed")
+					})...)
 				} else {
-					logrus.WithFields(logrus.Fields{
+					logger.Error("voiceapi asr: recv error, connection closed", append(logger.WithFields(map[string]interface{}{
 						"dialogID":    vapi.dialogID,
 						"messageType": messageType,
 						"message":     string(message),
-					}).WithError(err).Error("voiceapi asr: recv error, connection closed")
+					}), logger.WithError(err))...)
 					vapi.causeErr(err)
 				}
 				if strings.TrimSpace(vapi.sentence) != "" {
@@ -378,10 +378,10 @@ func (vapi *VoiceAPIASR) handleReadLoop() {
 
 			var res VoiceAPIResponse
 			if err = json.Unmarshal(message, &res); err != nil {
-				logrus.WithFields(logrus.Fields{
+				logger.Error("voiceapi asr: failed to unmarshal message", append(logger.WithFields(map[string]interface{}{
 					"dialogID": vapi.dialogID,
 					"message":  string(message),
-				}).WithError(err).Error("voiceapi asr: failed to unmarshal message")
+				}), logger.WithError(err))...)
 				vapi.causeErr(err)
 				return
 			}
@@ -390,21 +390,21 @@ func (vapi *VoiceAPIASR) handleReadLoop() {
 			vapi.emitPartial(res.Text)
 
 			if res.Finished {
-				logrus.WithFields(logrus.Fields{
+				logger.Info("voiceapi asr: final result received", logger.WithFields(map[string]interface{}{
 					"dialogID": vapi.dialogID,
 					"text":     res.Text,
-				}).Info("voiceapi asr: final result received")
+				})...)
 				vapi.emitFinal(res.Text)
 				if vapi.endReqTime != nil {
-					logrus.WithFields(logrus.Fields{
+					logger.Debug("voiceapi asr: end-to-end latency", logger.WithFields(map[string]interface{}{
 						"duration": time.Since(*vapi.endReqTime),
-					}).Debug("voiceapi asr: end-to-end latency")
+					})...)
 				}
 			}
 			if vapi.sendReqTime != nil {
-				logrus.WithFields(logrus.Fields{
+				logger.Debug("voiceapi asr: frame latency", logger.WithFields(map[string]interface{}{
 					"duration": time.Since(*vapi.sendReqTime),
-				}).Debug("voiceapi asr: frame latency")
+				})...)
 			}
 		}
 	}

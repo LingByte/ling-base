@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring DeepgramASR implements base.Engine.
@@ -204,7 +204,7 @@ func (dg *DeepgramASR) SendEnd() error {
 	err := conn.WriteMessage(websocket.TextMessage, closeMsg)
 	dg.mu.Unlock()
 	if err != nil {
-		logrus.WithError(err).Error("deepgram asr: fail to send CloseStream")
+		logger.Error("deepgram asr: fail to send CloseStream", logger.WithError(err))
 		return err
 	}
 	if dg.closeChan != nil {
@@ -289,14 +289,14 @@ func (dg *DeepgramASR) buildClient() error {
 	header := http.Header{}
 	header.Set("Authorization", fmt.Sprintf("Token %s", dg.opt.APIKey))
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("deepgram asr: dialing deepgram websocket", logger.WithFields(map[string]interface{}{
 		"dialogID": dg.dialogID,
 		"url":      url,
-	}).Info("deepgram asr: dialing deepgram websocket")
+	})...)
 
 	conn, _, err := websocket.DefaultDialer.Dial(url, header)
 	if err != nil {
-		logrus.WithError(err).Error("deepgram asr: fail to dial")
+		logger.Error("deepgram asr: fail to dial", logger.WithError(err))
 		return err
 	}
 
@@ -351,9 +351,9 @@ func (dg *DeepgramASR) handleReadLoop(ctx context.Context) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				logrus.Info("deepgram asr: recv close message, connection closed")
+				logger.Info("deepgram asr: recv close message, connection closed")
 			} else {
-				logrus.WithError(err).Error("deepgram asr: recv error, connection closed")
+				logger.Error("deepgram asr: recv error, connection closed", logger.WithError(err))
 			}
 			if strings.TrimSpace(dg.sentence) != "" {
 				dg.emitFinal(dg.sentence)
@@ -364,7 +364,7 @@ func (dg *DeepgramASR) handleReadLoop(ctx context.Context) {
 
 		var resp DeepgramResponse
 		if err := json.Unmarshal(message, &resp); err != nil {
-			logrus.WithError(err).WithField("data", string(message)).Warn("deepgram asr: fail to parse response")
+			logger.Warn("deepgram asr: fail to parse response", append(logger.WithFields(map[string]interface{}{"data": string(message)}), logger.WithError(err))...)
 			continue
 		}
 
@@ -378,26 +378,26 @@ func (dg *DeepgramASR) handleResponse(resp *DeepgramResponse) {
 	case "Results":
 		dg.handleResults(resp)
 	case "Metadata":
-		logrus.WithField("dialogID", dg.dialogID).Debug("deepgram asr: metadata received")
+		logger.Debug("deepgram asr: metadata received", logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID})...)
 	case "SpeechStarted":
-		logrus.WithField("dialogID", dg.dialogID).Debug("deepgram asr: speech started")
+		logger.Debug("deepgram asr: speech started", logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID})...)
 	case "UtteranceEnd":
-		logrus.WithField("dialogID", dg.dialogID).Debug("deepgram asr: utterance ended")
+		logger.Debug("deepgram asr: utterance ended", logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID})...)
 		if strings.TrimSpace(dg.sentence) != "" {
 			dg.emitFinal(dg.sentence)
 		}
 	case "Error":
 		errMsg := fmt.Sprintf("deepgram asr: error.err_code: %s, error.err_msg: %s, error.description: %s",
 			resp.ErrCode, resp.ErrMsg, resp.Description)
-		logrus.WithField("dialogID", dg.dialogID).Error(errMsg)
+		logger.Error(errMsg, logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID})...)
 		dg.causeErr(fmt.Errorf("%s", errMsg))
 	case "Close":
-		logrus.WithField("dialogID", dg.dialogID).Info("deepgram asr: close event received")
+		logger.Info("deepgram asr: close event received", logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID})...)
 	default:
-		logrus.WithFields(logrus.Fields{
+		logger.Debug("deepgram asr: unhandled event", logger.WithFields(map[string]interface{}{
 			"dialogID": dg.dialogID,
 			"type":     resp.Type,
-		}).Debug("deepgram asr: unhandled event")
+		})...)
 	}
 }
 
@@ -411,11 +411,11 @@ func (dg *DeepgramASR) handleResults(resp *DeepgramResponse) {
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("deepgram asr: received message", logger.WithFields(map[string]interface{}{
 		"dialogID": dg.dialogID,
 		"Sentence": sentence,
 		"isFinal":  resp.IsFinal,
-	}).Info("deepgram asr: received message")
+	})...)
 
 	if resp.IsFinal {
 		dg.emitFinal(sentence)
@@ -451,7 +451,7 @@ func (dg *DeepgramASR) handleSendLoop(ctx context.Context) {
 				pendingData = pendingData[sendSize:]
 
 				if err := dg.writeAudio(toSend); err != nil {
-					logrus.WithError(err).Error("deepgram asr: fail to send audio")
+					logger.Error("deepgram asr: fail to send audio", logger.WithError(err))
 					dg.RestartClient()
 					return
 				}
@@ -460,7 +460,7 @@ func (dg *DeepgramASR) handleSendLoop(ctx context.Context) {
 		case <-dg.closeChan:
 			if len(pendingData) > 0 {
 				if err := dg.writeAudio(pendingData); err != nil {
-					logrus.WithError(err).Error("deepgram asr: fail to send remaining audio")
+					logger.Error("deepgram asr: fail to send remaining audio", logger.WithError(err))
 				}
 				pendingData = nil
 			}
@@ -508,7 +508,7 @@ func (dg *DeepgramASR) keepAlive(ctx context.Context) {
 			err := conn.WriteMessage(websocket.TextMessage, keepAliveMsg)
 			dg.mu.Unlock()
 			if err != nil {
-				logrus.WithError(err).WithField("dialogID", dg.dialogID).Error("deepgram asr: keep alive error")
+				logger.Error("deepgram asr: keep alive error", append(logger.WithFields(map[string]interface{}{"dialogID": dg.dialogID}), logger.WithError(err))...)
 				dg.causeErr(err)
 				return
 			}

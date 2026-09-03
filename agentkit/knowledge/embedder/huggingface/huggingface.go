@@ -37,11 +37,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	itelemetry "github.com/LingByte/ling-base/agentkit/internal/telemetry"
 	"github.com/LingByte/ling-base/agentkit/knowledge/embedder"
 	iembedder "github.com/LingByte/ling-base/agentkit/knowledge/internal/embedder"
 	log "github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/agentkit/telemetry/trace"
 )
 
@@ -167,7 +169,7 @@ func New(opts ...Option) *Embedder {
 		dimensions:          DefaultDimensions,
 		truncationDirection: TruncateRight,
 		embedRoute:          EmbedDefault,
-		client:              http.DefaultClient,
+		client:              netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 60 * time.Second}),
 	}
 	for _, opt := range opts {
 		opt(e)

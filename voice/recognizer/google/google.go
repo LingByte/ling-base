@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring GoogleASR implements base.Engine.
@@ -190,7 +191,7 @@ func (g *GoogleASR) handleStream() {
 
 	req, err := http.NewRequestWithContext(g.ctx, "POST", url+"?access_token="+g.opt.AccessToken, &requestBody)
 	if err != nil {
-		logrus.WithError(err).Error("google asr: create request")
+		logger.Error("google asr: create request", logger.WithError(err))
 		if g.er != nil {
 			g.er(err, true)
 		}
@@ -198,10 +199,10 @@ func (g *GoogleASR) handleStream() {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
 	resp, err := client.Do(req)
 	if err != nil {
-		logrus.WithError(err).Error("google asr: send request")
+		logger.Error("google asr: send request", logger.WithError(err))
 		if g.er != nil {
 			g.er(err, true)
 		}
@@ -212,7 +213,7 @@ func (g *GoogleASR) handleStream() {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		errMsg := fmt.Sprintf("google asr: HTTP %d: %s", resp.StatusCode, string(body))
-		logrus.Error(errMsg)
+		logger.Error(errMsg)
 		if g.er != nil {
 			g.er(fmt.Errorf("%s", errMsg), true)
 		}
@@ -233,7 +234,7 @@ func (g *GoogleASR) handleStream() {
 			if err == io.EOF {
 				break
 			}
-			logrus.WithError(err).Error("google asr: decode response")
+			logger.Error("google asr: decode response", logger.WithError(err))
 			break
 		}
 

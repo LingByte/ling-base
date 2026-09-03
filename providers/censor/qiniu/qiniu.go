@@ -8,7 +8,9 @@ package qiniu
 import (
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/qiniu/go-sdk/v7/auth"
 )
 
@@ -17,7 +19,7 @@ type Config struct {
 	AccessKey string
 	SecretKey string
 	Host      string       // defaults to "ai.qiniuapi.com" if empty
-	Client    *http.Client // defaults to http.DefaultClient if nil
+	Client    *http.Client // defaults to a standard HTTP client with 30s timeout if nil
 }
 
 // newMAC builds the Qiniu auth credentials from the config.
@@ -36,10 +38,10 @@ func defaultHost(host string) string {
 	return host
 }
 
-// defaultClient returns cfg.Client or http.DefaultClient.
+// defaultClient returns cfg.Client or a standard HTTP client with a 30s timeout.
 func defaultClient(c *http.Client) *http.Client {
 	if c == nil {
-		return http.DefaultClient
+		return netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
 	}
 	return c
 }

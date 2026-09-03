@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/LingByte/ling-base/agentkit/knowledge/chunking"
 	"github.com/LingByte/ling-base/agentkit/knowledge/document"
@@ -28,6 +29,7 @@ import (
 	itransform "github.com/LingByte/ling-base/agentkit/knowledge/internal/transform"
 	"github.com/LingByte/ling-base/agentkit/knowledge/ocr"
 	"github.com/LingByte/ling-base/agentkit/knowledge/transform"
+	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/ledongthuc/pdf"
 	pdfcpuAPI "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
@@ -145,7 +147,7 @@ func (r *Reader) ReadFromURLWithContext(ctx context.Context, urlStr string) ([]*
 	}
 
 	// Download PDF from URL with timeout
-	client := &http.Client{}
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second})
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download PDF: %w", err)

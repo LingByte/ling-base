@@ -12,9 +12,11 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 )
 
 // ElevenLabsConfig ElevenLabs TTS配置
@@ -96,7 +98,7 @@ func NewElevenLabsConfig(apiKey, voiceID string) ElevenLabsConfig {
 func NewElevenLabsService(opt ElevenLabsConfig) *ElevenLabsService {
 	return &ElevenLabsService{
 		opt:    opt,
-		client: &http.Client{},
+		client: netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second}),
 	}
 }
 
@@ -187,12 +189,12 @@ func (es *ElevenLabsService) Synthesize(ctx context.Context, handler base.Handle
 		handler.OnMessage(audioData)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("elevenlabs tts: synthesis completed", logger.WithFields(map[string]interface{}{
 		"provider":   "elevenlabs",
 		"text":       text,
 		"audio_size": len(audioData),
 		"voice_id":   opt.VoiceID,
-	}).Info("elevenlabs tts: synthesis completed")
+	})...)
 
 	return nil
 }

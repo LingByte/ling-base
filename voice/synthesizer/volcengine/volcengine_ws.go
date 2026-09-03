@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 const volcengineWSURL = "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
@@ -95,7 +95,7 @@ func (v *volcengineSpeechSynthesisListener) sendStreamRequest(ctx context.Contex
 
 		resp, err := parseVolcengineWSMessage(message)
 		if err != nil {
-			logrus.WithError(err).Debug("volcengine tts ws: skip frame")
+			logger.Debug("volcengine tts ws: skip frame", logger.WithError(err))
 			continue
 		}
 		if resp.MessageType == 15 {
@@ -107,13 +107,13 @@ func (v *volcengineSpeechSynthesisListener) sendStreamRequest(ctx context.Contex
 		if len(resp.Audio) > 0 {
 			if !ttfbLogged {
 				ttfbLogged = true
-				logrus.WithFields(logrus.Fields{
+				logger.Info("volcengine tts ws: first audio chunk", logger.WithFields(map[string]interface{}{
 					"text":      text,
 					"ttfb_ms":   time.Since(start).Milliseconds(),
 					"dial_ms":   dialMs,
 					"from_warm": fromWarm,
 					"voice":     opt.VoiceType,
-				}).Info("volcengine tts ws: first audio chunk")
+				})...)
 			}
 			v.handler.OnMessage(resp.Audio)
 		}

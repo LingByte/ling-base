@@ -25,6 +25,7 @@ require (
 
 require (
 	github.com/LingByte/ling-base/common/constants v0.1.1 // indirect
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.18 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.37 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.37 // indirect

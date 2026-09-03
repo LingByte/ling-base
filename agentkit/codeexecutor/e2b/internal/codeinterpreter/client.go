@@ -95,6 +95,10 @@ func (c *ConnectionConfig) init() {
 func newDefaultHTTPClient() *http.Client {
 	tlsCfg := buildTLSConfigFromEnv()
 	if tlsCfg == nil {
+		// No custom trust store: return a bare client so that Go's
+		// default transport (and any environment proxy settings) are
+		// honoured. Setting an explicit Transport here would override
+		// user/system defaults.
 		return &http.Client{}
 	}
 	tr, ok := http.DefaultTransport.(*http.Transport)

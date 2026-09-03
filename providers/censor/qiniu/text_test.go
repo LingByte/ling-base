@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewTextCensor_EmptyCredentials(t *testing.T) {
@@ -59,8 +60,11 @@ func TestNewTextCensor_DefaultClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if c.client != http.DefaultClient {
-		t.Error("client should default to http.DefaultClient")
+	if c.client == nil {
+		t.Fatal("client should default to a non-nil client")
+	}
+	if c.client.Timeout != 30*time.Second {
+		t.Errorf("client timeout = %v, want 30s", c.client.Timeout)
 	}
 }
 

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 	"github.com/tencentcloud/tencentcloud-speech-sdk-go/common"
 	"github.com/tencentcloud/tencentcloud-speech-sdk-go/tts"
 )
@@ -114,7 +114,7 @@ func (qs *QCloudService) CacheKey(text string) string {
 // Synthesize converts text to speech and delivers audio via the handler.
 func (qs *QCloudService) Synthesize(ctx context.Context, handler base.Handler, text string) error {
 	if text == "" {
-		logrus.WithField("text", text).Debug("qcloud tts: skip empty or invalid segment")
+		logger.Debug("qcloud tts: skip empty or invalid segment", logger.WithFields(map[string]interface{}{"text": text})...)
 		return nil
 	}
 
@@ -192,17 +192,17 @@ type qcloudSpeechSynthesisListener struct {
 
 // OnCancel is called when synthesis is cancelled.
 func (q *qcloudSpeechSynthesisListener) OnCancel(*tts.SpeechSynthesisResponse) {
-	logrus.WithFields(logrus.Fields{}).Info("qcloud tts: cancel")
+	logger.Info("qcloud tts: cancel", logger.WithFields(map[string]interface{}{})...)
 }
 
 // OnComplete is called when synthesis completes successfully.
 func (q *qcloudSpeechSynthesisListener) OnComplete(*tts.SpeechSynthesisResponse) {
-	logrus.WithFields(logrus.Fields{}).Info("qcloud tts: complete")
+	logger.Info("qcloud tts: complete", logger.WithFields(map[string]interface{}{})...)
 }
 
 // OnFail is called when synthesis fails.
 func (q *qcloudSpeechSynthesisListener) OnFail(_ *tts.SpeechSynthesisResponse, err error) {
-	logrus.WithFields(logrus.Fields{}).WithError(err).Error("qcloud tts: fail")
+	logger.Error("qcloud tts: fail", append(logger.WithFields(map[string]interface{}{}), logger.WithError(err))...)
 	q.mu.Lock()
 	q.err = err
 	q.mu.Unlock()

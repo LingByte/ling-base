@@ -5,7 +5,13 @@ go 1.26.2
 require (
 	cloud.google.com/go/texttospeech v1.21.0
 	github.com/LingByte/ling-base/voice/synthesizer v0.1.1
-	github.com/sirupsen/logrus v1.9.3
+)
+
+require (
+	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.28.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
 
 require (
@@ -14,6 +20,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/longrunning v0.9.0 // indirect
+	github.com/LingByte/ling-base/common/logger v0.1.0
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect

@@ -17,8 +17,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring QiniuService implements base.Engine.
@@ -111,9 +112,7 @@ func (qs *QiniuService) Synthesize(ctx context.Context, handler base.Handler, te
 	}
 
 	// 创建 HTTP 客户端
-	client := &http.Client{
-		Timeout: time.Duration(opt.Timeout) * time.Second,
-	}
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: time.Duration(opt.Timeout) * time.Second})
 
 	// 准备请求
 	req := QiniuTTSRequest{
@@ -178,11 +177,11 @@ func (qs *QiniuService) Synthesize(ctx context.Context, handler base.Handler, te
 						handler.OnTimestamp(timestamp)
 					}
 
-					logrus.WithFields(logrus.Fields{
+					logger.Info("qiniu tts: synthesis completed", logger.WithFields(map[string]interface{}{
 						"provider":   "qiniu",
 						"text":       text,
 						"audio_size": len(audioData),
-					}).Info("qiniu tts: synthesis completed")
+					})...)
 
 					return nil
 				}

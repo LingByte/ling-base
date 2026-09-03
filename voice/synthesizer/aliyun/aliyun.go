@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -244,7 +244,7 @@ func (as *AliyunService) Synthesize(ctx context.Context, handler base.Handler, t
 		}
 		var ev map[string]interface{}
 		if err := json.Unmarshal(message, &ev); err != nil {
-			logrus.WithError(err).Debug("aliyun tts: skip non-json frame")
+			logger.Debug("aliyun tts: skip non-json frame", logger.WithError(err))
 			continue
 		}
 		eventType, _ := ev["type"].(string)
@@ -253,7 +253,7 @@ func (as *AliyunService) Synthesize(ctx context.Context, handler base.Handler, t
 			if delta, ok := ev["delta"].(string); ok && delta != "" {
 				audio, err := base64.StdEncoding.DecodeString(delta)
 				if err != nil {
-					logrus.WithError(err).Warn("aliyun tts: decode audio delta failed")
+					logger.Warn("aliyun tts: decode audio delta failed", logger.WithError(err))
 					continue
 				}
 				if len(audio) > 0 {

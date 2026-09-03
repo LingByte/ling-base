@@ -9,7 +9,16 @@ require (
 	github.com/stretchr/testify v1.12.1
 )
 
-require go.yaml.in/yaml/v3 v3.0.5 // indirect
+require (
+	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.28.0 // indirect
+)
+
+require (
+	github.com/LingByte/ling-base/common/logger v0.1.0
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+)
 
 replace github.com/LingByte/ling-base => ../
 

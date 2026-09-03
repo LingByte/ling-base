@@ -6,13 +6,14 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/LingByte/ling-base/common/logger"
 )
 
 // ShutdownManager handles graceful shutdown, analogous to Spring Boot's
@@ -106,7 +107,7 @@ func (m *ShutdownManager) Listen() {
 
 	select {
 	case sig := <-sigCh:
-		log.Printf("[shutdown] received signal: %v", sig)
+		logger.Infof("[shutdown] received signal: %v", sig)
 		if m.onSignal != nil {
 			m.onSignal(sig)
 		}
@@ -148,12 +149,12 @@ func (m *ShutdownManager) Shutdown() {
 	defer cancel()
 
 	for _, h := range hooks {
-		log.Printf("[shutdown] running hook: %s", h.name)
+		logger.Infof("[shutdown] running hook: %s", h.name)
 		if err := h.fn(ctx); err != nil {
-			log.Printf("[shutdown] hook %s failed: %v", h.name, err)
+			logger.Infof("[shutdown] hook %s failed: %v", h.name, err)
 		}
 	}
-	log.Printf("[shutdown] complete")
+	logger.Infof("[shutdown] complete")
 }
 
 // Stop signals the shutdown manager to stop without waiting for an OS signal.
@@ -191,7 +192,7 @@ func GracefulShutdown(timeout time.Duration, cleanup func(ctx context.Context) e
 func ShutdownWithError(name string, fn func(ctx context.Context) error) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
 		if err := fn(ctx); err != nil {
-			log.Printf("[shutdown] %s error: %v", name, err)
+			logger.Infof("[shutdown] %s error: %v", name, err)
 			return fmt.Errorf("%s: %w", name, err)
 		}
 		return nil

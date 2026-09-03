@@ -6,6 +6,7 @@ replace github.com/LingByte/ling-base/agentkit => ../../../..
 
 require (
 	github.com/LingByte/ling-base/agentkit v0.2.0
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/pdfcpu/pdfcpu v0.11.1

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // volcWSPool keeps pre-dialed WebSockets ready so Speak avoids a cold
@@ -108,7 +108,7 @@ func (p *volcWSPool) ensureWarm() {
 		}
 		if err != nil {
 			p.mu.Unlock()
-			logrus.WithError(err).Debug("volcengine tts ws: prewarm dial failed")
+			logger.Debug("volcengine tts ws: prewarm dial failed", logger.WithError(err))
 			return
 		}
 		p.warm = append(p.warm, conn)

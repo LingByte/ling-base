@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/carlmjohnson/requests"
-	"github.com/sirupsen/logrus"
 )
 
 // BaiduTTSConfig 百度语音合成配置
@@ -154,7 +154,7 @@ func (bs *BaiduTTSService) DoubleURLEncode(text string) string {
 
 // OnComplete logs the completion of synthesis.
 func (b *baiduSpeechSynthesisListener) OnComplete() {
-	logrus.WithFields(logrus.Fields{}).Info("baidu tts: complete")
+	logger.Info("baidu tts: complete", logger.WithFields(map[string]interface{}{})...)
 }
 
 // OnMessage forwards the audio chunk to the handler and signals completion.

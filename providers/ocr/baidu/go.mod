@@ -5,6 +5,7 @@ go 1.26.2
 replace github.com/LingByte/ling-base/providers/ocr => ../
 
 require (
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/LingByte/ling-base/providers/ocr v0.0.0
 	github.com/stretchr/testify v1.12.1
 )

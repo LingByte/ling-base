@@ -6,7 +6,8 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"log"
+
+	"github.com/LingByte/ling-base/common/logger"
 )
 
 // MigrationRunner is the interface that bootstrap uses to run database
@@ -76,19 +77,19 @@ func WithAutoMigrate(db AutoMigrator, models ...any) Option {
 // This is called before any init hooks and before lifecycle components start.
 func (a *Application) runMigrations(ctx context.Context) error {
 	if a.migrationRunner != nil {
-		log.Printf("[app] running database migrations...")
+		logger.Infof("[app] running database migrations...")
 		if err := a.migrationRunner.RunMigrations(ctx); err != nil {
 			return fmt.Errorf("database migration failed: %w", err)
 		}
-		log.Printf("[app] database migrations completed")
+		logger.Infof("[app] database migrations completed")
 	}
 
 	if a.autoMigrator != nil && len(a.autoMigrateModels) > 0 {
-		log.Printf("[app] running auto-migrate for %d models...", len(a.autoMigrateModels))
+		logger.Infof("[app] running auto-migrate for %d models...", len(a.autoMigrateModels))
 		if err := a.autoMigrator.AutoMigrate(a.autoMigrateModels...); err != nil {
 			return fmt.Errorf("auto-migrate failed: %w", err)
 		}
-		log.Printf("[app] auto-migrate completed")
+		logger.Infof("[app] auto-migrate completed")
 	}
 
 	return nil

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // AudioFrame represents a single audio frame to be sent to the ASR server.
@@ -91,11 +91,11 @@ func (c *Client) isNormalCloseError(err error) bool {
 
 // logError logs error with operation and traceID.
 func (c *Client) logError(err error, operation string) {
-	logrus.WithFields(logrus.Fields{
+	logger.Error("connection error occurred", logger.WithFields(map[string]interface{}{
 		"error":     err.Error(),
 		"operation": operation,
 		"traceID":   c.traceID,
-	}).Error("connection error occurred")
+	})...)
 }
 
 // Connect establishes WebSocket connection and authenticates.
@@ -160,7 +160,7 @@ func (c *Client) sendInitialRequest() error {
 
 func (c *Client) handleWriteLoop() {
 	defer func() {
-		logrus.WithField("traceID", c.traceID).Info("asr client: write loop exited")
+		logger.Info("asr client: write loop exited", logger.WithFields(map[string]interface{}{"traceID": c.traceID})...)
 		c.writeStopSig <- struct{}{}
 	}()
 
@@ -178,10 +178,10 @@ func (c *Client) handleWriteLoop() {
 				c.seq++
 			} else {
 				seq = -seq
-				logrus.WithFields(logrus.Fields{
+				logger.Info("sending final audio frame", logger.WithFields(map[string]interface{}{
 					"seq":     seq,
 					"traceID": c.traceID,
-				}).Info("sending final audio frame")
+				})...)
 			}
 
 			message := NewAudioOnlyRequest(seq, frame.Data)
@@ -200,7 +200,7 @@ func (c *Client) handleWriteLoop() {
 // handleReadLoop processes incoming responses.
 func (c *Client) handleReadLoop() {
 	defer func() {
-		logrus.WithField("traceID", c.traceID).Info("asr client: read loop exited")
+		logger.Info("asr client: read loop exited", logger.WithFields(map[string]interface{}{"traceID": c.traceID})...)
 		c.readStopSig <- struct{}{}
 	}()
 
@@ -216,12 +216,12 @@ func (c *Client) handleReadLoop() {
 		}
 
 		resp := ParseResponse(msgData)
-		logrus.WithFields(logrus.Fields{
+		logger.Debug("asr response received", logger.WithFields(map[string]interface{}{
 			"code":    resp.Code,
 			"event":   resp.Event,
 			"isFinal": resp.IsLastPackage,
 			"traceID": c.traceID,
-		}).Debug("asr response received")
+		})...)
 
 		// Send result to upper layer
 		select {
@@ -229,12 +229,12 @@ func (c *Client) handleReadLoop() {
 			return
 		case c.resultQueue <- resp:
 		default:
-			logrus.WithField("traceID", c.traceID).Warn("result queue full, dropping response")
+			logger.Warn("result queue full, dropping response", logger.WithFields(map[string]interface{}{"traceID": c.traceID})...)
 		}
 
 		// If it's the last frame, exit loop
 		if resp.IsLastPackage {
-			logrus.WithField("traceID", c.traceID).Info("asr client: received final response")
+			logger.Info("asr client: received final response", logger.WithFields(map[string]interface{}{"traceID": c.traceID})...)
 			return
 		}
 	}

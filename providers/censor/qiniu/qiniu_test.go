@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewMAC_EmptyAccessKey(t *testing.T) {
@@ -60,8 +61,11 @@ func TestDefaultHost_Custom(t *testing.T) {
 
 func TestDefaultClient_Default(t *testing.T) {
 	c := defaultClient(nil)
-	if c != http.DefaultClient {
-		t.Error("defaultClient(nil) should return http.DefaultClient")
+	if c == nil {
+		t.Fatal("defaultClient(nil) should return a non-nil client")
+	}
+	if c.Timeout != 30*time.Second {
+		t.Errorf("defaultClient(nil) timeout = %v, want 30s", c.Timeout)
 	}
 }
 

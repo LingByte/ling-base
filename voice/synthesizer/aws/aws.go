@@ -7,8 +7,8 @@ import (
 	"io"
 	"sync"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/polly"
@@ -98,7 +98,7 @@ func (as *AmazonService) Synthesize(ctx context.Context, handler base.Handler, t
 
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(opt.Region))
 	if err != nil {
-		logrus.WithError(err).Error("amazon tts: load config failed")
+		logger.Error("amazon tts: load config failed", logger.WithError(err))
 		return err
 	}
 
@@ -111,14 +111,14 @@ func (as *AmazonService) Synthesize(ctx context.Context, handler base.Handler, t
 
 	resp, err := client.SynthesizeSpeech(ctx, input)
 	if err != nil {
-		logrus.WithError(err).Error("amazon tts: synthesize failed")
+		logger.Error("amazon tts: synthesize failed", logger.WithError(err))
 		return err
 	}
 	defer resp.AudioStream.Close()
 
 	audioData, err := io.ReadAll(resp.AudioStream)
 	if err != nil {
-		logrus.WithError(err).Error("amazon tts: read audio stream failed")
+		logger.Error("amazon tts: read audio stream failed", logger.WithError(err))
 		return err
 	}
 
@@ -126,11 +126,11 @@ func (as *AmazonService) Synthesize(ctx context.Context, handler base.Handler, t
 		handler.OnMessage(audioData)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("amazon tts: synthesis complete", logger.WithFields(map[string]interface{}{
 		"region":    opt.Region,
 		"voiceId":   opt.VoiceId,
 		"audioSize": len(audioData),
-	}).Info("amazon tts: synthesis complete")
+	})...)
 
 	return nil
 }

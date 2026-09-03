@@ -1,2 +1,4 @@
+github.com/LingByte/ling-base/common/netutil v0.1.0 h1:4PsfkOtAnjxrUI4wUdh5K4gGS/e8/55DKK6KFrBbz+I=
+github.com/LingByte/ling-base/common/netutil v0.1.0/go.mod h1:F//MWWcV9HHfYJHZVqmAMqOhEfGxnU3OJEdLc5GvFw4=
 github.com/LingByte/ling-base/voice/synthesizer v0.1.1 h1:VklZKM6WRK8+utpL3sq8vc1hJ+kKztV12KsFU1IjFOQ=
 github.com/LingByte/ling-base/voice/synthesizer v0.1.1/go.mod h1:8klYxVtdCfZ/Db4XH9bBS3HaXh0b0bkEpNtASNbM944=

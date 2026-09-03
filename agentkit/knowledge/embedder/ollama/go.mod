@@ -6,6 +6,7 @@ replace github.com/LingByte/ling-base/agentkit => ../../..
 
 require (
 	github.com/LingByte/ling-base/agentkit v0.4.0
+	github.com/LingByte/ling-base/common/netutil v0.1.0
 	github.com/ollama/ollama v0.32.15
 )
 

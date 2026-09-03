@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/recognizer"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // closeMsg is the terminate message sent to Gladia to signal end of stream.
@@ -138,7 +138,7 @@ func (g *GladiaASR) ConnAndReceive(dialogID string) error {
 
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), header)
 	if err != nil {
-		logrus.WithError(err).Error("gladia asr: fail to dial")
+		logger.Error("gladia asr: fail to dial", logger.WithError(err))
 		return err
 	}
 	g.conn = conn
@@ -212,7 +212,7 @@ func (g *GladiaASR) handleWriteLoop() {
 			}
 			_ = g.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := g.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
-				logrus.WithError(err).Error("gladia asr: fail to send audio")
+				logger.Error("gladia asr: fail to send audio", logger.WithError(err))
 				if g.er != nil {
 					g.er(err, false)
 				}
@@ -241,9 +241,9 @@ func (g *GladiaASR) handleReadLoop() {
 		_, message, err := g.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				logrus.Info("gladia asr: connection closed normally")
+				logger.Info("gladia asr: connection closed normally")
 			} else {
-				logrus.WithError(err).Error("gladia asr: read error")
+				logger.Error("gladia asr: read error", logger.WithError(err))
 				if g.er != nil {
 					g.er(err, false)
 				}
@@ -253,7 +253,7 @@ func (g *GladiaASR) handleReadLoop() {
 
 		var resp GladiaResponse
 		if err := json.Unmarshal(message, &resp); err != nil {
-			logrus.WithError(err).Debug("gladia asr: skip non-json frame")
+			logger.Debug("gladia asr: skip non-json frame", logger.WithError(err))
 			continue
 		}
 
@@ -262,7 +262,7 @@ func (g *GladiaASR) handleReadLoop() {
 			if errMsg == "" {
 				errMsg = string(message)
 			}
-			logrus.WithField("error", errMsg).Error("gladia asr: server error")
+			logger.Error("gladia asr: server error", logger.WithFields(map[string]interface{}{"error": errMsg})...)
 			if g.er != nil {
 				g.er(fmt.Errorf("gladia asr: %s", errMsg), false)
 			}

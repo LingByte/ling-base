@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 )
 
 // FishAudioConfig Fish Audio TTS 配置
@@ -183,13 +184,11 @@ func (fa *FishAudioService) synthesizeWithAPI(ctx context.Context, handler base.
 	req.Header.Set("Content-Type", "application/json")
 
 	// 执行请求
-	client := &http.Client{
-		Timeout: time.Duration(opt.Timeout) * time.Second,
-	}
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: time.Duration(opt.Timeout) * time.Second})
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logrus.WithError(err).Error("failed to call Fish Audio API")
+		logger.Error("failed to call Fish Audio API", logger.WithError(err))
 		return fmt.Errorf("failed to call Fish Audio API: %w", err)
 	}
 	defer resp.Body.Close()
@@ -197,10 +196,10 @@ func (fa *FishAudioService) synthesizeWithAPI(ctx context.Context, handler base.
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		logrus.WithFields(logrus.Fields{
+		logger.Error("Fish Audio API error", logger.WithFields(map[string]interface{}{
 			"status_code": resp.StatusCode,
 			"body":        string(body),
-		}).Error("Fish Audio API error")
+		})...)
 		return fmt.Errorf("Fish Audio API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -217,13 +216,13 @@ func (fa *FishAudioService) synthesizeWithAPI(ctx context.Context, handler base.
 	// 发送音频数据到 handler
 	handler.OnMessage(audioData)
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("fishaudio tts: synthesis completed", logger.WithFields(map[string]interface{}{
 		"provider":   "fishaudio",
 		"model":      opt.Model,
 		"text":       text,
 		"audio_size": len(audioData),
 		"format":     opt.Format,
-	}).Info("fishaudio tts: synthesis completed")
+	})...)
 
 	return nil
 }
@@ -277,9 +276,7 @@ func GetFishAudioVoices(apiKey string) ([]FishAudioVoiceOption, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// 执行请求
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	client := netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 10 * time.Second})
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Fish Audio API: %w", err)

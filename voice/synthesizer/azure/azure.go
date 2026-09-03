@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
+	"github.com/LingByte/ling-base/common/netutil"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 )
 
 // AzureConfig Azure TTS 配置
@@ -76,7 +78,7 @@ func NewAzureConfig(subscriptionKey, region string) AzureConfig {
 func NewAzureService(opt AzureConfig) *AzureService {
 	return &AzureService{
 		opt:    opt,
-		client: &http.Client{},
+		client: netutil.NewStandardHTTPClient(netutil.HTTPClientConfig{Timeout: 30 * time.Second}),
 	}
 }
 
@@ -179,13 +181,13 @@ func (as *AzureService) Synthesize(ctx context.Context, handler base.Handler, te
 		handler.OnMessage(audioData)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("azure tts: synthesis completed", logger.WithFields(map[string]interface{}{
 		"provider":   "azure",
 		"text":       text,
 		"audio_size": len(audioData),
 		"voice":      opt.Voice,
 		"region":     opt.Region,
-	}).Info("azure tts: synthesis completed")
+	})...)
 
 	return nil
 }

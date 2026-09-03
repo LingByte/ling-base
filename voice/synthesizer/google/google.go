@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
-	"github.com/sirupsen/logrus"
 
 	texttospeech "cloud.google.com/go/texttospeech/apiv1"
 	"cloud.google.com/go/texttospeech/apiv1/texttospeechpb"
@@ -96,7 +96,7 @@ func (gs *GoogleService) Synthesize(ctx context.Context, handler base.Handler, t
 
 	client, err := texttospeech.NewClient(ctx)
 	if err != nil {
-		logrus.WithError(err).Error("google tts: create client failed")
+		logger.Error("google tts: create client failed", logger.WithError(err))
 		return nil
 	}
 	defer client.Close()
@@ -116,7 +116,7 @@ func (gs *GoogleService) Synthesize(ctx context.Context, handler base.Handler, t
 
 	resp, err := client.SynthesizeSpeech(ctx, &req)
 	if err != nil {
-		logrus.WithError(err).Error("google tts: synthesize failed")
+		logger.Error("google tts: synthesize failed", logger.WithError(err))
 		return err
 	}
 
@@ -124,10 +124,10 @@ func (gs *GoogleService) Synthesize(ctx context.Context, handler base.Handler, t
 		handler.OnMessage(resp.AudioContent)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("google tts: synthesis complete", logger.WithFields(map[string]interface{}{
 		"languageCode": opt.LanguageCode,
 		"audioSize":    len(resp.AudioContent),
-	}).Info("google tts: synthesis complete")
+	})...)
 
 	return nil
 }

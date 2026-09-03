@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/carlmjohnson/requests"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -164,28 +164,28 @@ func (v *VolcengineService) Synthesize(ctx context.Context, handler base.Handler
 			return nil
 		}
 		if errors.Is(err, context.Canceled) {
-			logrus.WithField("text", text).Warn("volcengine tts: context canceled")
+			logger.Warn("volcengine tts: context canceled", logger.WithFields(map[string]interface{}{"text": text})...)
 			return nil
 		}
-		logrus.WithError(err).Warn("volcengine tts: websocket failed, falling back to http")
+		logger.Warn("volcengine tts: websocket failed, falling back to http", logger.WithError(err))
 	}
 
 	dataBytes, timestamp, err := ttsReq.sendRequest(ctx, opt, text)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			logrus.WithField("text", text).Warn("volcengine tts: context canceled")
+			logger.Warn("volcengine tts: context canceled", logger.WithFields(map[string]interface{}{"text": text})...)
 			return nil
 		}
 		return err
 	}
 
 	if len(dataBytes) == 0 {
-		logrus.WithField("text", text).Warn("volcengine tts: received empty audio data")
+		logger.Warn("volcengine tts: received empty audio data", logger.WithFields(map[string]interface{}{"text": text})...)
 	} else {
-		logrus.WithFields(logrus.Fields{
+		logger.Info("volcengine tts: received audio data", logger.WithFields(map[string]interface{}{
 			"text":      text,
 			"audioSize": len(dataBytes),
-		}).Info("volcengine tts: received audio data")
+		})...)
 	}
 
 	emitCfg := base.PCMEmitConfigFromFormat(v.Format())
@@ -262,14 +262,14 @@ func (v *volcengineSpeechSynthesisListener) sendRequest(ctx context.Context, opt
 
 	paramsJSON, _ := json.Marshal(params)
 	tokenLog := safeTokenPrefix(opt.AccessToken, 10)
-	logrus.WithFields(logrus.Fields{
+	logger.Info("volcengine tts: sending request", logger.WithFields(map[string]interface{}{
 		"url":           url,
 		"appID":         opt.AppID,
 		"cluster":       opt.Cluster,
 		"voiceType":     opt.VoiceType,
 		"accessToken":   tokenLog,
 		"requestParams": string(paramsJSON),
-	}).Info("volcengine tts: sending request")
+	})...)
 
 	var resp VolcengineTTSServResponse
 	if err := requests.URL(url).BodyJSON(&params).
@@ -277,45 +277,45 @@ func (v *volcengineSpeechSynthesisListener) sendRequest(ctx context.Context, opt
 		Header("Authorization", fmt.Sprintf("Bearer;%s", opt.AccessToken)).
 		ToJSON(&resp).Fetch(ctx); err != nil {
 		if !strings.Contains(err.Error(), "context canceled") {
-			logrus.WithFields(logrus.Fields{
+			logger.Error("volcengine tts: send request failed", append(logger.WithFields(map[string]interface{}{
 				"params": params,
-			}).WithError(err).Error("volcengine tts: send request failed")
+			}), logger.WithError(err))...)
 		}
 		return nil, base.SentenceTimestamp{}, err
 	}
 
 	dataBytes, err := base64.StdEncoding.DecodeString(resp.Data)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Error("volcengine tts: decode string failed", append(logger.WithFields(map[string]interface{}{
 			"params":      params,
 			"respCode":    resp.Code,
 			"respMessage": resp.Message,
-		}).WithError(err).Error("volcengine tts: decode string failed")
+		}), logger.WithError(err))...)
 		return nil, base.SentenceTimestamp{}, err
 	}
 
 	if resp.Code != 3000 {
-		logrus.WithFields(logrus.Fields{
+		logger.Error("volcengine tts: api error", logger.WithFields(map[string]interface{}{
 			"code":          resp.Code,
 			"message":       resp.Message,
 			"dataLength":    len(resp.Data),
 			"decodedLength": len(dataBytes),
-		}).Error("volcengine tts: api error")
+		})...)
 		return nil, base.SentenceTimestamp{}, fmt.Errorf("volcengine tts error: code=%d, message=%s", resp.Code, resp.Message)
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.Info("volcengine tts: synthesis success", logger.WithFields(map[string]interface{}{
 		"reqID":         reqID,
 		"text":          text,
 		"audioDataSize": len(dataBytes),
 		"respCode":      resp.Code,
-	}).Info("volcengine tts: synthesis success")
+	})...)
 
 	var timestamp base.SentenceTimestamp
 	if resp.Addition.Frontend != "" {
 		err = json.Unmarshal([]byte(resp.Addition.Frontend), &timestamp)
 		if err != nil {
-			logrus.WithError(err).Error("volcengine tts: decoding timestamp failed")
+			logger.Error("volcengine tts: decoding timestamp failed", logger.WithError(err))
 		}
 	}
 	return dataBytes, timestamp, nil

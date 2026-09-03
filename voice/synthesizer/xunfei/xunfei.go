@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 // Compile-time guard ensuring XunfeiService implements base.Engine.
@@ -275,7 +275,7 @@ func (xs *XunfeiService) Synthesize(ctx context.Context, handler base.Handler, t
 				// 解析响应
 				var responseData map[string]interface{}
 				if err := json.Unmarshal(response, &responseData); err != nil {
-					logrus.WithError(err).Error("failed to unmarshal WebSocket response")
+					logger.Error("failed to unmarshal WebSocket response", logger.WithError(err))
 					continue
 				}
 
@@ -287,7 +287,7 @@ func (xs *XunfeiService) Synthesize(ctx context.Context, handler base.Handler, t
 							// 解码音频数据
 							decodedAudio, err := base64.StdEncoding.DecodeString(audioBase64)
 							if err != nil {
-								logrus.WithError(err).Error("failed to decode audio data")
+								logger.Error("failed to decode audio data", logger.WithError(err))
 								continue
 							}
 
@@ -325,11 +325,11 @@ func (xs *XunfeiService) Synthesize(ctx context.Context, handler base.Handler, t
 		if err != nil {
 			return err
 		}
-		logrus.WithFields(logrus.Fields{
+		logger.Info("xunfei tts: synthesis completed", logger.WithFields(map[string]interface{}{
 			"provider":   "xunfei",
 			"text":       text,
 			"audio_size": len(allAudioData),
-		}).Info("xunfei tts: synthesis completed")
+		})...)
 		return nil
 	case <-timer.C:
 		return fmt.Errorf("xunfei tts: synthesis timed out after %s", timeout)

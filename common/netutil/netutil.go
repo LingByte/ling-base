@@ -305,6 +305,8 @@ type HTTPClientConfig struct {
 	RetryableStatus map[int]bool    // status codes that trigger retry (default 429, 500, 502, 503, 504)
 	Transport       *http.Transport // custom transport (optional)
 	CircuitBreaker  *CircuitBreaker // optional circuit breaker
+	CheckRedirect   func(req *http.Request, via []*http.Request) error // optional redirect policy
+	Jar             http.CookieJar  // optional cookie jar
 }
 
 // HTTPClient wraps http.Client with retry and circuit breaker support.
@@ -345,11 +347,38 @@ func NewHTTPClient(cfg HTTPClientConfig) *HTTPClient {
 
 	return &HTTPClient{
 		client: &http.Client{
-			Timeout:   cfg.Timeout,
-			Transport: transport,
+			Timeout:       cfg.Timeout,
+			Transport:     transport,
+			CheckRedirect: cfg.CheckRedirect,
+			Jar:           cfg.Jar,
 		},
 		config:         cfg,
 		circuitBreaker: cfg.CircuitBreaker,
+	}
+}
+
+// NewStandardHTTPClient returns a plain *http.Client configured with
+// timeout, transport, redirect policy and cookie jar from cfg. Unlike
+// NewHTTPClient it does NOT wrap the client with retry or circuit-breaker
+// logic — useful for callers (e.g. security scanners) that need to
+// observe raw responses without retry masking.
+func NewStandardHTTPClient(cfg HTTPClientConfig) *http.Client {
+	if cfg.Timeout == 0 {
+		cfg.Timeout = 30 * time.Second
+	}
+	transport := cfg.Transport
+	if transport == nil {
+		transport = &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+		}
+	}
+	return &http.Client{
+		Timeout:       cfg.Timeout,
+		Transport:     transport,
+		CheckRedirect: cfg.CheckRedirect,
+		Jar:           cfg.Jar,
 	}
 }
 

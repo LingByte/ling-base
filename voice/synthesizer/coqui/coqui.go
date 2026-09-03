@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/LingByte/ling-base/common/logger"
 	base "github.com/LingByte/ling-base/voice/synthesizer"
 	"github.com/carlmjohnson/requests"
-	"github.com/sirupsen/logrus"
 )
 
 // CoquiTTSOption configures a Coqui TTS service.
@@ -116,24 +116,24 @@ func (c *coquiSpeechSynthesisListener) sendRequest(ctx context.Context, text str
 		"language_id": []string{opt.Language},
 		"speaker_id":  []string{opt.Speaker},
 	}).ToJSON(&resp).Fetch(ctx); err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Info("coqui tts: send request failed", append(logger.WithFields(map[string]interface{}{
 			"handler": c.handler,
 			"text":    text,
-		}).WithError(err).Info("coqui tts: send request failed")
+		}), logger.WithError(err))...)
 		return nil, err
 	}
 	dataBytes, err := base64.StdEncoding.DecodeString(resp.Audio)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		logger.Info("coqui tts: decode string failed", append(logger.WithFields(map[string]interface{}{
 			"handler": c.handler,
-		}).WithError(err).Info("coqui tts: decode string failed")
+		}), logger.WithError(err))...)
 		return nil, err
 	}
 	return dataBytes, nil
 }
 
 func (c *coquiSpeechSynthesisListener) OnComplete() {
-	logrus.WithFields(logrus.Fields{}).Info("coqui tts: complete")
+	logger.Info("coqui tts: complete", logger.WithFields(map[string]interface{}{})...)
 }
 
 func (c *coquiSpeechSynthesisListener) OnMessage(data []byte) {
