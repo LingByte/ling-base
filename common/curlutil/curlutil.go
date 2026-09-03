@@ -28,7 +28,6 @@ package curlutil
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +36,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/LingByte/ling-base/common/crypto"
 )
 
 // ─── Request / Response types ───────────────────────────────────
@@ -560,9 +561,10 @@ func tokenizeCurl(s string) ([]string, error) {
 	return tokens, nil
 }
 
-// base64Encode wraps encoding/base64 for the -u (Basic auth) flag.
+// base64Encode returns the standard base64 encoding of s, used for the
+// -u (Basic auth) flag. It delegates to crypto.Base64Encode.
 func base64Encode(s string) string {
-	return base64.StdEncoding.EncodeToString([]byte(s))
+	return crypto.Base64Encode([]byte(s))
 }
 
 // parseInt is a helper to parse an int.

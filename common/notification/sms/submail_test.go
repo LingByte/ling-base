@@ -43,16 +43,16 @@ func (t *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return rt.RoundTrip(req)
 }
 
-// withRedirectedClient swaps the package-level defaultHTTPClient so that
-// all requests are redirected to target. The returned func restores the
-// original client.
+// withRedirectedClient swaps the HTTP client used by the package-level
+// defaultClient so that all requests are redirected to target. The
+// returned func restores the original client.
 func withRedirectedClient(target string) func() {
-	orig := defaultHTTPClient
-	defaultHTTPClient = &http.Client{
+	orig := defaultClient.HTTPClient
+	defaultClient.HTTPClient = &http.Client{
 		Transport: &rewriteTransport{target: target},
 		Timeout:   30 * time.Second,
 	}
-	return func() { defaultHTTPClient = orig }
+	return func() { defaultClient.HTTPClient = orig }
 }
 
 func phoneReq(msg Message) SendRequest {
@@ -174,12 +174,12 @@ func TestSubmailProvider_Send_ContentMode_Success(t *testing.T) {
 	defer srv.Close()
 
 	// Submail uses hardcoded endpoints, so we need to swap the HTTP client.
-	original := defaultHTTPClient
-	defaultHTTPClient = &http.Client{}
-	defer func() { defaultHTTPClient = original }()
+	original := defaultClient.HTTPClient
+	defaultClient.HTTPClient = &http.Client{}
+	defer func() { defaultClient.HTTPClient = original }()
 
 	// Use a transport that redirects to our test server.
-	defaultHTTPClient.Transport = &rewriteTransport{target: srv.URL}
+	defaultClient.HTTPClient.Transport = &rewriteTransport{target: srv.URL}
 
 	p, err := NewSubmailProvider(ProviderConfig{
 		"app_id": "id", "app_key": "k",

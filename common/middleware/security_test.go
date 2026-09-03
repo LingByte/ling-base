@@ -203,7 +203,9 @@ func TestSecureCompare(t *testing.T) {
 
 func TestSanitizeString(t *testing.T) {
 	assert.Equal(t, "hello", SanitizeString("hello"))
-	assert.Equal(t, "alert", SanitizeString("<script>alert</script>"))
+	// sanitize.CleanStrict (bluemonday) strips <script> content entirely —
+	// safer than the old regex which only removed the tags and kept the text.
+	assert.Equal(t, "", SanitizeString("<script>alert</script>"))
 	assert.NotContains(t, SanitizeString("<img src=x>"), "<")
 }
 

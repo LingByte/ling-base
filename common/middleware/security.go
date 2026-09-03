@@ -4,9 +4,7 @@
 package middleware
 
 import (
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/base64"
 	"fmt"
 	"html"
 	"net/http"
@@ -16,6 +14,10 @@ import (
 
 	csrf "filippo.io/csrf/gorilla"
 	"github.com/gin-gonic/gin"
+
+	"github.com/LingByte/ling-base/common/crypto"
+	"github.com/LingByte/ling-base/common/sanitize"
+	"github.com/LingByte/ling-base/common/validate"
 )
 
 // SecurityConfig 安全配置
@@ -270,12 +272,12 @@ func validateAndSanitizeInput(c *gin.Context) error {
 
 // generateRandomKey 生成随机密钥
 func generateRandomKey(length int) string {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
+	bytes, err := crypto.RandomKey(length)
+	if err != nil {
 		// 如果随机数生成失败，使用时间戳作为后备
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
-	return base64.URLEncoding.EncodeToString(bytes)
+	return crypto.Base64URLEncode(bytes)
 }
 
 // SecureCompare 安全比较字符串，防止时序攻击
@@ -285,15 +287,11 @@ func SecureCompare(a, b string) bool {
 
 // SanitizeString 清理字符串，移除危险字符
 func SanitizeString(input string) string {
-	// 移除HTML标签
-	re := regexp.MustCompile(`<[^>]*>`)
-	input = re.ReplaceAllString(input, "")
-
-	// HTML转义
-	input = html.EscapeString(input)
+	// 使用 sanitize.CleanStrict 移除所有 HTML 标签并转义
+	input = sanitize.CleanStrict(input)
 
 	// 移除控制字符
-	re = regexp.MustCompile(`[\x00-\x1f\x7f]`)
+	re := regexp.MustCompile(`[\x00-\x1f\x7f]`)
 	input = re.ReplaceAllString(input, "")
 
 	return strings.TrimSpace(input)
@@ -301,9 +299,7 @@ func SanitizeString(input string) string {
 
 // ValidateEmail 验证邮箱格式
 func ValidateEmail(email string) bool {
-	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	matched, _ := regexp.MatchString(pattern, email)
-	return matched
+	return validate.ValidateEmail(email)
 }
 
 // ValidatePassword 验证密码强度

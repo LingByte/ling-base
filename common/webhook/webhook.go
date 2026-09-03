@@ -36,8 +36,6 @@ package webhook
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +44,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/hash"
 )
 
 // Webhook describes a single webhook endpoint configuration.
@@ -236,9 +236,7 @@ func (s *Sender) doOnce(wh *Webhook, event string, body []byte, sign bool) error
 	req.Header.Set("X-Webhook-Event", event)
 	req.Header.Set("X-Webhook-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	if sign && wh.Secret != "" {
-		mac := hmac.New(sha256.New, []byte(wh.Secret))
-		_, _ = mac.Write(body)
-		req.Header.Set("X-Webhook-Signature", hex.EncodeToString(mac.Sum(nil)))
+		req.Header.Set("X-Webhook-Signature", hash.HMACSHA256Hex(body, []byte(wh.Secret)))
 	}
 
 	client := s.client
@@ -265,8 +263,6 @@ func (s *Sender) doOnce(wh *Webhook, event string, body []byte, sign bool) error
 // reports whether it equals sig (hex-encoded). It is a convenience for
 // receivers and uses a constant-time comparison.
 func VerifySignature(secret string, body []byte, sig string) bool {
-	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write(body)
-	expected := hex.EncodeToString(mac.Sum(nil))
+	expected := hash.HMACSHA256Hex(body, []byte(secret))
 	return hmac.Equal([]byte(strings.ToLower(sig)), []byte(expected))
 }

@@ -4,7 +4,6 @@
 package sms
 
 import (
-	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha1"
@@ -12,6 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+
+	"github.com/LingByte/ling-base/common/hash"
 )
 
 // SHA1Hex returns the hex-encoded SHA-1 digest of s.
@@ -34,25 +35,19 @@ func SHA256Hex(s string) string {
 
 // hmacSHA256Raw returns the raw HMAC-SHA256 of message under key.
 func hmacSHA256Raw(key, message []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	h.Write(message)
-	return h.Sum(nil)
+	return hash.HMACSHA256(message, key)
 }
 
 // HMACSHA256Base64 returns the base64-encoded HMAC-SHA256 of message
 // under the given key.
 func HMACSHA256Base64(key, message string) string {
-	h := hmac.New(sha256.New, []byte(key))
-	h.Write([]byte(message))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+	return base64.StdEncoding.EncodeToString(hash.HMACSHA256([]byte(message), []byte(key)))
 }
 
 // HMACSHA1Base64 returns the base64-encoded HMAC-SHA1 of message under
 // the given key.
 func HMACSHA1Base64(key, message string) string {
-	h := hmac.New(sha1.New, []byte(key))
-	h.Write([]byte(message))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+	return base64.StdEncoding.EncodeToString(hash.HMACSHA1([]byte(message), []byte(key)))
 }
 
 // MD5Hex returns the hex-encoded MD5 digest of s.

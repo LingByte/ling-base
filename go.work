@@ -101,6 +101,7 @@ use (
 	./common/nltime
 	./common/notification
 	./common/notification/email
+	./common/notification/httpclient
 	./common/notification/im
 	./common/notification/inbox
 	./common/notification/push

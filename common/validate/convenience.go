@@ -5,6 +5,7 @@ package validate
 
 import (
 	"fmt"
+	"net/mail"
 	"reflect"
 	"strings"
 )
@@ -138,4 +139,13 @@ func RegisteredRules() []string {
 func ResetRules() {
 	builtinRules = make(map[string]RuleFunc)
 	registerBuiltinRules()
+}
+
+// ValidateEmail reports whether s is a valid email address. It uses the
+// same logic as the "email" validation rule (net/mail.ParseAddress).
+func ValidateEmail(s string) bool {
+	if _, err := mail.ParseAddress(s); err != nil {
+		return false
+	}
+	return true
 }

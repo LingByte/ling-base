@@ -36,12 +36,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	mathrand "math/rand"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/LingByte/ling-base/common/random"
 )
 
 // ============================================================
@@ -166,27 +167,17 @@ func getMachineID() int64 {
 
 // UUIDv4 generates a random UUID v4 string in canonical form:
 // "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" where y is 8, 9, a, or b.
+//
+// Delegates to random.UUID for the underlying implementation.
 func UUIDv4() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// Fallback to math/rand (should never happen with crypto/rand).
-		mathrand.Read(b[:])
-	}
-	// Set version (4) and variant (RFC 4122).
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return formatUUID(b[:])
+	return random.UUID()
 }
 
 // UUIDv4Bytes generates a random UUID v4 as 16 raw bytes.
+//
+// Delegates to random.UUIDBytes for the underlying implementation.
 func UUIDv4Bytes() [16]byte {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		mathrand.Read(b[:])
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return b
+	return random.UUIDBytes()
 }
 
 // ============================================================
@@ -350,42 +341,30 @@ func ShortIDToInt(s string) (uint64, error) {
 // Random strings
 // ============================================================
 
-var (
-	letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
-	numberRunes = []rune("0123456789")
-)
+// letterCharset is the lowercase-alphanumeric charset used by RandText.
+// It matches "0123456789abcdefghijklmnopqrstuvwxyz" (digits + lowercase).
+var letterCharset = random.CharsetNumeric + random.CharsetAlphaLower
 
 // RandText generates a random lowercase-alphanumeric string of length n.
+//
+// Delegates to random.StringWithCharset with the digits+lowercase charset.
 func RandText(n int) string {
-	return randRunes(n, letterRunes)
+	return random.StringWithCharset(n, letterCharset)
 }
 
 // RandNumberText generates a random numeric string of length n.
+//
+// Delegates to random.NumericString.
 func RandNumberText(n int) string {
-	return randRunes(n, numberRunes)
+	return random.NumericString(n)
 }
 
 // RandTextWithCharset generates a random string of length n using the
 // provided character set.
+//
+// Delegates to random.StringWithCharset.
 func RandTextWithCharset(n int, charset string) string {
-	return randRunes(n, []rune(charset))
-}
-
-// randRunes generates a random string from a rune source using crypto/rand
-// for security. Falls back to math/rand if crypto/rand is unavailable.
-func randRunes(n int, source []rune) string {
-	b := make([]rune, n)
-	srcLen := big.NewInt(int64(len(source)))
-	for i := range b {
-		idx, err := rand.Int(rand.Reader, srcLen)
-		if err != nil {
-			// Fallback to math/rand.
-			b[i] = source[mathrand.Intn(len(source))]
-			continue
-		}
-		b[i] = source[idx.Int64()]
-	}
-	return string(b)
+	return random.StringWithCharset(n, charset)
 }
 
 // ============================================================

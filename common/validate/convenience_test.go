@@ -187,3 +187,15 @@ func TestRegisteredRules_AllLowercase(t *testing.T) {
 		assert.Equal(t, strings.ToLower(name), name, "rule name %q should be lowercase", name)
 	}
 }
+
+// ──────────────────────────────────────────────
+// ValidateEmail
+// ──────────────────────────────────────────────
+
+func TestValidateEmail(t *testing.T) {
+	assert.True(t, ValidateEmail("user@example.com"))
+	assert.True(t, ValidateEmail("alice.bob+tag@sub.domain.org"))
+	assert.False(t, ValidateEmail("not-an-email"))
+	assert.False(t, ValidateEmail(""))
+	assert.False(t, ValidateEmail("no-at-sign"))
+}

@@ -31,6 +31,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/LingByte/ling-base/common/compress"
 )
 
 // ──────────────────────────────────────────────
@@ -429,52 +431,39 @@ func UntarGz(src, dst string) error {
 }
 
 // CompressFile gzip-compresses a single file from src to dst.
+//
+// Delegates the core gzip compression to compress.GzipCompress, reading
+// the source file into memory, compressing, and writing the result to dst.
 func CompressFile(src, dst string) error {
-	in, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	defer in.Close()
 
-	out, err := os.Create(dst)
+	compressed, err := compress.GzipCompress(data, compress.LevelDefault)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
-	gw := gzip.NewWriter(out)
-	defer gw.Close()
-
-	// Preserve the original file name in the gzip header.
-	gw.Name = filepath.Base(src)
-	if _, err := io.Copy(gw, in); err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(dst, compressed, 0o644)
 }
 
 // DecompressFile decompresses a single gzip file from src to dst.
+//
+// Delegates the core gzip decompression to compress.GzipDecompress, reading
+// the gzip file into memory, decompressing, and writing the result to dst.
 func DecompressFile(src, dst string) error {
-	in, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	defer in.Close()
 
-	gr, err := gzip.NewReader(in)
+	decompressed, err := compress.GzipDecompress(data)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
 
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, gr)
-	return err
+	return os.WriteFile(dst, decompressed, 0o644)
 }
 
 // ──────────────────────────────────────────────

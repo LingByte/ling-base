@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/LingByte/ling-base/common/convert"
 )
 
 // RuleFunc is a validation rule function.
@@ -527,17 +529,7 @@ func compareFields(a, b any, ruleName string, ok func(a, b float64) bool) error 
 }
 
 func toFloat(v any) (float64, error) {
-	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return float64(rv.Int()), nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return float64(rv.Uint()), nil
-	case reflect.Float32, reflect.Float64:
-		return rv.Float(), nil
-	default:
-		return 0, fmt.Errorf("not numeric")
-	}
+	return convert.ToFloat64(v)
 }
 
 // extractField navigates a struct (or pointer to struct) to find a

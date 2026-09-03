@@ -4,7 +4,7 @@
 // Package hash provides hashing utilities:
 //
 //   - Standard hashes: MD5, SHA-1, SHA-256, SHA-512
-//   - HMAC: HMAC-SHA256, HMAC-SHA512
+//   - HMAC: HMAC-SHA1, HMAC-SHA256, HMAC-SHA512
 //   - CRC: CRC32, CRC64
 //   - MurmurHash3: 32-bit and 128-bit (x64) non-cryptographic hashes
 //   - xxHash: xxHash64 and xxHash32 non-cryptographic hashes
@@ -93,6 +93,13 @@ func SHA512String(s string) string { return SHA512Hex([]byte(s)) }
 // ──────────────────────────────────────────────
 // HMAC
 // ──────────────────────────────────────────────
+
+// HMACSHA1 returns the HMAC-SHA1 of data using key.
+func HMACSHA1(data, key []byte) []byte {
+	h := hmac.New(sha1.New, key)
+	h.Write(data)
+	return h.Sum(nil)
+}
 
 // HMACSHA256 returns the HMAC-SHA256 of data using key.
 func HMACSHA256(data, key []byte) []byte {

@@ -5,6 +5,8 @@ go 1.26.2
 replace (
 	github.com/LingByte/ling-base/common/circuitbreaker => ../circuitbreaker
 	github.com/LingByte/ling-base/common/constants => ../constants
+	github.com/LingByte/ling-base/common/convert => ../convert
+	github.com/LingByte/ling-base/common/crypto => ../crypto
 	github.com/LingByte/ling-base/common/logger => ../logger
 	github.com/LingByte/ling-base/common/logger/gin => ../logger/gin
 	github.com/LingByte/ling-base/common/mq => ../mq
@@ -16,13 +18,18 @@ replace (
 	github.com/LingByte/ling-base/common/mq/rocketmq => ../mq/rocketmq
 	github.com/LingByte/ling-base/common/response => ../response
 	github.com/LingByte/ling-base/common/response/gin => ../response/gin
+	github.com/LingByte/ling-base/common/sanitize => ../sanitize
+	github.com/LingByte/ling-base/common/validate => ../validate
 )
 
 require (
 	github.com/LingByte/ling-base/common/circuitbreaker v0.1.0
 	github.com/LingByte/ling-base/common/constants v0.1.1
+	github.com/LingByte/ling-base/common/crypto v0.1.0
 	github.com/LingByte/ling-base/common/logger v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.1
+	github.com/LingByte/ling-base/common/sanitize v0.1.0
+	github.com/LingByte/ling-base/common/validate v0.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.1
@@ -39,6 +46,9 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/LingByte/ling-base/common/convert v0.1.0 // indirect
+	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.2 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
@@ -51,6 +61,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.3 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.13-0.20220915233716-71ac16282d12 // indirect
@@ -58,6 +69,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
@@ -76,4 +88,5 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

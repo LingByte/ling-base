@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LingByte/ling-base/common/hash"
 )
 
 // ──────────────────────────────────────────────
@@ -223,9 +224,7 @@ func (d *Dispatcher) doSend(ctx context.Context, cfg WebhookConfig, body []byte)
 // SignPayload computes the HMAC-SHA256 signature of the payload using
 // the secret, returned as a base64-encoded string.
 func SignPayload(payload []byte, secret string) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(payload)
-	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	return base64.StdEncoding.EncodeToString(hash.HMACSHA256(payload, []byte(secret)))
 }
 
 // VerifySignature checks whether the provided signature matches the

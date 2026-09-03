@@ -4,8 +4,6 @@
 package idgen
 
 import (
-	"crypto/rand"
-	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,14 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// failingReader is an io.Reader that always returns an error, used to
-// exercise crypto/rand error fallback paths.
-type failingReader struct{}
-
-func (f *failingReader) Read(p []byte) (int, error) {
-	return 0, errors.New("failingReader: simulated read error")
-}
 
 // ===== Snowflake =====
 
@@ -471,45 +461,6 @@ func TestShortID_FallbackToRandom(t *testing.T) {
 	for _, c := range s {
 		assert.True(t, (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'),
 			"ShortID fallback should be base62, got %q", c)
-	}
-}
-
-func TestRandRunes_RandReaderError(t *testing.T) {
-	// Override crypto/rand.Reader to force rand.Int to fail, exercising
-	// the math/rand fallback path in randRunes.
-	origReader := rand.Reader
-	rand.Reader = &failingReader{}
-	defer func() { rand.Reader = origReader }()
-
-	s := RandText(16)
-	assert.Len(t, s, 16)
-	for _, c := range s {
-		assert.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z'),
-			"RandText fallback should be lowercase alphanumeric, got %q", c)
-	}
-}
-
-func TestRandNumberText_RandReaderError(t *testing.T) {
-	origReader := rand.Reader
-	rand.Reader = &failingReader{}
-	defer func() { rand.Reader = origReader }()
-
-	s := RandNumberText(8)
-	assert.Len(t, s, 8)
-	for _, c := range s {
-		assert.True(t, c >= '0' && c <= '9', "RandNumberText fallback should be numeric, got %q", c)
-	}
-}
-
-func TestRandTextWithCharset_RandReaderError(t *testing.T) {
-	origReader := rand.Reader
-	rand.Reader = &failingReader{}
-	defer func() { rand.Reader = origReader }()
-
-	s := RandTextWithCharset(10, "ABC")
-	assert.Len(t, s, 10)
-	for _, c := range s {
-		assert.True(t, strings.ContainsRune("ABC", c), "charset mismatch in fallback")
 	}
 }
 
