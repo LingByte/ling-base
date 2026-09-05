@@ -118,6 +118,15 @@
 - HTTP 辅助：Bearer token 提取、上下文 claims 检索、中间件包装
 - 用法: `auth, _ := jwtutil.New(jwtutil.Config{Secret: []byte("..."), Issuer: "my-app", AccessTTL: 15*time.Minute, RefreshTTL: 7*24*time.Hour}); pair, _ := auth.Login("user-123", jwtutil.Roles("admin"))`
 
+### common/authcontext
+- **import**: `github.com/LingByte/ling-base/common/authcontext`
+- 统一安全上下文传播层：从请求提取 Identity → 存入 context → 向下游服务透传
+- Identity 包含 UserID/UserName/Roles/Permissions/TenantID/Token
+- AuthExtractor 接口：HeaderExtractor（网关透传头）、JWTExtractor（Bearer JWT）
+- PropagatingTransport：自动向下游 HTTP 调用注入身份头
+- 子模块: `common/authcontext/gin`（Gin 中间件：Middleware/RequireAuth/RequireRole/RequirePermission）
+- 用法: `r.Use(authctxgin.Middleware(extractor)); id := authcontext.FromContext(c.Request.Context())`
+
 ### common/crypto
 - **import**: `github.com/LingByte/ling-base/common/crypto`
 - 底层加密原语：AES、RSA、HMAC、JWT 签名/验证
