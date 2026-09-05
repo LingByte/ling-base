@@ -148,6 +148,12 @@ use (
 	./common/timeutil
 	./common/totp
 	./common/tracing
+	./common/tree
+	./common/tree/gormstore
+	./common/tree/memory
+	./common/tree/mysql
+	./common/tree/postgres
+	./common/tree/sqlite
 	./common/trie
 	./common/validate
 	./common/videoutil

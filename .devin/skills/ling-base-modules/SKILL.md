@@ -252,6 +252,23 @@
 | common/barcode | `github.com/LingByte/ling-base/common/barcode` | 条形码生成 |
 | common/qrcode | `github.com/LingByte/ling-base/common/qrcode` | 二维码生成 |
 
+## 服务树 / 资源层级
+
+### common/tree
+- **import**: `github.com/LingByte/ling-base/common/tree`
+- 服务树（g.p.a 三段式层级）核心接口与逻辑：[Tree] 接口（Add/Get/Query/Exists/Delete/ListChildren/SubTree）+ [Store] 持久化抽象
+- 物化路径存储，子树查询用 path 前缀扫描，无需递归 CTE
+- 子模块（每个独立 go.mod）:
+  - `common/tree/memory` — 进程内 Store，零依赖，用于测试/单机 agent
+  - `common/tree/gormstore` — 通用 GORM Store（MySQL/PostgreSQL/SQLite 通用）
+  - `common/tree/mysql` — MySQL 薄包装（接受 DSN）
+  - `common/tree/postgres` — PostgreSQL 薄包装
+  - `common/tree/sqlite` — SQLite 薄包装（支持 `:memory:`）
+- 用法: `tr, _ := tree.New(memory.New()); leaf, _ := tr.Add(ctx, "inf.monitor.prometheus")`
+- 查询模式: `tree.QueryChildren`（直接子节点名）、`tree.QueryLeaves`（子树下所有 g.p.a 全路径）、`tree.QueryExists`（g.p.a 存在性）
+- 删除: `tr.Delete(ctx, "inf", true)` force=true 级联删整棵子树，force=false 有子节点时返回 `ErrHasChildren`
+
+
 ## AI/语音模块
 
 | 模块 | import 路径 | 说明 |
