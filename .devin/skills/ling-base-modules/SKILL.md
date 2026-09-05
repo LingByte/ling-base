@@ -109,6 +109,9 @@
   - `cache/bigcache` — BigCache 内存缓存
   - `cache/freecache` — FreeCache 内存缓存
   - `cache/ristretto` — Ristretto 内存缓存
+- **cache-aside 模式**: `GetOrLoad` / `GetOrLoadJSON` 封装缓存空值 + 双重检查锁，防缓存穿透/击穿
+  - 支持 `WithLocker` 分布式锁、`WithNullMarker` 空值标记、`WithCacheTTL`/`WithNullTTL` 配置
+  - `Invalidate` / `InvalidateBatch` 失效缓存
 
 ## 鉴权
 
@@ -248,6 +251,8 @@
 | common/hash | `github.com/LingByte/ling-base/common/hash` | 哈希工具 |
 | common/random | `github.com/LingByte/ling-base/common/random` | 随机数/字符串 |
 | common/idgen | `github.com/LingByte/ling-base/common/idgen` | ID 生成（Snowflake/UUID） |
+| common/idempotency | `github.com/LingByte/ling-base/common/idempotency` | 幂等状态机（MQ/HTTP 防重放，Redis+Memory） |
+| common/uaparse | `github.com/LingByte/ling-base/common/uaparse` | User-Agent 解析（OS/Browser/Device/Engine/Bot） |
 | common/timeutil | `github.com/LingByte/ling-base/common/timeutil` | 时间工具 |
 | common/mathutil | `github.com/LingByte/ling-base/common/mathutil` | 数学工具 |
 | common/netutil | `github.com/LingByte/ling-base/common/netutil` | 网络工具 |

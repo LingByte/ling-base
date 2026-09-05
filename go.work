@@ -66,6 +66,7 @@ use (
 	./common/i18n/gin
 	./common/i18n/mymemory
 	./common/idgen
+	./common/idempotency
 	./common/imageutil
 	./common/jwtutil
 	./common/jwtutil/gin
@@ -157,6 +158,7 @@ use (
 	./common/tree/postgres
 	./common/tree/sqlite
 	./common/trie
+	./common/uaparse
 	./common/validate
 	./common/videoutil
 	./common/webhook
