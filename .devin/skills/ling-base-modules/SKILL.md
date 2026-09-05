@@ -259,6 +259,9 @@
 | common/rbac | `github.com/LingByte/ling-base/common/rbac` | Casbin RBAC 封装（策略CRUD、角色继承、Gin中间件） |
 | common/ssh | `github.com/LingByte/ling-base/common/ssh` | WebSSH 桥接（WebSocket→SSH PTY、终端调整、命令执行） |
 | common/codegen | `github.com/LingByte/ling-base/common/codegen` | Go AST 代码生成辅助（import管理、函数查找、语句构建） |
+| common/registry | `github.com/LingByte/ling-base/common/registry` | 服务注册与发现（Registry接口、内存实现、Consul实现、Watch监听） |
+| common/registry/consul | `github.com/LingByte/ling-base/common/registry/consul` | Consul服务注册发现后端（健康检查、自动注销、出站IP检测） |
+| common/dbs_json (StringArray/IntArray/JSONMap/JSONRaw) | `github.com/LingByte/ling-base/common` | GORM/SQL JSON自定义类型（字符串数组、整数数组、JSONMap、原始JSON） |
 | common/timeutil | `github.com/LingByte/ling-base/common/timeutil` | 时间工具 |
 | common/mathutil | `github.com/LingByte/ling-base/common/mathutil` | 数学工具 |
 | common/netutil | `github.com/LingByte/ling-base/common/netutil` | 网络工具 |
