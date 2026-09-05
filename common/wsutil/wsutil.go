@@ -201,6 +201,16 @@ func (c *Conn) Close() error {
 	return c.ws.Close()
 }
 
+// SetReadDeadline sets the read deadline for the connection.
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.ws.SetReadDeadline(t)
+}
+
+// SetWriteDeadline sets the write deadline for the connection.
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.ws.SetWriteDeadline(t)
+}
+
 // SetPingHandler sets the handler for ping messages.
 func (c *Conn) SetPingHandler(handler func(appData string) error) {
 	c.ws.SetPingHandler(handler)
