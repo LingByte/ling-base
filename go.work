@@ -26,6 +26,8 @@ use (
 	./common/antispam
 	./common/audioutil
 	./common/auditlog
+	./common/authcontext
+	./common/authcontext/gin
 	./common/backup
 	./common/barcode
 	./common/bitmap
