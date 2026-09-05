@@ -253,6 +253,12 @@
 | common/idgen | `github.com/LingByte/ling-base/common/idgen` | ID 生成（Snowflake/UUID） |
 | common/idempotency | `github.com/LingByte/ling-base/common/idempotency` | 幂等状态机（MQ/HTTP 防重放，Redis+Memory） |
 | common/uaparse | `github.com/LingByte/ling-base/common/uaparse` | User-Agent 解析（OS/Browser/Device/Engine/Bot） |
+| common/probe | `github.com/LingByte/ling-base/common/probe` | 合成 HTTP 探测器（主动监控、响应校验、变量提取、序列探测） |
+| common/alerting | `github.com/LingByte/ling-base/common/alerting` | 状态变更告警引擎（OK↔Fail 转换、去重、阈值、通知集成） |
+| common/wsutil (EnhancedHub) | `github.com/LingByte/ling-base/common/wsutil` | WebSocket 连接管理（元数据、登录回调、最大连接数、广播过滤） |
+| common/rbac | `github.com/LingByte/ling-base/common/rbac` | Casbin RBAC 封装（策略CRUD、角色继承、Gin中间件） |
+| common/ssh | `github.com/LingByte/ling-base/common/ssh` | WebSSH 桥接（WebSocket→SSH PTY、终端调整、命令执行） |
+| common/codegen | `github.com/LingByte/ling-base/common/codegen` | Go AST 代码生成辅助（import管理、函数查找、语句构建） |
 | common/timeutil | `github.com/LingByte/ling-base/common/timeutil` | 时间工具 |
 | common/mathutil | `github.com/LingByte/ling-base/common/mathutil` | 数学工具 |
 | common/netutil | `github.com/LingByte/ling-base/common/netutil` | 网络工具 |

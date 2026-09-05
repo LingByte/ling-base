@@ -23,6 +23,7 @@ use (
 	./bootstrap
 	./common
 	./common/abtest
+	./common/alerting
 	./common/antispam
 	./common/audioutil
 	./common/auditlog
@@ -42,6 +43,7 @@ use (
 	./common/bloom/scalable
 	./common/cache
 	./common/cache/bigcache
+	./common/codegen
 	./common/cache/freecache
 	./common/cache/memcache
 	./common/cache/redis
@@ -127,10 +129,13 @@ use (
 	./common/phone
 	./common/pinyin
 	./common/pool
+	./common/probe
 	./common/qrcode
 	./common/queue
 	./common/queue/memory
 	./common/queue/redis
+	./common/rbac
+	./common/rbac/gin
 	./common/random
 	./common/response
 	./common/response/gin
@@ -147,6 +152,7 @@ use (
 	./common/stats/gin
 	./common/stats/memory
 	./common/stats/redis
+	./common/ssh
 	./common/system
 	./common/timeutil
 	./common/totp
@@ -162,6 +168,7 @@ use (
 	./common/validate
 	./common/videoutil
 	./common/webhook
+	./common/wsutil
 	./docs/wasm
 	./example
 	./lingcli
