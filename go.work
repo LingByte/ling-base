@@ -136,6 +136,8 @@ use (
 	./common/queue/redis
 	./common/rbac
 	./common/rbac/gin
+	./common/registry
+	./common/registry/consul
 	./common/random
 	./common/response
 	./common/response/gin
