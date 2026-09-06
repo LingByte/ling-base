@@ -4,5 +4,5 @@ go 1.26.2
 
 require (
 	github.com/GanymedeNil/go-webrtcvad v0.0.0-20191210081959-e18ecd7324df
-	github.com/shenjinti/gosilero v0.0.2
+	github.com/zserge/govad v0.0.0-20260330155402-74750eabf3a4
 )
