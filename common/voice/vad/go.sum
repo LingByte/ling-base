@@ -1,0 +1,11 @@
+github.com/GanymedeNil/go-webrtcvad v0.0.0-20191210081959-e18ecd7324df h1:coyDVXJ5l1Wq4ENzkei6vN0TrUiQKpWCOU/NnoMm6hI=
+github.com/GanymedeNil/go-webrtcvad v0.0.0-20191210081959-e18ecd7324df/go.mod h1:FojFwSHU7GrvruGb1c0+/JhJmmcCXmTEE09SW63msUQ=
+github.com/cryptix/wav v0.0.0-20180415113528-8bdace674401/go.mod h1:knK8fd+KPlGGqSUWogv1DQzGTwnfUvAi0cIoWyOG7+U=
+github.com/shenjinti/gosilero v0.0.2 h1:AnQfaHArBv0J6ZIcqE0DemHPo3ioP114p59uztCRITk=
+github.com/shenjinti/gosilero v0.0.2/go.mod h1:d+E6blXATdR+RkNaxUug4a3qv3U0wsj2fo3TppYsINc=
+github.com/youpy/go-riff v0.1.0 h1:vZO/37nI4tIET8tQI0Qn0Y79qQh99aEpponTPiPut7k=
+github.com/youpy/go-riff v0.1.0/go.mod h1:83nxdDV4Z9RzrTut9losK7ve4hUnxUR8ASSz4BsKXwQ=
+github.com/youpy/go-wav v0.3.2 h1:NLM8L/7yZ0Bntadw/0h95OyUsen+DQIVf9gay+SUsMU=
+github.com/youpy/go-wav v0.3.2/go.mod h1:0FCieAXAeSdcxFfwLpRuEo0PFmAoc+8NU34h7TUvk50=
+github.com/zaf/g711 v1.4.0 h1:XZYkjjiAg9QTBnHqEg37m2I9q3IIDv5JRYXs2N8ma7c=
+github.com/zaf/g711 v1.4.0/go.mod h1:eCDXt3dSp/kYYAoooba7ukD/Q75jvAaS4WOMr0l1Roo=
