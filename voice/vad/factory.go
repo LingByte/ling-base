@@ -11,6 +11,7 @@ import "fmt"
 //   - EngineEnergy:  RMS + ZCR energy-based (pure Go, no deps)
 //   - EngineWebRTC:  WebRTC GMM (CGO, github.com/GanymedeNil/go-webrtcvad)
 //   - EngineSilero:  Silero neural (pure Go, embedded weights, 16kHz only)
+//   - EngineHybrid:  Energy pre-filter + Silero confirmation (best speed/accuracy)
 func NewDetector(kind EngineKind, cfg Config) (Detector, error) {
 	cfg.validate()
 
@@ -39,6 +40,18 @@ func NewDetector(kind EngineKind, cfg Config) (Detector, error) {
 			return nil, fmt.Errorf("silero vad: requires 16kHz, got %d", cfg.SampleRate)
 		}
 		return NewSileroDetector(cfg.Threshold)
+
+	case EngineHybrid:
+		if cfg.SampleRate != 16000 {
+			return nil, fmt.Errorf("hybrid vad: requires 16kHz, got %d", cfg.SampleRate)
+		}
+		return NewHybridDetector(HybridConfig{
+			SampleRate:      cfg.SampleRate,
+			FrameDurationMs: 32, // Silero requires 32ms
+			SileroThreshold: cfg.Threshold,
+			MinSpeechFrames: cfg.MinSpeechFrames,
+			HangoverFrames:  cfg.HangoverFrames,
+		})
 
 	default:
 		return nil, fmt.Errorf("vad: unknown engine kind %q", kind)

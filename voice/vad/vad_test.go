@@ -905,3 +905,254 @@ func TestStreamerExplicit_NilDetector(t *testing.T) {
 		t.Fatal("expected error for nil detector")
 	}
 }
+
+// ─── HybridDetector tests ───
+
+func TestHybridDetector_Basic(t *testing.T) {
+	det, err := NewHybridDetector(DefaultHybridConfig())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	if det.Kind() != EngineHybrid {
+		t.Errorf("expected EngineHybrid, got %v", det.Kind())
+	}
+	if det.SampleRate() != 16000 {
+		t.Errorf("expected 16000, got %d", det.SampleRate())
+	}
+	if det.FrameDuration() != 32 {
+		t.Errorf("expected 32ms, got %d", det.FrameDuration())
+	}
+}
+
+func TestHybridDetector_SilenceSkipSilero(t *testing.T) {
+	det, err := NewHybridDetector(HybridConfig{
+		SampleRate:         16000,
+		FrameDurationMs:    32,
+		SileroThreshold:    0.5,
+		EnergyPreThreshold: 300,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	// Silent frame should be fast-rejected by Energy pre-filter
+	result, err := det.ProcessFrame(silentFrame(32, 16000))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsSpeech {
+		t.Error("silence should not be speech")
+	}
+	if result.RMS != 0 {
+		t.Errorf("expected RMS=0, got %v", result.RMS)
+	}
+}
+
+func TestHybridDetector_LoudTriggersSilero(t *testing.T) {
+	det, err := NewHybridDetector(HybridConfig{
+		SampleRate:         16000,
+		FrameDurationMs:    32,
+		SileroThreshold:    0.5,
+		EnergyPreThreshold: 300,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	// Loud speech-like frame should pass through to Silero
+	pcm := generateSpeechLikeFrame(32, 16000, 1)
+	result, err := det.ProcessFrame(pcm)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// RMS should be populated
+	if result.RMS < 300 {
+		t.Errorf("expected RMS > 300, got %v", result.RMS)
+	}
+}
+
+func TestHybridDetector_Reset(t *testing.T) {
+	det, err := NewHybridDetector(DefaultHybridConfig())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	// Feed some frames then reset
+	_, _ = det.ProcessFrame(generateSpeechLikeFrame(32, 16000, 1))
+	det.Reset()
+
+	// Should work after reset
+	result, _ := det.ProcessFrame(silentFrame(32, 16000))
+	if result.IsSpeech {
+		t.Error("silence after reset should not be speech")
+	}
+}
+
+func TestHybridDetector_SetThresholds(t *testing.T) {
+	det, err := NewHybridDetector(DefaultHybridConfig())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	det.SetSileroThreshold(0.7)
+	det.SetEnergyPreThreshold(500)
+	// No panic = pass
+}
+
+func TestNewDetector_Hybrid(t *testing.T) {
+	det, err := NewDetector(EngineHybrid, DefaultConfig())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+	if det.Kind() != EngineHybrid {
+		t.Errorf("expected EngineHybrid, got %v", det.Kind())
+	}
+}
+
+func TestNewDetector_Hybrid_8kHz(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.SampleRate = 8000
+	_, err := NewDetector(EngineHybrid, cfg)
+	if err == nil {
+		t.Fatal("expected error for 8kHz hybrid")
+	}
+}
+
+// ─── PooledSileroDetector tests ───
+
+func TestPooledSileroDetector_Basic(t *testing.T) {
+	det, err := NewPooledSileroDetector(0.5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	if det.Kind() != EngineSilero {
+		t.Errorf("expected EngineSilero, got %v", det.Kind())
+	}
+	if det.SampleRate() != 16000 {
+		t.Errorf("expected 16000, got %d", det.SampleRate())
+	}
+}
+
+func TestPooledSileroDetector_ProcessFrame(t *testing.T) {
+	det, err := NewPooledSileroDetector(0.5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	result, err := det.ProcessFrame(silentFrame(32, 16000))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsSpeech {
+		t.Error("silence should not be speech")
+	}
+}
+
+func TestPooledSileroDetector_Reset(t *testing.T) {
+	det, err := NewPooledSileroDetector(0.5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer det.Close()
+
+	_, _ = det.ProcessFrame(silentFrame(32, 16000))
+	det.Reset()
+	result, _ := det.ProcessFrame(silentFrame(32, 16000))
+	if result.Probability < 0 || result.Probability > 1 {
+		t.Errorf("probability out of range: %v", result.Probability)
+	}
+}
+
+func TestPooledSileroDetector_CloseTwice(t *testing.T) {
+	det, err := NewPooledSileroDetector(0.5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := det.Close(); err != nil {
+		t.Errorf("first close: %v", err)
+	}
+	if err := det.Close(); err != nil {
+		t.Errorf("second close: %v", err)
+	}
+}
+
+func TestAcquireReleaseSilero(t *testing.T) {
+	det, err := AcquireSilero(0.5)
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	_, _ = det.ProcessFrame(silentFrame(32, 16000))
+	ReleaseSilero(det)
+
+	// Acquire again — should get a reused detector
+	det2, err := AcquireSilero(0.6)
+	if err != nil {
+		t.Fatalf("second acquire: %v", err)
+	}
+	ReleaseSilero(det2)
+}
+
+// ─── Hybrid benchmark ───
+
+func BenchmarkHybridDetector_ProcessFrame_Silence(b *testing.B) {
+	det, err := NewHybridDetector(DefaultHybridConfig())
+	if err != nil {
+		b.Fatalf("create hybrid: %v", err)
+	}
+	defer det.Close()
+
+	pcm := silentFrame(32, 16000)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		det.ProcessFrame(pcm)
+	}
+}
+
+func BenchmarkHybridDetector_ProcessFrame_Speech(b *testing.B) {
+	det, err := NewHybridDetector(DefaultHybridConfig())
+	if err != nil {
+		b.Fatalf("create hybrid: %v", err)
+	}
+	defer det.Close()
+
+	pcm := generateSpeechLikeFrame(32, 16000, 1)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		det.ProcessFrame(pcm)
+	}
+}
+
+func BenchmarkPooledSileroDetector_ProcessFrame(b *testing.B) {
+	det, err := NewPooledSileroDetector(0.5)
+	if err != nil {
+		b.Fatalf("create pooled: %v", err)
+	}
+	defer det.Close()
+
+	pcm := generateSpeechLikeFrame(32, 16000, 1)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		det.ProcessFrame(pcm)
+	}
+}
+
+func BenchmarkPooledSilero_AcquireRelease(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		det, _ := AcquireSilero(0.5)
+		ReleaseSilero(det)
+	}
+}

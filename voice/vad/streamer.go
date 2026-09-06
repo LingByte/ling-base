@@ -122,7 +122,13 @@ func newStreamerInternal(detector Detector, cfg StreamerConfig) *Streamer {
 		done:     make(chan struct{}),
 	}
 	if cfg.PreSpeechBufferFrames > 0 {
+		// Pre-allocate all ring buffer slots to avoid per-frame allocation.
+		// Each slot is sized for the worst-case frame (32ms @ 16kHz = 1024 bytes).
+		// Smaller frames just use the first len(pcm) bytes.
 		s.preSpeechBuf = make([][]byte, cfg.PreSpeechBufferFrames)
+		for i := range s.preSpeechBuf {
+			s.preSpeechBuf[i] = make([]byte, 0, 1024)
+		}
 	}
 	return s
 }
@@ -149,12 +155,10 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 		Probability: result.Probability,
 	}
 
-	// Buffer pre-speech audio (ring buffer).
+	// Buffer pre-speech audio (ring buffer, zero-alloc: reuse pre-allocated slots).
 	if s.preSpeechBuf != nil && !s.speechActive {
-		// Copy the PCM data to avoid aliasing.
-		pcmCopy := make([]byte, len(pcm))
-		copy(pcmCopy, pcm)
-		s.preSpeechBuf[s.preSpeechIdx] = pcmCopy
+		slot := s.preSpeechBuf[s.preSpeechIdx][:0]
+		s.preSpeechBuf[s.preSpeechIdx] = append(slot, pcm...)
 		s.preSpeechIdx = (s.preSpeechIdx + 1) % len(s.preSpeechBuf)
 		if s.preSpeechCount < len(s.preSpeechBuf) {
 			s.preSpeechCount++

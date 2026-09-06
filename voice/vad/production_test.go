@@ -80,9 +80,13 @@ func TestProduction_SingleStreamCPU(t *testing.T) {
 				engine, elapsed, cpuPct, elapsed/time.Duration(iterations))
 
 			// 生产要求：单路 CPU 占用 < 5%
+			// race detector adds ~3× overhead, so allow higher budget under race.
 			maxCPU := 5.0
 			if engine == EngineSilero {
 				maxCPU = 10.0 // 神经网络允许更高
+			}
+			if raceEnabled {
+				maxCPU *= 3 // race detector overhead
 			}
 			if cpuPct > maxCPU {
 				t.Errorf("CPU usage %.2f%% exceeds %.1f%% budget", cpuPct, maxCPU)
@@ -142,8 +146,12 @@ func TestProduction_Concurrent100Streams(t *testing.T) {
 				engine, elapsed, cpuPct)
 
 			// 100 路并发时 CPU 占用应 < 50%（有多核并行）
-			if cpuPct > 50 {
-				t.Errorf("100-stream CPU %.2f%% exceeds 50%% budget", cpuPct)
+			maxConcurrentCPU := 50.0
+			if raceEnabled {
+				maxConcurrentCPU = 150.0 // race detector overhead
+			}
+			if cpuPct > maxConcurrentCPU {
+				t.Errorf("100-stream CPU %.2f%% exceeds %.0f%% budget", cpuPct, maxConcurrentCPU)
 			}
 		})
 	}
