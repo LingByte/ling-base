@@ -22,7 +22,7 @@ func TestNew_NilHandler(t *testing.T) {
 }
 
 func TestNew_Defaults(t *testing.T) {
-	b, err := batch.New[int](func(items []int) error { return nil })
+	b, err := batch.New[int](func(ctx context.Context, items []int) error { return nil })
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestAdd_AndFlush(t *testing.T) {
 	var flushed []int
 	var mu sync.Mutex
 
-	b, err := batch.New(func(items []int) error {
+	b, err := batch.New(func(ctx context.Context, items []int) error {
 		mu.Lock()
 		flushed = append(flushed, items...)
 		mu.Unlock()
@@ -49,10 +49,7 @@ func TestAdd_AndFlush(t *testing.T) {
 		}
 	}
 
-	// Size=3, so adding 3 items should trigger a flush.
-	// Give it a moment.
 	time.Sleep(50 * time.Millisecond)
-
 	b.Close()
 
 	mu.Lock()
@@ -63,7 +60,7 @@ func TestAdd_AndFlush(t *testing.T) {
 }
 
 func TestAdd_CloseReturnsErr(t *testing.T) {
-	b, _ := batch.New(func(items []int) error { return nil })
+	b, _ := batch.New(func(ctx context.Context, items []int) error { return nil })
 	b.Close()
 
 	err := b.Add(1)
@@ -75,7 +72,7 @@ func TestAdd_CloseReturnsErr(t *testing.T) {
 func TestFlushAndWait(t *testing.T) {
 	var flushed int32
 
-	b, _ := batch.New(func(items []int) error {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
 		atomic.AddInt32(&flushed, int32(len(items)))
 		return nil
 	}, batch.WithSize[int](100))
@@ -95,10 +92,29 @@ func TestFlushAndWait(t *testing.T) {
 	b.Close()
 }
 
+func TestFlushAndWait_MultipleConcurrent(t *testing.T) {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		time.Sleep(20 * time.Millisecond)
+		return nil
+	}, batch.WithSize[int](1000))
+
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = b.Add(1)
+			_ = b.FlushAndWait()
+		}()
+	}
+	wg.Wait()
+	b.Close()
+}
+
 func TestIntervalFlush(t *testing.T) {
 	var flushed int32
 
-	b, _ := batch.New(func(items []int) error {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
 		atomic.AddInt32(&flushed, int32(len(items)))
 		return nil
 	}, batch.WithSize[int](1000), batch.WithInterval[int](100*time.Millisecond))
@@ -106,7 +122,6 @@ func TestIntervalFlush(t *testing.T) {
 	_ = b.Add(1)
 	_ = b.Add(2)
 
-	// Wait for interval flush.
 	time.Sleep(200 * time.Millisecond)
 
 	if atomic.LoadInt32(&flushed) != 2 {
@@ -119,7 +134,7 @@ func TestIntervalFlush(t *testing.T) {
 func TestHandlerError(t *testing.T) {
 	expectedErr := errors.New("handler failed")
 
-	b, _ := batch.New(func(items []int) error {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
 		return expectedErr
 	}, batch.WithSize[int](1))
 
@@ -143,7 +158,7 @@ func TestErrorHandler(t *testing.T) {
 		atomic.AddInt32(&called, 1)
 	}
 
-	b, _ := batch.New(func(items []int) error {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
 		return errors.New("fail")
 	}, batch.WithSize[int](1), batch.WithErrorHandler[int](errHandler))
 
@@ -158,7 +173,7 @@ func TestErrorHandler(t *testing.T) {
 }
 
 func TestTryAdd(t *testing.T) {
-	b, _ := batch.New(func(items []int) error { return nil },
+	b, _ := batch.New(func(ctx context.Context, items []int) error { return nil },
 		batch.WithSize[int](1000),
 		batch.WithBufferSize[int](1),
 	)
@@ -170,7 +185,7 @@ func TestTryAdd(t *testing.T) {
 }
 
 func TestTryAdd_Closed(t *testing.T) {
-	b, _ := batch.New(func(items []int) error { return nil })
+	b, _ := batch.New(func(ctx context.Context, items []int) error { return nil })
 	b.Close()
 
 	if b.TryAdd(1) {
@@ -179,17 +194,16 @@ func TestTryAdd_Closed(t *testing.T) {
 }
 
 func TestClose_Twice(t *testing.T) {
-	b, _ := batch.New(func(items []int) error { return nil })
+	b, _ := batch.New(func(ctx context.Context, items []int) error { return nil })
 
 	if err := b.Close(); err != nil {
 		t.Errorf("First Close: %v", err)
 	}
-	// Second close should not panic.
 	_ = b.Close()
 }
 
 func TestStats(t *testing.T) {
-	b, _ := batch.New(func(items []int) error { return nil },
+	b, _ := batch.New(func(ctx context.Context, items []int) error { return nil },
 		batch.WithSize[int](2),
 	)
 	defer b.Close()
@@ -215,7 +229,7 @@ func TestRunWithContext(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b, _ := batch.RunWithContext(ctx, func(items []int) error {
+	b, _ := batch.RunWithContext(ctx, func(ctx context.Context, items []int) error {
 		atomic.AddInt32(&flushed, int32(len(items)))
 		return nil
 	}, batch.WithSize[int](1000))
@@ -223,10 +237,7 @@ func TestRunWithContext(t *testing.T) {
 	_ = b.Add(1)
 	_ = b.Add(2)
 
-	// Cancel context — should trigger close and flush.
 	cancel()
-
-	// Wait for close to complete.
 	time.Sleep(100 * time.Millisecond)
 
 	if atomic.LoadInt32(&flushed) != 2 {
@@ -237,7 +248,7 @@ func TestRunWithContext(t *testing.T) {
 func TestLargeBatch(t *testing.T) {
 	var total int32
 
-	b, _ := batch.New(func(items []int) error {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
 		atomic.AddInt32(&total, int32(len(items)))
 		return nil
 	}, batch.WithSize[int](10))
@@ -262,12 +273,11 @@ func TestErrors(t *testing.T) {
 	}
 }
 
-// Test with string type to verify generics work.
 func TestGenericString(t *testing.T) {
 	var flushed []string
 	var mu sync.Mutex
 
-	b, _ := batch.New(func(items []string) error {
+	b, _ := batch.New(func(ctx context.Context, items []string) error {
 		mu.Lock()
 		flushed = append(flushed, items...)
 		mu.Unlock()
@@ -283,4 +293,170 @@ func TestGenericString(t *testing.T) {
 	if len(flushed) != 2 || flushed[0] != "a" || flushed[1] != "b" {
 		t.Errorf("flushed = %v", flushed)
 	}
+}
+
+// ──────────────────────────────────────────────
+// New feature tests
+// ──────────────────────────────────────────────
+
+func TestPendingCount(t *testing.T) {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		time.Sleep(50 * time.Millisecond) // slow handler
+		return nil
+	}, batch.WithSize[int](1000), batch.WithInterval[int](0))
+
+	_ = b.Add(1)
+	_ = b.Add(2)
+	_ = b.Add(3)
+
+	// Items should be pending (not yet flushed).
+	if pc := b.PendingCount(); pc != 3 {
+		t.Errorf("PendingCount = %d, want 3", pc)
+	}
+
+	b.Close()
+}
+
+func TestWithMaxBytes(t *testing.T) {
+	var flushed int32
+
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		atomic.AddInt32(&flushed, int32(len(items)))
+		return nil
+	},
+		batch.WithSize[int](1000),       // high count limit
+		batch.WithMaxBytes[int](100),    // 100 byte limit
+		batch.WithItemSize[int](func(i int) int { return i * 10 }), // each item = i*10 bytes
+		batch.WithInterval[int](0),      // disable timer
+	)
+
+	// Add items: 1(10B), 2(20B), 3(30B), 4(40B), 5(50B)
+	// After adding 5: total = 10+20+30+40+50 = 150 > 100 → flush
+	for i := 1; i <= 5; i++ {
+		_ = b.Add(i)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	if atomic.LoadInt32(&flushed) == 0 {
+		t.Error("WithMaxBytes should trigger flush when byte limit exceeded")
+	}
+
+	b.Close()
+}
+
+func TestWithRetry(t *testing.T) {
+	var attempts int32
+
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		count := atomic.AddInt32(&attempts, 1)
+		if count < 3 {
+			return errors.New("transient error")
+		}
+		return nil
+	},
+		batch.WithSize[int](1),
+		batch.WithRetry[int](3),
+		batch.WithRetryDelay[int](10*time.Millisecond),
+	)
+
+	_ = b.Add(1)
+	time.Sleep(100 * time.Millisecond)
+
+	// Should have retried and eventually succeeded.
+	if atomic.LoadInt32(&attempts) < 3 {
+		t.Errorf("attempts = %d, want >= 3", attempts)
+	}
+
+	b.Close()
+}
+
+func TestWithRetry_AllFail(t *testing.T) {
+	var attempts int32
+
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		atomic.AddInt32(&attempts, 1)
+		return errors.New("permanent error")
+	},
+		batch.WithSize[int](1),
+		batch.WithRetry[int](2),
+		batch.WithRetryDelay[int](10*time.Millisecond),
+	)
+
+	_ = b.Add(1)
+	time.Sleep(100 * time.Millisecond)
+
+	// Should have attempted 3 times (1 + 2 retries).
+	if atomic.LoadInt32(&attempts) != 3 {
+		t.Errorf("attempts = %d, want 3", attempts)
+	}
+
+	if b.ErrorCount() != 1 {
+		t.Errorf("ErrorCount = %d, want 1", b.ErrorCount())
+	}
+
+	b.Close()
+}
+
+func TestWithShutdownTimeout(t *testing.T) {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		select {
+		case <-time.After(5 * time.Second):
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	},
+		batch.WithSize[int](1),
+		batch.WithShutdownTimeout[int](50*time.Millisecond),
+	)
+
+	_ = b.Add(1)
+
+	// Close should timeout and return relatively quickly.
+	start := time.Now()
+	_ = b.Close()
+	elapsed := time.Since(start)
+
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("Close took %v, should have timed out quickly", elapsed)
+	}
+}
+
+func TestFlushAndWait_Error(t *testing.T) {
+	expectedErr := errors.New("flush error")
+
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		return expectedErr
+	}, batch.WithSize[int](1000))
+
+	_ = b.Add(1)
+
+	err := b.FlushAndWait()
+	if err != expectedErr {
+		t.Errorf("FlushAndWait: err = %v, want %v", err, expectedErr)
+	}
+
+	b.Close()
+}
+
+func TestPendingBytes(t *testing.T) {
+	b, _ := batch.New(func(ctx context.Context, items []int) error {
+		return nil
+	},
+		batch.WithSize[int](1000),
+		batch.WithInterval[int](0),
+		batch.WithMaxBytes[int](10000),
+		batch.WithItemSize[int](func(i int) int { return i * 100 }),
+	)
+
+	_ = b.Add(1) // 100 bytes
+	_ = b.Add(2) // 200 bytes
+	_ = b.Add(3) // 300 bytes
+
+	if pb := b.PendingBytes(); pb != 600 {
+		t.Errorf("PendingBytes = %d, want 600", pb)
+	}
+
+	b.Close()
 }
