@@ -284,6 +284,28 @@
 | voice/voiceclone | `github.com/LingByte/ling-base/voice/voiceclone` | 语音克隆（火山引擎/讯飞，TTS音色合成） |
 | common/qrcode | `github.com/LingByte/ling-base/common/qrcode` | 二维码生成 |
 
+## 控制器 / 扩展系统 / 配置中心 / 快照
+
+### common/reconciler
+- **import**: `github.com/LingByte/ling-base/common/reconciler`
+- Kubernetes 风格 Reconciler/Controller 框架：Reconciler 接口、Request/Result 类型、工作队列、去重、延迟 requeue、限流、错误重试、多 worker、优雅启停
+- 用法: `ctrl := reconciler.NewController("myctrl", r, reconciler.WithWorkers(4), reconciler.WithRateLimiter(...)); ctrl.Add(key); ctrl.Start(ctx); ctrl.Stop()`
+
+### common/extension
+- **import**: `github.com/LingByte/ling-base/common/extension`
+- Halo/CRD 风格动态类型注册：Object 接口、GroupVersionKind、Scheme 注册表、GVK 解析/格式化、按类型/Plural 查找、JSON 序列化、并发安全
+- 用法: `scheme := extension.NewScheme(); scheme.Register(&Post{}, extension.WithPlural("posts")); obj, _ := scheme.New(gvk)`
+
+### common/configcenter
+- **import**: `github.com/LingByte/ling-base/common/configcenter`
+- Apollo 风格层级配置中心：App/Env/Cluster/Namespace 四维标识、私有/公共命名空间、默认集群回退、公共命名空间回退、不可变 Release 快照、releaseKey 变更检测（304 NotModified）、回滚、发布历史、长轮询 Watch 通知
+- 用法: `cc := configcenter.New(); cc.AddApp("app","prod"); cc.AddNamespace("app","prod","default","application",false); cc.SetItem(...); rel, _ := cc.Publish(...); cc.Watch(...).Ch()`
+
+### common/snapshot
+- **import**: `github.com/LingByte/ling-base/common/snapshot`
+- Halo 风格内容快照版本管理：不可变快照、版本号、父子关系、乐观并发控制（expectedVersion 冲突检测）、回滚（追加新版本而非删除历史）、历史列表、贡献者追踪、可选 diff/patch 存储优化、泛型 Store[T]
+- 用法: `store := snapshot.NewStore[string](); v1, _ := store.Create("doc-1", "Hello", "alice"); v2, _ := store.Update("doc-1", v1.Version, "Hello World", "bob"); store.Rollback("doc-1", v1.Version, "alice")`
+
 ## 服务树 / 资源层级
 
 ### common/tree

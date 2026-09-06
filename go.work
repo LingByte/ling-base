@@ -172,6 +172,10 @@ use (
 	./common/tree/postgres
 	./common/tree/sqlite
 	./common/trie
+	./common/reconciler
+	./common/extension
+	./common/configcenter
+	./common/snapshot
 	./common/uaparse
 	./common/validate
 	./common/videoutil
