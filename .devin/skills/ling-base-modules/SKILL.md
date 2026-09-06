@@ -276,6 +276,9 @@
 | common/videoutil | `github.com/LingByte/ling-base/common/videoutil` | 视频处理 |
 | common/audioutil | `github.com/LingByte/ling-base/common/audioutil` | 音频处理 |
 | common/barcode | `github.com/LingByte/ling-base/common/barcode` | 条形码生成 |
+| common/embedder | `github.com/LingByte/ling-base/common/embedder` | 文本向量化（OpenAI/Aliyun/Volcengine/Jina/Azure/Nvidia/Gemini/Zhipu/Ollama/Dashscope/Local，工厂模式，缓存，多模态） |
+| common/retrieve | `github.com/LingByte/ling-base/common/retrieve` | 检索策略（混合检索、重排序、去重、RRF融合、观测） |
+| common/chunk | `github.com/LingByte/ling-base/common/chunk` | 文本分块（LLM分块/规则分块/路由分块/标题层级/启发式/递归/Token，通过relay调用LLM） |
 | common/qrcode | `github.com/LingByte/ling-base/common/qrcode` | 二维码生成 |
 
 ## 服务树 / 资源层级

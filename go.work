@@ -141,6 +141,9 @@ use (
 	./common/grpc
 	./common/shutdown
 	./common/batch
+	./common/embedder
+	./common/retrieve
+	./common/chunk
 	./common/random
 	./common/response
 	./common/response/gin
