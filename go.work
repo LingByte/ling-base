@@ -144,9 +144,6 @@ use (
 	./common/embedder
 	./common/retrieve
 	./common/chunk
-	./common/voice/voiceprint
-	./common/voice/voiceclone
-	./common/voice/vad
 	./common/random
 	./common/response
 	./common/response/gin
@@ -209,6 +206,9 @@ use (
 	./stores/s3
 	./stores/tos
 	./version
+	./voice/vad
+	./voice/voiceprint
+	./voice/voiceclone
 	./voice/realtime
 	./voice/realtime/aliyunomni
 	./voice/realtime/gemini

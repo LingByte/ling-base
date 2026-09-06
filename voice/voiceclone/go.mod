@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/voice/voiceclone
+module github.com/LingByte/ling-base/voice/voiceclone
 
 go 1.26.2
 

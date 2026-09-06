@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/voice/vad
+module github.com/LingByte/ling-base/voice/vad
 
 go 1.26.2
 

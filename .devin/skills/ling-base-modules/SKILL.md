@@ -279,9 +279,9 @@
 | common/embedder | `github.com/LingByte/ling-base/common/embedder` | 文本向量化（OpenAI/Aliyun/Volcengine/Jina/Azure/Nvidia/Gemini/Zhipu/Ollama/Dashscope/Local，工厂模式，缓存，多模态） |
 | common/retrieve | `github.com/LingByte/ling-base/common/retrieve` | 检索策略（混合检索、重排序、去重、RRF融合、观测） |
 | common/chunk | `github.com/LingByte/ling-base/common/chunk` | 文本分块（LLM分块/规则分块/路由分块/标题层级/启发式/递归/Token，通过relay调用LLM） |
-| common/voice/vad | `github.com/LingByte/ling-base/common/voice/vad` | 语音活动检测（RMS能量barge-in、WebRTC/Silero/Levad本地VAD） |
-| common/voice/voiceprint | `github.com/LingByte/ling-base/common/voice/voiceprint` | 声纹识别（火山引擎/讯飞，注册/验证/1:N搜索） |
-| common/voice/voiceclone | `github.com/LingByte/ling-base/common/voice/voiceclone` | 语音克隆（火山引擎/讯飞，TTS音色合成） |
+| voice/vad | `github.com/LingByte/ling-base/voice/vad` | 语音活动检测（RMS能量barge-in、WebRTC/Silero本地VAD） |
+| voice/voiceprint | `github.com/LingByte/ling-base/voice/voiceprint` | 声纹识别（火山引擎/讯飞，注册/验证/1:N搜索） |
+| voice/voiceclone | `github.com/LingByte/ling-base/voice/voiceclone` | 语音克隆（火山引擎/讯飞，TTS音色合成） |
 | common/qrcode | `github.com/LingByte/ling-base/common/qrcode` | 二维码生成 |
 
 ## 服务树 / 资源层级

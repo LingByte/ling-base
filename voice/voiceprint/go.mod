@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/voice/voiceprint
+module github.com/LingByte/ling-base/voice/voiceprint
 
 go 1.26.2
 
