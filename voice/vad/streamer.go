@@ -6,6 +6,7 @@ package vad
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,6 +41,24 @@ func (e Event) String() string {
 	}
 }
 
+// StreamerConfig holds Streamer-specific configuration.
+type StreamerConfig struct {
+	// MinSpeechFrames is the minimum consecutive speech frames before
+	// declaring speech start. Default: 3.
+	MinSpeechFrames int
+
+	// HangoverFrames is the number of consecutive non-speech frames
+	// before declaring speech end (debounce). Default: 15.
+	HangoverFrames int
+
+	// PreSpeechBufferFrames is the number of audio frames to buffer before
+	// the speech start point. When a SpeechStart event fires, the buffered
+	// frames are available via PreSpeechAudio(). This captures the lead-in
+	// audio that would otherwise be lost during the MinSpeechFrames delay.
+	// Default: 0 (disabled).
+	PreSpeechBufferFrames int
+}
+
 // Streamer wraps a Detector with a state machine that emits SpeechStart /
 // SpeechEnd events. It implements hangover (debounce) so brief silence gaps
 // within a speech segment don't cause false ends.
@@ -49,14 +68,23 @@ func (e Event) String() string {
 // Events() channel.
 type Streamer struct {
 	detector Detector
-	cfg      Config
+	cfg      StreamerConfig
 
-	mu          sync.Mutex
+	mu           sync.Mutex
 	speechActive bool
 	frameIndex   int
 	speechFrames int // consecutive speech frames
 	silenceFrames int // consecutive non-speech frames in hangover
 	lastEvent    Event
+
+	// Pre-speech audio buffer (ring buffer of PCM frames).
+	preSpeechBuf   [][]byte
+	preSpeechIdx   int
+	preSpeechCount int
+
+	// Hot-path reads use atomics to avoid mutex contention.
+	speechActiveAtomic atomic.Bool
+	frameIndexAtomic   atomic.Int64
 
 	eventCh chan Event
 	done    chan struct{}
@@ -67,20 +95,40 @@ type Streamer struct {
 // debounce).
 func NewStreamer(detector Detector, cfg Config) *Streamer {
 	cfg.validate()
-	return &Streamer{
+	return newStreamerInternal(detector, StreamerConfig{
+		MinSpeechFrames: cfg.MinSpeechFrames,
+		HangoverFrames:  cfg.HangoverFrames,
+	})
+}
+
+// NewStreamerExplicit creates a streaming VAD state machine with explicit
+// StreamerConfig, including PreSpeechBufferFrames.
+func NewStreamerExplicit(detector Detector, cfg StreamerConfig) *Streamer {
+	return newStreamerInternal(detector, cfg)
+}
+
+// newStreamerInternal is the shared constructor.
+func newStreamerInternal(detector Detector, cfg StreamerConfig) *Streamer {
+	if cfg.MinSpeechFrames <= 0 {
+		cfg.MinSpeechFrames = 3
+	}
+	if cfg.HangoverFrames <= 0 {
+		cfg.HangoverFrames = 15
+	}
+	s := &Streamer{
 		detector: detector,
 		cfg:      cfg,
 		eventCh:  make(chan Event, 16),
 		done:     make(chan struct{}),
 	}
+	if cfg.PreSpeechBufferFrames > 0 {
+		s.preSpeechBuf = make([][]byte, cfg.PreSpeechBufferFrames)
+	}
+	return s
 }
 
 // ProcessFrame feeds a PCM16 LE frame to the detector and updates the state
 // machine. Returns the FrameResult from the underlying detector.
-//
-// If the frame triggers a state transition, an Event is sent to the Events()
-// channel (non-blocking; if the channel is full the event is dropped and
-// the lastEvent field is still updated).
 func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 	if s == nil || s.detector == nil {
 		return FrameResult{}, errors.New("vad: nil streamer or detector")
@@ -93,11 +141,24 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 
 	s.mu.Lock()
 	s.frameIndex++
+	s.frameIndexAtomic.Store(int64(s.frameIndex))
 	event := Event{
-		Type:       EventNone,
-		Timestamp:  result.Timestamp,
-		FrameIndex: s.frameIndex,
+		Type:        EventNone,
+		Timestamp:   result.Timestamp,
+		FrameIndex:  s.frameIndex,
 		Probability: result.Probability,
+	}
+
+	// Buffer pre-speech audio (ring buffer).
+	if s.preSpeechBuf != nil && !s.speechActive {
+		// Copy the PCM data to avoid aliasing.
+		pcmCopy := make([]byte, len(pcm))
+		copy(pcmCopy, pcm)
+		s.preSpeechBuf[s.preSpeechIdx] = pcmCopy
+		s.preSpeechIdx = (s.preSpeechIdx + 1) % len(s.preSpeechBuf)
+		if s.preSpeechCount < len(s.preSpeechBuf) {
+			s.preSpeechCount++
+		}
 	}
 
 	if result.IsSpeech {
@@ -106,6 +167,7 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 
 		if !s.speechActive && s.speechFrames >= s.cfg.MinSpeechFrames {
 			s.speechActive = true
+			s.speechActiveAtomic.Store(true)
 			event.Type = EventSpeechStart
 		}
 	} else {
@@ -114,6 +176,7 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 			s.silenceFrames++
 			if s.silenceFrames >= s.cfg.HangoverFrames {
 				s.speechActive = false
+				s.speechActiveAtomic.Store(false)
 				s.silenceFrames = 0
 				event.Type = EventSpeechEnd
 			}
@@ -123,10 +186,14 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 	if event.Type != EventNone {
 		s.lastEvent = event
 		// On SpeechEnd, reset the underlying detector to clear LSTM state
-		// (Silero) and adaptive noise floor (Energy). This prevents state
-		// saturation across speech segments in long-running streams.
+		// (Silero) and adaptive noise floor (Energy).
 		if event.Type == EventSpeechEnd && s.detector != nil {
 			s.detector.Reset()
+		}
+		// Clear pre-speech buffer on speech end.
+		if event.Type == EventSpeechEnd {
+			s.preSpeechCount = 0
+			s.preSpeechIdx = 0
 		}
 		s.mu.Unlock()
 		// Non-blocking send; drop if consumer is slow.
@@ -142,23 +209,20 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 }
 
 // Events returns a channel of speech state transitions.
-// The channel is buffered; events are dropped if the buffer is full.
 func (s *Streamer) Events() <-chan Event {
 	return s.eventCh
 }
 
 // IsSpeech returns the current speech state (after hangover smoothing).
+// Uses atomic read for lock-free hot-path access.
 func (s *Streamer) IsSpeech() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.speechActive
+	return s.speechActiveAtomic.Load()
 }
 
 // FrameIndex returns the total number of frames processed.
+// Uses atomic read for lock-free hot-path access.
 func (s *Streamer) FrameIndex() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.frameIndex
+	return int(s.frameIndexAtomic.Load())
 }
 
 // LastEvent returns the most recent transition event.
@@ -168,15 +232,46 @@ func (s *Streamer) LastEvent() Event {
 	return s.lastEvent
 }
 
+// PreSpeechAudio returns the buffered audio frames leading up to the most
+// recent SpeechStart event. The frames are in chronological order.
+//
+// This is useful when you need to capture the beginning of a speech segment
+// that was "eaten" by the MinSpeechFrames onset delay. The returned slice
+// is a copy; the caller may modify it freely.
+//
+// Returns nil if PreSpeechBufferFrames is 0 or no audio is buffered.
+func (s *Streamer) PreSpeechAudio() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.preSpeechCount == 0 {
+		return nil
+	}
+	out := make([][]byte, s.preSpeechCount)
+	// Read from ring buffer in chronological order.
+	start := s.preSpeechIdx - s.preSpeechCount
+	if start < 0 {
+		start += len(s.preSpeechBuf)
+	}
+	for i := 0; i < s.preSpeechCount; i++ {
+		idx := (start + i) % len(s.preSpeechBuf)
+		out[i] = append([]byte(nil), s.preSpeechBuf[idx]...)
+	}
+	return out
+}
+
 // Reset clears the state machine and underlying detector.
 func (s *Streamer) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.speechActive = false
+	s.speechActiveAtomic.Store(false)
 	s.speechFrames = 0
 	s.silenceFrames = 0
 	s.frameIndex = 0
+	s.frameIndexAtomic.Store(0)
 	s.lastEvent = Event{}
+	s.preSpeechCount = 0
+	s.preSpeechIdx = 0
 	if s.detector != nil {
 		s.detector.Reset()
 	}

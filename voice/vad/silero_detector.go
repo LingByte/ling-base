@@ -31,9 +31,14 @@ type SileroDetector struct {
 	sampleRate int
 	frameMs    int
 
-	// Buffer for accumulating samples when input frames don't match
-	// govad.SamplesPerFrame (512 samples).
+	// Ring buffer for accumulating samples when input frames don't match
+	// govad.SamplesPerFrame (512 samples). Using a pre-allocated buffer
+	// avoids per-frame heap allocations.
 	sampleBuf []float32
+
+	// inferenceFrame is a pre-allocated slice reused across ProcessFrame
+	// calls to avoid per-frame make([]float32, 512) allocations.
+	inferenceFrame []float32
 }
 
 // NewSileroDetector creates a Silero VAD detector with the given threshold.
@@ -48,10 +53,12 @@ func NewSileroDetector(threshold float64) (*SileroDetector, error) {
 		return nil, err
 	}
 	return &SileroDetector{
-		vad:        v,
-		threshold:  threshold,
-		sampleRate: 16000,
-		frameMs:    32, // 512 samples / 16000 Hz = 32ms
+		vad:            v,
+		threshold:      threshold,
+		sampleRate:     16000,
+		frameMs:        32, // 512 samples / 16000 Hz = 32ms
+		sampleBuf:      make([]float32, 0, govad.SamplesPerFrame*2),
+		inferenceFrame: make([]float32, govad.SamplesPerFrame),
 	}, nil
 }
 
@@ -85,9 +92,23 @@ func (s *SileroDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 		return FrameResult{Timestamp: time.Now()}, nil
 	}
 
-	// Convert PCM16 LE → float32 and append to buffer
-	samples := pcm16LEToFloat32(pcm)
-	s.sampleBuf = append(s.sampleBuf, samples...)
+	// Convert PCM16 LE → float32 and append to buffer.
+	// Inline conversion to avoid pcm16LEToFloat32 allocation.
+	n := len(pcm) / 2
+	// Grow sampleBuf if needed (rare; only when input frames are large).
+	if cap(s.sampleBuf) < len(s.sampleBuf)+n {
+		newCap := cap(s.sampleBuf) * 2
+		if newCap < len(s.sampleBuf)+n {
+			newCap = len(s.sampleBuf) + n
+		}
+		newBuf := make([]float32, len(s.sampleBuf), newCap)
+		copy(newBuf, s.sampleBuf)
+		s.sampleBuf = newBuf
+	}
+	for i := 0; i < n; i++ {
+		sample := int16(uint16(pcm[i*2]) | uint16(pcm[i*2+1])<<8)
+		s.sampleBuf = append(s.sampleBuf, float32(sample)/32768.0)
+	}
 
 	// Need exactly SamplesPerFrame (512) samples per inference call
 	needed := govad.SamplesPerFrame
@@ -99,12 +120,20 @@ func (s *SileroDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 		}, nil
 	}
 
-	// Run inference on the first 512 samples
-	frame := make([]float32, needed)
-	copy(frame, s.sampleBuf[:needed])
-	s.sampleBuf = s.sampleBuf[needed:]
+	// Copy first 512 samples into pre-allocated inference frame.
+	// We can't pass s.sampleBuf[:needed] directly to vad.Process because
+	// vad.Process may store the slice internally; using a stable buffer
+	// avoids aliasing issues.
+	copy(s.inferenceFrame, s.sampleBuf[:needed])
 
-	prob := float64(s.vad.Process(frame))
+	// Compact the remaining samples (shift left without allocation).
+	remaining := len(s.sampleBuf) - needed
+	if remaining > 0 {
+		copy(s.sampleBuf, s.sampleBuf[needed:])
+	}
+	s.sampleBuf = s.sampleBuf[:remaining]
+
+	prob := float64(s.vad.Process(s.inferenceFrame))
 	isSpeech := prob >= s.threshold
 
 	// Clamp probability to [0, 1]

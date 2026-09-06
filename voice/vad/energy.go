@@ -4,9 +4,9 @@
 package vad
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -17,8 +17,35 @@ import (
 var ErrInvalidDataType = errors.New("vad: invalid data type")
 
 // ──────────────────────────────────────────────
-// RMS + ZCR calculation
+// RMS + ZCR combined calculation (single pass)
 // ──────────────────────────────────────────────
+
+// rmsZcrPCM16LE computes both RMS amplitude and zero-crossing rate in a
+// single pass over the PCM16 LE data, avoiding two separate iterations.
+func rmsZcrPCM16LE(pcm []byte, maxZCR float64) (rms, zcr float64) {
+	n := len(pcm) / 2
+	if n < 2 {
+		return 0, 0
+	}
+
+	var sum float64
+	crossings := 0
+	var prev int16
+
+	for i := 0; i+1 < len(pcm); i += 2 {
+		sample := int16(binary.LittleEndian.Uint16(pcm[i : i+2]))
+		f := float64(sample)
+		sum += f * f
+		if i > 0 && (prev >= 0) != (sample >= 0) {
+			crossings++
+		}
+		prev = sample
+	}
+
+	rms = math.Sqrt(sum / float64(n))
+	zcr = float64(crossings) / float64(n-1)
+	return
+}
 
 // rmsPCM16LE computes the RMS amplitude of PCM16 little-endian audio.
 func rmsPCM16LE(pcm []byte) float64 {
@@ -36,8 +63,7 @@ func rmsPCM16LE(pcm []byte) float64 {
 }
 
 // zcrPCM16LE computes the zero-crossing rate (fraction of samples that
-// cross zero) of PCM16 little-endian audio. Voiced speech has low ZCR;
-// noise has high ZCR. This helps distinguish speech from steady tones.
+// cross zero) of PCM16 little-endian audio.
 func zcrPCM16LE(pcm []byte) float64 {
 	if len(pcm) < 4 {
 		return 0
@@ -58,38 +84,19 @@ func zcrPCM16LE(pcm []byte) float64 {
 	return float64(crossings) / float64(n-1)
 }
 
-// pcm16LEToFloat32 converts PCM16 LE bytes to normalized float32 samples [-1, 1].
-func pcm16LEToFloat32(pcm []byte) []float32 {
-	n := len(pcm) / 2
-	if n == 0 {
-		return nil
-	}
-	out := make([]float32, n)
-	for i := 0; i < n; i++ {
-		s := int16(binary.LittleEndian.Uint16(pcm[i*2 : i*2+2]))
-		out[i] = float32(s) / 32768.0
-	}
-	return out
-}
-
 // ──────────────────────────────────────────────
 // PlaybackGate (for barge-in)
 // ──────────────────────────────────────────────
 
-// playbackGate tracks downlink TTS activity for echo suppression and barge-in.
 type playbackGate struct {
 	isPlaying   func() bool
 	queueDepth  func() int
 	tail        time.Duration
-	lastActiveN atomic.Int64 // unix nanos
+	lastActiveN atomic.Int64
 }
 
 func newPlaybackGate(isPlaying func() bool, queueDepth func() int, tail time.Duration) *playbackGate {
-	return &playbackGate{
-		isPlaying:  isPlaying,
-		queueDepth: queueDepth,
-		tail:       tail,
-	}
+	return &playbackGate{isPlaying: isPlaying, queueDepth: queueDepth, tail: tail}
 }
 
 func (g *playbackGate) isStreaming() bool {
@@ -97,7 +104,7 @@ func (g *playbackGate) isStreaming() bool {
 		return false
 	}
 	if g.isPlaying != nil && g.isPlaying() {
-		g.markActive()
+		g.lastActiveN.Store(time.Now().UnixNano())
 		return true
 	}
 	return false
@@ -117,14 +124,6 @@ func (g *playbackGate) isBargeInWindow() bool {
 	if g.isStreaming() || g.isQueued() {
 		return true
 	}
-	return g.inTail()
-}
-
-func (g *playbackGate) isEchoSuppressActive() bool {
-	return g.isBargeInWindow()
-}
-
-func (g *playbackGate) inTail() bool {
 	if g.tail <= 0 {
 		return false
 	}
@@ -133,10 +132,6 @@ func (g *playbackGate) inTail() bool {
 		return false
 	}
 	return time.Since(time.Unix(0, last)) < g.tail
-}
-
-func (g *playbackGate) markActive() {
-	g.lastActiveN.Store(time.Now().UnixNano())
 }
 
 func (g *playbackGate) reset() {
@@ -151,14 +146,14 @@ func (g *playbackGate) reset() {
 
 // EnergyConfig configures the energy-based VAD detector.
 type EnergyConfig struct {
-	SampleRate      int    // 8000 or 16000
-	FrameDurationMs int    // 10, 20, or 30
+	SampleRate      int     // 8000 or 16000
+	FrameDurationMs int     // 10, 20, or 30
 	Threshold       float64 // RMS threshold (0 = auto-calibrate)
-	MinSpeechFrames int    // consecutive frames to trigger speech
-	HangoverFrames  int    // consecutive silence frames before speech end
+	MinSpeechFrames int     // consecutive frames to trigger speech
+	HangoverFrames  int     // consecutive silence frames before speech end
 	MaxZCR          float64 // max zero-crossing rate for speech (0.0-1.0, 0 = disable ZCR check)
-	AdaptiveNoise   bool   // enable adaptive noise floor
-	MaxNoiseSamples int    // max samples for noise floor estimation
+	AdaptiveNoise   bool    // enable adaptive noise floor
+	MaxNoiseSamples int     // max samples for noise floor estimation
 }
 
 // DefaultEnergyConfig returns production-ready energy VAD defaults.
@@ -169,43 +164,37 @@ func DefaultEnergyConfig() EnergyConfig {
 		Threshold:       1500.0,
 		MinSpeechFrames: 3,
 		HangoverFrames:  15,
-		MaxZCR:          0.0, // disabled by default; enable for noisy environments
+		MaxZCR:          0.0,
 		AdaptiveNoise:   true,
 	}
 }
 
 // EnergyDetector is a production-grade energy + ZCR voice activity detector.
-//
-// It implements the Detector interface and can be used standalone or wrapped
-// in a Streamer for state-machine event emission.
-//
-// For barge-in (interrupt detection during TTS playback), use the legacy
-// CheckBargeIn method which integrates with a playbackGate.
 type EnergyDetector struct {
 	mu          sync.Mutex
 	cfg         EnergyConfig
 	sampleRate  int
 	frameMs     int
 
-	// Adaptive noise floor
-	noiseSamples    []float64
-	maxNoiseSamples int
+	// Adaptive noise floor — ring buffer to avoid slice front-shift.
+	noiseRing       []float64
+	noiseRingIdx    int
+	noiseRingFilled bool
+	noiseSum        float64 // running sum for O(1) average
 	noiseLevel      float64
 	adaptiveThreshold float64
 
-	// State
-	enabled           bool
-	frameCounter      int
-	armed             bool
+	enabled      bool
+	frameCounter int
+	armed        bool
 
 	// Barge-in integration
 	gate            *playbackGate
 	bargeInCallback func()
 	logger          func(string)
 
-	// For legacy barge-in polling
-	bargeIn atomic.Bool
-	playing atomic.Bool
+	bargeIn   atomic.Bool
+	playing   atomic.Bool
 	threshold atomic.Uint64 // float64 bits
 }
 
@@ -230,50 +219,39 @@ func NewEnergyDetectorWithConfig(cfg EnergyConfig) *EnergyDetector {
 		cfg.MaxNoiseSamples = 20
 	}
 	d := &EnergyDetector{
-		cfg:             cfg,
-		sampleRate:      cfg.SampleRate,
-		frameMs:         cfg.FrameDurationMs,
-		enabled:         true,
-		noiseSamples:    make([]float64, 0, cfg.MaxNoiseSamples),
-		maxNoiseSamples: cfg.MaxNoiseSamples,
+		cfg:           cfg,
+		sampleRate:    cfg.SampleRate,
+		frameMs:       cfg.FrameDurationMs,
+		enabled:       true,
+		noiseRing:     make([]float64, cfg.MaxNoiseSamples),
+		noiseRingIdx:  0,
+		noiseRingFilled: false,
 	}
 	d.threshold.Store(math.Float64bits(cfg.Threshold))
 	return d
 }
 
 // NewEnergyDetector builds a barge-in detector with sip-aligned defaults.
-// Uses defaultBargeInVADConfig (higher RMS + multi-frame) so TTS echo / line
-// noise is less likely to false-trigger interrupt during playback.
 func NewEnergyDetector() *EnergyDetector {
 	d := NewEnergyDetectorWithConfig(EnergyConfig{
 		SampleRate:      16000,
 		FrameDurationMs: 20,
-		Threshold:       5500.0, // barge-in tuned (higher)
+		Threshold:       5500.0,
 		MinSpeechFrames: 8,
 		HangoverFrames:  15,
 		AdaptiveNoise:   true,
 	})
 	d.gate = newPlaybackGate(func() bool { return d.playing.Load() }, nil, 0)
-	d.bargeIn.Store(false)
-	// Set default barge-in callback that sets the atomic flag.
 	d.bargeInCallback = func() { d.bargeIn.Store(true) }
 	return d
 }
 
-// Kind returns the engine kind.
-func (d *EnergyDetector) Kind() EngineKind { return EngineEnergy }
-
-// SampleRate returns the configured sample rate.
-func (d *EnergyDetector) SampleRate() int { return d.sampleRate }
-
-// FrameDuration returns the frame duration in milliseconds.
-func (d *EnergyDetector) FrameDuration() int { return d.frameMs }
-
-// Close releases resources (no-op for energy detector).
-func (d *EnergyDetector) Close() error { return nil }
+func (d *EnergyDetector) Kind() EngineKind      { return EngineEnergy }
+func (d *EnergyDetector) SampleRate() int        { return d.sampleRate }
+func (d *EnergyDetector) FrameDuration() int     { return d.frameMs }
+func (d *EnergyDetector) Close() error           { return nil }
 
 // ProcessFrame implements the Detector interface.
-// It analyzes a PCM16 LE frame and returns the detection result.
 func (d *EnergyDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 	if d == nil {
 		return FrameResult{}, errors.New("vad: nil detector")
@@ -285,10 +263,9 @@ func (d *EnergyDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	rms := rmsPCM16LE(pcm)
-	zcr := zcrPCM16LE(pcm)
+	// Single-pass RMS + ZCR computation.
+	rms, zcr := rmsZcrPCM16LE(pcm, d.cfg.MaxZCR)
 
-	// Update adaptive noise floor
 	if d.cfg.AdaptiveNoise {
 		d.updateNoiseFloor(rms)
 	}
@@ -296,8 +273,6 @@ func (d *EnergyDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 	threshold := d.effectiveThreshold()
 	isSpeech := rms > threshold
 
-	// ZCR filter: voiced speech has low ZCR. If enabled and ZCR is very high,
-	// it's likely noise even if RMS exceeds threshold.
 	if isSpeech && d.cfg.MaxZCR > 0 && zcr > d.cfg.MaxZCR {
 		isSpeech = false
 	}
@@ -323,7 +298,12 @@ func (d *EnergyDetector) Reset() {
 	defer d.mu.Unlock()
 	d.frameCounter = 0
 	d.armed = false
-	d.noiseSamples = d.noiseSamples[:0]
+	for i := range d.noiseRing {
+		d.noiseRing[i] = 0
+	}
+	d.noiseRingIdx = 0
+	d.noiseRingFilled = false
+	d.noiseSum = 0
 	d.noiseLevel = 0
 	d.adaptiveThreshold = 0
 	d.bargeIn.Store(false)
@@ -332,22 +312,36 @@ func (d *EnergyDetector) Reset() {
 	}
 }
 
+// updateNoiseFloor uses a ring buffer with running sum for O(1) updates.
 func (d *EnergyDetector) updateNoiseFloor(rms float64) {
 	if rms >= 350 {
 		return
 	}
-	d.noiseSamples = append(d.noiseSamples, rms)
-	if len(d.noiseSamples) > d.maxNoiseSamples {
-		d.noiseSamples = d.noiseSamples[1:]
+
+	// If ring is full, subtract the oldest value from the running sum.
+	if d.noiseRingFilled {
+		d.noiseSum -= d.noiseRing[d.noiseRingIdx]
 	}
-	var sum float64
-	for _, s := range d.noiseSamples {
-		sum += s
+
+	// Store new value and advance index.
+	d.noiseRing[d.noiseRingIdx] = rms
+	d.noiseSum += rms
+	d.noiseRingIdx++
+	if d.noiseRingIdx >= len(d.noiseRing) {
+		d.noiseRingIdx = 0
+		d.noiseRingFilled = true
 	}
-	if len(d.noiseSamples) == 0 {
+
+	// Compute average from running sum.
+	count := d.noiseRingIdx
+	if d.noiseRingFilled {
+		count = len(d.noiseRing)
+	}
+	if count == 0 {
 		return
 	}
-	d.noiseLevel = sum / float64(len(d.noiseSamples))
+
+	d.noiseLevel = d.noiseSum / float64(count)
 	d.adaptiveThreshold = d.noiseLevel * 4.0
 	if d.adaptiveThreshold < 180 {
 		d.adaptiveThreshold = 180
@@ -370,7 +364,6 @@ func (d *EnergyDetector) effectiveThreshold() float64 {
 // Barge-in API (legacy compatibility)
 // ──────────────────────────────────────────────
 
-// SetLogFunc attaches an optional log sink.
 func (d *EnergyDetector) SetLogFunc(fn func(string)) {
 	if d == nil {
 		return
@@ -380,12 +373,6 @@ func (d *EnergyDetector) SetLogFunc(fn func(string)) {
 	d.mu.Unlock()
 }
 
-// CheckBargeIn returns true when uplink PCM suggests the user is speaking
-// during synthesis playback. This is the legacy barge-in API.
-//
-// The detector uses a playbackGate to only consider barge-in while TTS is
-// actively playing. The internal vadComponent state machine requires
-// consecutiveFramesNeeded over-threshold frames before firing.
 func (d *EnergyDetector) CheckBargeIn(pcmData []byte, synthPlaying bool) bool {
 	if d == nil || len(pcmData) < 2 || !d.enabled {
 		return false
@@ -397,22 +384,20 @@ func (d *EnergyDetector) CheckBargeIn(pcmData []byte, synthPlaying bool) bool {
 		return false
 	}
 
-	// Process frame through the barge-in state machine
 	d.mu.Lock()
 	if d.gate == nil {
 		d.mu.Unlock()
 		return false
 	}
 
-	inWindow := d.gate.isBargeInWindow()
-	if !inWindow {
+	if !d.gate.isBargeInWindow() {
 		d.frameCounter = 0
 		d.armed = false
 		d.mu.Unlock()
 		return false
 	}
 
-	rms := rmsPCM16LE(pcmData)
+	rms, _ := rmsZcrPCM16LE(pcmData, 0)
 	if d.cfg.AdaptiveNoise {
 		d.updateNoiseFloor(rms)
 	}
@@ -425,7 +410,7 @@ func (d *EnergyDetector) CheckBargeIn(pcmData []byte, synthPlaying bool) bool {
 			d.armed = true
 			d.frameCounter = 0
 			if d.logger != nil {
-				d.logger(formatBargeInLog(rms, threshold))
+				d.logger(fmt.Sprintf("[VAD] barge-in: rms=%.0f threshold=%.0f", rms, threshold))
 			}
 			cb = d.bargeInCallback
 		}
@@ -438,7 +423,6 @@ func (d *EnergyDetector) CheckBargeIn(pcmData []byte, synthPlaying bool) bool {
 		cb()
 	}
 
-	// Check the barge-in flag (set by callback)
 	if d.bargeIn.Load() {
 		d.bargeIn.Store(false)
 		return true
@@ -446,11 +430,6 @@ func (d *EnergyDetector) CheckBargeIn(pcmData []byte, synthPlaying bool) bool {
 	return false
 }
 
-func formatBargeInLog(rms, threshold float64) string {
-	return fmtBargeIn(rms, threshold)
-}
-
-// SetBargeInCallback sets the callback invoked on barge-in detection.
 func (d *EnergyDetector) SetBargeInCallback(fn func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -462,7 +441,6 @@ func (d *EnergyDetector) SetBargeInCallback(fn func()) {
 	}
 }
 
-// SetEnabled turns detection on/off.
 func (d *EnergyDetector) SetEnabled(enabled bool) {
 	if d == nil {
 		return
@@ -477,12 +455,8 @@ func (d *EnergyDetector) SetEnabled(enabled bool) {
 	d.mu.Unlock()
 }
 
-// Enabled returns whether detection is enabled.
-func (d *EnergyDetector) Enabled() bool {
-	return d != nil && d.enabled
-}
+func (d *EnergyDetector) Enabled() bool { return d != nil && d.enabled }
 
-// Threshold returns the current RMS threshold.
 func (d *EnergyDetector) Threshold() float64 {
 	if d == nil {
 		return 0
@@ -490,15 +464,12 @@ func (d *EnergyDetector) Threshold() float64 {
 	return math.Float64frombits(d.threshold.Load())
 }
 
-// SetThreshold sets the RMS ceiling.
 func (d *EnergyDetector) SetThreshold(threshold float64) {
 	if d != nil {
 		d.threshold.Store(math.Float64bits(threshold))
 	}
 }
 
-// SetConsecutiveFrames sets how many consecutive over-threshold frames
-// trigger barge-in.
 func (d *EnergyDetector) SetConsecutiveFrames(frames int) {
 	if d == nil {
 		return
@@ -508,7 +479,6 @@ func (d *EnergyDetector) SetConsecutiveFrames(frames int) {
 	d.mu.Unlock()
 }
 
-// UserSpeechLikely reports uplink speech activity during listen windows.
 func (d *EnergyDetector) UserSpeechLikely(pcmData []byte) bool {
 	if d == nil || len(pcmData) < 2 || !d.enabled {
 		return false
@@ -531,55 +501,4 @@ func CalculateRMS(pcmData []byte) float64 {
 // CalculateZCR computes the zero-crossing rate for PCM16LE frames.
 func CalculateZCR(pcmData []byte) float64 {
 	return zcrPCM16LE(pcmData)
-}
-
-// ──────────────────────────────────────────────
-// Barge-in internal component (compatibility)
-// ──────────────────────────────────────────────
-
-// bargeInConfig is the legacy config type for barge-in VAD.
-type bargeInConfig struct {
-	Enabled                 bool
-	Threshold               float64
-	ConsecutiveFramesNeeded int
-	MaxNoiseSamples         int
-}
-
-func defaultBargeInVADConfig() bargeInConfig {
-	return bargeInConfig{
-		Enabled:                 true,
-		Threshold:               5500.0,
-		ConsecutiveFramesNeeded: 8,
-		MaxNoiseSamples:         20,
-	}
-}
-
-// fmtBargeIn formats a barge-in log line.
-func fmtBargeIn(rms, threshold float64) string {
-	return formatLog("[VAD] barge-in: rms=%.0f threshold=%.0f", rms, threshold)
-}
-
-func formatLog(format string, args ...interface{}) string {
-	return sprintf(format, args...)
-}
-
-// sprintf is a thin wrapper around fmt.Sprintf to avoid importing fmt at
-// package level when not needed. Kept as a function for testability.
-func sprintf(format string, args ...interface{}) string {
-	return sprintfImpl(format, args...)
-}
-
-// processBargeInFrame is the internal barge-in processing used by
-// CheckBargeIn. It exists to keep the legacy API working without the
-// old vadComponent/playbackGate indirection.
-func (d *EnergyDetector) processBargeInFrame(ctx context.Context, pcmData []byte) (bool, error) {
-	_ = ctx
-	if d == nil || len(pcmData) < 2 {
-		return false, nil
-	}
-	result, err := d.ProcessFrame(pcmData)
-	if err != nil {
-		return false, err
-	}
-	return result.IsSpeech, nil
 }

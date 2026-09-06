@@ -823,3 +823,85 @@ func drainEvents(s *Streamer) []Event {
 
 // Ensure time import is used.
 var _ = time.Now
+
+// ─── PreSpeechBuffer tests ───
+
+func TestStreamer_PreSpeechBuffer(t *testing.T) {
+	det := NewEnergyDetectorWithConfig(EnergyConfig{
+		SampleRate:      16000,
+		FrameDurationMs: 20,
+		Threshold:       500,
+	})
+	defer det.Close()
+
+	stream := NewStreamerExplicit(det, StreamerConfig{
+		MinSpeechFrames:       3,
+		HangoverFrames:        5,
+		PreSpeechBufferFrames: 5,
+	})
+	defer stream.Close()
+
+	loud := loudPCMFrame()
+	silent := silentFrame(20, 16000)
+
+	// Feed 5 silent frames (fill pre-speech buffer)
+	for i := 0; i < 5; i++ {
+		stream.ProcessFrame(silent)
+	}
+
+	// Feed 5 loud frames (trigger speech start after 3)
+	for i := 0; i < 5; i++ {
+		stream.ProcessFrame(loud)
+	}
+
+	// Should have speech start event
+	if !stream.IsSpeech() {
+		t.Fatal("should be in speech state")
+	}
+
+	// Pre-speech audio should contain the last 5 frames before speech start
+	preAudio := stream.PreSpeechAudio()
+	if preAudio == nil {
+		t.Fatal("expected pre-speech audio")
+	}
+	// Should have 5 frames (the buffered silent frames + the first 2 loud frames
+	// before speech was declared)
+	if len(preAudio) != 5 {
+		t.Errorf("expected 5 pre-speech frames, got %d", len(preAudio))
+	}
+}
+
+func TestStreamer_PreSpeechBuffer_Disabled(t *testing.T) {
+	det := NewEnergyDetectorWithConfig(EnergyConfig{
+		SampleRate:      16000,
+		FrameDurationMs: 20,
+		Threshold:       500,
+	})
+	defer det.Close()
+
+	stream := NewStreamerExplicit(det, StreamerConfig{
+		MinSpeechFrames:       2,
+		HangoverFrames:        5,
+		PreSpeechBufferFrames: 0, // disabled
+	})
+	defer stream.Close()
+
+	stream.ProcessFrame(loudPCMFrame())
+	stream.ProcessFrame(loudPCMFrame())
+
+	if stream.PreSpeechAudio() != nil {
+		t.Error("expected nil when PreSpeechBufferFrames=0")
+	}
+}
+
+func TestStreamerExplicit_NilDetector(t *testing.T) {
+	stream := NewStreamerExplicit(nil, StreamerConfig{
+		MinSpeechFrames: 2,
+		HangoverFrames:  5,
+	})
+	defer stream.Close()
+	_, err := stream.ProcessFrame(loudPCMFrame())
+	if err == nil {
+		t.Fatal("expected error for nil detector")
+	}
+}
