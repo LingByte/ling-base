@@ -262,6 +262,9 @@
 | common/registry | `github.com/LingByte/ling-base/common/registry` | 服务注册与发现（Registry接口、内存实现、Consul实现、Watch监听） |
 | common/registry/consul | `github.com/LingByte/ling-base/common/registry/consul` | Consul服务注册发现后端（健康检查、自动注销、出站IP检测） |
 | common/dbs_json (StringArray/IntArray/JSONMap/JSONRaw) | `github.com/LingByte/ling-base/common` | GORM/SQL JSON自定义类型（字符串数组、整数数组、JSONMap、原始JSON） |
+| common/grpc | `github.com/LingByte/ling-base/common/grpc` | gRPC客户端/服务端辅助（Dial、连接池、拦截器、服务发现resolver） |
+| common/shutdown | `github.com/LingByte/ling-base/common/shutdown` | 优雅关闭编排器（信号监听、LIFO清理、超时、编程触发） |
+| common/batch | `github.com/LingByte/ling-base/common/batch` | 批处理聚合器（按数量/时间/手动触发flush、泛型、错误回调） |
 | common/timeutil | `github.com/LingByte/ling-base/common/timeutil` | 时间工具 |
 | common/mathutil | `github.com/LingByte/ling-base/common/mathutil` | 数学工具 |
 | common/netutil | `github.com/LingByte/ling-base/common/netutil` | 网络工具 |

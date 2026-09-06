@@ -138,6 +138,9 @@ use (
 	./common/rbac/gin
 	./common/registry
 	./common/registry/consul
+	./common/grpc
+	./common/shutdown
+	./common/batch
 	./common/random
 	./common/response
 	./common/response/gin
