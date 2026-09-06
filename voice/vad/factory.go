@@ -16,16 +16,24 @@ func NewDetector(kind EngineKind, cfg Config) (Detector, error) {
 
 	switch kind {
 	case EngineEnergy:
+		// Map [0,1] threshold to RMS scale. 0.5 → 1500 (default).
+		// Higher threshold values for noisy environments.
+		rmsThreshold := cfg.Threshold * 3000
+		if rmsThreshold < 100 {
+			rmsThreshold = 1500
+		}
 		energyCfg := EnergyConfig{
 			SampleRate:      cfg.SampleRate,
 			FrameDurationMs: cfg.FrameDurationMs,
-			Threshold:       cfg.Threshold * 3000, // map [0,1] → RMS scale
+			Threshold:       rmsThreshold,
 			MinSpeechFrames: cfg.MinSpeechFrames,
 			HangoverFrames:  cfg.HangoverFrames,
 			AdaptiveNoise:   true,
-		}
-		if energyCfg.Threshold < 100 {
-			energyCfg.Threshold = 1500
+			// Enable ZCR filter to reject high-frequency noise that exceeds
+			// the RMS threshold. Voiced speech has ZCR < 0.1; white noise
+			// has ZCR ~0.5. This significantly reduces false positives in
+			// noisy environments without affecting speech detection.
+			MaxZCR: 0.35,
 		}
 		return NewEnergyDetectorWithConfig(energyCfg), nil
 

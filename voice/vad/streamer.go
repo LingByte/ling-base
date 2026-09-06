@@ -122,6 +122,12 @@ func (s *Streamer) ProcessFrame(pcm []byte) (FrameResult, error) {
 
 	if event.Type != EventNone {
 		s.lastEvent = event
+		// On SpeechEnd, reset the underlying detector to clear LSTM state
+		// (Silero) and adaptive noise floor (Energy). This prevents state
+		// saturation across speech segments in long-running streams.
+		if event.Type == EventSpeechEnd && s.detector != nil {
+			s.detector.Reset()
+		}
 		s.mu.Unlock()
 		// Non-blocking send; drop if consumer is slow.
 		select {
