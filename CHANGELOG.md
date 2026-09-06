@@ -21,6 +21,17 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 
 ---
 
+## [common/qrcode] v0.2.0 — 2026-09-06
+
+### Added
+- 命名花式模版库：`Template` / `TemplateCategory`（`simple` / `classic` / `creative` / `custom`）
+- `BuiltinTemplates`、`ListTemplates`、`GetTemplate`、`RegisterTemplate`、`UnregisterTemplate`
+- `GenerateFromTemplate` / `SaveFromTemplate`（支持 `TemplateOverride` 覆盖 logo / 颜色等）
+- 内置约 36 个参数化样式预设（模块形状、定位点、纯色 / 渐变）
+- Playground「模版库」页与 WASM：`wasmQRCodeTemplates` / `wasmQRCodeFromTemplate`
+
+---
+
 ## P0 基础设施统一 & pentest 工具扩充 — 2026-09-02
 
 本轮发版涵盖 8 个提交（`d50b3ca`..`dd084f1`），涉及 common 审计修复、common 重复实现收敛、pentest 模块完善 + 45 个新工具、以及 P0 基础设施统一（HTTP 客户端 / 日志 / 哈希 / 随机）。
@@ -297,7 +308,7 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 | `common/jwtutil` | v0.1.0 | JWT 鉴权 |
 | `common/imageutil` | v0.1.0 | 图像处理（resize/crop/watermark/格式转换） |
 | `common/barcode` | v0.1.0 | 条形码生成 |
-| `common/qrcode` | v0.1.0 | 二维码生成 |
+| `common/qrcode` | v0.2.0 | 二维码生成（含花式模版库） |
 | `common/videoutil` | v0.1.0 | 视频处理 |
 | `common/audioutil` | v0.1.0 | 音频处理 |
 | `common/migration` | v0.1.0 | 数据库迁移支持 |

@@ -44,7 +44,7 @@ export const DEMO_META: Record<DemoId, DemoMeta> = {
   password: { id: 'password', kind: 'wasm', title: '密码哈希', description: 'Argon2id / Bcrypt 哈希与校验' },
   validate: { id: 'validate', kind: 'wasm', title: '数据校验', description: 'email / min / max / required 等规则' },
   jwt: { id: 'jwt', kind: 'wasm', title: 'JWT 令牌', description: '签发与验证 Access Token' },
-  qrcode: { id: 'qrcode', kind: 'wasm', title: '二维码生成', description: '标准 / 花式 QR（形状、颜色、渐变）' },
+  qrcode: { id: 'qrcode', kind: 'wasm', title: '二维码生成', description: '标准 / 花式 / 模版库 QR' },
   barcode: { id: 'barcode', kind: 'wasm', title: '条形码生成', description: 'Code128 / EAN-13 / DataMatrix 等' },
   idgen: { id: 'idgen', kind: 'wasm', title: 'ID 生成', description: 'UUID / Snowflake / ShortID' },
   random: { id: 'random', kind: 'wasm', title: '随机数', description: '字符串 / 密码 / 颜色 / UUID' },

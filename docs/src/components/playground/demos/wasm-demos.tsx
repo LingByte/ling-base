@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { callWasm } from '../wasm-loader';
 import { ResultBox, RunButton, inputClass, FieldLabel } from '../shared';
 
@@ -305,8 +305,16 @@ export function JwtDemo() {
   );
 }
 
+type QRTemplateMeta = { id: string; name: string; category: string };
+
+const QR_TEMPLATE_TABS: { id: string; label: string }[] = [
+  { id: 'simple', label: '黑白简约' },
+  { id: 'classic', label: '经典绚丽' },
+  { id: 'creative', label: '创意样式' },
+];
+
 export function QRCodeDemo() {
-  const [mode, setMode] = useState<'standard' | 'fancy'>('fancy');
+  const [mode, setMode] = useState<'standard' | 'fancy' | 'template'>('template');
   const [text, setText] = useState('https://github.com/LingByte/ling-base');
   const [size, setSize] = useState(256);
   const [moduleShape, setModuleShape] = useState('circle');
@@ -321,10 +329,30 @@ export function QRCodeDemo() {
   const [gradAngle, setGradAngle] = useState(45);
   const [gradStart, setGradStart] = useState('#1e40af');
   const [gradEnd, setGradEnd] = useState('#7c3aed');
+  const [templateCategory, setTemplateCategory] = useState('simple');
+  const [templates, setTemplates] = useState<QRTemplateMeta[]>([]);
+  const [templateId, setTemplateId] = useState('simple-dots');
   const [dataURL, setDataURL] = useState('');
   const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (mode !== 'template') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await callWasm('wasmQRCodeTemplates', templateCategory) as { templates?: QRTemplateMeta[] };
+        if (cancelled) return;
+        const list = r.templates ?? [];
+        setTemplates(list);
+        if (list.length) setTemplateId(list[0].id);
+      } catch {
+        if (!cancelled) setTemplates([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mode, templateCategory]);
 
   const run = useCallback(async () => {
     setLoading(true); setError(null); setResult(null); setDataURL('');
@@ -332,6 +360,8 @@ export function QRCodeDemo() {
       let r: { dataURL?: string };
       if (mode === 'standard') {
         r = await callWasm('wasmQRCode', text, size) as { dataURL?: string };
+      } else if (mode === 'template') {
+        r = await callWasm('wasmQRCodeFromTemplate', text, templateId) as { dataURL?: string };
       } else {
         const opts: Record<string, unknown> = {
           module: moduleShape,
@@ -355,22 +385,26 @@ export function QRCodeDemo() {
         r = await callWasm('wasmQRCodeFancy', text, JSON.stringify(opts)) as { dataURL?: string };
       }
       if (r.dataURL) setDataURL(r.dataURL);
-      setResult({ mode, text });
+      setResult(mode === 'template' ? { mode, text, templateId } : { mode, text });
     } catch (e) { setError(String(e)); } finally { setLoading(false); }
-  }, [mode, text, size, moduleShape, finderShape, level, fgColor, bgColor, bgTransparent, moduleWidth, borderWidth, useGradient, gradAngle, gradStart, gradEnd]);
+  }, [mode, text, size, templateId, moduleShape, finderShape, level, fgColor, bgColor, bgTransparent, moduleWidth, borderWidth, useGradient, gradAngle, gradStart, gradEnd]);
 
   return (
     <div className="space-y-4">
       <div>
         <h3 className="mb-1 font-semibold">二维码生成</h3>
-        <p className="text-sm text-fd-muted-foreground">common/qrcode — 标准 QR 与花式 QR（模块形状、定位点、颜色、渐变）</p>
+        <p className="text-sm text-fd-muted-foreground">common/qrcode — 标准 / 花式参数 / 命名模版</p>
       </div>
 
-      <div className="flex gap-2">
-        {(['standard', 'fancy'] as const).map((m) => (
+      <div className="flex flex-wrap gap-2">
+        {([
+          ['standard', '标准 QR'],
+          ['fancy', '自定义花式'],
+          ['template', '模版库'],
+        ] as const).map(([m, label]) => (
           <button key={m} type="button" onClick={() => setMode(m)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${mode === m ? 'bg-fd-primary text-fd-primary-foreground' : 'border border-fd-border hover:bg-fd-accent'}`}>
-            {m === 'standard' ? '标准 QR' : '花式 QR'}
+            {label}
           </button>
         ))}
       </div>
@@ -380,12 +414,40 @@ export function QRCodeDemo() {
         <input value={text} onChange={(e) => setText(e.target.value)} className={inputClass} />
       </label>
 
-      {mode === 'standard' ? (
+      {mode === 'standard' && (
         <label className="block">
           <FieldLabel>尺寸 (px)</FieldLabel>
           <input type="number" value={size} onChange={(e) => setSize(Number(e.target.value))} className={inputClass} min={64} max={512} />
         </label>
-      ) : (
+      )}
+
+      {mode === 'template' && (
+        <div className="space-y-3 rounded-lg border border-fd-border p-3">
+          <div className="flex flex-wrap gap-2">
+            {QR_TEMPLATE_TABS.map((tab) => (
+              <button key={tab.id} type="button" onClick={() => setTemplateCategory(tab.id)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${templateCategory === tab.id ? 'bg-fd-primary text-fd-primary-foreground' : 'border border-fd-border hover:bg-fd-accent'}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {templates.map((tmpl) => (
+              <button
+                key={tmpl.id}
+                type="button"
+                onClick={() => setTemplateId(tmpl.id)}
+                className={`rounded-md border px-2 py-2 text-left text-xs transition ${templateId === tmpl.id ? 'border-fd-primary bg-fd-accent' : 'border-fd-border hover:bg-fd-accent/50'}`}
+              >
+                <div className="font-medium">{tmpl.name}</div>
+                <div className="mt-0.5 truncate font-mono text-[10px] text-fd-muted-foreground">{tmpl.id}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {mode === 'fancy' && (
         <div className="space-y-3 rounded-lg border border-fd-border p-3">
           <div className="grid grid-cols-2 gap-3">
             <label>
@@ -462,7 +524,7 @@ export function QRCodeDemo() {
 
       <RunButton onClick={run} loading={loading} label="生成 QR 码" />
       {dataURL && (
-        <div className="flex justify-center rounded-lg border border-fd-border p-4" style={bgTransparent ? { background: 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px' } : undefined}>
+        <div className="flex justify-center rounded-lg border border-fd-border p-4" style={bgTransparent && mode === 'fancy' ? { background: 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px' } : undefined}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={dataURL} alt="QR Code" width={220} height={220} className="max-w-full" />
         </div>

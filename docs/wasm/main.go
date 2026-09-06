@@ -87,6 +87,8 @@ func main() {
 	// ─── QR Code ────────────────────────────────────────
 	register("wasmQRCode", wasmQRCode)
 	register("wasmQRCodeFancy", wasmQRCodeFancy)
+	register("wasmQRCodeTemplates", wasmQRCodeTemplates)
+	register("wasmQRCodeFromTemplate", wasmQRCodeFromTemplate)
 
 	// ─── Barcode ────────────────────────────────────────
 	register("wasmBarcode", wasmBarcode)
@@ -475,6 +477,41 @@ func wasmQRCodeFancy(args []js.Value) any {
 		"mode":    "fancy",
 		"dataURL": dataURL,
 		"options": req,
+	})
+}
+
+func wasmQRCodeTemplates(args []js.Value) any {
+	category := qrcode.TemplateCategory("")
+	if len(args) > 0 && args[0].String() != "" {
+		category = qrcode.TemplateCategory(args[0].String())
+	}
+	list := qrcode.ListTemplates(category)
+	items := make([]map[string]any, 0, len(list))
+	for _, t := range list {
+		items = append(items, map[string]any{
+			"id":       t.ID,
+			"name":     t.Name,
+			"category": string(t.Category),
+		})
+	}
+	return jsonResult(map[string]any{"templates": items})
+}
+
+func wasmQRCodeFromTemplate(args []js.Value) any {
+	if len(args) < 2 {
+		return jsonError(fmt.Errorf("need text and templateId"))
+	}
+	text := args[0].String()
+	templateID := args[1].String()
+	png, err := qrcode.GenerateFromTemplate(text, templateID)
+	if err != nil {
+		return jsonError(err)
+	}
+	dataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+	return jsonResult(map[string]any{
+		"mode":       "template",
+		"templateId": templateID,
+		"dataURL":    dataURL,
 	})
 }
 
