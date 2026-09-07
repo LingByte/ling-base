@@ -116,8 +116,8 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 	fmt.Println()
 	fmt.Println("\x1b[38;5;117m━━━ 初始化 Go module ━━━\x1b[0m")
 	if err := g.runGoMod(targetDir, spec.Module); err != nil {
-		fmt.Printf("  \x1b[33m[警告] go mod 初始化失败: %v\x1b[0m\n", err)
-		fmt.Println("  \x1b[38;5;245m请手动运行: go mod init && go mod tidy\x1b[0m")
+		fmt.Printf("  \x1b[33m[警告] %v\x1b[0m\n", err)
+		fmt.Println("  \x1b[38;5;245m项目文件已生成，但依赖未完全解析。请按上述提示操作后运行 go run ./cmd/...\x1b[0m")
 	} else {
 		fmt.Printf("  \x1b[32m[完成]\x1b[0m go mod init %s\n", spec.Module)
 	}
@@ -147,7 +147,6 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 	if targetDir != "." {
 		fmt.Printf("  \x1b[38;5;245mcd\x1b[0m %s\n", targetDir)
 	}
-	fmt.Println("  \x1b[38;5;245mgo mod tidy\x1b[0m")
 	fmt.Println("  \x1b[38;5;245mgo run ./cmd/...\x1b[0m")
 	if spec.Docker {
 		fmt.Printf("  \x1b[38;5;245mdocker build -t %s .\x1b[0m\n", spec.ProjectName())
@@ -170,12 +169,48 @@ func (g *Generator) runGoMod(dir, module string) error {
 		return err
 	}
 
-	cmd = exec.Command(goBin, "mod", "tidy")
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	_ = cmd.Run()
+	// Explicitly go get each LingByte submodule with its published version.
+	// This is necessary because `go mod tidy` cannot auto-discover submodules
+	// when the root module path is a prefix of the submodule path.
+	lingBaseImports := resolveLingBaseImports(dir)
+	if len(lingBaseImports) > 0 {
+		goGetLingBaseModules(dir, lingBaseImports)
+	}
 
+	// go mod tidy — capture output to detect failures
+	tidyCmd := exec.Command(goBin, "mod", "tidy")
+	tidyCmd.Dir = dir
+	tidyOut, err := tidyCmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("  \x1b[33m[警告] go mod tidy 失败\x1b[0m\n")
+		fmt.Println()
+		fmt.Println("  \x1b[38;5;245m可能原因: 部分 LingByte 子模块尚未发布到公共 Go module proxy\x1b[0m")
+		fmt.Println()
+		fmt.Println("  \x1b[38;5;117m解决方案（任选其一）:\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m1.\x1b[0m 使用 full 模式重新生成（复制源码，无需外部依赖）:")
+		fmt.Println("     \x1b[38;5;245mlingcli create <项目名> --mode full\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m2.\x1b[0m 手动添加 replace 指令指向本地 ling-base 源码:")
+		fmt.Println("     \x1b[38;5;245mgo mod edit -replace github.com/LingByte/ling-base=<本地路径>\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m3.\x1b[0m 等待 LingByte 子模块发布后重新运行:")
+		fmt.Println("     \x1b[38;5;245mgo mod tidy\x1b[0m")
+		fmt.Println()
+		// Print first 10 lines of error output for debugging
+		lines := strings.Split(string(tidyOut), "\n")
+		maxLines := 10
+		if len(lines) < maxLines {
+			maxLines = len(lines)
+		}
+		fmt.Println("  \x1b[38;5;245m错误详情（前几行）:\x1b[0m")
+		for i := 0; i < maxLines; i++ {
+			if lines[i] != "" {
+				fmt.Printf("  \x1b[38;5;245m%s\x1b[0m\n", lines[i])
+			}
+		}
+		fmt.Println()
+		return fmt.Errorf("go mod tidy 失败（模块未发布）")
+	}
+
+	fmt.Printf("  \x1b[32m[完成]\x1b[0m go mod tidy\n")
 	return nil
 }
 

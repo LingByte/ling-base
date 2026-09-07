@@ -174,7 +174,6 @@ User 模块特性:
 - 用户列表支持关键词搜索 + 角色/状态过滤
 - 表名常量定义在 `internal/constants/tables.go`
 
-{{- if .IsRBAC}}
 {{- if or .IsRBAC .IsMultiTenant .IsDDD}}
 ## 架构特性
 
