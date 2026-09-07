@@ -40,6 +40,10 @@ type TemplateData struct {
 	HasResponse       bool
 	HasI18n           bool
 	HasValidate       bool
+	HasStores         bool
+	HasCache          bool
+	HasLock           bool
+	HasRetry          bool
 	IsEnvConfig       bool
 	IsYAMLConfig      bool
 
@@ -174,6 +178,10 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		HasResponse:       spec.HasModule("response"),
 		HasI18n:           spec.HasModule("i18n"),
 		HasValidate:       spec.HasModule("validate"),
+		HasStores:         spec.HasModule("stores"),
+		HasCache:          spec.HasModule("cache"),
+		HasLock:           spec.HasModule("lock"),
+		HasRetry:          spec.HasModule("retry"),
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
 		Mode:              spec.Mode,
@@ -290,6 +298,12 @@ func getFeatures(id string) []string {
 			"配置文件管理 (YAML / .env，多环境，支持环境变量覆盖)",
 			"数据库支持 (MySQL / PostgreSQL / SQLite，GORM)",
 			"统一响应封装 (ling-base/common/response)",
+			"数据校验 (ling-base/common/validate，结构体标签驱动)",
+			"对象存储 (ling-base/stores，默认 local 后端，可切换 S3/OSS/COS 等)",
+			"文件上传/下载 API (/api/v1/files)",
+			"缓存 (ling-base/common/cache，默认 memory 后端，可切换 Redis)",
+			"分布式锁 (ling-base/common/lock，默认 memory 后端，可切换 Redis/Etcd)",
+			"重试策略 (ling-base/common/retry，指数退避/固定间隔)",
 			"优雅关闭 (Graceful Shutdown)",
 			"健康检查接口 (/health)",
 			"Bootstrap 启动框架 (Banner / 生命周期 / 事件)",
@@ -354,6 +368,7 @@ func getStructureTree(templateID, projectName string) string {
 │   ├── handlers/
 │   │   ├── urls.go              # 路由注册（humax.Group / Gin）
 │   │   ├── handler.go           # HTTP 处理器实现
+│   │   ├── storage.go           # 文件上传/下载/删除 handler
 │   │   ├── auth.go              # JWT 鉴权 handler（可选）
 │   │   └── handler_test.go
 │   ├── middlewares/
@@ -379,6 +394,7 @@ func getStructureTree(templateID, projectName string) string {
 ├── skills/                      # AI 开发技能（TDD/代码审查/调试等）
 ├── i18n/
 │   └── translations/            # 翻译文件
+├── uploads/                     # 本地文件存储根目录（local 后端）
 ├── .github/workflows/ci.yml     # GitHub Actions CI（或 .gitlab-ci.yml / Jenkinsfile）
 ├── .air.toml                    # Air 热重载配置
 ├── .dockerignore

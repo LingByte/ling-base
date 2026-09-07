@@ -1,0 +1,167 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+{{- if .HasStores}}
+
+package handlers
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"{{.Module}}/internal/types"
+
+	"github.com/LingByte/ling-base/common/response"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	"github.com/gin-gonic/gin"
+)
+
+// ──────────────────────────────────────────────
+// 文件上传 / 下载 / 删除
+// ──────────────────────────────────────────────
+
+// UploadFile 处理文件上传。
+// 表单字段名: file（multipart/form-data）
+// 可选字段: dir（子目录，如 "avatars"）
+//
+// 上传流程:
+//  1. 校验文件大小（不超过 cfg.Storage.MaxFileSize）
+//  2. 生成唯一 key（dir + 时间戳 + 原始文件名）
+//  3. 调用 stores.Store.Write 存储
+//  4. 返回 key + publicURL
+func (h *Handlers) UploadFile(c *gin.Context) {
+	if h.store == nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "存储未初始化"))
+		return
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "未提供文件: "+err.Error()))
+		return
+	}
+
+	// 校验文件大小
+	if h.cfg.Storage.MaxFileSize > 0 && file.Size > h.cfg.Storage.MaxFileSize {
+		respgin.WriteError(c, response.New(response.CodeBadRequest,
+			fmt.Sprintf("文件大小 %d 超过限制 %d", file.Size, h.cfg.Storage.MaxFileSize)))
+		return
+	}
+
+	// 可选子目录
+	dir := strings.TrimSpace(c.PostForm("dir"))
+	dir = sanitizePath(dir)
+
+	// 生成唯一 key: dir/20060102_150405_filename
+	filename := filepath.Base(file.Filename)
+	filename = sanitizePath(filename)
+	key := fmt.Sprintf("%s%s_%s", dir, time.Now().Format("20060102_150405"), filename)
+	if dir != "" {
+		key = fmt.Sprintf("%s/%s_%s", dir, time.Now().Format("20060102_150405"), filename)
+	}
+
+	// 打开上传文件
+	src, err := file.Open()
+	if err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "打开文件失败: "+err.Error()))
+		return
+	}
+	defer src.Close()
+
+	// 写入存储
+	if err := h.store.Write(key, src); err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "存储失败: "+err.Error()))
+		return
+	}
+
+	// 构造公开 URL
+	publicURL := h.store.PublicURL(key)
+	if h.cfg.Storage.PublicURLBase != "" {
+		publicURL = strings.TrimRight(h.cfg.Storage.PublicURLBase, "/") + "/" + key
+	}
+
+	respgin.Created(c, types.FileUploadResponse{
+		Key:       key,
+		Name:      filename,
+		Size:      file.Size,
+		PublicURL: publicURL,
+	})
+}
+
+// DownloadFile 处理文件下载。
+// 路径参数: key（存储 key）
+func (h *Handlers) DownloadFile(c *gin.Context) {
+	if h.store == nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "存储未初始化"))
+		return
+	}
+
+	key := c.Param("key")
+	if key == "" {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	reader, size, err := h.store.Read(key)
+	if err != nil {
+		respgin.WriteError(c, response.New(response.CodeNotFound, "文件不存在"))
+		return
+	}
+	defer reader.Close()
+
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filepath.Base(key)))
+	c.DataFromReader(200, size, "application/octet-stream", reader, nil)
+}
+
+// DeleteFile 处理文件删除。
+// 路径参数: key（存储 key）
+func (h *Handlers) DeleteFile(c *gin.Context) {
+	if h.store == nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "存储未初始化"))
+		return
+	}
+
+	key := c.Param("key")
+	if key == "" {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	// 检查文件是否存在
+	exists, err := h.store.Exists(key)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	if !exists {
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
+		return
+	}
+
+	if err := h.store.Delete(key); err != nil {
+		respgin.WriteError(c, response.New(response.CodeInternal, "删除失败: "+err.Error()))
+		return
+	}
+
+	respgin.NoContent(c)
+}
+
+// sanitizePath 清理路径，防止目录穿越。
+// 去除 ..、前导 / 等。
+func sanitizePath(p string) string {
+	p = strings.TrimSpace(p)
+	// 去除前导 /
+	p = strings.TrimPrefix(p, "/")
+	// 去除 ..
+	p = strings.ReplaceAll(p, "..", "")
+	// 去除连续 /
+	for strings.Contains(p, "//") {
+		p = strings.ReplaceAll(p, "//", "/")
+	}
+	return p
+}
+{{- else}}
+
+package handlers
+{{- end}}

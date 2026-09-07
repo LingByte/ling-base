@@ -70,6 +70,51 @@ i18n:
   fallbackLocale: en       # 回退语言（翻译缺失时使用）
   translationsPath: i18n/translations  # 翻译文件目录
 
+# 对象存储（ling-base/stores）— 内置模块
+# 默认 local 后端（本地文件系统，零云 SDK 依赖）。
+# 切换到云存储时，将 driver 改为对应值并 go get 驱动模块：
+#   go get github.com/LingByte/ling-base/stores/s3
+#   go get github.com/LingByte/ling-base/stores/oss
+storage:
+  driver: local            # local | s3 | oss | cos | minio | kodo | tos | obs | ks3
+  root: uploads            # local: 根目录; 云存储: bucket 名
+  region: ""               # 云存储区域
+  endpoint: ""             # 自定义端点（MinIO / S3 兼容）
+  accessKey: ""            # 云存储 AccessKey
+  secretKey: ""            # 云存储 SecretKey
+  publicUrlBase: ""        # 公网访问基址（留空用默认）
+  maxFileSize: 10485760    # 单文件最大字节数（10 MB，0 = 不限制）
+
+# 缓存（ling-base/common/cache）— 内置模块
+# 默认 memory 后端（进程内，零外部依赖）。
+# 切换到 Redis: go get github.com/LingByte/ling-base/common/cache/redis
+cache:
+  driver: memory           # memory | redis | bigcache | freecache | ristretto
+  defaultTTL: 10m          # 默认 TTL
+  cleanupInterval: 1m      # memory: GC 间隔
+  redisAddr: ""            # redis 后端专用（留空复用顶层 redis 配置）
+  redisPassword: ""
+  redisDB: 0
+
+# 分布式锁（ling-base/common/lock）— 内置模块
+# 默认 memory 后端（进程内，单实例）。
+# 切换到 Redis: go get github.com/LingByte/ling-base/common/lock/redis
+lock:
+  driver: memory           # memory | redis | etcd | zookeeper | consul | mysql | postgres
+  defaultTTL: 10s          # 默认锁 TTL
+  retryDelay: 50ms         # 获取锁重试间隔
+  redisAddr: ""            # redis 后端专用（留空复用顶层 redis 配置）
+  redisPassword: ""
+  redisDB: 0
+
+# 重试策略（ling-base/common/retry）— 内置模块
+retry:
+  maxAttempts: 3           # 最大尝试次数（含首次）
+  initialDelay: 100ms      # 初始退避延迟
+  maxDelay: 10s            # 退避上限
+  factor: "2.0"            # 退避乘数
+  jitter: true             # 是否启用抖动（避免惊群）
+
 app:
   name: {{.ProjectName}}
   environment: dev        # dev | test | prod（对应 constants.ENV_DEV / ENV_PROD）

@@ -24,6 +24,29 @@ type ProjectSpec struct {
 	Mode         string   // 生成模式: "lib"（引入库）或 "full"（复制源码到 pkg/）
 }
 
+// webAPIBuiltinModules 是 web-api 模板硬编码内置的模块列表。
+// 这些模块不可选 — 生成 web-api 项目时自动包含，交互流程中也不会询问。
+var webAPIBuiltinModules = []string{
+	"response",  // 统一响应封装
+	"validate",  // 数据校验
+	"stores",    // 对象存储（默认 local 后端）
+	"cache",     // 缓存（默认 memory 后端）
+	"lock",      // 分布式锁（默认 memory 后端）
+	"retry",     // 重试策略
+}
+
+// isBuiltinModule 检查某个模块 ID 是否为指定模板的内置模块。
+func isBuiltinModule(templateID, moduleID string) bool {
+	if templateID == "web-api" {
+		for _, id := range webAPIBuiltinModules {
+			if id == moduleID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // FillDefaults 填充未设置的字段。
 func (s *ProjectSpec) FillDefaults() {
 	if s.Module == "" {
@@ -48,9 +71,13 @@ func (s *ProjectSpec) FillDefaults() {
 	if s.Mode == "" {
 		s.Mode = "lib"
 	}
-	// web-api 模板自动集成 response 模块（统一响应封装）
-	if s.Template == "web-api" && !s.HasModule("response") {
-		s.Modules = append(s.Modules, "response")
+	// web-api 模板自动集成内置模块（不可选）
+	if s.Template == "web-api" {
+		for _, id := range webAPIBuiltinModules {
+			if !s.HasModule(id) {
+				s.Modules = append(s.Modules, id)
+			}
+		}
 	}
 }
 

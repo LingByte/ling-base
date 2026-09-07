@@ -10,6 +10,20 @@ import (
 	"strings"
 	"time"
 
+	{{- if .HasStores}}
+	"github.com/LingByte/ling-base/stores"
+	"github.com/LingByte/ling-base/stores/local"
+	{{- end}}
+	{{- if .HasCache}}
+	"github.com/LingByte/ling-base/common/cache"
+	cachememory "github.com/LingByte/ling-base/common/cache/memory"
+	{{- end}}
+	{{- if .HasLock}}
+	"github.com/LingByte/ling-base/common/lock/memory"
+	{{- end}}
+	{{- if .HasRetry}}
+	"github.com/LingByte/ling-base/common/retry"
+	{{- end}}
 	"gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -28,6 +42,10 @@ type Config struct {
 	Docs           DocsConfig           `yaml:"docs"`
 	JWT            JWTConfig            `yaml:"jwt"`
 	I18n           I18nConfig           `yaml:"i18n"`
+	Storage        StorageConfig        `yaml:"storage"`
+	Cache          CacheConfig          `yaml:"cache"`
+	Lock           LockConfig           `yaml:"lock"`
+	Retry          RetryConfig          `yaml:"retry"`
 	App            AppConfig            `yaml:"app"`
 }
 
@@ -105,6 +123,53 @@ type AppConfig struct {
 	Environment string `yaml:"environment"` // dev, test, prod（对应 constants.ENV_DEV / ENV_PROD）
 }
 
+// StorageConfig 对象存储配置（ling-base/stores）。
+// 默认使用 local 后端（本地文件系统，零云 SDK 依赖）。
+// 切换到云存储时，将 driver 改为 s3/oss/cos/minio/kodo/tos/obs/ks3 并填入对应凭证。
+type StorageConfig struct {
+	Driver       string `yaml:"driver"`       // local | s3 | oss | cos | minio | kodo | tos | obs | ks3
+	Root         string `yaml:"root"`         // local: 根目录; 云存储: bucket 名
+	Region       string `yaml:"region"`       // 云存储区域
+	Endpoint     string `yaml:"endpoint"`     // 自定义端点（MinIO / 兼容 S3）
+	AccessKey    string `yaml:"accessKey"`    // 云存储 AccessKey
+	SecretKey    string `yaml:"secretKey"`    // 云存储 SecretKey
+	PublicURLBase string `yaml:"publicUrlBase"` // 公网访问基址（留空则用 PublicURL() 默认值）
+	MaxFileSize  int64  `yaml:"maxFileSize"`  // 单文件最大字节数（0 = 不限制）
+}
+
+// CacheConfig 缓存配置（ling-base/common/cache）。
+// 默认使用 memory 后端（进程内，零外部依赖）。
+type CacheConfig struct {
+	Driver          string `yaml:"driver"`          // memory | redis | bigcache | freecache | ristretto
+	DefaultTTL      string `yaml:"defaultTTL"`      // 默认 TTL（如 10m, 1h）
+	CleanupInterval string `yaml:"cleanupInterval"` // memory: GC 间隔
+	// Redis 后端专用（留空则复用顶层 redis 配置）
+	RedisAddr     string `yaml:"redisAddr"`
+	RedisPassword string `yaml:"redisPassword"`
+	RedisDB       int    `yaml:"redisDB"`
+}
+
+// LockConfig 分布式锁配置（ling-base/common/lock）。
+// 默认使用 memory 后端（进程内，单实例）。
+type LockConfig struct {
+	Driver     string `yaml:"driver"`     // memory | redis | etcd | zookeeper | consul | mysql | postgres
+	DefaultTTL string `yaml:"defaultTTL"` // 默认锁 TTL（如 10s, 30s）
+	RetryDelay string `yaml:"retryDelay"` // 获取锁重试间隔
+	// Redis 后端专用（留空则复用顶层 redis 配置）
+	RedisAddr     string `yaml:"redisAddr"`
+	RedisPassword string `yaml:"redisPassword"`
+	RedisDB       int    `yaml:"redisDB"`
+}
+
+// RetryConfig 重试策略配置（ling-base/common/retry）。
+type RetryConfig struct {
+	MaxAttempts    int    `yaml:"maxAttempts"`    // 最大尝试次数（含首次）
+	InitialDelay   string `yaml:"initialDelay"`   // 初始退避延迟
+	MaxDelay       string `yaml:"maxDelay"`       // 退避上限
+	Factor         string `yaml:"factor"`         // 退避乘数（如 2.0）
+	Jitter         bool   `yaml:"jitter"`         // 是否启用抖动
+}
+
 // Default 返回默认配置。
 func Default() *Config {
 	return &Config{
@@ -164,6 +229,28 @@ func Default() *Config {
 			SupportedLocales: []string{"en", "zh-CN"},
 			FallbackLocale:   "en",
 			TranslationsPath: "i18n/translations",
+		},
+		Storage: StorageConfig{
+			Driver:      "local",
+			Root:        "uploads",
+			MaxFileSize: 10 * 1024 * 1024, // 10 MB
+		},
+		Cache: CacheConfig{
+			Driver:          "memory",
+			DefaultTTL:      "10m",
+			CleanupInterval: "1m",
+		},
+		Lock: LockConfig{
+			Driver:     "memory",
+			DefaultTTL: "10s",
+			RetryDelay: "50ms",
+		},
+		Retry: RetryConfig{
+			MaxAttempts:  3,
+			InitialDelay: "100ms",
+			MaxDelay:     "10s",
+			Factor:       "2.0",
+			Jitter:       true,
 		},
 		App: AppConfig{
 			Name:        "{{.ProjectName}}",
@@ -367,6 +454,51 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("APP_I18N_TRANSLATIONS_PATH"); v != "" {
 		cfg.I18n.TranslationsPath = v
 	}
+	// Storage
+	if v := os.Getenv("APP_STORAGE_DRIVER"); v != "" {
+		cfg.Storage.Driver = v
+	}
+	if v := os.Getenv("APP_STORAGE_ROOT"); v != "" {
+		cfg.Storage.Root = v
+	}
+	if v := os.Getenv("APP_STORAGE_REGION"); v != "" {
+		cfg.Storage.Region = v
+	}
+	if v := os.Getenv("APP_STORAGE_ENDPOINT"); v != "" {
+		cfg.Storage.Endpoint = v
+	}
+	if v := os.Getenv("APP_STORAGE_ACCESS_KEY"); v != "" {
+		cfg.Storage.AccessKey = v
+	}
+	if v := os.Getenv("APP_STORAGE_SECRET_KEY"); v != "" {
+		cfg.Storage.SecretKey = v
+	}
+	if v := os.Getenv("APP_STORAGE_PUBLIC_URL_BASE"); v != "" {
+		cfg.Storage.PublicURLBase = v
+	}
+	// Cache
+	if v := os.Getenv("APP_CACHE_DRIVER"); v != "" {
+		cfg.Cache.Driver = v
+	}
+	if v := os.Getenv("APP_CACHE_DEFAULT_TTL"); v != "" {
+		cfg.Cache.DefaultTTL = v
+	}
+	// Lock
+	if v := os.Getenv("APP_LOCK_DRIVER"); v != "" {
+		cfg.Lock.Driver = v
+	}
+	if v := os.Getenv("APP_LOCK_DEFAULT_TTL"); v != "" {
+		cfg.Lock.DefaultTTL = v
+	}
+	// Retry
+	if v := os.Getenv("APP_RETRY_MAX_ATTEMPTS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Retry.MaxAttempts = n
+		}
+	}
+	if v := os.Getenv("APP_RETRY_INITIAL_DELAY"); v != "" {
+		cfg.Retry.InitialDelay = v
+	}
 }
 
 // InitDB 根据配置创建数据库连接。
@@ -398,3 +530,94 @@ func InitDB(cfg DatabaseConfig) (*gorm.DB, error) {
 
 	return db, nil
 }
+
+{{- if .HasStores}}
+
+// InitStorage 根据配置创建对象存储 Store（ling-base/stores）。
+// 默认 local 后端（零云 SDK 依赖）；切换 driver 时需要额外 go get 对应模块。
+//
+// 示例（切换到 S3）:
+//
+//	go get github.com/LingByte/ling-base/stores/s3
+//	然后在 switch 中加入 case "s3": return s3.New(s3.Config{...})
+func InitStorage(cfg StorageConfig) (stores.Store, error) {
+	switch cfg.Driver {
+	case "local", "":
+		return local.New(local.Config{
+			Root:       cfg.Root,
+			NewDirPerm: 0755,
+		}), nil
+	// ── 以下后端需要额外 go get 对应模块 ──
+	// case "s3":
+	//     return s3.New(s3.Config{Bucket: cfg.Root, Region: cfg.Region, AccessKey: cfg.AccessKey, SecretKey: cfg.SecretKey, Endpoint: cfg.Endpoint})
+	// case "oss":
+	//     return oss.New(oss.Config{Bucket: cfg.Root, Region: cfg.Region, AccessKey: cfg.AccessKey, SecretKey: cfg.SecretKey})
+	// case "cos":
+	//     return cos.New(cos.Config{Bucket: cfg.Root, Region: cfg.Region, SecretID: cfg.AccessKey, SecretKey: cfg.SecretKey})
+	// case "minio":
+	//     return minio.New(minio.Config{Bucket: cfg.Root, Endpoint: cfg.Endpoint, AccessKey: cfg.AccessKey, SecretKey: cfg.SecretKey})
+	default:
+		return nil, fmt.Errorf("不支持的存储驱动: %s（需先 go get 对应模块）", cfg.Driver)
+	}
+}
+{{- end}}
+
+{{- if .HasCache}}
+
+// InitCache 根据配置创建缓存实例（ling-base/common/cache）。
+// 默认 memory 后端（进程内，零外部依赖）；切换 driver 时需要额外 go get 对应模块。
+func InitCache(cfg CacheConfig) (cache.ByteCache, error) {
+	switch cfg.Driver {
+	case "memory", "":
+		cleanup, _ := time.ParseDuration(cfg.CleanupInterval)
+		if cleanup <= 0 {
+			cleanup = time.Minute
+		}
+		return cachememory.New[string, []byte](cachememory.WithCleanupInterval(cleanup)), nil
+	// ── 以下后端需要额外 go get 对应模块 ──
+	// case "redis":
+	//     addr := cfg.RedisAddr
+	//     if addr == "" { addr = /* 复用顶层 Redis 配置 */ }
+	//     return redis.New(redis.Config{Addr: addr, Password: cfg.RedisPassword, DB: cfg.RedisDB})
+	default:
+		return nil, fmt.Errorf("不支持的缓存驱动: %s（需先 go get 对应模块）", cfg.Driver)
+	}
+}
+{{- end}}
+
+{{- if .HasLock}}
+
+// InitLockManager 根据配置创建分布式锁管理器（ling-base/common/lock）。
+// 默认 memory 后端（进程内，单实例）；切换 driver 时需要额外 go get 对应模块。
+func InitLockManager(cfg LockConfig) (*memory.Manager, error) {
+	// memory 后端无需额外配置
+	return memory.NewManager(), nil
+}
+{{- end}}
+
+{{- if .HasRetry}}
+
+// InitRetryOptions 从配置构建 retry.Options。
+func InitRetryOptions(cfg RetryConfig) []retry.Option {
+	initialDelay, _ := time.ParseDuration(cfg.InitialDelay)
+	if initialDelay <= 0 {
+		initialDelay = 100 * time.Millisecond
+	}
+	maxDelay, _ := time.ParseDuration(cfg.MaxDelay)
+	if maxDelay <= 0 {
+		maxDelay = 10 * time.Second
+	}
+	factor := 2.0
+	if f, err := strconv.ParseFloat(cfg.Factor, 64); err == nil && f > 1.0 {
+		factor = f
+	}
+	attempts := cfg.MaxAttempts
+	if attempts <= 0 {
+		attempts = 3
+	}
+	return []retry.Option{
+		retry.WithMaxAttempts(attempts),
+		retry.WithExponentialBackoff(initialDelay, maxDelay, factor, cfg.Jitter),
+	}
+}
+{{- end}}

@@ -30,6 +30,9 @@ import (
 
 const cliVersion = "v0.14.0"
 
+// currentTemplate 记录当前交互流程选择的模板，供 askModulesOneByOne 跳过内置模块用。
+var currentTemplate string
+
 func main() {
 	if len(os.Args) < 2 {
 		printHelp()
@@ -231,6 +234,7 @@ func runInteractive(spec *ProjectSpec) {
 	} else {
 		fmt.Printf("\x1b[32m✓ 项目模板: %s\x1b[0m\n", spec.Template)
 	}
+	currentTemplate = spec.Template
 
 	// Module 路径。
 	if spec.Module == "" {
@@ -325,9 +329,13 @@ func runInteractive(spec *ProjectSpec) {
 
 	// 选择 ling-base 模块。
 	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 9/9: 集成 ling-base 模块 ━━━\x1b[0m")
-	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断/统一响应）")
-	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部 23 个模块")
-	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成任何模块")
+	if spec.Template == "web-api" {
+		fmt.Println("  \x1b[38;5;245m内置模块（自动包含）: 统一响应 / 数据校验 / 对象存储 / 缓存 / 分布式锁 / 重试\x1b[0m")
+		fmt.Println()
+	}
+	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断）")
+	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部可选模块")
+	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成额外模块（仅内置模块）")
 	fmt.Println()
 	mode := p.Select("请选择模式", 3)
 
@@ -349,7 +357,7 @@ func runInteractive(spec *ProjectSpec) {
 		}
 		fmt.Printf("  \x1b[32m✓ 已选择: %s\x1b[0m\n", strings.Join(names, ", "))
 	} else {
-		fmt.Println("  \x1b[38;5;245m未选择任何模块\x1b[0m")
+		fmt.Println("  \x1b[38;5;245m未选择额外模块\x1b[0m")
 	}
 
 	// 确认。
@@ -373,12 +381,18 @@ func runInteractive(spec *ProjectSpec) {
 
 // askModulesOneByOne 逐个询问用户是否集成每个模块。
 // coreOnly=true 时只询问核心模块，false 时询问全部模块。
+// 内置模块（web-api 的 stores/cache/lock/retry/validate/response）会被跳过，
+// 因为它们已自动包含。
 // 每个模块：回车=否，y=是。
 func askModulesOneByOne(p *Prompt, coreOnly bool) []string {
 	var selected []string
 	for i := range LingBaseModules {
 		m := &LingBaseModules[i]
 		if coreOnly && !m.Core {
+			continue
+		}
+		// 跳过当前模板的内置模块（已自动包含，无需询问）
+		if isBuiltinModule(currentTemplate, m.ID) {
 			continue
 		}
 		if p.ConfirmModule(m.Name, m.Description) {

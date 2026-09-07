@@ -48,6 +48,31 @@ jwt:
   accessTTL: 15m
   refreshTTL: 168h
 
+# 生产环境切换到云存储（示例: S3）
+# 需先: go get github.com/LingByte/ling-base/stores/s3
+storage:
+  driver: local            # 生产环境改为 s3/oss/cos 等
+  root: uploads
+  maxFileSize: 104857600   # 100 MB
+
+# 生产环境切换到 Redis 缓存
+# 需先: go get github.com/LingByte/ling-base/common/cache/redis
+cache:
+  driver: memory           # 生产环境改为 redis
+  defaultTTL: 5m
+
+# 生产环境切换到 Redis 分布式锁
+# 需先: go get github.com/LingByte/ling-base/common/lock/redis
+lock:
+  driver: memory           # 生产环境改为 redis
+  defaultTTL: 30s
+
+retry:
+  maxAttempts: 5
+  initialDelay: 200ms
+  maxDelay: 30s
+  jitter: true
+
 app:
   name: {{.ProjectName}}
   environment: prod

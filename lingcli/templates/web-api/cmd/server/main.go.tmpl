@@ -32,7 +32,10 @@ import (
 	"github.com/LingByte/ling-base/common/response"
 	{{- end}}
 	"github.com/LingByte/ling-base/common/logger"
-	"github.com/LingByte/ling-base/middleware"
+	{{- if .HasStores}}
+	"github.com/LingByte/ling-base/stores"
+	{{- end}}
+	"github.com/LingByte/ling-base/common/middleware"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -122,6 +125,44 @@ func main() {
 		}
 	}
 
+	{{- if .HasStores}}
+
+	// 初始化对象存储（ling-base/stores，默认 local 后端）
+	var store stores.Store
+	store, err = configs.InitStorage(cfg.Storage)
+	if err != nil {
+		logger.Lg.Error("对象存储初始化失败", zap.Error(err))
+		os.Exit(1)
+	}
+	info.Store = store
+	{{- end}}
+
+	{{- if .HasCache}}
+
+	// 初始化缓存（ling-base/common/cache，默认 memory 后端）
+	info.Cache, err = configs.InitCache(cfg.Cache)
+	if err != nil {
+		logger.Lg.Error("缓存初始化失败", zap.Error(err))
+		os.Exit(1)
+	}
+	{{- end}}
+
+	{{- if .HasLock}}
+
+	// 初始化分布式锁管理器（ling-base/common/lock，默认 memory 后端）
+	info.LockManager, err = configs.InitLockManager(cfg.Lock)
+	if err != nil {
+		logger.Lg.Error("分布式锁初始化失败", zap.Error(err))
+		os.Exit(1)
+	}
+	{{- end}}
+
+	{{- if .HasRetry}}
+
+	// 初始化重试策略选项（ling-base/common/retry）
+	info.RetryOpts = configs.InitRetryOptions(cfg.Retry)
+	{{- end}}
+
 	{{- if .HasCircuitBreaker}}
 
 	// 初始化超时+熔断管理器（ling-base/middleware）
@@ -175,6 +216,13 @@ func main() {
 		{{- end}}
 	})
 
+	{{- if .HasCache}}
+	// 注册缓存为生命周期组件（优雅关闭）
+	if info.Cache != nil {
+		app.Register("cache", &cacheComponent{cache: info.Cache})
+	}
+	{{- end}}
+
 	// 启动（阻塞直到收到关闭信号）
 	if err := app.Run(); err != nil {
 		logger.Lg.Error("应用启动失败", zap.Error(err))
@@ -198,6 +246,22 @@ type httpServerComponent struct {
 	i18nManager *i18n.Manager
 	{{- end}}
 }
+
+{{- if .HasCache}}
+
+// cacheComponent 包装缓存实例为 bootstrap 生命周期组件。
+type cacheComponent struct {
+	cache interface {
+		Close() error
+	}
+}
+
+func (c *cacheComponent) Start(ctx context.Context) error { return nil }
+func (c *cacheComponent) Stop(ctx context.Context) error {
+	return c.cache.Close()
+}
+func (c *cacheComponent) IsRunning() bool { return true }
+{{- end}}
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
 	// 生产环境用 Release 模式

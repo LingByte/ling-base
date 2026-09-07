@@ -76,6 +76,19 @@ lingcli version
 
 ## 可集成的 ling-base 模块
 
+### web-api 内置模块（自动包含，不可选）
+
+| 模块 ID | 说明 | 默认后端 |
+|---------|------|----------|
+| `response` | 统一 JSON 响应封装 + 错误码 | — |
+| `validate` | 结构体标签驱动数据校验 | — |
+| `stores` | 对象存储（文件上传/下载/删除 API） | local（本地文件系统） |
+| `cache` | 缓存抽象 | memory（进程内） |
+| `lock` | 分布式锁 | memory（进程内） |
+| `retry` | 重试策略（指数退避 + 抖动） | — |
+
+### 可选模块（交互式询问）
+
 | 模块 ID | 说明 |
 |---------|------|
 | `apidocs` | API 文档 UI + OpenAPI 3.1 spec |
@@ -83,15 +96,11 @@ lingcli version
 | `circuitbreaker` | 熔断 + 超时中间件 |
 | `middleware` | HTTP 中间件合集 |
 | `jwt` | JWT 鉴权 + 登录/刷新路由 |
-| `cache` | 缓存抽象 |
-| `lock` | 分布式锁 |
-| `retry` | 重试策略 |
 | `scheduler` | 分布式定时任务 |
 | `eventbus` | 本地事件总线 |
 | `stats` | 统计采集 |
 | `notification` | 通知调度 |
 | `mq` | 消息队列 |
-| `stores` | 对象存储 |
 | `search` | 全文搜索 |
 | `bloom` | 布隆过滤器 |
 | `captcha` | 验证码 |
@@ -104,19 +113,19 @@ lingcli version
 myapp/
 ├── cmd/server/main.go              # 入口
 ├── internal/
-│   ├── app/app.go                  # 启动 + 路由注册
-│   ├── auth/auth.go                # JWT 鉴权（选 jwt 时）
-│   ├── config/config.go            # 配置（YAML + 环境变量覆盖）
-│   ├── handler/handler.go          # HTTP 处理器（DTO 校验）
-│   ├── middleware/middleware.go    # 中间件
-│   ├── model/user.go               # 数据模型
-│   ├── repository/                 # DAO 层
-│   └── service/                    # 业务逻辑层
-├── pkg/response/                   # 统一响应封装
-├── configs/                        # YAML 配置
+│   ├── configs/config.go           # 配置 + Init 函数（DB/Storage/Cache/Lock/Retry）
+│   ├── handlers/
+│   │   ├── handler.go              # HTTP 处理器（系统端点 + 用户 CRUD）
+│   │   ├── storage.go              # 文件上传/下载/删除（ling-base/stores）
+│   │   ├── urls.go                 # 路由注册
+│   │   └── auth.go                 # JWT 鉴权（选 jwt 时）
+│   ├── middlewares/middleware.go   # 中间件
+│   ├── models/user.go              # 数据模型
+│   └── types/types.go              # 通用 DTO
+├── configs/                        # YAML 配置（含 storage/cache/lock/retry 段）
+├── uploads/                        # 本地文件存储根目录（local 后端）
 ├── .github/workflows/ci.yml        # CI
-├── Dockerfile                      # 多阶段构建
-├── docker-compose.yml              # App + MySQL + Redis
+├── docker/                         # Dockerfile + docker-compose.yml
 ├── Makefile                        # 构建命令
 └── README.md
 ```

@@ -28,6 +28,12 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 - 版本信息接口 (/api/v1/version)
 - 结构化日志 (zap + lumberjack 轮转)
 - 统一响应封装 (ling-base/common/response)
+- 数据校验 (ling-base/common/validate，结构体标签驱动)
+- 对象存储 (ling-base/stores，默认 local 后端，可切换 S3/OSS/COS/MinIO 等)
+- 文件上传/下载 API (/api/v1/files)
+- 缓存 (ling-base/common/cache，默认 memory 后端，可切换 Redis)
+- 分布式锁 (ling-base/common/lock，默认 memory 后端，可切换 Redis/Etcd)
+- 重试策略 (ling-base/common/retry，指数退避 + 抖动)
 - Docker 容器化部署 (多阶段构建 + HEALTHCHECK)
 - Docker Compose 一键编排 (App + MySQL + Redis)
 - Bootstrap 启动框架 (Banner / 生命周期 / 事件)
@@ -41,6 +47,37 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 - API 文档 UI (ling-base/apidocs，Scalar 主题)
 - OpenAPI 3.1 spec 自动生成 (/openapi.json, /openapi.yaml)
 {{- end}}
+
+## 内置基础设施
+
+本项目内置以下 ling-base 模块，开箱即用：
+
+| 模块 | 默认后端 | 切换方式 |
+|------|----------|----------|
+| 对象存储 (stores) | local（本地文件系统） | `go get github.com/LingByte/ling-base/stores/s3` + 修改 `storage.driver` |
+| 缓存 (cache) | memory（进程内） | `go get github.com/LingByte/ling-base/common/cache/redis` + 修改 `cache.driver` |
+| 分布式锁 (lock) | memory（进程内） | `go get github.com/LingByte/ling-base/common/lock/redis` + 修改 `lock.driver` |
+| 重试 (retry) | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
+| 数据校验 (validate) | 结构体标签驱动 | 在 DTO struct 上添加 `validate:"..."` 标签 |
+| 统一响应 (response) | JSON 封装 + 错误码 | 自动启用 |
+
+### 文件上传示例
+
+```bash
+# 上传文件
+curl -X POST http://localhost:{{.Port}}/api/v1/files/upload \
+  -F "file=@photo.jpg" \
+  -F "dir=avatars"
+
+# 响应:
+# {"code":0,"data":{"key":"avatars/20260107_120000_photo.jpg","name":"photo.jpg","size":102400,"publicUrl":"/uploads/avatars/20260107_120000_photo.jpg"}}
+
+# 下载文件
+curl -OJ http://localhost:{{.Port}}/api/v1/files/avatars/20260107_120000_photo.jpg
+
+# 删除文件
+curl -X DELETE http://localhost:{{.Port}}/api/v1/files/avatars/20260107_120000_photo.jpg
+```
 
 ## 快速开始
 
@@ -91,6 +128,7 @@ open http://localhost:{{.Port}}/docs
 │   ├── handlers/
 │   │   ├── urls.go              # 路由注册（humax.Group / Gin）
 │   │   ├── handler.go           # HTTP 处理器实现（系统端点 + 用户 CRUD）
+│   │   ├── storage.go           # 文件上传/下载/删除 handler（ling-base/stores）
 │   │   ├── auth.go              # JWT 鉴权 handler（可选，用 ling-base/common/jwtutil）
 │   │   └── handler_test.go
 │   ├── middlewares/
@@ -119,6 +157,7 @@ open http://localhost:{{.Port}}/docs
 │   └── README.md                # 迁移说明
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移辅助脚本
+├── uploads/                     # 本地文件存储根目录（stores/local 后端，自动创建）
 ├── skills/                      # AI 开发技能（TDD/代码审查/调试/领域建模等）
 │   ├── tdd/                     # 测试驱动开发
 │   ├── code-review/             # 代码审查

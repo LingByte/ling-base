@@ -86,3 +86,15 @@ type TokenResponse struct {
 	ExpiresIn    int64  `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 }
+
+// ──────────────────────────────────────────────
+// 文件存储相关 DTO
+// ──────────────────────────────────────────────
+
+// FileUploadResponse 文件上传成功响应。
+type FileUploadResponse struct {
+	Key       string `json:"key" example:"avatars/20260107_120000_photo.jpg"`
+	Name      string `json:"name" example:"photo.jpg"`
+	Size      int64  `json:"size" example:"102400"`
+	PublicURL string `json:"publicUrl" example:"/uploads/avatars/20260107_120000_photo.jpg"`
+}
