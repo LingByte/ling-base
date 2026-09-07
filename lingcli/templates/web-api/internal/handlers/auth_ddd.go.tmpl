@@ -15,6 +15,9 @@ import (
 	"{{.Module}}/internal/domain"
 	"{{.Module}}/internal/types"
 
+	{{- if or .IsRBAC .IsMultiTenant}}
+	"github.com/LingByte/ling-base/common/jwtutil"
+	{{- end}}
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	{{- if .HasValidate}}
@@ -61,7 +64,24 @@ func (h *Handlers) LoginDDD(c *gin.Context) {
 	}
 
 	// Issue JWT tokens
+	{{- if or .IsRBAC .IsMultiTenant}}
+	loginOpts := []jwtutil.IssueOption{}
+	{{- if .IsRBAC}}
+	// RBAC: include user's built-in role in JWT claims
+	if user.Role != "" {
+		loginOpts = append(loginOpts, jwtutil.WithRoles(user.Role))
+	}
+	{{- end}}
+	{{- if .IsMultiTenant}}
+	// Multi-tenant: include tenant ID in JWT extra claims
+	if user.TenantID > 0 {
+		loginOpts = append(loginOpts, jwtutil.WithExtra("tenant_id", user.TenantID))
+	}
+	{{- end}}
+	pair, err := h.jwtAuth.Login(user.Username, loginOpts...)
+	{{- else}}
 	pair, err := h.jwtAuth.Login(user.Username)
+	{{- end}}
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return

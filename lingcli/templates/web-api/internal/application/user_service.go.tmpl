@@ -53,6 +53,9 @@ type RegisterInput struct {
 	Email    string
 	Password string
 	Phone    string
+	{{- if .IsMultiTenant}}
+	TenantID uint // multi-tenant: tenant scope
+	{{- end}}
 }
 
 // Register creates a new user account.
@@ -89,6 +92,9 @@ func (s *UserAppService) Register(input RegisterInput) (*domain.User, error) {
 		Password: hashed,
 		Role:     domain.UserRoleUser,
 		Status:   domain.UserStatusActive,
+		{{- if .IsMultiTenant}}
+		TenantID: input.TenantID,
+		{{- end}}
 	}
 
 	if err := s.repo.Create(user); err != nil {
@@ -164,8 +170,8 @@ func (s *UserAppService) GetUser(id uint) (*domain.User, error) {
 }
 
 // ListUsers returns a paginated, filtered list of users.
-func (s *UserAppService) ListUsers(page, size int, keyword string, status *int, role string) ([]*domain.User, int64, error) {
-	return s.repo.List(page, size, keyword, status, role)
+func (s *UserAppService) ListUsers(page, size int, keyword string, status *int, role string{{- if .IsMultiTenant}}, tenantID uint{{- end}}) ([]*domain.User, int64, error) {
+	return s.repo.List(page, size, keyword, status, role{{- if .IsMultiTenant}}, tenantID{{- end}})
 }
 
 // CreateUserInput is the input for admin user creation.
@@ -175,6 +181,9 @@ type CreateUserInput struct {
 	Password string
 	Phone    string
 	Role     string
+	{{- if .IsMultiTenant}}
+	TenantID uint // multi-tenant: tenant scope
+	{{- end}}
 }
 
 // CreateUser creates a new user (admin endpoint, can set role).
@@ -204,6 +213,9 @@ func (s *UserAppService) CreateUser(input CreateUserInput) (*domain.User, error)
 		Password: hashed,
 		Role:     role,
 		Status:   domain.UserStatusActive,
+		{{- if .IsMultiTenant}}
+		TenantID: input.TenantID,
+		{{- end}}
 	}
 
 	if err := s.repo.Create(user); err != nil {

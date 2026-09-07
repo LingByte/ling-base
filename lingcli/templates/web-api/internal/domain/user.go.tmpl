@@ -33,6 +33,9 @@ type User struct {
 	Role        string
 	Status      int
 	LastLoginAt *int64
+	{{- if .IsMultiTenant}}
+	TenantID    uint // multi-tenant: tenant scope
+	{{- end}}
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -65,7 +68,7 @@ type UserRepository interface {
 	FindByUsername(username string) (*User, error)
 	FindByEmail(email string) (*User, error)
 	FindByUsernameOrEmail(username, email string) (*User, error)
-	List(page, size int, keyword string, status *int, role string) ([]*User, int64, error)
+	List(page, size int, keyword string, status *int, role string{{- if .IsMultiTenant}}, tenantID uint{{- end}}) ([]*User, int64, error)
 	Create(user *User) error
 	Update(user *User) error
 	UpdatePassword(id uint, hashedPassword string) error

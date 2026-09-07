@@ -11,18 +11,18 @@ import (
 
 // ProjectSpec 持有新项目的完整规格。
 type ProjectSpec struct {
-	Name         string   // 项目名称 / 目录名
-	Module       string   // Go module 路径 (如 github.com/me/myapp)
-	Template     string   // 项目模板 ID
-	Author       string   // 作者
-	Port         int      // 服务端口 (web-api / grpc-service)
-	Docker       bool     // 是否生成 Docker 部署文件
-	Git          bool     // 是否初始化 git
-	Modules      []string // 要集成的 ling-base 模块 ID 列表
-	ConfigFormat string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
-	CIPlatform   string   // CI 平台: "github" 或 "gitlab"（默认 github）
-	Mode         string   // 生成模式: "lib"（引入库）或 "full"（复制源码到 pkg/）
-	Architecture string   // 架构模式: "simple"(默认), "rbac", "abac", "multi-tenant", "ddd"
+	Name          string   // 项目名称 / 目录名
+	Module        string   // Go module 路径 (如 github.com/me/myapp)
+	Template      string   // 项目模板 ID
+	Author        string   // 作者
+	Port          int      // 服务端口 (web-api / grpc-service)
+	Docker        bool     // 是否生成 Docker 部署文件
+	Git           bool     // 是否初始化 git
+	Modules       []string // 要集成的 ling-base 模块 ID 列表
+	ConfigFormat  string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
+	CIPlatform    string   // CI 平台: "github" 或 "gitlab"（默认 github）
+	Mode          string   // 生成模式: "lib"（引入库）或 "full"（复制源码到 pkg/）
+	Architectures []string // 架构特性: "rbac", "multi-tenant", "ddd"（可组合，空=simple）
 }
 
 // webAPIBuiltinModules 是 web-api 模板硬编码内置的模块列表。
@@ -50,6 +50,36 @@ func isBuiltinModule(templateID, moduleID string) bool {
 	return false
 }
 
+// HasArch returns true if the given architecture feature is selected.
+func (s *ProjectSpec) HasArch(arch string) bool {
+	for _, a := range s.Architectures {
+		if a == arch {
+			return true
+		}
+	}
+	return false
+}
+
+// IsRBAC returns true if RBAC architecture is selected.
+func (s *ProjectSpec) IsRBAC() bool { return s.HasArch("rbac") }
+
+// IsMultiTenant returns true if multi-tenant architecture is selected.
+func (s *ProjectSpec) IsMultiTenant() bool { return s.HasArch("multi-tenant") }
+
+// IsDDD returns true if DDD architecture is selected.
+func (s *ProjectSpec) IsDDD() bool { return s.HasArch("ddd") }
+
+// IsSimpleArch returns true if no architecture features are selected.
+func (s *ProjectSpec) IsSimpleArch() bool { return len(s.Architectures) == 0 }
+
+// ArchString returns a human-readable architecture description.
+func (s *ProjectSpec) ArchString() string {
+	if len(s.Architectures) == 0 {
+		return "simple"
+	}
+	return strings.Join(s.Architectures, " + ")
+}
+
 // FillDefaults 填充未设置的字段。
 func (s *ProjectSpec) FillDefaults() {
 	if s.Module == "" {
@@ -73,9 +103,6 @@ func (s *ProjectSpec) FillDefaults() {
 	}
 	if s.Mode == "" {
 		s.Mode = "lib"
-	}
-	if s.Architecture == "" {
-		s.Architecture = "simple"
 	}
 	// web-api 模板自动集成内置模块（不可选）
 	if s.Template == "web-api" {
@@ -183,19 +210,23 @@ func (s *ProjectSpec) Summary() string {
 		}
 		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m生成模式:\x1b[0m    %s\n", modeDesc))
 	}
-	if s.Architecture != "" && s.Architecture != "simple" {
-		archDesc := s.Architecture
-		switch s.Architecture {
-		case "rbac":
-			archDesc = "rbac（基于角色的访问控制）"
-		case "abac":
-			archDesc = "abac（基于属性的访问控制）"
-		case "multi-tenant":
-			archDesc = "multi-tenant（多租户隔离）"
-		case "ddd":
-			archDesc = "ddd（领域驱动设计分层）"
+	if len(s.Architectures) > 0 {
+		var descs []string
+		for _, a := range s.Architectures {
+			switch a {
+			case "rbac":
+				descs = append(descs, "rbac（基于角色的访问控制）")
+			case "multi-tenant":
+				descs = append(descs, "multi-tenant（多租户隔离）")
+			case "ddd":
+				descs = append(descs, "ddd（领域驱动设计分层）")
+			default:
+				descs = append(descs, a)
+			}
 		}
-		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m架构模式:\x1b[0m    %s\n", archDesc))
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m架构特性:\x1b[0m    %s\n", strings.Join(descs, " + ")))
+	} else {
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m架构特性:\x1b[0m    simple（默认）\n"))
 	}
 	if len(s.Modules) > 0 {
 		var moduleNames []string

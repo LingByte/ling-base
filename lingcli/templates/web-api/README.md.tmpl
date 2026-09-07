@@ -175,6 +175,23 @@ User 模块特性:
 - 表名常量定义在 `internal/constants/tables.go`
 
 {{- if .IsRBAC}}
+{{- if or .IsRBAC .IsMultiTenant .IsDDD}}
+## 架构特性
+
+本项目使用了以下架构特性（可任意组合）:
+{{- if .IsRBAC}}
+- **RBAC** — 基于角色的访问控制
+{{- end}}
+{{- if .IsMultiTenant}}
+- **Multi-tenant** — 多租户隔离
+{{- end}}
+{{- if .IsDDD}}
+- **DDD** — 领域驱动设计分层
+{{- end}}
+
+{{- end}}
+
+{{- if .IsRBAC}}
 ### RBAC 权限管理 API
 
 ```bash

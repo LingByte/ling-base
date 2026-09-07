@@ -114,10 +114,24 @@ func (h *Handlers) Login(c *gin.Context) {
 	if user.Role != "" {
 		roleNames = append(roleNames, user.Role)
 	}
-	pair, err := h.jwtAuth.Login(user.Username,
+	loginOpts := []jwtutil.IssueOption{
 		jwtutil.WithRoles(roleNames...),
 		jwtutil.WithPermissions(permNames...),
-	)
+	}
+	{{- if .IsMultiTenant}}
+	// Multi-tenant: include tenant ID in JWT extra claims
+	if user.TenantID > 0 {
+		loginOpts = append(loginOpts, jwtutil.WithExtra("tenant_id", user.TenantID))
+	}
+	{{- end}}
+	pair, err := h.jwtAuth.Login(user.Username, loginOpts...)
+	{{- else if .IsMultiTenant}}
+	// Multi-tenant: include tenant ID in JWT extra claims
+	loginOpts := []jwtutil.IssueOption{}
+	if user.TenantID > 0 {
+		loginOpts = append(loginOpts, jwtutil.WithExtra("tenant_id", user.TenantID))
+	}
+	pair, err := h.jwtAuth.Login(user.Username, loginOpts...)
 	{{- else}}
 	pair, err := h.jwtAuth.Login(user.Username)
 	{{- end}}

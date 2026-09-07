@@ -8,6 +8,9 @@ import (
 	"strconv"
 
 	"{{.Module}}/internal/constants"
+	{{- if .HasJWT}}
+	"github.com/LingByte/ling-base/common/jwtutil"
+	{{- end}}
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,14 +28,23 @@ import (
 //	tenantGroup := r.Group("/api/v1/users", middlewares.TenantRequired())
 func TenantMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Try JWT claims first (set by jwtingin.Middleware)
 		var tenantID uint
 		{{- if .HasJWT}}
+		// Try JWT claims first (set by jwtingin.Middleware)
 		if claimsVal, exists := c.Get("jwt_claims"); exists {
-			if claims, ok := claimsVal.(interface {
-				GetTenantID() uint
-			}); ok {
-				tenantID = claims.GetTenantID()
+			if claims, ok := claimsVal.(*jwtutil.Claims); ok && claims.Extra != nil {
+				if v, ok := claims.Extra["tenant_id"]; ok {
+					switch val := v.(type) {
+					case float64:
+						tenantID = uint(val)
+					case uint:
+						tenantID = val
+					case int:
+						tenantID = uint(val)
+					case int64:
+						tenantID = uint(val)
+					}
+				}
 			}
 		}
 		{{- end}}

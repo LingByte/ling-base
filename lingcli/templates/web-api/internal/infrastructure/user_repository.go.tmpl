@@ -37,6 +37,9 @@ func toDomain(m *models.User) *domain.User {
 		Role:        m.Role,
 		Status:      m.Status,
 		LastLoginAt: m.LastLoginAt,
+		{{- if .IsMultiTenant}}
+		TenantID:    m.TenantID,
+		{{- end}}
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}
@@ -53,6 +56,9 @@ func toModel(u *domain.User) *models.User {
 		Role:        u.Role,
 		Status:      u.Status,
 		LastLoginAt: u.LastLoginAt,
+		{{- if .IsMultiTenant}}
+		TenantID:    u.TenantID,
+		{{- end}}
 	}
 }
 
@@ -106,8 +112,13 @@ func (r *GormUserRepository) FindByUsernameOrEmail(username, email string) (*dom
 	return toDomain(&m), nil
 }
 
-func (r *GormUserRepository) List(page, size int, keyword string, status *int, role string) ([]*domain.User, int64, error) {
+func (r *GormUserRepository) List(page, size int, keyword string, status *int, role string{{- if .IsMultiTenant}}, tenantID uint{{- end}}) ([]*domain.User, int64, error) {
 	query := r.db.Model(&models.User{})
+	{{- if .IsMultiTenant}}
+	if tenantID > 0 {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	{{- end}}
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		query = query.Where("username LIKE ? OR email LIKE ?", like, like)

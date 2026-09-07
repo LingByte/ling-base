@@ -84,7 +84,7 @@ func printHelp() {
 	fmt.Println("  --config-format <格式>  配置文件格式: yaml 或 env（默认 yaml）")
 	fmt.Println("  --ci <平台>             CI 平台: github, gitlab 或 jenkins（默认 github）")
 	fmt.Println("  --mode <模式>           生成模式: lib（引入库，默认）或 full（复制源码到 pkg/）")
-	fmt.Println("  --architecture <架构>   架构模式: simple(默认), rbac, multi-tenant, ddd")
+	fmt.Println("  --architecture <架构>   架构特性（逗号分隔可组合）: rbac, multi-tenant, ddd")
 	fmt.Println("  --ling-base-root <路径>  ling-base 源码根目录（full 模式用，默认自动检测）")
 	fmt.Println("  --docker                生成 Docker 部署文件（默认 true）")
 	fmt.Println("  --no-docker             不生成 Docker 部署文件")
@@ -108,7 +108,7 @@ func runCreate(args []string) {
 	configFormat := fs.String("config-format", "", "配置文件格式: yaml 或 env")
 	ciPlatform := fs.String("ci", "", "CI 平台: github, gitlab 或 jenkins")
 	mode := fs.String("mode", "", "生成模式: lib 或 full")
-	architecture := fs.String("architecture", "", "架构模式: simple, rbac, multi-tenant, ddd")
+	architecture := fs.String("architecture", "", "架构特性（逗号分隔，可组合）: rbac, multi-tenant, ddd")
 	lingBaseRoot := fs.String("ling-base-root", "", "ling-base 源码根目录（full 模式用）")
 	docker := fs.Bool("docker", true, "生成 Docker 部署文件")
 	git := fs.Bool("git", true, "初始化 git 仓库")
@@ -156,17 +156,25 @@ func runCreate(args []string) {
 	}
 
 	spec := &ProjectSpec{
-		Name:         target,
-		Module:       *module,
-		Author:       *author,
-		Port:         *port,
-		Docker:       *docker,
-		Git:          *git,
-		Template:     *tmpl,
-		ConfigFormat: *configFormat,
-		CIPlatform:   *ciPlatform,
-		Mode:         *mode,
-		Architecture: *architecture,
+		Name:          target,
+		Module:        *module,
+		Author:        *author,
+		Port:          *port,
+		Docker:        *docker,
+		Git:           *git,
+		Template:      *tmpl,
+		ConfigFormat:  *configFormat,
+		CIPlatform:    *ciPlatform,
+		Mode:          *mode,
+	}
+	// 解析 --architecture（逗号分隔）
+	if *architecture != "" {
+		for _, a := range strings.Split(*architecture, ",") {
+			a = strings.TrimSpace(a)
+			if a != "" && a != "simple" {
+				spec.Architectures = append(spec.Architectures, a)
+			}
+		}
 	}
 
 	// 解析 --modules
@@ -330,28 +338,36 @@ func runInteractive(spec *ProjectSpec) {
 		fmt.Printf("\x1b[32m✓ 生成模式: %s\x1b[0m\n", spec.Mode)
 	}
 
-	// 架构模式选择（仅 web-api）。
-	if spec.Template == "web-api" && spec.Architecture == "" {
-		fmt.Println("\n\x1b[38;5;117m━━━ 架构模式 ━━━\x1b[0m")
-		fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1msimple\x1b[0m       — 简单架构（默认，无权限/多租户/分层）")
-		fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1mrbac\x1b[0m         — 基于角色的访问控制（用户→角色→权限）")
-		fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1mmulti-tenant\x1b[0m — 多租户隔离（tenant_id 字段 + 自动过滤）")
-		fmt.Println("  \x1b[38;5;39m[4]\x1b[0m \x1b[1mddd\x1b[0m          — 领域驱动设计分层（handler→app→domain→infra）")
+	// 架构特性选择（仅 web-api，可多选组合）。
+	if spec.Template == "web-api" && len(spec.Architectures) == 0 {
+		fmt.Println("\n\x1b[38;5;117m━━━ 架构特性（可多选组合）━━━\x1b[0m")
+		fmt.Println("  \x1b[38;5;245m提示: 这些架构特性可以任意组合，例如 rbac + multi-tenant\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1mrbac\x1b[0m         — 基于角色的访问控制（用户→角色→权限）")
+		fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1mmulti-tenant\x1b[0m — 多租户隔离（tenant_id 字段 + 自动过滤）")
+		fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1mddd\x1b[0m          — 领域驱动设计分层（handler→app→domain→infra）")
+		fmt.Println("  \x1b[38;5;245m输入数字（逗号分隔），或直接回车跳过使用 simple\x1b[0m")
 		fmt.Println()
-		archIdx := p.Select("请选择架构模式", 4)
-		switch archIdx {
-		case 0:
-			spec.Architecture = "simple"
-		case 1:
-			spec.Architecture = "rbac"
-		case 2:
-			spec.Architecture = "multi-tenant"
-		case 3:
-			spec.Architecture = "ddd"
+		input := p.Input("请选择架构特性（逗号分隔，回车=simple）", "")
+		if input != "" {
+			for _, s := range strings.Split(input, ",") {
+				s = strings.TrimSpace(s)
+				switch s {
+				case "1", "rbac":
+					spec.Architectures = append(spec.Architectures, "rbac")
+				case "2", "multi-tenant":
+					spec.Architectures = append(spec.Architectures, "multi-tenant")
+				case "3", "ddd":
+					spec.Architectures = append(spec.Architectures, "ddd")
+				}
+			}
 		}
-		fmt.Printf("  \x1b[32m✓ 架构模式: %s\x1b[0m\n", spec.Architecture)
-	} else if spec.Architecture != "" {
-		fmt.Printf("\x1b[32m✓ 架构模式: %s\x1b[0m\n", spec.Architecture)
+		archDesc := spec.ArchString()
+		if archDesc == "simple" {
+			archDesc = "simple（默认）"
+		}
+		fmt.Printf("  \x1b[32m✓ 架构特性: %s\x1b[0m\n", archDesc)
+	} else if len(spec.Architectures) > 0 {
+		fmt.Printf("\x1b[32m✓ 架构特性: %s\x1b[0m\n", spec.ArchString())
 	}
 
 	// 选择 ling-base 模块。
