@@ -14,364 +14,189 @@ import (
 	"strings"
 )
 
-// ModuleSource 描述一个 ling-base 模块的源码位置和依赖。
-type ModuleSource struct {
-	// ID 是模块标识（与 LingBaseModules 中的 ID 对应）
-	ID string
-	// Dirs 是源码目录列表（相对于 ling-base 根目录）
-	// 例如: ["middleware"] 或 ["common/jwtutil", "common/jwtutil/gin"]
-	Dirs []string
-	// Deps 是依赖的其他模块 ID（传递依赖）
-	Deps []string
+// fullExcludeDirs are top-level directories in ling-base that are NOT copied
+// into the generated project's pkg/ directory in full mode.
+var fullExcludeDirs = map[string]bool{
+	"lingcli":  true, // the generator itself
+	"docs":     true, // documentation site
+	"example":  true, // examples
+	"pentest":  true, // penetration testing tools
+	".git":     true, // git metadata
+	"agentkit": true, // AI agent kit (heavy, separate concern)
 }
 
-// moduleSources 定义所有模块的源码映射。
-// full 模式下，这些目录的 .go 文件会被复制到 pkg/ 下。
-var moduleSources = map[string]ModuleSource{
-	"response": {
-		ID:   "response",
-		Dirs: []string{"common/response", "common/response/gin"},
-	},
-	"jwt": {
-		ID:   "jwt",
-		Dirs: []string{"common/jwtutil", "common/jwtutil/gin"},
-		Deps: []string{"crypto"},
-	},
-	"limiter": {
-		ID:   "limiter",
-		Dirs: []string{"common/limiter", "common/limiter/count", "common/limiter/tokenbucket", "common/limiter/keycount"},
-	},
-	"circuitbreaker": {
-		ID:   "circuitbreaker",
-		Dirs: []string{"common/circuitbreaker"},
-	},
-	"middleware": {
-		ID:   "middleware",
-		Dirs: []string{"common/middleware"},
-		Deps: []string{"logger", "constants", "response", "circuitbreaker", "crypto", "sanitize", "validate"},
-	},
-	"apidocs": {
-		ID:   "apidocs",
-		Dirs: []string{"apidocs", "apidocs/humax"},
-	},
-	"i18n": {
-		ID:   "i18n",
-		Dirs: []string{"common/i18n", "common/i18n/gin"},
-	},
-	"metrics": {
-		ID:   "metrics",
-		Dirs: []string{"common/metrics"},
-	},
-	"tracing": {
-		ID:   "tracing",
-		Dirs: []string{"common/tracing"},
-	},
-	"validate": {
-		ID:   "validate",
-		Dirs: []string{"common/validate"},
-		Deps: []string{"convert"},
-	},
-	"password": {
-		ID:   "password",
-		Dirs: []string{"common/password"},
-	},
-	"cache": {
-		ID:   "cache",
-		Dirs: []string{"common/cache", "common/cache/memory", "common/cache/lru"},
-	},
-	"lock": {
-		ID:   "lock",
-		Dirs: []string{"common/lock", "common/lock/memory"},
-	},
-	"retry": {
-		ID:   "retry",
-		Dirs: []string{"common/retry"},
-	},
-	"stores": {
-		ID:   "stores",
-		Dirs: []string{"stores", "stores/local"},
-	},
-	// 核心依赖（不直接选择，但被其他模块依赖）
-	"common": {
-		ID:   "common",
-		Dirs: []string{"common"},
-		Deps: []string{"constants", "idgen"},
-	},
-	"logger": {
-		ID:   "logger",
-		Dirs: []string{"common/logger", "common/logger/gin"},
-		Deps: []string{"constants"},
-	},
-	"constants": {
-		ID:   "constants",
-		Dirs: []string{"common/constants"},
-	},
-	"bootstrap": {
-		ID:   "bootstrap",
-		Dirs: []string{"bootstrap"},
-		Deps: []string{"logger", "constants", "eventbus", "version"},
-	},
-	"crypto": {
-		ID:   "crypto",
-		Dirs: []string{"common/crypto"},
-		Deps: []string{"hash"},
-	},
-	"eventbus": {
-		ID:   "eventbus",
-		Dirs: []string{"common/eventbus"},
-	},
-	"version": {
-		ID:   "version",
-		Dirs: []string{"version"},
-	},
-	"convert": {
-		ID:   "convert",
-		Dirs: []string{"common/convert"},
-	},
-	"hash": {
-		ID:   "hash",
-		Dirs: []string{"common/hash"},
-	},
-	"idgen": {
-		ID:   "idgen",
-		Dirs: []string{"common/idgen"},
-		Deps: []string{"random"},
-	},
-	"random": {
-		ID:   "random",
-		Dirs: []string{"common/random"},
-	},
-	"sanitize": {
-		ID:   "sanitize",
-		Dirs: []string{"common/sanitize"},
-	},
+// fullExcludeSubdirs are specific subdirectory paths to exclude (relative to
+// ling-base root). These are typically test-only or build artifacts.
+var fullExcludeSubdirs = map[string]bool{
+	"docs/wasm": true,
 }
 
-// coreModules 是 web-api 项目始终需要的核心模块（无论用户选了什么）。
-var coreModules = []string{"common", "logger", "constants", "bootstrap", "response", "middleware"}
-
-// collectModuleDirs 收集选中模块 + 核心模块 + 传递依赖的所有源码目录。
-func collectModuleDirs(selectedModules []string) []string {
-	// 用 map 去重
-	visited := map[string]bool{}
-	var dirs []string
-
-	var visit func(moduleID string)
-	visit = func(moduleID string) {
-		if visited[moduleID] {
-			return
-		}
-		visited[moduleID] = true
-
-		src, ok := moduleSources[moduleID]
-		if !ok {
-			// 部分模块（mq/search/stores 等）模板未直接引用，
-			// full 模式不需要复制源码，lib 模式通过 go.mod 引入即可。
-			fmt.Fprintf(os.Stderr, "  \x1b[38;5;245m[跳过] %s: 模板未直接引用，full 模式不复制源码\x1b[0m\n", moduleID)
-			return
-		}
-
-		dirs = append(dirs, src.Dirs...)
-		for _, dep := range src.Deps {
-			visit(dep)
-		}
-	}
-
-	// 先收集核心模块
-	for _, id := range coreModules {
-		visit(id)
-	}
-	// 再收集用户选的模块
-	for _, id := range selectedModules {
-		visit(id)
-	}
-
-	return dirs
-}
-
-// copyModuleSource 将 ling-base 源码目录复制到目标项目的 pkg/ 下，
-// 并重写 import 路径。
+// copyModuleSource walks the entire ling-base source tree and copies all
+// Go source files (excluding _test.go, go.mod, go.sum, .md) into the
+// target project's pkg/ directory, rewriting all ling-base import paths
+// to local paths.
 //
-// lingBaseRoot 是 ling-base 仓库的根目录路径。
-// targetPkgDir 是目标项目的 pkg/ 目录路径。
-// modulePath 是目标项目的 Go module 路径（如 github.com/me/myapp）。
-func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string, dirs []string) error {
+// This ensures that full mode includes ALL ling-base packages — common/*,
+// stores/* (all backends), relay/* (all channels), bootstrap, apidocs,
+// version, providers/*, voice/*, etc. — so the generated project is fully
+// self-contained with zero external LingByte dependencies.
+func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 	lingBaseImport := "github.com/LingByte/ling-base"
 
-	for _, dir := range dirs {
-		srcDir := filepath.Join(lingBaseRoot, dir)
-		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "  \x1b[33m[警告] 源码目录不存在: %s\x1b[0m\n", srcDir)
-			continue
-		}
-
-		// 目标目录: pkg/<dir>
-		dstDir := filepath.Join(targetPkgDir, dir)
-
-		// 确保目录存在
-		if err := os.MkdirAll(dstDir, 0755); err != nil {
-			return fmt.Errorf("创建目录失败 %s: %w", dstDir, err)
-		}
-
-		// 复制 .go 文件（排除 _test.go）
-		entries, err := os.ReadDir(srcDir)
+	// Walk the entire ling-base tree
+	return filepath.Walk(lingBaseRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("读取目录失败 %s: %w", srcDir, err)
+			return nil // skip unreadable paths
 		}
 
-		for _, entry := range entries {
-			name := entry.Name()
-			if strings.HasSuffix(name, "_test.go") {
-				continue
-			}
-			// 跳过 go.mod / go.sum（ling-base 是多模块仓库，子目录有自己的 go.mod）
-			// full 模式下所有代码在同一个 module 下，不需要子 go.mod
-			if name == "go.mod" || name == "go.sum" {
-				continue
-			}
-			// 跳过 README 等文档文件
-			if strings.HasSuffix(name, ".md") {
-				continue
-			}
-
-			srcFile := filepath.Join(srcDir, name)
-			dstFile := filepath.Join(dstDir, name)
-
-			// 子目录：只复制不含 go.mod 的资源目录（如 assets/）
-			// 含 go.mod 的子目录是独立 Go 模块，由 Dirs 列表显式处理
-			if entry.IsDir() {
-				if fileExists(filepath.Join(srcFile, "go.mod")) {
-					continue // 跳过 Go 子模块（由 Dirs 列表显式处理）
-				}
-				if err := copyDirRecursive(srcFile, dstFile, lingBaseImport, modulePath); err != nil {
-					return fmt.Errorf("复制子目录失败 %s: %w", srcFile, err)
-				}
-				continue
-			}
-
-			// .go 文件需要重写 import 路径
-			if strings.HasSuffix(name, ".go") {
-				if err := copyAndRewriteFile(srcFile, dstFile, lingBaseImport, modulePath); err != nil {
-					return fmt.Errorf("复制文件失败 %s: %w", srcFile, err)
-				}
-				continue
-			}
-
-			// 非 Go 文件（embed 资源如 .css, .svg, .png, .font 等）直接复制
-			content, err := os.ReadFile(srcFile)
-			if err != nil {
-				continue // 跳过无法读取的文件
-			}
-			if err := os.WriteFile(dstFile, content, 0644); err != nil {
-				return fmt.Errorf("复制资源文件失败 %s: %w", srcFile, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// fileExists 检查文件是否存在。
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// copyDirRecursive 递归复制目录（用于子目录如 cache/noop/, cache/multilevel/,
-// embed 资源目录如 assets/）。
-// 跳过 go.mod / go.sum / .md 文件。Go 文件会重写 import 路径。
-func copyDirRecursive(srcDir, dstDir, oldImport, newModulePath string) error {
-	if err := os.MkdirAll(dstDir, 0755); err != nil {
-		return err
-	}
-	entries, err := os.ReadDir(srcDir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "go.mod" || name == "go.sum" || strings.HasSuffix(name, ".md") {
-			continue
-		}
-		src := filepath.Join(srcDir, name)
-		dst := filepath.Join(dstDir, name)
-		if entry.IsDir() {
-			if fileExists(filepath.Join(src, "go.mod")) {
-				continue
-			}
-			if err := copyDirRecursive(src, dst, oldImport, newModulePath); err != nil {
-				return err
-			}
-			continue
-		}
-		// Go files need import rewriting
-		if strings.HasSuffix(name, ".go") {
-			if err := copyAndRewriteFile(src, dst, oldImport, newModulePath); err != nil {
-				continue
-			}
-			continue
-		}
-		// Non-Go files (embed resources) copied as-is
-		content, err := os.ReadFile(src)
+		// Compute relative path from ling-base root
+		relPath, err := filepath.Rel(lingBaseRoot, path)
 		if err != nil {
-			continue
+			return nil
 		}
-		if err := os.WriteFile(dst, content, 0644); err != nil {
-			return err
+		relPath = filepath.ToSlash(relPath)
+		if relPath == "." {
+			return nil
 		}
-	}
-	return nil
+
+		// Get top-level directory name
+		topDir := relPath
+		if idx := strings.Index(relPath, "/"); idx >= 0 {
+			topDir = relPath[:idx]
+		}
+
+		// Skip excluded top-level directories
+		if fullExcludeDirs[topDir] {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip excluded subdirectories
+		if fullExcludeSubdirs[relPath] && info.IsDir() {
+			return filepath.SkipDir
+		}
+
+		// Skip the root go.mod / go.sum / go.work (we're merging everything
+		// into one module)
+		if relPath == "go.mod" || relPath == "go.sum" || relPath == "go.work" {
+			return nil
+		}
+
+		if info.IsDir() {
+			// Create the target directory
+			dstDir := filepath.Join(targetPkgDir, relPath)
+			return os.MkdirAll(dstDir, 0755)
+		}
+
+		// Skip test files
+		if strings.HasSuffix(info.Name(), "_test.go") {
+			return nil
+		}
+
+		// Skip go.mod / go.sum in subdirectories (each submodule has its own;
+		// in full mode everything is one module)
+		if info.Name() == "go.mod" || info.Name() == "go.sum" {
+			return nil
+		}
+
+		// Skip documentation files
+		if strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
+
+		// Skip non-essential files (gitignore, etc.)
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		srcFile := path
+		dstFile := filepath.Join(targetPkgDir, relPath)
+
+		// Go files: rewrite import paths
+		if strings.HasSuffix(info.Name(), ".go") {
+			return copyAndRewriteFile(srcFile, dstFile, lingBaseImport, modulePath)
+		}
+
+		// Non-Go files (embed resources like .css, .svg, .png, .font, .sql, etc.)
+		// Copy as-is, but skip large binary files that aren't needed
+		content, err := os.ReadFile(srcFile)
+		if err != nil {
+			return nil // skip unreadable files
+		}
+		return os.WriteFile(dstFile, content, 0644)
+	})
 }
 
-// copyAndRewriteFile 复制一个 Go 文件并将 ling-base import 路径重写为目标项目路径。
+// importFixups maps incorrect import paths found in ling-base source to
+// their correct module paths. Some ling-base packages use shorthand import
+// paths that only work in the workspace context (via go.work re-exports)
+// but break when everything is merged into a single module in full mode.
+var importFixups = map[string]string{
+	// common/mq subpackages import "github.com/LingByte/ling-base/mq"
+	// but the actual module path is common/mq
+	"github.com/LingByte/ling-base/mq": "github.com/LingByte/ling-base/common/mq",
+}
+
+// copyAndRewriteFile copies a Go file and rewrites ling-base import paths
+// to the target project's local pkg/ paths.
 func copyAndRewriteFile(srcPath, dstPath, oldImport, newModulePath string) error {
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
 		return err
 	}
 
-	// 解析 Go 文件获取 import 列表
+	// Parse the Go file to get import list
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, srcPath, content, parser.ParseComments)
 	if err != nil {
-		// 如果解析失败，直接复制原文
+		// If parsing fails, copy as-is
 		return os.WriteFile(dstPath, content, 0644)
 	}
 
-	// 收集需要替换的 import 路径
+	// Rewrite all ling-base imports
 	rewritten := string(content)
-
-	// 遍历所有 import，替换 ling-base 路径
 	for _, imp := range f.Imports {
 		importPath := strings.Trim(imp.Path.Value, `"`)
-		if strings.HasPrefix(importPath, oldImport) {
-			// 替换: github.com/LingByte/ling-base/xxx → github.com/user/project/pkg/xxx
-			newPath := strings.Replace(importPath, oldImport, newModulePath+"/pkg", 1)
-			rewritten = strings.ReplaceAll(rewritten, `"`+importPath+`"`, `"`+newPath+`"`)
+		if !strings.HasPrefix(importPath, oldImport) {
+			continue
 		}
+		// Apply fixups for known incorrect import paths
+		if fixed, ok := importFixups[importPath]; ok {
+			importPath = fixed
+		}
+		// Replace: github.com/LingByte/ling-base/xxx → github.com/user/project/pkg/xxx
+		newPath := strings.Replace(importPath, oldImport, newModulePath+"/pkg", 1)
+		// Replace both the fixed and original forms in the source
+		rewritten = strings.ReplaceAll(rewritten, `"`+strings.Trim(imp.Path.Value, `"`)+`"`, `"`+newPath+`"`)
 	}
 
+	// Ensure target directory exists
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(dstPath, []byte(rewritten), 0644)
 }
 
-// generateFullMode 在 full 模式下复制源码到 pkg/ 并重写模板中的 import。
-// 返回需要额外写入的文件列表。
+// generateFullMode copies the entire ling-base source tree into pkg/ and
+// rewrites all imports. The generated project has zero external LingByte
+// dependencies.
 func generateFullMode(spec *ProjectSpec, lingBaseRoot, targetDir string) error {
 	pkgDir := filepath.Join(targetDir, "pkg")
 
-	// 收集所有需要的源码目录
-	dirs := collectModuleDirs(spec.Modules)
+	fmt.Printf("  \x1b[38;5;245m复制 ling-base 源码到 pkg/...\x1b[0m\n")
 
-	fmt.Printf("  \x1b[38;5;245m复制 %d 个源码目录到 pkg/...\x1b[0m\n", len(dirs))
-
-	// 复制源码
-	if err := copyModuleSource(lingBaseRoot, pkgDir, spec.Module, dirs); err != nil {
+	if err := copyModuleSource(lingBaseRoot, pkgDir, spec.Module); err != nil {
 		return err
 	}
 
-	// 统计复制的文件数
+	// Count copied Go files
 	count := 0
 	filepath.Walk(pkgDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
 		if !info.IsDir() && strings.HasSuffix(path, ".go") {
 			count++
 		}
@@ -382,41 +207,202 @@ func generateFullMode(spec *ProjectSpec, lingBaseRoot, targetDir string) error {
 	return nil
 }
 
-// rewriteTemplateImports 在 full 模式下重写模板渲染后的 import 路径。
-// 将 github.com/LingByte/ling-base/xxx → github.com/user/project/pkg/xxx
+// rewriteTemplateImports rewrites import paths in rendered template files.
+// In full mode, github.com/LingByte/ling-base/xxx → github.com/user/project/pkg/xxx
 func rewriteTemplateImports(content, modulePath string) string {
 	oldImport := "github.com/LingByte/ling-base"
 	newImport := modulePath + "/pkg"
 	return strings.ReplaceAll(content, oldImport, newImport)
 }
 
-// isFullMode 返回 spec 是否为 full 模式。
+// isFullMode returns true if the spec is in full mode.
 func isFullMode(spec *ProjectSpec) bool {
 	return spec.Mode == "full"
 }
 
-// ast 包的 unused import 检查（避免编译器报 unused import）
+// collectSubmoduleRequires scans all go.mod files in the ling-base tree
+// (excluding the root and excluded dirs) and collects non-LingByte require
+// directives. This is needed in full mode because merging all submodules
+// into one go.mod loses the per-submodule version constraints for external
+// dependencies (e.g. alibabacloud SDK versions).
+//
+// Returns a map of module path → version string.
+func collectSubmoduleRequires(lingBaseRoot string) map[string]string {
+	requires := map[string]string{}
+
+	filepath.Walk(lingBaseRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if info.Name() != "go.mod" {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(lingBaseRoot, path)
+		relPath = filepath.ToSlash(relPath)
+		if relPath == "go.mod" {
+			return nil // skip root go.mod
+		}
+
+		// Check excluded dirs
+		topDir := relPath
+		if idx := strings.Index(relPath, "/"); idx >= 0 {
+			topDir = relPath[:idx]
+		}
+		if fullExcludeDirs[topDir] {
+			return nil
+		}
+
+		// Parse go.mod and collect require directives
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			// Match require lines: "github.com/foo/bar v1.2.3"
+			// or indented in require blocks: "	github.com/foo/bar v1.2.3"
+			if !strings.HasPrefix(line, "github.com/") &&
+				!strings.HasPrefix(line, "gopkg.in/") &&
+				!strings.HasPrefix(line, "go.") &&
+				!strings.HasPrefix(line, "cloud.google.com/") &&
+				!strings.HasPrefix(line, "gorm.io/") {
+				continue
+			}
+			// Skip LingByte imports
+			if strings.HasPrefix(line, "github.com/LingByte/") {
+				continue
+			}
+			// Extract module path and version
+			parts := strings.Fields(line)
+			if len(parts) < 2 {
+				continue
+			}
+			modPath := parts[0]
+			modVer := parts[1]
+			// Strip comments
+			if idx := strings.Index(modVer, "//"); idx >= 0 {
+				modVer = strings.TrimSpace(modVer[:idx])
+			}
+			// Only keep if version looks valid
+			if modVer == "" {
+				continue
+			}
+			// Keep pseudo-versions (v0.0.0-20260330155402-...) — they are valid
+			// and necessary for modules that don't have tagged releases.
+			// When multiple submodules require different versions of the same
+			// dependency, keep the highest version (MVS semantics).
+			if existing, exists := requires[modPath]; !exists || compareVersions(modVer, existing) > 0 {
+				requires[modPath] = modVer
+			}
+		}
+		return nil
+	})
+
+	return requires
+}
+
+// compareVersions compares two Go module version strings.
+// Returns >0 if a > b, 0 if equal, <0 if a < b.
+// Handles semver tags (v1.2.3) and pseudo-versions (v0.0.0-20260330155402-...).
+func compareVersions(a, b string) int {
+	// Simple comparison: for pseudo-versions, compare the timestamp portion
+	// For semver, compare major.minor.patch numerically
+	a = strings.TrimPrefix(a, "v")
+	b = strings.TrimPrefix(b, "v")
+
+	// Pseudo-version: v0.0.0-YYYYMMDDHHMMSS-...
+	if strings.HasPrefix(a, "0.0.0-") && strings.HasPrefix(b, "0.0.0-") {
+		aTS := a[6:20] // YYYYMMDDHHMMSS
+		bTS := b[6:20]
+		if len(aTS) >= 14 && len(bTS) >= 14 {
+			if aTS > bTS {
+				return 1
+			} else if aTS < bTS {
+				return -1
+			}
+			return 0
+		}
+	}
+
+	// Semver: split by . and compare numerically
+	aParts := strings.Split(a, ".")
+	bParts := strings.Split(b, ".")
+	maxLen := len(aParts)
+	if len(bParts) > maxLen {
+		maxLen = len(bParts)
+	}
+	for i := 0; i < maxLen; i++ {
+		var aNum, bNum int
+		if i < len(aParts) {
+			// Strip suffixes like -rc1, +incompatible
+			aPart := aParts[i]
+			if idx := strings.IndexAny(aPart, "-+"); idx >= 0 {
+				aPart = aPart[:idx]
+			}
+			fmt.Sscanf(aPart, "%d", &aNum)
+		}
+		if i < len(bParts) {
+			bPart := bParts[i]
+			if idx := strings.IndexAny(bPart, "-+"); idx >= 0 {
+				bPart = bPart[:idx]
+			}
+			fmt.Sscanf(bPart, "%d", &bNum)
+		}
+		if aNum > bNum {
+			return 1
+		} else if aNum < bNum {
+			return -1
+		}
+	}
+	return 0
+}
+
+// injectSubmoduleRequires adds require directives from submodule go.mod
+// files into the generated project's go.mod. This ensures external
+// dependency version constraints are preserved in full mode.
+// Uses `go get` to download dependencies and update go.sum, then
+// `go mod edit` to pin the version as a direct require (prevents
+// `go mod tidy` from downgrading it).
+func injectSubmoduleRequires(dir string, requires map[string]string) {
+	goBin := findGoBin()
+	for modPath, modVer := range requires {
+		target := fmt.Sprintf("%s@%s", modPath, modVer)
+		// go get downloads the module and updates go.sum
+		getCmd := exec.Command(goBin, "get", target)
+		getCmd.Dir = dir
+		getCmd.Stdout = nil
+		getCmd.Stderr = nil
+		_ = getCmd.Run()
+		// go mod edit pins the version as a direct require
+		editCmd := exec.Command(goBin, "mod", "edit", "-require="+target)
+		editCmd.Dir = dir
+		editCmd.Stdout = nil
+		editCmd.Stderr = nil
+		_ = editCmd.Run()
+	}
+}
+
+// ast package unused import check (avoid compiler error)
 var _ = ast.Print
 
-// findLingBaseRoot 定位 ling-base 仓库根目录。
-// 查找顺序:
-//  1. LING_BASE_ROOT 环境变量
-//  2. 从当前工作目录向上查找
-//  3. 从可执行文件位置向上查找
-//  4. git clone 到临时目录(go install 后无完整源码时)
+// findLingBaseRoot locates the ling-base repository root.
+// Search order:
+//  1. LING_BASE_ROOT environment variable
+//  2. Walk up from current working directory
+//  3. Walk up from executable location
+//  4. git clone to a temp directory (when installed via go install)
 func findLingBaseRoot() string {
-	// 1. 环境变量
+	// 1. Environment variable
 	if root := os.Getenv("LING_BASE_ROOT"); root != "" {
 		if _, err := os.Stat(filepath.Join(root, "go.work")); err == nil {
 			return root
 		}
-		// 也检查不带 go.work 的情况（只要目录存在且有 lingcli）
 		if _, err := os.Stat(filepath.Join(root, "lingcli")); err == nil {
 			return root
 		}
 	}
 
-	// 检查目录是否是 ling-base 根(完整仓库,有 go.work + lingcli/)
 	isLingBase := func(dir string) bool {
 		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
 			if _, err := os.Stat(filepath.Join(dir, "lingcli")); err == nil {
@@ -426,9 +412,8 @@ func findLingBaseRoot() string {
 		return false
 	}
 
-	// 2. 从当前工作目录向上查找
-	cwd, err := os.Getwd()
-	if err == nil {
+	// 2. Walk up from current working directory
+	if cwd, err := os.Getwd(); err == nil {
 		dir := cwd
 		for i := 0; i < 10; i++ {
 			if isLingBase(dir) {
@@ -442,7 +427,7 @@ func findLingBaseRoot() string {
 		}
 	}
 
-	// 3. 从可执行文件位置向上查找
+	// 3. Walk up from executable location
 	if exePath, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exePath)
 		for i := 0; i < 10; i++ {
@@ -457,21 +442,18 @@ func findLingBaseRoot() string {
 		}
 	}
 
-	// 4. git clone 到临时目录
-	// go install 只缓存根 module,不含子模块源码。
-	// full 模式需要完整 workspace,所以 clone 一份。
+	// 4. git clone to temp directory
 	return cloneLingBase()
 }
 
-// cloneLingBase 将 ling-base 仓库 clone 到临时目录,返回路径。
-// 失败返回空字符串。
+// cloneLingBase clones the ling-base repository to a temp directory.
+// Returns empty string on failure.
 func cloneLingBase() string {
 	tmpDir, err := os.MkdirTemp("", "ling-base-src-")
 	if err != nil {
 		return ""
 	}
 
-	// 浅克隆,只取最新 main 分支
 	cmd := exec.Command("git", "clone", "--depth=1", "--branch=main",
 		"https://github.com/LingByte/ling-base.git", tmpDir)
 	cmd.Stderr = os.Stderr
@@ -480,7 +462,6 @@ func cloneLingBase() string {
 		return ""
 	}
 
-	// 验证 clone 成功
 	if _, err := os.Stat(filepath.Join(tmpDir, "lingcli")); err != nil {
 		os.RemoveAll(tmpDir)
 		return ""

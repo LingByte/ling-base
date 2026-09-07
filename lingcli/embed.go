@@ -32,124 +32,107 @@ func hasEmbeddedSource() bool {
 	return false
 }
 
-// extractEmbeddedSource 将嵌入的源码解压到 targetPkgDir/pkg/ 下，
-// 并重写 import 路径。
+// extractEmbeddedSource extracts the entire embedded ling-base source tree
+// into the target project's pkg/ directory, rewriting all import paths.
+// This mirrors the full-mode copyModuleSource but reads from the embedded
+// filesystem instead of disk.
 func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
 	pkgDir := filepath.Join(targetDir, "pkg")
-	dirs := collectModuleDirs(spec.Modules)
-
-	fmt.Printf("  \x1b[38;5;245m从嵌入源码提取 %d 个目录...\x1b[0m\n", len(dirs))
-
 	lingBaseImport := "github.com/LingByte/ling-base"
+	newImport := spec.Module + "/pkg"
+
+	fmt.Printf("  \x1b[38;5;245m从嵌入源码提取...\x1b[0m\n")
+
 	count := 0
-
-	for _, dir := range dirs {
-		embedPath := filepath.Join("embed_source", dir)
-		dstDir := filepath.Join(pkgDir, dir)
-
-		// 检查嵌入源码中是否存在该目录
-		entries, err := embeddedSource.ReadDir(embedPath)
+	err := fs.WalkDir(embeddedSource, "embed_source", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  \x1b[38;5;245m[跳过] %s: 模板未直接引用，不复制源码\x1b[0m\n", dir)
-			continue
+			return nil
 		}
 
-		if err := os.MkdirAll(dstDir, 0755); err != nil {
-			return fmt.Errorf("创建目录失败 %s: %w", dstDir, err)
+		// Compute relative path from embed_source root
+		relPath, err := filepath.Rel("embed_source", path)
+		if err != nil {
+			return nil
+		}
+		relPath = filepath.ToSlash(relPath)
+		if relPath == "." {
+			return nil
 		}
 
-		for _, entry := range entries {
-			name := entry.Name()
-			if strings.HasSuffix(name, "_test.go") || name == "go.mod" || name == "go.sum" || strings.HasSuffix(name, ".md") {
-				continue
+		// Get top-level directory name
+		topDir := relPath
+		if idx := strings.Index(relPath, "/"); idx >= 0 {
+			topDir = relPath[:idx]
+		}
+
+		// Skip excluded top-level directories
+		if fullExcludeDirs[topDir] {
+			if d.IsDir() {
+				return filepath.SkipDir
 			}
+			return nil
+		}
 
-			srcPath := filepath.Join(embedPath, name)
-			dstPath := filepath.Join(dstDir, name)
+		// Skip root go.mod / go.sum / go.work
+		if relPath == "go.mod" || relPath == "go.sum" || relPath == "go.work" {
+			return nil
+		}
 
-			// 子目录（资源目录如 assets/）
-			if entry.IsDir() {
-				// 检查是否含 go.mod（独立子模块，跳过）
-				subGoMod := filepath.Join(srcPath, "go.mod")
-				if _, err := embeddedSource.ReadFile(subGoMod); err == nil {
-					continue
-				}
-				if err := extractEmbeddedDir(srcPath, dstPath); err != nil {
-					return err
-				}
-				continue
-			}
+		if d.IsDir() {
+			dstDir := filepath.Join(pkgDir, relPath)
+			return os.MkdirAll(dstDir, 0755)
+		}
 
-			// .go 文件重写 import
-			if strings.HasSuffix(name, ".go") {
-				data, err := embeddedSource.ReadFile(srcPath)
-				if err != nil {
-					continue
-				}
-				rewritten := rewriteImportsInContent(string(data), lingBaseImport, spec.Module+"/pkg")
-				if err := os.WriteFile(dstPath, []byte(rewritten), 0644); err != nil {
-					return err
-				}
-				count++
-				continue
-			}
+		name := d.Name()
 
-			// 资源文件直接复制
-			data, err := embeddedSource.ReadFile(srcPath)
+		// Skip test files, go.mod, go.sum, .md, dot files
+		if strings.HasSuffix(name, "_test.go") ||
+			name == "go.mod" || name == "go.sum" ||
+			strings.HasSuffix(name, ".md") ||
+			strings.HasPrefix(name, ".") {
+			return nil
+		}
+
+		dstFile := filepath.Join(pkgDir, relPath)
+
+		// Go files: rewrite import paths
+		if strings.HasSuffix(name, ".go") {
+			data, err := embeddedSource.ReadFile(path)
 			if err != nil {
-				continue
+				return nil
 			}
-			if err := os.WriteFile(dstPath, data, 0644); err != nil {
+			rewritten := string(data)
+			// Apply import fixups first, then rewrite to local paths
+			for old, fixed := range importFixups {
+				rewritten = strings.ReplaceAll(rewritten, `"`+old+`"`, `"`+fixed+`"`)
+			}
+			rewritten = strings.ReplaceAll(rewritten, lingBaseImport, newImport)
+			if err := os.MkdirAll(filepath.Dir(dstFile), 0755); err != nil {
 				return err
 			}
+			if err := os.WriteFile(dstFile, []byte(rewritten), 0644); err != nil {
+				return err
+			}
+			count++
+			return nil
 		}
+
+		// Non-Go files: copy as-is
+		data, err := embeddedSource.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		if err := os.MkdirAll(filepath.Dir(dstFile), 0755); err != nil {
+			return err
+		}
+		return os.WriteFile(dstFile, data, 0644)
+	})
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("  \x1b[32m✓ 已提取 %d 个 Go 文件到 pkg/\x1b[0m\n", count)
 	return nil
-}
-
-// extractEmbeddedDir 递归提取嵌入的子目录。
-func extractEmbeddedDir(srcPath, dstDir string) error {
-	if err := os.MkdirAll(dstDir, 0755); err != nil {
-		return err
-	}
-	entries, err := embeddedSource.ReadDir(srcPath)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "go.mod" || name == "go.sum" || strings.HasSuffix(name, ".md") {
-			continue
-		}
-		src := filepath.Join(srcPath, name)
-		dst := filepath.Join(dstDir, name)
-		if entry.IsDir() {
-			// 跳过含 go.mod 的子目录
-			subGoMod := filepath.Join(src, "go.mod")
-			if _, err := embeddedSource.ReadFile(subGoMod); err == nil {
-				continue
-			}
-			if err := extractEmbeddedDir(src, dst); err != nil {
-				return err
-			}
-			continue
-		}
-		data, err := embeddedSource.ReadFile(src)
-		if err != nil {
-			continue
-		}
-		if err := os.WriteFile(dst, data, 0644); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// rewriteImportsInContent 将 content 中的 oldImport 替换为 newImport。
-func rewriteImportsInContent(content, oldImport, newImport string) string {
-	return strings.ReplaceAll(content, oldImport, newImport)
 }
 
 // 确保 embed.FS 被 fs 包引用（避免 unused import）

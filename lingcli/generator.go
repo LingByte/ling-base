@@ -17,7 +17,12 @@ import (
 func stderr() io.Writer { return os.Stderr }
 
 // Generator 负责将项目文件写入磁盘。
-type Generator struct{}
+type Generator struct {
+	// lingBaseRoot is the path to the ling-base source tree (used in full mode
+	// to collect submodule dependency versions). Empty in lib mode or when
+	// using embedded source.
+	lingBaseRoot string
+}
 
 // NewGenerator 创建生成器。
 func NewGenerator() *Generator { return &Generator{} }
@@ -91,6 +96,7 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 		} else {
 			// 回退到本地 ling-base 源码,或自动 git clone
 			lingBaseRoot := findLingBaseRoot()
+			g.lingBaseRoot = lingBaseRoot
 			if lingBaseRoot == "" {
 				fmt.Printf("  \x1b[31m[错误] 无法获取 ling-base 源码\x1b[0m\n")
 				fmt.Println()
@@ -115,7 +121,7 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 	// 运行 go mod init + tidy。
 	fmt.Println()
 	fmt.Println("\x1b[38;5;117m━━━ 初始化 Go module ━━━\x1b[0m")
-	if err := g.runGoMod(targetDir, spec.Module, isFullMode(spec)); err != nil {
+	if err := g.runGoMod(targetDir, spec.Module, isFullMode(spec), g.lingBaseRoot); err != nil {
 		fmt.Printf("  \x1b[33m[警告] %v\x1b[0m\n", err)
 		fmt.Println("  \x1b[38;5;245m项目文件已生成，但依赖未完全解析。请按上述提示操作后运行 go run ./cmd/...\x1b[0m")
 	} else {
@@ -158,7 +164,7 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 }
 
 // runGoMod 在目标目录运行 go mod init + tidy。
-func (g *Generator) runGoMod(dir, module string, fullMode bool) error {
+func (g *Generator) runGoMod(dir, module string, fullMode bool, lingBaseRoot string) error {
 	goBin := findGoBin()
 
 	cmd := exec.Command(goBin, "mod", "init", module)
@@ -169,13 +175,24 @@ func (g *Generator) runGoMod(dir, module string, fullMode bool) error {
 		return err
 	}
 
-	// In lib mode, explicitly go get each LingByte submodule with its
-	// published version. This is necessary because `go mod tidy` cannot
-	// auto-discover submodules when the root module path is a prefix of
-	// the submodule path.
-	// In full mode, all ling-base source is copied to pkg/ and imports are
-	// rewritten to local paths — no external LingByte dependencies needed.
-	if !fullMode {
+	if fullMode {
+		// In full mode, all ling-base source is copied to pkg/ and imports
+		// are rewritten to local paths — no external LingByte dependencies.
+		// Inject version constraints from submodule go.mod files BEFORE
+		// `go mod tidy` so that correct versions are resolved from the
+		// start (e.g. alibabacloud SDK versions that only exist in specific
+		// minor versions).
+		if lingBaseRoot != "" {
+			requires := collectSubmoduleRequires(lingBaseRoot)
+			if len(requires) > 0 {
+				injectSubmoduleRequires(dir, requires)
+			}
+		}
+	} else {
+		// In lib mode, explicitly go get each LingByte submodule with its
+		// published version. This is necessary because `go mod tidy` cannot
+		// auto-discover submodules when the root module path is a prefix of
+		// the submodule path.
 		lingBaseImports := resolveLingBaseImports(dir)
 		if len(lingBaseImports) > 0 {
 			goGetLingBaseModules(dir, lingBaseImports)
@@ -213,6 +230,17 @@ func (g *Generator) runGoMod(dir, module string, fullMode bool) error {
 		}
 		fmt.Println()
 		return fmt.Errorf("go mod tidy 失败（模块未发布）")
+	}
+
+	// In full mode, re-inject version constraints AFTER `go mod tidy`.
+	// This enforces correct versions that `go mod tidy` may have downgraded
+	// (e.g. gorm.io/plugin/dbresolver v1.5.3 → v1.6.2). We do NOT run tidy
+	// again after this — the pinned versions are intentional overrides.
+	if fullMode && lingBaseRoot != "" {
+		requires := collectSubmoduleRequires(lingBaseRoot)
+		if len(requires) > 0 {
+			injectSubmoduleRequires(dir, requires)
+		}
 	}
 
 	fmt.Printf("  \x1b[32m[完成]\x1b[0m go mod tidy\n")
