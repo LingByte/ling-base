@@ -89,18 +89,22 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 				return fmt.Errorf("提取嵌入源码失败: %w", err)
 			}
 		} else {
-			// 回退到本地 ling-base 源码
+			// 回退到本地 ling-base 源码,或自动 git clone
 			lingBaseRoot := findLingBaseRoot()
 			if lingBaseRoot == "" {
-				fmt.Printf("  \x1b[31m[错误] 无法定位 ling-base 源码目录\x1b[0m\n")
+				fmt.Printf("  \x1b[31m[错误] 无法获取 ling-base 源码\x1b[0m\n")
 				fmt.Println()
-				fmt.Println("  \x1b[38;5;245mfull 模式需要 ling-base 源码。请用以下任一方式指定:\x1b[0m")
+				fmt.Println("  \x1b[38;5;245mfull 模式需要 ling-base 完整源码。请用以下任一方式:\x1b[0m")
 				fmt.Println("    1. 设置环境变量: export LING_BASE_ROOT=/path/to/ling-base")
 				fmt.Printf("    2. 使用 --ling-base-root 参数: --ling-base-root /path/to/ling-base\n")
 				fmt.Println("    3. 在 ling-base 目录下运行 lingcli")
 				fmt.Println("    4. 使用 --mode lib（默认，引入库而非复制源码）")
 				fmt.Println()
-				return fmt.Errorf("full 模式无法定位 ling-base 源码")
+				return fmt.Errorf("full 模式无法获取 ling-base 源码")
+			}
+			// 如果是临时 clone 的目录,结束后清理
+			if strings.HasPrefix(lingBaseRoot, os.TempDir()) {
+				defer os.RemoveAll(lingBaseRoot)
 			}
 			if err := generateFullMode(spec, lingBaseRoot, targetDir); err != nil {
 				return fmt.Errorf("源码复制失败: %w", err)

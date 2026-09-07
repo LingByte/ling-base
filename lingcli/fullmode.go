@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -345,6 +346,7 @@ var _ = ast.Print
 //  1. LING_BASE_ROOT 环境变量
 //  2. 从当前工作目录向上查找
 //  3. 从可执行文件位置向上查找
+//  4. git clone 到临时目录(go install 后无完整源码时)
 func findLingBaseRoot() string {
 	// 1. 环境变量
 	if root := os.Getenv("LING_BASE_ROOT"); root != "" {
@@ -357,7 +359,7 @@ func findLingBaseRoot() string {
 		}
 	}
 
-	// 检查目录是否是 ling-base 根
+	// 检查目录是否是 ling-base 根(完整仓库,有 go.work + lingcli/)
 	isLingBase := func(dir string) bool {
 		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
 			if _, err := os.Stat(filepath.Join(dir, "lingcli")); err == nil {
@@ -398,5 +400,34 @@ func findLingBaseRoot() string {
 		}
 	}
 
-	return ""
+	// 4. git clone 到临时目录
+	// go install 只缓存根 module,不含子模块源码。
+	// full 模式需要完整 workspace,所以 clone 一份。
+	return cloneLingBase()
+}
+
+// cloneLingBase 将 ling-base 仓库 clone 到临时目录,返回路径。
+// 失败返回空字符串。
+func cloneLingBase() string {
+	tmpDir, err := os.MkdirTemp("", "ling-base-src-")
+	if err != nil {
+		return ""
+	}
+
+	// 浅克隆,只取最新 main 分支
+	cmd := exec.Command("git", "clone", "--depth=1", "--branch=main",
+		"https://github.com/LingByte/ling-base.git", tmpDir)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(tmpDir)
+		return ""
+	}
+
+	// 验证 clone 成功
+	if _, err := os.Stat(filepath.Join(tmpDir, "lingcli")); err != nil {
+		os.RemoveAll(tmpDir)
+		return ""
+	}
+
+	return tmpDir
 }
