@@ -29,7 +29,7 @@ require (
 	github.com/LingByte/ling-base/common/logger v0.1.0
 	github.com/LingByte/ling-base/common/response v0.1.1
 	github.com/LingByte/ling-base/common/sanitize v0.1.0
-	github.com/LingByte/ling-base/common/validate v0.2.0
+	github.com/LingByte/ling-base/common/validate v0.2.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.1
