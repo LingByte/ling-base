@@ -60,9 +60,7 @@ func Init(driver, defaultTTL, cleanupInterval string) error {
 	return nil
 }
 
-// ──────────────────────────────────────────────
 // Convenience methods — operate on the global C
-// ──────────────────────────────────────────────
 
 // Get retrieves a value from the cache. Returns cache.ErrNotFound if the key does not exist.
 func Get(ctx context.Context, key string) ([]byte, error) {

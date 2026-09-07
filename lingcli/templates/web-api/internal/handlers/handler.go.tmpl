@@ -19,9 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ──────────────────────────────────────────────
 // System endpoints
-// ──────────────────────────────────────────────
 
 // Health returns the overall health status.
 func (h *Handlers) Health(c *gin.Context) {
@@ -53,9 +51,7 @@ func (h *Handlers) Version(c *gin.Context) {
 	})
 }
 
-// ──────────────────────────────────────────────
 // User CRUD + registration + password management
-// ──────────────────────────────────────────────
 
 // ListUsers returns a paginated, filterable list of users.
 func (h *Handlers) ListUsers(c *gin.Context) {

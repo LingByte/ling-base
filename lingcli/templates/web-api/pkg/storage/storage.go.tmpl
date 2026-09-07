@@ -66,9 +66,7 @@ func Init(driver, root, region, endpoint, accessKey, secretKey, publicURLBase st
 	return nil
 }
 
-// ──────────────────────────────────────────────
 // Convenience methods — operate on the global Store
-// ──────────────────────────────────────────────
 
 // Write stores the content from reader to the given key.
 func Write(key string, r io.Reader) error {
