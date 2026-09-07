@@ -1,0 +1,111 @@
+{{- if and .IsDDD .HasJWT}}
+
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// DDD-mode auth handlers. These replace the direct-DB auth handlers in auth.go
+// and delegate to the application layer (UserAppService) for credential verification.
+
+package handlers
+
+import (
+	"errors"
+	"time"
+
+	"{{.Module}}/internal/application"
+	"{{.Module}}/internal/domain"
+	"{{.Module}}/internal/types"
+
+	"github.com/LingByte/ling-base/common/response"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	{{- if .HasValidate}}
+	"github.com/LingByte/ling-base/common/validate"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+)
+
+// LoginDDD authenticates a user via the application service and issues JWT tokens.
+func (h *Handlers) LoginDDD(c *gin.Context) {
+	if h.jwtAuth == nil || h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var req types.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	user, err := h.userApp.Login(application.LoginInput{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			respgin.WriteError(c, response.New(response.CodeUnauthorized, "invalid credentials"))
+			return
+		}
+		if errors.Is(err, domain.ErrAccountDisabled) {
+			respgin.WriteError(c, response.New(response.CodeForbidden, "account is disabled"))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	// Issue JWT tokens
+	pair, err := h.jwtAuth.Login(user.Username)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	respgin.Success(c, types.TokenResponse{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		TokenType:    pair.TokenType,
+	})
+}
+
+// RefreshDDD exchanges a refresh token for a new token pair.
+func (h *Handlers) RefreshDDD(c *gin.Context) {
+	if h.jwtAuth == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var req types.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	pair, err := h.jwtAuth.Refresh(req.RefreshToken)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeUnauthorized))
+		return
+	}
+	respgin.Success(c, types.TokenResponse{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		TokenType:    pair.TokenType,
+	})
+}
+
+var _ = time.Now
+{{- end}}

@@ -1,0 +1,271 @@
+{{- if .IsDDD}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package application contains the application layer (use cases / services).
+// It orchestrates domain objects, manages transactions, and depends only on
+// the domain layer's interfaces — never on framework-specific implementations.
+package application
+
+import (
+	"time"
+
+	"{{.Module}}/internal/domain"
+
+	"github.com/LingByte/ling-base/common/password"
+)
+
+// PasswordHasher abstracts password hashing so the application layer
+// doesn't depend on a specific hashing library.
+type PasswordHasher interface {
+	Hash(plain string) (string, error)
+	Verify(plain, hashed string) bool
+}
+
+// defaultHasher uses ling-base/common/password (Argon2id by default).
+type defaultHasher struct{}
+
+func (h *defaultHasher) Hash(plain string) (string, error) {
+	return password.Hash(plain, nil)
+}
+
+func (h *defaultHasher) Verify(plain, hashed string) bool {
+	return password.Verify(plain, hashed)
+}
+
+// UserAppService handles user-related use cases (register, login, CRUD).
+type UserAppService struct {
+	repo   domain.UserRepository
+	hasher PasswordHasher
+}
+
+// NewUserAppService creates a new UserAppService.
+// If hasher is nil, the default Argon2id hasher is used.
+func NewUserAppService(repo domain.UserRepository, hasher PasswordHasher) *UserAppService {
+	if hasher == nil {
+		hasher = &defaultHasher{}
+	}
+	return &UserAppService{repo: repo, hasher: hasher}
+}
+
+// RegisterInput is the input for user registration.
+type RegisterInput struct {
+	Username string
+	Email    string
+	Password string
+	Phone    string
+}
+
+// Register creates a new user account.
+// If username is empty, it is derived from the email prefix.
+func (s *UserAppService) Register(input RegisterInput) (*domain.User, error) {
+	username := input.Username
+	if username == "" {
+		at := indexOf(input.Email, "@")
+		if at > 0 {
+			username = input.Email[:at]
+		} else {
+			username = input.Email
+		}
+	}
+
+	// Check for duplicate
+	existing, err := s.repo.FindByUsernameOrEmail(username, input.Email)
+	if err != nil && err != domain.ErrUserNotFound {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, domain.ErrUserExists
+	}
+
+	hashed, err := s.hasher.Hash(input.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &domain.User{
+		Username: username,
+		Email:    input.Email,
+		Phone:    input.Phone,
+		Password: hashed,
+		Role:     domain.UserRoleUser,
+		Status:   domain.UserStatusActive,
+	}
+
+	if err := s.repo.Create(user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// LoginInput is the input for user login.
+type LoginInput struct {
+	Username string
+	Email    string
+	Password string
+}
+
+// Login authenticates a user and returns the domain entity.
+// Supports login by username or email.
+func (s *UserAppService) Login(input LoginInput) (*domain.User, error) {
+	if input.Username == "" && input.Email == "" {
+		return nil, domain.ErrInvalidCredentials
+	}
+
+	user, err := s.repo.FindByUsernameOrEmail(input.Username, input.Email)
+	if err != nil {
+		return nil, domain.ErrInvalidCredentials
+	}
+
+	if !user.CanLogin() {
+		return nil, domain.ErrAccountDisabled
+	}
+
+	if !s.hasher.Verify(input.Password, user.Password) {
+		return nil, domain.ErrInvalidCredentials
+	}
+
+	// Update last login time
+	now := time.Now().Unix()
+	_ = s.repo.UpdateLastLogin(user.ID, now)
+	user.LastLoginAt = &now
+
+	return user, nil
+}
+
+// ChangePasswordInput is the input for changing a user's password.
+type ChangePasswordInput struct {
+	UserID      uint
+	OldPassword string
+	NewPassword string
+}
+
+// ChangePassword verifies the old password and updates to a new one.
+func (s *UserAppService) ChangePassword(input ChangePasswordInput) error {
+	user, err := s.repo.FindByID(input.UserID)
+	if err != nil {
+		return err
+	}
+
+	if !s.hasher.Verify(input.OldPassword, user.Password) {
+		return domain.ErrPasswordMismatch
+	}
+
+	hashed, err := s.hasher.Hash(input.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.UpdatePassword(input.UserID, hashed)
+}
+
+// GetUser returns a user by ID.
+func (s *UserAppService) GetUser(id uint) (*domain.User, error) {
+	return s.repo.FindByID(id)
+}
+
+// ListUsers returns a paginated, filtered list of users.
+func (s *UserAppService) ListUsers(page, size int, keyword string, status *int, role string) ([]*domain.User, int64, error) {
+	return s.repo.List(page, size, keyword, status, role)
+}
+
+// CreateUserInput is the input for admin user creation.
+type CreateUserInput struct {
+	Username string
+	Email    string
+	Password string
+	Phone    string
+	Role     string
+}
+
+// CreateUser creates a new user (admin endpoint, can set role).
+func (s *UserAppService) CreateUser(input CreateUserInput) (*domain.User, error) {
+	existing, err := s.repo.FindByUsernameOrEmail(input.Username, input.Email)
+	if err != nil && err != domain.ErrUserNotFound {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, domain.ErrUserExists
+	}
+
+	hashed, err := s.hasher.Hash(input.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	role := input.Role
+	if role == "" {
+		role = domain.UserRoleUser
+	}
+
+	user := &domain.User{
+		Username: input.Username,
+		Email:    input.Email,
+		Phone:    input.Phone,
+		Password: hashed,
+		Role:     role,
+		Status:   domain.UserStatusActive,
+	}
+
+	if err := s.repo.Create(user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// UpdateUserInput is the input for updating a user.
+type UpdateUserInput struct {
+	ID       uint
+	Username *string
+	Email    *string
+	Phone    *string
+	Avatar   *string
+	Role     *string
+	Status   *int
+}
+
+// UpdateUser updates a user's profile fields.
+func (s *UserAppService) UpdateUser(input UpdateUserInput) (*domain.User, error) {
+	user, err := s.repo.FindByID(input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Username != nil {
+		user.Username = *input.Username
+	}
+	if input.Email != nil {
+		user.Email = *input.Email
+	}
+	if input.Phone != nil {
+		user.Phone = *input.Phone
+	}
+	if input.Avatar != nil {
+		user.Avatar = *input.Avatar
+	}
+	if input.Role != nil {
+		user.Role = *input.Role
+	}
+	if input.Status != nil {
+		user.Status = *input.Status
+	}
+
+	if err := s.repo.Update(user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// DeleteUser soft-deletes a user by ID.
+func (s *UserAppService) DeleteUser(id uint) error {
+	return s.repo.Delete(id)
+}
+
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+{{- end}}

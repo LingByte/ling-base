@@ -1,0 +1,283 @@
+{{- if .IsDDD}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// DDD-mode user handlers. These replace the direct-DB handlers in handler.go
+// and delegate to the application layer (UserAppService) instead of accessing
+// the database directly.
+
+package handlers
+
+import (
+	"errors"
+	"time"
+
+	"{{.Module}}/internal/application"
+	"{{.Module}}/internal/domain"
+	"{{.Module}}/internal/types"
+
+	"github.com/LingByte/ling-base/common/response"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	{{- if .HasValidate}}
+	"github.com/LingByte/ling-base/common/validate"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+)
+
+// ListUsersDDD returns a paginated, filterable list of users via the application service.
+func (h *Handlers) ListUsersDDD(c *gin.Context) {
+	var req types.UserListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	page, size := req.Normalize()
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	users, total, err := h.userApp.ListUsers(page, size, req.Keyword, req.Status, req.Role)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	result := make([]types.UserResponse, len(users))
+	for i, u := range users {
+		result[i] = domainUserToResponse(u)
+	}
+	respgin.Success(c, response.NewPage(result, total, page, size))
+}
+
+// GetUserDDD returns a single user by ID via the application service.
+func (h *Handlers) GetUserDDD(c *gin.Context) {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	user, err := h.userApp.GetUser(req.ID)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, domainUserToResponse(user))
+}
+
+// RegisterUserDDD creates a new user account (public registration) via the application service.
+func (h *Handlers) RegisterUserDDD(c *gin.Context) {
+	var req types.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	user, err := h.userApp.Register(application.RegisterInput{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+		Phone:    req.Phone,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrUserExists) {
+			respgin.WriteError(c, response.New(response.CodeConflict, "username or email already exists"))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Created(c, domainUserToResponse(user))
+}
+
+// CreateUserDDD creates a new user (admin endpoint) via the application service.
+func (h *Handlers) CreateUserDDD(c *gin.Context) {
+	var req types.CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	user, err := h.userApp.CreateUser(application.CreateUserInput{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+		Phone:    req.Phone,
+		Role:     req.Role,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrUserExists) {
+			respgin.WriteError(c, response.New(response.CodeConflict, "username or email already exists"))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Created(c, domainUserToResponse(user))
+}
+
+// UpdateUserDDD updates a user's profile via the application service.
+func (h *Handlers) UpdateUserDDD(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	var req types.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	user, err := h.userApp.UpdateUser(application.UpdateUserInput{
+		ID:       idReq.ID,
+		Username: req.Username,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Avatar:   req.Avatar,
+		Role:     req.Role,
+		Status:   req.Status,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, domainUserToResponse(user))
+}
+
+// ChangePasswordDDD changes a user's password via the application service.
+func (h *Handlers) ChangePasswordDDD(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	var req types.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	err := h.userApp.ChangePassword(application.ChangePasswordInput{
+		UserID:      idReq.ID,
+		OldPassword: req.OldPassword,
+		NewPassword: req.NewPassword,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		if errors.Is(err, domain.ErrPasswordMismatch) {
+			respgin.WriteError(c, response.New(response.CodeUnauthorized, "incorrect old password"))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, gin.H{"message": "password changed"})
+}
+
+// DeleteUserDDD soft-deletes a user via the application service.
+func (h *Handlers) DeleteUserDDD(c *gin.Context) {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.userApp == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	if err := h.userApp.DeleteUser(req.ID); err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.NoContent(c)
+}
+
+// domainUserToResponse converts a domain.User to a UserResponse DTO.
+func domainUserToResponse(u *domain.User) types.UserResponse {
+	return types.UserResponse{
+		ID:          u.ID,
+		Username:    u.Username,
+		Email:       u.Email,
+		Phone:       u.Phone,
+		Avatar:      u.Avatar,
+		Role:        u.Role,
+		Status:      u.Status,
+		LastLoginAt: u.LastLoginAt,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
+	}
+}
+
+// Ensure time is referenced (used in domain.User.CreatedAt conversions).
+var _ = time.Now
+{{- end}}

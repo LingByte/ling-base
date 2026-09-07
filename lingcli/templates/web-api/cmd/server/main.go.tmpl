@@ -11,6 +11,10 @@ import (
 
 	"{{.Module}}/internal/configs"
 	"{{.Module}}/internal/handlers"
+	{{- if .IsDDD}}
+	"{{.Module}}/internal/application"
+	"{{.Module}}/internal/infrastructure"
+	{{- end}}
 	{{- if .HasLimiter}}
 	localmw "{{.Module}}/internal/middlewares"
 	{{- end}}
@@ -219,6 +223,14 @@ func main() {
 		os.Exit(1)
 	}
 	info.JWTAuth = jwtAuth
+	{{- end}}
+
+	{{- if .IsDDD}}
+	// DDD: wire up layers (infrastructure → application → handler)
+	if db != nil {
+		userRepo := infrastructure.NewGormUserRepository(db)
+		info.UserAppService = application.NewUserAppService(userRepo, nil)
+	}
 	{{- end}}
 
 	app := bootstrap.New(info.Name, appOpts...)

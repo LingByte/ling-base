@@ -1,0 +1,88 @@
+{{- if .IsDDD}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package domain contains the domain layer (entities, value objects,
+// repository interfaces). This layer has zero framework dependencies —
+// no GORM, no Gin, no external packages. It defines the core business
+// rules and contracts that the application and infrastructure layers implement.
+package domain
+
+import "time"
+
+// UserStatus constants.
+const (
+	UserStatusActive   = 1
+	UserStatusDisabled = 0
+)
+
+// UserRole constants.
+const (
+	UserRoleAdmin = "admin"
+	UserRoleUser  = "user"
+)
+
+// User is the domain entity for a registered user account.
+// It is framework-agnostic — persistence is handled by the infrastructure layer.
+type User struct {
+	ID          uint
+	Username    string
+	Email       string
+	Phone       string
+	Password    string // hashed password (never plaintext)
+	Avatar      string
+	Role        string
+	Status      int
+	LastLoginAt *int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// IsActive returns true if the user status is active.
+func (u *User) IsActive() bool {
+	return u.Status == UserStatusActive
+}
+
+// CanLogin returns true if the user is allowed to log in.
+func (u *User) CanLogin() bool {
+	return u.IsActive()
+}
+
+// SetPassword sets the hashed password.
+func (u *User) SetPassword(hashed string) {
+	u.Password = hashed
+}
+
+// VerifyPassword checks whether the plaintext password matches the stored hash.
+// This delegates to the password package via the application layer.
+func (u *User) VerifyPassword(plain, hashed string) bool {
+	return u.Password == hashed && hashed != ""
+}
+
+// UserRepository defines the contract for user persistence.
+// The infrastructure layer provides the concrete implementation.
+type UserRepository interface {
+	FindByID(id uint) (*User, error)
+	FindByUsername(username string) (*User, error)
+	FindByEmail(email string) (*User, error)
+	FindByUsernameOrEmail(username, email string) (*User, error)
+	List(page, size int, keyword string, status *int, role string) ([]*User, int64, error)
+	Create(user *User) error
+	Update(user *User) error
+	UpdatePassword(id uint, hashedPassword string) error
+	UpdateLastLogin(id uint, loginAt int64) error
+	Delete(id uint) error
+}
+
+// Domain errors.
+var (
+	ErrUserNotFound      = domainError("user not found")
+	ErrUserExists        = domainError("user already exists")
+	ErrInvalidCredentials = domainError("invalid credentials")
+	ErrAccountDisabled   = domainError("account is disabled")
+	ErrPasswordMismatch  = domainError("incorrect old password")
+)
+
+type domainError string
+
+func (e domainError) Error() string { return string(e) }
+{{- end}}

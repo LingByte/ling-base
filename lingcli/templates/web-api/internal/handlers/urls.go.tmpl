@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"{{.Module}}/internal/configs"
+	{{- if .IsDDD}}
+	"{{.Module}}/internal/application"
+	{{- end}}
 	{{- if .HasJWT}}
 	"github.com/LingByte/ling-base/common/jwtutil"
 	{{- end}}
@@ -33,6 +36,9 @@ type AppInfo struct {
 	{{- if .HasJWT}}
 	JWTAuth *jwtutil.Auth
 	{{- end}}
+	{{- if .IsDDD}}
+	UserAppService *application.UserAppService
+	{{- end}}
 }
 
 // Handlers is the HTTP handler collection.
@@ -45,6 +51,9 @@ type Handlers struct {
 	{{- if .HasJWT}}
 	jwtAuth *jwtutil.Auth
 	{{- end}}
+	{{- if .IsDDD}}
+	userApp *application.UserAppService
+	{{- end}}
 }
 
 // New creates a new Handlers instance.
@@ -56,6 +65,9 @@ func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
 		startTime: time.Now(),
 		{{- if .HasJWT}}
 		jwtAuth: info.JWTAuth,
+		{{- end}}
+		{{- if .IsDDD}}
+		userApp: info.UserAppService,
 		{{- end}}
 	}
 }
@@ -123,8 +135,13 @@ func (h *Handlers) registerAuthRoutes(r gin.IRouter) {
 {{- end}}
 	auth := r.Group("/api/v1/auth")
 	{
+		{{- if .IsDDD}}
+		auth.POST("/login", h.LoginDDD)
+		auth.POST("/refresh", h.RefreshDDD)
+		{{- else}}
 		auth.POST("/login", h.Login)
 		auth.POST("/refresh", h.Refresh)
+		{{- end}}
 	}
 }
 {{- end}}
@@ -136,17 +153,30 @@ func (h *Handlers) registerUserRoutes(r *humax.Group) {
 func (h *Handlers) registerUserRoutes(r gin.IRouter) {
 {{- end}}
 	// Public registration
+	{{- if .IsDDD}}
+	r.POST("/api/v1/register", h.RegisterUserDDD)
+	{{- else}}
 	r.POST("/api/v1/register", h.RegisterUser)
+	{{- end}}
 
 	// User CRUD
 	users := r.Group("/api/v1/users")
 	{
+		{{- if .IsDDD}}
+		users.GET("", h.ListUsersDDD)
+		users.GET("/:id", h.GetUserDDD)
+		users.POST("", h.CreateUserDDD)
+		users.PUT("/:id", h.UpdateUserDDD)
+		users.PUT("/:id/password", h.ChangePasswordDDD)
+		users.DELETE("/:id", h.DeleteUserDDD)
+		{{- else}}
 		users.GET("", h.ListUsers)
 		users.GET("/:id", h.GetUser)
 		users.POST("", h.CreateUser)
 		users.PUT("/:id", h.UpdateUser)
 		users.PUT("/:id/password", h.ChangePassword)
 		users.DELETE("/:id", h.DeleteUser)
+		{{- end}}
 	}
 }
 

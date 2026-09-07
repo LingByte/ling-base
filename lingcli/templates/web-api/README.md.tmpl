@@ -247,6 +247,46 @@ curl -X POST -H "X-Tenant-ID: 1" -H "Content-Type: application/json" \
 - 所有模型嵌入 `common.BaseModel`（snowflake ID + 审计字段）
 {{- end}}
 
+{{- if .IsDDD}}
+### DDD 分层架构
+
+项目采用领域驱动设计（DDD）四层架构：
+
+```
+internal/
+├── domain/          # 领域层：实体、仓储接口（纯业务规则，零框架依赖）
+│   └── user.go      # User 实体 + UserRepository 接口 + 领域错误
+├── application/     # 应用层：用例/服务（编排领域对象，事务边界）
+│   └── user_service.go  # UserAppService（注册、登录、改密、CRUD）
+├── infrastructure/  # 基础设施层：仓储实现（GORM）
+│   └── user_repository.go  # GormUserRepository 实现 UserRepository
+├── handlers/        # 表现层：HTTP handler（调用 application 层）
+│   ├── handler_ddd.go  # DDD 模式用户 CRUD handler
+│   └── auth_ddd.go     # DDD 模式登录/刷新 handler
+├── models/          # GORM 模型（仅 infra 层使用）
+└── types/           # DTO（请求/响应结构）
+```
+
+依赖方向（从外到内）：
+```
+handlers → application → domain ← infrastructure
+```
+
+关键原则：
+- `domain/` 不依赖 GORM/Gin/任何框架，只有纯 Go 接口和结构体
+- `application/` 依赖 `domain/`，通过接口注入仓储（不依赖具体实现）
+- `infrastructure/` 依赖 `domain/`（实现接口）和 `models/`（GORM）
+- `handlers/` 依赖 `application/` 和 `types/`
+
+DDD 架构特性:
+- 领域实体 `domain.User` 框架无关，可独立测试
+- 仓储接口 `domain.UserRepository` 定义持久化契约
+- 应用服务 `application.UserAppService` 封装用例（注册/登录/改密/CRUD）
+- GORM 仓储 `infrastructure.GormUserRepository` 实现持久化
+- 密码哈希通过 `PasswordHasher` 接口抽象，默认用 `common/password`
+- Handler 只调用应用服务，不直接访问数据库
+{{- end}}
+
 ## 快速开始
 
 ```bash

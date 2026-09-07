@@ -1,0 +1,175 @@
+{{- if .IsDDD}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package infrastructure contains the infrastructure layer (repository
+// implementations, external service adapters). This layer depends on
+// frameworks (GORM, etc.) and implements the domain layer's interfaces.
+package infrastructure
+
+import (
+	"errors"
+
+	"{{.Module}}/internal/domain"
+	"{{.Module}}/internal/models"
+
+	"gorm.io/gorm"
+)
+
+// GormUserRepository implements domain.UserRepository using GORM.
+type GormUserRepository struct {
+	db *gorm.DB
+}
+
+// NewGormUserRepository creates a new GORM-backed user repository.
+func NewGormUserRepository(db *gorm.DB) domain.UserRepository {
+	return &GormUserRepository{db: db}
+}
+
+// toDomain converts a GORM model to a domain entity.
+func toDomain(m *models.User) *domain.User {
+	return &domain.User{
+		ID:          m.ID,
+		Username:    m.Username,
+		Email:       m.Email,
+		Phone:       m.Phone,
+		Password:    m.Password,
+		Avatar:      m.Avatar,
+		Role:        m.Role,
+		Status:      m.Status,
+		LastLoginAt: m.LastLoginAt,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
+	}
+}
+
+// toModel converts a domain entity to a GORM model.
+func toModel(u *domain.User) *models.User {
+	return &models.User{
+		Username:    u.Username,
+		Email:       u.Email,
+		Phone:       u.Phone,
+		Password:    u.Password,
+		Avatar:      u.Avatar,
+		Role:        u.Role,
+		Status:      u.Status,
+		LastLoginAt: u.LastLoginAt,
+	}
+}
+
+func (r *GormUserRepository) FindByID(id uint) (*domain.User, error) {
+	var m models.User
+	if err := r.db.First(&m, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return toDomain(&m), nil
+}
+
+func (r *GormUserRepository) FindByUsername(username string) (*domain.User, error) {
+	var m models.User
+	if err := r.db.Where("username = ?", username).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return toDomain(&m), nil
+}
+
+func (r *GormUserRepository) FindByEmail(email string) (*domain.User, error) {
+	var m models.User
+	if err := r.db.Where("email = ?", email).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return toDomain(&m), nil
+}
+
+func (r *GormUserRepository) FindByUsernameOrEmail(username, email string) (*domain.User, error) {
+	var m models.User
+	query := r.db
+	if username != "" {
+		query = query.Where("username = ?", username)
+	} else {
+		query = query.Where("email = ?", email)
+	}
+	if err := query.First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return toDomain(&m), nil
+}
+
+func (r *GormUserRepository) List(page, size int, keyword string, status *int, role string) ([]*domain.User, int64, error) {
+	query := r.db.Model(&models.User{})
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("username LIKE ? OR email LIKE ?", like, like)
+	}
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
+	if role != "" {
+		query = query.Where("role = ?", role)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var users []models.User
+	offset := (page - 1) * size
+	if err := query.Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	result := make([]*domain.User, len(users))
+	for i := range users {
+		result[i] = toDomain(&users[i])
+	}
+	return result, total, nil
+}
+
+func (r *GormUserRepository) Create(user *domain.User) error {
+	m := toModel(user)
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	user.ID = m.ID
+	user.CreatedAt = m.CreatedAt
+	user.UpdatedAt = m.UpdatedAt
+	return nil
+}
+
+func (r *GormUserRepository) Update(user *domain.User) error {
+	m := toModel(user)
+	m.ID = user.ID
+	return r.db.Save(m).Error
+}
+
+func (r *GormUserRepository) UpdatePassword(id uint, hashedPassword string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", id).Update("password", hashedPassword).Error
+}
+
+func (r *GormUserRepository) UpdateLastLogin(id uint, loginAt int64) error {
+	return r.db.Model(&models.User{}).Where("id = ?", id).Update("last_login_at", loginAt).Error
+}
+
+func (r *GormUserRepository) Delete(id uint) error {
+	result := r.db.Delete(&models.User{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
+}
+{{- end}}
