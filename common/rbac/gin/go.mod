@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/rbac/gin
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/rbac v0.0.0
+	github.com/LingByte/ling-base/common/rbac v0.1.0
 	github.com/gin-gonic/gin v1.10.0
 )
 
