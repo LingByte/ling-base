@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"{{.Module}}/internal/configs"
+	"{{.Module}}/internal/constants"
 	"{{.Module}}/internal/handlers"
 	{{- if .IsDDD}}
 	"{{.Module}}/internal/application"
@@ -40,7 +41,6 @@ import (
 	"github.com/LingByte/ling-base/apidocs"
 	{{- end}}
 	"github.com/LingByte/ling-base/bootstrap"
-	"github.com/LingByte/ling-base/common/constants"
 	{{- if .HasJWT}}
 	"github.com/LingByte/ling-base/common/jwtutil"
 	jwtingin "github.com/LingByte/ling-base/common/jwtutil/gin"
@@ -239,14 +239,14 @@ func main() {
 	{{- if .IsRBAC}}
 	// Seed default RBAC data (roles, permissions, admin assignments) via init hook
 	if db != nil {
-		app.AddInitHook("seed-rbac", func(ctx context.Context) error {
+		app.AddInitHook(constants.HookSeedRBAC, func(ctx context.Context) error {
 			return models.SeedRBACDefaults(db)
 		})
 	}
 	{{- end}}
 
 	// Register event listeners (post-processing for domain events)
-	app.AddInitHook("register-listeners", func(ctx context.Context) error {
+	app.AddInitHook(constants.HookRegisterListeners, func(ctx context.Context) error {
 		listeners.Register(db)
 		return nil
 	})
