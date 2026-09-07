@@ -134,6 +134,8 @@ func main() {
 		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
 			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.User{}
 			{{- if .IsRBAC}}, &models.Role{}, &models.Permission{}, &models.UserRole{}, &models.RolePermission{}
+			{{- end}}
+			{{- if .IsMultiTenant}}, &models.Tenant{}
 			{{- end}}))
 		}
 	}
@@ -305,8 +307,15 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 			"/api/v1/auth/login", "/api/v1/auth/refresh",
 			"/api/v1/register",
 			"/docs", "/openapi",
+			{{- if .IsMultiTenant}}
+			"/api/v1/tenants",
+			{{- end}}
 		)))
 	}
+	{{- end}}
+	{{- if .IsMultiTenant}}
+	// Multi-tenant middleware: extract tenant ID from JWT or X-Tenant-ID header
+	r.Use(localmw.TenantMiddleware())
 	{{- end}}
 
 	{{- if .HasAPIDocs}}

@@ -32,6 +32,9 @@ type User struct {
 	Role        string  `json:"role" gorm:"size:20;default:user;not null"`
 	Status      int     `json:"status" gorm:"default:1;not null"` // 1=active, 0=disabled
 	LastLoginAt *int64  `json:"lastLoginAt,omitempty"`            // unix timestamp
+	{{- if .IsMultiTenant}}
+	TenantID    uint    `json:"tenantId,omitempty" gorm:"index;not null"` // multi-tenant: tenant scope
+	{{- end}}
 }
 
 func (User) TableName() string { return constants.TableUsers }

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS `users` (
     `role`          VARCHAR(20)  NOT NULL DEFAULT 'user',
     `status`        TINYINT      NOT NULL DEFAULT 1,     -- 1=active, 0=disabled
     `last_login_at` BIGINT       NULL,                   -- unix timestamp
+    {{- if .IsMultiTenant}}
+    `tenant_id`     BIGINT UNSIGNED NOT NULL DEFAULT 0,   -- multi-tenant: tenant scope
+    {{- end}}
     `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at`    DATETIME     NULL,
@@ -23,9 +26,39 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_username` (`username`),
     UNIQUE KEY `uk_email` (`email`),
+    {{- if .IsMultiTenant}}
+    KEY `idx_tenant_id` (`tenant_id`),
+    {{- end}}
     KEY `idx_deleted_at` (`deleted_at`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+{{- if .IsMultiTenant}}
+
+-- Multi-tenant: tenants table
+CREATE TABLE IF NOT EXISTS `tenants` (
+    `id`         BIGINT UNSIGNED NOT NULL,
+    `name`       VARCHAR(100) NOT NULL DEFAULT '',
+    `code`       VARCHAR(50)  NOT NULL DEFAULT '',
+    `contact`    VARCHAR(100) NOT NULL DEFAULT '',
+    `email`      VARCHAR(200) NOT NULL DEFAULT '',
+    `phone`      VARCHAR(20)  NOT NULL DEFAULT '',
+    `plan`       VARCHAR(20)  NOT NULL DEFAULT 'free',
+    `status`     TINYINT      NOT NULL DEFAULT 1,    -- 1=active, 0=disabled
+    `max_users`  INT          NOT NULL DEFAULT 0,    -- 0 = unlimited
+    `expire_at`  BIGINT       NULL,                   -- unix timestamp
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at` DATETIME     NULL,
+    `create_by`  VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`  VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`     VARCHAR(128) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_name` (`name`),
+    UNIQUE KEY `uk_code` (`code`),
+    KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+{{- end}}
 
 {{- if .IsRBAC}}
 

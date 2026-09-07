@@ -1,0 +1,66 @@
+{{- if .IsMultiTenant}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package types
+
+import (
+	"time"
+
+	"{{.Module}}/internal/models"
+)
+
+// TenantRequest is the request body for creating/updating a tenant.
+type TenantRequest struct {
+	Name     string `json:"name" binding:"required,min=2,max=100" validate:"required,min=2,max=100"`
+	Code     string `json:"code" binding:"required,min=2,max=50" validate:"required,min=2,max=50"`
+	Contact  string `json:"contact" binding:"omitempty,max=100" validate:"max=100"`
+	Email    string `json:"email" binding:"omitempty,email" validate:"email"`
+	Phone    string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
+	Plan     string `json:"plan" binding:"omitempty,oneof=free pro enterprise" validate:"oneof=free pro enterprise"`
+	Status   *int   `json:"status" binding:"omitempty,oneof=0 1"`
+	MaxUsers int    `json:"maxUsers" binding:"omitempty" validate:"gte=0"`
+	ExpireAt *int64 `json:"expireAt,omitempty"`
+}
+
+// TenantResponse is the public tenant representation.
+type TenantResponse struct {
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`
+	Code      string    `json:"code"`
+	Contact   string    `json:"contact,omitempty"`
+	Email     string    `json:"email,omitempty"`
+	Phone     string    `json:"phone,omitempty"`
+	Plan      string    `json:"plan"`
+	Status    int       `json:"status"`
+	MaxUsers  int       `json:"maxUsers,omitempty"`
+	ExpireAt  *int64    `json:"expireAt,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// ToTenantResponse converts a models.Tenant to a TenantResponse.
+func ToTenantResponse(t *models.Tenant) TenantResponse {
+	return TenantResponse{
+		ID:        t.ID,
+		Name:      t.Name,
+		Code:      t.Code,
+		Contact:   t.Contact,
+		Email:     t.Email,
+		Phone:     t.Phone,
+		Plan:      t.Plan,
+		Status:    t.Status,
+		MaxUsers:  t.MaxUsers,
+		ExpireAt:  t.ExpireAt,
+		CreatedAt: t.CreatedAt,
+		UpdatedAt: t.UpdatedAt,
+	}
+}
+
+// TenantListRequest extends PageRequest with tenant search parameters.
+type TenantListRequest struct {
+	PageRequest
+	Keyword string `json:"keyword" form:"keyword"`
+	Status  *int   `json:"status" form:"status"`
+	Plan    string `json:"plan" form:"plan"`
+}
+{{- end}}

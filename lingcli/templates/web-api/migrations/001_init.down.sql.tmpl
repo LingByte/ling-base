@@ -8,4 +8,7 @@ DROP TABLE IF EXISTS `user_roles`;
 DROP TABLE IF EXISTS `permissions`;
 DROP TABLE IF EXISTS `roles`;
 {{- end}}
+{{- if .IsMultiTenant}}
+DROP TABLE IF EXISTS `tenants`;
+{{- end}}
 DROP TABLE IF EXISTS `users`;

@@ -220,6 +220,33 @@ RBAC 架构特性:
 - 所有模型嵌入 `common.BaseModel`（snowflake ID + 审计字段）
 {{- end}}
 
+{{- if .IsMultiTenant}}
+### 多租户 API
+
+```bash
+# 租户管理（超级管理员）
+curl http://localhost:{{.Port}}/api/v1/tenants
+curl -X POST http://localhost:{{.Port}}/api/v1/tenants \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Acme Corp","code":"acme","plan":"pro","contact":"John","email":"john@acme.com"}'
+
+# 租户内操作（需带 X-Tenant-ID 头或 JWT 中包含 tenant_id）
+curl -H "X-Tenant-ID: 1" http://localhost:{{.Port}}/api/v1/users
+curl -X POST -H "X-Tenant-ID: 1" -H "Content-Type: application/json" \
+  http://localhost:{{.Port}}/api/v1/register \
+  -d '{"username":"alice","email":"alice@acme.com","password":"secret123"}'
+```
+
+多租户架构特性:
+- Tenant 模型（名称/代码/套餐/状态/用户上限/过期时间）
+- User 模型增加 `tenant_id` 字段
+- TenantMiddleware 自动从 JWT claims 或 `X-Tenant-ID` header 提取租户 ID
+- 所有用户查询自动按 `tenant_id` 过滤
+- 注册/创建用户时自动注入当前租户 ID
+- 租户管理端点 `/api/v1/tenants`（CRUD）
+- 所有模型嵌入 `common.BaseModel`（snowflake ID + 审计字段）
+{{- end}}
+
 ## 快速开始
 
 ```bash

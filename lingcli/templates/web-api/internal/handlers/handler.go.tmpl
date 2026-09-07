@@ -8,6 +8,9 @@ import (
 
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
+	{{- if .IsMultiTenant}}
+	localmw "{{.Module}}/internal/middlewares"
+	{{- end}}
 
 	"github.com/LingByte/ling-base/common/password"
 	"github.com/LingByte/ling-base/common/response"
@@ -72,6 +75,12 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 	}
 
 	query := h.db.WithContext(c.Request.Context()).Model(&models.User{})
+	{{- if .IsMultiTenant}}
+	// Multi-tenant: filter by tenant ID from context
+	if tenantID := localmw.TenantIDFromContext(c); tenantID > 0 {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	{{- end}}
 
 	// Apply filters
 	if req.Keyword != "" {
@@ -189,6 +198,9 @@ func (h *Handlers) RegisterUser(c *gin.Context) {
 		Password: hashed,
 		Role:     models.UserRoleUser,
 		Status:   models.UserStatusActive,
+		{{- if .IsMultiTenant}}
+		TenantID: localmw.TenantIDFromContext(c),
+		{{- end}}
 	}
 
 	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
@@ -248,6 +260,9 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 		Password: hashed,
 		Role:     role,
 		Status:   models.UserStatusActive,
+		{{- if .IsMultiTenant}}
+		TenantID: localmw.TenantIDFromContext(c),
+		{{- end}}
 	}
 
 	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {

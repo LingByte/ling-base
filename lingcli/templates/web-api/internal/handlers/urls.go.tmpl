@@ -9,6 +9,12 @@ import (
 	{{- if .HasJWT}}
 	"github.com/LingByte/ling-base/common/jwtutil"
 	{{- end}}
+	{{- if and .HasJWT .IsRBAC}}
+	jwtingin "github.com/LingByte/ling-base/common/jwtutil/gin"
+	{{- end}}
+	{{- if .IsRBAC}}
+	"{{.Module}}/internal/constants"
+	{{- end}}
 
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs/humax"
@@ -25,7 +31,7 @@ type AppInfo struct {
 	BuildTime string
 	GitCommit string
 	{{- if .HasJWT}}
-	JWTAuth  *jwtutil.Auth
+	JWTAuth *jwtutil.Auth
 	{{- end}}
 }
 
@@ -37,7 +43,7 @@ type Handlers struct {
 	db        *gorm.DB
 	startTime time.Time
 	{{- if .HasJWT}}
-	jwtAuth   *jwtutil.Auth
+	jwtAuth *jwtutil.Auth
 	{{- end}}
 }
 
@@ -49,7 +55,7 @@ func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
 		db:        db,
 		startTime: time.Now(),
 		{{- if .HasJWT}}
-		jwtAuth:   info.JWTAuth,
+		jwtAuth: info.JWTAuth,
 		{{- end}}
 	}
 }
@@ -71,31 +77,68 @@ func (h *Handlers) Register(engine *gin.Engine) {
 
 {{- end}}
 
-// registerRoutes registers all routes (system + auth + users + files).
+// registerRoutes registers all route groups.
 {{- if .HasAPIDocs}}
 func (h *Handlers) registerRoutes(r *humax.Group) {
 {{- else}}
 func (h *Handlers) registerRoutes(r gin.IRouter) {
 {{- end}}
-	// ── System endpoints (public) ──
+	h.registerSystemRoutes(r)
+	{{- if .HasJWT}}
+	h.registerAuthRoutes(r)
+	{{- end}}
+	h.registerUserRoutes(r)
+	{{- if .HasStores}}
+	h.registerFileRoutes(r)
+	{{- end}}
+	{{- if .IsRBAC}}
+	h.registerRoleRoutes(r)
+	h.registerPermissionRoutes(r)
+	h.registerUserRoleRoutes(r)
+	{{- end}}
+	{{- if .IsMultiTenant}}
+	h.registerTenantRoutes(r)
+	{{- end}}
+}
+
+// registerSystemRoutes registers public system endpoints (health, version).
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerSystemRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerSystemRoutes(r gin.IRouter) {
+{{- end}}
 	r.GET("/health", h.Health)
 	r.GET("/live", h.Liveness)
 	r.GET("/ready", h.Readiness)
 	r.GET("/api/v1/version", h.Version)
+}
 
-	{{- if .HasJWT}}
-	// ── Auth (public) ──
-	authGroup := r.Group("/api/v1/auth")
+{{- if .HasJWT}}
+
+// registerAuthRoutes registers public auth endpoints (login, refresh).
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerAuthRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerAuthRoutes(r gin.IRouter) {
+{{- end}}
+	auth := r.Group("/api/v1/auth")
 	{
-		authGroup.POST("/login", h.Login)
-		authGroup.POST("/refresh", h.Refresh)
+		auth.POST("/login", h.Login)
+		auth.POST("/refresh", h.Refresh)
 	}
-	{{- end}}
+}
+{{- end}}
 
-	// ── User registration (public) ──
+// registerUserRoutes registers user registration (public) + user CRUD endpoints.
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerUserRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerUserRoutes(r gin.IRouter) {
+{{- end}}
+	// Public registration
 	r.POST("/api/v1/register", h.RegisterUser)
 
-	// ── User CRUD ──
+	// User CRUD
 	users := r.Group("/api/v1/users")
 	{
 		users.GET("", h.ListUsers)
@@ -105,20 +148,39 @@ func (h *Handlers) registerRoutes(r gin.IRouter) {
 		users.PUT("/:id/password", h.ChangePassword)
 		users.DELETE("/:id", h.DeleteUser)
 	}
+}
 
-	{{- if .HasStores}}
-	// ── File storage (upload/download/delete) ──
+{{- if .HasStores}}
+
+// registerFileRoutes registers file upload/download/delete endpoints.
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerFileRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerFileRoutes(r gin.IRouter) {
+{{- end}}
 	files := r.Group("/api/v1/files")
 	{
 		files.POST("/upload", h.UploadFile)
 		files.GET("/:key", h.DownloadFile)
 		files.DELETE("/:key", h.DeleteFile)
 	}
-	{{- end}}
+}
+{{- end}}
 
-	{{- if .IsRBAC}}
-	// ── RBAC: Role management ──
+{{- if .IsRBAC}}
+
+// registerRoleRoutes registers role management endpoints (admin only).
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerRoleRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerRoleRoutes(r gin.IRouter) {
+{{- end}}
 	roles := r.Group("/api/v1/roles")
+	{{- if .HasJWT}}
+	// Admin-only management endpoints
+	adminMW := jwtingin.RequireRole(h.jwtAuth, constants.RoleAdmin)
+	roles.Use(adminMW)
+	{{- end}}
 	{
 		roles.GET("", h.ListRoles)
 		roles.POST("", h.CreateRole)
@@ -128,23 +190,62 @@ func (h *Handlers) registerRoutes(r gin.IRouter) {
 		roles.GET("/:id/permissions", h.GetRolePermissions)
 		roles.POST("/permissions/assign", h.AssignPermissionsToRole)
 	}
+}
 
-	// ── RBAC: Permission management ──
+// registerPermissionRoutes registers permission management endpoints (admin only).
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerPermissionRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerPermissionRoutes(r gin.IRouter) {
+{{- end}}
 	perms := r.Group("/api/v1/permissions")
+	{{- if .HasJWT}}
+	adminMW := jwtingin.RequireRole(h.jwtAuth, constants.RoleAdmin)
+	perms.Use(adminMW)
+	{{- end}}
 	{
 		perms.GET("", h.ListPermissions)
 		perms.POST("", h.CreatePermission)
 		perms.PUT("/:id", h.UpdatePermission)
 		perms.DELETE("/:id", h.DeletePermission)
 	}
+}
 
-	// ── RBAC: User-Role assignment ──
+// registerUserRoleRoutes registers user-role assignment endpoints (admin only).
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerUserRoleRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerUserRoleRoutes(r gin.IRouter) {
+{{- end}}
 	userRoles := r.Group("/api/v1/user-roles")
+	{{- if .HasJWT}}
+	adminMW := jwtingin.RequireRole(h.jwtAuth, constants.RoleAdmin)
+	userRoles.Use(adminMW)
+	{{- end}}
 	{
 		userRoles.POST("/assign", h.AssignRoleToUser)
 		userRoles.POST("/revoke", h.RevokeRoleFromUser)
 		userRoles.GET("/:id/roles", h.GetUserRoles)
 		userRoles.GET("/:id/permissions", h.GetUserPermissions)
 	}
-	{{- end}}
 }
+{{- end}}
+
+{{- if .IsMultiTenant}}
+
+// registerTenantRoutes registers tenant management endpoints.
+{{- if .HasAPIDocs}}
+func (h *Handlers) registerTenantRoutes(r *humax.Group) {
+{{- else}}
+func (h *Handlers) registerTenantRoutes(r gin.IRouter) {
+{{- end}}
+	tenants := r.Group("/api/v1/tenants")
+	{
+		tenants.GET("", h.ListTenants)
+		tenants.POST("", h.CreateTenant)
+		tenants.GET("/:id", h.GetTenant)
+		tenants.PUT("/:id", h.UpdateTenant)
+		tenants.DELETE("/:id", h.DeleteTenant)
+	}
+}
+{{- end}}

@@ -12,6 +12,9 @@ const (
 	TableUserRoles   = "user_roles"
 	TableRolePerms   = "role_permissions"
 {{- end}}
+{{- if .IsMultiTenant}}
+	TableTenants = "tenants"
+{{- end}}
 )
 
 {{- if .IsRBAC}}
@@ -34,5 +37,28 @@ const (
 	PermResourceUser   = "user"
 	PermResourceRole   = "role"
 	PermResourceFile   = "file"
+)
+{{- end}}
+
+{{- if .IsMultiTenant}}
+
+// Multi-tenant constants.
+const (
+	// TenantStatusActive = active tenant
+	TenantStatusActive = 1
+	// TenantStatusDisabled = disabled tenant
+	TenantStatusDisabled = 0
+
+	// TenantPlanFree = free plan
+	TenantPlanFree = "free"
+	// TenantPlanPro = pro plan
+	TenantPlanPro = "pro"
+	// TenantPlanEnterprise = enterprise plan
+	TenantPlanEnterprise = "enterprise"
+
+	// ContextKeyTenantID is the gin.Context key for the current tenant ID.
+	ContextKeyTenantID = "tenant_id"
+	// HeaderTenantID is the HTTP header for tenant identification (when not using JWT).
+	HeaderTenantID = "X-Tenant-ID"
 )
 {{- end}}

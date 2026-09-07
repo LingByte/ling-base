@@ -1,0 +1,27 @@
+{{- if .IsMultiTenant}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+)
+
+// Tenant represents a SaaS tenant (organization/workspace).
+type Tenant struct {
+	common.BaseModel
+	Name        string `json:"name" gorm:"size:100;uniqueIndex;not null"`
+	Code        string `json:"code" gorm:"size:50;uniqueIndex;not null"` // short code for subdomain/lookup
+	Contact     string `json:"contact,omitempty" gorm:"size:100"`        // contact person
+	Email       string `json:"email,omitempty" gorm:"size:200"`          // contact email
+	Phone       string `json:"phone,omitempty" gorm:"size:20"`
+	Plan        string `json:"plan" gorm:"size:20;default:free;not null"` // free/pro/enterprise
+	Status      int    `json:"status" gorm:"default:1;not null"`          // 1=active, 0=disabled
+	MaxUsers    int    `json:"maxUsers,omitempty" gorm:"default:0"`       // 0 = unlimited
+	ExpireAt    *int64 `json:"expireAt,omitempty"`                        // unix timestamp, nil = never
+}
+
+func (Tenant) TableName() string { return constants.TableTenants }
+{{- end}}
