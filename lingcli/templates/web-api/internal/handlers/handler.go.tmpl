@@ -15,14 +15,15 @@ import (
 	"github.com/LingByte/ling-base/common/validate"
 	{{- end}}
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 // ──────────────────────────────────────────────
-// 系统端点
+// System endpoints
 // ──────────────────────────────────────────────
 
-// Health 综合健康检查。
+// Health returns the overall health status.
 func (h *Handlers) Health(c *gin.Context) {
 	respgin.Success(c, gin.H{
 		"status":  "healthy",
@@ -32,17 +33,17 @@ func (h *Handlers) Health(c *gin.Context) {
 	})
 }
 
-// Liveness 存活探针（K8s liveness probe）。
+// Liveness is the Kubernetes liveness probe endpoint.
 func (h *Handlers) Liveness(c *gin.Context) {
 	respgin.Success(c, gin.H{"status": "alive"})
 }
 
-// Readiness 就绪探针（K8s readiness probe）。
+// Readiness is the Kubernetes readiness probe endpoint.
 func (h *Handlers) Readiness(c *gin.Context) {
 	respgin.Success(c, gin.H{"status": "ready"})
 }
 
-// Version 版本信息。
+// Version returns build and version metadata.
 func (h *Handlers) Version(c *gin.Context) {
 	respgin.Success(c, gin.H{
 		"name":      h.info.Name,
@@ -53,12 +54,12 @@ func (h *Handlers) Version(c *gin.Context) {
 }
 
 // ──────────────────────────────────────────────
-// 用户 CRUD
+// User CRUD + registration + password management
 // ──────────────────────────────────────────────
 
-// ListUsers 分页查询用户列表。
+// ListUsers returns a paginated, filterable list of users.
 func (h *Handlers) ListUsers(c *gin.Context) {
-	var req types.PageRequest
+	var req types.UserListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
@@ -66,36 +67,56 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 	page, size := req.Normalize()
 
 	if h.db == nil {
-		users := []models.User{
-			{ID: 1, Name: "Alice", Email: "alice@example.com", CreatedAt: time.Now()},
-			{ID: 2, Name: "Bob", Email: "bob@example.com", CreatedAt: time.Now()},
+		users := []types.UserResponse{
+			{ID: 1, Username: "alice", Email: "alice@example.com", Role: "user", Status: 1, CreatedAt: time.Now()},
+			{ID: 2, Username: "bob", Email: "bob@example.com", Role: "user", Status: 1, CreatedAt: time.Now()},
 		}
 		respgin.Success(c, response.NewPage(users, int64(len(users)), page, size))
 		return
 	}
 
-	offset := (page - 1) * size
-	var users []models.User
+	query := h.db.WithContext(c.Request.Context()).Model(&models.User{})
+
+	// Apply filters
+	if req.Keyword != "" {
+		like := "%" + req.Keyword + "%"
+		query = query.Where("username LIKE ? OR email LIKE ?", like, like)
+	}
+	if req.Status != nil {
+		query = query.Where("status = ?", *req.Status)
+	}
+	if req.Role != "" {
+		query = query.Where("role = ?", req.Role)
+	}
+
 	var total int64
-	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	if err := h.db.WithContext(c.Request.Context()).Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
+
+	var users []models.User
+	offset := (page - 1) * size
+	if err := query.Order("id DESC").Offset(offset).Limit(size).Find(&users).Error; err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	respgin.Success(c, response.NewPage(users, total, page, size))
+
+	// Convert to response DTOs
+	result := make([]types.UserResponse, len(users))
+	for i := range users {
+		result[i] = types.ToUserResponse(&users[i])
+	}
+	respgin.Success(c, response.NewPage(result, total, page, size))
 }
 
-// GetUser 查询单个用户。
+// GetUser returns a single user by ID.
 func (h *Handlers) GetUser(c *gin.Context) {
 	var req types.IDRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
-	id := req.ID
 
 	if h.db == nil {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
@@ -103,7 +124,7 @@ func (h *Handlers) GetUser(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
+	if err := h.db.WithContext(c.Request.Context()).First(&user, req.ID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			respgin.WriteError(c, response.Err(response.CodeNotFound))
 			return
@@ -111,10 +132,64 @@ func (h *Handlers) GetUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	respgin.Success(c, user)
+	respgin.Success(c, types.ToUserResponse(&user))
 }
 
-// CreateUser 创建用户。
+// RegisterUser creates a new user account (public registration endpoint).
+func (h *Handlers) RegisterUser(c *gin.Context) {
+	var req types.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	// Check for duplicate username/email
+	var count int64
+	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).
+		Where("username = ? OR email = ?", req.Username, req.Email).Count(&count).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	if count > 0 {
+		respgin.WriteError(c, response.New(response.CodeConflict, "username or email already exists"))
+		return
+	}
+
+	// Hash password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	user := models.User{
+		Username: req.Username,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Password: string(hashed),
+		Role:     models.UserRoleUser,
+		Status:   models.UserStatusActive,
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Created(c, types.ToUserResponse(&user))
+}
+
+// CreateUser creates a new user (admin endpoint, can set role).
 func (h *Handlers) CreateUser(c *gin.Context) {
 	var req types.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -128,29 +203,57 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 	}
 	{{- end}}
 
-	user := models.User{Name: req.Name, Email: req.Email, Phone: req.Phone}
 	if h.db == nil {
-		user.ID = time.Now().Unix()
-		user.CreatedAt = time.Now()
-		respgin.Created(c, user)
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
 		return
+	}
+
+	// Check for duplicate
+	var count int64
+	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).
+		Where("username = ? OR email = ?", req.Username, req.Email).Count(&count).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	if count > 0 {
+		respgin.WriteError(c, response.New(response.CodeConflict, "username or email already exists"))
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	role := req.Role
+	if role == "" {
+		role = models.UserRoleUser
+	}
+
+	user := models.User{
+		Username: req.Username,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Password: string(hashed),
+		Role:     role,
+		Status:   models.UserStatusActive,
 	}
 
 	if err := h.db.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	respgin.Created(c, user)
+	respgin.Created(c, types.ToUserResponse(&user))
 }
 
-// UpdateUser 更新用户。
+// UpdateUser updates a user's profile fields.
 func (h *Handlers) UpdateUser(c *gin.Context) {
 	var idReq types.IDRequest
 	if err := c.ShouldBindUri(&idReq); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
-	id := idReq.ID
 
 	var req types.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -170,7 +273,7 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := h.db.WithContext(c.Request.Context()).First(&user, id).Error; err != nil {
+	if err := h.db.WithContext(c.Request.Context()).First(&user, idReq.ID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			respgin.WriteError(c, response.Err(response.CodeNotFound))
 			return
@@ -179,38 +282,105 @@ func (h *Handlers) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if req.Name != nil {
-		user.Name = *req.Name
+	// Apply partial updates
+	updates := map[string]interface{}{}
+	if req.Username != nil {
+		updates["username"] = *req.Username
 	}
 	if req.Email != nil {
-		user.Email = *req.Email
+		updates["email"] = *req.Email
 	}
 	if req.Phone != nil {
-		user.Phone = *req.Phone
+		updates["phone"] = *req.Phone
+	}
+	if req.Avatar != nil {
+		updates["avatar"] = *req.Avatar
+	}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
 	}
 
-	if err := h.db.WithContext(c.Request.Context()).Save(&user).Error; err != nil {
+	if len(updates) > 0 {
+		if err := h.db.WithContext(c.Request.Context()).Model(&user).Updates(updates).Error; err != nil {
+			respgin.WriteError(c, response.Err(response.CodeInternal))
+			return
+		}
+	}
+	respgin.Success(c, types.ToUserResponse(&user))
+}
+
+// ChangePassword changes a user's password (requires old password verification).
+func (h *Handlers) ChangePassword(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	var req types.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var user models.User
+	if err := h.db.WithContext(c.Request.Context()).First(&user, idReq.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
-	respgin.Success(c, user)
+
+	// Verify old password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+		respgin.WriteError(c, response.New(response.CodeUnauthorized, "incorrect old password"))
+		return
+	}
+
+	// Hash new password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Model(&user).Update("password", string(hashed)).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, gin.H{"message": "password changed"})
 }
 
-// DeleteUser 删除用户。
+// DeleteUser soft-deletes a user by ID.
 func (h *Handlers) DeleteUser(c *gin.Context) {
 	var req types.IDRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		respgin.WriteError(c, response.Err(response.CodeBadRequest))
 		return
 	}
-	id := req.ID
 
 	if h.db == nil {
 		respgin.WriteError(c, response.Err(response.CodeNotFound))
 		return
 	}
 
-	result := h.db.WithContext(c.Request.Context()).Delete(&models.User{}, id)
+	result := h.db.WithContext(c.Request.Context()).Delete(&models.User{}, req.ID)
 	if result.Error != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return

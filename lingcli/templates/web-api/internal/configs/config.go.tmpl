@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Config 持有应用的所有配置。
+// Config holds all application configuration.
 type Config struct {
 	Server         ServerConfig         `yaml:"server"`
 	Database       DatabaseConfig       `yaml:"database"`
@@ -86,7 +86,7 @@ type DocsConfig struct {
 	Theme      string `yaml:"theme"`      // scalar, swagger, redoc, stoplight
 	DarkMode   bool   `yaml:"darkMode"`
 	CDNMode    string `yaml:"cdnMode"`    // public, selfhosted, custom
-	CDNBaseURL string `yaml:"cdnBaseUrl"` // selfhosted 模式的基址
+	CDNBaseURL string `yaml:"cdnBaseUrl"` // base URL for selfhosted mode
 }
 
 type JWTConfig struct {
@@ -99,73 +99,75 @@ type JWTConfig struct {
 
 type I18nConfig struct {
 	Enabled          bool     `yaml:"enabled"`
-	DefaultLocale    string   `yaml:"defaultLocale"`    // 默认语言，如 zh-CN
-	SupportedLocales []string `yaml:"supportedLocales"` // 支持的语言列表
-	FallbackLocale   string   `yaml:"fallbackLocale"`   // 回退语言
-	TranslationsPath string   `yaml:"translationsPath"` // 翻译文件目录
+	DefaultLocale    string   `yaml:"defaultLocale"`    // e.g. zh-CN
+	SupportedLocales []string `yaml:"supportedLocales"` // supported language list
+	FallbackLocale   string   `yaml:"fallbackLocale"`   // fallback language
+	TranslationsPath string   `yaml:"translationsPath"` // translation files directory
 }
 
 type AppConfig struct {
 	Name        string `yaml:"name"`
-	Environment string `yaml:"environment"` // dev, test, prod（对应 constants.ENV_DEV / ENV_PROD）
+	Environment string `yaml:"environment"` // dev, test, prod (maps to constants.ENV_DEV / ENV_PROD)
 }
 
-// StorageConfig 对象存储配置（ling-base/stores）。
-// 默认使用 local 后端（本地文件系统，零云 SDK 依赖）。
-// 切换到云存储时，将 driver 改为 s3/oss/cos/minio/kodo/tos/obs/ks3 并填入对应凭证。
+// StorageConfig holds object storage configuration (ling-base/stores).
+// Default backend is local (local filesystem, zero cloud SDK dependency).
+// To switch to cloud storage, set driver to s3/oss/cos/minio/kodo/tos/obs/ks3
+// and fill in the corresponding credentials.
 type StorageConfig struct {
-	Driver       string `yaml:"driver"`       // local | s3 | oss | cos | minio | kodo | tos | obs | ks3
-	Root         string `yaml:"root"`         // local: 根目录; 云存储: bucket 名
-	Region       string `yaml:"region"`       // 云存储区域
-	Endpoint     string `yaml:"endpoint"`     // 自定义端点（MinIO / 兼容 S3）
-	AccessKey    string `yaml:"accessKey"`    // 云存储 AccessKey
-	SecretKey    string `yaml:"secretKey"`    // 云存储 SecretKey
-	PublicURLBase string `yaml:"publicUrlBase"` // 公网访问基址（留空则用 PublicURL() 默认值）
-	MaxFileSize  int64  `yaml:"maxFileSize"`  // 单文件最大字节数（0 = 不限制）
+	Driver        string `yaml:"driver"`        // local | s3 | oss | cos | minio | kodo | tos | obs | ks3
+	Root          string `yaml:"root"`          // local: root directory; cloud: bucket name
+	Region        string `yaml:"region"`        // cloud storage region
+	Endpoint      string `yaml:"endpoint"`      // custom endpoint (MinIO / S3-compatible)
+	AccessKey     string `yaml:"accessKey"`     // cloud storage AccessKey
+	SecretKey     string `yaml:"secretKey"`     // cloud storage SecretKey
+	PublicURLBase string `yaml:"publicUrlBase"` // public access base URL (empty = use PublicURL() default)
+	MaxFileSize   int64  `yaml:"maxFileSize"`   // max file size in bytes (0 = unlimited)
 }
 
-// CacheConfig 缓存配置（ling-base/common/cache）。
-// 默认使用 memory 后端（进程内，零外部依赖）。
+// CacheConfig holds cache configuration (ling-base/common/cache).
+// Default backend is memory (in-process, zero external dependencies).
 type CacheConfig struct {
 	Driver          string `yaml:"driver"`          // memory | redis | bigcache | freecache | ristretto
-	DefaultTTL      string `yaml:"defaultTTL"`      // 默认 TTL（如 10m, 1h）
-	CleanupInterval string `yaml:"cleanupInterval"` // memory: GC 间隔
-	// Redis 后端专用（留空则复用顶层 redis 配置）
+	DefaultTTL      string `yaml:"defaultTTL"`      // default TTL (e.g. 10m, 1h)
+	CleanupInterval string `yaml:"cleanupInterval"` // memory: GC interval
+	// Redis-specific (empty = reuse top-level redis config)
 	RedisAddr     string `yaml:"redisAddr"`
 	RedisPassword string `yaml:"redisPassword"`
 	RedisDB       int    `yaml:"redisDB"`
 }
 
-// LockConfig 分布式锁配置（ling-base/common/lock）。
-// 默认使用 memory 后端（进程内，单实例）。
+// LockConfig holds distributed lock configuration (ling-base/common/lock).
+// Default backend is memory (in-process, single instance).
 type LockConfig struct {
 	Driver     string `yaml:"driver"`     // memory | redis | etcd | zookeeper | consul | mysql | postgres
-	DefaultTTL string `yaml:"defaultTTL"` // 默认锁 TTL（如 10s, 30s）
-	RetryDelay string `yaml:"retryDelay"` // 获取锁重试间隔
-	// Redis 后端专用（留空则复用顶层 redis 配置）
+	DefaultTTL string `yaml:"defaultTTL"` // default lock TTL (e.g. 10s, 30s)
+	RetryDelay string `yaml:"retryDelay"` // lock acquisition retry interval
+	// Redis-specific (empty = reuse top-level redis config)
 	RedisAddr     string `yaml:"redisAddr"`
 	RedisPassword string `yaml:"redisPassword"`
 	RedisDB       int    `yaml:"redisDB"`
 }
 
-// RetryConfig 重试策略配置（ling-base/common/retry）。
+// RetryConfig holds retry strategy configuration (ling-base/common/retry).
 type RetryConfig struct {
-	MaxAttempts    int    `yaml:"maxAttempts"`    // 最大尝试次数（含首次）
-	InitialDelay   string `yaml:"initialDelay"`   // 初始退避延迟
-	MaxDelay       string `yaml:"maxDelay"`       // 退避上限
-	Factor         string `yaml:"factor"`         // 退避乘数（如 2.0）
-	Jitter         bool   `yaml:"jitter"`         // 是否启用抖动
+	MaxAttempts  int    `yaml:"maxAttempts"`  // max attempts (including the first)
+	InitialDelay string `yaml:"initialDelay"` // initial backoff delay
+	MaxDelay     string `yaml:"maxDelay"`     // backoff cap
+	Factor       string `yaml:"factor"`       // backoff multiplier (e.g. 2.0)
+	Jitter       bool   `yaml:"jitter"`       // enable jitter
 }
 
-// FallbackConfig 降级配置。
-// 当熔断器打开或远程调用失败时,返回降级响应而非 5xx 错误。
+// FallbackConfig holds degradation/fallback configuration.
+// When the circuit breaker is open or a remote call fails,
+// a fallback response is returned instead of a 5xx error.
 type FallbackConfig struct {
-	Enabled        bool   `yaml:"enabled"`        // 是否启用降级
-	DefaultMessage string `yaml:"defaultMessage"` // 默认降级提示消息
-	StatusCode     int    `yaml:"statusCode"`     // 默认降级 HTTP 状态码(0=503)
+	Enabled        bool   `yaml:"enabled"`        // enable fallback
+	DefaultMessage string `yaml:"defaultMessage"` // default fallback message
+	StatusCode     int    `yaml:"statusCode"`     // default fallback HTTP status code (0 = 503)
 }
 
-// Default 返回默认配置。
+// Default returns the default configuration.
 func Default() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -249,7 +251,7 @@ func Default() *Config {
 		},
 		Fallback: FallbackConfig{
 			Enabled:        true,
-			DefaultMessage: "服务暂时不可用,请稍后再试",
+			DefaultMessage: "service temporarily unavailable",
 			StatusCode:     503,
 		},
 		App: AppConfig{
@@ -259,87 +261,87 @@ func Default() *Config {
 	}
 }
 
-// Load 从配置文件加载配置。
-// 文件不存在时使用默认配置。
-// 支持 YAML (.yaml/.yml) 和 .env 两种格式。
-// 加载后用环境变量覆盖对应字段（env 优先级最高）。
-// 环境变量格式：APP_<SECTION>_<FIELD>，例如 APP_SERVER_PORT、APP_DATABASE_DSN。
+// Load loads configuration from a file.
+// If the file does not exist, default config is used.
+// Supports both YAML (.yaml/.yml) and .env formats.
+// Environment variables override corresponding fields (env has highest priority).
+// Env var format: APP_<SECTION>_<FIELD>, e.g. APP_SERVER_PORT, APP_DATABASE_DSN.
 func Load(path string) (*Config, error) {
 	cfg := Default()
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// 配置文件未找到，使用默认配置 + 环境变量
+		// Config file not found; use defaults + env overrides
 		applyEnvOverrides(cfg)
 		return cfg, nil
 	}
 
 	if strings.HasSuffix(path, ".env") || strings.HasSuffix(path, ".env.prod") {
-		// .env 格式：解析 KEY=VALUE 并设为环境变量，然后走 env 覆盖
+		// .env format: parse KEY=VALUE and set as env vars, then apply env overrides
 		if err := loadDotEnv(data); err != nil {
-			return nil, fmt.Errorf("解析 .env 配置失败: %w", err)
+			return nil, fmt.Errorf("failed to parse .env config: %w", err)
 		}
 		applyEnvOverrides(cfg)
 	} else {
-		// YAML 格式
+		// YAML format
 		if err := yaml.Unmarshal(data, cfg); err != nil {
-			return nil, fmt.Errorf("解析 YAML 配置失败: %w", err)
+			return nil, fmt.Errorf("failed to parse YAML config: %w", err)
 		}
 		applyEnvOverrides(cfg)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("配置校验失败: %w", err)
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	return cfg, nil
 }
 
-// Validate 校验配置的完整性和合法性。
-// 在 Load() 最后调用，启动时即可发现配置错误。
+// Validate checks configuration completeness and validity.
+// Called at the end of Load() to catch config errors at startup.
 func (c *Config) Validate() error {
 	var errs []string
 
 	// Server
 	if c.Server.Port < 1 || c.Server.Port > 65535 {
-		errs = append(errs, "server.port 必须在 1-65535 之间")
+		errs = append(errs, "server.port must be between 1 and 65535")
 	}
 	if c.Server.ReadTimeout < 0 {
-		errs = append(errs, "server.read_timeout 不能为负数")
+		errs = append(errs, "server.readTimeout must not be negative")
 	}
 	if c.Server.WriteTimeout < 0 {
-		errs = append(errs, "server.write_timeout 不能为负数")
+		errs = append(errs, "server.writeTimeout must not be negative")
 	}
 
-	// Database（生产环境必须配置 DSN）
+	// Database (DSN is required in production)
 	if c.App.Environment == "prod" && c.Database.DSN == "" {
-		errs = append(errs, "生产环境 database.dsn 不能为空")
+		errs = append(errs, "database.dsn must not be empty in production")
 	}
 
 	// JWT
 	if c.JWT.Enabled {
 		if c.JWT.Secret == "" {
-			errs = append(errs, "jwt.enabled=true 时 jwt.secret 不能为空")
+			errs = append(errs, "jwt.secret must not be empty when jwt.enabled is true")
 		}
 		if len(c.JWT.Secret) > 0 && len(c.JWT.Secret) < 16 {
-			errs = append(errs, "jwt.secret 长度不能少于 16 字符（安全要求）")
+			errs = append(errs, "jwt.secret must be at least 16 characters (security requirement)")
 		}
 		if c.JWT.AccessTTL == "" {
-			errs = append(errs, "jwt.enabled=true 时 jwt.accessTTL 不能为空")
+			errs = append(errs, "jwt.accessTTL must not be empty when jwt.enabled is true")
 		}
 	}
 
 	// RateLimit
 	if c.RateLimit.Enabled {
 		if c.RateLimit.RPS <= 0 {
-			errs = append(errs, "rate_limit.enabled=true 时 rate_limit.rps 必须 > 0")
+			errs = append(errs, "rateLimit.rps must be > 0 when rateLimit.enabled is true")
 		}
 	}
 
 	// CircuitBreaker
 	if c.CircuitBreaker.Enabled {
 		if c.CircuitBreaker.FailureThreshold <= 0 {
-			errs = append(errs, "circuit_breaker.enabled=true 时 failureThreshold 必须 > 0")
+			errs = append(errs, "circuitBreaker.failureThreshold must be > 0 when enabled")
 		}
 	}
 
@@ -347,7 +349,7 @@ func (c *Config) Validate() error {
 	// I18n
 	if c.I18n.Enabled {
 		if c.I18n.DefaultLocale == "" {
-			errs = append(errs, "i18n.enabled=true 时 default_locale 不能为空")
+			errs = append(errs, "i18n.defaultLocale must not be empty when i18n.enabled is true")
 		}
 	}
 	{{- end}}
@@ -358,29 +360,29 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// loadDotEnv 解析 .env 文件内容（KEY=VALUE 格式），
-// 将键值对设置为环境变量（不覆盖已存在的环境变量）。
+// loadDotEnv parses .env file content (KEY=VALUE format)
+// and sets key-value pairs as environment variables (does not override existing ones).
 func loadDotEnv(data []byte) error {
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// 跳过空行和注释
+		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// 解析 KEY=VALUE
+		// Parse KEY=VALUE
 		idx := strings.Index(line, "=")
 		if idx <= 0 {
 			continue
 		}
 		key := strings.TrimSpace(line[:idx])
 		val := strings.TrimSpace(line[idx+1:])
-		// 去除引号
+		// Strip quotes
 		if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') ||
 			(val[0] == '\'' && val[len(val)-1] == '\'')) {
 			val = val[1 : len(val)-1]
 		}
-		// 不覆盖已存在的环境变量
+		// Do not override existing env vars
 		if _, exists := os.LookupEnv(key); !exists {
 			os.Setenv(key, val)
 		}
@@ -388,11 +390,11 @@ func loadDotEnv(data []byte) error {
 	return scanner.Err()
 }
 
-// applyEnvOverrides 用 APP_ 前缀的环境变量覆盖配置。
-// 支持：APP_APP_ENVIRONMENT / APP_APP_NAME / APP_SERVER_PORT /
-//   APP_DATABASE_DRIVER / APP_DATABASE_DSN / APP_REDIS_ADDR /
-//   APP_REDIS_PASSWORD / APP_JWT_SECRET / APP_JWT_ENABLED /
-//   APP_DOCS_ENABLED / APP_RATELIMIT_ENABLED / APP_RATELIMIT_RPS
+// applyEnvOverrides applies APP_-prefixed environment variables to the config.
+// Supported: APP_APP_ENVIRONMENT / APP_APP_NAME / APP_SERVER_PORT /
+// APP_DATABASE_DRIVER / APP_DATABASE_DSN / APP_REDIS_ADDR /
+// APP_REDIS_PASSWORD / APP_JWT_SECRET / APP_JWT_ENABLED /
+// APP_DOCS_ENABLED / APP_RATELIMIT_ENABLED / APP_RATELIMIT_RPS
 func applyEnvOverrides(cfg *Config) {
 	// App
 	if v := os.Getenv("APP_APP_NAME"); v != "" {
@@ -508,7 +510,7 @@ func applyEnvOverrides(cfg *Config) {
 	}
 }
 
-// InitDB 根据配置创建数据库连接。
+// InitDB creates a database connection based on the configuration.
 func InitDB(cfg DatabaseConfig) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	switch cfg.Driver {
@@ -519,12 +521,12 @@ func InitDB(cfg DatabaseConfig) (*gorm.DB, error) {
 	case "sqlite":
 		dialector = sqlite.Open(cfg.DSN)
 	default:
-		return nil, fmt.Errorf("不支持的数据库驱动: %s", cfg.Driver)
+		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
 	}
 
 	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("连接数据库失败: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	sqlDB, err := db.DB()

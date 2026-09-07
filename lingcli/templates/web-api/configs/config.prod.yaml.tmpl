@@ -1,5 +1,5 @@
 {{- if .IsYAMLConfig}}
-# {{.ProjectName}} 生产环境配置覆盖
+# {{.ProjectName}} production configuration override
 
 server:
   port: {{.Port}}
@@ -22,49 +22,49 @@ logging:
   level: info
   format: json
 
-# 生产环境开启限流
+# Enable rate limiting in production
 rateLimit:
   enabled: true
   rps: 200
   burst: 500
 
-# 生产环境开启熔断
+# Enable circuit breaker in production
 circuitBreaker:
   enabled: true
   failureThreshold: 5
   minRequests: 20
   recoveryTimeout: 30s
 
-# 生产环境关闭文档 UI（保留 spec 可选）
+# Disable docs UI in production (spec is still available)
 docs:
   enabled: false
   cdnMode: selfhosted
   cdnBaseUrl: "https://assets.internal.company.com/openapi-ui"
 
-# 生产环境开启 JWT
+# Enable JWT in production
 jwt:
   enabled: true
   secret: "set-via-env-var-in-prod"
   accessTTL: 15m
   refreshTTL: 168h
 
-# 生产环境切换到云存储（示例: S3）
-# 需先: go get github.com/LingByte/ling-base/stores/s3
+# Switch to cloud storage in production (example: S3)
+# Requires: go get github.com/LingByte/ling-base/stores/s3
 storage:
-  driver: local            # 生产环境改为 s3/oss/cos 等
+  driver: local            # change to s3/oss/cos etc. for production
   root: uploads
   maxFileSize: 104857600   # 100 MB
 
-# 生产环境切换到 Redis 缓存
-# 需先: go get github.com/LingByte/ling-base/common/cache/redis
+# Switch to Redis cache in production
+# Requires: go get github.com/LingByte/ling-base/common/cache/redis
 cache:
-  driver: memory           # 生产环境改为 redis
+  driver: memory           # change to redis for production
   defaultTTL: 5m
 
-# 生产环境切换到 Redis 分布式锁
-# 需先: go get github.com/LingByte/ling-base/common/lock/redis
+# Switch to Redis distributed lock in production
+# Requires: go get github.com/LingByte/ling-base/common/lock/redis
 lock:
-  driver: memory           # 生产环境改为 redis
+  driver: memory           # change to redis for production
   defaultTTL: 30s
 
 retry:
@@ -73,10 +73,10 @@ retry:
   maxDelay: 30s
   jitter: true
 
-# 生产环境启用降级
+# Enable fallback in production
 fallback:
   enabled: true
-  defaultMessage: "服务暂时不可用,请稍后再试"
+  defaultMessage: "service temporarily unavailable"
   statusCode: 503
 
 app:

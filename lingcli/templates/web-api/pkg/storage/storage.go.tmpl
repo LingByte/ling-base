@@ -1,20 +1,20 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-// Package storage 封装 ling-base/stores 对象存储能力,提供包级单例。
+// Package storage wraps ling-base/stores object storage as a package-level singleton.
 //
-// 使用方式:
+// Usage:
 //
-//	// main.go 启动时初始化
+//	// Initialize at startup in main.go
 //	pkgstorage.Init(cfg.Storage)
 //
-//	// handler / service 中直接调用
+//	// Call directly from handler / service
 //	pkgstorage.Write("avatars/photo.jpg", reader)
 //	url := pkgstorage.PublicURL("avatars/photo.jpg")
 //
-// 切换云存储后端(S3/OSS/COS/MinIO 等):
-//  1. go get 对应驱动模块,如 go get github.com/LingByte/ling-base/stores/s3
-//  2. 在 Init() 的 switch 中加入对应 case
-//  3. 修改 configs/config.yaml 的 storage.driver
+// To switch to cloud storage (S3/OSS/COS/MinIO etc.):
+//  1. go get the corresponding driver module, e.g. go get github.com/LingByte/ling-base/stores/s3
+//  2. Add a case in Init() for the driver
+//  3. Set storage.driver in configs/config.yaml
 package storage
 
 import (
@@ -26,21 +26,21 @@ import (
 	"github.com/LingByte/ling-base/stores/local"
 )
 
-// 全局单例(包级变量)。Init 后可通过 Storage 直接调用。
+// Package-level singleton.
 var (
-	// Store 是当前生效的对象存储实例。未 Init 前为 nil。
+	// Store is the active object storage instance. nil until Init() is called.
 	Store stores.Store
 
-	// MaxFileSize 单文件大小上限(字节,0 = 不限制)。
+	// MaxFileSize is the maximum file size in bytes (0 = unlimited).
 	MaxFileSize int64
 
-	// PublicURLBase 公网访问基址(留空则用 Store.PublicURL() 默认值)。
+	// PublicURLBase is the public access base URL (empty = use Store.PublicURL() default).
 	PublicURLBase string
 )
 
-// Init 根据配置初始化对象存储单例。
-// 默认 local 后端(本地文件系统,零云 SDK 依赖)。
-// 切换 driver 时需要额外 go get 对应模块,并在 switch 中加入 case。
+// Init initializes the object storage singleton from configuration.
+// Default backend is local (local filesystem, zero cloud SDK dependency).
+// Switching drivers requires go get of the corresponding module and adding a case.
 func Init(driver, root, region, endpoint, accessKey, secretKey, publicURLBase string, maxFileSize int64) error {
 	switch driver {
 	case "local", "":
@@ -48,7 +48,7 @@ func Init(driver, root, region, endpoint, accessKey, secretKey, publicURLBase st
 			Root:       root,
 			NewDirPerm: 0755,
 		})
-	// ── 以下后端需要额外 go get 对应模块 ──
+	// ── Additional backends require go get of the corresponding module ──
 	// case "s3":
 	//     Store = s3.New(s3.Config{Bucket: root, Region: region, AccessKey: accessKey, SecretKey: secretKey, Endpoint: endpoint})
 	// case "oss":
@@ -58,7 +58,7 @@ func Init(driver, root, region, endpoint, accessKey, secretKey, publicURLBase st
 	// case "minio":
 	//     Store = minio.New(minio.Config{Bucket: root, Endpoint: endpoint, AccessKey: accessKey, SecretKey: secretKey})
 	default:
-		return fmt.Errorf("不支持的存储驱动: %s(需先 go get 对应模块)", driver)
+		return fmt.Errorf("unsupported storage driver: %s (go get the corresponding module first)", driver)
 	}
 
 	MaxFileSize = maxFileSize
@@ -67,43 +67,43 @@ func Init(driver, root, region, endpoint, accessKey, secretKey, publicURLBase st
 }
 
 // ──────────────────────────────────────────────
-// 便捷方法 — 直接操作全局 Store
+// Convenience methods — operate on the global Store
 // ──────────────────────────────────────────────
 
-// Write 存储 reader 的内容到 key。
+// Write stores the content from reader to the given key.
 func Write(key string, r io.Reader) error {
 	if Store == nil {
-		return fmt.Errorf("storage 未初始化,请先调用 Init()")
+		return fmt.Errorf("storage not initialized, call Init() first")
 	}
 	return Store.Write(key, r)
 }
 
-// Read 返回 key 对应对象的 reader 和大小。
+// Read returns a reader and size for the object at the given key.
 func Read(key string) (io.ReadCloser, int64, error) {
 	if Store == nil {
-		return nil, 0, fmt.Errorf("storage 未初始化,请先调用 Init()")
+		return nil, 0, fmt.Errorf("storage not initialized, call Init() first")
 	}
 	return Store.Read(key)
 }
 
-// Delete 删除 key 对应的对象(不存在不报错)。
+// Delete removes the object at the given key (no error if it does not exist).
 func Delete(key string) error {
 	if Store == nil {
-		return fmt.Errorf("storage 未初始化,请先调用 Init()")
+		return fmt.Errorf("storage not initialized, call Init() first")
 	}
 	return Store.Delete(key)
 }
 
-// Exists 检查 key 是否存在。
+// Exists checks whether the object at the given key exists.
 func Exists(key string) (bool, error) {
 	if Store == nil {
-		return false, fmt.Errorf("storage 未初始化,请先调用 Init()")
+		return false, fmt.Errorf("storage not initialized, call Init() first")
 	}
 	return Store.Exists(key)
 }
 
-// PublicURL 返回 key 的公开访问 URL。
-// 若配置了 PublicURLBase,则拼接为 PublicURLBase/key;否则用 Store.PublicURL()。
+// PublicURL returns the public access URL for the given key.
+// If PublicURLBase is set, it returns PublicURLBase/key; otherwise Store.PublicURL().
 func PublicURL(key string) string {
 	if Store == nil {
 		return ""
@@ -114,18 +114,18 @@ func PublicURL(key string) string {
 	return Store.PublicURL(key)
 }
 
-// CheckFileSize 校验文件大小是否在限制内。
-// maxSize 为 0 表示不限制。
+// CheckFileSize validates that the file size is within the allowed limit.
+// maxSize of 0 means unlimited.
 func CheckFileSize(size int64) error {
 	if MaxFileSize > 0 && size > MaxFileSize {
-		return fmt.Errorf("文件大小 %d 超过限制 %d", size, MaxFileSize)
+		return fmt.Errorf("file size %d exceeds limit %d", size, MaxFileSize)
 	}
 	return nil
 }
 
-// Close 释放资源(目前 local 后端无需清理,保留以兼容云存储后端)。
+// Close releases resources (local backend needs no cleanup; kept for cloud backend compatibility).
 func Close() error {
-	// local 后端无需 close;云存储后端如有 Close 方法可在此调用
-	_ = os.Stdout // 避免 import 未使用告警(当未集成云后端时)
+	// local backend needs no close; cloud backends with Close methods can be called here
+	_ = os.Stdout // avoid unused import warning (when no cloud backend is integrated)
 	return nil
 }

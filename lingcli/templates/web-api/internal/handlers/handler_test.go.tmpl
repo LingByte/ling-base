@@ -106,13 +106,13 @@ func TestListUsers(t *testing.T) {
 
 func TestCreateUser_InvalidEmail(t *testing.T) {
 	r := newTestRouter(t)
-	body := `{"name":"test","email":"not-an-email"}`
+	body := `{"username":"test","email":"not-an-email","password":"secret123"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	// humax 走 Gin handler，common/response 返回 HTTP 200 + error in body
+	// humax runs Gin handler; common/response returns HTTP 200 + error in body
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}
@@ -125,7 +125,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 
 func TestCreateUser_MissingName(t *testing.T) {
 	r := newTestRouter(t)
-	body := `{"email":"test@example.com"}`
+	body := `{"email":"test@example.com","password":"secret123"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -143,13 +143,19 @@ func TestCreateUser_MissingName(t *testing.T) {
 
 func TestCreateUser_Valid(t *testing.T) {
 	r := newTestRouter(t)
-	body := `{"name":"Charlie","email":"charlie@example.com"}`
+	body := `{"username":"charlie","email":"charlie@example.com","password":"secret123"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d; body: %s", w.Code, w.Body.String())
+	// No DB in test mode, so CreateUser returns SERVICE_UNAVAILABLE
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["error"] != "SERVICE_UNAVAILABLE" {
+		t.Errorf("expected error=SERVICE_UNAVAILABLE (no DB in test), got %v", resp["error"])
 	}
 }
 
@@ -179,7 +185,7 @@ func TestLogin_JWTDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	// humax 走 Gin handler，common/response 返回 HTTP 200 + error in body
+	// humax runs Gin handler; common/response returns HTTP 200 + error in body
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 (error in body), got %d", w.Code)
 	}

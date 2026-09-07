@@ -53,7 +53,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Version / BuildTime / GitCommit 由 ldflags 注入。
+// Build metadata (injected via ldflags).
 var (
 	Version   = "dev"
 	BuildTime = "unknown"
@@ -68,21 +68,21 @@ func main() {
 		GitCommit: GitCommit,
 	}
 
-	// 加载配置
+	// Load configuration
 	{{- if .IsEnvConfig}}
 	cfg, err := configs.Load("configs/.env")
 	{{- else}}
 	cfg, err := configs.Load("configs/config.yaml")
 	{{- end}}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 初始化时区
+	// Initialize timezone
 	logger.InitTimezone(constants.TimezoneShanghai)
 
-	// 初始化日志（zap + lumberjack 轮转 + 脱敏）
+	// Initialize logger (zap + lumberjack rotation + sensitive field masking)
 	if err := logger.Init(&logger.LogConfig{
 		Level:           cfg.Logging.Level,
 		Filename:        cfg.Logging.Filename,
@@ -92,13 +92,13 @@ func main() {
 		Daily:           cfg.Logging.Daily,
 		SensitiveFields: cfg.Logging.SensitiveFields,
 	}, cfg.App.Environment); err != nil {
-		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
 		os.Exit(1)
 	}
 
 	{{- if .HasI18n}}
 
-	// 初始化 i18n（多语言翻译，配置来自 configs/config.yaml）
+	// Initialize i18n (multi-language translation)
 	supportedLocales := make([]i18n.Locale, len(cfg.I18n.SupportedLocales))
 	for i, loc := range cfg.I18n.SupportedLocales {
 		supportedLocales[i] = i18n.Locale(loc)
@@ -109,29 +109,28 @@ func main() {
 		FallbackLocale:   i18n.Locale(cfg.I18n.FallbackLocale),
 		TranslationsPath: cfg.I18n.TranslationsPath,
 	})
-	// 设置 response 包的 i18n resolver，让统一响应封装自动翻译消息
-	// 实际 locale 由 i18ngin.Middleware 在请求时检测，这里用默认 locale 作为 fallback
+	// Wire i18n resolver into the response package for automatic message translation
 	respgin.Resolver = response.ResolverFunc(func(key string, args ...any) string {
 		return i18nManager.T(i18nManager.GetDefaultLocale(), key, args...)
 	})
 	{{- end}}
 
-	// 创建 bootstrap 应用
+	// Create bootstrap application
 	appOpts := []bootstrap.Option{
 		bootstrap.WithProfile(cfg.App.Environment),
 		bootstrap.WithBannerText(info.Name),
 		bootstrap.WithShutdownTimeout(15 * time.Second),
 	}
 
-	// 数据库初始化 + 迁移
+	// Database initialization + migration
 	var db *gorm.DB
 	if cfg.Database.DSN != "" {
 		db, err = configs.InitDB(cfg.Database)
 		if err != nil {
-			logger.Lg.Error("数据库初始化失败", zap.Error(err))
+			logger.Lg.Error("failed to init database", zap.Error(err))
 			os.Exit(1)
 		}
-		// dev/test: AutoMigrate; prod: 手动 SQL 迁移
+		// dev/test: AutoMigrate; prod: manual SQL migrations
 		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
 			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.User{}))
 		}
@@ -139,55 +138,55 @@ func main() {
 
 	{{- if .HasStores}}
 
-	// 初始化对象存储（pkg/storage，默认 local 后端）
+	// Initialize object storage (pkg/storage, default local backend)
 	if err = pkgstorage.Init(
 		cfg.Storage.Driver, cfg.Storage.Root, cfg.Storage.Region,
 		cfg.Storage.Endpoint, cfg.Storage.AccessKey, cfg.Storage.SecretKey,
 		cfg.Storage.PublicURLBase, cfg.Storage.MaxFileSize,
 	); err != nil {
-		logger.Lg.Error("对象存储初始化失败", zap.Error(err))
+		logger.Lg.Error("failed to init storage", zap.Error(err))
 		os.Exit(1)
 	}
 	{{- end}}
 
 	{{- if .HasCache}}
 
-	// 初始化缓存（pkg/cache，默认 memory 后端）
+	// Initialize cache (pkg/cache, default memory backend)
 	if err = pkgcache.Init(cfg.Cache.Driver, cfg.Cache.DefaultTTL, cfg.Cache.CleanupInterval); err != nil {
-		logger.Lg.Error("缓存初始化失败", zap.Error(err))
+		logger.Lg.Error("failed to init cache", zap.Error(err))
 		os.Exit(1)
 	}
 	{{- end}}
 
 	{{- if .HasLock}}
 
-	// 初始化分布式锁（pkg/lock，默认 memory 后端）
+	// Initialize distributed lock (pkg/lock, default memory backend)
 	if err = pkglock.Init(cfg.Lock.Driver, cfg.Lock.DefaultTTL, cfg.Lock.RetryDelay); err != nil {
-		logger.Lg.Error("分布式锁初始化失败", zap.Error(err))
+		logger.Lg.Error("failed to init lock manager", zap.Error(err))
 		os.Exit(1)
 	}
 	{{- end}}
 
 	{{- if .HasRetry}}
 
-	// 初始化重试策略（pkg/retry）
+	// Initialize retry strategy (pkg/retry)
 	pkgretry.Init(cfg.Retry.MaxAttempts, cfg.Retry.InitialDelay, cfg.Retry.MaxDelay, cfg.Retry.Factor, cfg.Retry.Jitter)
 	{{- end}}
 
 	{{- if .HasFallback}}
 
-	// 初始化降级策略（pkg/fallback）
+	// Initialize fallback/degradation strategy (pkg/fallback)
 	pkgfallback.Init(cfg.Fallback.Enabled, cfg.Fallback.DefaultMessage, cfg.Fallback.StatusCode)
 	{{- end}}
 
 	{{- if .HasCircuitBreaker}}
 
-	// 初始化超时+熔断管理器（ling-base/middleware）
+	// Initialize timeout + circuit breaker manager (ling-base/middleware)
 	recoveryTimeout, _ := time.ParseDuration(cfg.CircuitBreaker.RecoveryTimeout)
 	middleware.InitTimeoutCircuitManager(
 		middleware.TimeoutConfig{
 			DefaultTimeout:   30 * time.Second,
-			FallbackResponse: map[string]interface{}{"error": "service_unavailable", "message": "服务暂时不可用"},
+			FallbackResponse: map[string]interface{}{"error": "service_unavailable", "message": "service temporarily unavailable"},
 		},
 		middleware.CircuitBreakerConfig{
 			FailureThreshold:      cfg.CircuitBreaker.FailureThreshold,
@@ -202,7 +201,7 @@ func main() {
 
 	{{- if .HasJWT}}
 
-	// 初始化 JWT 鉴权（ling-base/common/jwtutil）
+	// Initialize JWT authentication (ling-base/common/jwtutil)
 	accessTTL, _ := time.ParseDuration(cfg.JWT.AccessTTL)
 	refreshTTL, _ := time.ParseDuration(cfg.JWT.RefreshTTL)
 	jwtAuth, err := jwtutil.New(jwtutil.Config{
@@ -212,7 +211,7 @@ func main() {
 		RefreshTTL: refreshTTL,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "初始化 JWT 失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to init JWT: %v\n", err)
 		os.Exit(1)
 	}
 	info.JWTAuth = jwtAuth
@@ -220,7 +219,7 @@ func main() {
 
 	app := bootstrap.New(info.Name, appOpts...)
 
-	// 注册 HTTP 服务器为生命周期组件
+	// Register HTTP server as a lifecycle component
 	app.Register("http-server", &httpServerComponent{
 		info: info,
 		cfg:  cfg,
@@ -234,19 +233,19 @@ func main() {
 	})
 
 	{{- if .HasCache}}
-	// 注册缓存为生命周期组件（优雅关闭）
+	// Register cache as a lifecycle component (graceful shutdown)
 	app.Register("cache", &cacheComponent{})
 	{{- end}}
 
-	// 启动（阻塞直到收到关闭信号）
+	// Start (blocks until a shutdown signal is received)
 	if err := app.Run(); err != nil {
-		logger.Lg.Error("应用启动失败", zap.Error(err))
+		logger.Lg.Error("application failed to start", zap.Error(err))
 		os.Exit(1)
 	}
 }
 
 // ──────────────────────────────────────────────
-// HTTP 服务器生命周期组件
+// HTTP server lifecycle component
 // ──────────────────────────────────────────────
 
 type httpServerComponent struct {
@@ -264,7 +263,7 @@ type httpServerComponent struct {
 
 {{- if .HasCache}}
 
-// cacheComponent 包装缓存为 bootstrap 生命周期组件。
+// cacheComponent wraps the cache as a bootstrap lifecycle component.
 type cacheComponent struct{}
 
 func (c *cacheComponent) Start(ctx context.Context) error { return nil }
@@ -275,21 +274,21 @@ func (c *cacheComponent) IsRunning() bool { return true }
 {{- end}}
 
 func (c *httpServerComponent) Start(ctx context.Context) error {
-	// 生产环境用 Release 模式
+	// Use Release mode in production
 	if c.cfg.App.Environment == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.New()
 
-	// 全局中间件（ling-base/middleware 库）
-	// RequestID → Logger → PanicRecovery → CORS（顺序重要）
+	// Global middleware (ling-base/middleware)
+	// Order matters: RequestID → Logger → PanicRecovery → CORS
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggerMiddleware(logger.Lg))
 	r.Use(middleware.PanicRecovery())
 	r.Use(middleware.CORS())
 	{{- if .HasI18n}}
-	// i18n 中间件（从 Accept-Language / query param / cookie 检测语言）
+	// i18n middleware (detects language from Accept-Language / query param / cookie)
 	r.Use(i18ngin.Middleware(c.i18nManager))
 	{{- end}}
 	{{- if .HasLimiter}}
@@ -299,33 +298,34 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	r.Use(middleware.CircuitBreakerMiddleware())
 	{{- end}}
 	{{- if .HasJWT}}
-	// JWT 鉴权中间件（ling-base/common/jwtutil/gin，公开路径自动跳过）
+	// JWT auth middleware (public paths are automatically skipped)
 	if c.jwtAuth != nil {
 		r.Use(jwtingin.Middleware(c.jwtAuth, jwtingin.WithPublicPaths(
 			"/health", "/live", "/ready", "/api/v1/version",
 			"/api/v1/auth/login", "/api/v1/auth/refresh",
+			"/api/v1/register",
 			"/docs", "/openapi",
 		)))
 	}
 	{{- end}}
 
 	{{- if .HasAPIDocs}}
-	// 先挂载 apidocs，拿到 huma.API（用于注册带 OpenAPI 文档的路由）
+	// Mount apidocs first to get huma.API (for registering routes with OpenAPI docs)
 	docsEnabled := c.cfg.Docs.Enabled
 	api := apidocs.Mount(r, apidocs.Options{
 		Title:       c.info.Name + " API",
 		Version:     c.info.Version,
-		Description: "{{.ProjectName}} RESTful API 文档",
+		Description: "{{.ProjectName}} RESTful API documentation",
 		DocsPath:    c.cfg.Docs.Path,
 		DarkMode:    c.cfg.Docs.DarkMode,
 		EnabledFunc: func() bool { return docsEnabled },
 	})
 
-	// 创建 Handlers 并注册路由（humax.Group: Gin 执行 + OpenAPI 文档）
+	// Create handlers and register routes (humax.Group: Gin + OpenAPI docs)
 	h := handlers.New(c.cfg, *c.info, c.db)
 	h.Register(r, api)
 	{{- else}}
-	// 创建 Handlers 并注册路由（纯 Gin）
+	// Create handlers and register routes (pure Gin)
 	h := handlers.New(c.cfg, *c.info, c.db)
 	h.Register(r)
 	{{- end}}
@@ -339,11 +339,11 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 	}
 
 	go func() {
-		logger.Lg.Info("HTTP 服务已启动",
+		logger.Lg.Info("HTTP server started",
 			zap.String("addr", c.server.Addr),
 			zap.String("version", c.info.Version))
 		if err := c.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Lg.Error("HTTP 服务异常", zap.Error(err))
+			logger.Lg.Error("HTTP server error", zap.Error(err))
 		}
 	}()
 
@@ -351,7 +351,7 @@ func (c *httpServerComponent) Start(ctx context.Context) error {
 }
 
 func (c *httpServerComponent) Stop(ctx context.Context) error {
-	logger.Lg.Info("正在关闭 HTTP 服务...")
+	logger.Lg.Info("shutting down HTTP server...")
 	return c.server.Shutdown(ctx)
 }
 

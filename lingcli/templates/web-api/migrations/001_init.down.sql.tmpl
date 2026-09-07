@@ -1,5 +1,5 @@
--- {{.ProjectName}} 回滚初始迁移
--- 删除 users 表
--- 警告: 此操作会丢失数据，请确认后执行
+-- {{.ProjectName}} rollback initial migration
+-- Drop users table
+-- Warning: this will lose data, confirm before running
 
 DROP TABLE IF EXISTS `users`;

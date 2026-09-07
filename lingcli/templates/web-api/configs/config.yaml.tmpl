@@ -1,5 +1,5 @@
 {{- if .IsYAMLConfig}}
-# {{.ProjectName}} 配置文件
+# {{.ProjectName}} configuration file
 
 server:
   port: {{.Port}}
@@ -9,7 +9,7 @@ server:
 
 database:
   driver: sqlite          # mysql | postgres | sqlite
-  dsn: ""                 # 留空则不连接数据库；SQLite 示例: data/app.db
+  dsn: ""                 # empty = no database; SQLite example: data/app.db
   # dsn: root:password@tcp(127.0.0.1:3306)/{{.ProjectName}}?charset=utf8mb4&parseTime=True  # MySQL
   # dsn: host=localhost user=postgres password=secret dbname={{.ProjectName}} port=5432 sslmode=disable  # PostgreSQL
   maxOpenConns: 25
@@ -23,106 +23,107 @@ redis:
 
 logging:
   level: info             # debug | info | warn | error
-  filename: logs/app.log  # 日志文件路径
-  maxSize: 100            # 单文件最大 MB
-  maxAge: 30              # 保留天数
-  maxBackups: 10          # 备份数量
-  daily: true             # 按天轮转
-  sensitiveFields: ""     # 脱敏字段（逗号分隔）
+  filename: logs/app.log  # log file path
+  maxSize: 100            # max file size in MB
+  maxAge: 30              # retention days
+  maxBackups: 10          # number of backups
+  daily: true             # daily rotation
+  sensitiveFields: ""     # sensitive fields to mask (comma-separated)
 
-# 限流（ling-base/common/limiter）
+# Rate limiting (ling-base/common/limiter)
 rateLimit:
   enabled: false
   rps: 100
   burst: 200
 
-# 熔断器（ling-base/common/circuitbreaker）
+# Circuit breaker (ling-base/common/circuitbreaker)
 circuitBreaker:
   enabled: false
-  failureThreshold: 5     # 失败次数阈值
-  minRequests: 10         # 最少请求数才开始评估
-  recoveryTimeout: 30s    # 熔断后恢复探测时间
+  failureThreshold: 5     # failure count threshold
+  minRequests: 10         # minimum requests before evaluation
+  recoveryTimeout: 30s    # recovery probe interval after tripping
 
-# API 文档（ling-base/apidocs）
+# API docs (ling-base/apidocs)
 docs:
-  enabled: true           # 生产环境可设为 false
+  enabled: true           # set to false in production
   path: /docs
   theme: scalar           # scalar | swagger | redoc | stoplight
   darkMode: false
   cdnMode: public         # public | selfhosted | custom
-  cdnBaseUrl: ""          # selfhosted 模式下的资源基址
+  cdnBaseUrl: ""          # asset base URL for selfhosted mode
 
-# JWT 鉴权（ling-base/common/jwtutil）
+# JWT authentication (ling-base/common/jwtutil)
 jwt:
   enabled: false
   secret: "change-me-in-prod-32bytes!"
   issuer: {{.ProjectName}}
   accessTTL: 15m
-  refreshTTL: 168h        # 7 天
+  refreshTTL: 168h        # 7 days
 
-# 国际化（ling-base/i18n）
+# Internationalization (ling-base/i18n)
 i18n:
   enabled: {{.HasI18n}}
-  defaultLocale: zh-CN     # 默认语言
-  supportedLocales:        # 支持的语言列表
+  defaultLocale: zh-CN     # default language
+  supportedLocales:        # supported languages
     - en
     - zh-CN
-  fallbackLocale: en       # 回退语言（翻译缺失时使用）
-  translationsPath: i18n/translations  # 翻译文件目录
+  fallbackLocale: en       # fallback language (used when translation is missing)
+  translationsPath: i18n/translations  # translation files directory
 
-# 对象存储（ling-base/stores）— 内置模块
-# 默认 local 后端（本地文件系统，零云 SDK 依赖）。
-# 切换到云存储时，将 driver 改为对应值并 go get 驱动模块：
+# Object storage (ling-base/stores) — built-in module
+# Default: local backend (local filesystem, zero cloud SDK dependency).
+# To switch to cloud storage, set driver and go get the corresponding module:
 #   go get github.com/LingByte/ling-base/stores/s3
 #   go get github.com/LingByte/ling-base/stores/oss
 storage:
   driver: local            # local | s3 | oss | cos | minio | kodo | tos | obs | ks3
-  root: uploads            # local: 根目录; 云存储: bucket 名
-  region: ""               # 云存储区域
-  endpoint: ""             # 自定义端点（MinIO / S3 兼容）
-  accessKey: ""            # 云存储 AccessKey
-  secretKey: ""            # 云存储 SecretKey
-  publicUrlBase: ""        # 公网访问基址（留空用默认）
-  maxFileSize: 10485760    # 单文件最大字节数（10 MB，0 = 不限制）
+  root: uploads            # local: root directory; cloud: bucket name
+  region: ""               # cloud storage region
+  endpoint: ""             # custom endpoint (MinIO / S3-compatible)
+  accessKey: ""            # cloud storage AccessKey
+  secretKey: ""            # cloud storage SecretKey
+  publicUrlBase: ""        # public access base URL (empty = use default)
+  maxFileSize: 10485760    # max file size in bytes (10 MB, 0 = unlimited)
 
-# 缓存（ling-base/common/cache）— 内置模块
-# 默认 memory 后端（进程内，零外部依赖）。
-# 切换到 Redis: go get github.com/LingByte/ling-base/common/cache/redis
+# Cache (ling-base/common/cache) — built-in module
+# Default: memory backend (in-process, zero external dependencies).
+# To switch to Redis: go get github.com/LingByte/ling-base/common/cache/redis
 cache:
   driver: memory           # memory | redis | bigcache | freecache | ristretto
-  defaultTTL: 10m          # 默认 TTL
-  cleanupInterval: 1m      # memory: GC 间隔
-  redisAddr: ""            # redis 后端专用（留空复用顶层 redis 配置）
+  defaultTTL: 10m          # default TTL
+  cleanupInterval: 1m      # memory: GC interval
+  redisAddr: ""            # redis-specific (empty = reuse top-level redis config)
   redisPassword: ""
   redisDB: 0
 
-# 分布式锁（ling-base/common/lock）— 内置模块
-# 默认 memory 后端（进程内，单实例）。
-# 切换到 Redis: go get github.com/LingByte/ling-base/common/lock/redis
+# Distributed lock (ling-base/common/lock) — built-in module
+# Default: memory backend (in-process, single instance).
+# To switch to Redis: go get github.com/LingByte/ling-base/common/lock/redis
 lock:
   driver: memory           # memory | redis | etcd | zookeeper | consul | mysql | postgres
-  defaultTTL: 10s          # 默认锁 TTL
-  retryDelay: 50ms         # 获取锁重试间隔
-  redisAddr: ""            # redis 后端专用（留空复用顶层 redis 配置）
+  defaultTTL: 10s          # default lock TTL
+  retryDelay: 50ms         # lock acquisition retry interval
+  redisAddr: ""            # redis-specific (empty = reuse top-level redis config)
   redisPassword: ""
   redisDB: 0
 
-# 重试策略（ling-base/common/retry）— 内置模块
+# Retry strategy (ling-base/common/retry) — built-in module
 retry:
-  maxAttempts: 3           # 最大尝试次数（含首次）
-  initialDelay: 100ms      # 初始退避延迟
-  maxDelay: 10s            # 退避上限
-  factor: "2.0"            # 退避乘数
-  jitter: true             # 是否启用抖动（避免惊群）
+  maxAttempts: 3           # max attempts (including the first)
+  initialDelay: 100ms      # initial backoff delay
+  maxDelay: 10s            # backoff cap
+  factor: "2.0"            # backoff multiplier
+  jitter: true             # enable jitter (avoid thundering herd)
 
-# 降级（pkg/fallback）— 内置模块
-# 熔断器打开或远程调用失败时,返回降级响应而非 5xx
+# Fallback / degradation (pkg/fallback) — built-in module
+# When the circuit breaker is open or a remote call fails,
+# return a fallback response instead of a 5xx error.
 fallback:
-  enabled: true            # 是否启用降级
-  defaultMessage: "服务暂时不可用,请稍后再试"
-  statusCode: 503          # 降级 HTTP 状态码
+  enabled: true            # enable fallback
+  defaultMessage: "service temporarily unavailable"
+  statusCode: 503          # fallback HTTP status code
 
 app:
   name: {{.ProjectName}}
-  environment: dev        # dev | test | prod（对应 constants.ENV_DEV / ENV_PROD）
+  environment: dev        # dev | test | prod (maps to constants.ENV_DEV / ENV_PROD)
 {{- end}}

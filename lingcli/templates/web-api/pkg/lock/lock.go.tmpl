@@ -1,21 +1,21 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-// Package lock 封装 ling-base/common/lock 分布式锁能力,提供包级单例。
+// Package lock wraps ling-base/common/lock distributed lock as a package-level singleton.
 //
-// 使用方式:
+// Usage:
 //
-//	// main.go 启动时初始化
+//	// Initialize at startup in main.go
 //	pkglock.Init(cfg.Lock)
 //
-//	// handler / service 中直接调用
+//	// Call directly from handler / service
 //	mu, err := pkglock.New("order:123")
 //	if err != nil { ... }
 //	defer mu.Unlock(ctx)
 //
-// 切换 Redis 后端:
+// To switch to Redis backend:
 //  1. go get github.com/LingByte/ling-base/common/lock/redis
-//  2. 在 Init() 的 switch 中加入 case "redis"
-//  3. 修改 configs/config.yaml 的 lock.driver
+//  2. Add a case "redis" in Init()
+//  3. Set lock.driver in configs/config.yaml
 package lock
 
 import (
@@ -26,20 +26,20 @@ import (
 	"github.com/LingByte/ling-base/common/lock/memory"
 )
 
-// 全局单例。
+// Package-level singleton.
 var (
-	// Manager 是当前生效的锁管理器。未 Init 前为 nil。
+	// Manager is the active lock manager. nil until Init() is called.
 	Manager *memory.Manager
 
-	// DefaultTTL 默认锁 TTL。
+	// DefaultTTL is the default lock time-to-live.
 	DefaultTTL time.Duration
 
-	// DefaultRetryDelay 默认获取锁重试间隔。
+	// DefaultRetryDelay is the default lock acquisition retry interval.
 	DefaultRetryDelay time.Duration
 )
 
-// Init 根据配置初始化锁管理器单例。
-// 默认 memory 后端(进程内,单实例)。
+// Init initializes the lock manager singleton from configuration.
+// Default backend is memory (in-process, single instance).
 func Init(driver, defaultTTL, retryDelay string) error {
 	ttl, err := time.ParseDuration(defaultTTL)
 	if err != nil || ttl <= 0 {
@@ -56,28 +56,28 @@ func Init(driver, defaultTTL, retryDelay string) error {
 	switch driver {
 	case "memory", "":
 		Manager = memory.NewManager()
-	// ── 以下后端需要额外 go get 对应模块 ──
+	// ── Additional backends require go get of the corresponding module ──
 	// case "redis":
-	//     // redis 后端无 Manager 概念,直接用 redis.NewMutex
-	//     // 需要调整 New() 函数按 driver 分发
+	//     // Redis backend has no Manager concept; use redis.NewMutex directly
+	//     // New() needs to dispatch by driver
 	default:
-		return fmt.Errorf("不支持的锁驱动: %s(需先 go get 对应模块)", driver)
+		return fmt.Errorf("unsupported lock driver: %s (go get the corresponding module first)", driver)
 	}
 	return nil
 }
 
-// New 创建一个分布式锁。使用 DefaultTTL 和 DefaultRetryDelay。
+// New creates a distributed lock with DefaultTTL and DefaultRetryDelay.
 func New(key string) (lock.Locker, error) {
 	if Manager == nil {
-		return nil, fmt.Errorf("lock 未初始化,请先调用 Init()")
+		return nil, fmt.Errorf("lock not initialized, call Init() first")
 	}
 	return Manager.NewMutex(key, lock.WithTTL(DefaultTTL), lock.WithRetryDelay(DefaultRetryDelay))
 }
 
-// NewWithTTL 创建一个指定 TTL 的分布式锁。
+// NewWithTTL creates a distributed lock with a custom TTL.
 func NewWithTTL(key string, ttl time.Duration) (lock.Locker, error) {
 	if Manager == nil {
-		return nil, fmt.Errorf("lock 未初始化,请先调用 Init()")
+		return nil, fmt.Errorf("lock not initialized, call Init() first")
 	}
 	return Manager.NewMutex(key, lock.WithTTL(ttl), lock.WithRetryDelay(DefaultRetryDelay))
 }

@@ -2,18 +2,36 @@
 
 package models
 
-import "time"
+import (
+	"time"
+)
 
-// User 用户模型。
+// User status constants.
+const (
+	UserStatusActive   = 1 // active user
+	UserStatusDisabled = 0 // disabled user
+)
+
+// User role constants.
+const (
+	UserRoleAdmin = "admin"
+	UserRoleUser  = "user"
+)
+
+// User represents a registered user account.
 type User struct {
-	ID        int64     `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name      string    `json:"name" gorm:"size:100;not null"`
-	Email     string    `json:"email" gorm:"size:200;uniqueIndex"`
-	Phone     string    `json:"phone,omitempty" gorm:"size:20"`
-	Avatar    string    `json:"avatar,omitempty" gorm:"size:500"`
-	Status    int       `json:"status" gorm:"default:1"` // 1=active, 0=disabled
-	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
+	ID          int64     `json:"id" gorm:"primaryKey;autoIncrement"`
+	Username    string    `json:"username" gorm:"size:50;uniqueIndex;not null"`
+	Email       string    `json:"email" gorm:"size:200;uniqueIndex;not null"`
+	Phone       string    `json:"phone,omitempty" gorm:"size:20"`
+	Password    string    `json:"-" gorm:"size:255;not null"` // never serialized to JSON
+	Avatar      string    `json:"avatar,omitempty" gorm:"size:500"`
+	Role        string    `json:"role" gorm:"size:20;default:user;not null"`
+	Status      int       `json:"status" gorm:"default:1;not null"` // 1=active, 0=disabled
+	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+	CreatedAt   time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
+	DeletedAt   *time.Time `json:"-" gorm:"index"` // soft delete
 }
 
 func (User) TableName() string { return "users" }

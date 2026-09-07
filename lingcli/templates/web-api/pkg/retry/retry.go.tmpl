@@ -1,13 +1,13 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-// Package retry 封装 ling-base/common/retry 重试能力,提供包级单例。
+// Package retry wraps ling-base/common/retry as a package-level singleton.
 //
-// 使用方式:
+// Usage:
 //
-//	// main.go 启动时初始化
+//	// Initialize at startup in main.go
 //	pkgretry.Init(cfg.Retry)
 //
-//	// handler / service 中直接调用
+//	// Call directly from handler / service
 //	err := pkgretry.Do(ctx, func(ctx context.Context) error {
 //	    return callRemoteAPI(ctx)
 //	})
@@ -21,13 +21,13 @@ import (
 	"github.com/LingByte/ling-base/common/retry"
 )
 
-// 全局单例。
+// Package-level singleton.
 var (
-	// Opts 是当前生效的重试选项。未 Init 前为默认值。
+	// Opts is the active retry option set. Defaults are used until Init() is called.
 	Opts []retry.Option
 )
 
-// Init 根据配置初始化重试选项单例。
+// Init initializes the retry singleton from configuration.
 func Init(maxAttempts int, initialDelay, maxDelay, factor string, jitter bool) {
 	delay, _ := time.ParseDuration(initialDelay)
 	if delay <= 0 {
@@ -51,12 +51,12 @@ func Init(maxAttempts int, initialDelay, maxDelay, factor string, jitter bool) {
 	}
 }
 
-// Do 使用全局 Opts 执行可重试操作。
+// Do executes a retryable operation using the global Opts.
 func Do(ctx context.Context, op retry.Operation) error {
 	return retry.Do(ctx, op, Opts...)
 }
 
-// DoWith 使用自定义选项执行可重试操作(覆盖全局 Opts)。
+// DoWith executes a retryable operation with custom options (overrides global Opts).
 func DoWith(ctx context.Context, op retry.Operation, opts ...retry.Option) error {
 	return retry.Do(ctx, op, opts...)
 }

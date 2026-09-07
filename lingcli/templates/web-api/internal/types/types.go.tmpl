@@ -1,30 +1,32 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-// Package types 定义项目中跨包共享的通用类型和 DTO（Data Transfer Object）。
+// Package types defines shared DTOs (Data Transfer Objects) used across
+// handler, service, and repository layers.
 //
-// 将请求/响应结构体集中放在 types 包中，而不是散落在各个 handler 文件里，
-// 有助于：
-//   - 避免循环依赖（handler 之间不需要互相引用）
-//   - 便于生成 OpenAPI 文档（集中管理 schema）
-//   - 便于前端/客户端复用类型定义
-//
-// 校验标签:
-//   - binding: gin/go-playground/validator 内置校验（ShouldBind 时触发）
-//   - validate: ling-base/common/validate 校验（validate.Validate() 时触发）
-// 两者可共存，validate 模块启用时 handler 会额外调用 validate.Validate()。
+// Validation tags:
+//   - binding: gin/go-playground/validator built-in (triggered on ShouldBind)
+//   - validate: ling-base/common/validate (triggered on validate.Validate())
+// Both can coexist; when the validate module is enabled, handlers
+// additionally call validate.Validate().
 package types
 
+import (
+	"time"
+
+	"{{.Module}}/internal/models"
+)
+
 // ──────────────────────────────────────────────
-// 通用分页参数
+// Pagination
 // ──────────────────────────────────────────────
 
-// PageRequest 分页查询参数。
+// PageRequest is the standard pagination query parameter.
 type PageRequest struct {
 	Page int `json:"page" form:"page" example:"1" validate:"gte=1"`
 	Size int `json:"size" form:"size" example:"20" validate:"gte=1,lte=100"`
 }
 
-// Normalize 规范化分页参数，返回 (page, size)。
+// Normalize returns sanitized (page, size) with defaults.
 func (r *PageRequest) Normalize() (int, int) {
 	page := r.Page
 	size := r.Size
@@ -38,48 +40,106 @@ func (r *PageRequest) Normalize() (int, int) {
 }
 
 // ──────────────────────────────────────────────
-// 通用 ID 参数
+// ID parameter
 // ──────────────────────────────────────────────
 
-// IDRequest 路径参数中的 ID。
+// IDRequest extracts an ID from the URL path.
 type IDRequest struct {
 	ID int64 `json:"id" uri:"id" example:"1" validate:"required,gte=1"`
 }
 
 // ──────────────────────────────────────────────
-// 用户相关 DTO
+// User DTOs
 // ──────────────────────────────────────────────
 
-// CreateUserRequest 创建用户请求体。
+// RegisterRequest is the request body for user registration.
+type RegisterRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=50" validate:"required,min=3,max=50"`
+	Email    string `json:"email" binding:"required,email" validate:"required,email"`
+	Password string `json:"password" binding:"required,min=6,max=128" validate:"required,min=6,max=128"`
+	Phone    string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
+}
+
+// CreateUserRequest is the request body for creating a user (admin endpoint).
 type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required,min=1,max=100" validate:"required,min=1,max=100"`
-	Email string `json:"email" binding:"required,email" validate:"required,email"`
-	Phone string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
+	Username string `json:"username" binding:"required,min=3,max=50" validate:"required,min=3,max=50"`
+	Email    string `json:"email" binding:"required,email" validate:"required,email"`
+	Password string `json:"password" binding:"required,min=6,max=128" validate:"required,min=6,max=128"`
+	Phone    string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
+	Role     string `json:"role" binding:"omitempty,oneof=admin user"`
 }
 
-// UpdateUserRequest 更新用户请求体（所有字段可选，指针类型 nil 表示不更新）。
+// UpdateUserRequest is the request body for updating a user.
+// All fields are optional (pointer types); nil means "don't update".
 type UpdateUserRequest struct {
-	Name  *string `json:"name" binding:"omitempty,min=1,max=100"`
-	Email *string `json:"email" binding:"omitempty,email"`
-	Phone *string `json:"phone" binding:"omitempty,max=20"`
+	Username *string `json:"username" binding:"omitempty,min=3,max=50"`
+	Email    *string `json:"email" binding:"omitempty,email"`
+	Phone    *string `json:"phone" binding:"omitempty,max=20"`
+	Avatar   *string `json:"avatar" binding:"omitempty,max=500"`
+	Role     *string `json:"role" binding:"omitempty,oneof=admin user"`
+	Status   *int    `json:"status" binding:"omitempty,oneof=0 1"`
+}
+
+// ChangePasswordRequest is the request body for changing a user's password.
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword" binding:"required,min=6,max=128" validate:"required,min=6,max=128"`
+	NewPassword string `json:"newPassword" binding:"required,min=6,max=128" validate:"required,min=6,max=128,nefield=OldPassword"`
+}
+
+// UserListRequest extends PageRequest with search/filter parameters.
+type UserListRequest struct {
+	PageRequest
+	Keyword string `json:"keyword" form:"keyword" example:"alice"`
+	Status  *int   `json:"status" form:"status" example:"1"`
+	Role    string `json:"role" form:"role" example:"admin"`
+}
+
+// UserResponse is the public user representation (no password).
+type UserResponse struct {
+	ID          int64      `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	Phone       string     `json:"phone,omitempty"`
+	Avatar      string     `json:"avatar,omitempty"`
+	Role        string     `json:"role"`
+	Status      int        `json:"status"`
+	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+}
+
+// ToUserResponse converts a models.User to a UserResponse (strips password).
+func ToUserResponse(u *models.User) UserResponse {
+	return UserResponse{
+		ID:          u.ID,
+		Username:    u.Username,
+		Email:       u.Email,
+		Phone:       u.Phone,
+		Avatar:      u.Avatar,
+		Role:        u.Role,
+		Status:      u.Status,
+		LastLoginAt: u.LastLoginAt,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
+	}
 }
 
 // ──────────────────────────────────────────────
-// 认证相关 DTO
+// Auth DTOs
 // ──────────────────────────────────────────────
 
-// LoginRequest 登录请求体。
+// LoginRequest is the request body for user login.
 type LoginRequest struct {
 	Username string `json:"username" binding:"required" validate:"required,min=1,max=50"`
 	Password string `json:"password" binding:"required" validate:"required,min=6,max=128"`
 }
 
-// RefreshRequest 刷新 token 请求体。
+// RefreshRequest is the request body for refreshing a token.
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required" validate:"required"`
 }
 
-// TokenResponse 登录/刷新成功响应。
+// TokenResponse is the login/refresh success response.
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -88,10 +148,10 @@ type TokenResponse struct {
 }
 
 // ──────────────────────────────────────────────
-// 文件存储相关 DTO
+// File storage DTOs
 // ──────────────────────────────────────────────
 
-// FileUploadResponse 文件上传成功响应。
+// FileUploadResponse is the response for a successful file upload.
 type FileUploadResponse struct {
 	Key       string `json:"key" example:"avatars/20260107_120000_photo.jpg"`
 	Name      string `json:"name" example:"photo.jpg"`

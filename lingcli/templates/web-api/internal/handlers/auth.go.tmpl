@@ -5,6 +5,9 @@
 package handlers
 
 import (
+	"time"
+
+	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
 	"github.com/LingByte/ling-base/common/jwtutil"
@@ -14,9 +17,11 @@ import (
 	"github.com/LingByte/ling-base/common/validate"
 	{{- end}}
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Login 用户登录，签发 JWT access/refresh token。
+// Login authenticates a user and issues JWT access/refresh tokens.
+// It verifies the password against the database using bcrypt.
 func (h *Handlers) Login(c *gin.Context) {
 	if h.jwtAuth == nil {
 		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
@@ -35,14 +40,42 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 	{{- end}}
 
-	// NOTE: This is a demo handler. In production, validate credentials
-	// against your database or identity store before issuing tokens.
-	// The example below only issues a token without verifying the password.
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	// Find user by username
+	var user models.User
+	if err := h.db.WithContext(c.Request.Context()).
+		Where("username = ?", req.Username).First(&user).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeUnauthorized, "invalid username or password"))
+		return
+	}
+
+	// Check account status
+	if user.Status != models.UserStatusActive {
+		respgin.WriteError(c, response.New(response.CodeForbidden, "account is disabled"))
+		return
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		respgin.WriteError(c, response.New(response.CodeUnauthorized, "invalid username or password"))
+		return
+	}
+
+	// Issue tokens
 	pair, err := h.jwtAuth.Login(req.Username)
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+
+	// Update last login time
+	now := time.Now()
+	h.db.WithContext(c.Request.Context()).Model(&user).Update("last_login_at", now)
+
 	respgin.Success(c, types.TokenResponse{
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
@@ -51,7 +84,7 @@ func (h *Handlers) Login(c *gin.Context) {
 	})
 }
 
-// Refresh 用 refresh token 换取新的 access/refresh token。
+// Refresh exchanges a refresh token for a new access/refresh token pair.
 func (h *Handlers) Refresh(c *gin.Context) {
 	if h.jwtAuth == nil {
 		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
@@ -83,7 +116,8 @@ func (h *Handlers) Refresh(c *gin.Context) {
 	})
 }
 
-// ClaimsFromContext 从 gin.Context 提取 JWT claims（需在 jwtingin.Middleware 之后）。
+// ClaimsFromContext extracts JWT claims from the gin.Context
+// (must be used after jwtingin.Middleware).
 func ClaimsFromContext(c *gin.Context) *jwtutil.Claims {
 	if v, ok := c.Get("jwt_claims"); ok {
 		if claims, ok := v.(*jwtutil.Claims); ok {

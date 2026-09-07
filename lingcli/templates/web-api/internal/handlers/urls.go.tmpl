@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// AppInfo 应用信息。
+// AppInfo holds application metadata.
 type AppInfo struct {
 	Name      string
 	Version   string
@@ -29,8 +29,8 @@ type AppInfo struct {
 	{{- end}}
 }
 
-// Handlers HTTP 请求处理器集合（直接操作 db，无 service/repository 层）。
-// 对象存储/缓存/锁/重试通过 pkg/ 下的包级单例访问，无需注入。
+// Handlers is the HTTP handler collection.
+// Storage/cache/lock/retry are accessed via pkg/ package-level singletons.
 type Handlers struct {
 	cfg       *configs.Config
 	info      AppInfo
@@ -41,7 +41,7 @@ type Handlers struct {
 	{{- end}}
 }
 
-// New 创建 Handlers。
+// New creates a new Handlers instance.
 func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
 	return &Handlers{
 		cfg:       cfg,
@@ -56,7 +56,7 @@ func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
 
 {{- if .HasAPIDocs}}
 
-// Register 通过 humax.Group 注册所有路由（Gin 执行 + OpenAPI 文档）。
+// Register registers all routes via humax.Group (Gin + OpenAPI docs).
 func (h *Handlers) Register(engine *gin.Engine, api huma.API) {
 	r := humax.NewGroup(api, engine, "")
 	h.registerRoutes(r)
@@ -64,27 +64,27 @@ func (h *Handlers) Register(engine *gin.Engine, api huma.API) {
 
 {{- else}}
 
-// Register 通过 Gin 注册所有路由。
+// Register registers all routes via Gin.
 func (h *Handlers) Register(engine *gin.Engine) {
 	h.registerRoutes(engine)
 }
 
 {{- end}}
 
-// registerRoutes 注册所有路由（系统端点 + 用户 CRUD{{if .HasJWT}} + 鉴权{{end}}）。
+// registerRoutes registers all routes (system + auth + users + files).
 {{- if .HasAPIDocs}}
 func (h *Handlers) registerRoutes(r *humax.Group) {
 {{- else}}
 func (h *Handlers) registerRoutes(r gin.IRouter) {
 {{- end}}
-	// ── 系统端点（公开）──
+	// ── System endpoints (public) ──
 	r.GET("/health", h.Health)
 	r.GET("/live", h.Liveness)
 	r.GET("/ready", h.Readiness)
 	r.GET("/api/v1/version", h.Version)
 
 	{{- if .HasJWT}}
-	// ── 鉴权（公开）──
+	// ── Auth (public) ──
 	authGroup := r.Group("/api/v1/auth")
 	{
 		authGroup.POST("/login", h.Login)
@@ -92,18 +92,22 @@ func (h *Handlers) registerRoutes(r gin.IRouter) {
 	}
 	{{- end}}
 
-	// ── 用户 CRUD ──
+	// ── User registration (public) ──
+	r.POST("/api/v1/register", h.RegisterUser)
+
+	// ── User CRUD ──
 	users := r.Group("/api/v1/users")
 	{
 		users.GET("", h.ListUsers)
 		users.GET("/:id", h.GetUser)
 		users.POST("", h.CreateUser)
 		users.PUT("/:id", h.UpdateUser)
+		users.PUT("/:id/password", h.ChangePassword)
 		users.DELETE("/:id", h.DeleteUser)
 	}
 
 	{{- if .HasStores}}
-	// ── 文件存储（上传/下载/删除）──
+	// ── File storage (upload/download/delete) ──
 	files := r.Group("/api/v1/files")
 	{
 		files.POST("/upload", h.UploadFile)

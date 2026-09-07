@@ -19,53 +19,53 @@ import (
 )
 
 // ──────────────────────────────────────────────
-// 文件上传 / 下载 / 删除
-// 直接使用 pkg/storage 包级单例,无需依赖注入。
+// File upload / download / delete
+// Uses pkg/storage package-level singleton (no dependency injection needed).
 // ──────────────────────────────────────────────
 
-// UploadFile 处理文件上传。
-// 表单字段名: file（multipart/form-data）
-// 可选字段: dir（子目录，如 "avatars"）
+// UploadFile handles file upload.
+// Form field: file (multipart/form-data)
+// Optional field: dir (subdirectory, e.g. "avatars")
 //
-// 上传流程:
-//  1. 校验文件大小（不超过 storage.MaxFileSize）
-//  2. 生成唯一 key（dir + 时间戳 + 原始文件名）
-//  3. 调用 pkgstorage.Write 存储
-//  4. 返回 key + publicURL
+// Upload flow:
+//  1. Validate file size (must not exceed storage.MaxFileSize)
+//  2. Generate unique key (dir + timestamp + original filename)
+//  3. Call pkgstorage.Write to store
+//  4. Return key + publicURL
 func (h *Handlers) UploadFile(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeBadRequest, "未提供文件: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeBadRequest, "no file provided: "+err.Error()))
 		return
 	}
 
-	// 校验文件大小
+	// Validate file size
 	if err = pkgstorage.CheckFileSize(file.Size); err != nil {
 		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
 		return
 	}
 
-	// 可选子目录
+	// Optional subdirectory
 	dir := sanitizePath(strings.TrimSpace(c.PostForm("dir")))
 
-	// 生成唯一 key: dir/20060102_150405_filename
+	// Generate unique key: dir/20060102_150405_filename
 	filename := sanitizePath(filepath.Base(file.Filename))
 	key := fmt.Sprintf("%s/%s_%s", dir, time.Now().Format("20060102_150405"), filename)
 	if dir == "" {
 		key = fmt.Sprintf("%s_%s", time.Now().Format("20060102_150405"), filename)
 	}
 
-	// 打开上传文件
+	// Open uploaded file
 	src, err := file.Open()
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "打开文件失败: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeInternal, "failed to open file: "+err.Error()))
 		return
 	}
 	defer src.Close()
 
-	// 写入存储
+	// Write to storage
 	if err = pkgstorage.Write(key, src); err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "存储失败: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeInternal, "storage write failed: "+err.Error()))
 		return
 	}
 
@@ -77,8 +77,8 @@ func (h *Handlers) UploadFile(c *gin.Context) {
 	})
 }
 
-// DownloadFile 处理文件下载。
-// 路径参数: key（存储 key）
+// DownloadFile handles file download.
+// Path parameter: key (storage key)
 func (h *Handlers) DownloadFile(c *gin.Context) {
 	key := c.Param("key")
 	if key == "" {
@@ -88,7 +88,7 @@ func (h *Handlers) DownloadFile(c *gin.Context) {
 
 	reader, size, err := pkgstorage.Read(key)
 	if err != nil {
-		respgin.WriteError(c, response.New(response.CodeNotFound, "文件不存在"))
+		respgin.WriteError(c, response.New(response.CodeNotFound, "file not found"))
 		return
 	}
 	defer reader.Close()
@@ -97,8 +97,8 @@ func (h *Handlers) DownloadFile(c *gin.Context) {
 	c.DataFromReader(200, size, "application/octet-stream", reader, nil)
 }
 
-// DeleteFile 处理文件删除。
-// 路径参数: key（存储 key）
+// DeleteFile handles file deletion.
+// Path parameter: key (storage key)
 func (h *Handlers) DeleteFile(c *gin.Context) {
 	key := c.Param("key")
 	if key == "" {
@@ -117,15 +117,15 @@ func (h *Handlers) DeleteFile(c *gin.Context) {
 	}
 
 	if err = pkgstorage.Delete(key); err != nil {
-		respgin.WriteError(c, response.New(response.CodeInternal, "删除失败: "+err.Error()))
+		respgin.WriteError(c, response.New(response.CodeInternal, "delete failed: "+err.Error()))
 		return
 	}
 
 	respgin.NoContent(c)
 }
 
-// sanitizePath 清理路径，防止目录穿越。
-// 去除 ..、前导 / 等。
+// sanitizePath cleans a path to prevent directory traversal.
+// Removes "..", leading "/", and collapses duplicate slashes.
 func sanitizePath(p string) string {
 	p = strings.TrimSpace(p)
 	p = strings.TrimPrefix(p, "/")

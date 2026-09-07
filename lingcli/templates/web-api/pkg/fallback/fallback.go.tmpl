@@ -1,26 +1,27 @@
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-// Package fallback 提供服务降级助手函数。
+// Package fallback provides service degradation helper functions.
 //
-// 当熔断器打开(circuitbreaker.ErrCircuitOpen)、限流(limiter.ErrLimited)
-// 或远程调用失败时,可用本包返回降级响应(缓存数据/默认值/友好提示),
-// 而非直接向客户端返回 5xx 错误。
+// When the circuit breaker is open (circuitbreaker.ErrCircuitOpen),
+// rate limited (limiter.ErrLimited), or a remote call fails,
+// use this package to return a fallback response (cached data /
+// default value / friendly message) instead of a 5xx error.
 //
-// 使用方式:
+// Usage:
 //
-//	// main.go 启动时初始化
+//	// Initialize at startup in main.go
 //	pkgfallback.Init(cfg.Fallback)
 //
-//	// handler / service 中
+//	// In handler / service
 //	val, err := callRemote(ctx)
 //	if err != nil {
 //	    if pkgfallback.ShouldDegrade(err) {
-//	        return pkgfallback.JSON(c, "service_degraded", "服务降级,返回默认值")
+//	        return pkgfallback.JSON(c, "service_degraded", "service degraded, returning default")
 //	    }
 //	    return err
 //	}
 //
-//	// 或返回缓存降级数据
+//	// Or return cached fallback data
 //	cached, _ := pkgcache.Get(ctx, "user:123")
 //	return pkgfallback.Data(c, cached)
 package fallback
@@ -33,24 +34,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 全局配置。
+// Global configuration.
 var (
-	// Enabled 是否启用降级(全局开关)。
+	// Enabled controls whether degradation is active (global switch).
 	Enabled bool
 
-	// DefaultMessage 默认降级提示消息。
+	// DefaultMessage is the default fallback message.
 	DefaultMessage string
 
-	// DefaultCode 默认降级 HTTP 状态码。
+	// DefaultCode is the default fallback HTTP status code.
 	DefaultCode int
 )
 
-// Init 根据配置初始化降级单例。
+// Init initializes the fallback singleton from configuration.
 func Init(enabled bool, defaultMessage string, defaultCode int) {
 	Enabled = enabled
 	DefaultMessage = defaultMessage
 	if DefaultMessage == "" {
-		DefaultMessage = "服务暂时不可用,请稍后再试"
+		DefaultMessage = "service temporarily unavailable"
 	}
 	DefaultCode = defaultCode
 	if DefaultCode == 0 {
@@ -58,8 +59,8 @@ func Init(enabled bool, defaultMessage string, defaultCode int) {
 	}
 }
 
-// ShouldDegrade 判断错误是否应触发降级。
-// 匹配熔断器打开、限流等可降级错误。
+// ShouldDegrade determines whether the error should trigger degradation.
+// Matches circuit breaker open, rate limited, and other degradable errors.
 func ShouldDegrade(err error) bool {
 	if !Enabled || err == nil {
 		return false
@@ -70,37 +71,37 @@ func ShouldDegrade(err error) bool {
 	if errors.Is(err, circuitbreaker.ErrTooManyRequests) {
 		return true
 	}
-	// 可扩展: limiter.ErrLimited, timeout 等
+	// Extensible: limiter.ErrLimited, timeout, etc.
 	return false
 }
 
-// JSON 返回降级 JSON 响应。
-// code 是业务错误码字符串,message 是提示消息。
+// JSON returns a fallback JSON response.
+// code is a business error code string, message is the human-readable message.
 func JSON(c *gin.Context, code, message string) {
 	if message == "" {
 		message = DefaultMessage
 	}
 	c.JSON(DefaultCode, gin.H{
-		"code":    code,
-		"message": message,
+		"code":     code,
+		"message":  message,
 		"fallback": true,
 	})
 	c.Abort()
 }
 
-// Data 返回降级数据(如缓存内容)。
-// HTTP 状态码为 200(因为返回了有效数据),但标记 fallback=true。
+// Data returns fallback data (e.g. cached content).
+// HTTP status is 200 (valid data returned), but fallback=true is flagged.
 func Data(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":     0,
 		"data":     data,
 		"fallback": true,
-		"message":  "降级响应(返回缓存/默认数据)",
+		"message":  "degraded response (returning cached/default data)",
 	})
 	c.Abort()
 }
 
-// Message 返回默认降级提示(用 DefaultMessage 和 DefaultCode)。
+// Message returns the default fallback message (uses DefaultMessage and DefaultCode).
 func Message(c *gin.Context) {
 	JSON(c, "service_degraded", DefaultMessage)
 }
