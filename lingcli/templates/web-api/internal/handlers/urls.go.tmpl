@@ -115,4 +115,36 @@ func (h *Handlers) registerRoutes(r gin.IRouter) {
 		files.DELETE("/:key", h.DeleteFile)
 	}
 	{{- end}}
+
+	{{- if .IsRBAC}}
+	// ── RBAC: Role management ──
+	roles := r.Group("/api/v1/roles")
+	{
+		roles.GET("", h.ListRoles)
+		roles.POST("", h.CreateRole)
+		roles.GET("/:id", h.GetRole)
+		roles.PUT("/:id", h.UpdateRole)
+		roles.DELETE("/:id", h.DeleteRole)
+		roles.GET("/:id/permissions", h.GetRolePermissions)
+		roles.POST("/permissions/assign", h.AssignPermissionsToRole)
+	}
+
+	// ── RBAC: Permission management ──
+	perms := r.Group("/api/v1/permissions")
+	{
+		perms.GET("", h.ListPermissions)
+		perms.POST("", h.CreatePermission)
+		perms.PUT("/:id", h.UpdatePermission)
+		perms.DELETE("/:id", h.DeletePermission)
+	}
+
+	// ── RBAC: User-Role assignment ──
+	userRoles := r.Group("/api/v1/user-roles")
+	{
+		userRoles.POST("/assign", h.AssignRoleToUser)
+		userRoles.POST("/revoke", h.RevokeRoleFromUser)
+		userRoles.GET("/:id/roles", h.GetUserRoles)
+		userRoles.GET("/:id/permissions", h.GetUserPermissions)
+	}
+	{{- end}}
 }

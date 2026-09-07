@@ -1,0 +1,105 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package types
+
+import (
+	"time"
+
+	"{{.Module}}/internal/models"
+)
+
+// RoleRequest is the request body for creating/updating a role.
+type RoleRequest struct {
+	Name        string `json:"name" binding:"required,min=2,max=50" validate:"required,min=2,max=50"`
+	DisplayName string `json:"displayName" binding:"omitempty,max=100" validate:"max=100"`
+	Description string `json:"description" binding:"omitempty,max=255" validate:"max=255"`
+	Sort        int    `json:"sort" binding:"omitempty" validate:"gte=0"`
+	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`
+}
+
+// RoleResponse is the public role representation.
+type RoleResponse struct {
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName"`
+	Description string    `json:"description,omitempty"`
+	Sort        int       `json:"sort"`
+	Status      int       `json:"status"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// ToRoleResponse converts a models.Role to a RoleResponse.
+func ToRoleResponse(r *models.Role) RoleResponse {
+	return RoleResponse{
+		ID:          r.ID,
+		Name:        r.Name,
+		DisplayName: r.DisplayName,
+		Description: r.Description,
+		Sort:        r.Sort,
+		Status:      r.Status,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	}
+}
+
+// PermissionRequest is the request body for creating/updating a permission.
+type PermissionRequest struct {
+	Name        string `json:"name" binding:"required,min=2,max=100" validate:"required,min=2,max=100"`
+	DisplayName string `json:"displayName" binding:"omitempty,max=100" validate:"max=100"`
+	Resource    string `json:"resource" binding:"required,min=1,max=50" validate:"required,min=1,max=50"`
+	Action      string `json:"action" binding:"required,min=1,max=20" validate:"required,min=1,max=20"`
+	Description string `json:"description" binding:"omitempty,max=255" validate:"max=255"`
+}
+
+// PermissionResponse is the public permission representation.
+type PermissionResponse struct {
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName"`
+	Resource    string    `json:"resource"`
+	Action      string    `json:"action"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// ToPermissionResponse converts a models.Permission to a PermissionResponse.
+func ToPermissionResponse(p *models.Permission) PermissionResponse {
+	return PermissionResponse{
+		ID:          p.ID,
+		Name:        p.Name,
+		DisplayName: p.DisplayName,
+		Resource:    p.Resource,
+		Action:      p.Action,
+		Description: p.Description,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+	}
+}
+
+// AssignRoleRequest is the request body for assigning a role to a user.
+type AssignRoleRequest struct {
+	UserID uint `json:"userId" binding:"required" validate:"required"`
+	RoleID uint `json:"roleId" binding:"required" validate:"required"`
+}
+
+// AssignPermissionsRequest is the request body for assigning permissions to a role.
+type AssignPermissionsRequest struct {
+	RoleID       uint   `json:"roleId" binding:"required" validate:"required"`
+	PermissionIDs []uint `json:"permissionIds" binding:"required,min=1" validate:"required,min=1"`
+}
+
+// UserRoleResponse shows a user's role assignments.
+type UserRoleResponse struct {
+	UserID uint           `json:"userId"`
+	Roles  []RoleResponse `json:"roles"`
+}
+
+// RolePermissionResponse shows a role's permission assignments.
+type RolePermissionResponse struct {
+	RoleID      uint                 `json:"roleId"`
+	Permissions []PermissionResponse `json:"permissions"`
+}
+{{- end}}

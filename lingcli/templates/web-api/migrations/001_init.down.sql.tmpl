@@ -1,5 +1,11 @@
 -- {{.ProjectName}} rollback initial migration
--- Drop users table
+-- Drop all tables
 -- Warning: this will lose data, confirm before running
 
+{{- if .IsRBAC}}
+DROP TABLE IF EXISTS `role_permissions`;
+DROP TABLE IF EXISTS `user_roles`;
+DROP TABLE IF EXISTS `permissions`;
+DROP TABLE IF EXISTS `roles`;
+{{- end}}
 DROP TABLE IF EXISTS `users`;

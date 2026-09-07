@@ -86,7 +86,41 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 
 	// Issue tokens — use username as the subject
+	{{- if .IsRBAC}}
+	// RBAC: load user's roles and permissions to include in JWT claims
+	var roleNames []string
+	var permNames []string
+	var roles []models.Role
+	h.db.WithContext(c.Request.Context()).
+		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ? AND roles.status = 1", user.ID).
+		Find(&roles)
+	for _, r := range roles {
+		roleNames = append(roleNames, r.Name)
+	}
+	if len(roleNames) > 0 {
+		var perms []models.Permission
+		h.db.WithContext(c.Request.Context()).
+			Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+			Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
+			Where("user_roles.user_id = ?", user.ID).
+			Distinct().
+			Find(&perms)
+		for _, p := range perms {
+			permNames = append(permNames, p.Name)
+		}
+	}
+	// Always include the user's built-in role
+	if user.Role != "" {
+		roleNames = append(roleNames, user.Role)
+	}
+	pair, err := h.jwtAuth.Login(user.Username,
+		jwtutil.WithRoles(roleNames...),
+		jwtutil.WithPermissions(permNames...),
+	)
+	{{- else}}
 	pair, err := h.jwtAuth.Login(user.Username)
+	{{- end}}
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return

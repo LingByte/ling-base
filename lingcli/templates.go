@@ -50,6 +50,15 @@ type TemplateData struct {
 
 	// 生成模式: "lib"（引入 ling-base 库）或 "full"（复制源码到 pkg/）
 	Mode string
+
+	// 架构模式: "simple", "rbac", "abac", "multi-tenant", "ddd"
+	Architecture string
+
+	// 架构条件渲染标志
+	IsRBAC         bool
+	IsABAC         bool
+	IsMultiTenant  bool
+	IsDDD          bool
 }
 
 // RenderTemplate 渲染单个 .tmpl 文件，返回输出路径和内容。
@@ -187,6 +196,11 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
 		Mode:              spec.Mode,
+		Architecture:      spec.Architecture,
+		IsRBAC:            spec.Architecture == "rbac",
+		IsABAC:            spec.Architecture == "abac",
+		IsMultiTenant:     spec.Architecture == "multi-tenant",
+		IsDDD:             spec.Architecture == "ddd",
 	}
 
 	var files []FileEntry

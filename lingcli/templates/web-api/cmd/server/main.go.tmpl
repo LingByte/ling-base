@@ -132,7 +132,9 @@ func main() {
 		}
 		// dev/test: AutoMigrate; prod: manual SQL migrations
 		if cfg.App.Environment == "dev" || cfg.App.Environment == "test" {
-			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.User{}))
+			appOpts = append(appOpts, bootstrap.WithAutoMigrate(db, &models.User{}
+			{{- if .IsRBAC}}, &models.Role{}, &models.Permission{}, &models.UserRole{}, &models.RolePermission{}
+			{{- end}}))
 		}
 	}
 

@@ -174,6 +174,52 @@ User 模块特性:
 - 用户列表支持关键词搜索 + 角色/状态过滤
 - 表名常量定义在 `internal/constants/tables.go`
 
+{{- if .IsRBAC}}
+### RBAC 权限管理 API
+
+```bash
+# 角色管理
+curl http://localhost:{{.Port}}/api/v1/roles
+curl -X POST http://localhost:{{.Port}}/api/v1/roles \
+  -H "Content-Type: application/json" \
+  -d '{"name":"editor","displayName":"编辑者","description":"可编辑内容"}'
+
+# 权限管理
+curl http://localhost:{{.Port}}/api/v1/permissions
+curl -X POST http://localhost:{{.Port}}/api/v1/permissions \
+  -H "Content-Type: application/json" \
+  -d '{"name":"user:read","resource":"user","action":"read"}'
+
+# 给角色分配权限
+curl -X POST http://localhost:{{.Port}}/api/v1/roles/permissions/assign \
+  -H "Content-Type: application/json" \
+  -d '{"roleId":1,"permissionIds":[1,2,3]}'
+
+# 查看角色的权限
+curl http://localhost:{{.Port}}/api/v1/roles/1/permissions
+
+# 给用户分配角色
+curl -X POST http://localhost:{{.Port}}/api/v1/user-roles/assign \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1,"roleId":2}'
+
+# 查看用户的角色
+curl http://localhost:{{.Port}}/api/v1/user-roles/1/roles
+
+# 查看用户的全部权限（通过角色聚合）
+curl http://localhost:{{.Port}}/api/v1/user-roles/1/permissions
+```
+
+RBAC 架构特性:
+- 五表结构: users + roles + permissions + user_roles + role_permissions
+- 角色管理: CRUD + 启用/禁用
+- 权限管理: 按 resource + action 定义
+- 角色-权限分配: 批量分配（替换式）
+- 用户-角色分配: 多对多
+- 登录时自动加载用户角色和权限，写入 JWT claims
+- 所有模型嵌入 `common.BaseModel`（snowflake ID + 审计字段）
+{{- end}}
+
 ## 快速开始
 
 ```bash

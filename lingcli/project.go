@@ -22,6 +22,7 @@ type ProjectSpec struct {
 	ConfigFormat string   // 配置文件格式: "yaml" 或 "env"（默认 yaml）
 	CIPlatform   string   // CI 平台: "github" 或 "gitlab"（默认 github）
 	Mode         string   // 生成模式: "lib"（引入库）或 "full"（复制源码到 pkg/）
+	Architecture string   // 架构模式: "simple"(默认), "rbac", "abac", "multi-tenant", "ddd"
 }
 
 // webAPIBuiltinModules 是 web-api 模板硬编码内置的模块列表。
@@ -72,6 +73,9 @@ func (s *ProjectSpec) FillDefaults() {
 	}
 	if s.Mode == "" {
 		s.Mode = "lib"
+	}
+	if s.Architecture == "" {
+		s.Architecture = "simple"
 	}
 	// web-api 模板自动集成内置模块（不可选）
 	if s.Template == "web-api" {
@@ -178,6 +182,20 @@ func (s *ProjectSpec) Summary() string {
 			modeDesc = "lib（引入 ling-base 库）"
 		}
 		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m生成模式:\x1b[0m    %s\n", modeDesc))
+	}
+	if s.Architecture != "" && s.Architecture != "simple" {
+		archDesc := s.Architecture
+		switch s.Architecture {
+		case "rbac":
+			archDesc = "rbac（基于角色的访问控制）"
+		case "abac":
+			archDesc = "abac（基于属性的访问控制）"
+		case "multi-tenant":
+			archDesc = "multi-tenant（多租户隔离）"
+		case "ddd":
+			archDesc = "ddd（领域驱动设计分层）"
+		}
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;117m架构模式:\x1b[0m    %s\n", archDesc))
 	}
 	if len(s.Modules) > 0 {
 		var moduleNames []string

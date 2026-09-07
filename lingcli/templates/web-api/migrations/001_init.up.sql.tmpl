@@ -26,3 +26,78 @@ CREATE TABLE IF NOT EXISTS `users` (
     KEY `idx_deleted_at` (`deleted_at`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+{{- if .IsRBAC}}
+
+-- RBAC: roles table
+CREATE TABLE IF NOT EXISTS `roles` (
+    `id`           BIGINT UNSIGNED NOT NULL,
+    `name`         VARCHAR(50)  NOT NULL DEFAULT '',
+    `display_name` VARCHAR(100) NOT NULL DEFAULT '',
+    `description`  VARCHAR(255) NOT NULL DEFAULT '',
+    `sort`         INT          NOT NULL DEFAULT 0,
+    `status`       TINYINT      NOT NULL DEFAULT 1,    -- 1=enabled, 0=disabled
+    `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`   DATETIME     NULL,
+    `create_by`    VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`    VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`       VARCHAR(128) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_name` (`name`),
+    KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- RBAC: permissions table
+CREATE TABLE IF NOT EXISTS `permissions` (
+    `id`           BIGINT UNSIGNED NOT NULL,
+    `name`         VARCHAR(100) NOT NULL DEFAULT '',    -- e.g. "user:read"
+    `display_name` VARCHAR(100) NOT NULL DEFAULT '',
+    `resource`     VARCHAR(50)  NOT NULL DEFAULT '',    -- e.g. "user"
+    `action`       VARCHAR(20)  NOT NULL DEFAULT '',    -- e.g. "read"
+    `description`  VARCHAR(255) NOT NULL DEFAULT '',
+    `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`   DATETIME     NULL,
+    `create_by`    VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`    VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`       VARCHAR(128) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_name` (`name`),
+    KEY `idx_resource` (`resource`),
+    KEY `idx_action` (`action`),
+    KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- RBAC: user_roles join table
+CREATE TABLE IF NOT EXISTS `user_roles` (
+    `id`         BIGINT UNSIGNED NOT NULL,
+    `user_id`    BIGINT UNSIGNED NOT NULL,
+    `role_id`    BIGINT UNSIGNED NOT NULL,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at` DATETIME     NULL,
+    `create_by`  VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`  VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`     VARCHAR(128) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_user_role` (`user_id`, `role_id`),
+    KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- RBAC: role_permissions join table
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+    `id`            BIGINT UNSIGNED NOT NULL,
+    `role_id`       BIGINT UNSIGNED NOT NULL,
+    `permission_id` BIGINT UNSIGNED NOT NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`    DATETIME     NULL,
+    `create_by`     VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`     VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`        VARCHAR(128) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_role_perm` (`role_id`, `permission_id`),
+    KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+{{- end}}

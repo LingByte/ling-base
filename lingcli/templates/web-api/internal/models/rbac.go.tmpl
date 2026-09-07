@@ -1,0 +1,53 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+)
+
+// Role represents an RBAC role (e.g. admin, editor, viewer).
+type Role struct {
+	common.BaseModel
+	Name        string `json:"name" gorm:"size:50;uniqueIndex;not null"`
+	DisplayName string `json:"displayName" gorm:"size:100"`
+	Description string `json:"description,omitempty" gorm:"size:255"`
+	Sort        int    `json:"sort,omitempty" gorm:"default:0"`
+	Status      int    `json:"status" gorm:"default:1;not null"` // 1=enabled, 0=disabled
+}
+
+func (Role) TableName() string { return constants.TableRoles }
+
+// Permission represents an RBAC permission (resource + action).
+type Permission struct {
+	common.BaseModel
+	Name        string `json:"name" gorm:"size:100;uniqueIndex;not null"` // e.g. "user:read"
+	DisplayName string `json:"displayName" gorm:"size:100"`
+	Resource    string `json:"resource" gorm:"size:50;index;not null"`   // e.g. "user"
+	Action      string `json:"action" gorm:"size:20;index;not null"`     // e.g. "read"
+	Description string `json:"description,omitempty" gorm:"size:255"`
+}
+
+func (Permission) TableName() string { return constants.TablePermissions }
+
+// UserRole is the join table for user-role assignments.
+type UserRole struct {
+	common.BaseModel
+	UserID uint `json:"userId" gorm:"uniqueIndex:idx_user_role;not null"`
+	RoleID uint `json:"roleId" gorm:"uniqueIndex:idx_user_role;not null"`
+}
+
+func (UserRole) TableName() string { return constants.TableUserRoles }
+
+// RolePermission is the join table for role-permission assignments.
+type RolePermission struct {
+	common.BaseModel
+	RoleID       uint `json:"roleId" gorm:"uniqueIndex:idx_role_perm;not null"`
+	PermissionID uint `json:"permissionId" gorm:"uniqueIndex:idx_role_perm;not null"`
+}
+
+func (RolePermission) TableName() string { return constants.TableRolePerms }
+{{- end}}

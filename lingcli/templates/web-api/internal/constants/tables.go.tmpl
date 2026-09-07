@@ -6,4 +6,33 @@ package constants
 // Database table names.
 const (
 	TableUsers = "users"
+{{- if .IsRBAC}}
+	TableRoles       = "roles"
+	TablePermissions = "permissions"
+	TableUserRoles   = "user_roles"
+	TableRolePerms   = "role_permissions"
+{{- end}}
 )
+
+{{- if .IsRBAC}}
+
+// RBAC role constants.
+const (
+	RoleAdmin = "admin"
+	RoleUser  = "user"
+)
+
+// RBAC permission action constants.
+const (
+	PermActionRead   = "read"
+	PermActionWrite  = "write"
+	PermActionDelete = "delete"
+)
+
+// RBAC permission resource constants.
+const (
+	PermResourceUser   = "user"
+	PermResourceRole   = "role"
+	PermResourceFile   = "file"
+)
+{{- end}}

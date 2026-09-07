@@ -1,0 +1,550 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package handlers
+
+import (
+	"errors"
+
+	"{{.Module}}/internal/models"
+	"{{.Module}}/internal/types"
+
+	"github.com/LingByte/ling-base/common/response"
+	respgin "github.com/LingByte/ling-base/common/response/gin"
+	{{- if .HasValidate}}
+	"github.com/LingByte/ling-base/common/validate"
+	{{- end}}
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// Role CRUD
+
+// ListRoles returns all roles.
+func (h *Handlers) ListRoles(c *gin.Context) {
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+	var roles []models.Role
+	if err := h.db.WithContext(c.Request.Context()).Order("sort ASC, id ASC").Find(&roles).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	result := make([]types.RoleResponse, len(roles))
+	for i := range roles {
+		result[i] = types.ToRoleResponse(&roles[i])
+	}
+	respgin.Success(c, result)
+}
+
+// GetRole returns a single role by ID.
+func (h *Handlers) GetRole(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var role models.Role
+	if err := h.db.WithContext(c.Request.Context()).First(&role, idReq.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, types.ToRoleResponse(&role))
+}
+
+// CreateRole creates a new role.
+func (h *Handlers) CreateRole(c *gin.Context) {
+	var req types.RoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	role := models.Role{
+		Name:        req.Name,
+		DisplayName: req.DisplayName,
+		Description: req.Description,
+		Sort:        req.Sort,
+		Status:      1,
+	}
+	if req.Status != nil {
+		role.Status = *req.Status
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Create(&role).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeConflict, "role name already exists"))
+		return
+	}
+	respgin.Created(c, types.ToRoleResponse(&role))
+}
+
+// UpdateRole updates a role by ID.
+func (h *Handlers) UpdateRole(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	var req types.RoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var role models.Role
+	if err := h.db.WithContext(c.Request.Context()).First(&role, idReq.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	updates := map[string]interface{}{
+		"name":        req.Name,
+		"displayName": req.DisplayName,
+		"description": req.Description,
+		"sort":        req.Sort,
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Model(&role).Updates(updates).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, types.ToRoleResponse(&role))
+}
+
+// DeleteRole deletes a role by ID (cascades to user_roles and role_permissions).
+func (h *Handlers) DeleteRole(c *gin.Context) {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	// Delete role and its associations in a transaction
+	err := h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", req.ID).Delete(&models.RolePermission{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("role_id = ?", req.ID).Delete(&models.UserRole{}).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&models.Role{}, req.ID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.NoContent(c)
+}
+
+// Permission CRUD
+
+// ListPermissions returns all permissions.
+func (h *Handlers) ListPermissions(c *gin.Context) {
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+	var perms []models.Permission
+	if err := h.db.WithContext(c.Request.Context()).Order("resource ASC, action ASC").Find(&perms).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	result := make([]types.PermissionResponse, len(perms))
+	for i := range perms {
+		result[i] = types.ToPermissionResponse(&perms[i])
+	}
+	respgin.Success(c, result)
+}
+
+// CreatePermission creates a new permission.
+func (h *Handlers) CreatePermission(c *gin.Context) {
+	var req types.PermissionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	perm := models.Permission{
+		Name:        req.Name,
+		DisplayName: req.DisplayName,
+		Resource:    req.Resource,
+		Action:      req.Action,
+		Description: req.Description,
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Create(&perm).Error; err != nil {
+		respgin.WriteError(c, response.New(response.CodeConflict, "permission name already exists"))
+		return
+	}
+	respgin.Created(c, types.ToPermissionResponse(&perm))
+}
+
+// UpdatePermission updates a permission by ID.
+func (h *Handlers) UpdatePermission(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	var req types.PermissionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var perm models.Permission
+	if err := h.db.WithContext(c.Request.Context()).First(&perm, idReq.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	updates := map[string]interface{}{
+		"name":        req.Name,
+		"displayName": req.DisplayName,
+		"resource":    req.Resource,
+		"action":      req.Action,
+		"description": req.Description,
+	}
+
+	if err := h.db.WithContext(c.Request.Context()).Model(&perm).Updates(updates).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, types.ToPermissionResponse(&perm))
+}
+
+// DeletePermission deletes a permission by ID.
+func (h *Handlers) DeletePermission(c *gin.Context) {
+	var req types.IDRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	err := h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("permission_id = ?", req.ID).Delete(&models.RolePermission{}).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&models.Permission{}, req.ID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.NoContent(c)
+}
+
+// Role-Permission assignment
+
+// AssignPermissionsToRole assigns permissions to a role (replaces existing).
+func (h *Handlers) AssignPermissionsToRole(c *gin.Context) {
+	var req types.AssignPermissionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	// Verify role exists
+	var role models.Role
+	if err := h.db.WithContext(c.Request.Context()).First(&role, req.RoleID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respgin.WriteError(c, response.Err(response.CodeNotFound))
+			return
+		}
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+
+	// Replace permissions in a transaction
+	err := h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", req.RoleID).Delete(&models.RolePermission{}).Error; err != nil {
+			return err
+		}
+		if len(req.PermissionIDs) == 0 {
+			return nil
+		}
+		var perms []models.RolePermission
+		for _, pid := range req.PermissionIDs {
+			perms = append(perms, models.RolePermission{RoleID: req.RoleID, PermissionID: pid})
+		}
+		return tx.Create(&perms).Error
+	})
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, gin.H{"message": "permissions assigned"})
+}
+
+// GetRolePermissions returns all permissions assigned to a role.
+func (h *Handlers) GetRolePermissions(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var perms []models.Permission
+	err := h.db.WithContext(c.Request.Context()).
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", idReq.ID).
+		Find(&perms).Error
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	result := make([]types.PermissionResponse, len(perms))
+	for i := range perms {
+		result[i] = types.ToPermissionResponse(&perms[i])
+	}
+	respgin.Success(c, types.RolePermissionResponse{
+		RoleID:      idReq.ID,
+		Permissions: result,
+	})
+}
+
+// User-Role assignment
+
+// AssignRoleToUser assigns a role to a user.
+func (h *Handlers) AssignRoleToUser(c *gin.Context) {
+	var req types.AssignRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- if .HasValidate}}
+	if err := validate.Validate(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+	{{- end}}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	// Check for duplicate
+	var count int64
+	h.db.WithContext(c.Request.Context()).Model(&models.UserRole{}).
+		Where("user_id = ? AND role_id = ?", req.UserID, req.RoleID).Count(&count)
+	if count > 0 {
+		respgin.WriteError(c, response.New(response.CodeConflict, "role already assigned to user"))
+		return
+	}
+
+	ur := models.UserRole{UserID: req.UserID, RoleID: req.RoleID}
+	if err := h.db.WithContext(c.Request.Context()).Create(&ur).Error; err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	respgin.Success(c, gin.H{"message": "role assigned"})
+}
+
+// RevokeRoleFromUser removes a role from a user.
+func (h *Handlers) RevokeRoleFromUser(c *gin.Context) {
+	var req types.AssignRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respgin.WriteError(c, response.New(response.CodeBadRequest, err.Error()))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	result := h.db.WithContext(c.Request.Context()).
+		Where("user_id = ? AND role_id = ?", req.UserID, req.RoleID).
+		Delete(&models.UserRole{})
+	if result.Error != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	if result.RowsAffected == 0 {
+		respgin.WriteError(c, response.Err(response.CodeNotFound))
+		return
+	}
+	respgin.NoContent(c)
+}
+
+// GetUserRoles returns all roles assigned to a user.
+func (h *Handlers) GetUserRoles(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var roles []models.Role
+	err := h.db.WithContext(c.Request.Context()).
+		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ?", idReq.ID).
+		Order("roles.sort ASC, roles.id ASC").
+		Find(&roles).Error
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	result := make([]types.RoleResponse, len(roles))
+	for i := range roles {
+		result[i] = types.ToRoleResponse(&roles[i])
+	}
+	respgin.Success(c, types.UserRoleResponse{
+		UserID: idReq.ID,
+		Roles:  result,
+	})
+}
+
+// GetUserPermissions returns all permissions granted to a user (through all their roles).
+func (h *Handlers) GetUserPermissions(c *gin.Context) {
+	var idReq types.IDRequest
+	if err := c.ShouldBindUri(&idReq); err != nil {
+		respgin.WriteError(c, response.Err(response.CodeBadRequest))
+		return
+	}
+
+	if h.db == nil {
+		respgin.WriteError(c, response.Err(response.CodeServiceUnavail))
+		return
+	}
+
+	var perms []models.Permission
+	err := h.db.WithContext(c.Request.Context()).
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
+		Where("user_roles.user_id = ?", idReq.ID).
+		Distinct().
+		Find(&perms).Error
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
+	}
+	result := make([]types.PermissionResponse, len(perms))
+	for i := range perms {
+		result[i] = types.ToPermissionResponse(&perms[i])
+	}
+	respgin.Success(c, result)
+}
+{{- end}}
