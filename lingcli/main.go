@@ -330,20 +330,20 @@ func runInteractive(spec *ProjectSpec) {
 	// 选择 ling-base 模块。
 	fmt.Println("\n\x1b[38;5;117m━━━ 步骤 9/9: 集成 ling-base 模块 ━━━\x1b[0m")
 	if spec.Template == "web-api" {
-		fmt.Println("  \x1b[38;5;245m内置模块（自动包含）: 统一响应 / 数据校验 / 对象存储 / 缓存 / 分布式锁 / 重试\x1b[0m")
+		fmt.Println("  \x1b[38;5;245m内置模块（自动包含）: 统一响应 / 数据校验 / 对象存储 / 缓存 / 分布式锁 / 重试 / 限流 / 熔断 / 降级\x1b[0m")
 		fmt.Println()
 	}
-	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 逐个询问核心模块（API 文档/中间件/JWT/限流/熔断）")
-	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 逐个询问全部可选模块")
-	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 不集成额外模块（仅内置模块）")
+	fmt.Println("  \x1b[38;5;39m[1]\x1b[0m \x1b[1m基础版\x1b[0m  — 核心模块（API 文档/中间件/JWT/国际化）")
+	fmt.Println("  \x1b[38;5;39m[2]\x1b[0m \x1b[1m完整版\x1b[0m  — 全部可选模块（定时任务/事件总线/通知/MQ/搜索/统计/追踪/布隆/验证码 等）")
+	fmt.Println("  \x1b[38;5;39m[3]\x1b[0m \x1b[1m跳过\x1b[0m    — 仅内置模块，不集成额外模块")
 	fmt.Println()
 	mode := p.Select("请选择模式", 3)
 
 	switch mode {
-	case 0: // 基础版
-		spec.Modules = askModulesOneByOne(p, true)
-	case 1: // 完整版
-		spec.Modules = askModulesOneByOne(p, false)
+	case 0: // 基础版 — 自动选中核心模块
+		spec.Modules = selectModulesAuto(true)
+	case 1: // 完整版 — 自动选中全部可选模块
+		spec.Modules = selectModulesAuto(false)
 	default: // 跳过
 		spec.Modules = nil
 	}
@@ -379,25 +379,21 @@ func runInteractive(spec *ProjectSpec) {
 	}
 }
 
-// askModulesOneByOne 逐个询问用户是否集成每个模块。
-// coreOnly=true 时只询问核心模块，false 时询问全部模块。
-// 内置模块（web-api 的 stores/cache/lock/retry/validate/response）会被跳过，
-// 因为它们已自动包含。
-// 每个模块：回车=否，y=是。
-func askModulesOneByOne(p *Prompt, coreOnly bool) []string {
+// selectModulesAuto 自动选择模块（无需逐个确认）。
+// coreOnly=true 时选核心模块，false 时选全部可选模块。
+// 内置模块会被跳过（已自动包含）。
+func selectModulesAuto(coreOnly bool) []string {
 	var selected []string
 	for i := range LingBaseModules {
 		m := &LingBaseModules[i]
 		if coreOnly && !m.Core {
 			continue
 		}
-		// 跳过当前模板的内置模块（已自动包含，无需询问）
+		// 跳过当前模板的内置模块（已自动包含）
 		if isBuiltinModule(currentTemplate, m.ID) {
 			continue
 		}
-		if p.ConfirmModule(m.Name, m.Description) {
-			selected = append(selected, m.ID)
-		}
+		selected = append(selected, m.ID)
 	}
 	return selected
 }
