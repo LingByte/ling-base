@@ -1,34 +1,39 @@
 {{- if .IsRBAC}}
 // Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
 
-package handlers
+package models
 
 import (
 	"errors"
 
 	"{{.Module}}/internal/constants"
-	"{{.Module}}/internal/models"
 
 	"github.com/LingByte/ling-base/common/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-// SeedRBAC initializes default roles, permissions, and admin user.
-// This is idempotent — it only creates entries that don't already exist.
-// Called automatically on startup in dev/test environments.
-func SeedRBAC(db *gorm.DB) error {
+// SeedRBACDefaults initializes default roles, permissions, and admin
+// role-permission assignments. This is idempotent — it only creates
+// entries that don't already exist.
+//
+// Register this as a bootstrap init hook:
+//
+//	app.AddInitHook("seed-rbac", func(ctx context.Context) error {
+//	    return models.SeedRBACDefaults(db)
+//	})
+func SeedRBACDefaults(db *gorm.DB) error {
 	if db == nil {
 		return nil
 	}
 
 	// 1. Seed default roles
-	defaultRoles := []models.Role{
+	defaultRoles := []Role{
 		{Name: constants.RoleAdmin, DisplayName: "Administrator", Description: "Full system access", Sort: 0, Status: 1},
 		{Name: constants.RoleUser, DisplayName: "User", Description: "Standard user with limited access", Sort: 1, Status: 1},
 	}
 	for _, role := range defaultRoles {
-		if _, err := (models.Role{}).FindByName(db, role.Name); err != nil {
+		if _, err := (Role{}).FindByName(db, role.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				r := role
 				if err := r.Create(db); err != nil {
@@ -41,7 +46,7 @@ func SeedRBAC(db *gorm.DB) error {
 	}
 
 	// 2. Seed default permissions
-	defaultPerms := []models.Permission{
+	defaultPerms := []Permission{
 		{Name: "user:read", DisplayName: "View Users", Resource: constants.PermResourceUser, Action: constants.PermActionRead},
 		{Name: "user:write", DisplayName: "Create/Update Users", Resource: constants.PermResourceUser, Action: constants.PermActionWrite},
 		{Name: "user:delete", DisplayName: "Delete Users", Resource: constants.PermResourceUser, Action: constants.PermActionDelete},
@@ -53,7 +58,7 @@ func SeedRBAC(db *gorm.DB) error {
 		{Name: "file:delete", DisplayName: "Delete Files", Resource: constants.PermResourceFile, Action: constants.PermActionDelete},
 	}
 	for _, perm := range defaultPerms {
-		if _, err := (models.Permission{}).FindByName(db, perm.Name); err != nil {
+		if _, err := (Permission{}).FindByName(db, perm.Name); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				p := perm
 				if err := p.Create(db); err != nil {
@@ -66,22 +71,22 @@ func SeedRBAC(db *gorm.DB) error {
 	}
 
 	// 3. Assign all permissions to admin role
-	adminRole, err := models.Role{}.FindByName(db, constants.RoleAdmin)
+	adminRole, err := (Role{}).FindByName(db, constants.RoleAdmin)
 	if err != nil {
 		return err
 	}
-	allPerms, err := models.Permission{}.ListAll(db)
+	allPerms, err := (Permission{}).ListAll(db)
 	if err != nil {
 		return err
 	}
 	for _, p := range allPerms {
-		exists, err := models.RolePermission{}.Exists(db, adminRole.ID, p.ID)
+		exists, err := (RolePermission{}).Exists(db, adminRole.ID, p.ID)
 		if err != nil {
 			logger.Lg.Warn("RBAC seed: failed to check role-permission", zap.Error(err))
 			continue
 		}
 		if !exists {
-			rp := models.RolePermission{RoleID: adminRole.ID, PermissionID: p.ID}
+			rp := RolePermission{RoleID: adminRole.ID, PermissionID: p.ID}
 			if err := rp.Create(db); err != nil {
 				logger.Lg.Warn("RBAC seed: failed to assign permission to admin", zap.Error(err))
 			}
@@ -89,13 +94,13 @@ func SeedRBAC(db *gorm.DB) error {
 	}
 
 	// 4. Assign user:read permission to user role
-	userRole, err := models.Role{}.FindByName(db, constants.RoleUser)
+	userRole, err := (Role{}).FindByName(db, constants.RoleUser)
 	if err == nil {
-		userReadPerm, err := models.Permission{}.FindByName(db, "user:read")
+		userReadPerm, err := (Permission{}).FindByName(db, "user:read")
 		if err == nil {
-			exists, err := models.RolePermission{}.Exists(db, userRole.ID, userReadPerm.ID)
+			exists, err := (RolePermission{}).Exists(db, userRole.ID, userReadPerm.ID)
 			if err == nil && !exists {
-				rp := models.RolePermission{RoleID: userRole.ID, PermissionID: userReadPerm.ID}
+				rp := RolePermission{RoleID: userRole.ID, PermissionID: userReadPerm.ID}
 				_ = rp.Create(db)
 			}
 		}

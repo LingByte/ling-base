@@ -142,12 +142,6 @@ func main() {
 			{{- if .IsMultiTenant}}, &models.Tenant{}
 			{{- end}}))
 		}
-		{{- if .IsRBAC}}
-		// Seed default RBAC data (roles, permissions, admin assignments)
-		if err := handlers.SeedRBAC(db); err != nil {
-			logger.Lg.Warn("RBAC seed failed", zap.Error(err))
-		}
-		{{- end}}
 	}
 
 	{{- if .HasStores}}
@@ -240,6 +234,15 @@ func main() {
 	{{- end}}
 
 	app := bootstrap.New(info.Name, appOpts...)
+
+	{{- if .IsRBAC}}
+	// Seed default RBAC data (roles, permissions, admin assignments) via init hook
+	if db != nil {
+		app.AddInitHook("seed-rbac", func(ctx context.Context) error {
+			return models.SeedRBACDefaults(db)
+		})
+	}
+	{{- end}}
 
 	// Register HTTP server as a lifecycle component
 	app.Register("http-server", &httpServerComponent{
