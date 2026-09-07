@@ -32,6 +32,7 @@ type Config struct {
 	Cache          CacheConfig          `yaml:"cache"`
 	Lock           LockConfig           `yaml:"lock"`
 	Retry          RetryConfig          `yaml:"retry"`
+	Fallback       FallbackConfig       `yaml:"fallback"`
 	App            AppConfig            `yaml:"app"`
 }
 
@@ -156,6 +157,14 @@ type RetryConfig struct {
 	Jitter         bool   `yaml:"jitter"`         // 是否启用抖动
 }
 
+// FallbackConfig 降级配置。
+// 当熔断器打开或远程调用失败时,返回降级响应而非 5xx 错误。
+type FallbackConfig struct {
+	Enabled        bool   `yaml:"enabled"`        // 是否启用降级
+	DefaultMessage string `yaml:"defaultMessage"` // 默认降级提示消息
+	StatusCode     int    `yaml:"statusCode"`     // 默认降级 HTTP 状态码(0=503)
+}
+
 // Default 返回默认配置。
 func Default() *Config {
 	return &Config{
@@ -237,6 +246,11 @@ func Default() *Config {
 			MaxDelay:     "10s",
 			Factor:       "2.0",
 			Jitter:       true,
+		},
+		Fallback: FallbackConfig{
+			Enabled:        true,
+			DefaultMessage: "服务暂时不可用,请稍后再试",
+			StatusCode:     503,
 		},
 		App: AppConfig{
 			Name:        "{{.ProjectName}}",
@@ -484,6 +498,13 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("APP_RETRY_INITIAL_DELAY"); v != "" {
 		cfg.Retry.InitialDelay = v
+	}
+	// Fallback
+	if v := os.Getenv("APP_FALLBACK_ENABLED"); v != "" {
+		cfg.Fallback.Enabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("APP_FALLBACK_MESSAGE"); v != "" {
+		cfg.Fallback.DefaultMessage = v
 	}
 }
 

@@ -58,6 +58,9 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 | 缓存 (cache) | `pkg/cache` | memory（进程内） | `go get cache/redis` + 修改 `cache.driver` + 在 `pkg/cache.Init()` 加 case |
 | 分布式锁 (lock) | `pkg/lock` | memory（进程内） | `go get lock/redis` + 修改 `lock.driver` + 在 `pkg/lock.Init()` 加 case |
 | 重试 (retry) | `pkg/retry` | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
+| 限流 (limiter) | middleware | 令牌桶 | 修改 `rateLimit.*` 配置项 |
+| 熔断 (circuitbreaker) | middleware | 滑动窗口 + 半开探测 | 修改 `circuitBreaker.*` 配置项 |
+| 降级 (fallback) | `pkg/fallback` | 返回降级响应/缓存数据 | 修改 `fallback.*` 配置项 |
 | 数据校验 (validate) | — | 结构体标签驱动 | 在 DTO struct 上添加 `validate:"..."` 标签 |
 | 统一响应 (response) | — | JSON 封装 + 错误码 | 自动启用 |
 
@@ -171,7 +174,8 @@ open http://localhost:{{.Port}}/docs
 │   ├── storage/storage.go       # 对象存储封装（ling-base/stores，默认 local）
 │   ├── cache/cache.go           # 缓存封装（ling-base/common/cache，默认 memory）
 │   ├── lock/lock.go             # 分布式锁封装（ling-base/common/lock，默认 memory）
-│   └── retry/retry.go           # 重试策略封装（ling-base/common/retry）
+│   ├── retry/retry.go           # 重试策略封装（ling-base/common/retry）
+│   └── fallback/fallback.go     # 降级封装（熔断/限流时返回降级响应）
 ├── configs/
 │   ├── .env.example             # 环境变量参考（始终生成）
 {{- if .IsEnvConfig}}

@@ -24,6 +24,9 @@ import (
 	{{- if .HasRetry}}
 	pkgretry "{{.Module}}/pkg/retry"
 	{{- end}}
+	{{- if .HasFallback}}
+	pkgfallback "{{.Module}}/pkg/fallback"
+	{{- end}}
 	{{- if .HasStores}}
 	pkgstorage "{{.Module}}/pkg/storage"
 	{{- end}}
@@ -169,6 +172,12 @@ func main() {
 
 	// 初始化重试策略（pkg/retry）
 	pkgretry.Init(cfg.Retry.MaxAttempts, cfg.Retry.InitialDelay, cfg.Retry.MaxDelay, cfg.Retry.Factor, cfg.Retry.Jitter)
+	{{- end}}
+
+	{{- if .HasFallback}}
+
+	// 初始化降级策略（pkg/fallback）
+	pkgfallback.Init(cfg.Fallback.Enabled, cfg.Fallback.DefaultMessage, cfg.Fallback.StatusCode)
 	{{- end}}
 
 	{{- if .HasCircuitBreaker}}

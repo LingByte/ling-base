@@ -27,12 +27,14 @@ type ProjectSpec struct {
 // webAPIBuiltinModules 是 web-api 模板硬编码内置的模块列表。
 // 这些模块不可选 — 生成 web-api 项目时自动包含，交互流程中也不会询问。
 var webAPIBuiltinModules = []string{
-	"response",  // 统一响应封装
-	"validate",  // 数据校验
-	"stores",    // 对象存储（默认 local 后端）
-	"cache",     // 缓存（默认 memory 后端）
-	"lock",      // 分布式锁（默认 memory 后端）
-	"retry",     // 重试策略
+	"response",        // 统一响应封装
+	"validate",        // 数据校验
+	"stores",          // 对象存储（默认 local 后端）
+	"cache",           // 缓存（默认 memory 后端）
+	"lock",            // 分布式锁（默认 memory 后端）
+	"retry",           // 重试策略
+	"limiter",         // 令牌桶限流
+	"circuitbreaker",  // 熔断器
 }
 
 // isBuiltinModule 检查某个模块 ID 是否为指定模板的内置模块。

@@ -86,6 +86,9 @@ lingcli version
 | `cache` | 缓存抽象 | memory（进程内） |
 | `lock` | 分布式锁 | memory（进程内） |
 | `retry` | 重试策略（指数退避 + 抖动） | — |
+| `limiter` | 令牌桶限流 | middleware |
+| `circuitbreaker` | 熔断器（滑动窗口 + 半开探测） | middleware |
+| `fallback` | 降级（熔断/限流时返回降级响应） | pkg/fallback |
 
 ### 可选模块（交互式询问）
 
@@ -126,7 +129,8 @@ myapp/
 │   ├── storage/storage.go          # 对象存储（ling-base/stores，默认 local）
 │   ├── cache/cache.go              # 缓存（ling-base/common/cache，默认 memory）
 │   ├── lock/lock.go                # 分布式锁（ling-base/common/lock，默认 memory）
-│   └── retry/retry.go              # 重试策略（ling-base/common/retry）
+│   ├── retry/retry.go              # 重试策略（ling-base/common/retry）
+│   └── fallback/fallback.go        # 降级（熔断/限流时返回降级响应）
 ├── configs/                        # YAML 配置（含 storage/cache/lock/retry 段）
 ├── uploads/                        # 本地文件存储根目录（local 后端）
 ├── .github/workflows/ci.yml        # CI

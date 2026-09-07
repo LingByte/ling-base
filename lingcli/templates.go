@@ -44,6 +44,7 @@ type TemplateData struct {
 	HasCache          bool
 	HasLock           bool
 	HasRetry          bool
+	HasFallback       bool
 	IsEnvConfig       bool
 	IsYAMLConfig      bool
 
@@ -182,6 +183,7 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		HasCache:          spec.HasModule("cache"),
 		HasLock:           spec.HasModule("lock"),
 		HasRetry:          spec.HasModule("retry"),
+		HasFallback:       spec.HasModule("circuitbreaker"), // 降级随熔断器内置
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
 		Mode:              spec.Mode,

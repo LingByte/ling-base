@@ -73,6 +73,12 @@ retry:
   maxDelay: 30s
   jitter: true
 
+# 生产环境启用降级
+fallback:
+  enabled: true
+  defaultMessage: "服务暂时不可用,请稍后再试"
+  statusCode: 503
+
 app:
   name: {{.ProjectName}}
   environment: prod
