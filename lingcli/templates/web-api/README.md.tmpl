@@ -115,15 +115,25 @@ curl -X DELETE http://localhost:{{.Port}}/api/v1/files/avatars/20260107_120000_p
 ### User 模块 API
 
 ```bash
-# 用户注册（公开端点）
+# 用户注册 — 用户名 + 邮箱（公开端点）
 curl -X POST http://localhost:{{.Port}}/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{"username":"alice","email":"alice@example.com","password":"secret123"}'
 
-# 用户登录（需启用 JWT）
+# 用户注册 — 仅邮箱（username 自动从邮箱前缀生成）
+curl -X POST http://localhost:{{.Port}}/api/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"bob@example.com","password":"secret123"}'
+
+# 用户登录 — 用户名（需启用 JWT）
 curl -X POST http://localhost:{{.Port}}/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"alice","password":"secret123"}'
+
+# 用户登录 — 邮箱
+curl -X POST http://localhost:{{.Port}}/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","password":"secret123"}'
 
 # 查询用户列表（支持搜索/过滤）
 curl "http://localhost:{{.Port}}/api/v1/users?page=1&size=20&keyword=alice&role=user&status=1"
@@ -151,16 +161,18 @@ curl -X DELETE http://localhost:{{.Port}}/api/v1/users/1
 ```
 
 User 模块特性:
-- 密码使用 bcrypt 加密存储（`json:"-"` 不序列化）
+- 模型嵌入 `common.BaseModel`（snowflake ID + 时间戳 + 软删除 + 审计字段）
+- 密码使用 `common/password` 加密（Argon2id 默认，兼容 bcrypt）
 - 用户名 + 邮箱唯一索引
 - 角色字段（admin/user）
 - 状态字段（1=active, 0=disabled）
 - 软删除（deleted_at）
 - 最后登录时间记录
-- 注册端点 `/api/v1/register`（公开）
-- 登录端点 `/api/v1/auth/login`（真实密码校验）
+- 注册端点 `/api/v1/register`（公开，支持用户名+邮箱或仅邮箱注册）
+- 登录端点 `/api/v1/auth/login`（公开，支持用户名或邮箱登录 + 真实密码校验）
 - 改密端点 `/api/v1/users/:id/password`（需验证旧密码）
 - 用户列表支持关键词搜索 + 角色/状态过滤
+- 表名常量定义在 `internal/constants/tables.go`
 
 ## 快速开始
 

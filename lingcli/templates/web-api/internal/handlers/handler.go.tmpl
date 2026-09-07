@@ -9,13 +9,13 @@ import (
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
+	"github.com/LingByte/ling-base/common/password"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	{{- if .HasValidate}}
 	"github.com/LingByte/ling-base/common/validate"
 	{{- end}}
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -136,6 +136,8 @@ func (h *Handlers) GetUser(c *gin.Context) {
 }
 
 // RegisterUser creates a new user account (public registration endpoint).
+// Supports both username and email based registration.
+// If username is not provided, it defaults to the email prefix.
 func (h *Handlers) RegisterUser(c *gin.Context) {
 	var req types.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -154,10 +156,21 @@ func (h *Handlers) RegisterUser(c *gin.Context) {
 		return
 	}
 
+	// If username not provided, derive from email prefix
+	username := req.Username
+	if username == "" {
+		at := indexOf(req.Email, "@")
+		if at > 0 {
+			username = req.Email[:at]
+		} else {
+			username = req.Email
+		}
+	}
+
 	// Check for duplicate username/email
 	var count int64
 	if err := h.db.WithContext(c.Request.Context()).Model(&models.User{}).
-		Where("username = ? OR email = ?", req.Username, req.Email).Count(&count).Error; err != nil {
+		Where("username = ? OR email = ?", username, req.Email).Count(&count).Error; err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
@@ -166,18 +179,18 @@ func (h *Handlers) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// Hash password
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Hash password using ling-base/common/password (Argon2id by default)
+	hashed, err := password.Hash(req.Password, nil)
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 
 	user := models.User{
-		Username: req.Username,
+		Username: username,
 		Email:    req.Email,
 		Phone:    req.Phone,
-		Password: string(hashed),
+		Password: hashed,
 		Role:     models.UserRoleUser,
 		Status:   models.UserStatusActive,
 	}
@@ -220,7 +233,8 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 		return
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Hash password using ling-base/common/password
+	hashed, err := password.Hash(req.Password, nil)
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
@@ -235,7 +249,7 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 		Username: req.Username,
 		Email:    req.Email,
 		Phone:    req.Phone,
-		Password: string(hashed),
+		Password: hashed,
 		Role:     role,
 		Status:   models.UserStatusActive,
 	}
@@ -347,20 +361,20 @@ func (h *Handlers) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Verify old password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+	// Verify old password using ling-base/common/password
+	if !password.Verify(req.OldPassword, user.Password) {
 		respgin.WriteError(c, response.New(response.CodeUnauthorized, "incorrect old password"))
 		return
 	}
 
 	// Hash new password
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashed, err := password.Hash(req.NewPassword, nil)
 	if err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
 
-	if err := h.db.WithContext(c.Request.Context()).Model(&user).Update("password", string(hashed)).Error; err != nil {
+	if err := h.db.WithContext(c.Request.Context()).Model(&user).Update("password", hashed).Error; err != nil {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
@@ -390,4 +404,14 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 		return
 	}
 	respgin.NoContent(c)
+}
+
+// indexOf returns the index of the first occurrence of substr in s, or -1.
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }

@@ -45,7 +45,7 @@ func (r *PageRequest) Normalize() (int, int) {
 
 // IDRequest extracts an ID from the URL path.
 type IDRequest struct {
-	ID int64 `json:"id" uri:"id" example:"1" validate:"required,gte=1"`
+	ID uint `json:"id" uri:"id" example:"1" validate:"required"`
 }
 
 // ──────────────────────────────────────────────
@@ -53,8 +53,9 @@ type IDRequest struct {
 // ──────────────────────────────────────────────
 
 // RegisterRequest is the request body for user registration.
+// Supports both username and email based registration.
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50" validate:"required,min=3,max=50"`
+	Username string `json:"username" binding:"omitempty,min=3,max=50" validate:"min=3,max=50"`
 	Email    string `json:"email" binding:"required,email" validate:"required,email"`
 	Password string `json:"password" binding:"required,min=6,max=128" validate:"required,min=6,max=128"`
 	Phone    string `json:"phone" binding:"omitempty,max=20" validate:"max=20"`
@@ -96,16 +97,16 @@ type UserListRequest struct {
 
 // UserResponse is the public user representation (no password).
 type UserResponse struct {
-	ID          int64      `json:"id"`
-	Username    string     `json:"username"`
-	Email       string     `json:"email"`
-	Phone       string     `json:"phone,omitempty"`
-	Avatar      string     `json:"avatar,omitempty"`
-	Role        string     `json:"role"`
-	Status      int        `json:"status"`
-	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	ID          uint      `json:"id"`
+	Username    string    `json:"username"`
+	Email       string    `json:"email"`
+	Phone       string    `json:"phone,omitempty"`
+	Avatar      string    `json:"avatar,omitempty"`
+	Role        string    `json:"role"`
+	Status      int       `json:"status"`
+	LastLoginAt *int64    `json:"lastLoginAt,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 // ToUserResponse converts a models.User to a UserResponse (strips password).
@@ -129,8 +130,11 @@ func ToUserResponse(u *models.User) UserResponse {
 // ──────────────────────────────────────────────
 
 // LoginRequest is the request body for user login.
+// Supports both username and email based login.
+// If Username is provided, login by username; otherwise login by email.
 type LoginRequest struct {
-	Username string `json:"username" binding:"required" validate:"required,min=1,max=50"`
+	Username string `json:"username" binding:"omitempty,min=1,max=50"`
+	Email    string `json:"email" binding:"omitempty,email"`
 	Password string `json:"password" binding:"required" validate:"required,min=6,max=128"`
 }
 

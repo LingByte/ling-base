@@ -179,7 +179,7 @@ func TestGetUser_InvalidID(t *testing.T) {
 
 func TestLogin_JWTDisabled(t *testing.T) {
 	r := newTestRouter(t) // JWT disabled in default config
-	body := `{"username":"admin","password":"pass"}`
+	body := `{"username":"admin","password":"secret123"}`
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

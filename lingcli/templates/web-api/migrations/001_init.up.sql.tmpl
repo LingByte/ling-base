@@ -5,18 +5,21 @@
 -- Usage: ./scripts/migrate.sh up
 
 CREATE TABLE IF NOT EXISTS `users` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `id`            BIGINT UNSIGNED NOT NULL,           -- snowflake ID (no auto-increment)
     `username`      VARCHAR(50)  NOT NULL DEFAULT '',
     `email`         VARCHAR(200) NOT NULL DEFAULT '',
     `phone`         VARCHAR(20)  NOT NULL DEFAULT '',
-    `password`      VARCHAR(255) NOT NULL DEFAULT '',
+    `password`      VARCHAR(255) NOT NULL DEFAULT '',   -- Argon2id/bcrypt hash
     `avatar`        VARCHAR(500) NOT NULL DEFAULT '',
     `role`          VARCHAR(20)  NOT NULL DEFAULT 'user',
-    `status`        TINYINT      NOT NULL DEFAULT 1,
-    `last_login_at` DATETIME     NULL,
+    `status`        TINYINT      NOT NULL DEFAULT 1,     -- 1=active, 0=disabled
+    `last_login_at` BIGINT       NULL,                   -- unix timestamp
     `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at`    DATETIME     NULL,
+    `create_by`     VARCHAR(128) NOT NULL DEFAULT '',
+    `update_by`     VARCHAR(128) NOT NULL DEFAULT '',
+    `remark`        VARCHAR(128) NOT NULL DEFAULT '',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_username` (`username`),
     UNIQUE KEY `uk_email` (`email`),
