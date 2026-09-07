@@ -6,9 +6,11 @@ package handlers
 import (
 	"errors"
 
+	"{{.Module}}/internal/constants"
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
+	"github.com/LingByte/ling-base/common"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	{{- if .HasValidate}}
@@ -53,6 +55,7 @@ func (h *Handlers) AssignRoleToUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventRoleAssignedToUser, h, req.UserID, req.RoleID)
 	respgin.Success(c, gin.H{"message": "role assigned"})
 }
 
@@ -77,6 +80,7 @@ func (h *Handlers) RevokeRoleFromUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventRoleRevokedFromUser, h, req.UserID, req.RoleID)
 	respgin.NoContent(c)
 }
 

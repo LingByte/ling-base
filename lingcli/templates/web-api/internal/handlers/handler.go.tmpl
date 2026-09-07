@@ -6,12 +6,14 @@ import (
 	"errors"
 	"time"
 
+	"{{.Module}}/internal/constants"
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 	{{- if .IsMultiTenant}}
 	localmw "{{.Module}}/internal/middlewares"
 	{{- end}}
 
+	"github.com/LingByte/ling-base/common"
 	"github.com/LingByte/ling-base/common/password"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
@@ -186,6 +188,7 @@ func (h *Handlers) RegisterUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventUserRegistered, h, user.ID, user.Username, user.Email)
 	respgin.Created(c, types.ToUserResponse(&user))
 }
 
@@ -247,6 +250,7 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventUserRegistered, h, user.ID, user.Username, user.Email)
 	respgin.Created(c, types.ToUserResponse(&user))
 }
 
@@ -367,6 +371,7 @@ func (h *Handlers) ChangePassword(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventUserPasswordChanged, h, user.ID)
 	respgin.Success(c, gin.H{"message": "password changed"})
 }
 
@@ -391,6 +396,7 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventUserDeleted, h, req.ID)
 	respgin.NoContent(c)
 }
 

@@ -1,0 +1,94 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package listeners
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"github.com/LingByte/ling-base/common/logger"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+// registerRoleListeners connects handlers for RBAC-related events.
+func registerRoleListeners(db *gorm.DB) {
+	sig := common.Sig()
+
+	// EventRoleCreated: log new role creation
+	// Params: roleID uint, roleName string
+	sig.Connect(constants.EventRoleCreated, safeEmit(constants.EventRoleCreated, func(sender any, params ...any) {
+		if len(params) < 2 {
+			return
+		}
+		roleID, _ := params[0].(uint)
+		roleName, _ := params[1].(string)
+		logger.Lg.Info("role created",
+			zap.Uint("roleID", roleID),
+			zap.String("roleName", roleName),
+		)
+		// TODO: notify admin, update role cache, etc.
+	}))
+
+	// EventRoleDeleted: log role deletion
+	// Params: roleID uint, roleName string
+	sig.Connect(constants.EventRoleDeleted, safeEmit(constants.EventRoleDeleted, func(sender any, params ...any) {
+		if len(params) < 2 {
+			return
+		}
+		roleID, _ := params[0].(uint)
+		roleName, _ := params[1].(string)
+		logger.Lg.Info("role deleted",
+			zap.Uint("roleID", roleID),
+			zap.String("roleName", roleName),
+		)
+		// TODO: invalidate role cache, notify affected users, etc.
+	}))
+
+	// EventRolePermissionsAssigned: log permission assignment changes
+	// Params: roleID uint, permissionIDs []uint
+	sig.Connect(constants.EventRolePermissionsAssigned, safeEmit(constants.EventRolePermissionsAssigned, func(sender any, params ...any) {
+		if len(params) < 2 {
+			return
+		}
+		roleID, _ := params[0].(uint)
+		permissionIDs, _ := params[1].([]uint)
+		logger.Lg.Info("role permissions assigned",
+			zap.Uint("roleID", roleID),
+			zap.Int("permissionCount", len(permissionIDs)),
+		)
+		// TODO: invalidate permission cache for affected users, etc.
+	}))
+
+	// EventRoleAssignedToUser: log user-role assignment
+	// Params: userID uint, roleID uint
+	sig.Connect(constants.EventRoleAssignedToUser, safeEmit(constants.EventRoleAssignedToUser, func(sender any, params ...any) {
+		if len(params) < 2 {
+			return
+		}
+		userID, _ := params[0].(uint)
+		roleID, _ := params[1].(uint)
+		logger.Lg.Info("role assigned to user",
+			zap.Uint("userID", userID),
+			zap.Uint("roleID", roleID),
+		)
+		// TODO: invalidate user permission cache, send notification, etc.
+	}))
+
+	// EventRoleRevokedFromUser: log user-role revocation
+	// Params: userID uint, roleID uint
+	sig.Connect(constants.EventRoleRevokedFromUser, safeEmit(constants.EventRoleRevokedFromUser, func(sender any, params ...any) {
+		if len(params) < 2 {
+			return
+		}
+		userID, _ := params[0].(uint)
+		roleID, _ := params[1].(uint)
+		logger.Lg.Info("role revoked from user",
+			zap.Uint("userID", userID),
+			zap.Uint("roleID", roleID),
+		)
+		// TODO: invalidate user permission cache, force re-auth, etc.
+	}))
+}
+{{- end}}

@@ -8,9 +8,11 @@ import (
 	"errors"
 	"time"
 
+	"{{.Module}}/internal/constants"
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
+	"github.com/LingByte/ling-base/common"
 	"github.com/LingByte/ling-base/common/jwtutil"
 	"github.com/LingByte/ling-base/common/password"
 	"github.com/LingByte/ling-base/common/response"
@@ -128,6 +130,9 @@ func (h *Handlers) Login(c *gin.Context) {
 
 	// Update last login time (unix timestamp)
 	_ = models.User{}.UpdateLastLogin(h.db.WithContext(c.Request.Context()), user.ID, time.Now().Unix())
+
+	// Emit login event for post-processing (audit log, notifications, etc.)
+	common.Sig().Emit(constants.EventUserLogin, h, user.ID, user.Username)
 
 	respgin.Success(c, types.TokenResponse{
 		AccessToken:  pair.AccessToken,

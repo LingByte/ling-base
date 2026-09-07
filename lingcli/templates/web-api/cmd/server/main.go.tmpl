@@ -15,6 +15,7 @@ import (
 	"{{.Module}}/internal/application"
 	"{{.Module}}/internal/infrastructure"
 	{{- end}}
+	"{{.Module}}/internal/listeners"
 	{{- if .HasLimiter}}
 	localmw "{{.Module}}/internal/middlewares"
 	{{- end}}
@@ -243,6 +244,12 @@ func main() {
 		})
 	}
 	{{- end}}
+
+	// Register event listeners (post-processing for domain events)
+	app.AddInitHook("register-listeners", func(ctx context.Context) error {
+		listeners.Register(db)
+		return nil
+	})
 
 	// Register HTTP server as a lifecycle component
 	app.Register("http-server", &httpServerComponent{

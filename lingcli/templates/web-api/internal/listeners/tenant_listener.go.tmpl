@@ -1,0 +1,58 @@
+{{- if .IsMultiTenant}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package listeners
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"github.com/LingByte/ling-base/common/logger"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+// registerTenantListeners connects handlers for tenant-related events.
+func registerTenantListeners(db *gorm.DB) {
+	sig := common.Sig()
+
+	// EventTenantCreated: log new tenant creation
+	// Params: tenantID uint, tenantCode string, tenantName string
+	sig.Connect(constants.EventTenantCreated, safeEmit(constants.EventTenantCreated, func(sender any, params ...any) {
+		if len(params) < 3 {
+			return
+		}
+		tenantID, _ := params[0].(uint)
+		tenantCode, _ := params[1].(string)
+		tenantName, _ := params[2].(string)
+		logger.Lg.Info("tenant created",
+			zap.Uint("tenantID", tenantID),
+			zap.String("code", tenantCode),
+			zap.String("name", tenantName),
+		)
+		// TODO: provision tenant resources, send onboarding email, etc.
+	}))
+
+	// EventTenantUpdated: log tenant updates
+	// Params: tenantID uint
+	sig.Connect(constants.EventTenantUpdated, safeEmit(constants.EventTenantUpdated, func(sender any, params ...any) {
+		if len(params) < 1 {
+			return
+		}
+		tenantID, _ := params[0].(uint)
+		logger.Lg.Info("tenant updated", zap.Uint("tenantID", tenantID))
+		// TODO: invalidate tenant cache, notify tenant admins, etc.
+	}))
+
+	// EventTenantDeleted: log tenant deletion
+	// Params: tenantID uint
+	sig.Connect(constants.EventTenantDeleted, safeEmit(constants.EventTenantDeleted, func(sender any, params ...any) {
+		if len(params) < 1 {
+			return
+		}
+		tenantID, _ := params[0].(uint)
+		logger.Lg.Info("tenant deleted", zap.Uint("tenantID", tenantID))
+		// TODO: suspend tenant resources, archive data, revoke access, etc.
+	}))
+}
+{{- end}}

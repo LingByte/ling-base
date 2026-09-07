@@ -1,0 +1,60 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package constants
+
+// Event constants for the process-wide signal bus (common.Sig()).
+// Emit these events with common.Sig().Emit(EventXxx, sender, params...).
+// Listen in internal/listeners/ via common.Sig().Connect(EventXxx, handler).
+const (
+	// EventUserRegistered is emitted after a new user account is created.
+	// Params: userID uint, username string, email string
+	EventUserRegistered = "user.registered"
+
+	// EventUserLogin is emitted after a successful login.
+	// Params: userID uint, username string
+	EventUserLogin = "user.login"
+
+	// EventUserPasswordChanged is emitted after a password change.
+	// Params: userID uint
+	EventUserPasswordChanged = "user.password_changed"
+
+	// EventUserDeleted is emitted after a user is soft-deleted.
+	// Params: userID uint
+	EventUserDeleted = "user.deleted"
+
+	{{- if .IsRBAC}}
+	// EventRoleCreated is emitted after a new role is created.
+	// Params: roleID uint, roleName string
+	EventRoleCreated = "role.created"
+
+	// EventRoleDeleted is emitted after a role is deleted.
+	// Params: roleID uint, roleName string
+	EventRoleDeleted = "role.deleted"
+
+	// EventRolePermissionsAssigned is emitted after permissions are assigned to a role.
+	// Params: roleID uint, permissionIDs []uint
+	EventRolePermissionsAssigned = "role.permissions_assigned"
+
+	// EventRoleAssignedToUser is emitted after a role is assigned to a user.
+	// Params: userID uint, roleID uint
+	EventRoleAssignedToUser = "user_role.assigned"
+
+	// EventRoleRevokedFromUser is emitted after a role is revoked from a user.
+	// Params: userID uint, roleID uint
+	EventRoleRevokedFromUser = "user_role.revoked"
+	{{- end}}
+
+	{{- if .IsMultiTenant}}
+	// EventTenantCreated is emitted after a new tenant is created.
+	// Params: tenantID uint, tenantCode string, tenantName string
+	EventTenantCreated = "tenant.created"
+
+	// EventTenantUpdated is emitted after a tenant is updated.
+	// Params: tenantID uint
+	EventTenantUpdated = "tenant.updated"
+
+	// EventTenantDeleted is emitted after a tenant is soft-deleted.
+	// Params: tenantID uint
+	EventTenantDeleted = "tenant.deleted"
+	{{- end}}
+)

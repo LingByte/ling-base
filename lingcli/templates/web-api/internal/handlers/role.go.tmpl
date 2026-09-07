@@ -6,9 +6,11 @@ package handlers
 import (
 	"errors"
 
+	"{{.Module}}/internal/constants"
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
+	"github.com/LingByte/ling-base/common"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	{{- if .HasValidate}}
@@ -95,6 +97,7 @@ func (h *Handlers) CreateRole(c *gin.Context) {
 		respgin.WriteError(c, response.New(response.CodeConflict, "role name already exists"))
 		return
 	}
+	common.Sig().Emit(constants.EventRoleCreated, h, role.ID, role.Name)
 	respgin.Created(c, types.ToRoleResponse(&role))
 }
 
@@ -171,6 +174,7 @@ func (h *Handlers) DeleteRole(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventRoleDeleted, h, req.ID, "")
 	respgin.NoContent(c)
 }
 
@@ -207,6 +211,7 @@ func (h *Handlers) AssignPermissionsToRole(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventRolePermissionsAssigned, h, req.RoleID, req.PermissionIDs)
 	respgin.Success(c, gin.H{"message": "permissions assigned"})
 }
 

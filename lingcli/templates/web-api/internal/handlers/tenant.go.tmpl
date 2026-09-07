@@ -10,6 +10,7 @@ import (
 	"{{.Module}}/internal/models"
 	"{{.Module}}/internal/types"
 
+	"github.com/LingByte/ling-base/common"
 	"github.com/LingByte/ling-base/common/response"
 	respgin "github.com/LingByte/ling-base/common/response/gin"
 	{{- if .HasValidate}}
@@ -105,6 +106,7 @@ func (h *Handlers) CreateTenant(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventTenantCreated, h, tenant.ID, tenant.Code, tenant.Name)
 	respgin.Created(c, types.ToTenantResponse(&tenant))
 }
 
@@ -186,6 +188,7 @@ func (h *Handlers) UpdateTenant(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventTenantUpdated, h, tenant.ID)
 	respgin.Success(c, types.ToTenantResponse(tenant))
 }
 
@@ -210,6 +213,7 @@ func (h *Handlers) DeleteTenant(c *gin.Context) {
 		respgin.WriteError(c, response.Err(response.CodeInternal))
 		return
 	}
+	common.Sig().Emit(constants.EventTenantDeleted, h, req.ID)
 	respgin.NoContent(c)
 }
 {{- end}}
