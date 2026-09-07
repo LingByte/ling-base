@@ -30,6 +30,7 @@ type ProjectSpec struct {
 var webAPIBuiltinModules = []string{
 	"response",        // 统一响应封装
 	"validate",        // 数据校验
+	"password",        // 密码哈希/验证
 	"stores",          // 对象存储（默认 local 后端）
 	"cache",           // 缓存（默认 memory 后端）
 	"lock",            // 分布式锁（默认 memory 后端）

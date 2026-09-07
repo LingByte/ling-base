@@ -47,8 +47,8 @@ var moduleSources = map[string]ModuleSource{
 	},
 	"middleware": {
 		ID:   "middleware",
-		Dirs: []string{"middleware"},
-		Deps: []string{"logger", "constants", "response", "circuitbreaker"},
+		Dirs: []string{"common/middleware"},
+		Deps: []string{"logger", "constants", "response", "circuitbreaker", "crypto", "sanitize", "validate"},
 	},
 	"apidocs": {
 		ID:   "apidocs",
@@ -69,8 +69,34 @@ var moduleSources = map[string]ModuleSource{
 	"validate": {
 		ID:   "validate",
 		Dirs: []string{"common/validate"},
+		Deps: []string{"convert"},
+	},
+	"password": {
+		ID:   "password",
+		Dirs: []string{"common/password"},
+	},
+	"cache": {
+		ID:   "cache",
+		Dirs: []string{"common/cache", "common/cache/memory", "common/cache/lru"},
+	},
+	"lock": {
+		ID:   "lock",
+		Dirs: []string{"common/lock", "common/lock/memory"},
+	},
+	"retry": {
+		ID:   "retry",
+		Dirs: []string{"common/retry"},
+	},
+	"stores": {
+		ID:   "stores",
+		Dirs: []string{"stores", "stores/local"},
 	},
 	// 核心依赖（不直接选择，但被其他模块依赖）
+	"common": {
+		ID:   "common",
+		Dirs: []string{"common"},
+		Deps: []string{"constants", "idgen"},
+	},
 	"logger": {
 		ID:   "logger",
 		Dirs: []string{"common/logger", "common/logger/gin"},
@@ -88,6 +114,7 @@ var moduleSources = map[string]ModuleSource{
 	"crypto": {
 		ID:   "crypto",
 		Dirs: []string{"common/crypto"},
+		Deps: []string{"hash"},
 	},
 	"eventbus": {
 		ID:   "eventbus",
@@ -97,10 +124,31 @@ var moduleSources = map[string]ModuleSource{
 		ID:   "version",
 		Dirs: []string{"version"},
 	},
+	"convert": {
+		ID:   "convert",
+		Dirs: []string{"common/convert"},
+	},
+	"hash": {
+		ID:   "hash",
+		Dirs: []string{"common/hash"},
+	},
+	"idgen": {
+		ID:   "idgen",
+		Dirs: []string{"common/idgen"},
+		Deps: []string{"random"},
+	},
+	"random": {
+		ID:   "random",
+		Dirs: []string{"common/random"},
+	},
+	"sanitize": {
+		ID:   "sanitize",
+		Dirs: []string{"common/sanitize"},
+	},
 }
 
 // coreModules 是 web-api 项目始终需要的核心模块（无论用户选了什么）。
-var coreModules = []string{"logger", "constants", "bootstrap", "response", "middleware"}
+var coreModules = []string{"common", "logger", "constants", "bootstrap", "response", "middleware"}
 
 // collectModuleDirs 收集选中模块 + 核心模块 + 传递依赖的所有源码目录。
 func collectModuleDirs(selectedModules []string) []string {
@@ -195,7 +243,7 @@ func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string, dirs []stri
 				if fileExists(filepath.Join(srcFile, "go.mod")) {
 					continue // 跳过 Go 子模块（由 Dirs 列表显式处理）
 				}
-				if err := copyDirRecursive(srcFile, dstFile); err != nil {
+				if err := copyDirRecursive(srcFile, dstFile, lingBaseImport, modulePath); err != nil {
 					return fmt.Errorf("复制子目录失败 %s: %w", srcFile, err)
 				}
 				continue
@@ -229,9 +277,10 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// copyDirRecursive 递归复制目录（用于 embed 资源目录如 assets/）。
-// 跳过 go.mod / go.sum / .md 文件。
-func copyDirRecursive(srcDir, dstDir string) error {
+// copyDirRecursive 递归复制目录（用于子目录如 cache/noop/, cache/multilevel/,
+// embed 资源目录如 assets/）。
+// 跳过 go.mod / go.sum / .md 文件。Go 文件会重写 import 路径。
+func copyDirRecursive(srcDir, dstDir, oldImport, newModulePath string) error {
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		return err
 	}
@@ -250,11 +299,19 @@ func copyDirRecursive(srcDir, dstDir string) error {
 			if fileExists(filepath.Join(src, "go.mod")) {
 				continue
 			}
-			if err := copyDirRecursive(src, dst); err != nil {
+			if err := copyDirRecursive(src, dst, oldImport, newModulePath); err != nil {
 				return err
 			}
 			continue
 		}
+		// Go files need import rewriting
+		if strings.HasSuffix(name, ".go") {
+			if err := copyAndRewriteFile(src, dst, oldImport, newModulePath); err != nil {
+				continue
+			}
+			continue
+		}
+		// Non-Go files (embed resources) copied as-is
 		content, err := os.ReadFile(src)
 		if err != nil {
 			continue

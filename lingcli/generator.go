@@ -115,7 +115,7 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 	// 运行 go mod init + tidy。
 	fmt.Println()
 	fmt.Println("\x1b[38;5;117m━━━ 初始化 Go module ━━━\x1b[0m")
-	if err := g.runGoMod(targetDir, spec.Module); err != nil {
+	if err := g.runGoMod(targetDir, spec.Module, isFullMode(spec)); err != nil {
 		fmt.Printf("  \x1b[33m[警告] %v\x1b[0m\n", err)
 		fmt.Println("  \x1b[38;5;245m项目文件已生成，但依赖未完全解析。请按上述提示操作后运行 go run ./cmd/...\x1b[0m")
 	} else {
@@ -158,7 +158,7 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 }
 
 // runGoMod 在目标目录运行 go mod init + tidy。
-func (g *Generator) runGoMod(dir, module string) error {
+func (g *Generator) runGoMod(dir, module string, fullMode bool) error {
 	goBin := findGoBin()
 
 	cmd := exec.Command(goBin, "mod", "init", module)
@@ -169,12 +169,17 @@ func (g *Generator) runGoMod(dir, module string) error {
 		return err
 	}
 
-	// Explicitly go get each LingByte submodule with its published version.
-	// This is necessary because `go mod tidy` cannot auto-discover submodules
-	// when the root module path is a prefix of the submodule path.
-	lingBaseImports := resolveLingBaseImports(dir)
-	if len(lingBaseImports) > 0 {
-		goGetLingBaseModules(dir, lingBaseImports)
+	// In lib mode, explicitly go get each LingByte submodule with its
+	// published version. This is necessary because `go mod tidy` cannot
+	// auto-discover submodules when the root module path is a prefix of
+	// the submodule path.
+	// In full mode, all ling-base source is copied to pkg/ and imports are
+	// rewritten to local paths — no external LingByte dependencies needed.
+	if !fullMode {
+		lingBaseImports := resolveLingBaseImports(dir)
+		if len(lingBaseImports) > 0 {
+			goGetLingBaseModules(dir, lingBaseImports)
+		}
 	}
 
 	// go mod tidy — capture output to detect failures
