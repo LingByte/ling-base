@@ -1,0 +1,82 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"gorm.io/gorm"
+)
+
+// RolePermission is the join table for role-permission assignments.
+type RolePermission struct {
+	common.BaseModel
+	RoleID       uint `json:"roleId" gorm:"uniqueIndex:idx_role_perm;not null"`
+	PermissionID uint `json:"permissionId" gorm:"uniqueIndex:idx_role_perm;not null"`
+}
+
+func (RolePermission) TableName() string { return constants.TableRolePerms }
+
+// Exists checks whether a role-permission assignment already exists.
+func (RolePermission) Exists(db *gorm.DB, roleID, permissionID uint) (bool, error) {
+	var count int64
+	if err := db.Model(&RolePermission{}).
+		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// Create persists the role-permission assignment.
+func (rp *RolePermission) Create(db *gorm.DB) error {
+	return db.Create(rp).Error
+}
+
+// CreateBatch persists multiple role-permission assignments in one call.
+func (RolePermission) CreateBatch(db *gorm.DB, items []RolePermission) error {
+	if len(items) == 0 {
+		return nil
+	}
+	return db.Create(&items).Error
+}
+
+// DeleteByRoleID removes all permission assignments for a role.
+func (RolePermission) DeleteByRoleID(db *gorm.DB, roleID uint) error {
+	return db.Where("role_id = ?", roleID).Delete(&RolePermission{}).Error
+}
+
+// ReplaceRolePermissions atomically replaces all permissions assigned to a role.
+// Existing assignments are deleted, then the new set is inserted in a transaction.
+func (RolePermission) ReplaceRolePermissions(db *gorm.DB, roleID uint, permissionIDs []uint) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", roleID).Delete(&RolePermission{}).Error; err != nil {
+			return err
+		}
+		if len(permissionIDs) == 0 {
+			return nil
+		}
+		items := make([]RolePermission, 0, len(permissionIDs))
+		for _, pid := range permissionIDs {
+			items = append(items, RolePermission{RoleID: roleID, PermissionID: pid})
+		}
+		return tx.Create(&items).Error
+	})
+}
+
+// ListPermissionNamesByUserID returns the distinct permission names granted to a user
+// through all their roles. Convenience wrapper around Permission.ListByUserID.
+func (RolePermission) ListPermissionNamesByUserID(db *gorm.DB, userID uint) ([]string, error) {
+	perms, err := (Permission{}).ListByUserID(db, userID)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(perms))
+	for _, p := range perms {
+		names = append(names, p.Name)
+	}
+	return names, nil
+}
+{{- end}}

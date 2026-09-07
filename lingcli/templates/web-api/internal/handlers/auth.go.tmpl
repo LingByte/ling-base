@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"errors"
 	"time"
 
 	"{{.Module}}/internal/models"
@@ -57,15 +58,9 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 
 	// Find user by username or email
-	var user models.User
-	query := h.db.WithContext(c.Request.Context())
-	if req.Username != "" {
-		query = query.Where("username = ?", req.Username)
-	} else {
-		query = query.Where("email = ?", req.Email)
-	}
-	if err := query.First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	user, err := models.User{}.FindByUsernameOrEmail(h.db.WithContext(c.Request.Context()), req.Username, req.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			respgin.WriteError(c, response.New(response.CodeUnauthorized, "invalid credentials"))
 			return
 		}
@@ -74,7 +69,7 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 
 	// Check account status
-	if user.Status != models.UserStatusActive {
+	if !user.IsActive() {
 		respgin.WriteError(c, response.New(response.CodeForbidden, "account is disabled"))
 		return
 	}
@@ -88,26 +83,17 @@ func (h *Handlers) Login(c *gin.Context) {
 	// Issue tokens — use username as the subject
 	{{- if .IsRBAC}}
 	// RBAC: load user's roles and permissions to include in JWT claims
-	var roleNames []string
-	var permNames []string
-	var roles []models.Role
-	h.db.WithContext(c.Request.Context()).
-		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
-		Where("user_roles.user_id = ? AND roles.status = 1", user.ID).
-		Find(&roles)
-	for _, r := range roles {
-		roleNames = append(roleNames, r.Name)
+	roleNames, err := models.UserRole{}.ListRoleNamesByUserID(h.db.WithContext(c.Request.Context()), user.ID)
+	if err != nil {
+		respgin.WriteError(c, response.Err(response.CodeInternal))
+		return
 	}
+	var permNames []string
 	if len(roleNames) > 0 {
-		var perms []models.Permission
-		h.db.WithContext(c.Request.Context()).
-			Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-			Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
-			Where("user_roles.user_id = ?", user.ID).
-			Distinct().
-			Find(&perms)
-		for _, p := range perms {
-			permNames = append(permNames, p.Name)
+		permNames, err = models.RolePermission{}.ListPermissionNamesByUserID(h.db.WithContext(c.Request.Context()), user.ID)
+		if err != nil {
+			respgin.WriteError(c, response.Err(response.CodeInternal))
+			return
 		}
 	}
 	// Always include the user's built-in role
@@ -141,8 +127,7 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 
 	// Update last login time (unix timestamp)
-	now := time.Now().Unix()
-	h.db.WithContext(c.Request.Context()).Model(&user).Update("last_login_at", now)
+	_ = models.User{}.UpdateLastLogin(h.db.WithContext(c.Request.Context()), user.ID, time.Now().Unix())
 
 	respgin.Success(c, types.TokenResponse{
 		AccessToken:  pair.AccessToken,

@@ -1,0 +1,77 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"gorm.io/gorm"
+)
+
+// UserRole is the join table for user-role assignments.
+type UserRole struct {
+	common.BaseModel
+	UserID uint `json:"userId" gorm:"uniqueIndex:idx_user_role;not null"`
+	RoleID uint `json:"roleId" gorm:"uniqueIndex:idx_user_role;not null"`
+}
+
+func (UserRole) TableName() string { return constants.TableUserRoles }
+
+// Exists checks whether a user-role assignment already exists.
+func (UserRole) Exists(db *gorm.DB, userID, roleID uint) (bool, error) {
+	var count int64
+	if err := db.Model(&UserRole{}).
+		Where("user_id = ? AND role_id = ?", userID, roleID).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// Create persists the user-role assignment.
+func (ur *UserRole) Create(db *gorm.DB) error {
+	return db.Create(ur).Error
+}
+
+// Delete removes a user-role assignment.
+// Returns gorm.ErrRecordNotFound if the assignment does not exist.
+func (UserRole) Delete(db *gorm.DB, userID, roleID uint) error {
+	result := db.Where("user_id = ? AND role_id = ?", userID, roleID).Delete(&UserRole{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ListRolesByUserID returns all roles assigned to a user (via user_roles).
+func (UserRole) ListRolesByUserID(db *gorm.DB, userID uint) ([]Role, error) {
+	var roles []Role
+	err := db.
+		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ? AND roles.status = 1", userID).
+		Order("roles.sort ASC, roles.id ASC").
+		Find(&roles).Error
+	if err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+// ListRoleNamesByUserID returns the names of all active roles assigned to a user.
+func (UserRole) ListRoleNamesByUserID(db *gorm.DB, userID uint) ([]string, error) {
+	roles, err := UserRole{}.ListRolesByUserID(db, userID)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(roles))
+	for _, r := range roles {
+		names = append(names, r.Name)
+	}
+	return names, nil
+}
+{{- end}}

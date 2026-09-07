@@ -1,0 +1,90 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"errors"
+
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"gorm.io/gorm"
+)
+
+// Role represents an RBAC role (e.g. admin, editor, viewer).
+type Role struct {
+	common.BaseModel
+	Name        string `json:"name" gorm:"size:50;uniqueIndex;not null"`
+	DisplayName string `json:"displayName" gorm:"size:100"`
+	Description string `json:"description,omitempty" gorm:"size:255"`
+	Sort        int    `json:"sort,omitempty" gorm:"default:0"`
+	Status      int    `json:"status" gorm:"default:1;not null"` // 1=enabled, 0=disabled
+}
+
+func (Role) TableName() string { return constants.TableRoles }
+
+// FindByID loads a role by its primary key.
+func (Role) FindByID(db *gorm.DB, id uint) (*Role, error) {
+	var r Role
+	if err := db.First(&r, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+// FindByName loads a role by its unique name.
+func (Role) FindByName(db *gorm.DB, name string) (*Role, error) {
+	var r Role
+	if err := db.Where("name = ?", name).First(&r).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+// ListAll returns all roles ordered by sort then id.
+func (Role) ListAll(db *gorm.DB) ([]Role, error) {
+	var roles []Role
+	if err := db.Order("sort ASC, id ASC").Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+// Create persists the role. Returns ErrDuplicatedName if the name already exists.
+func (r *Role) Create(db *gorm.DB) error {
+	return db.Create(r).Error
+}
+
+// Updates applies a partial update map to the role.
+func (r *Role) Updates(db *gorm.DB, updates map[string]interface{}) error {
+	return db.Model(r).Updates(updates).Error
+}
+
+// DeleteByID removes a role and its associations (user_roles, role_permissions)
+// in a single transaction. Returns gorm.ErrRecordNotFound if the role does not exist.
+func (Role) DeleteByID(db *gorm.DB, id uint) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("role_id = ?", id).Delete(&RolePermission{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("role_id = ?", id).Delete(&UserRole{}).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&Role{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+}
+{{- end}}

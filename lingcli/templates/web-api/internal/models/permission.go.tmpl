@@ -1,0 +1,115 @@
+{{- if .IsRBAC}}
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+package models
+
+import (
+	"errors"
+
+	"{{.Module}}/internal/constants"
+
+	"github.com/LingByte/ling-base/common"
+	"gorm.io/gorm"
+)
+
+// Permission represents an RBAC permission (resource + action).
+type Permission struct {
+	common.BaseModel
+	Name        string `json:"name" gorm:"size:100;uniqueIndex;not null"` // e.g. "user:read"
+	DisplayName string `json:"displayName" gorm:"size:100"`
+	Resource    string `json:"resource" gorm:"size:50;index;not null"`   // e.g. "user"
+	Action      string `json:"action" gorm:"size:20;index;not null"`     // e.g. "read"
+	Description string `json:"description,omitempty" gorm:"size:255"`
+}
+
+func (Permission) TableName() string { return constants.TablePermissions }
+
+// FindByID loads a permission by its primary key.
+func (Permission) FindByID(db *gorm.DB, id uint) (*Permission, error) {
+	var p Permission
+	if err := db.First(&p, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+// FindByName loads a permission by its unique name.
+func (Permission) FindByName(db *gorm.DB, name string) (*Permission, error) {
+	var p Permission
+	if err := db.Where("name = ?", name).First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+// ListAll returns all permissions ordered by resource then action.
+func (Permission) ListAll(db *gorm.DB) ([]Permission, error) {
+	var perms []Permission
+	if err := db.Order("resource ASC, action ASC").Find(&perms).Error; err != nil {
+		return nil, err
+	}
+	return perms, nil
+}
+
+// Create persists the permission.
+func (p *Permission) Create(db *gorm.DB) error {
+	return db.Create(p).Error
+}
+
+// Updates applies a partial update map to the permission.
+func (p *Permission) Updates(db *gorm.DB, updates map[string]interface{}) error {
+	return db.Model(p).Updates(updates).Error
+}
+
+// DeleteByID removes a permission and its role associations in a transaction.
+// Returns gorm.ErrRecordNotFound if the permission does not exist.
+func (Permission) DeleteByID(db *gorm.DB, id uint) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("permission_id = ?", id).Delete(&RolePermission{}).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&Permission{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+}
+
+// ListByRoleID returns all permissions assigned to a role (via role_permissions).
+func (Permission) ListByRoleID(db *gorm.DB, roleID uint) ([]Permission, error) {
+	var perms []Permission
+	err := db.
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).
+		Find(&perms).Error
+	if err != nil {
+		return nil, err
+	}
+	return perms, nil
+}
+
+// ListByUserID returns all permissions granted to a user through all their roles.
+func (Permission) ListByUserID(db *gorm.DB, userID uint) ([]Permission, error) {
+	var perms []Permission
+	err := db.
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
+		Where("user_roles.user_id = ?", userID).
+		Distinct().
+		Find(&perms).Error
+	if err != nil {
+		return nil, err
+	}
+	return perms, nil
+}
+{{- end}}
