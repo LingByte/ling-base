@@ -1,0 +1,108 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package cache 封装 ling-base/common/cache 缓存能力,提供包级单例。
+//
+// 使用方式:
+//
+//	// main.go 启动时初始化
+//	pkgcache.Init(cfg.Cache)
+//
+//	// handler / service 中直接调用
+//	pkgcache.Set(ctx, "user:123", data, 10*time.Minute)
+//	val, err := pkgcache.Get(ctx, "user:123")
+//
+// 切换 Redis 后端:
+//  1. go get github.com/LingByte/ling-base/common/cache/redis
+//  2. 在 Init() 的 switch 中加入 case "redis"
+//  3. 修改 configs/config.yaml 的 cache.driver
+package cache
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/LingByte/ling-base/common/cache"
+	cachememory "github.com/LingByte/ling-base/common/cache/memory"
+)
+
+// 全局单例。
+var (
+	// C 是当前生效的缓存实例。未 Init 前为 nil。
+	C cache.ByteCache
+
+	// DefaultTTL 默认 TTL。
+	DefaultTTL time.Duration
+)
+
+// Init 根据配置初始化缓存单例。
+// 默认 memory 后端(进程内,零外部依赖)。
+func Init(driver, defaultTTL, cleanupInterval string) error {
+	ttl, err := time.ParseDuration(defaultTTL)
+	if err != nil || ttl <= 0 {
+		ttl = 10 * time.Minute
+	}
+	DefaultTTL = ttl
+
+	switch driver {
+	case "memory", "":
+		cleanup, _ := time.ParseDuration(cleanupInterval)
+		if cleanup <= 0 {
+			cleanup = time.Minute
+		}
+		C = cachememory.New[string, []byte](cachememory.WithCleanupInterval(cleanup))
+	// ── 以下后端需要额外 go get 对应模块 ──
+	// case "redis":
+	//     C = redis.New(redis.Config{Addr: addr, Password: password, DB: db})
+	default:
+		return fmt.Errorf("不支持的缓存驱动: %s(需先 go get 对应模块)", driver)
+	}
+	return nil
+}
+
+// ──────────────────────────────────────────────
+// 便捷方法 — 直接操作全局 C
+// ──────────────────────────────────────────────
+
+// Get 读取缓存。不存在返回 cache.ErrNotFound。
+func Get(ctx context.Context, key string) ([]byte, error) {
+	if C == nil {
+		return nil, fmt.Errorf("cache 未初始化,请先调用 Init()")
+	}
+	return C.Get(ctx, key)
+}
+
+// Set 写入缓存。ttl 为 0 时用 DefaultTTL。
+func Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if C == nil {
+		return fmt.Errorf("cache 未初始化,请先调用 Init()")
+	}
+	if ttl <= 0 {
+		ttl = DefaultTTL
+	}
+	return C.Set(ctx, key, value, ttl)
+}
+
+// Delete 删除缓存 key。
+func Delete(ctx context.Context, key string) error {
+	if C == nil {
+		return fmt.Errorf("cache 未初始化,请先调用 Init()")
+	}
+	return C.Delete(ctx, key)
+}
+
+// Exists 检查 key 是否存在。
+func Exists(ctx context.Context, key string) (bool, error) {
+	if C == nil {
+		return false, fmt.Errorf("cache 未初始化,请先调用 Init()")
+	}
+	return C.Exists(ctx, key)
+}
+
+// Close 释放缓存资源。
+func Close() error {
+	if C != nil {
+		return C.Close()
+	}
+	return nil
+}

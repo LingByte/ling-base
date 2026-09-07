@@ -9,18 +9,6 @@ import (
 	{{- if .HasJWT}}
 	"github.com/LingByte/ling-base/common/jwtutil"
 	{{- end}}
-	{{- if .HasCache}}
-	"github.com/LingByte/ling-base/common/cache"
-	{{- end}}
-	{{- if .HasLock}}
-	"github.com/LingByte/ling-base/common/lock/memory"
-	{{- end}}
-	{{- if .HasRetry}}
-	"github.com/LingByte/ling-base/common/retry"
-	{{- end}}
-	{{- if .HasStores}}
-	"github.com/LingByte/ling-base/stores"
-	{{- end}}
 
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs/humax"
@@ -39,21 +27,10 @@ type AppInfo struct {
 	{{- if .HasJWT}}
 	JWTAuth  *jwtutil.Auth
 	{{- end}}
-	{{- if .HasStores}}
-	Store    stores.Store
-	{{- end}}
-	{{- if .HasCache}}
-	Cache    cache.ByteCache
-	{{- end}}
-	{{- if .HasLock}}
-	LockManager *memory.Manager
-	{{- end}}
-	{{- if .HasRetry}}
-	RetryOpts []retry.Option
-	{{- end}}
 }
 
 // Handlers HTTP 请求处理器集合（直接操作 db，无 service/repository 层）。
+// 对象存储/缓存/锁/重试通过 pkg/ 下的包级单例访问，无需注入。
 type Handlers struct {
 	cfg       *configs.Config
 	info      AppInfo
@@ -61,18 +38,6 @@ type Handlers struct {
 	startTime time.Time
 	{{- if .HasJWT}}
 	jwtAuth   *jwtutil.Auth
-	{{- end}}
-	{{- if .HasStores}}
-	store     stores.Store
-	{{- end}}
-	{{- if .HasCache}}
-	cache     cache.ByteCache
-	{{- end}}
-	{{- if .HasLock}}
-	lockMgr   *memory.Manager
-	{{- end}}
-	{{- if .HasRetry}}
-	retryOpts []retry.Option
 	{{- end}}
 }
 
@@ -85,18 +50,6 @@ func New(cfg *configs.Config, info AppInfo, db *gorm.DB) *Handlers {
 		startTime: time.Now(),
 		{{- if .HasJWT}}
 		jwtAuth:   info.JWTAuth,
-		{{- end}}
-		{{- if .HasStores}}
-		store:     info.Store,
-		{{- end}}
-		{{- if .HasCache}}
-		cache:     info.Cache,
-		{{- end}}
-		{{- if .HasLock}}
-		lockMgr:   info.LockManager,
-		{{- end}}
-		{{- if .HasRetry}}
-		retryOpts: info.RetryOpts,
 		{{- end}}
 	}
 }

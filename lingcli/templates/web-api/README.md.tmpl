@@ -50,16 +50,46 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 
 ## 内置基础设施
 
-本项目内置以下 ling-base 模块，开箱即用：
+本项目内置以下 ling-base 模块,封装在 `pkg/` 下,以包级单例方式提供,开箱即用:
 
-| 模块 | 默认后端 | 切换方式 |
-|------|----------|----------|
-| 对象存储 (stores) | local（本地文件系统） | `go get github.com/LingByte/ling-base/stores/s3` + 修改 `storage.driver` |
-| 缓存 (cache) | memory（进程内） | `go get github.com/LingByte/ling-base/common/cache/redis` + 修改 `cache.driver` |
-| 分布式锁 (lock) | memory（进程内） | `go get github.com/LingByte/ling-base/common/lock/redis` + 修改 `lock.driver` |
-| 重试 (retry) | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
-| 数据校验 (validate) | 结构体标签驱动 | 在 DTO struct 上添加 `validate:"..."` 标签 |
-| 统一响应 (response) | JSON 封装 + 错误码 | 自动启用 |
+| 模块 | pkg 包 | 默认后端 | 切换方式 |
+|------|--------|----------|----------|
+| 对象存储 (stores) | `pkg/storage` | local（本地文件系统） | `go get stores/s3` + 修改 `storage.driver` + 在 `pkg/storage.Init()` 加 case |
+| 缓存 (cache) | `pkg/cache` | memory（进程内） | `go get cache/redis` + 修改 `cache.driver` + 在 `pkg/cache.Init()` 加 case |
+| 分布式锁 (lock) | `pkg/lock` | memory（进程内） | `go get lock/redis` + 修改 `lock.driver` + 在 `pkg/lock.Init()` 加 case |
+| 重试 (retry) | `pkg/retry` | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
+| 数据校验 (validate) | — | 结构体标签驱动 | 在 DTO struct 上添加 `validate:"..."` 标签 |
+| 统一响应 (response) | — | JSON 封装 + 错误码 | 自动启用 |
+
+### 在代码中使用
+
+```go
+import (
+    pkgstorage "{{.Module}}/pkg/storage"
+    pkgcache    "{{.Module}}/pkg/cache"
+    pkglock     "{{.Module}}/pkg/lock"
+    pkgretry    "{{.Module}}/pkg/retry"
+)
+
+// 对象存储
+pkgstorage.Write("avatars/photo.jpg", reader)
+reader, size, _ := pkgstorage.Read("avatars/photo.jpg")
+pkgstorage.Delete("avatars/photo.jpg")
+url := pkgstorage.PublicURL("avatars/photo.jpg")
+
+// 缓存
+pkgcache.Set(ctx, "user:123", data, 10*time.Minute)
+val, _ := pkgcache.Get(ctx, "user:123")
+
+// 分布式锁
+mu, _ := pkglock.New("order:123")
+defer mu.Unlock(ctx)
+
+// 重试
+pkgretry.Do(ctx, func(ctx context.Context) error {
+    return callRemoteAPI(ctx)
+})
+```
 
 ### 文件上传示例
 
@@ -128,7 +158,7 @@ open http://localhost:{{.Port}}/docs
 │   ├── handlers/
 │   │   ├── urls.go              # 路由注册（humax.Group / Gin）
 │   │   ├── handler.go           # HTTP 处理器实现（系统端点 + 用户 CRUD）
-│   │   ├── storage.go           # 文件上传/下载/删除 handler（ling-base/stores）
+│   │   ├── storage.go           # 文件上传/下载/删除 handler（调用 pkg/storage 单例）
 │   │   ├── auth.go              # JWT 鉴权 handler（可选，用 ling-base/common/jwtutil）
 │   │   └── handler_test.go
 │   ├── middlewares/
@@ -137,6 +167,11 @@ open http://localhost:{{.Port}}/docs
 │   │   └── user.go              # 数据模型
 │   └── types/
 │       └── types.go             # 通用 DTO（请求/响应结构体、分页参数）
+├── pkg/                         # 可被外部引用的通用封装（包级单例）
+│   ├── storage/storage.go       # 对象存储封装（ling-base/stores，默认 local）
+│   ├── cache/cache.go           # 缓存封装（ling-base/common/cache，默认 memory）
+│   ├── lock/lock.go             # 分布式锁封装（ling-base/common/lock，默认 memory）
+│   └── retry/retry.go           # 重试策略封装（ling-base/common/retry）
 ├── configs/
 │   ├── .env.example             # 环境变量参考（始终生成）
 {{- if .IsEnvConfig}}

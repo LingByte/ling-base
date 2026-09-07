@@ -113,15 +113,20 @@ lingcli version
 myapp/
 ├── cmd/server/main.go              # 入口
 ├── internal/
-│   ├── configs/config.go           # 配置 + Init 函数（DB/Storage/Cache/Lock/Retry）
+│   ├── configs/config.go           # 配置定义 + InitDB
 │   ├── handlers/
 │   │   ├── handler.go              # HTTP 处理器（系统端点 + 用户 CRUD）
-│   │   ├── storage.go              # 文件上传/下载/删除（ling-base/stores）
+│   │   ├── storage.go              # 文件上传/下载/删除（调用 pkg/storage 单例）
 │   │   ├── urls.go                 # 路由注册
 │   │   └── auth.go                 # JWT 鉴权（选 jwt 时）
 │   ├── middlewares/middleware.go   # 中间件
 │   ├── models/user.go              # 数据模型
 │   └── types/types.go              # 通用 DTO
+├── pkg/                            # 可被外部引用的通用封装（包级单例）
+│   ├── storage/storage.go          # 对象存储（ling-base/stores，默认 local）
+│   ├── cache/cache.go              # 缓存（ling-base/common/cache，默认 memory）
+│   ├── lock/lock.go                # 分布式锁（ling-base/common/lock，默认 memory）
+│   └── retry/retry.go              # 重试策略（ling-base/common/retry）
 ├── configs/                        # YAML 配置（含 storage/cache/lock/retry 段）
 ├── uploads/                        # 本地文件存储根目录（local 后端）
 ├── .github/workflows/ci.yml        # CI

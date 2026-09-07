@@ -1,0 +1,83 @@
+// Copyright (c) {{.Year}} {{.Author}}. All rights reserved.
+
+// Package lock 封装 ling-base/common/lock 分布式锁能力,提供包级单例。
+//
+// 使用方式:
+//
+//	// main.go 启动时初始化
+//	pkglock.Init(cfg.Lock)
+//
+//	// handler / service 中直接调用
+//	mu, err := pkglock.New("order:123")
+//	if err != nil { ... }
+//	defer mu.Unlock(ctx)
+//
+// 切换 Redis 后端:
+//  1. go get github.com/LingByte/ling-base/common/lock/redis
+//  2. 在 Init() 的 switch 中加入 case "redis"
+//  3. 修改 configs/config.yaml 的 lock.driver
+package lock
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/LingByte/ling-base/common/lock"
+	"github.com/LingByte/ling-base/common/lock/memory"
+)
+
+// 全局单例。
+var (
+	// Manager 是当前生效的锁管理器。未 Init 前为 nil。
+	Manager *memory.Manager
+
+	// DefaultTTL 默认锁 TTL。
+	DefaultTTL time.Duration
+
+	// DefaultRetryDelay 默认获取锁重试间隔。
+	DefaultRetryDelay time.Duration
+)
+
+// Init 根据配置初始化锁管理器单例。
+// 默认 memory 后端(进程内,单实例)。
+func Init(driver, defaultTTL, retryDelay string) error {
+	ttl, err := time.ParseDuration(defaultTTL)
+	if err != nil || ttl <= 0 {
+		ttl = 10 * time.Second
+	}
+	DefaultTTL = ttl
+
+	rd, err := time.ParseDuration(retryDelay)
+	if err != nil || rd <= 0 {
+		rd = 50 * time.Millisecond
+	}
+	DefaultRetryDelay = rd
+
+	switch driver {
+	case "memory", "":
+		Manager = memory.NewManager()
+	// ── 以下后端需要额外 go get 对应模块 ──
+	// case "redis":
+	//     // redis 后端无 Manager 概念,直接用 redis.NewMutex
+	//     // 需要调整 New() 函数按 driver 分发
+	default:
+		return fmt.Errorf("不支持的锁驱动: %s(需先 go get 对应模块)", driver)
+	}
+	return nil
+}
+
+// New 创建一个分布式锁。使用 DefaultTTL 和 DefaultRetryDelay。
+func New(key string) (lock.Locker, error) {
+	if Manager == nil {
+		return nil, fmt.Errorf("lock 未初始化,请先调用 Init()")
+	}
+	return Manager.NewMutex(key, lock.WithTTL(DefaultTTL), lock.WithRetryDelay(DefaultRetryDelay))
+}
+
+// NewWithTTL 创建一个指定 TTL 的分布式锁。
+func NewWithTTL(key string, ttl time.Duration) (lock.Locker, error) {
+	if Manager == nil {
+		return nil, fmt.Errorf("lock 未初始化,请先调用 Init()")
+	}
+	return Manager.NewMutex(key, lock.WithTTL(ttl), lock.WithRetryDelay(DefaultRetryDelay))
+}

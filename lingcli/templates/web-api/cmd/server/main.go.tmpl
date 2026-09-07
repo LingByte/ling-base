@@ -15,6 +15,18 @@ import (
 	localmw "{{.Module}}/internal/middlewares"
 	{{- end}}
 	"{{.Module}}/internal/models"
+	{{- if .HasCache}}
+	pkgcache "{{.Module}}/pkg/cache"
+	{{- end}}
+	{{- if .HasLock}}
+	pkglock "{{.Module}}/pkg/lock"
+	{{- end}}
+	{{- if .HasRetry}}
+	pkgretry "{{.Module}}/pkg/retry"
+	{{- end}}
+	{{- if .HasStores}}
+	pkgstorage "{{.Module}}/pkg/storage"
+	{{- end}}
 
 	{{- if .HasAPIDocs}}
 	"github.com/LingByte/ling-base/apidocs"
@@ -32,9 +44,6 @@ import (
 	"github.com/LingByte/ling-base/common/response"
 	{{- end}}
 	"github.com/LingByte/ling-base/common/logger"
-	{{- if .HasStores}}
-	"github.com/LingByte/ling-base/stores"
-	{{- end}}
 	"github.com/LingByte/ling-base/common/middleware"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -127,21 +136,21 @@ func main() {
 
 	{{- if .HasStores}}
 
-	// 初始化对象存储（ling-base/stores，默认 local 后端）
-	var store stores.Store
-	store, err = configs.InitStorage(cfg.Storage)
-	if err != nil {
+	// 初始化对象存储（pkg/storage，默认 local 后端）
+	if err = pkgstorage.Init(
+		cfg.Storage.Driver, cfg.Storage.Root, cfg.Storage.Region,
+		cfg.Storage.Endpoint, cfg.Storage.AccessKey, cfg.Storage.SecretKey,
+		cfg.Storage.PublicURLBase, cfg.Storage.MaxFileSize,
+	); err != nil {
 		logger.Lg.Error("对象存储初始化失败", zap.Error(err))
 		os.Exit(1)
 	}
-	info.Store = store
 	{{- end}}
 
 	{{- if .HasCache}}
 
-	// 初始化缓存（ling-base/common/cache，默认 memory 后端）
-	info.Cache, err = configs.InitCache(cfg.Cache)
-	if err != nil {
+	// 初始化缓存（pkg/cache，默认 memory 后端）
+	if err = pkgcache.Init(cfg.Cache.Driver, cfg.Cache.DefaultTTL, cfg.Cache.CleanupInterval); err != nil {
 		logger.Lg.Error("缓存初始化失败", zap.Error(err))
 		os.Exit(1)
 	}
@@ -149,9 +158,8 @@ func main() {
 
 	{{- if .HasLock}}
 
-	// 初始化分布式锁管理器（ling-base/common/lock，默认 memory 后端）
-	info.LockManager, err = configs.InitLockManager(cfg.Lock)
-	if err != nil {
+	// 初始化分布式锁（pkg/lock，默认 memory 后端）
+	if err = pkglock.Init(cfg.Lock.Driver, cfg.Lock.DefaultTTL, cfg.Lock.RetryDelay); err != nil {
 		logger.Lg.Error("分布式锁初始化失败", zap.Error(err))
 		os.Exit(1)
 	}
@@ -159,8 +167,8 @@ func main() {
 
 	{{- if .HasRetry}}
 
-	// 初始化重试策略选项（ling-base/common/retry）
-	info.RetryOpts = configs.InitRetryOptions(cfg.Retry)
+	// 初始化重试策略（pkg/retry）
+	pkgretry.Init(cfg.Retry.MaxAttempts, cfg.Retry.InitialDelay, cfg.Retry.MaxDelay, cfg.Retry.Factor, cfg.Retry.Jitter)
 	{{- end}}
 
 	{{- if .HasCircuitBreaker}}
@@ -218,9 +226,7 @@ func main() {
 
 	{{- if .HasCache}}
 	// 注册缓存为生命周期组件（优雅关闭）
-	if info.Cache != nil {
-		app.Register("cache", &cacheComponent{cache: info.Cache})
-	}
+	app.Register("cache", &cacheComponent{})
 	{{- end}}
 
 	// 启动（阻塞直到收到关闭信号）
@@ -249,16 +255,12 @@ type httpServerComponent struct {
 
 {{- if .HasCache}}
 
-// cacheComponent 包装缓存实例为 bootstrap 生命周期组件。
-type cacheComponent struct {
-	cache interface {
-		Close() error
-	}
-}
+// cacheComponent 包装缓存为 bootstrap 生命周期组件。
+type cacheComponent struct{}
 
 func (c *cacheComponent) Start(ctx context.Context) error { return nil }
 func (c *cacheComponent) Stop(ctx context.Context) error {
-	return c.cache.Close()
+	return pkgcache.Close()
 }
 func (c *cacheComponent) IsRunning() bool { return true }
 {{- end}}
