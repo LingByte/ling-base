@@ -27,9 +27,7 @@ var fullExcludeDirs = map[string]bool{
 
 // fullExcludeSubdirs are specific subdirectory paths to exclude (relative to
 // ling-base root). These are typically test-only or build artifacts.
-var fullExcludeSubdirs = map[string]bool{
-	"docs/wasm": true,
-}
+var fullExcludeSubdirs = map[string]bool{}
 
 // copyModuleSource walks the entire ling-base source tree and copies all
 // Go source files (excluding _test.go, go.mod, go.sum, .md) into the

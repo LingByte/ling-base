@@ -269,7 +269,6 @@
 | common/mathutil | `github.com/LingByte/ling-base/common/mathutil` | 数学工具 |
 | common/netutil | `github.com/LingByte/ling-base/common/netutil` | 网络工具 |
 | common/validate | `github.com/LingByte/ling-base/common/validate` | 数据校验 |
-| common/pinyin | `github.com/LingByte/ling-base/common/pinyin` | 拼音转换 |
 | common/nltime | `github.com/LingByte/ling-base/common/nltime` | 自然语言时间解析 |
 | common/compress | `github.com/LingByte/ling-base/common/compress` | 压缩/解压 |
 | common/imageutil | `github.com/LingByte/ling-base/common/imageutil` | 图像处理（resize/crop/watermark） |

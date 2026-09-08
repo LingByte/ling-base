@@ -88,7 +88,6 @@ ling-base/
 │  ├─ system/                # 系统信息（磁盘缓存/pprof/健康检查）
 │  ├─ parser/                # 文档解析（PDF/DOCX/XLSX/HTML/EPUB/...）
 │  │
-│  ├─ slug/                  # URL slug 生成（中文→拼音→slug）
 │  ├─ sanitize/              # HTML/XSS 过滤（bluemonday 封装）
 │  ├─ markdown/              # Markdown→HTML 渲染（goldmark，GFM/emoji/高亮/TOC）
 │  ├─ export/                # 数据导出（Excel/CSV/JSON/Markdown）
@@ -243,9 +242,6 @@ go get github.com/LingByte/ling-base/common/curlutil
 
 # 手机号归属地查询（内置离线号段库，无需联网）
 go get github.com/LingByte/ling-base/common/phone
-
-# URL slug 生成（中文→拼音→slug）
-go get github.com/LingByte/ling-base/common/slug
 
 # HTML/XSS 过滤（bluemonday 封装）
 go get github.com/LingByte/ling-base/common/sanitize
@@ -689,7 +685,6 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/geocode/README.md](common/geocode/README.md)
 - [common/dnsutil/README.md](common/dnsutil/README.md)
 - [common/curlutil/README.md](common/curlutil/README.md)
-- [common/slug/README.md](common/slug/README.md)
 - [common/sanitize/README.md](common/sanitize/README.md)
 - [common/markdown/README.md](common/markdown/README.md)
 - [common/export/README.md](common/export/README.md)

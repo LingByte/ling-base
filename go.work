@@ -127,7 +127,6 @@ use (
 	./common/payment/waffo
 	./common/payment/waffopancake
 	./common/phone
-	./common/pinyin
 	./common/pool
 	./common/probe
 	./common/qrcode
@@ -154,7 +153,6 @@ use (
 	./common/search/bleve
 	./common/search/elasticsearch
 	./common/signature
-	./common/slug
 	./common/stats
 	./common/stats/file
 	./common/stats/gin
@@ -181,7 +179,6 @@ use (
 	./common/videoutil
 	./common/webhook
 	./common/wsutil
-	./docs/wasm
 	./example
 	./lingcli
 	./pentest

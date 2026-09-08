@@ -121,7 +121,6 @@
     "common/qrcode",
     "---通用工具 / 文本与本地化---",
     "common/i18n",
-    "common/pinyin",
     "common/geoip",
     "common/phone",
     "common/idgen",
