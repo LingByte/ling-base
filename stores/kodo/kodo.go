@@ -8,14 +8,17 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/LingByte/ling-base/stores"
 
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
+	"github.com/qiniu/go-sdk/v7/client"
 	"github.com/qiniu/go-sdk/v7/storage"
 )
 
@@ -26,7 +29,7 @@ type Config struct {
 	BucketName string
 	Domain     string // e.g. https://cdn.example.com
 	Private    bool   // private bucket (signed URLs)
-	Region     string // optional region hint
+	Region     string // optional region hint (z0/z1/z2/huanan/...)
 }
 
 // Store implements stores.Store backed by Qiniu Kodo.
@@ -46,11 +49,70 @@ func (s *Store) mac() *qbox.Mac {
 func (s *Store) makeConfig() storage.Config {
 	useHTTPS := strings.HasPrefix(strings.ToLower(s.cfg.Domain), "https://")
 	cfg := storage.Config{UseHTTPS: useHTTPS}
+	if zone := regionFromHint(s.cfg.Region); zone != nil {
+		cfg.Region = zone
+		return cfg
+	}
 	if zone, err := storage.GetRegion(s.cfg.AccessKey, s.cfg.BucketName); err == nil && zone != nil {
 		cfg.Region = zone
 	}
 	return cfg
 }
+
+func regionFromHint(hint string) *storage.Region {
+	switch strings.ToLower(strings.TrimSpace(hint)) {
+	case "z0", "huadong", "east", "cn-east-1":
+		z := storage.ZoneHuadong
+		return &z
+	case "z1", "huabei", "north", "cn-north-1":
+		z := storage.ZoneHuabei
+		return &z
+	case "z2", "huanan", "south", "cn-south-1":
+		z := storage.ZoneHuanan
+		return &z
+	case "na0", "beimei", "north_america":
+		z := storage.ZoneBeimei
+		return &z
+	case "as0", "xinjiapo", "singapore":
+		z := storage.ZoneXinjiapo
+		return &z
+	case "cn-east-2", "huadongzhejiang2", "zhejiang2":
+		z := storage.ZoneHuadongZheJiang2
+		return &z
+	default:
+		return nil
+	}
+}
+
+// preferIPv4Client returns a Qiniu SDK client whose dialer tries tcp4 first.
+// Many egress networks advertise AAAA for upload-*.qiniup.com but have no
+// working IPv6 route ("network is unreachable").
+func preferIPv4Client() *client.Client {
+	ipv4ClientOnce.Do(func() {
+		transport := &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+				if c, err := d.DialContext(ctx, "tcp4", addr); err == nil {
+					return c, nil
+				}
+				return d.DialContext(ctx, network, addr)
+			},
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+		ipv4Client = &client.Client{Client: &http.Client{Transport: transport}}
+	})
+	return ipv4Client
+}
+
+var (
+	ipv4ClientOnce sync.Once
+	ipv4Client     *client.Client
+)
 
 func (s *Store) uploadToken() string {
 	p := storage.PutPolicy{Scope: s.cfg.BucketName, Expires: 3600}
@@ -72,7 +134,7 @@ func (s *Store) Write(key string, r io.Reader) error {
 		return err
 	}
 	cfg := s.makeConfig()
-	uploader := storage.NewFormUploader(&cfg)
+	uploader := storage.NewFormUploaderEx(&cfg, preferIPv4Client())
 	ret := storage.PutRet{}
 	extra := storage.PutExtra{}
 	return uploader.Put(context.Background(), &ret, s.uploadToken(), key, bytes.NewReader(data), int64(len(data)), &extra)
@@ -81,7 +143,7 @@ func (s *Store) Write(key string, r io.Reader) error {
 // Exists checks if a file exists in Kodo (code 612 = not found).
 func (s *Store) Exists(key string) (bool, error) {
 	cfg := s.makeConfig()
-	bm := storage.NewBucketManager(s.mac(), &cfg)
+	bm := storage.NewBucketManagerEx(s.mac(), &cfg, preferIPv4Client())
 	_, err := bm.Stat(s.cfg.BucketName, key)
 	if err == nil {
 		return true, nil
@@ -95,7 +157,7 @@ func (s *Store) Exists(key string) (bool, error) {
 // Delete removes a file from Kodo.
 func (s *Store) Delete(key string) error {
 	cfg := s.makeConfig()
-	bm := storage.NewBucketManager(s.mac(), &cfg)
+	bm := storage.NewBucketManagerEx(s.mac(), &cfg, preferIPv4Client())
 	return bm.Delete(s.cfg.BucketName, key)
 }
 
@@ -105,7 +167,11 @@ func (s *Store) Read(key string) (io.ReadCloser, int64, error) {
 	if u == "" {
 		return nil, 0, stores.ErrInvalidPath
 	}
-	resp, err := http.Get(u)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	resp, err := preferIPv4Client().Do(context.Background(), req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -157,7 +223,13 @@ func (s *Store) PresignUpload(key, contentType string, expires time.Duration) (*
 	token := policy.UploadToken(s.mac())
 
 	upHost := "https://upload.qiniup.com"
-	if zone, err := storage.GetRegion(s.cfg.AccessKey, s.cfg.BucketName); err == nil && zone != nil && len(zone.SrcUpHosts) > 0 {
+	if zone := regionFromHint(s.cfg.Region); zone != nil && len(zone.SrcUpHosts) > 0 {
+		h := zone.SrcUpHosts[0]
+		if !strings.HasPrefix(h, "http://") && !strings.HasPrefix(h, "https://") {
+			h = "https://" + h
+		}
+		upHost = h
+	} else if zone, err := storage.GetRegion(s.cfg.AccessKey, s.cfg.BucketName); err == nil && zone != nil && len(zone.SrcUpHosts) > 0 {
 		h := zone.SrcUpHosts[0]
 		if !strings.HasPrefix(h, "http://") && !strings.HasPrefix(h, "https://") {
 			h = "https://" + h
