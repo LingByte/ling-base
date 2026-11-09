@@ -173,17 +173,17 @@
 ## 存储
 
 ### stores
-- **import**: `github.com/LingByte/ling-base/stores`
+- **import**: `github.com/LingByte/ling-base/common/stores`
 - 统一对象存储接口，多种实现:
-  - `stores/s3` — AWS S3
-  - `stores/oss` — 阿里云 OSS
-  - `stores/cos` — 腾讯云 COS
-  - `stores/obs` — 华为云 OBS
-  - `stores/minio` — MinIO
-  - `stores/kodo` — 七牛云 Kodo
-  - `stores/ks3` — 金山云 KS3
-  - `stores/tos` — 火山引擎 TOS
-  - `stores/local` — 本地文件存储
+  - `common/stores/s3` — AWS S3
+  - `common/stores/oss` — 阿里云 OSS
+  - `common/stores/cos` — 腾讯云 COS
+  - `common/stores/obs` — 华为云 OBS
+  - `common/stores/minio` — MinIO
+  - `common/stores/kodo` — 七牛云 Kodo
+  - `common/stores/ks3` — 金山云 KS3
+  - `common/stores/tos` — 火山引擎 TOS
+  - `common/stores/local` — 本地文件存储
 
 ### search
 - **import**: `github.com/LingByte/ling-base/search`
@@ -278,9 +278,9 @@
 | common/embedder | `github.com/LingByte/ling-base/common/embedder` | 文本向量化（OpenAI/Aliyun/Volcengine/Jina/Azure/Nvidia/Gemini/Zhipu/Ollama/Dashscope/Local，工厂模式，缓存，多模态） |
 | common/retrieve | `github.com/LingByte/ling-base/common/retrieve` | 检索策略（混合检索、重排序、去重、RRF融合、观测） |
 | common/chunk | `github.com/LingByte/ling-base/common/chunk` | 文本分块（LLM分块/规则分块/路由分块/标题层级/启发式/递归/Token，通过relay调用LLM） |
-| voice/vad | `github.com/LingByte/ling-base/voice/vad` | 语音活动检测（统一Detector接口：Energy RMS+ZCR / WebRTC GMM / Silero神经网络纯Go / Hybrid Energy预筛+Silero确认；Streamer状态机+hangover+PreSpeechBuffer；barge-in；sync.Pool高并发复用；工厂模式） |
-| voice/voiceprint | `github.com/LingByte/ling-base/voice/voiceprint` | 声纹识别（火山引擎/讯飞，注册/验证/1:N搜索） |
-| voice/voiceclone | `github.com/LingByte/ling-base/voice/voiceclone` | 语音克隆（火山引擎/讯飞，TTS音色合成） |
+| providers/voice/vad | `github.com/LingByte/ling-base/providers/voice/vad` | 语音活动检测（统一Detector接口：Energy RMS+ZCR / WebRTC GMM / Silero神经网络纯Go / Hybrid Energy预筛+Silero确认；Streamer状态机+hangover+PreSpeechBuffer；barge-in；sync.Pool高并发复用；工厂模式） |
+| providers/voice/voiceprint | `github.com/LingByte/ling-base/providers/voice/voiceprint` | 声纹识别（火山引擎/讯飞，注册/验证/1:N搜索） |
+| providers/voice/voiceclone | `github.com/LingByte/ling-base/providers/voice/voiceclone` | 语音克隆（火山引擎/讯飞，TTS音色合成） |
 | common/qrcode | `github.com/LingByte/ling-base/common/qrcode` | 二维码生成 |
 
 ## 控制器 / 扩展系统 / 配置中心 / 快照
@@ -326,11 +326,11 @@
 
 | 模块 | import 路径 | 说明 |
 |------|-------------|------|
-| recognizer | `github.com/LingByte/ling-base/voice/recognizer` | 语音识别（ASR）统一接口 |
-| recognizer/whisper | `github.com/LingByte/ling-base/voice/recognizer/whisper` | OpenAI Whisper |
-| recognizer/google | `github.com/LingByte/ling-base/voice/recognizer/google` | Google Speech-to-Text |
-| recognizer/baidu | `github.com/LingByte/ling-base/voice/recognizer/baidu` | 百度语音识别 |
-| recognizer/volcengine | `github.com/LingByte/ling-base/voice/recognizer/volcengine` | 火山引擎语音识别 |
+| recognizer | `github.com/LingByte/ling-base/providers/voice/recognizer` | 语音识别（ASR）统一接口 |
+| recognizer/whisper | `github.com/LingByte/ling-base/providers/voice/recognizer/whisper` | OpenAI Whisper |
+| recognizer/google | `github.com/LingByte/ling-base/providers/voice/recognizer/google` | Google Speech-to-Text |
+| recognizer/baidu | `github.com/LingByte/ling-base/providers/voice/recognizer/baidu` | 百度语音识别 |
+| recognizer/volcengine | `github.com/LingByte/ling-base/providers/voice/recognizer/volcengine` | 火山引擎语音识别 |
 | synthesizer | `github.com/LingByte/ling-base/synthesizer` | 语音合成（TTS）统一接口 |
 | synthesizer/openai | `github.com/LingByte/ling-base/synthesizer/openai` | OpenAI TTS |
 | synthesizer/azure | `github.com/LingByte/ling-base/synthesizer/azure` | Azure TTS |

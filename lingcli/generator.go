@@ -22,6 +22,8 @@ type Generator struct {
 	// to collect submodule dependency versions). Empty in lib mode or when
 	// using embedded source.
 	lingBaseRoot string
+	// Release binaries carry the same dependency pins as disk-based full mode.
+	embeddedRequires map[string]string
 }
 
 // NewGenerator 创建生成器。
@@ -90,6 +92,11 @@ func (g *Generator) Generate(spec *ProjectSpec) error {
 
 		// 优先使用嵌入源码（发布二进制时可用）
 		if hasEmbeddedSource() {
+			requires, err := embeddedSubmoduleRequires(embeddedSource)
+			if err != nil {
+				return err
+			}
+			g.embeddedRequires = requires
 			if err := extractEmbeddedSource(spec, targetDir); err != nil {
 				return fmt.Errorf("提取嵌入源码失败: %w", err)
 			}
@@ -169,39 +176,37 @@ func (g *Generator) runGoMod(dir, module string, fullMode bool, lingBaseRoot str
 
 	cmd := exec.Command(goBin, "mod", "init", module)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
+	requires := g.embeddedRequires
+	if fullMode && lingBaseRoot != "" {
+		requires = collectSubmoduleRequires(lingBaseRoot)
+	}
 	if fullMode {
-		// In full mode, all ling-base source is copied to pkg/ and imports
-		// are rewritten to local paths — no external LingByte dependencies.
-		// Inject version constraints from submodule go.mod files BEFORE
-		// `go mod tidy` so that correct versions are resolved from the
-		// start (e.g. alibabacloud SDK versions that only exist in specific
-		// minor versions).
-		if lingBaseRoot != "" {
-			requires := collectSubmoduleRequires(lingBaseRoot)
-			if len(requires) > 0 {
-				injectSubmoduleRequires(dir, requires)
+		if len(requires) > 0 {
+			if err := injectSubmoduleRequires(dir, requires); err != nil {
+				return err
 			}
 		}
 	} else {
-		// In lib mode, explicitly go get each LingByte submodule with its
-		// published version. This is necessary because `go mod tidy` cannot
-		// auto-discover submodules when the root module path is a prefix of
-		// the submodule path.
+		// Resolve direct imports against the generated current-path catalog.
 		lingBaseImports := resolveLingBaseImports(dir)
 		if len(lingBaseImports) > 0 {
-			goGetLingBaseModules(dir, lingBaseImports)
+			if err := goGetLingBaseModules(dir, lingBaseImports); err != nil {
+				return err
+			}
 		}
 	}
 
 	// go mod tidy — capture output to detect failures
 	tidyCmd := exec.Command(goBin, "mod", "tidy")
 	tidyCmd.Dir = dir
+	tidyCmd.Env = append(os.Environ(), "GOWORK=off")
 	tidyOut, err := tidyCmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("  \x1b[33m[警告] go mod tidy 失败\x1b[0m\n")
@@ -211,8 +216,9 @@ func (g *Generator) runGoMod(dir, module string, fullMode bool, lingBaseRoot str
 		fmt.Println("  \x1b[38;5;117m解决方案（任选其一）:\x1b[0m")
 		fmt.Println("  \x1b[38;5;39m1.\x1b[0m 使用 full 模式重新生成（复制源码，无需外部依赖）:")
 		fmt.Println("     \x1b[38;5;245mlingcli create <项目名> --mode full\x1b[0m")
-		fmt.Println("  \x1b[38;5;39m2.\x1b[0m 手动添加 replace 指令指向本地 ling-base 源码:")
-		fmt.Println("     \x1b[38;5;245mgo mod edit -replace github.com/LingByte/ling-base=<本地路径>\x1b[0m")
+		fmt.Println("  \x1b[38;5;39m2.\x1b[0m 对未发布的子模块分别添加本地 replace（不能只替换仓库根模块）:")
+		fmt.Println("     \x1b[38;5;245mgo mod edit -replace github.com/LingByte/ling-base/common/stores=<本地路径>/common/stores\x1b[0m")
+		fmt.Println("     \x1b[38;5;245mgo mod edit -replace github.com/LingByte/ling-base/common/stores/local=<本地路径>/common/stores/local\x1b[0m")
 		fmt.Println("  \x1b[38;5;39m3.\x1b[0m 等待 LingByte 子模块发布后重新运行:")
 		fmt.Println("     \x1b[38;5;245mgo mod tidy\x1b[0m")
 		fmt.Println()
@@ -236,10 +242,9 @@ func (g *Generator) runGoMod(dir, module string, fullMode bool, lingBaseRoot str
 	// This enforces correct versions that `go mod tidy` may have downgraded
 	// (e.g. gorm.io/plugin/dbresolver v1.5.3 → v1.6.2). We do NOT run tidy
 	// again after this — the pinned versions are intentional overrides.
-	if fullMode && lingBaseRoot != "" {
-		requires := collectSubmoduleRequires(lingBaseRoot)
-		if len(requires) > 0 {
-			injectSubmoduleRequires(dir, requires)
+	if fullMode && len(requires) > 0 {
+		if err := injectSubmoduleRequires(dir, requires); err != nil {
+			return err
 		}
 	}
 

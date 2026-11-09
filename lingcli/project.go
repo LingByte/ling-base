@@ -353,7 +353,7 @@ var LingBaseModules = []LingBaseModule{
 	{ID: "notification", Name: "通知", Description: "Email/SMS/Push/Webhook/IM 多渠道通知", ImportPath: "github.com/LingByte/ling-base/common/notification"},
 	{ID: "mq", Name: "消息队列", Description: "Kafka/RabbitMQ/Redis Stream/RocketMQ 统一接口", ImportPath: "github.com/LingByte/ling-base/common/mq"},
 	{ID: "search", Name: "搜索引擎", Description: "Elasticsearch/Bleve 统一搜索接口", ImportPath: "github.com/LingByte/ling-base/common/search"},
-	{ID: "stores", Name: "对象存储", Description: "S3/OSS/COS/MinIO/Kodo 等统一存储接口", ImportPath: "github.com/LingByte/ling-base/stores"},
+	{ID: "stores", Name: "对象存储", Description: "S3/OSS/COS/MinIO/Kodo 等统一存储接口", ImportPath: "github.com/LingByte/ling-base/common/stores"},
 	{ID: "stats", Name: "统计", Description: "PV/UV/VV/QPS/延迟分位等指标采集", ImportPath: "github.com/LingByte/ling-base/common/stats"},
 	{ID: "opentelemetry", Name: "OpenTelemetry", Description: "链路追踪 + Metrics + Logs", ImportPath: "github.com/LingByte/ling-base/common/opentelemetry"},
 	{ID: "metrics", Name: "Metrics 指标", Description: "Prometheus 兼容的应用指标采集", ImportPath: "github.com/LingByte/ling-base/common/metrics"},

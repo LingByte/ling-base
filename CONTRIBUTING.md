@@ -167,15 +167,40 @@ chore: 更新构建配置
 
 ### 8. 发布版本
 
-```bash
-# 单个模块发版
-make release-patch PKG=mymodule      # v0.1.0 → v0.1.1
-make release-minor PKG=mymodule      # v0.1.0 → v0.2.0
-make release-major PKG=mymodule      # v0.1.0 → v1.0.0
+模块 tag 前缀必须与当前目录和 `go.mod` 的 module 路径一致。迁移后的 **52 个模块均从 `v0.1.0` 首发**，不继承、移动或覆盖旧路径的 tag：
 
-# 推送 tag
-make push-tags
+- `common/stores/v0.1.0`、`common/stores/local/v0.1.0` 等；
+- `providers/voice/recognizer/v0.1.0`、`providers/voice/synthesizer/v0.1.0`、`providers/voice/realtime/v0.1.0` 及各 provider；
+- `providers/voice/vad/v0.1.0`、`providers/voice/voiceprint/v0.1.0`、`providers/voice/voiceclone/v0.1.0`。
+
+**先发布库，最后发布 lingcli**。`release-all` 只处理库模块，不包含 lingcli。真实创建 tag 前必须提交全部改动；预览不要求工作区干净，也不会写入 tag。
+
+```bash
+# 1. 预览新 tag（不会创建或推送任何 tag）
+make release-patch PKG=common/stores DRY_RUN=1
+make release-patch PKG=providers/voice/recognizer DRY_RUN=1
+make release-all DRY_RUN=1
+
+# 2. 提交改动后，为变更的库创建本地 tag；检查清单后推送库 tag
+make release-all
+make push-tag TAG=common/stores/v0.1.0  # 单个推送示例
+# 首次迁移需要发布全部 52 个新路径 tag；确认本地 tag 清单后也可 make push-tags
+
+# 3. 库 tag 已发布后，同步 lingcli 内置版本表并提交生成文件
+make sync-cli-versions
+make check-cli-versions
+git add lingcli/module_versions.go
+git commit -m "chore(lingcli): sync published module versions"
+
+# 4. 预览并发布 CLI；当前 lingcli/v0.32.5 的下一 minor 为 lingcli/v0.33.0
+make release-minor PKG=lingcli DRY_RUN=1
+make release-minor PKG=lingcli
+make push-tag TAG=lingcli/v0.33.0
 ```
+
+`lingcli/module_versions.go` 由 `go run ./scripts/moduleversions` 自动生成：扫描当前实际存在的模块，只匹配各模块自己的正式 tag；忽略旧目录、子模块 tag 和预发布 tag。尚未首发的新路径在开发版目录中暂按 `v0.1.0` 记录；发布 lingcli 时会检查所有库是否已有正式 tag，缺失则拒绝发布。发布机器应先获取最新 tag，例如 `git fetch --tags`，再同步版本表。
+
+发布工作流使用 `**/v*` 匹配多层模块路径。CLI 发布构建会递归嵌入库源码及外部依赖版本，并将 CLI tag 版本注入二进制；`go install .../lingcli@版本` 安装的程序则从 Go 构建信息读取自身版本。
 
 ## 代码规范
 

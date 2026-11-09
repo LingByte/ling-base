@@ -8,18 +8,19 @@ ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein
 
 ```
 ling-base/
-├── common/          # 80+ 通用工具包（每个独立 go.mod）
+├── common/          # 通用工具包（每个独立 go.mod）
+│   └── stores/      # 对象存储（9 个 provider）
 ├── relay/           # AI provider 中继（60+ 适配器）
-├── voice/           # 语音识别 / 合成 / 实时
-├── stores/          # 对象存储（9 个 provider）
+├── providers/       # 第三方服务
+│   ├── voice/       # 语音识别 / 合成 / 实时 / VAD / 声纹 / 克隆
+│   ├── censor/      # 内容审核（3 个 provider）
+│   └── ocr/         # OCR（6 个 provider）
 ├── mq/              # 消息队列（5 个 broker）
-├── censor/          # 内容审核（3 个 provider）
-├── ocr/             # OCR（6 个 provider）
 ├── bootstrap/       # 应用生命周期框架
 ├── lingcli/         # 项目脚手架 CLI
-├── example/         # 示例应用
+├── example/         # 已清空，预留目录
 ├── version/         # 版本信息
-├── go.work          # 工作区（175 个模块）
+├── go.work          # 本地多模块工作区
 └── ARCHITECTURE.md  # 本文档
 ```
 
@@ -122,13 +123,16 @@ resp, err := client.Embed(ctx, &relay.EmbedRequest{...})
 resp, err := client.Responses(ctx, &relay.ResponsesRequest{...})
 ```
 
-## voice 模块架构
+## providers/voice 模块架构
 
 ```
-voice/
+providers/voice/
 ├── recognizer/    # 语音识别（12 个 provider）
 ├── synthesizer/   # 语音合成（16 个 provider）
-└── realtime/      # 实时语音（7 个 provider）
+├── realtime/      # 实时语音（7 个 provider）
+├── vad/           # 语音活动检测
+├── voiceprint/    # 声纹识别
+└── voiceclone/    # 语音克隆
 ```
 
 每个子模块独立 go.mod，provider 之间互不依赖。
@@ -171,7 +175,9 @@ relay 模块的 channel 适配器统一使用 logger，不直接调用 fmt.Print
 
 ## 发布
 
-每个模块独立打 tag 发布：
+每个模块独立打 tag 发布，tag 前缀与当前 `go.mod` 路径一致。迁移后的 `common/stores/*` 和 `providers/voice/*`（含各领域核心模块）从新前缀的 `v0.1.0` 首发，历史 tag 保持不变。
+
+发布脚本支持 `DRY_RUN=1` 预览，并拒绝为未提交的工作区打 tag。先发布库，再通过 `make sync-cli-versions` 更新并提交 lingcli 版本表，最后单独发布 lingcli；`make release-all` 不包含 CLI。详见 [发布指南](CONTRIBUTING.md#8-发布版本)。
 
 ```bash
 git tag common/totp/v0.1.0

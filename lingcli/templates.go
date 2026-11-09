@@ -194,11 +194,11 @@ func renderTemplateFiles(templateID string, spec *ProjectSpec) []FileEntry {
 		HasFallback:       spec.HasModule("circuitbreaker"), // 降级随熔断器内置
 		IsEnvConfig:       spec.ConfigFormat == "env",
 		IsYAMLConfig:      spec.ConfigFormat != "env",
-		Mode:           spec.Mode,
-		Architectures:  spec.Architectures,
-		IsRBAC:         spec.IsRBAC(),
-		IsMultiTenant:  spec.IsMultiTenant(),
-		IsDDD:          spec.IsDDD(),
+		Mode:              spec.Mode,
+		Architectures:     spec.Architectures,
+		IsRBAC:            spec.IsRBAC(),
+		IsMultiTenant:     spec.IsMultiTenant(),
+		IsDDD:             spec.IsDDD(),
 	}
 
 	var files []FileEntry
@@ -313,7 +313,7 @@ func getFeatures(id string) []string {
 			"数据库支持 (MySQL / PostgreSQL / SQLite，GORM)",
 			"统一响应封装 (ling-base/common/response)",
 			"数据校验 (ling-base/common/validate，结构体标签驱动)",
-			"对象存储 (ling-base/stores，默认 local 后端，可切换 S3/OSS/COS 等)",
+			"对象存储 (ling-base/common/stores，默认 local 后端，可切换 S3/OSS/COS 等)",
 			"文件上传/下载 API (/api/v1/files)",
 			"缓存 (ling-base/common/cache，默认 memory 后端，可切换 Redis)",
 			"分布式锁 (ling-base/common/lock，默认 memory 后端，可切换 Redis/Etcd)",

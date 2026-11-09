@@ -10,7 +10,7 @@ description: 9 个云存储后端，Store 接口、桶与对象管理、分片�
 ## 架构
 
 ```
-stores/              # Store 接口、错误类型、预签名辅助
+common/stores/       # Store 接口、错误类型、预签名辅助
 ├── local/           # 本地文件系统（无 SDK）
 ├── s3/              # AWS S3 / 兼容 S3 的端点
 ├── oss/             # 阿里云 OSS
@@ -26,12 +26,12 @@ stores/              # Store 接口、错误类型、预签名辅助
 
 ```bash
 # 核心类型（无 SDK）
-go get github.com/LingByte/ling-base/stores
+go get github.com/LingByte/ling-base/common/stores
 
 # 按需引入后端（示例）
-go get github.com/LingByte/ling-base/stores/oss
-go get github.com/LingByte/ling-base/stores/s3
-go get github.com/LingByte/ling-base/stores/local
+go get github.com/LingByte/ling-base/common/stores/oss
+go get github.com/LingByte/ling-base/common/stores/s3
+go get github.com/LingByte/ling-base/common/stores/local
 ```
 
 ## Store 接口
@@ -64,7 +64,7 @@ type Store interface {
 ```go
 import (
     "errors"
-    "github.com/LingByte/ling-base/stores"
+    "github.com/LingByte/ling-base/common/stores"
 )
 
 r, size, err := store.Read("missing.txt")
@@ -88,7 +88,7 @@ import (
     "io"
     "log"
 
-    "github.com/LingByte/ling-base/stores/oss"
+    "github.com/LingByte/ling-base/common/stores/oss"
 )
 
 func main() {
@@ -140,7 +140,7 @@ func main() {
 ### Local（开发/测试）
 
 ```go
-import "github.com/LingByte/ling-base/stores/local"
+import "github.com/LingByte/ling-base/common/stores/local"
 
 store := local.New(local.Config{
     Root:       "/var/uploads",
@@ -153,7 +153,7 @@ store := local.New(local.Config{
 ### AWS S3
 
 ```go
-import "github.com/LingByte/ling-base/stores/s3"
+import "github.com/LingByte/ling-base/common/stores/s3"
 
 store := s3.New(s3.Config{
     Region:          "us-east-1",
@@ -168,7 +168,7 @@ store := s3.New(s3.Config{
 ### 阿里云 OSS
 
 ```go
-import "github.com/LingByte/ling-base/stores/oss"
+import "github.com/LingByte/ling-base/common/stores/oss"
 
 store := oss.New(oss.Config{
     AccessKeyID:     "...",
@@ -182,7 +182,7 @@ store := oss.New(oss.Config{
 ### 腾讯云 COS
 
 ```go
-import "github.com/LingByte/ling-base/stores/cos"
+import "github.com/LingByte/ling-base/common/stores/cos"
 
 store := cos.New(cos.Config{
     SecretID:   "...",
@@ -195,7 +195,7 @@ store := cos.New(cos.Config{
 ### MinIO
 
 ```go
-import "github.com/LingByte/ling-base/stores/minio"
+import "github.com/LingByte/ling-base/common/stores/minio"
 
 store := minio.New(minio.Config{
     Endpoint:  "minio.local:9000",
@@ -209,7 +209,7 @@ store := minio.New(minio.Config{
 ### 七牛 Kodo
 
 ```go
-import "github.com/LingByte/ling-base/stores/kodo"
+import "github.com/LingByte/ling-base/common/stores/kodo"
 
 store := kodo.New(kodo.Config{
     AccessKey:  "...",
@@ -223,7 +223,7 @@ store := kodo.New(kodo.Config{
 ### 火山引擎 TOS
 
 ```go
-import "github.com/LingByte/ling-base/stores/tos"
+import "github.com/LingByte/ling-base/common/stores/tos"
 
 store := tos.New(tos.Config{
     Endpoint:        "https://tos-cn-beijing.volces.com",
@@ -237,7 +237,7 @@ store := tos.New(tos.Config{
 ### 华为云 OBS
 
 ```go
-import "github.com/LingByte/ling-base/stores/obs"
+import "github.com/LingByte/ling-base/common/stores/obs"
 
 store := obs.New(obs.Config{
     Endpoint:        "https://obs.cn-north-4.myhuaweicloud.com",
@@ -251,7 +251,7 @@ store := obs.New(obs.Config{
 ### 金山云 KS3
 
 ```go
-import "github.com/LingByte/ling-base/stores/ks3"
+import "github.com/LingByte/ling-base/common/stores/ks3"
 
 store := ks3.New(ks3.Config{
     Endpoint:        "https://ks3-cn-beijing.ksyuncs.com",
@@ -269,7 +269,7 @@ store := ks3.New(ks3.Config{
 ```go
 import (
     "time"
-    "github.com/LingByte/ling-base/stores"
+    "github.com/LingByte/ling-base/common/stores"
 )
 
 // 推荐：使用包级辅助函数（自动 clamp TTL，默认 1h，最大 24h）
@@ -359,7 +359,7 @@ func uploadHandler(store stores.Store) http.HandlerFunc {
 ### 检测能力
 
 ```go
-import "github.com/LingByte/ling-base/stores"
+import "github.com/LingByte/ling-base/common/stores"
 
 if stores.SupportsManagement(store) {
     mgr := stores.AsManager(store)
@@ -558,10 +558,12 @@ func listFilesHandler(store stores.Store) http.HandlerFunc {
 
 ## 测试
 
+在仓库根目录运行：
+
 ```bash
-cd stores && go test -cover
-cd stores/local && go test -cover
-cd stores/s3 && go test -cover
+go test -cover ./common/stores
+go test -cover ./common/stores/local
+go test -cover ./common/stores/s3
 ```
 
 云厂商模块的单元测试覆盖构造与 URL 拼接；真实 API 调用需配置凭证后在集成环境验证。

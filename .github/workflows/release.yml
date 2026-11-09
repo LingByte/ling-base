@@ -3,8 +3,8 @@ name: Release
 on:
   push:
     tags:
-      # Match all module tags: "common/stats/v0.1.0", "scheduler/v1.2.3", "v0.1.0"
-      - '*/v*'
+      # Include nested module paths such as common/stores/s3 and providers/voice/recognizer.
+      - '**/v*'
       - 'v*'
 
 permissions:
@@ -27,16 +27,27 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          # Extract module path and version
-          if echo "$TAG" | grep -q '/v'; then
-            MODULE=$(echo "$TAG" | sed 's|/v[^/]*$||')
-            VERSION=$(echo "$TAG" | sed 's|.*/v||')
-          else
+          # Split at the final /v, not at /voice or /version.
+          VERSION="${TAG##*/}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported release tag: $TAG" >&2
+            exit 1
+          fi
+          if [[ "$TAG" == "$VERSION" ]]; then
             MODULE="."
-            VERSION=$(echo "$TAG" | sed 's|^v||')
+          else
+            MODULE="${TAG%/$VERSION}"
+          fi
+          test -f "$MODULE/go.mod"
+          EXPECTED="github.com/LingByte/ling-base"
+          if [[ "$MODULE" != "." ]]; then EXPECTED="$EXPECTED/$MODULE"; fi
+          ACTUAL=$(go mod edit -json "$MODULE/go.mod" | jq -r .Module.Path)
+          test "$ACTUAL" = "$EXPECTED"
+          if [[ "$MODULE" == "lingcli" ]]; then
+            go run ./scripts/moduleversions --check --require-tags
           fi
           echo "module=$MODULE" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
           echo "Tag: $TAG, Module: $MODULE, Version: $VERSION"
 
       - name: Verify module builds
@@ -66,6 +77,7 @@ jobs:
   # build-cli: 当 lingcli tag 时，构建带嵌入源码的二进制
   # ──────────────────────────────────────────────
   build-cli:
+    needs: release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/lingcli/')
     steps:
@@ -81,16 +93,19 @@ jobs:
         run: make prepare-cli-embed
 
       - name: Build lingcli (linux)
-        run: cd lingcli && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../bin/lingcli-linux-amd64 .
+        run: cd lingcli && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.cliVersion=${GITHUB_REF_NAME##*/}" -o ../bin/lingcli-linux-amd64 .
 
       - name: Build lingcli (darwin)
-        run: cd lingcli && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o ../bin/lingcli-darwin-amd64 .
+        run: cd lingcli && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.cliVersion=${GITHUB_REF_NAME##*/}" -o ../bin/lingcli-darwin-amd64 .
 
       - name: Build lingcli (darwin arm64)
-        run: cd lingcli && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o ../bin/lingcli-darwin-arm64 .
+        run: cd lingcli && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.cliVersion=${GITHUB_REF_NAME##*/}" -o ../bin/lingcli-darwin-arm64 .
 
       - name: Build lingcli (windows)
-        run: cd lingcli && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ../bin/lingcli-windows-amd64.exe .
+        run: cd lingcli && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.cliVersion=${GITHUB_REF_NAME##*/}" -o ../bin/lingcli-windows-amd64.exe .
+
+      - name: Verify CLI release version
+        run: test "$(bin/lingcli-linux-amd64 version)" = "lingcli ${GITHUB_REF_NAME##*/}"
 
       - name: Upload lingcli binaries
         uses: softprops/action-gh-release@v2

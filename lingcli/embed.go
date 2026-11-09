@@ -5,6 +5,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,16 +21,20 @@ var embeddedSource embed.FS
 
 // hasEmbeddedSource 检查 embed_source 是否包含实际源码（不只是 .gitkeep）。
 func hasEmbeddedSource() bool {
-	entries, err := embeddedSource.ReadDir("embed_source")
+	entries, err := embeddedSource.ReadDir(embeddedSourceRoot)
+	return err == nil && len(entries) > 0
+}
+
+func embeddedSubmoduleRequires(source fs.FS) (map[string]string, error) {
+	content, err := fs.ReadFile(source, embeddedRequiresPath)
 	if err != nil {
-		return false
+		return nil, fmt.Errorf("embedded dependency manifest missing; rebuild with make build-cli: %w", err)
 	}
-	for _, e := range entries {
-		if e.Name() != ".gitkeep" {
-			return true
-		}
+	var requires map[string]string
+	if err := json.Unmarshal(content, &requires); err != nil {
+		return nil, fmt.Errorf("invalid embedded dependency manifest: %w", err)
 	}
-	return false
+	return requires, nil
 }
 
 // extractEmbeddedSource extracts the entire embedded ling-base source tree
@@ -37,6 +42,10 @@ func hasEmbeddedSource() bool {
 // This mirrors the full-mode copyModuleSource but reads from the embedded
 // filesystem instead of disk.
 func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
+	return extractEmbeddedSourceFrom(embeddedSource, spec, targetDir)
+}
+
+func extractEmbeddedSourceFrom(source fs.FS, spec *ProjectSpec, targetDir string) error {
 	pkgDir := filepath.Join(targetDir, "pkg")
 	lingBaseImport := "github.com/LingByte/ling-base"
 	newImport := spec.Module + "/pkg"
@@ -44,13 +53,13 @@ func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
 	fmt.Printf("  \x1b[38;5;245m从嵌入源码提取...\x1b[0m\n")
 
 	count := 0
-	err := fs.WalkDir(embeddedSource, "embed_source", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(source, embeddedSourceRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 
 		// Compute relative path from embed_source root
-		relPath, err := filepath.Rel("embed_source", path)
+		relPath, err := filepath.Rel(embeddedSourceRoot, path)
 		if err != nil {
 			return nil
 		}
@@ -97,7 +106,7 @@ func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
 
 		// Go files: rewrite import paths
 		if strings.HasSuffix(name, ".go") {
-			data, err := embeddedSource.ReadFile(path)
+			data, err := fs.ReadFile(source, path)
 			if err != nil {
 				return nil
 			}
@@ -118,7 +127,7 @@ func extractEmbeddedSource(spec *ProjectSpec, targetDir string) error {
 		}
 
 		// Non-Go files: copy as-is
-		data, err := embeddedSource.ReadFile(path)
+		data, err := fs.ReadFile(source, path)
 		if err != nil {
 			return nil
 		}

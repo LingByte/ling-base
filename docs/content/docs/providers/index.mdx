@@ -42,7 +42,7 @@ import { Cards, Card } from 'fumadocs-ui/components/card'
 
 ```bash
 # 对象存储 — 阿里云 OSS
-go get github.com/LingByte/ling-base/stores/oss
+go get github.com/LingByte/ling-base/common/stores/oss
 
 # OCR — 腾讯云
 go get github.com/LingByte/ling-base/providers/ocr/qcloud
@@ -59,8 +59,8 @@ go get github.com/LingByte/ling-base/common/mq/rabbitmq
 ```go
 import (
     "bytes"
-    "github.com/LingByte/ling-base/stores"
-    "github.com/LingByte/ling-base/stores/oss"
+    "github.com/LingByte/ling-base/common/stores"
+    "github.com/LingByte/ling-base/common/stores/oss"
 )
 
 store, _ := oss.New(oss.Config{
@@ -137,5 +137,7 @@ _ = producer.Publish(ctx, &mq.Message{Body: []byte(`{"event":"order.created"}`)}
 
 ## 与 common / infrastructure 的关系
 
+- **stores** 源码在 `common/stores`，文档入口仍为 [对象存储](/docs/providers/stores)
+- **voice** 源码在 `providers/voice`，文档入口仍为 [语音处理](/docs/voice)
 - **mq** 源码在 `common/mq`，文档入口在 [消息队列](/docs/providers/mq)，`common/mq` 页为 API 参考
 - 限流/缓存/重试等基础设施见 [Infrastructure](/docs/infrastructure) 与 [Common](/docs/common)

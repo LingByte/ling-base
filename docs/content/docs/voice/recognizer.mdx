@@ -5,12 +5,12 @@ description: 14 个 vendor，Factory + Engine 与 WebSocket Recognizer 双模式
 
 # ASR 语音识别
 
-`voice/recognizer` 提供语音识别（ASR）抽象，支持 **14 个云厂商/本地引擎**。每个 vendor 在独立子 module 中实现 `Engine` 接口；部分厂商（如火山引擎 LLM ASR）内部复用高层 `Recognizer` WebSocket 客户端。
+`providers/voice/recognizer` 提供语音识别（ASR）抽象，支持 **14 个云厂商/本地引擎**。每个 vendor 在独立子 module 中实现 `Engine` 接口；部分厂商（如火山引擎 LLM ASR）内部复用高层 `Recognizer` WebSocket 客户端。
 
 ## 架构
 
 ```
-voice/recognizer/
+providers/voice/recognizer/
 ├── types.go        # Engine 接口、Result、回调类型
 ├── factory.go      # Factory 注册表、Create(config)
 ├── config.go       # WebSocket Recognizer 配置
@@ -28,9 +28,9 @@ voice/recognizer/
 ## 安装
 
 ```bash
-go get github.com/LingByte/ling-base/voice/recognizer
-go get github.com/LingByte/ling-base/voice/recognizer/qcloud
-go get github.com/LingByte/ling-base/voice/recognizer/volcengine
+go get github.com/LingByte/ling-base/providers/voice/recognizer
+go get github.com/LingByte/ling-base/providers/voice/recognizer/qcloud
+go get github.com/LingByte/ling-base/providers/voice/recognizer/volcengine
 ```
 
 ## Engine 接口（推荐）
@@ -64,7 +64,7 @@ import (
     "os"
     "time"
 
-    "github.com/LingByte/ling-base/voice/recognizer/qcloud"
+    "github.com/LingByte/ling-base/providers/voice/recognizer/qcloud"
     gonanoid "github.com/matoous/go-nanoid"
 )
 
@@ -114,9 +114,9 @@ func main() {
 
 ```go
 import (
-    "github.com/LingByte/ling-base/voice/recognizer"
-    "github.com/LingByte/ling-base/voice/recognizer/qcloud"
-    "github.com/LingByte/ling-base/voice/recognizer/deepgram"
+    "github.com/LingByte/ling-base/providers/voice/recognizer"
+    "github.com/LingByte/ling-base/providers/voice/recognizer/qcloud"
+    "github.com/LingByte/ling-base/providers/voice/recognizer/deepgram"
 )
 
 f := recognizer.NewFactory()

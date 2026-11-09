@@ -17,11 +17,13 @@
 #   make release-patch   Bump patch version for a module and create a tag.
 #   make release-minor   Bump minor version for a module and create a tag.
 #   make release-major   Bump major version for a module and create a tag.
-#   make release-all     Auto-detect changed modules and bump patch versions.
+#   make release-all     Tag changed library modules (release lingcli separately).
+#   make sync-cli-versions   Regenerate the CLI module version catalog.
+#   Add DRY_RUN=1 to release commands to preview without creating tags.
 #   make push-tags       Push all tags to the remote.
 #
 # Release examples:
-#   make release-patch PKG=scheduler              # scheduler/v0.1.0 → scheduler/v0.1.1
+#   make release-patch PKG=common/stores          # first tag: common/stores/v0.1.0
 #   make release-minor PKG=common/jwtutil         # common/jwtutil/v0.1.0 → common/jwtutil/v0.2.0
 #   make release-major PKG=common                 # common/v0.3.1 → common/v1.0.0
 #   make release-all                              # Auto-bump all modules with changes since last tag.
@@ -41,7 +43,9 @@ GO        := go
 ROOT      := $(shell pwd)
 GOFLAGS   := -trimpath
 TAG_PREFIX := github.com/LingByte/ling-base
-RELEASE_LEVEL ?= patch
+RELEASE_LEVEL ?= $(if $(LEVEL),$(LEVEL),patch)
+DRY_RUN ?= 0
+RELEASE_FLAGS := $(if $(filter 1 true,$(DRY_RUN)),--dry-run,)
 
 # Find all go.mod directories (excluding vendor).
 GO_MOD_DIRS := $(shell find . -name go.mod -not -path './vendor/*' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort)
@@ -77,8 +81,11 @@ help: ## Show this help message
 	@echo "  make release-patch PKG=dir   Bump patch version (v0.1.0 → v0.1.1)"
 	@echo "  make release-minor PKG=dir   Bump minor version (v0.1.0 → v0.2.0)"
 	@echo "  make release-major PKG=dir   Bump major version (v0.1.0 → v1.0.0)"
-	@echo "  make release-all             Auto-bump all changed modules (patch)"
-	@echo "  make release-all LEVEL=minor Auto-bump all changed modules (minor)"
+	@echo "  make release-all             Tag changed libraries (excludes lingcli)"
+	@echo "  make release-all LEVEL=minor Choose the library release level"
+	@echo "  Add DRY_RUN=1                Preview release tags without creating them"
+	@echo "  make sync-cli-versions       Sync CLI versions after publishing libraries"
+	@echo "  make check-cli-versions      Check the generated CLI version catalog"
 	@echo "  make tags                    List all tags"
 	@echo "  make push-tags               Push all tags to remote"
 	@echo ""
@@ -202,12 +209,7 @@ tags: ## List all git tags grouped by module
 
 tags-pkg: ## List tags for a specific module (PKG=dir)
 	@test -n "$(PKG)" || (echo "Usage: make tags-pkg PKG=<directory>" && exit 1)
-	@if [ "$(PKG)" = "." ]; then \
-		prefix=""; \
-	else \
-		prefix="$(PKG)/"; \
-	fi; \
-	git tag --list "$${prefix}v*" --sort=v:refname
+	@bash $(ROOT)/scripts/release.sh --pkg "$(PKG)" --list-tags
 
 # ──────────────────────────────────────────────
 # Release — version bump + tag
@@ -223,16 +225,23 @@ release-minor: ## Bump minor version for a module (PKG=dir)
 release-major: ## Bump major version for a module (PKG=dir)
 	@$(MAKE) _release PKG=$(PKG) LEVEL=major
 
-release-all: ## Auto-bump all changed modules (LEVEL=patch|minor|major)
-	@echo "==> Detecting changed modules since their last tag..."
-	@bash $(ROOT)/scripts/release.sh --all --level $(RELEASE_LEVEL)
+release-all: ## Tag changed libraries; release lingcli separately after syncing versions
+	@echo "==> Detecting changed library modules since their last tag..."
+	@bash $(ROOT)/scripts/release.sh --all --level $(RELEASE_LEVEL) $(RELEASE_FLAGS)
+
+.PHONY: sync-cli-versions check-cli-versions
+sync-cli-versions: ## Regenerate lingcli module versions from current module paths and tags
+	@$(GO) run ./scripts/moduleversions
+
+check-cli-versions: ## Check lingcli's generated version catalog without modifying it
+	@$(GO) run ./scripts/moduleversions --check
 
 # Internal release target.
 .PHONY: _release
 _release:
 	@test -n "$(PKG)" || (echo "Usage: make release-{patch,minor,major} PKG=<directory>" && exit 1)
 	@test -d "$(PKG)" || (echo "Directory not found: $(PKG)" && exit 1)
-	@bash $(ROOT)/scripts/release.sh --pkg "$(PKG)" --level $(LEVEL)
+	@bash $(ROOT)/scripts/release.sh --pkg "$(PKG)" --level $(LEVEL) $(RELEASE_FLAGS)
 
 # ──────────────────────────────────────────────
 # Push tags
@@ -257,7 +266,6 @@ clean: ## Remove generated coverage files and demo binaries
 	@echo "==> Cleaning..."
 	@find . -name 'coverage.out' -delete 2>/dev/null || true
 	@find . -name 'coverage.html' -delete 2>/dev/null || true
-	@find ./example/cmd -type f -perm +111 ! -name '*.go' -delete 2>/dev/null || true
 	@echo "Done."
 
 # ── lingcli 构建 ──
@@ -265,26 +273,10 @@ clean: ## Remove generated coverage files and demo binaries
 # full 模式需要嵌入 ling-base 源码。
 # 构建前运行此 target 将源码同步到 lingcli/embed_source/。
 # CI/发布构建自动调用此 target。
-EMBED_SOURCE_DIRS := middleware common/response common/response/gin \
-	common/jwtutil common/jwtutil/gin common/limiter common/limiter/count \
-	common/limiter/tokenbucket common/limiter/keycount common/circuitbreaker \
-	common/crypto common/logger common/logger/gin common/constants bootstrap common/eventbus version \
-	apidocs apidocs/humax apidocs/assets common/i18n common/i18n/gin common/metrics common/tracing \
-	common/validate
-
 .PHONY: prepare-cli-embed clean-cli-embed build-cli
-prepare-cli-embed: ## Sync ling-base source to lingcli/embed_source/ for full mode
+prepare-cli-embed: check-cli-versions ## Embed library source and dependency versions for full mode
 	@echo "==> Preparing lingcli embedded source..."
-	@rm -rf lingcli/embed_source/*
-	@touch lingcli/embed_source/.gitkeep
-	@for dir in $(EMBED_SOURCE_DIRS); do \
-		if [ -d "$$dir" ]; then \
-			mkdir -p "lingcli/embed_source/$$dir"; \
-			find "$$dir" -maxdepth 1 -type f \( -name '*.go' ! -name '*_test.go' -o -name '*.css' -o -name '*.svg' -o -name '*.png' -o -name '*.font' \) -exec cp {} "lingcli/embed_source/$$dir/" \; 2>/dev/null; \
-		fi; \
-	done
-	@echo "  Embedded source: $$(find lingcli/embed_source -type f ! -name '.gitkeep' | wc -l | tr -d ' ') files"
-	@echo "Done."
+	@$(GO) run ./lingcli prepare-embed
 
 clean-cli-embed: ## Clean lingcli embedded source
 	@rm -rf lingcli/embed_source/*

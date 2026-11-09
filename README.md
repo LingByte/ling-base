@@ -8,7 +8,7 @@ Go 基础工具库。采用**多 module 按需引入**：业务只 import 用到
 
 ```
 ling-base/
-├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发（175 个模块）
+├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ ARCHITECTURE.md           # 架构文档（relay/voice/common 详解）
 │
 ├─ common/                   # 通用工具库（50+ 独立 module）
@@ -109,7 +109,11 @@ ling-base/
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
 │  ├─ antispam/              # 反垃圾（关键词过滤/频率限制/内容评分）
 │  ├─ trie/                  # 前缀树（路由匹配/自动补全/线程安全版）
-│  └─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
+│  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
+│  └─ stores/                # 对象存储接口（9 个独立 provider module）
+│     ├─ local/              # 本地文件系统（零云 SDK）
+│     ├─ s3/ oss/ cos/ minio/
+│     └─ kodo/ tos/ obs/ ks3/
 │
 ├─ relay/                    # AI provider 中继库（生产级，40+ channel 适配器）
 │  ├─ client.go              # 统一 Client API（Chat/Stream/Embed/Image/Audio/Responses）
@@ -136,33 +140,30 @@ ling-base/
 │  ├─ constant/              # provider endpoint 常量
 │  └─ helper/                # 辅助函数
 │
-├─ voice/                    # 语音处理库
-│  ├─ recognizer/            # ASR 语音识别（12 个 provider）
-│  │  ├─ aliyun/ baidu/ qcloud/ volcengine/ volcengine_llm
-│  │  ├─ aws/ google/ deepgram/ gladia/ funasr/ whisper
-│  │  └─ voiceapi/ local
-│  ├─ synthesizer/           # TTS 语音合成（16 个 provider）
-│  │  ├─ aliyun/ baidu/ qcloud/ volcengine/ xunfei
-│  │  ├─ aws/ azure/ google/ openai
-│  │  ├─ elevenlabs/ fishaudio/ fishspeech/ coqui/ minimax/ qiniu
-│  │  └─ local/              # 本地 PCM 合成
-│  └─ realtime/              # 实时多模态语音对话（8 个 provider）
-│     ├─ openai/             # OpenAI Realtime API
-│     ├─ gemini/             # Google Gemini Live API
-│     ├─ aliyunomni/         # Qwen-Omni / DashScope
-│     ├─ volcdialogue/       # 豆包实时对话
-│     ├─ iflytek/ minimax/ stepfun/ tencentsts
-│
-├─ stores/                   # 对象存储接口（9 个 provider）
-│  ├─ local/                 # 本地文件系统（零云 SDK）
-│  ├─ s3/ oss/ cos/ minio/   # 独立 module，各引各的 SDK
-│  └─ kodo/ tos/ obs/ ks3/
-│
 ├─ mq/                       # 消息队列接口（5 个 broker）→ common/mq/
 │  ├─ factory/               # 工厂注册
 │  └─ kafka / rabbitmq / activemq / rocketmq / redisstream
 │
 ├─ providers/                # 第三方服务对接
+│  ├─ voice/                 # 语音处理库
+│  │  ├─ recognizer/         # ASR 语音识别
+│  │  │  ├─ baidu/ qcloud/ volcengine/ volcengine_llm
+│  │  │  ├─ aws/ google/ deepgram/ gladia/ funasr/ whisper
+│  │  │  └─ voiceapi/ local
+│  │  ├─ synthesizer/        # TTS 语音合成
+│  │  │  ├─ aliyun/ baidu/ qcloud/ volcengine/ xunfei
+│  │  │  ├─ aws/ azure/ google/ openai
+│  │  │  ├─ elevenlabs/ fishaudio/ fishspeech/ coqui/ minimax/ qiniu
+│  │  │  └─ local/           # 本地 PCM 合成
+│  │  ├─ realtime/           # 实时多模态语音对话（8 个 provider）
+│  │  │  ├─ openai/          # OpenAI Realtime API
+│  │  │  ├─ gemini/          # Google Gemini Live API
+│  │  │  ├─ aliyunomni/      # Qwen-Omni / DashScope
+│  │  │  ├─ volcdialogue/    # 豆包实时对话
+│  │  │  └─ iflytek/ minimax/ stepfun/ tencentsts
+│  │  ├─ vad/               # 语音活动检测
+│  │  ├─ voiceprint/        # 声纹识别
+│  │  └─ voiceclone/        # 语音克隆
 │  ├─ ocr/                   # OCR 光学字符识别（6 个 provider）
 │  │  └─ aws/ google/ aliyun/ baidu/ azure/ qcloud
 │  └─ censor/                # 内容审核接口
@@ -180,11 +181,13 @@ ling-base/
 ├─ bootstrap/                # 应用启动框架（生命周期管理 + banner）
 ├─ version/                  # 版本信息
 ├─ lingcli/                  # 项目脚手架 CLI
-├─ example/                  # 示例应用
+├─ example/                  # 已清空，预留目录
 └─ apidocs/                  # API 文档
 ```
 
 本地开发使用已提交的 `go.work`；发布后消费者**不需要** `go.work`，直接 `go get` 子模块即可。
+
+> 目录迁移：对象存储现位于 `common/stores`，语音模块现位于 `providers/voice`，Go import 和 module 路径同步变更。外部项目需要更新引用，并等待新路径对应的模块 tag 发布后再通过 `go get` 安装；旧路径的 tag 不适用于新路径。根目录 `example/` 已清空，不再作为工作区模块。
 
 ## 按需安装示例
 
@@ -199,7 +202,7 @@ go get github.com/LingByte/ling-base/common/cache/bigcache
 go get github.com/LingByte/ling-base/common/lock/redis
 
 # 只要 S3 对象存储
-go get github.com/LingByte/ling-base/stores/s3
+go get github.com/LingByte/ling-base/common/stores/s3
 
 # 只要 Elasticsearch 搜索后端
 go get github.com/LingByte/ling-base/common/search/elasticsearch
@@ -211,13 +214,13 @@ go get github.com/LingByte/ling-base/common/i18n
 go get github.com/LingByte/ling-base/common/i18n/gin
 
 # 语音合成 — 只要阿里云 TTS
-go get github.com/LingByte/ling-base/voice/synthesizer/aliyun
+go get github.com/LingByte/ling-base/providers/voice/synthesizer/aliyun
 
 # 语音识别 — 只要 Whisper ASR
-go get github.com/LingByte/ling-base/voice/recognizer/whisper
+go get github.com/LingByte/ling-base/providers/voice/recognizer/whisper
 
 # 实时多模态语音对话 — 只要 OpenAI Realtime
-go get github.com/LingByte/ling-base/voice/realtime/openai
+go get github.com/LingByte/ling-base/providers/voice/realtime/openai
 
 # AI provider 中继 — 只要 OpenAI 适配器
 go get github.com/LingByte/ling-base/relay
@@ -318,8 +321,8 @@ import (
 
 ```go
 import (
-    base "github.com/LingByte/ling-base/voice/realtime"
-    _ "github.com/LingByte/ling-base/voice/realtime/openai" // 注册 provider
+    base "github.com/LingByte/ling-base/providers/voice/realtime"
+    _ "github.com/LingByte/ling-base/providers/voice/realtime/openai" // 注册 provider
 )
 
 agent, err := base.NewAgentFromCredential(
@@ -577,7 +580,7 @@ lingcli list   # 查看所有模板
 | `stats` | 统计采集（PV/UV/QPS/延迟 ...，memory / redis 实现） |
 | `notification` | 通知调度（邮件 / 短信 / IM / Webhook） |
 | `mq` | 消息队列（Kafka / RabbitMQ / Redis Stream ...） |
-| `stores` | 对象存储（S3 / OSS / COS / MinIO / 本地 ...） |
+| `stores` | 对象存储（common/stores：S3 / OSS / COS / MinIO / 本地 ...） |
 | `search` | 全文搜索（Bleve / Elasticsearch） |
 | `bloom` | 布隆过滤器（memory / redis / counting / scalable） |
 | `captcha` | 验证码（滑块 / 点选 / 拼图 / 算术 / 旋转） |
@@ -673,7 +676,7 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [bloom/README.md](bloom/README.md)
 - [captcha/README.md](captcha/README.md)
 - [providers/censor/README.md](providers/censor/README.md)
-- [stores/README.md](stores/README.md)
+- [common/stores/README.md](common/stores/README.md)
 - [i18n/README.md](i18n/README.md)
 - [common/mq/README.md](common/mq/README.md)
 - [queue/README.md](queue/README.md)

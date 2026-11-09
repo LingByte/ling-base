@@ -2,23 +2,6 @@ go 1.26.2
 
 use (
 	.
-	./agentkit
-	./agentkit/flowcraft/backends/checkpoint
-	./agentkit/flowcraft/backends/plugin
-	./agentkit/flowcraft/core
-	./agentkit/flowcraft/driver/anthropic
-	./agentkit/flowcraft/driver/azure
-	./agentkit/flowcraft/driver/bytedance
-	./agentkit/flowcraft/driver/deepseek
-	./agentkit/flowcraft/driver/kimi
-	./agentkit/flowcraft/driver/minimax
-	./agentkit/flowcraft/driver/openai
-	./agentkit/flowcraft/driver/qwen
-	./agentkit/flowcraft/forge
-	./agentkit/knowledge/embedder/huggingface
-	./agentkit/knowledge/embedder/ollama
-	./agentkit/knowledge/document/reader/pdf
-	./agentkit/relaymodel
 	./apidocs
 	./bootstrap
 	./common
@@ -31,6 +14,7 @@ use (
 	./common/authcontext/gin
 	./common/backup
 	./common/barcode
+	./common/batch
 	./common/bitmap
 	./common/bitmap/memory
 	./common/bitmap/redis
@@ -43,32 +27,37 @@ use (
 	./common/bloom/scalable
 	./common/cache
 	./common/cache/bigcache
-	./common/codegen
 	./common/cache/freecache
 	./common/cache/memcache
 	./common/cache/redis
 	./common/cache/ristretto
 	./common/captcha
+	./common/chunk
 	./common/circuitbreaker
+	./common/codegen
 	./common/compress
 	./common/config
+	./common/configcenter
 	./common/consistent
 	./common/constants
 	./common/convert
 	./common/cron
 	./common/crypto
 	./common/diff
+	./common/embedder
 	./common/emoji
 	./common/eventbus
 	./common/export
+	./common/extension
 	./common/featureflag
 	./common/geoip
+	./common/grpc
 	./common/hash
 	./common/i18n
 	./common/i18n/gin
 	./common/i18n/mymemory
-	./common/idgen
 	./common/idempotency
+	./common/idgen
 	./common/imageutil
 	./common/jwtutil
 	./common/jwtutil/gin
@@ -133,32 +122,40 @@ use (
 	./common/queue
 	./common/queue/memory
 	./common/queue/redis
+	./common/random
 	./common/rbac
 	./common/rbac/gin
+	./common/reconciler
 	./common/registry
 	./common/registry/consul
-	./common/grpc
-	./common/shutdown
-	./common/batch
-	./common/embedder
-	./common/retrieve
-	./common/chunk
-	./common/random
 	./common/response
 	./common/response/gin
+	./common/retrieve
 	./common/retry
 	./common/sanitize
 	./common/scheduler
 	./common/search
 	./common/search/bleve
 	./common/search/elasticsearch
+	./common/shutdown
 	./common/signature
+	./common/snapshot
+	./common/ssh
 	./common/stats
 	./common/stats/file
 	./common/stats/gin
 	./common/stats/memory
 	./common/stats/redis
-	./common/ssh
+	./common/stores
+	./common/stores/cos
+	./common/stores/kodo
+	./common/stores/ks3
+	./common/stores/local
+	./common/stores/minio
+	./common/stores/obs
+	./common/stores/oss
+	./common/stores/s3
+	./common/stores/tos
 	./common/system
 	./common/timeutil
 	./common/totp
@@ -170,16 +167,11 @@ use (
 	./common/tree/postgres
 	./common/tree/sqlite
 	./common/trie
-	./common/reconciler
-	./common/extension
-	./common/configcenter
-	./common/snapshot
 	./common/uaparse
 	./common/validate
 	./common/videoutil
 	./common/webhook
 	./common/wsutil
-	./example
 	./lingcli
 	./pentest
 	./providers/censor
@@ -193,62 +185,52 @@ use (
 	./providers/ocr/baidu
 	./providers/ocr/google
 	./providers/ocr/qcloud
+	./providers/voice/realtime
+	./providers/voice/realtime/aliyunomni
+	./providers/voice/realtime/gemini
+	./providers/voice/realtime/iflytek
+	./providers/voice/realtime/minimax
+	./providers/voice/realtime/openai
+	./providers/voice/realtime/stepfun
+	./providers/voice/realtime/tencentsts
+	./providers/voice/realtime/volcdialogue
+	./providers/voice/recognizer
+	./providers/voice/recognizer/aws
+	./providers/voice/recognizer/baidu
+	./providers/voice/recognizer/deepgram
+	./providers/voice/recognizer/funasr
+	./providers/voice/recognizer/gladia
+	./providers/voice/recognizer/google
+	./providers/voice/recognizer/local
+	./providers/voice/recognizer/qcloud
+	./providers/voice/recognizer/voiceapi
+	./providers/voice/recognizer/volcengine
+	./providers/voice/recognizer/volcengine_llm
+	./providers/voice/recognizer/whisper
+	./providers/voice/synthesizer
+	./providers/voice/synthesizer/aliyun
+	./providers/voice/synthesizer/aws
+	./providers/voice/synthesizer/azure
+	./providers/voice/synthesizer/baidu
+	./providers/voice/synthesizer/coqui
+	./providers/voice/synthesizer/elevenlabs
+	./providers/voice/synthesizer/fishaudio
+	./providers/voice/synthesizer/fishspeech
+	./providers/voice/synthesizer/google
+	./providers/voice/synthesizer/local
+	./providers/voice/synthesizer/minimax
+	./providers/voice/synthesizer/openai
+	./providers/voice/synthesizer/qcloud
+	./providers/voice/synthesizer/qiniu
+	./providers/voice/synthesizer/volcengine
+	./providers/voice/synthesizer/xunfei
+	./providers/voice/vad
+	./providers/voice/voiceclone
+	./providers/voice/voiceprint
 	./relay
 	./relay/compat
 	./relay/relaykit
-	./stores
-	./stores/cos
-	./stores/kodo
-	./stores/ks3
-	./stores/local
-	./stores/minio
-	./stores/obs
-	./stores/oss
-	./stores/s3
-	./stores/tos
 	./version
-	./voice/vad
-	./voice/voiceprint
-	./voice/voiceclone
-	./voice/realtime
-	./voice/realtime/aliyunomni
-	./voice/realtime/gemini
-	./voice/realtime/iflytek
-	./voice/realtime/minimax
-	./voice/realtime/openai
-	./voice/realtime/stepfun
-	./voice/realtime/tencentsts
-	./voice/realtime/volcdialogue
-	./voice/recognizer
-	./voice/recognizer/aws
-	./voice/recognizer/baidu
-	./voice/recognizer/deepgram
-	./voice/recognizer/funasr
-	./voice/recognizer/gladia
-	./voice/recognizer/google
-	./voice/recognizer/local
-	./voice/recognizer/qcloud
-	./voice/recognizer/voiceapi
-	./voice/recognizer/volcengine
-	./voice/recognizer/volcengine_llm
-	./voice/recognizer/whisper
-	./voice/synthesizer
-	./voice/synthesizer/aliyun
-	./voice/synthesizer/aws
-	./voice/synthesizer/azure
-	./voice/synthesizer/baidu
-	./voice/synthesizer/coqui
-	./voice/synthesizer/elevenlabs
-	./voice/synthesizer/fishaudio
-	./voice/synthesizer/fishspeech
-	./voice/synthesizer/google
-	./voice/synthesizer/local
-	./voice/synthesizer/minimax
-	./voice/synthesizer/openai
-	./voice/synthesizer/qcloud
-	./voice/synthesizer/qiniu
-	./voice/synthesizer/volcengine
-	./voice/synthesizer/xunfei
 )
 
 // Force the old monolithic google.golang.org/genproto to a version that no

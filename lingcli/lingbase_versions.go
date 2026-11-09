@@ -5,74 +5,14 @@ package main
 
 import (
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 )
-
-// lingBaseSubmoduleVersions maps LingByte submodule paths to their latest
-// published version. This is needed because `go mod tidy` cannot auto-discover
-// submodules when the root module path is a prefix — it resolves to the root
-// module instead of the submodule.
-//
-// To update: run `git tag -l --sort=-v:refname` in the ling-base repo and
-// extract the latest version for each submodule.
-var lingBaseSubmoduleVersions = map[string]string{
-	"github.com/LingByte/ling-base/apidocs":                     "v0.4.0",
-	"github.com/LingByte/ling-base/bootstrap":                   "v0.1.6",
-	"github.com/LingByte/ling-base/common":                      "v0.3.1",
-	"github.com/LingByte/ling-base/common/alerting":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/authcontext":          "v0.1.0",
-	"github.com/LingByte/ling-base/common/authcontext/gin":      "v0.1.0",
-	"github.com/LingByte/ling-base/common/batch":                "v0.1.0",
-	"github.com/LingByte/ling-base/common/cache":                "v0.1.1",
-	"github.com/LingByte/ling-base/common/chunk":                "v0.1.1",
-	"github.com/LingByte/ling-base/common/codegen":              "v0.1.0",
-	"github.com/LingByte/ling-base/common/configcenter":         "v0.1.0",
-	"github.com/LingByte/ling-base/common/circuitbreaker":       "v0.1.0",
-	"github.com/LingByte/ling-base/common/constants":            "v0.1.1",
-	"github.com/LingByte/ling-base/common/embedder":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/extension":            "v0.1.0",
-	"github.com/LingByte/ling-base/common/grpc":                 "v0.1.0",
-	"github.com/LingByte/ling-base/common/i18n":                 "v0.1.0",
-	"github.com/LingByte/ling-base/common/i18n/gin":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/idempotency":          "v0.1.0",
-	"github.com/LingByte/ling-base/common/jwtutil":              "v0.2.2",
-	"github.com/LingByte/ling-base/common/jwtutil/gin":          "v0.2.0",
-	"github.com/LingByte/ling-base/common/limiter/tokenbucket":  "v0.1.2",
-	"github.com/LingByte/ling-base/common/lock":                 "v0.1.0",
-	"github.com/LingByte/ling-base/common/logger":               "v0.1.2",
-	"github.com/LingByte/ling-base/common/middleware":           "v0.1.4",
-	"github.com/LingByte/ling-base/common/password":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/probe":                "v0.1.0",
-	"github.com/LingByte/ling-base/common/rbac":                 "v0.1.0",
-	"github.com/LingByte/ling-base/common/rbac/gin":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/reconciler":           "v0.1.0",
-	"github.com/LingByte/ling-base/common/registry":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/registry/consul":      "v0.1.0",
-	"github.com/LingByte/ling-base/common/response":             "v0.1.1",
-	"github.com/LingByte/ling-base/common/response/gin":         "v0.1.1",
-	"github.com/LingByte/ling-base/common/retrieve":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/retry":                "v0.1.1",
-	"github.com/LingByte/ling-base/common/shutdown":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/snapshot":             "v0.1.0",
-	"github.com/LingByte/ling-base/common/ssh":                  "v0.1.0",
-	"github.com/LingByte/ling-base/common/tree":                 "v0.1.0",
-	"github.com/LingByte/ling-base/common/tree/gormstore":       "v0.1.0",
-	"github.com/LingByte/ling-base/common/tree/memory":          "v0.1.1",
-	"github.com/LingByte/ling-base/common/tree/mysql":           "v0.1.0",
-	"github.com/LingByte/ling-base/common/tree/postgres":        "v0.1.0",
-	"github.com/LingByte/ling-base/common/tree/sqlite":          "v0.1.0",
-	"github.com/LingByte/ling-base/common/uaparse":              "v0.1.0",
-	"github.com/LingByte/ling-base/common/validate":             "v0.2.1",
-	"github.com/LingByte/ling-base/stores":                      "v0.1.5",
-	"github.com/LingByte/ling-base/stores/local":                "v0.1.4",
-	"github.com/LingByte/ling-base/voice/vad":                   "v0.1.0",
-	"github.com/LingByte/ling-base/voice/voiceclone":            "v0.1.0",
-	"github.com/LingByte/ling-base/voice/voiceprint":            "v0.1.0",
-}
 
 // lingBaseTransitiveReplaces maps LingByte submodules that have broken
 // transitive dependencies (referencing unpublished versions). The generator
@@ -104,19 +44,13 @@ func resolveLingBaseImports(dir string) []string {
 		if strings.Contains(path, "/vendor/") || strings.Contains(path, "/.git/") {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 		if err != nil {
 			return nil
 		}
-		content := string(data)
-		// Find all LingByte imports
-		for _, line := range strings.Split(content, "\n") {
-			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, "\"github.com/LingByte/ling-base") {
-				continue
-			}
-			imp := strings.Trim(line, "\"")
-			// Find the longest matching submodule prefix
+		for _, spec := range file.Imports {
+			imp := strings.Trim(spec.Path.Value, "\"")
+			// Find the actual owning module, not an ancestor such as common.
 			bestMatch := ""
 			for modPath := range lingBaseSubmoduleVersions {
 				if imp == modPath || strings.HasPrefix(imp, modPath+"/") {
@@ -146,30 +80,28 @@ func resolveLingBaseImports(dir string) []string {
 // submodules when the root module path is a prefix — they resolve to the
 // root module instead of the submodule.
 // It also adds replace directives for known broken transitive dependencies.
-func goGetLingBaseModules(dir string, imports []string) {
-	goBin := findGoBin()
-	// 1. Add require directives for direct imports
+func goGetLingBaseModules(dir string, imports []string) error {
+	args := []string{"mod", "edit"}
 	for _, imp := range imports {
 		ver, ok := lingBaseSubmoduleVersions[imp]
 		if !ok {
-			continue
+			return fmt.Errorf("未找到模块 %s 的发布版本，请运行 make sync-cli-versions", imp)
 		}
-		target := fmt.Sprintf("%s@%s", imp, ver)
-		cmd := exec.Command(goBin, "mod", "edit", "-require="+target)
-		cmd.Dir = dir
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		_ = cmd.Run()
+		args = append(args, "-require="+imp+"@"+ver)
 	}
-	// 2. Add replace directives for broken transitive dependencies.
-	// These force the correct version even when a published submodule
-	// references an unpublished version of another submodule.
-	for modPath, ver := range lingBaseTransitiveReplaces {
-		target := fmt.Sprintf("%s@%s", modPath, ver)
-		cmd := exec.Command(goBin, "mod", "edit", "-replace="+modPath+"="+target)
-		cmd.Dir = dir
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		_ = cmd.Run()
+	modules := make([]string, 0, len(lingBaseTransitiveReplaces))
+	for module := range lingBaseTransitiveReplaces {
+		modules = append(modules, module)
 	}
+	sort.Strings(modules)
+	for _, module := range modules {
+		args = append(args, "-replace="+module+"="+module+"@"+lingBaseTransitiveReplaces[module])
+	}
+	cmd := exec.Command(findGoBin(), args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("写入 ling-base 模块版本失败: %w\n%s", err, output)
+	}
+	return nil
 }

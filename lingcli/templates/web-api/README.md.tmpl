@@ -54,7 +54,7 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 
 | 模块 | pkg 包 | 默认后端 | 切换方式 |
 |------|--------|----------|----------|
-| 对象存储 (stores) | `pkg/storage` | local（本地文件系统） | `go get stores/s3` + 修改 `storage.driver` + 在 `pkg/storage.Init()` 加 case |
+| 对象存储 (stores) | `pkg/storage` | local（本地文件系统） | `go get common/stores/s3` + 修改 `storage.driver` + 在 `pkg/storage.Init()` 加 case |
 | 缓存 (cache) | `pkg/cache` | memory（进程内） | `go get cache/redis` + 修改 `cache.driver` + 在 `pkg/cache.Init()` 加 case |
 | 分布式锁 (lock) | `pkg/lock` | memory（进程内） | `go get lock/redis` + 修改 `lock.driver` + 在 `pkg/lock.Init()` 加 case |
 | 重试 (retry) | `pkg/retry` | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
@@ -387,7 +387,7 @@ open http://localhost:{{.Port}}/docs
 │   └── README.md                # 迁移说明
 ├── scripts/
 │   └── migrate.sh               # 数据库迁移辅助脚本
-├── uploads/                     # 本地文件存储根目录（stores/local 后端，自动创建）
+├── uploads/                     # 本地文件存储根目录（common/stores/local 后端，自动创建）
 ├── skills/                      # AI 开发技能（TDD/代码审查/调试/领域建模等）
 │   ├── tdd/                     # 测试驱动开发
 │   ├── code-review/             # 代码审查

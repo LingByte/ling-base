@@ -7,7 +7,7 @@ description: OpenAI Realtime API WebSocket 桥接
 
 `relay/realtime` 提供**框架无关**的 WebSocket 抽象，在客户端与上游 OpenAI Realtime API 之间双向转发事件，并累计用量。
 
-> 端到端语音助手也可使用 [voice/realtime](/docs/voice/realtime)，封装了 ASR+LLM+TTS 全链路。
+> 端到端语音助手也可使用 [providers/voice/realtime](/docs/voice/realtime)，封装了 ASR+LLM+TTS 全链路。
 
 ## 核心类型
 
@@ -60,9 +60,9 @@ fmt.Printf("Usage: %+v\n", session.Usage())
 | `Tools` | Function calling 定义 |
 | `APIKey` / `BaseURL` | 鉴权与端点 |
 
-## 与 voice/realtime 对比
+## 与 providers/voice/realtime 对比
 
-| | relay/realtime | voice/realtime |
+| | relay/realtime | providers/voice/realtime |
 |---|----------------|----------------|
 | 层级 | WebSocket 透传桥 | 高级 Agent 事件模型 |
 | 适用 | 已有 WS 客户端、代理网关 | 应用内集成语音助手 |

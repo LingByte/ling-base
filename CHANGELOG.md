@@ -10,6 +10,13 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 
 ## [Unreleased]
 
+### Changed
+- 对象存储迁移到 `common/stores`，语音迁移到 `providers/voice`，同步 module/import 路径；52 个迁移模块的新前缀统一从 `v0.1.0` 首发，历史 tag 保持不变。
+- 根目录 `example/` 清空并退出 Go 工作区。
+- 发布脚本根据当前 `go.mod` 校验 tag 前缀，精确匹配正式版本，支持只读预览并拒绝为未提交代码打 tag；库和 lingcli 分开发布。
+- lingcli 从实际模块目录与正式 tag 自动生成版本表，支持别名导入；发布构建使用 tag 注入自身版本，`go install` 使用 Go 构建信息。
+- lingcli 发布二进制递归嵌入库源码和外部依赖版本，覆盖迁移后的存储与语音模块，与本地 full 模式保持一致。
+
 ### Added
 - CI/CD pipeline (`.github/workflows/ci.yml`) — fmt + vet + build + test + coverage + lint + govulncheck
 - Release pipeline (`.github/workflows/release.yml`) — tag-triggered GitHub Release
