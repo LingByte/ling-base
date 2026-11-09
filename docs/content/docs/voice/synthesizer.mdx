@@ -5,12 +5,12 @@ description: 16+ provider，流式 PCM 分片与词级时间戳
 
 # TTS 语音合成
 
-`voice/synthesizer` 提供文本转语音（TTS）抽象。各云厂商实现 `Engine` 接口，通过 `Handler` 回调流式返回音频块；支持词级时间戳、缓存 Key 与 emoji 过滤等工具函数。
+`providers/voice/synthesizer` 提供文本转语音（TTS）抽象。各云厂商实现 `Engine` 接口，通过 `Handler` 回调流式返回音频块；支持词级时间戳、缓存 Key 与 emoji 过滤等工具函数。
 
 ## 架构
 
 ```
-voice/synthesizer/
+providers/voice/synthesizer/
 ├── types.go      # Engine、Handler、StreamFormat、Provider 常量
 ├── factory.go    # Factory 注册表
 ├── openai/       # OpenAI TTS
@@ -26,9 +26,9 @@ voice/synthesizer/
 ## 安装
 
 ```bash
-go get github.com/LingByte/ling-base/voice/synthesizer
-go get github.com/LingByte/ling-base/voice/synthesizer/openai
-go get github.com/LingByte/ling-base/voice/synthesizer/volcengine
+go get github.com/LingByte/ling-base/providers/voice/synthesizer
+go get github.com/LingByte/ling-base/providers/voice/synthesizer/openai
+go get github.com/LingByte/ling-base/providers/voice/synthesizer/volcengine
 ```
 
 ## Engine 接口
@@ -65,8 +65,8 @@ import (
     "context"
     "os"
 
-    "github.com/LingByte/ling-base/voice/synthesizer"
-    openai "github.com/LingByte/ling-base/voice/synthesizer/openai"
+    "github.com/LingByte/ling-base/providers/voice/synthesizer"
+    openai "github.com/LingByte/ling-base/providers/voice/synthesizer/openai"
 )
 
 func main() {
@@ -95,7 +95,7 @@ func main() {
 ## 火山引擎 TTS
 
 ```go
-import volc "github.com/LingByte/ling-base/voice/synthesizer/volcengine"
+import volc "github.com/LingByte/ling-base/providers/voice/synthesizer/volcengine"
 
 cfg := volc.NewConfig(appID, token, cluster)
 cfg.Voice = "zh_female_shuangkuaisisi"
@@ -112,8 +112,8 @@ err := engine.Synthesize(ctx, synthesizer.HandlerFunc{
 
 ```go
 import (
-    "github.com/LingByte/ling-base/voice/synthesizer"
-    openai "github.com/LingByte/ling-base/voice/synthesizer/openai"
+    "github.com/LingByte/ling-base/providers/voice/synthesizer"
+    openai "github.com/LingByte/ling-base/providers/voice/synthesizer/openai"
 )
 
 f := synthesizer.NewFactory()

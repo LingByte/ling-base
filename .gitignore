@@ -45,8 +45,7 @@ apidocs/assets/.DS_Store
 /lingcli/embed_source/*
 !/lingcli/embed_source/.gitkeep
 
-# agent: only ignore compiled binaries, not source
-/example/cmd/ling-agent/ling-agent
+# Compiled CLI binaries
 /bin/
 
 # agent sandbox: OS sandbox mode (config.SandboxOS) uses the project directory

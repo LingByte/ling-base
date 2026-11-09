@@ -15,7 +15,7 @@ self-register via blank imports.
 ## Structure
 
 ```
-voice/
+providers/voice/
 ├── recognizer/      # ASR: speech-to-text recognition
 ├── synthesizer/     # TTS: text-to-speech synthesis
 └── realtime/        # Realtime voice agents (WebSocket-based)
@@ -96,8 +96,8 @@ type Agent interface { ... }  // realtime conversation agent
 
 ```go
 import (
-    "github.com/LingByte/ling-base/voice/recognizer"
-    _ "github.com/LingByte/ling-base/voice/recognizer/qcloud"  // register vendor
+    "github.com/LingByte/ling-base/providers/voice/recognizer"
+    _ "github.com/LingByte/ling-base/providers/voice/recognizer/qcloud"  // register vendor
 )
 
 // Create an ASR recognizer

@@ -5,12 +5,12 @@ description: 8 个 provider，全双工 ASR+LLM+TTS WebSocket 语音助手
 
 # Realtime 实时对话
 
-`voice/realtime` 将 **ASR + LLM + TTS** 合并为单一全双工 WebSocket 会话，适合语音助手、实时客服等低延迟场景。与 `recognizer`（仅 ASR）、`synthesizer`（仅 TTS）并列，按场景选用。
+`providers/voice/realtime` 将 **ASR + LLM + TTS** 合并为单一全双工 WebSocket 会话，适合语音助手、实时客服等低延迟场景。与 `recognizer`（仅 ASR）、`synthesizer`（仅 TTS）并列，按场景选用。
 
 ## 架构
 
 ```
-voice/realtime/
+providers/voice/realtime/
 ├── types.go        # Agent、Options、Event、EventType
 ├── factory.go      # NewAgentFromCredential
 ├── openai/         # GPT-4o Realtime
@@ -26,16 +26,16 @@ voice/realtime/
 ## 安装
 
 ```bash
-go get github.com/LingByte/ling-base/voice/realtime
-go get github.com/LingByte/ling-base/voice/realtime/openai
+go get github.com/LingByte/ling-base/providers/voice/realtime
+go get github.com/LingByte/ling-base/providers/voice/realtime/openai
 ```
 
 应用入口 **blank import** 注册 provider：
 
 ```go
 import (
-    _ "github.com/LingByte/ling-base/voice/realtime/openai"
-    _ "github.com/LingByte/ling-base/voice/realtime/gemini"
+    _ "github.com/LingByte/ling-base/providers/voice/realtime/openai"
+    _ "github.com/LingByte/ling-base/providers/voice/realtime/gemini"
 )
 ```
 
@@ -91,8 +91,8 @@ import (
     "os"
     "sync"
 
-    "github.com/LingByte/ling-base/voice/realtime"
-    _ "github.com/LingByte/ling-base/voice/realtime/openai"
+    "github.com/LingByte/ling-base/providers/voice/realtime"
+    _ "github.com/LingByte/ling-base/providers/voice/realtime/openai"
 )
 
 func main() {
