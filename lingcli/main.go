@@ -25,10 +25,27 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 )
 
-const cliVersion = "v0.14.0"
+// Set by release builds with -ldflags "-X main.cliVersion=vX.Y.Z".
+var cliVersion = "dev"
+
+func resolvedCLIVersion() string {
+	info, _ := debug.ReadBuildInfo()
+	return cliVersionFromBuildInfo(cliVersion, info)
+}
+
+func cliVersionFromBuildInfo(injected string, info *debug.BuildInfo) string {
+	if injected != "" && injected != "dev" {
+		return injected
+	}
+	if info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 // currentTemplate 记录当前交互流程选择的模板，供 askModulesOneByOne 跳过内置模块用。
 var currentTemplate string
@@ -45,7 +62,12 @@ func main() {
 	case "list":
 		runList()
 	case "version", "-v", "--version":
-		fmt.Println("lingcli", cliVersion)
+		fmt.Println("lingcli", resolvedCLIVersion())
+	case "prepare-embed":
+		if err := prepareEmbeddedSource("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "help", "-h", "--help":
 		printHelp()
 	default:
@@ -156,16 +178,16 @@ func runCreate(args []string) {
 	}
 
 	spec := &ProjectSpec{
-		Name:          target,
-		Module:        *module,
-		Author:        *author,
-		Port:          *port,
-		Docker:        *docker,
-		Git:           *git,
-		Template:      *tmpl,
-		ConfigFormat:  *configFormat,
-		CIPlatform:    *ciPlatform,
-		Mode:          *mode,
+		Name:         target,
+		Module:       *module,
+		Author:       *author,
+		Port:         *port,
+		Docker:       *docker,
+		Git:          *git,
+		Template:     *tmpl,
+		ConfigFormat: *configFormat,
+		CIPlatform:   *ciPlatform,
+		Mode:         *mode,
 	}
 	// 解析 --architecture（逗号分隔）
 	if *architecture != "" {

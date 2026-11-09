@@ -126,7 +126,7 @@ myapp/
 │   ├── models/user.go              # 数据模型
 │   └── types/types.go              # 通用 DTO
 ├── pkg/                            # 可被外部引用的通用封装（包级单例）
-│   ├── storage/storage.go          # 对象存储（ling-base/stores，默认 local）
+│   ├── storage/storage.go          # 对象存储（ling-base/common/stores，默认 local）
 │   ├── cache/cache.go              # 缓存（ling-base/common/cache，默认 memory）
 │   ├── lock/lock.go                # 分布式锁（ling-base/common/lock，默认 memory）
 │   ├── retry/retry.go              # 重试策略（ling-base/common/retry）
@@ -150,6 +150,24 @@ make test-race    # 竞态检测
 make lint         # golangci-lint
 make docker-up    # Docker Compose 启动
 ```
+
+## 模块路径与发布维护
+
+- 对象存储使用 `github.com/LingByte/ling-base/common/stores` 及其后端子模块。
+- 语音使用 `github.com/LingByte/ling-base/providers/voice/...`；上述新 module 路径首发均为 `v0.1.0`，旧目录的 tag 不适用于新路径。
+- `lib` 模式按生成的版本表添加依赖。新路径 tag 尚未发布时，不能只靠替换仓库根模块解决；请等待库发布，或使用 `full` 模式。
+- `full` 模式的本地复制和发布二进制使用相同目录布局；发布二进制还会携带外部依赖版本，不依赖用户机器上的 ling-base 源码目录。
+- `lingcli version` 使用发布构建注入的版本，或 `go install` 的模块版本；普通本地开发构建显示 `dev`。
+
+在仓库根目录维护 CLI：
+
+```bash
+make sync-cli-versions   # 根据实际模块目录与正式 tag 生成版本表
+make check-cli-versions  # 检查生成文件是否同步，不修改文件
+make build-cli          # 嵌入源码及依赖版本，构建 bin/lingcli
+```
+
+请先发布库 tag，再同步并提交 `lingcli/module_versions.go`，最后发布 lingcli。完整步骤见 [发布指南](../CONTRIBUTING.md#8-发布版本)。`release-all` 不会替你发布 lingcli。
 
 ## License
 

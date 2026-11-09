@@ -1,245 +1,170 @@
 #!/usr/bin/env bash
-# Release script for ling-base multi-module Go library.
-#
-# Usage:
-#   scripts/release.sh --pkg <dir> --level <patch|minor|major>
-#   scripts/release.sh --all --level <patch|minor|major>
-#
-# Examples:
-#   scripts/release.sh --pkg scheduler --level patch
-#     # scheduler/v0.1.0 → scheduler/v0.1.1
-#
-#   scripts/release.sh --pkg common/jwtutil --level minor
-#     # common/jwtutil/v0.1.0 → common/jwtutil/v0.2.0
-#
-#   scripts/release.sh --pkg . --level patch
-#     # v0.2.1 → v0.2.2 (root module)
-#
-#   scripts/release.sh --all --level patch
-#     # Auto-detect all modules with changes since their last tag
-#     # and bump each one by the specified level.
-#
-# What it does:
-#   1. Finds the latest existing tag for the module (e.g. scheduler/v0.1.0).
-#   2. Increments the version according to --level.
-#   3. Creates an annotated git tag at HEAD.
-#   4. Prints a summary.
-#
-# This script does NOT push tags. Use `make push-tags` or `git push origin --tags`.
-
+# Release ling-base modules using their current go.mod paths.
+# New module paths start at v0.1.0; historical tags are never moved or reused.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 cd "$ROOT"
-
-# ──────────────────────────────────────────────
-# Argument parsing
-# ──────────────────────────────────────────────
-
 PKG=""
 LEVEL="patch"
 ALL=false
+DRY_RUN=false
+LIST_TAGS=false
+MODULE_ROOT="github.com/LingByte/ling-base"
+
+usage() {
+  printf '%s\n' \
+    'Usage: scripts/release.sh --pkg <dir> [--level patch|minor|major] [--dry-run]' \
+    '       scripts/release.sh --all [--level patch|minor|major] [--dry-run]' \
+    '       scripts/release.sh --pkg <dir> --list-tags' \
+    '' \
+    'Examples: --pkg common/stores, --pkg providers/voice/recognizer, --pkg lingcli' \
+    '--all releases libraries; release lingcli separately after publishing libraries.' \
+    'This script creates local tags only and requires a clean working tree.'
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --pkg)
-      PKG="$2"
-      shift 2
-      ;;
-    --level)
-      LEVEL="$2"
-      shift 2
-      ;;
-    --all)
-      ALL=true
-      shift
-      ;;
-    -h|--help)
-      sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 1
-      ;;
+    --pkg|--level)
+      [[ $# -ge 2 && "$2" != --* ]] || { printf 'Missing value for %s\n' "$1" >&2; exit 1; }
+      if [[ "$1" == --pkg ]]; then PKG="$2"; else LEVEL="$2"; fi
+      shift 2 ;;
+    --all) ALL=true; shift ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    --list-tags) LIST_TAGS=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
 done
 
-if [[ "$LEVEL" != "patch" && "$LEVEL" != "minor" && "$LEVEL" != "major" ]]; then
-  echo "Error: --level must be one of: patch, minor, major" >&2
+[[ "$LEVEL" == patch || "$LEVEL" == minor || "$LEVEL" == major ]] || { printf 'Invalid release level: %s\n' "$LEVEL" >&2; exit 1; }
+if [[ "$ALL" == true && ( -n "$PKG" || "$LIST_TAGS" == true ) ]]; then
+  printf '%s\n' '--all cannot be combined with --pkg or --list-tags' >&2
   exit 1
 fi
 
-# ──────────────────────────────────────────────
-# Functions
-# ──────────────────────────────────────────────
-
-# Get the tag prefix for a directory.
-# Root dir (.) → "" (tags are v0.1.0, v0.2.0, ...)
-# Subdir (scheduler) → "scheduler/" (tags are scheduler/v0.1.0, ...)
-get_prefix() {
-  local dir="$1"
-  if [[ "$dir" == "." || -z "$dir" ]]; then
-    echo ""
-  else
-    echo "${dir}/"
-  fi
-}
-
-# Get the latest tag for a module directory.
-# Returns empty string if no tag exists.
-get_latest_tag() {
-  local dir="$1"
-  local prefix
-  prefix=$(get_prefix "$dir")
-
-  if [[ -z "$prefix" ]]; then
-    # Root module: match v* but not */v*
-    git tag --list "v[0-9]*" --sort=-v:refname | head -1
-  else
-    git tag --list "${prefix}v*" --sort=-v:refname | head -1
-  fi
-}
-
-# Bump a version string (X.Y.Z) by the given level.
-# Usage: bump_version "0.1.0" patch → "0.1.1"
-bump_version() {
-  local ver="$1"
-  local level="$2"
-
-  local major minor patch
-  IFS='.' read -r major minor patch <<< "$ver"
-
-  case "$level" in
-    patch)
-      patch=$((patch + 1))
-      ;;
-    minor)
-      minor=$((minor + 1))
-      patch=0
-      ;;
-    major)
-      major=$((major + 1))
-      minor=0
-      patch=0
-      ;;
+normalize_dir() {
+  local dir="$1" resolved
+  case "${dir#./}" in
+    stores|stores/*) printf 'stores moved to common/stores; use --pkg common/%s\n' "${dir#./}" >&2; return 1 ;;
+    voice|voice/*) printf 'voice moved to providers/voice; use --pkg providers/%s\n' "${dir#./}" >&2; return 1 ;;
   esac
-
-  echo "${major}.${minor}.${patch}"
-}
-
-# Check if a module directory has changes since its last tag.
-# Returns 0 (true) if there are changes, 1 (false) otherwise.
-has_changes() {
-  local dir="$1"
-  local last_tag
-  last_tag=$(get_latest_tag "$dir")
-
-  if [[ -z "$last_tag" ]]; then
-    # No tag ever — check if dir has any .go files (excluding tests).
-    if find "$dir" -maxdepth 1 -name '*.go' ! -name '*_test.go' 2>/dev/null | grep -q .; then
-      return 0
-    fi
+  resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
+  if [[ "$resolved" == "$ROOT" ]]; then
+    printf '.\n'
+  elif [[ "$resolved" == "$ROOT/"* ]]; then
+    printf '%s\n' "${resolved#"$ROOT/"}"
+  else
+    printf 'Module directory must be inside this repository: %s\n' "$dir" >&2
     return 1
   fi
+}
 
-  # Check for non-test .go file changes, or go.mod changes.
-  local changes
-  changes=$(git diff --name-only "${last_tag}..HEAD" -- "$dir" 2>/dev/null | grep -v '_test\.go$' | head -1)
-  if [[ -n "$changes" ]]; then
-    return 0
-  fi
+get_module_path() {
+  local key value rest
+  [[ -f "$1/go.mod" ]] || { printf 'No go.mod in %s\n' "$1" >&2; return 1; }
+  while read -r key value rest; do
+    if [[ "$key" == module ]]; then printf '%s\n' "${value//\"/}"; return; fi
+  done < "$1/go.mod"
+  printf 'Missing module directive in %s/go.mod\n' "$1" >&2
   return 1
 }
 
-# Get the module path from go.mod.
-get_module_path() {
-  local dir="$1"
-  head -1 "${dir}/go.mod" | awk '{print $2}'
+get_prefix() {
+  local dir="$1" module expected="$MODULE_ROOT"
+  [[ "$dir" == . ]] || expected="$MODULE_ROOT/$dir"
+  module=$(get_module_path "$dir") || return 1
+  [[ "$module" == "$expected" ]] || { printf 'Module path %s does not match directory %s\n' "$module" "$dir" >&2; return 1; }
+  if [[ "$dir" != . ]]; then printf '%s/\n' "${module#"$MODULE_ROOT/"}"; fi
 }
 
-# Release a single module: bump version and create tag.
+# Match only this module's stable tags, not descendant modules or prereleases.
+list_module_tags() {
+  local prefix tag version
+  prefix=$(get_prefix "$1") || return 1
+  while IFS= read -r tag; do
+    version="${tag#"$prefix"}"
+    if [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+      printf '%s\n' "$tag"
+    fi
+  done < <(git tag --list "${prefix}v*" --sort=-v:refname)
+}
+
+get_latest_tag() {
+  local tag
+  # Read the entire stream to avoid SIGPIPE under set -o pipefail.
+  local first=""
+  while IFS= read -r tag; do [[ -n "$first" ]] || first="$tag"; done < <(list_module_tags "$1")
+  printf '%s\n' "$first"
+}
+
+bump_version() {
+  local major minor patch
+  IFS=. read -r major minor patch <<< "$1"
+  case "$2" in
+    patch) patch=$((patch + 1)) ;;
+    minor) minor=$((minor + 1)); patch=0 ;;
+    major) major=$((major + 1)); minor=0; patch=0 ;;
+  esac
+  printf '%s.%s.%s\n' "$major" "$minor" "$patch"
+}
+
+has_changes() {
+  local tag file
+  tag=$(get_latest_tag "$1")
+  if [[ -z "$tag" ]]; then return 0; fi
+  while IFS= read -r file; do
+    if [[ "$file" != *_test.go ]]; then return 0; fi
+  done < <(git diff --name-only "$tag" -- "$1")
+  return 1
+}
+
 release_module() {
-  local dir="$1"
-  local level="$2"
-
-  local prefix last_tag mod
-  prefix=$(get_prefix "$dir")
-  last_tag=$(get_latest_tag "$dir")
-  mod=$(get_module_path "$dir")
-
-  local new_tag
-  if [[ -z "$last_tag" ]]; then
-    # No previous tag — start at v0.1.0.
-    new_tag="${prefix}v0.1.0"
-    echo "  ★ ${new_tag}  (first release — ${mod})"
+  local dir="$1" prefix tag next version
+  prefix=$(get_prefix "$dir") || return 1
+  tag=$(get_latest_tag "$dir")
+  if [[ -z "$tag" ]]; then
+    next="${prefix}v0.1.0"
   else
-    # Extract version from tag and bump.
-    local current_ver
-    current_ver="${last_tag#${prefix}v}"
-    local new_ver
-    new_ver=$(bump_version "$current_ver" "$level")
-    new_tag="${prefix}v${new_ver}"
-    echo "  ★ ${new_tag}  (${last_tag} → ${new_tag})  — ${mod}"
+    version="${tag#"${prefix}v"}"
+    next="${prefix}v$(bump_version "$version" "$LEVEL")"
   fi
-
-  # Check if tag already exists.
-  if git tag -l "$new_tag" | grep -q .; then
-    echo "    ⚠ Tag ${new_tag} already exists, skipping."
-    return 0
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '  [dry-run] %s (%s)\n' "$next" "$(get_module_path "$dir")"
+  else
+    git tag -a "$next" -m "Release $next — $(get_module_path "$dir")"
+    printf '  Tagged %s\n' "$next"
   fi
-
-  # Create annotated tag.
-  git tag -a "$new_tag" -m "Release ${new_tag} — ${mod}"
-  echo "    ✓ Tag created."
 }
 
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
+if [[ "$ALL" != true ]]; then
+  [[ -n "$PKG" ]] || { usage >&2; exit 1; }
+  PKG=$(normalize_dir "$PKG")
+  get_prefix "$PKG" >/dev/null
+  if [[ "$LIST_TAGS" == true ]]; then list_module_tags "$PKG"; exit 0; fi
+fi
 
-if [[ "$ALL" == "true" ]]; then
-  echo "==> Scanning all modules for changes (level: ${LEVEL})..."
-  echo ""
+if [[ "$DRY_RUN" != true ]]; then
+  if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+    printf '%s\n' 'Commit all release changes first; refusing to tag an uncommitted working tree. Use --dry-run to preview.' >&2
+    exit 1
+  fi
+  if [[ "$PKG" == lingcli ]]; then
+    go run ./scripts/moduleversions --check --require-tags
+  fi
+fi
 
-  # Find all go.mod directories, excluding example (not a library).
+if [[ "$ALL" == true ]]; then
   count=0
-  while IFS= read -r dir; do
-    if [[ "$dir" == "example" ]]; then
-      continue
-    fi
-    if has_changes "$dir"; then
-      release_module "$dir" "$LEVEL"
-      count=$((count + 1))
-    fi
-  done < <(find . -name go.mod -not -path './vendor/*' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort)
-
-  echo ""
-  if [[ $count -eq 0 ]]; then
-    echo "No modules with changes found."
-  else
-    echo "Done. ${count} module(s) tagged."
-    echo "Push with: make push-tags"
-  fi
+  while IFS= read -r manifest; do
+    dir="${manifest%/go.mod}"
+    dir="${dir#./}"
+    [[ -n "$dir" ]] || dir=.
+    # The CLI must be built with the versions of already published libraries.
+    [[ "$dir" != example && "$dir" != lingcli ]] || continue
+    if has_changes "$dir"; then release_module "$dir"; count=$((count + 1)); fi
+  done < <(find . -type d \( -name .git -o -name vendor -o -name node_modules -o -name embed_source -o -name .next \) -prune -o -name go.mod -print | sort)
+  printf '%s module(s). Publish library tags, then run make sync-cli-versions, commit, and release lingcli separately.\n' "$count"
 else
-  # Single module release.
-  if [[ -z "$PKG" ]]; then
-    echo "Error: --pkg is required (or use --all)" >&2
-    exit 1
-  fi
-
-  if [[ ! -d "$PKG" ]]; then
-    echo "Error: directory not found: $PKG" >&2
-    exit 1
-  fi
-
-  if [[ ! -f "${PKG}/go.mod" ]]; then
-    echo "Error: no go.mod found in: $PKG" >&2
-    exit 1
-  fi
-
-  echo "==> Releasing module: ${PKG} (level: ${LEVEL})"
-  release_module "$PKG" "$LEVEL"
-  echo ""
-  echo "Push with: git push origin <tag-name>  or  make push-tags"
+  release_module "$PKG"
 fi

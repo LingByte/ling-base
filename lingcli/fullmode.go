@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -23,6 +24,10 @@ var fullExcludeDirs = map[string]bool{
 	"pentest":  true, // penetration testing tools
 	".git":     true, // git metadata
 	"agentkit": true, // AI agent kit (heavy, separate concern)
+	"scripts":  true, // repository release/build tools
+	"bin":      true, // compiled binaries
+	".github":  true, // CI configuration
+	".devin":   true, // repository tooling
 }
 
 // fullExcludeSubdirs are specific subdirectory paths to exclude (relative to
@@ -35,11 +40,14 @@ var fullExcludeSubdirs = map[string]bool{}
 // to local paths.
 //
 // This ensures that full mode includes ALL ling-base packages — common/*,
-// stores/* (all backends), relay/* (all channels), bootstrap, apidocs,
-// version, providers/*, voice/*, etc. — so the generated project is fully
+// common/stores/* (all backends), relay/* (all channels), bootstrap, apidocs,
+// version, providers/* (including providers/voice/*), etc. — so the generated project is fully
 // self-contained with zero external LingByte dependencies.
 func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 	lingBaseImport := "github.com/LingByte/ling-base"
+	if err := os.MkdirAll(targetPkgDir, 0755); err != nil {
+		return err
+	}
 
 	// Walk the entire ling-base tree
 	return filepath.Walk(lingBaseRoot, func(path string, info os.FileInfo, err error) error {
@@ -54,6 +62,13 @@ func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 		}
 		relPath = filepath.ToSlash(relPath)
 		if relPath == "." {
+			return nil
+		}
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+		// Repository-root configuration and local artifacts are not library resources.
+		if !info.IsDir() && !strings.Contains(relPath, "/") && !strings.HasSuffix(info.Name(), ".go") && info.Name() != "LICENSE" {
 			return nil
 		}
 
@@ -113,7 +128,7 @@ func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 		dstFile := filepath.Join(targetPkgDir, relPath)
 
 		// Go files: rewrite import paths
-		if strings.HasSuffix(info.Name(), ".go") {
+		if strings.HasSuffix(info.Name(), ".go") && modulePath != "" {
 			return copyAndRewriteFile(srcFile, dstFile, lingBaseImport, modulePath)
 		}
 
@@ -256,40 +271,28 @@ func collectSubmoduleRequires(lingBaseRoot string) map[string]string {
 		if err != nil {
 			return nil
 		}
+		inRequireBlock := false
 		for _, line := range strings.Split(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			// Match require lines: "github.com/foo/bar v1.2.3"
-			// or indented in require blocks: "	github.com/foo/bar v1.2.3"
-			if !strings.HasPrefix(line, "github.com/") &&
-				!strings.HasPrefix(line, "gopkg.in/") &&
-				!strings.HasPrefix(line, "go.") &&
-				!strings.HasPrefix(line, "cloud.google.com/") &&
-				!strings.HasPrefix(line, "gorm.io/") {
+			line = strings.TrimSpace(strings.SplitN(line, "//", 2)[0])
+			if line == "require (" {
+				inRequireBlock = true
 				continue
 			}
-			// Skip LingByte imports
-			if strings.HasPrefix(line, "github.com/LingByte/") {
+			if line == ")" {
+				inRequireBlock = false
 				continue
 			}
-			// Extract module path and version
+			if !inRequireBlock {
+				if !strings.HasPrefix(line, "require ") {
+					continue
+				}
+				line = strings.TrimSpace(strings.TrimPrefix(line, "require "))
+			}
 			parts := strings.Fields(line)
-			if len(parts) < 2 {
+			if len(parts) != 2 || !strings.HasPrefix(parts[1], "v") || strings.HasPrefix(parts[0], "github.com/LingByte/") {
 				continue
 			}
-			modPath := parts[0]
-			modVer := parts[1]
-			// Strip comments
-			if idx := strings.Index(modVer, "//"); idx >= 0 {
-				modVer = strings.TrimSpace(modVer[:idx])
-			}
-			// Only keep if version looks valid
-			if modVer == "" {
-				continue
-			}
-			// Keep pseudo-versions (v0.0.0-20260330155402-...) — they are valid
-			// and necessary for modules that don't have tagged releases.
-			// When multiple submodules require different versions of the same
-			// dependency, keep the highest version (MVS semantics).
+			modPath, modVer := parts[0], parts[1]
 			if existing, exists := requires[modPath]; !exists || compareVersions(modVer, existing) > 0 {
 				requires[modPath] = modVer
 			}
@@ -356,29 +359,25 @@ func compareVersions(a, b string) int {
 	return 0
 }
 
-// injectSubmoduleRequires adds require directives from submodule go.mod
-// files into the generated project's go.mod. This ensures external
-// dependency version constraints are preserved in full mode.
-// Uses `go get` to download dependencies and update go.sum, then
-// `go mod edit` to pin the version as a direct require (prevents
-// `go mod tidy` from downgrading it).
-func injectSubmoduleRequires(dir string, requires map[string]string) {
-	goBin := findGoBin()
-	for modPath, modVer := range requires {
-		target := fmt.Sprintf("%s@%s", modPath, modVer)
-		// go get downloads the module and updates go.sum
-		getCmd := exec.Command(goBin, "get", target)
-		getCmd.Dir = dir
-		getCmd.Stdout = nil
-		getCmd.Stderr = nil
-		_ = getCmd.Run()
-		// go mod edit pins the version as a direct require
-		editCmd := exec.Command(goBin, "mod", "edit", "-require="+target)
-		editCmd.Dir = dir
-		editCmd.Stdout = nil
-		editCmd.Stderr = nil
-		_ = editCmd.Run()
+// injectSubmoduleRequires pins versions before tidy, without issuing one
+// network-dependent `go get` command per dependency.
+func injectSubmoduleRequires(dir string, requires map[string]string) error {
+	modules := make([]string, 0, len(requires))
+	for module := range requires {
+		modules = append(modules, module)
 	}
+	sort.Strings(modules)
+	args := []string{"mod", "edit"}
+	for _, module := range modules {
+		args = append(args, "-require="+module+"@"+requires[module])
+	}
+	cmd := exec.Command(findGoBin(), args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("写入依赖版本失败: %w\n%s", err, output)
+	}
+	return nil
 }
 
 // ast package unused import check (avoid compiler error)
@@ -444,15 +443,23 @@ func findLingBaseRoot() string {
 	return cloneLingBase()
 }
 
-// cloneLingBase clones the ling-base repository to a temp directory.
-// Returns empty string on failure.
+// lingBaseSourceRef keeps go-installed release CLIs on the source layout they
+// were released with, instead of mixing their templates with a newer main.
+func lingBaseSourceRef(version string) string {
+	if strings.HasPrefix(version, "v") && !strings.ContainsAny(version, "+-") && len(strings.Split(version, ".")) == 3 {
+		return "lingcli/" + version
+	}
+	return "main"
+}
+
+// cloneLingBase returns an isolated checkout, or an empty string on failure.
 func cloneLingBase() string {
 	tmpDir, err := os.MkdirTemp("", "ling-base-src-")
 	if err != nil {
 		return ""
 	}
 
-	cmd := exec.Command("git", "clone", "--depth=1", "--branch=main",
+	cmd := exec.Command("git", "clone", "--depth=1", "--branch="+lingBaseSourceRef(resolvedCLIVersion()),
 		"https://github.com/LingByte/ling-base.git", tmpDir)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

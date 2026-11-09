@@ -73,8 +73,8 @@ i18n:
 # Object storage (ling-base/stores) — built-in module
 # Default: local backend (local filesystem, zero cloud SDK dependency).
 # To switch to cloud storage, set driver and go get the corresponding module:
-#   go get github.com/LingByte/ling-base/stores/s3
-#   go get github.com/LingByte/ling-base/stores/oss
+#   go get github.com/LingByte/ling-base/common/stores/s3
+#   go get github.com/LingByte/ling-base/common/stores/oss
 storage:
   driver: local            # local | s3 | oss | cos | minio | kodo | tos | obs | ks3
   root: uploads            # local: root directory; cloud: bucket name
