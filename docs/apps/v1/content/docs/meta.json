@@ -1,0 +1,15 @@
+{
+  "root": true,
+  "pages": [
+    "(root)",
+    "installation",
+    "relay",
+    "voice",
+    "common",
+    "providers",
+    "security",
+    "infrastructure",
+    "bootstrap",
+    "lingcli"
+  ]
+}

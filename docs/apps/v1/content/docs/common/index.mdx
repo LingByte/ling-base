@@ -1,0 +1,30 @@
+---
+title: Common
+description: 通用工具包 — 日志、缓存、限流、锁、MQ 等
+---
+
+`common/` 下有约 97 个一级包目录，大量子实现各自独立 `go.mod`。
+
+## 常用模块
+
+```bash
+go get github.com/LingByte/ling-base/common/logger
+go get github.com/LingByte/ling-base/common/cache
+go get github.com/LingByte/ling-base/common/limiter
+go get github.com/LingByte/ling-base/common/lock
+go get github.com/LingByte/ling-base/common/jwtutil
+go get github.com/LingByte/ling-base/common/mq
+go get github.com/LingByte/ling-base/common/stores
+```
+
+## 消息队列
+
+实现位于 **`common/mq`**（不是已删除的根路径 `ling-base/mq`）：
+
+```bash
+go get github.com/LingByte/ling-base/common/mq
+go get github.com/LingByte/ling-base/common/mq/factory
+go get github.com/LingByte/ling-base/common/mq/rabbitmq
+```
+
+源码：https://github.com/LingByte/ling-base/tree/main/common

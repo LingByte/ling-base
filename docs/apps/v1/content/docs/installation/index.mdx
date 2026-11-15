@@ -1,0 +1,50 @@
+---
+title: Installation
+description: 按需安装 ling-base 子模块
+---
+
+## 要求
+
+- Go **1.26+**（与仓库 `go.work` 一致）
+- 无需整仓 clone；直接 `go get` 子路径即可
+
+## 安装单个模块
+
+```bash
+# AI 中继
+go get github.com/LingByte/ling-base/relay
+
+# 日志
+go get github.com/LingByte/ling-base/common/logger
+
+# 限流
+go get github.com/LingByte/ling-base/common/limiter
+
+# 消息队列
+go get github.com/LingByte/ling-base/common/mq
+go get github.com/LingByte/ling-base/common/mq/factory
+go get github.com/LingByte/ling-base/common/mq/rabbitmq
+
+# 语音识别
+go get github.com/LingByte/ling-base/providers/voice/recognizer
+```
+
+## 本地开发本仓库
+
+```bash
+git clone https://github.com/LingByte/ling-base.git
+cd ling-base
+# 已提交 go.work，可直接构建
+go build ./relay/...
+```
+
+## 发版说明
+
+每个模块独立打 tag，前缀与路径一致，例如：
+
+```bash
+git tag relay/v0.1.0
+git tag common/mq/v0.1.0
+```
+
+日常发版优先 `make release-patch PKG=<dir>` 或 `make release-group GROUP=relay`；详见仓库 [CONTRIBUTING.md](https://github.com/LingByte/ling-base/blob/main/CONTRIBUTING.md)。
