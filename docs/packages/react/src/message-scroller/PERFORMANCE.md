@@ -134,7 +134,7 @@ is the message component's cost, not the scroller's.
 ## Preventing regressions
 
 The suite runs in CI on every PR that touches `packages/react/**`
-(`.github/workflows/browser-tests.yml`). It guards against regressions two
+(`docs CI (docs-ci.yml)`). It guards against regressions two
 ways, in order of strength:
 
 ### 1. Deterministic guard (the real one)

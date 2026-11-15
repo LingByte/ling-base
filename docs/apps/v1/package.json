@@ -7,6 +7,8 @@
     "dev": "pnpm icons:dev & next dev --webpack --port 4000",
     "dev:turbo": "pnpm icons:dev & next dev --turbopack --port 4000",
     "build": "pnpm registry:build && next build",
+    "build:static": "node ./scripts/with-static-export.mjs",
+    "build:static:next": "DOCS_STATIC_ENGINE=next node ./scripts/with-static-export.mjs",
     "start": "next start --port 4000",
     "preview": "pnpm registry:build && next build && next start --port 4000",
     "lint": "eslint . --cache --cache-location .eslintcache",

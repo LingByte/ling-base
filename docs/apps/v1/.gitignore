@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+.static-stash/
 
 # production
 /build
@@ -61,3 +62,6 @@ next-env.d.ts
 # `pnpm registry:build --style all`). See styles/README.md.
 /styles/*
 !/styles/README.md
+
+# generated per-style registry trees (rebuilt by registry:build on CI/deploy).
+/registry/base-*/

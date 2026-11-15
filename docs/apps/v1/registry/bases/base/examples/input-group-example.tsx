@@ -533,7 +533,7 @@ function InputGroupWithKbd() {
               id="input-search-apps-24"
               placeholder="Search for Apps..."
             />
-            <InputGroupAddon align="inline-end">Ask AI</InputGroupAddon>
+            <InputGroupAddon align="inline-end">Help</InputGroupAddon>
             <InputGroupAddon align="inline-end">
               <Kbd>Tab</Kbd>
             </InputGroupAddon>

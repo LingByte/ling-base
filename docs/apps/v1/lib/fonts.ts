@@ -1,25 +1,11 @@
-import { JetBrains_Mono, Source_Sans_3 } from "next/font/google"
 import { cn } from "cn"
 
-// Prefer fonts that resolve reliably with webpack (avoid Turbopack Geist CSS stubs).
-const fontSans = Source_Sans_3({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
-
-const fontHeading = Source_Sans_3({
-  subsets: ["latin"],
-  variable: "--font-heading",
-})
-
-const fontMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500"],
-})
-
+/**
+ * Avoid next/font/google in this app: Turbopack/webpack + CI/static export
+ * frequently fail while fetching Google Fonts. Rely on system stacks via CSS vars.
+ */
 export const fontVariables = cn(
-  fontSans.variable,
-  fontHeading.variable,
-  fontMono.variable
+  "[--font-sans:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif]",
+  "[--font-heading:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif]",
+  "[--font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
 )

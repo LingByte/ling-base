@@ -38,10 +38,10 @@ export function TraceSheet() {
             </SheetDescription>
           </SheetHeader>
           <ul className="flex flex-col gap-2 px-6 font-mono text-xs">
-            <li>apps/v4/lib/docs.ts</li>
-            <li>apps/v4/lib/components.ts</li>
-            <li>apps/v4/next.config.mjs</li>
-            <li>apps/v4/package.json</li>
+            <li>apps/v1/lib/docs.ts</li>
+            <li>apps/v1/lib/components.ts</li>
+            <li>apps/v1/next.config.mjs</li>
+            <li>apps/v1/package.json</li>
           </ul>
         </SheetContent>
       </Sheet>

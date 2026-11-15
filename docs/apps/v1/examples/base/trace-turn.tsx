@@ -88,7 +88,7 @@ export function TraceTurn() {
                 <TraceIcon>
                   <FileTextIcon />
                 </TraceIcon>
-                <TraceTitle>Read apps/v4/lib/docs.ts</TraceTitle>
+                <TraceTitle>Read apps/v1/lib/docs.ts</TraceTitle>
                 <TraceIcon>
                   <ChevronRightIcon />
                 </TraceIcon>

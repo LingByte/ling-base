@@ -10,31 +10,31 @@ const examples = [
   {
     name: "Dashboard",
     href: "/examples/dashboard",
-    code: "https://github.com/shadcn/ui/tree/main/apps/v4/app/(app)/examples/dashboard",
+    code: "https://github.com/LingByte/ling-base/tree/main/docs/apps/v1/app/(app)/examples/dashboard",
     hidden: false,
   },
   {
     name: "Tasks",
     href: "/examples/tasks",
-    code: "https://github.com/shadcn/ui/tree/main/apps/v4/app/(app)/examples/tasks",
+    code: "https://github.com/LingByte/ling-base/tree/main/docs/apps/v1/app/(app)/examples/tasks",
     hidden: false,
   },
   {
     name: "Playground",
     href: "/examples/playground",
-    code: "https://github.com/shadcn/ui/tree/main/apps/v4/app/(app)/examples/playground",
+    code: "https://github.com/LingByte/ling-base/tree/main/docs/apps/v1/app/(app)/examples/playground",
     hidden: false,
   },
   {
     name: "Authentication",
     href: "/examples/authentication",
-    code: "https://github.com/shadcn/ui/tree/main/apps/v4/app/(app)/examples/authentication",
+    code: "https://github.com/LingByte/ling-base/tree/main/docs/apps/v1/app/(app)/examples/authentication",
     hidden: false,
   },
   {
     name: "RTL",
     href: "/examples/rtl",
-    code: "https://github.com/shadcn/ui/tree/main/apps/v4/app/(app)/examples/rtl",
+    code: "https://github.com/LingByte/ling-base/tree/main/docs/apps/v1/app/(app)/examples/rtl",
     hidden: false,
   },
 ]

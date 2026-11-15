@@ -73,7 +73,7 @@ const data = {
       ),
     },
     {
-      title: "Ask AI",
+      title: "Help",
       url: "#",
       icon: (
         <IconPlaceholder

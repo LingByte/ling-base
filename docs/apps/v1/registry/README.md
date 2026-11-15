@@ -52,7 +52,7 @@ There are two kinds of "styles", and the distinction drives the build flags:
 
 ## Building
 
-Run from `apps/v4`:
+Run from `apps/v1`:
 
 ```bash
 pnpm registry:build
@@ -199,7 +199,7 @@ project, use the workspace-root Turbo command:
 MONITOR_MODE=hourly vercel env run -- pnpm registry:health
 ```
 
-If the local environment file lives under `apps/v4`, run from that directory
+If the local environment file lives under `apps/v1`, run from that directory
 and use `pnpm -w registry:health` so pnpm still selects the workspace-root
 script.
 

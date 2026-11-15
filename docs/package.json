@@ -30,6 +30,8 @@
     "shadcn:test": "pnpm --filter=shadcn... test",
     "v1:dev": "pnpm --filter=v1 dev",
     "v1:build": "pnpm --filter=v1 build",
+    "build:static": "pnpm --filter=v1 build:static && rm -rf out && cp -R apps/v1/out out",
+    "build:static:next": "DOCS_STATIC_ENGINE=next pnpm --filter=v1 build:static && rm -rf out && cp -R apps/v1/out out",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "preview": "turbo run preview",

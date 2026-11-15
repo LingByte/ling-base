@@ -34,8 +34,18 @@ if (process.env.NODE_ENV === "development") {
   }
 }
 
+const isStaticDeploy = process.env.NEXT_PUBLIC_STATIC_DEPLOY === "1"
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(isStaticDeploy
+    ? {
+        output: "export",
+        trailingSlash: true,
+        ...(basePath ? { basePath } : {}),
+      }
+    : {}),
   devIndicators: false,
   typescript: {
     ignoreBuildErrors: true,
@@ -62,6 +72,7 @@ const nextConfig = {
     ],
   },
   images: {
+    unoptimized: isStaticDeploy,
     remotePatterns: [
       {
         protocol: "https",
@@ -81,6 +92,10 @@ const nextConfig = {
     root: path.resolve(import.meta.dirname, "../.."),
   },
   redirects() {
+    // Static export ignores redirects; keep the list for server/dev only.
+    if (isStaticDeploy) {
+      return []
+    }
     return [
       // Form redirects to /docs/forms.
       {
@@ -220,12 +235,16 @@ const nextConfig = {
       {
         source: "/code/:path*",
         destination:
-          "https://raw.githubusercontent.com/shadcn-ui/ui/refs/heads/main/:path*",
+          "https://raw.githubusercontent.com/LingByte/ling-base/refs/heads/main/docs/:path*",
         permanent: false,
       },
     ]
   },
   rewrites() {
+    // Static export ignores rewrites; keep only local MDX helpers for server mode.
+    if (isStaticDeploy) {
+      return []
+    }
     return [
       {
         source: "/docs/:path*.md",
@@ -234,33 +253,6 @@ const nextConfig = {
       {
         source: "/init.md",
         destination: "/init/md",
-      },
-      // The OIDC registry (shadcn-ui/oidc-ui) is a separate Vercel project
-      // served under /oidc. It sets basePath: "/oidc", so the prefix is
-      // forwarded as-is. RSC requests for the zone's HOME page get
-      // normalized to /oidc.rsc, /oidc.prefetch.rsc and /oidc.segments/*
-      // (dot, not slash) before rewrites run, and the oidc deployment has
-      // no literal outputs at those paths — so send them to /oidc and let
-      // the forwarded RSC headers select the payload there.
-      {
-        source: "/oidc",
-        destination: "https://oidc.shadcn.com/oidc",
-      },
-      {
-        source: "/oidc.rsc",
-        destination: "https://oidc.shadcn.com/oidc",
-      },
-      {
-        source: "/oidc.prefetch.rsc",
-        destination: "https://oidc.shadcn.com/oidc",
-      },
-      {
-        source: "/oidc.segments/:path*",
-        destination: "https://oidc.shadcn.com/oidc",
-      },
-      {
-        source: "/oidc/:path*",
-        destination: "https://oidc.shadcn.com/oidc/:path*",
       },
     ]
   },
