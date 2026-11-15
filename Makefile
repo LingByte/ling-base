@@ -10,7 +10,8 @@
 #   make fmt             Format all Go source files.
 #   make fmt-check       Check formatting without modifying files.
 #   make lint            Run golangci-lint (if installed).
-#   make check           Run fmt-check + vet + build + test (CI equivalent).
+#   make check           Run fmt-check + vet + build + test + check-modules.
+#   make check-all       check + lint + vuln + check-cli-versions.
 #   make cover-html      Generate HTML coverage report (aggregate).
 #   make clean           Remove generated coverage files and demo binaries.
 #   make tags            List all git tags grouped by module.
@@ -51,7 +52,7 @@ DRY_RUN ?= 0
 RELEASE_FLAGS := $(if $(filter 1 true,$(DRY_RUN)),--dry-run,)
 
 # Find all go.mod directories (excluding vendor).
-GO_MOD_DIRS := $(shell find . -name go.mod -not -path './vendor/*' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort)
+GO_MOD_DIRS := $(shell find . -name go.mod -not -path './vendor/*' -not -path './docs/*' -not -path './.git/*' | sed 's|/go.mod||;s|^\./||' | sed 's|^$$|.|' | sort -u)
 
 # ──────────────────────────────────────────────
 # Help
@@ -128,10 +129,12 @@ test-pkg: ## Test a single module (PKG=dir)
 
 test-cover: ## Run tests with coverage for all modules
 	@echo "==> Testing with coverage..."
-	@for dir in $(GO_MOD_DIRS); do \
+	@fail=0; \
+	for dir in $(GO_MOD_DIRS); do \
 		echo "  → $$dir"; \
-		(cd "$$dir" && $(GO) test -count=1 -cover ./... 2>&1) || true; \
-	done
+		(cd "$$dir" && $(GO) test -count=1 -cover ./...) || fail=1; \
+	done; \
+	exit $$fail
 
 # ──────────────────────────────────────────────
 # Code quality
@@ -168,16 +171,18 @@ vuln: ## Run govulncheck on all modules (if installed)
 		echo "  go install golang.org/x/vuln/cmd/govulncheck@latest"; \
 		exit 1; \
 	}
-	@for dir in $(GO_MOD_DIRS); do \
+	@fail=0; \
+	for dir in $(GO_MOD_DIRS); do \
 		echo "  → $$dir"; \
-		(cd "$$dir" && govulncheck ./... 2>&1) || true; \
-	done
+		(cd "$$dir" && govulncheck ./...) || fail=1; \
+	done; \
+	exit $$fail
 
-check: fmt-check vet build test ## Run fmt-check + vet + build + test (CI equivalent)
+check: fmt-check vet build test check-modules ## Run fmt-check + vet + build + test + check-modules
 	@echo "==> All checks passed!"
 
-check-all: fmt-check vet build test lint vuln ## Run all checks including lint + vuln
-	@echo "==> All checks (including lint + vuln) passed!"
+check-all: fmt-check vet build test lint vuln check-modules check-cli-versions ## Run all local quality gates
+	@echo "==> All checks (including lint + vuln + module/CLI gates) passed!"
 
 # ──────────────────────────────────────────────
 # Coverage (HTML)

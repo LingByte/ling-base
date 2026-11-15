@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package activemq provides an ActiveMQ backend for the ling-base/mq
+// Package activemq provides an ActiveMQ backend for the ling-base/common/mq
 // broker abstraction. It communicates with the broker using the STOMP
 // protocol (Streaming Text Oriented Messaging Protocol) via the
 // go-stomp/stomp client library.

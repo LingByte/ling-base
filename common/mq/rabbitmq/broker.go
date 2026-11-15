@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package rabbitmq provides a RabbitMQ backend for the ling-base/mq
+// Package rabbitmq provides a RabbitMQ backend for the ling-base/common/mq
 // broker abstraction. It supports automatic reconnection, publisher
 // confirms, QoS prefetch, concurrent consumers, and topology management.
 package rabbitmq

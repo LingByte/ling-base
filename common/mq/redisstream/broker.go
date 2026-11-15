@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // Package redisstream provides a Redis Streams backend for the
-// ling-base/mq broker abstraction. It supports consumer groups (XREADGROUP),
+// ling-base/common/mq broker abstraction. It supports consumer groups (XREADGROUP),
 // standalone consumption (XREAD), stream trimming (XTRIM/MAXLEN), and
 // manual acknowledgement (XACK).
 //

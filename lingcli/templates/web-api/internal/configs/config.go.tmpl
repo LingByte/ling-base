@@ -110,7 +110,7 @@ type AppConfig struct {
 	Environment string `yaml:"environment"` // dev, test, prod (maps to constants.ENV_DEV / ENV_PROD)
 }
 
-// StorageConfig holds object storage configuration (ling-base/stores).
+// StorageConfig holds object storage configuration (common/stores).
 // Default backend is local (local filesystem, zero cloud SDK dependency).
 // To switch to cloud storage, set driver to s3/oss/cos/minio/kodo/tos/obs/ks3
 // and fill in the corresponding credentials.

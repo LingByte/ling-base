@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package kafka provides a Kafka backend for the ling-base/mq broker
+// Package kafka provides a Kafka backend for the ling-base/common/mq broker
 // abstraction. It uses github.com/segmentio/kafka-go for transport and
 // maps the mq.Broker/Producer/Consumer interfaces onto Kafka topics and
 // consumer groups.

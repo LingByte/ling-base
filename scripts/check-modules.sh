@@ -50,6 +50,24 @@ if [[ -n "$hits" ]]; then
   fail=1
 fi
 
+printf 'Scanning go.sum for deleted module roots...\n'
+sum_hits="$(grep -RIn --include='go.sum' \
+  -e 'github.com/LingByte/ling-base/mq' \
+  -e 'github.com/LingByte/ling-base/agentkit' \
+  -e 'github.com/LingByte/ling-base/voice/' \
+  -e 'github.com/LingByte/ling-base/stores ' \
+  -e 'github.com/LingByte/ling-base/stores/' \
+  --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
+  --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
+  . 2>/dev/null || true)"
+
+if [[ -n "$sum_hits" ]]; then
+  printf '%s\n' "$sum_hits" | while IFS= read -r hit; do
+    printf '  stale go.sum entry: %s\n' "$hit" >&2
+  done
+  fail=1
+fi
+
 if [[ "$fail" -ne 0 ]]; then
   printf 'check-modules failed\n' >&2
   exit 1

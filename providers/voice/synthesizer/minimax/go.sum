@@ -2,8 +2,6 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/LingByte/ling-base/common/logger v0.1.0 h1:4wdlgnbqK0nc+1LvhzmqNKHWMwdrglf8ZzJCz8OxMGg=
 github.com/LingByte/ling-base/common/logger v0.1.0/go.mod h1:S9BpHEi5QbOd1rr5QOUqPa9ev8WSXe3rJlU+lkJYkGE=
-github.com/LingByte/ling-base/voice/synthesizer v0.1.1 h1:VklZKM6WRK8+utpL3sq8vc1hJ+kKztV12KsFU1IjFOQ=
-github.com/LingByte/ling-base/voice/synthesizer v0.1.1/go.mod h1:8klYxVtdCfZ/Db4XH9bBS3HaXh0b0bkEpNtASNbM944=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/natefinch/lumberjack v2.0.0+incompatible h1:4QJd3OLAMgj7ph+yZTuX13Ld4UpgHp07nNdFX7mqFfM=
