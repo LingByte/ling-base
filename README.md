@@ -11,7 +11,7 @@ ling-base/
 ├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ ARCHITECTURE.md           # 架构文档（relay/voice/common 详解）
 │
-├─ common/                   # 通用工具库（50+ 独立 module）
+├─ common/                   # 通用工具库（约 97 个一级包；仓库合计约 238 个 go.mod）
 │  ├─ logger/                # 结构化日志（zap + lumberjack）
 │  ├─ constants/             # 全局常量
 │  ├─ config/                # 配置加载（YAML + 环境变量）
@@ -140,54 +140,22 @@ ling-base/
 │  ├─ constant/              # provider endpoint 常量
 │  └─ helper/                # 辅助函数
 │
-├─ mq/                       # 消息队列接口（5 个 broker）→ common/mq/
-│  ├─ factory/               # 工厂注册
-│  └─ kafka / rabbitmq / activemq / rocketmq / redisstream
-│
 ├─ providers/                # 第三方服务对接
-│  ├─ voice/                 # 语音处理库
-│  │  ├─ recognizer/         # ASR 语音识别
-│  │  │  ├─ baidu/ qcloud/ volcengine/ volcengine_llm
-│  │  │  ├─ aws/ google/ deepgram/ gladia/ funasr/ whisper
-│  │  │  └─ voiceapi/ local
-│  │  ├─ synthesizer/        # TTS 语音合成
-│  │  │  ├─ aliyun/ baidu/ qcloud/ volcengine/ xunfei
-│  │  │  ├─ aws/ azure/ google/ openai
-│  │  │  ├─ elevenlabs/ fishaudio/ fishspeech/ coqui/ minimax/ qiniu
-│  │  │  └─ local/           # 本地 PCM 合成
-│  │  ├─ realtime/           # 实时多模态语音对话（8 个 provider）
-│  │  │  ├─ openai/          # OpenAI Realtime API
-│  │  │  ├─ gemini/          # Google Gemini Live API
-│  │  │  ├─ aliyunomni/      # Qwen-Omni / DashScope
-│  │  │  ├─ volcdialogue/    # 豆包实时对话
-│  │  │  └─ iflytek/ minimax/ stepfun/ tencentsts
-│  │  ├─ vad/               # 语音活动检测
-│  │  ├─ voiceprint/        # 声纹识别
-│  │  └─ voiceclone/        # 语音克隆
-│  ├─ ocr/                   # OCR 光学字符识别（6 个 provider）
-│  │  └─ aws/ google/ aliyun/ baidu/ azure/ qcloud
-│  └─ censor/                # 内容审核接口
-│     ├─ aliyun/             # 阿里云 SDK
-│     ├─ qcloud/             # 腾讯云 SDK
-│     └─ qiniu/              # 七牛 SDK
-│
-├─ search/                   # 全文搜索接口
-│  ├─ bleve/                 # 本地 Bleve 索引
-│  └─ elasticsearch/         # Elasticsearch 8.x
-│
-├─ notification/             # 通知调度（邮件/短信/IM/Webhook）
-│  └─ email / sms / im / inbox / webhook
+│  ├─ voice/                 # 语音处理库（ASR / TTS / Realtime / VAD / 声纹 / 克隆）
+│  ├─ ocr/                   # OCR（aws / google / aliyun / baidu / azure / qcloud）
+│  └─ censor/                # 内容审核（aliyun / qcloud / qiniu）
 │
 ├─ bootstrap/                # 应用启动框架（生命周期管理 + banner）
 ├─ version/                  # 版本信息
 ├─ lingcli/                  # 项目脚手架 CLI
-├─ example/                  # 已清空，预留目录
-└─ apidocs/                  # API 文档
+├─ apidocs/                  # API 文档（Huma OpenAPI）
+├─ pentest/                  # Web 安全测试工具集
+└─ docs/                     # 文档站（Next.js + Fumadocs）
 ```
 
 本地开发使用已提交的 `go.work`；发布后消费者**不需要** `go.work`，直接 `go get` 子模块即可。
 
-> 目录迁移：对象存储现位于 `common/stores`，语音模块现位于 `providers/voice`，Go import 和 module 路径同步变更。外部项目需要更新引用，并等待新路径对应的模块 tag 发布后再通过 `go get` 安装；旧路径的 tag 不适用于新路径。根目录 `example/` 已清空，不再作为工作区模块。
+> 路径说明：对象存储在 `common/stores`，消息队列在 `common/mq`（**不是**已删除的根路径 `ling-base/mq`），搜索在 `common/search`，通知在 `common/notification`，语音在 `providers/voice`。agentkit 已移出本仓库。
 
 ## 按需安装示例
 

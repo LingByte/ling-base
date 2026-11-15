@@ -17,7 +17,9 @@
 #   make release-patch   Bump patch version for a module and create a tag.
 #   make release-minor   Bump minor version for a module and create a tag.
 #   make release-major   Bump major version for a module and create a tag.
-#   make release-all     Tag changed library modules (release lingcli separately).
+#   make release-group GROUP=voice  Tag changed modules in a group (prefer over --all).
+#   make release-all     Tag changed library modules (heavy; prefer PKG/GROUP).
+#   make check-modules   Verify go.work covers every go.mod; reject stale imports.
 #   make sync-cli-versions   Regenerate the CLI module version catalog.
 #   Add DRY_RUN=1 to release commands to preview without creating tags.
 #   make push-tags       Push all tags to the remote.
@@ -26,6 +28,7 @@
 #   make release-patch PKG=common/stores          # first tag: common/stores/v0.1.0
 #   make release-minor PKG=common/jwtutil         # common/jwtutil/v0.1.0 → common/jwtutil/v0.2.0
 #   make release-major PKG=common                 # common/v0.3.1 → common/v1.0.0
+#   make release-group GROUP=relay DRY_RUN=1      # group: relay|common-infra|voice|providers-other|tooling|common
 #   make release-all                              # Auto-bump all modules with changes since last tag.
 #   make release-all LEVEL=minor                  # Auto-bump all changed modules by minor version.
 #
@@ -81,11 +84,13 @@ help: ## Show this help message
 	@echo "  make release-patch PKG=dir   Bump patch version (v0.1.0 → v0.1.1)"
 	@echo "  make release-minor PKG=dir   Bump minor version (v0.1.0 → v0.2.0)"
 	@echo "  make release-major PKG=dir   Bump major version (v0.1.0 → v1.0.0)"
-	@echo "  make release-all             Tag changed libraries (excludes lingcli)"
+	@echo "  make release-group GROUP=name Tag changed modules in a group"
+	@echo "  make release-all             Tag changed libraries (excludes lingcli; prefer PKG/GROUP)"
 	@echo "  make release-all LEVEL=minor Choose the library release level"
 	@echo "  Add DRY_RUN=1                Preview release tags without creating them"
 	@echo "  make sync-cli-versions       Sync CLI versions after publishing libraries"
 	@echo "  make check-cli-versions      Check the generated CLI version catalog"
+	@echo "  make check-modules           Verify go.work + reject stale imports"
 	@echo "  make tags                    List all tags"
 	@echo "  make push-tags               Push all tags to remote"
 	@echo ""
@@ -215,7 +220,7 @@ tags-pkg: ## List tags for a specific module (PKG=dir)
 # Release — version bump + tag
 # ──────────────────────────────────────────────
 
-.PHONY: release-patch release-minor release-major release-all
+.PHONY: release-patch release-minor release-major release-group release-all check-modules
 release-patch: ## Bump patch version for a module (PKG=dir)
 	@$(MAKE) _release PKG=$(PKG) LEVEL=patch
 
@@ -225,9 +230,17 @@ release-minor: ## Bump minor version for a module (PKG=dir)
 release-major: ## Bump major version for a module (PKG=dir)
 	@$(MAKE) _release PKG=$(PKG) LEVEL=major
 
-release-all: ## Tag changed libraries; release lingcli separately after syncing versions
+release-group: ## Tag changed modules in GROUP=relay|common-infra|voice|providers-other|tooling|common
+	@test -n "$(GROUP)" || (echo "Usage: make release-group GROUP=<name>" && exit 1)
+	@echo "==> Releasing group $(GROUP)..."
+	@bash $(ROOT)/scripts/release.sh --group "$(GROUP)" --level $(RELEASE_LEVEL) $(RELEASE_FLAGS)
+
+release-all: ## Tag changed libraries; prefer PKG/GROUP for routine releases
 	@echo "==> Detecting changed library modules since their last tag..."
 	@bash $(ROOT)/scripts/release.sh --all --level $(RELEASE_LEVEL) $(RELEASE_FLAGS)
+
+check-modules: ## Verify go.work covers every go.mod and reject stale imports
+	@bash $(ROOT)/scripts/check-modules.sh
 
 .PHONY: sync-cli-versions check-cli-versions
 sync-cli-versions: ## Regenerate lingcli module versions from current module paths and tags

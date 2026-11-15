@@ -173,18 +173,24 @@ chore: 更新构建配置
 - `providers/voice/recognizer/v0.1.0`、`providers/voice/synthesizer/v0.1.0`、`providers/voice/realtime/v0.1.0` 及各 provider；
 - `providers/voice/vad/v0.1.0`、`providers/voice/voiceprint/v0.1.0`、`providers/voice/voiceclone/v0.1.0`。
 
-**先发布库，最后发布 lingcli**。`release-all` 只处理库模块，不包含 lingcli。真实创建 tag 前必须提交全部改动；预览不要求工作区干净，也不会写入 tag。
+**先发布库，最后发布 lingcli**。日常优先 `--pkg` / `make release-group`；`release-all` 会扫描约 238 个 module，仅用于大范围同步，且不包含 lingcli。真实创建 tag 前必须提交全部改动；预览不要求工作区干净，也不会写入 tag。发版前可跑 `make check-modules`。
 
 ```bash
+# 0. 一致性检查（go.work 覆盖 + 拒绝已删除路径的 import）
+make check-modules
+
 # 1. 预览新 tag（不会创建或推送任何 tag）
 make release-patch PKG=common/stores DRY_RUN=1
 make release-patch PKG=providers/voice/recognizer DRY_RUN=1
-make release-all DRY_RUN=1
+make release-group GROUP=relay DRY_RUN=1
+# groups: relay | common-infra | voice | providers-other | tooling | common
 
 # 2. 提交改动后，为变更的库创建本地 tag；检查清单后推送库 tag
-make release-all
-make push-tag TAG=common/stores/v0.1.0  # 单个推送示例
-# 首次迁移需要发布全部 52 个新路径 tag；确认本地 tag 清单后也可 make push-tags
+make release-group GROUP=common-infra
+make release-patch PKG=common/mq
+make push-tag TAG=common/mq/v0.1.0
+# 仅大范围同步时：
+make release-all DRY_RUN=1
 
 # 3. 库 tag 已发布后，同步 lingcli 内置版本表并提交生成文件
 make sync-cli-versions

@@ -2,24 +2,28 @@
 
 ## 概述
 
-ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及 80+ 通用工具包。
+ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及大量独立 common 工具包。仓库约 **238** 个 `go.mod`（agentkit 已移出本仓库）。
 
 ## 仓库结构
 
 ```
 ling-base/
-├── common/          # 通用工具包（每个独立 go.mod）
-│   └── stores/      # 对象存储（9 个 provider）
-├── relay/           # AI provider 中继（60+ 适配器）
+├── common/          # 通用工具包（约 97 个一级目录；含 mq / search / notification / stores）
+│   ├── mq/          # 消息队列（5 个 broker）
+│   ├── stores/      # 对象存储（9 个 provider）
+│   ├── search/      # 全文搜索
+│   └── notification/# 通知调度
+├── relay/           # AI provider 中继（约 40 个 channel + task）
 ├── providers/       # 第三方服务
 │   ├── voice/       # 语音识别 / 合成 / 实时 / VAD / 声纹 / 克隆
 │   ├── censor/      # 内容审核（3 个 provider）
 │   └── ocr/         # OCR（6 个 provider）
-├── mq/              # 消息队列（5 个 broker）
 ├── bootstrap/       # 应用生命周期框架
 ├── lingcli/         # 项目脚手架 CLI
-├── example/         # 已清空，预留目录
+├── apidocs/         # OpenAPI / Huma 文档挂载
+├── pentest/         # Web 安全测试工具集
 ├── version/         # 版本信息
+├── docs/            # 文档站（Next.js + Fumadocs）
 ├── go.work          # 本地多模块工作区
 └── ARCHITECTURE.md  # 本文档
 ```
@@ -139,7 +143,7 @@ providers/voice/
 
 ## common 模块
 
-80+ 独立工具包，按功能分类：
+约 97 个一级包目录（大量子实现各自独立 `go.mod`），按功能分类：
 
 | 分类 | 模块 |
 |------|------|
@@ -177,7 +181,7 @@ relay 模块的 channel 适配器统一使用 logger，不直接调用 fmt.Print
 
 每个模块独立打 tag 发布，tag 前缀与当前 `go.mod` 路径一致。迁移后的 `common/stores/*` 和 `providers/voice/*`（含各领域核心模块）从新前缀的 `v0.1.0` 首发，历史 tag 保持不变。
 
-发布脚本支持 `DRY_RUN=1` 预览，并拒绝为未提交的工作区打 tag。先发布库，再通过 `make sync-cli-versions` 更新并提交 lingcli 版本表，最后单独发布 lingcli；`make release-all` 不包含 CLI。详见 [发布指南](CONTRIBUTING.md#8-发布版本)。
+发布脚本支持 `DRY_RUN=1` 预览，并拒绝为未提交的工作区打 tag。日常优先 `--pkg <dir>` 或 `--group <name>`；`--all` 仅用于大范围同步。先发布库，再通过 `make sync-cli-versions` 更新并提交 lingcli 版本表，最后单独发布 lingcli；`make release-all` 不包含 CLI。详见 [发布指南](CONTRIBUTING.md#8-发布版本)。
 
 ```bash
 git tag common/totp/v0.1.0

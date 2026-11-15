@@ -8,6 +8,7 @@ use (
 	./common/abtest
 	./common/alerting
 	./common/antispam
+	./common/archive
 	./common/audioutil
 	./common/auditlog
 	./common/authcontext
@@ -43,13 +44,16 @@ use (
 	./common/convert
 	./common/cron
 	./common/crypto
+	./common/curlutil
 	./common/diff
+	./common/dnsutil
 	./common/embedder
 	./common/emoji
 	./common/eventbus
 	./common/export
 	./common/extension
 	./common/featureflag
+	./common/geocode
 	./common/geoip
 	./common/grpc
 	./common/hash
@@ -87,6 +91,7 @@ use (
 	./common/middleware
 	./common/migration
 	./common/migration/gormmigrator
+	./common/money
 	./common/mq
 	./common/mq/activemq
 	./common/mq/factory
@@ -140,6 +145,7 @@ use (
 	./common/shutdown
 	./common/signature
 	./common/snapshot
+	./common/sse
 	./common/ssh
 	./common/stats
 	./common/stats/file
@@ -167,7 +173,9 @@ use (
 	./common/tree/postgres
 	./common/tree/sqlite
 	./common/trie
+	./common/turnstile
 	./common/uaparse
+	./common/upload
 	./common/validate
 	./common/videoutil
 	./common/webhook
