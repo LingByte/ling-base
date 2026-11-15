@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - '.github/workflows/demo.yml'
+      - '.github/workflows/docs-deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,26 +23,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: docs/pnpm-lock.yaml
 
-      - name: Install dependencies
-        working-directory: docs
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        working-directory: docs
-        run: pnpm build:static
-        env:
-          NEXT_PUBLIC_BASE_PATH: /ling-base
-          NEXT_PUBLIC_STATIC_DEPLOY: '1'
+      - name: Fast static export
+        working-directory: docs/apps/v1
+        run: |
+          set -euo pipefail
+          NEXT_PUBLIC_BASE_PATH=/ling-base NEXT_PUBLIC_STATIC_DEPLOY=1 node ./scripts/with-static-export.mjs
+          rm -rf ../../out
+          mkdir -p ../../out
+          cp -R out/. ../../out/
+          test -f ../../out/index.html
+          test -d ../../out/docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

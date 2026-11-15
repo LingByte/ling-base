@@ -15,7 +15,30 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────
-  # detect-changes: only run full matrix on changed modules
+  # Workspace / CLI catalog gates (always)
+  # ──────────────────────────────────────────────
+  check-modules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check-modules
+        run: make check-modules
+
+  check-cli-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: check-cli-versions
+        run: make check-cli-versions
+
+  # ──────────────────────────────────────────────
+  # detect-changes: PR → affected modules; push → all
   # ──────────────────────────────────────────────
   detect-changes:
     runs-on: ubuntu-latest
@@ -26,31 +49,95 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: List all Go modules
+      - name: List Go modules for test matrix
         id: list
+        shell: bash
         run: |
-          # List all go.mod directories as JSON array
-          modules=$(find . -name go.mod -not -path './vendor/*' -print0 \
-            | xargs -0 -n1 dirname \
-            | sed 's|^\./||' \
-            | sort \
-            | jq -R . | jq -sc .)
-          echo "modules=$modules" >> "$GITHUB_OUTPUT"
-          echo "any=true" >> "$GITHUB_OUTPUT"
-          echo "Detected modules:"
-          echo "$modules" | jq .
+          set -euo pipefail
+
+          all_modules() {
+            find . -name go.mod \
+              -not -path './vendor/*' \
+              -not -path './docs/*' \
+              -not -path './.git/*' \
+              | sed 's|/go.mod||;s|^\./||' \
+              | sed 's|^$|.|' \
+              | sort -u
+          }
+
+          module_for_file() {
+            local f="$1" d
+            d=$(dirname "$f")
+            while true; do
+              if [[ -f "$d/go.mod" ]]; then
+                echo "$d"
+                return 0
+              fi
+              if [[ "$d" == "." || "$d" == "/" ]]; then
+                return 1
+              fi
+              d=$(dirname "$d")
+            done
+          }
+
+          force_all=0
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            mapfile -t changed < <(git diff --name-only "$base"..."$head" || true)
+          else
+            before="${{ github.event.before }}"
+            if [[ -z "$before" || "$before" =~ ^0+$ ]]; then
+              force_all=1
+              changed=()
+            else
+              mapfile -t changed < <(git diff --name-only "$before"..."${{ github.sha }}" || true)
+            fi
+          fi
+
+          for f in "${changed[@]+"${changed[@]}"}"; do
+            case "$f" in
+              .github/workflows/ci.yml|.golangci.yml|go.work|go.work.sum|go.mod|Makefile|scripts/*)
+                force_all=1
+                break
+                ;;
+            esac
+          done
+
+          declare -A selected=()
+          if [[ "$force_all" -eq 1 ]]; then
+            while IFS= read -r m; do
+              [[ -n "$m" ]] || continue
+              selected["$m"]=1
+            done < <(all_modules)
+          else
+            for f in "${changed[@]+"${changed[@]}"}"; do
+              case "$f" in
+                docs/*|*.md|LICENSE|.gitignore|.DS_Store) continue ;;
+              esac
+              if m=$(module_for_file "$f"); then
+                selected["$m"]=1
+              fi
+            done
+          fi
+
+          modules_json=$(printf '%s\n' "${!selected[@]+"${!selected[@]}"}" | sort -u | jq -R . | jq -sc .)
+          if [[ "$modules_json" == "[]" || -z "$modules_json" ]]; then
+            echo "modules=[]" >> "$GITHUB_OUTPUT"
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "No Go modules affected."
+          else
+            echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            echo "Detected modules:"
+            echo "$modules_json" | jq .
+          fi
 
   # ──────────────────────────────────────────────
   # fmt + vet: fast checks on the whole repo
   # ──────────────────────────────────────────────
   fmt-vet:
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.any == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -58,7 +145,7 @@ jobs:
           go-version-file: go.mod
       - name: gofmt check
         run: |
-          unformatted=$(gofmt -s -l $(find . -name '*.go' -not -path './vendor/*'))
+          unformatted=$(gofmt -s -l $(find . -name '*.go' -not -path './vendor/*' -not -path './docs/*'))
           if [ -n "$unformatted" ]; then
             echo "::error::The following files are not formatted:"
             echo "$unformatted"
@@ -68,7 +155,7 @@ jobs:
         run: go vet ./...
 
   # ──────────────────────────────────────────────
-  # build + test: matrix across all modules
+  # build + test: matrix across affected modules
   # ──────────────────────────────────────────────
   test:
     runs-on: ubuntu-latest
@@ -92,7 +179,7 @@ jobs:
         run: go test -count=1 -race -timeout 5m ./...
 
   # ──────────────────────────────────────────────
-  # coverage: aggregate coverage across all modules
+  # coverage: aggregate coverage across tested modules
   # ──────────────────────────────────────────────
   coverage:
     runs-on: ubuntu-latest
@@ -104,35 +191,46 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Generate coverage for all modules
+      - name: Generate coverage for affected modules
+        env:
+          MODULES_JSON: ${{ needs.detect-changes.outputs.modules }}
         run: |
+          set -euo pipefail
           mkdir -p coverage
-          for dir in $(find . -name go.mod -not -path './go.mod' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort); do
+          fail=0
+          while IFS= read -r dir; do
+            [[ -n "$dir" && "$dir" != "." ]] || continue
             name=$(echo "$dir" | tr '/' '_')
-            (cd "$dir" && go test -count=1 -coverprofile="../../coverage/${name}.out" ./... 2>&1) || true
-          done
-          # Combine all coverage profiles
+            echo "::group::coverage: $dir"
+            if ! (cd "$dir" && go test -count=1 -coverprofile="$GITHUB_WORKSPACE/coverage/${name}.out" ./...); then
+              fail=1
+            fi
+            echo "::endgroup::"
+          done < <(echo "$MODULES_JSON" | jq -r '.[]')
           echo "mode: set" > coverage/combined.out
           for f in coverage/*.out; do
-            tail -n +2 "$f" >> coverage/combined.out 2>/dev/null || true
+            [[ "$f" == "coverage/combined.out" ]] && continue
+            [[ -f "$f" ]] || continue
+            tail -n +2 "$f" >> coverage/combined.out || true
           done
+          exit "$fail"
       - name: Upload coverage artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           retention-days: 30
       - name: Print coverage summary
+        if: always()
         run: |
           go tool cover -func=coverage/combined.out 2>/dev/null | tail -1 || echo "Coverage report generated"
 
   # ──────────────────────────────────────────────
-  # lint: golangci-lint on all modules
+  # lint: golangci-lint on workspace
   # ──────────────────────────────────────────────
   lint:
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.any == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -147,12 +245,13 @@ jobs:
           skip-cache: false
 
   # ──────────────────────────────────────────────
-  # vuln: govulncheck on all modules
+  # vuln: govulncheck (report; non-blocking until dep backlog is clean)
   # ──────────────────────────────────────────────
   vuln:
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.any == 'true'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -161,10 +260,31 @@ jobs:
           cache: true
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: Run govulncheck on all modules
+      - name: Run govulncheck on affected modules
+        env:
+          MODULES_JSON: ${{ needs.detect-changes.outputs.modules }}
         run: |
-          for dir in $(find . -name go.mod -not -path './go.mod' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort); do
+          set -uo pipefail
+          fail=0
+          mkdir -p vuln-reports
+          while IFS= read -r dir; do
+            [[ -n "$dir" && "$dir" != "." ]] || continue
+            name=$(echo "$dir" | tr '/' '_')
             echo "::group::govulncheck: $dir"
-            (cd "$dir" && govulncheck ./... 2>&1) || true
+            if ! (cd "$dir" && govulncheck ./... | tee "$GITHUB_WORKSPACE/vuln-reports/${name}.txt"); then
+              fail=1
+            fi
             echo "::endgroup::"
-          done
+          done < <(echo "$MODULES_JSON" | jq -r '.[]')
+          if [[ "$fail" -ne 0 ]]; then
+            echo "::warning::govulncheck reported issues (job is non-blocking; see vuln-reports artifact)"
+          fi
+          exit "$fail"
+      - name: Upload vuln reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-reports
+          path: vuln-reports/
+          retention-days: 14
+          if-no-files-found: ignore

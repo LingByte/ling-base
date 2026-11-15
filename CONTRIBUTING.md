@@ -10,16 +10,15 @@ ling-base 是一个**多 module Go 库**，每个子目录是一个独立的 Go 
 ling-base/
 ├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ common/                   # 通用工具模块
-│  ├─ stats/                 # 统计指标库（独立 module）
-│  │  ├─ memory/             # memory 后端（独立 module）
-│  │  ├─ redis/              # redis 后端（独立 module）
-│  │  └─ gin/                # gin 中间件（独立 module）
-│  └─ jwtutil/               # JWT 工具（独立 module）
-├─ cache/                    # 缓存抽象（独立 module）
-│  └─ redis/                 # redis 后端（独立 module）
-├─ lock/                     # 分布式锁（独立 module）
-│  └─ redis/                 # redis 后端（独立 module）
-└─ ...
+│  ├─ cache/                 # 缓存抽象 + redis 等后端
+│  ├─ lock/                  # 分布式锁 + redis 等后端
+│  ├─ mq/                    # 消息队列接口与 broker
+│  ├─ stores/                # 对象存储抽象与后端
+│  └─ ...
+├─ providers/voice/          # 语音能力（识别/合成/…）
+├─ relay/                    # AI 中继
+├─ lingcli/                  # CLI
+└─ docs/                     # 文档站（apps/v1）
 ```
 
 **核心原则**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。
@@ -48,8 +47,11 @@ make build
 # 测试所有模块
 make test
 
-# 格式化 + vet + 构建 + 测试（CI 等价）
+# 格式化 + vet + 构建 + 测试 + go.work 一致性
 make check
+
+# 更接近完整 CI（含 lint / vuln / CLI 版本目录）
+make check-all
 ```
 
 ### 本地依赖服务
@@ -242,18 +244,26 @@ make push-tag TAG=lingcli/v0.33.0
 
 ## CI/CD
 
-所有 push 和 PR 会自动触发 CI（`.github/workflows/ci.yml`）：
+所有 push 和 PR 会自动触发 Go CI（`.github/workflows/ci.yml`）：
 
-1. **fmt + vet** — 格式和静态检查
-2. **build + test** — 矩阵构建和测试所有模块
-3. **coverage** — 覆盖率报告
-4. **lint** — golangci-lint
-5. **vuln** — govulncheck 漏洞扫描
+1. **check-modules** — `go.work` 覆盖校验 + 拒绝已删除路径的 import/`go.sum`
+2. **check-cli-versions** — lingcli 模块版本目录一致性
+3. **fmt + vet** — 格式和静态检查
+4. **build + test** — PR 仅测受影响模块；push 默认全量（含 race）
+5. **coverage** — 覆盖率报告（测试失败会失败）
+6. **lint** — golangci-lint
+7. **vuln** — govulncheck（目前上报漏洞报告，不阻断合并；本地可用 `make vuln` 查看）
+
+文档站：
+
+- PR：`.github/workflows/docs-ci.yml`（typecheck / lint / static build）
+- `main` 合并后：`.github/workflows/docs-deploy.yml` 部署 GitHub Pages
 
 打 tag 时自动触发 Release（`.github/workflows/release.yml`）：
 
 1. 验证对应模块能编译 + 测试通过
 2. 创建 GitHub Release
+3. `lingcli/*` tag 额外交叉编译并上传二进制
 
 ## 联系
 
