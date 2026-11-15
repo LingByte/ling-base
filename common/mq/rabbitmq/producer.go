@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 

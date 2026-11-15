@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/common/mq/rocketmq
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/mq v0.1.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/stretchr/testify v1.12.1
 )

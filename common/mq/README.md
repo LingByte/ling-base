@@ -1,26 +1,28 @@
-# mq
+# common/mq
 
 Broker-agnostic message queue abstraction with pluggable backends.
+
+Module path: `github.com/LingByte/ling-base/common/mq` (the old root path `github.com/LingByte/ling-base/mq` no longer exists).
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `mq/` | Core interfaces: `Message`, `Delivery`, `Producer`, `Consumer`, `Broker`, `Handler`, `Middleware` |
-| `mq/factory/` | Unified factory — `NewBroker(BrokerConfig)` dispatches to all backends |
-| `mq/rabbitmq/` | RabbitMQ backend (amqp091-go) |
-| `mq/kafka/` | Kafka backend (segmentio/kafka-go) |
-| `mq/rocketmq/` | RocketMQ backend (apache/rocketmq-client-go/v2) |
-| `mq/activemq/` | ActiveMQ backend via STOMP (go-stomp/stomp) |
-| `mq/redisstream/` | Redis Streams backend (go-redis) |
+| `common/mq/` | Core interfaces: `Message`, `Delivery`, `Producer`, `Consumer`, `Broker`, `Handler`, `Middleware` |
+| `common/mq/factory/` | Unified factory — `NewBroker(BrokerConfig)` dispatches to all backends |
+| `common/mq/rabbitmq/` | RabbitMQ backend (amqp091-go) |
+| `common/mq/kafka/` | Kafka backend (segmentio/kafka-go) |
+| `common/mq/rocketmq/` | RocketMQ backend (apache/rocketmq-client-go/v2) |
+| `common/mq/activemq/` | ActiveMQ backend via STOMP (go-stomp/stomp) |
+| `common/mq/redisstream/` | Redis Streams backend (go-redis) |
 
 ## Quick start via factory
 
 ```go
 import (
-    "github.com/LingByte/ling-base/mq"
-    "github.com/LingByte/ling-base/mq/factory"
-    "github.com/LingByte/ling-base/mq/rabbitmq"
+    "github.com/LingByte/ling-base/common/mq"
+    "github.com/LingByte/ling-base/common/mq/factory"
+    "github.com/LingByte/ling-base/common/mq/rabbitmq"
 )
 
 broker, err := factory.NewBroker(mq.BrokerConfig{

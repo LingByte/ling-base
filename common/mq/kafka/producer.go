@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	kafkago "github.com/segmentio/kafka-go"
 )
 

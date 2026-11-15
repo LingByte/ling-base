@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/common/mq/kafka
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/mq v0.1.0
 	github.com/segmentio/kafka-go v0.4.50
 	github.com/stretchr/testify v1.12.1
 )

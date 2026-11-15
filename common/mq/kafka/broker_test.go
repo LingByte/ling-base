@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	"github.com/stretchr/testify/assert"
 )
 

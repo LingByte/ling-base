@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 )
 

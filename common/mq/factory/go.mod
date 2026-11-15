@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/common/mq/factory
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/mq v0.1.0
 	github.com/LingByte/ling-base/common/mq/activemq v0.1.0
 	github.com/LingByte/ling-base/common/mq/kafka v0.1.0
 	github.com/LingByte/ling-base/common/mq/rabbitmq v0.1.0

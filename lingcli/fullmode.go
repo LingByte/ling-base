@@ -147,8 +147,7 @@ func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 // paths that only work in the workspace context (via go.work re-exports)
 // but break when everything is merged into a single module in full mode.
 var importFixups = map[string]string{
-	// common/mq subpackages import "github.com/LingByte/ling-base/mq"
-	// but the actual module path is common/mq
+	// Legacy root path used before MQ moved under common/.
 	"github.com/LingByte/ling-base/mq": "github.com/LingByte/ling-base/common/mq",
 }
 

@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/common/mq/activemq
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/mq v0.1.0
 	github.com/go-stomp/stomp/v3 v3.1.5
 	github.com/stretchr/testify v1.12.1
 )

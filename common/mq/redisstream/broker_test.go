@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
