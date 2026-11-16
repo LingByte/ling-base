@@ -96,10 +96,8 @@ ling-base/
 │  ├─ auditlog/              # 审计日志（结构化，Storage 接口，不可篡改）
 │  ├─ notification/          # 通知框架（email/SMS/IM/webhook/inbox/push）
 │  ├─ backup/                # 逻辑备份（多库 CLI dump / 目录 / Sink）
-│  ├─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
 │  │
 │  ├─ money/                 # 金额处理（int64 存储，运算/比较/分配/舍入）
-│  ├─ sse/                   # Server-Sent Events（Writer + Client + 事件解析）
 │  ├─ archive/               # 归档工具（zip/tar/tar.gz，zip slip 防护）
 │  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
@@ -233,7 +231,6 @@ go get github.com/LingByte/ling-base/common/auditlog
 go get github.com/LingByte/ling-base/common/backup
 
 # A/B 测试分流
-go get github.com/LingByte/ling-base/common/abtest
 
 # 文本 diff
 go get github.com/LingByte/ling-base/common/diff
@@ -241,8 +238,6 @@ go get github.com/LingByte/ling-base/common/diff
 # 金额处理（避免浮点误差）
 go get github.com/LingByte/ling-base/common/money
 
-# Server-Sent Events
-go get github.com/LingByte/ling-base/common/sse
 
 # 归档工具（zip/tar/tar.gz）
 go get github.com/LingByte/ling-base/common/archive
@@ -614,10 +609,8 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/signature/README.md](common/signature/README.md)
 - [common/auditlog/README.md](common/auditlog/README.md)
 - [common/backup/README.md](common/backup/README.md)
-- [common/abtest/README.md](common/abtest/README.md)
 - [common/diff/README.md](common/diff/README.md)
 - [common/money/README.md](common/money/README.md)
-- [common/sse/README.md](common/sse/README.md)
 - [common/archive/README.md](common/archive/README.md)
 - [common/wsutil/README.md](common/wsutil/README.md)
 - [common/turnstile/README.md](common/turnstile/README.md)

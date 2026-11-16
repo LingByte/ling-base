@@ -11,7 +11,7 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 ## [Unreleased]
 
 ### Removed
-- `common/webhook`、`common/rbac`（含 gin）、`common/antispam`、`common/alerting`、`common/tree`（含各 store）— 仓库内无外部引用，已下线并删除对应 tag
+- `common/webhook`、`common/rbac`（含 gin）、`common/antispam`、`common/alerting`、`common/abtest`、`common/sse`、`common/tree`（含各 store）— 仓库内无外部引用，已下线并删除对应 tag
 - `common/timeutil` — 能力并入根包 `common`（`time_helpers.go`）
 - `common/snowflake.go` — 删除薄包装；请直接使用 `common/idgen`
 - 此前清理：`common/emoji`、`common/upload`、`common/trie`、`common/configcenter`、`common.Signals`；`dnsutil`/`curlutil`/`mathutil`/`nltime` 已折叠进 `common` / `netutil`

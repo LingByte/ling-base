@@ -158,8 +158,8 @@ providers/voice/
 | 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff） |
 | 数据导出 | export（Excel/CSV/JSON/Markdown） |
 | 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名）, turnstile（Cloudflare 验证） |
-| 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, notification（含 webhook 通道）, backup（逻辑备份） |
-| 网络/通信 | sse（Server-Sent Events）, wsutil（WebSocket 工具） |
+| 运营工具 | featureflag（功能开关）, auditlog（审计日志）, notification（含 webhook 通道）, backup（逻辑备份） |
+| 网络/通信 | wsutil（WebSocket 工具） |
 | 数据结构 | consistent（一致性哈希）, bitmap, bloom |
 | 金额/支付 | money（金额处理）, payment（stripe/creem/epay/waffo/waffopancake） |
 | 归档 | archive（zip/tar/tar.gz） |
