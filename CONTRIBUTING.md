@@ -244,7 +244,7 @@ make push-tag TAG=lingcli/v0.33.0
 
 ## CI/CD
 
-所有 push 和 PR 会自动触发 Go CI（`.github/workflows/ci.yml`）：
+所有分支的 push / PR 都会触发 Go CI（`.github/workflows/ci.yml`）：
 
 1. **check-modules** — `go.work` 覆盖校验 + 拒绝已删除路径的 import/`go.sum`
 2. **check-cli-versions** — lingcli 模块版本目录一致性

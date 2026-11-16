@@ -2,13 +2,11 @@ name: Docs CI
 
 on:
   pull_request:
-    branches: [main, master]
     paths:
       - 'docs/**'
       - '.github/workflows/docs-ci.yml'
       - '.github/workflows/docs-deploy.yml'
   push:
-    branches: [main, master]
     paths:
       - 'docs/**'
       - '.github/workflows/docs-ci.yml'
