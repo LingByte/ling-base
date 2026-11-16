@@ -81,6 +81,9 @@ jobs:
             done
           }
 
+          selected_file="$(mktemp)"
+          trap 'rm -f "$selected_file"' EXIT
+
           force_all=0
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base="${{ github.event.pull_request.base.sha }}"
@@ -96,33 +99,31 @@ jobs:
             fi
           fi
 
-          for f in "${changed[@]+"${changed[@]}"}"; do
-            case "$f" in
-              .github/workflows/ci.yml|.golangci.yml|go.work|go.work.sum|go.mod|Makefile|scripts/*)
-                force_all=1
-                break
-                ;;
-            esac
-          done
+          if ((${#changed[@]})); then
+            for f in "${changed[@]}"; do
+              case "$f" in
+                .github/workflows/ci.yml|.golangci.yml|go.work|go.work.sum|go.mod|Makefile|scripts/*)
+                  force_all=1
+                  break
+                  ;;
+              esac
+            done
+          fi
 
-          declare -A selected=()
           if [[ "$force_all" -eq 1 ]]; then
-            while IFS= read -r m; do
-              [[ -n "$m" ]] || continue
-              selected["$m"]=1
-            done < <(all_modules)
-          else
-            for f in "${changed[@]+"${changed[@]}"}"; do
+            all_modules > "$selected_file"
+          elif ((${#changed[@]})); then
+            for f in "${changed[@]}"; do
               case "$f" in
                 docs/*|*.md|LICENSE|.gitignore|.DS_Store) continue ;;
               esac
               if m=$(module_for_file "$f"); then
-                selected["$m"]=1
+                printf '%s\n' "$m" >> "$selected_file"
               fi
             done
           fi
 
-          modules_json=$(printf '%s\n' "${!selected[@]+"${!selected[@]}"}" | sort -u | jq -R . | jq -sc .)
+          modules_json=$(sort -u "$selected_file" | sed '/^$/d' | jq -R . | jq -sc .)
           if [[ "$modules_json" == "[]" || -z "$modules_json" ]]; then
             echo "modules=[]" >> "$GITHUB_OUTPUT"
             echo "any=false" >> "$GITHUB_OUTPUT"
@@ -146,8 +147,10 @@ jobs:
           go-version-file: go.mod
       - name: gofmt check
         run: |
-          unformatted=$(gofmt -s -l $(find . -name '*.go' -not -path './vendor/*' -not -path './docs/*'))
-          if [ -n "$unformatted" ]; then
+          set -euo pipefail
+          mapfile -t files < <(find . -name '*.go' -not -path './vendor/*' -not -path './docs/*' -not -path './.git/*' | sort)
+          unformatted=$(gofmt -s -l "${files[@]}")
+          if [[ -n "$unformatted" ]]; then
             echo "::error::The following files are not formatted:"
             echo "$unformatted"
             exit 1
@@ -239,7 +242,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.6
           args: --timeout 10m
