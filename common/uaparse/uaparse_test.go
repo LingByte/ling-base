@@ -4,6 +4,7 @@
 package uaparse_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/LingByte/ling-base/common/uaparse"
@@ -11,241 +12,267 @@ import (
 
 func TestParse_Chrome_Windows(t *testing.T) {
 	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "Windows" {
-		t.Errorf("OS = %q, want Windows", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "Windows" {
+		t.Errorf("OS = %q, want Windows", r.OS.Name)
 	}
-	if info.OSVersion != "10" {
-		t.Errorf("OSVersion = %q, want 10", info.OSVersion)
+	if r.OS.Version != "10" {
+		t.Errorf("OS.Version = %q, want 10", r.OS.Version)
 	}
-	if info.Browser != "Chrome" {
-		t.Errorf("Browser = %q, want Chrome", info.Browser)
+	if r.Browser.Name != "Chrome" {
+		t.Errorf("Browser = %q, want Chrome", r.Browser.Name)
 	}
-	if info.BrowserVersion != "120.0.0.0" {
-		t.Errorf("BrowserVersion = %q, want 120.0.0.0", info.BrowserVersion)
+	if !strings.HasPrefix(r.Browser.Version, "120") {
+		t.Errorf("Browser.Version = %q, want 120.x", r.Browser.Version)
 	}
-	if info.Device != "Desktop" {
-		t.Errorf("Device = %q, want Desktop", info.Device)
+	if r.Device.Type != uaparse.DeviceDesktop {
+		t.Errorf("Device.Type = %q, want desktop", r.Device.Type)
 	}
-	if info.Engine != "Blink" {
-		t.Errorf("Engine = %q, want Blink", info.Engine)
+	if r.Engine != "Blink" {
+		t.Errorf("Engine = %q, want Blink", r.Engine)
 	}
-	if info.IsBot {
-		t.Error("IsBot = true, want false")
+	if r.Bot() || !r.Desktop() {
+		t.Errorf("flags: bot=%v desktop=%v", r.Bot(), r.Desktop())
 	}
 }
 
 func TestParse_Firefox_macOS(t *testing.T) {
 	ua := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0"
-	info := uaparse.Parse(ua)
-	if info.OS != "macOS" {
-		t.Errorf("OS = %q, want macOS", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "macOS" {
+		t.Errorf("OS = %q, want macOS", r.OS.Name)
 	}
-	if info.OSVersion != "10.15" {
-		t.Errorf("OSVersion = %q, want 10.15", info.OSVersion)
+	if r.OS.Version != "10.15" {
+		t.Errorf("OS.Version = %q, want 10.15", r.OS.Version)
 	}
-	if info.Browser != "Firefox" {
-		t.Errorf("Browser = %q, want Firefox", info.Browser)
+	if r.Browser.Name != "Firefox" {
+		t.Errorf("Browser = %q, want Firefox", r.Browser.Name)
 	}
-	if info.BrowserVersion != "121.0" {
-		t.Errorf("BrowserVersion = %q, want 121.0", info.BrowserVersion)
+	if r.Browser.Version != "121.0" {
+		t.Errorf("Browser.Version = %q, want 121.0", r.Browser.Version)
 	}
-	if info.Device != "Desktop" {
-		t.Errorf("Device = %q, want Desktop", info.Device)
-	}
-	if info.Engine != "Gecko" {
-		t.Errorf("Engine = %q, want Gecko", info.Engine)
+	if r.Engine != "Gecko" {
+		t.Errorf("Engine = %q, want Gecko", r.Engine)
 	}
 }
 
 func TestParse_Safari_iPhone(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
-	info := uaparse.Parse(ua)
-	if info.OS != "iOS" {
-		t.Errorf("OS = %q, want iOS", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "iOS" {
+		t.Errorf("OS = %q, want iOS", r.OS.Name)
 	}
-	if info.Browser != "Safari" {
-		t.Errorf("Browser = %q, want Safari", info.Browser)
+	if r.Browser.Name != "Safari" {
+		t.Errorf("Browser = %q, want Safari", r.Browser.Name)
 	}
-	if info.BrowserVersion != "17.2" {
-		t.Errorf("BrowserVersion = %q, want 17.2", info.BrowserVersion)
+	if r.Browser.Version != "17.2" {
+		t.Errorf("Browser.Version = %q, want 17.2", r.Browser.Version)
 	}
-	if info.Device != "Mobile" {
-		t.Errorf("Device = %q, want Mobile", info.Device)
+	if r.Device.Type != uaparse.DeviceMobile {
+		t.Errorf("Device.Type = %q, want mobile", r.Device.Type)
 	}
-	if info.Engine != "WebKit" {
-		t.Errorf("Engine = %q, want WebKit", info.Engine)
+	if r.Engine != "WebKit" {
+		t.Errorf("Engine = %q, want WebKit", r.Engine)
+	}
+	if r.Device.Brand != "Apple" {
+		t.Errorf("Brand = %q, want Apple", r.Device.Brand)
 	}
 }
 
 func TestParse_Edge_Windows(t *testing.T) {
 	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
-	info := uaparse.Parse(ua)
-	if info.Browser != "Edge" {
-		t.Errorf("Browser = %q, want Edge", info.Browser)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "Edge" {
+		t.Errorf("Browser = %q, want Edge", r.Browser.Name)
 	}
-	if info.BrowserVersion != "120.0.0.0" {
-		t.Errorf("BrowserVersion = %q, want 120.0.0.0", info.BrowserVersion)
-	}
-	if info.Engine != "Blink" {
-		t.Errorf("Engine = %q, want Blink", info.Engine)
+	if r.Engine != "Blink" {
+		t.Errorf("Engine = %q, want Blink", r.Engine)
 	}
 }
 
 func TestParse_Opera(t *testing.T) {
 	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0"
-	info := uaparse.Parse(ua)
-	if info.Browser != "Opera" {
-		t.Errorf("Browser = %q, want Opera", info.Browser)
-	}
-	if info.BrowserVersion != "106.0.0.0" {
-		t.Errorf("BrowserVersion = %q, want 106.0.0.0", info.BrowserVersion)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "Opera" {
+		t.Errorf("Browser = %q, want Opera", r.Browser.Name)
 	}
 }
 
 func TestParse_Android_Chrome_Mobile(t *testing.T) {
 	ua := "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "Android" {
-		t.Errorf("OS = %q, want Android", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "Android" {
+		t.Errorf("OS = %q, want Android", r.OS.Name)
 	}
-	if info.Device != "Mobile" {
-		t.Errorf("Device = %q, want Mobile", info.Device)
+	if r.Device.Type != uaparse.DeviceMobile {
+		t.Errorf("Device.Type = %q, want mobile", r.Device.Type)
 	}
-	if info.Browser != "Chrome" {
-		t.Errorf("Browser = %q, want Chrome", info.Browser)
+	if r.Browser.Name != "Chrome" {
+		t.Errorf("Browser = %q, want Chrome", r.Browser.Name)
+	}
+	if r.Device.Model != "Pixel 7" {
+		t.Errorf("Model = %q, want Pixel 7", r.Device.Model)
 	}
 }
 
 func TestParse_Android_Tablet(t *testing.T) {
 	ua := "Mozilla/5.0 (Linux; Android 12; SM-X906) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "Android" {
-		t.Errorf("OS = %q, want Android", info.OS)
-	}
-	if info.Device != "Tablet" {
-		t.Errorf("Device = %q, want Tablet", info.Device)
+	r := uaparse.Parse(ua)
+	if r.Device.Type != uaparse.DeviceTablet {
+		t.Errorf("Device.Type = %q, want tablet", r.Device.Type)
 	}
 }
 
 func TestParse_iPad(t *testing.T) {
 	ua := "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
-	info := uaparse.Parse(ua)
-	if info.OS != "iOS" {
-		t.Errorf("OS = %q, want iOS", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "iOS" {
+		t.Errorf("OS = %q, want iOS", r.OS.Name)
 	}
-	if info.Device != "Tablet" {
-		t.Errorf("Device = %q, want Tablet", info.Device)
+	if r.Device.Type != uaparse.DeviceTablet {
+		t.Errorf("Device.Type = %q, want tablet", r.Device.Type)
 	}
 }
 
 func TestParse_IE11(t *testing.T) {
 	ua := "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
-	info := uaparse.Parse(ua)
-	if info.Browser != "IE" {
-		t.Errorf("Browser = %q, want IE", info.Browser)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "IE" {
+		t.Errorf("Browser = %q, want IE", r.Browser.Name)
 	}
-	if info.OS != "Windows" {
-		t.Errorf("OS = %q, want Windows", info.OS)
+	if r.OS.Name != "Windows" || r.OS.Version != "7" {
+		t.Errorf("OS = %s/%s, want Windows/7", r.OS.Name, r.OS.Version)
 	}
-	if info.OSVersion != "7" {
-		t.Errorf("OSVersion = %q, want 7", info.OSVersion)
-	}
-	if info.Engine != "Trident" {
-		t.Errorf("Engine = %q, want Trident", info.Engine)
+	if r.Engine != "Trident" {
+		t.Errorf("Engine = %q, want Trident", r.Engine)
 	}
 }
 
 func TestParse_GoogleBot(t *testing.T) {
 	ua := "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-	info := uaparse.Parse(ua)
-	if !info.IsBot {
-		t.Error("IsBot = false, want true")
+	r := uaparse.Parse(ua)
+	if !r.Bot() {
+		t.Error("Bot() = false, want true")
 	}
-	if info.Device != "Bot" {
-		t.Errorf("Device = %q, want Bot", info.Device)
+	if r.Device.Type != uaparse.DeviceBot {
+		t.Errorf("Device.Type = %q, want bot", r.Device.Type)
 	}
 }
 
 func TestParse_BingBot(t *testing.T) {
 	ua := "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
-	info := uaparse.Parse(ua)
-	if !info.IsBot {
-		t.Error("IsBot = false, want true")
+	r := uaparse.Parse(ua)
+	if !r.Bot() {
+		t.Error("Bot() = false, want true")
 	}
 }
 
 func TestParse_Empty(t *testing.T) {
-	info := uaparse.Parse("")
-	if info.OS != "" || info.Browser != "" || info.Device != "" {
-		t.Errorf("Parse(\"\") = %+v, want zero value", info)
+	r := uaparse.Parse("")
+	if !r.Empty() {
+		t.Errorf("Parse(\"\") = %+v, want empty", r)
 	}
 }
 
 func TestParse_Linux_Desktop(t *testing.T) {
 	ua := "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "Linux" {
-		t.Errorf("OS = %q, want Linux", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "Linux" {
+		t.Errorf("OS = %q, want Linux", r.OS.Name)
 	}
-	if info.Device != "Desktop" {
-		t.Errorf("Device = %q, want Desktop", info.Device)
+	if r.Device.Type != uaparse.DeviceDesktop {
+		t.Errorf("Device.Type = %q, want desktop", r.Device.Type)
 	}
 }
 
 func TestParse_ChromeOS(t *testing.T) {
 	ua := "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "ChromeOS" {
-		t.Errorf("OS = %q, want ChromeOS", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "ChromeOS" {
+		t.Errorf("OS = %q, want ChromeOS", r.OS.Name)
 	}
 }
 
 func TestParse_SamsungBrowser(t *testing.T) {
 	ua := "Mozilla/5.0 (Linux; Android 13; SAMSUNG SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/22.0 Chrome/108.0.5359.128 Mobile Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.Browser != "Samsung Browser" {
-		t.Errorf("Browser = %q, want Samsung Browser", info.Browser)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "Samsung Browser" {
+		t.Errorf("Browser = %q, want Samsung Browser", r.Browser.Name)
 	}
-	if info.OS != "Android" {
-		t.Errorf("OS = %q, want Android", info.OS)
+	if r.Device.Brand != "Samsung" {
+		t.Errorf("Brand = %q, want Samsung", r.Device.Brand)
 	}
 }
 
 func TestParse_iOSChrome(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.6099.119 Mobile/15E148 Safari/604.1"
-	info := uaparse.Parse(ua)
-	if info.Browser != "Chrome" {
-		t.Errorf("Browser = %q, want Chrome", info.Browser)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "Chrome" {
+		t.Errorf("Browser = %q, want Chrome", r.Browser.Name)
 	}
-	if info.OS != "iOS" {
-		t.Errorf("OS = %q, want iOS", info.OS)
+	if r.OS.Name != "iOS" {
+		t.Errorf("OS = %q, want iOS", r.OS.Name)
 	}
 }
 
 func TestParse_iOSFirefox(t *testing.T) {
 	ua := "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/121.0 Mobile/15E148 Safari/605.1.15"
-	info := uaparse.Parse(ua)
-	if info.Browser != "Firefox" {
-		t.Errorf("Browser = %q, want Firefox", info.Browser)
+	r := uaparse.Parse(ua)
+	if r.Browser.Name != "Firefox" {
+		t.Errorf("Browser = %q, want Firefox", r.Browser.Name)
 	}
 }
 
 func TestParse_PlayStation(t *testing.T) {
 	ua := "Mozilla/5.0 (PlayStation; PlayStation 5/5.0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/5.0 Safari/605.1.15"
-	info := uaparse.Parse(ua)
-	if info.Device != "Console" {
-		t.Errorf("Device = %q, want Console", info.Device)
+	r := uaparse.Parse(ua)
+	if r.Device.Type != uaparse.DeviceConsole {
+		t.Errorf("Device.Type = %q, want console", r.Device.Type)
 	}
 }
 
 func TestParse_MacOS_UnderscoreVersion(t *testing.T) {
 	ua := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	info := uaparse.Parse(ua)
-	if info.OS != "macOS" {
-		t.Errorf("OS = %q, want macOS", info.OS)
+	r := uaparse.Parse(ua)
+	if r.OS.Name != "macOS" {
+		t.Errorf("OS = %q, want macOS", r.OS.Name)
 	}
-	if info.OSVersion != "10.15.7" {
-		t.Errorf("OSVersion = %q, want 10.15.7", info.OSVersion)
+	if r.OS.Version != "10.15.7" {
+		t.Errorf("OS.Version = %q, want 10.15.7", r.OS.Version)
+	}
+}
+
+func TestModes_Smoke(t *testing.T) {
+	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	for _, m := range []uaparse.Mode{
+		uaparse.ModeStandard,
+		uaparse.ModeUAP,
+		uaparse.ModeFast,
+		uaparse.ModeLite,
+		uaparse.ModeWoothee,
+	} {
+		r := uaparse.ParseMode(ua, m)
+		if r.Browser.Name != "Chrome" {
+			t.Errorf("%s: Browser = %q, want Chrome", m, r.Browser.Name)
+		}
+		if r.Mode != m {
+			t.Errorf("%s: Result.Mode = %v", m, r.Mode)
+		}
+	}
+}
+
+func TestFor_Shared(t *testing.T) {
+	a := uaparse.For(uaparse.ModeFast)
+	b := uaparse.For(uaparse.ModeFast)
+	if a != b {
+		t.Fatal("For(ModeFast) should return the same instance")
+	}
+}
+
+func TestResult_String(t *testing.T) {
+	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	s := uaparse.Parse(ua).String()
+	if !strings.Contains(s, "Chrome") || !strings.Contains(s, "Windows") {
+		t.Fatalf("String() = %q", s)
 	}
 }
