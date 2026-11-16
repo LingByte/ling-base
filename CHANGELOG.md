@@ -11,12 +11,15 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 ## [Unreleased]
 
 ### Removed
-- `common/webhook`、`common/rbac`（含 gin）、`common/antispam`、`common/alerting`、`common/abtest`、`common/sse`、`common/tree`（含各 store）— 仓库内无外部引用，已下线并删除对应 tag
+- `common/webhook`、`common/rbac`（含 gin）、`common/antispam`、`common/alerting`、`common/abtest`、`common/sse`、`common/extension`、`common/consistent`、`common/grpc`、`common/probe`（已并入 `common/netutil`）、`common/registry`、`common/tree`（含各 store）— 仓库内无外部引用，已下线并删除对应 tag
 - `common/timeutil` — 能力并入根包 `common`（`time_helpers.go`）
 - `common/snowflake.go` — 删除薄包装；请直接使用 `common/idgen`
 - 此前清理：`common/emoji`、`common/upload`、`common/trie`、`common/configcenter`、`common.Signals`；`dnsutil`/`curlutil`/`mathutil`/`nltime` 已折叠进 `common` / `netutil`
 
 ### Changed
+- `common/imageutil` / `common/audioutil` / `common/videoutil` — 迁入 `common/media/{image,audio,video}`（包名仍为 imageutil/audioutil/videoutil）
+- `common/geocode` — 修复递归歧义命名、Nominatim/BigDataCloud 字段映射、Context/限流/哨兵错误与 body 限制
+- `common/probe` — 修复后并入 `common/netutil`（限流 Transport 复用、方法白名单、变量替换、时序指标、Sequence cookie jar）
 - CI：`detect-changes` 改为文件收集模块列表；`golangci-lint-action` 升级到 v7 以支持 golangci-lint v2
 - `BaseModel` 雪花号改为调用 `idgen.SnowflakeNextUint()`
 - 对象存储迁移到 `common/stores`，语音迁移到 `providers/voice`，同步 module/import 路径；52 个迁移模块的新前缀统一从 `v0.1.0` 首发，历史 tag 保持不变。

@@ -111,6 +111,14 @@ normalize_dir() {
     common/alerting|common/alerting/*) printf 'common/alerting was removed\n' >&2; return 1 ;;
     common/abtest|common/abtest/*) printf 'common/abtest was removed\n' >&2; return 1 ;;
     common/sse|common/sse/*) printf 'common/sse was removed\n' >&2; return 1 ;;
+    common/consistent|common/consistent/*) printf 'common/consistent was removed\n' >&2; return 1 ;;
+    common/grpc|common/grpc/*) printf 'common/grpc was removed\n' >&2; return 1 ;;
+    common/probe|common/probe/*) printf 'common/probe was folded into common/netutil; use github.com/LingByte/ling-base/common/netutil\n' >&2; return 1 ;;
+    common/videoutil|common/videoutil/*) printf 'common/videoutil moved to common/media/video; use --pkg common/media/video\n' >&2; return 1 ;;
+    common/registry|common/registry/*) printf 'common/registry was removed\n' >&2; return 1 ;;
+    common/audioutil|common/audioutil/*) printf 'common/audioutil moved to common/media/audio; use --pkg common/media/audio\n' >&2; return 1 ;;
+    common/imageutil|common/imageutil/*) printf 'common/imageutil moved to common/media/image; use --pkg common/media/image\n' >&2; return 1 ;;
+    common/extension|common/extension/*) printf 'common/extension was removed\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then
