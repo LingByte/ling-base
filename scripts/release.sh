@@ -95,6 +95,8 @@ normalize_dir() {
     stores|stores/*) printf 'stores moved to common/stores; use --pkg common/%s\n' "${dir#./}" >&2; return 1 ;;
     voice|voice/*) printf 'voice moved to providers/voice; use --pkg providers/%s\n' "${dir#./}" >&2; return 1 ;;
     pentest|pentest/*) printf 'pentest moved to toolkits/pentest; use --pkg toolkits/pentest\n' >&2; return 1 ;;
+    common/emoji|common/emoji/*) printf 'common/emoji was removed\n' >&2; return 1 ;;
+    common/upload|common/upload/*) printf 'common/upload was removed; use common/stores\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then

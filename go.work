@@ -48,7 +48,6 @@ use (
 	./common/diff
 	./common/dnsutil
 	./common/embedder
-	./common/emoji
 	./common/eventbus
 	./common/export
 	./common/extension
@@ -175,7 +174,6 @@ use (
 	./common/trie
 	./common/turnstile
 	./common/uaparse
-	./common/upload
 	./common/validate
 	./common/videoutil
 	./common/webhook
