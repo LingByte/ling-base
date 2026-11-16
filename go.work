@@ -83,7 +83,6 @@ use (
 	./common/logger
 	./common/logger/gin
 	./common/markdown
-	./common/mathutil
 	./common/metrics
 	./common/middleware
 	./common/migration
@@ -97,7 +96,6 @@ use (
 	./common/mq/redisstream
 	./common/mq/rocketmq
 	./common/netutil
-	./common/nltime
 	./common/notification
 	./common/notification/email
 	./common/notification/httpclient
