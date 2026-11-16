@@ -5,7 +5,6 @@ use (
 	./apidocs
 	./bootstrap
 	./common
-	./common/abtest
 	./common/archive
 	./common/audioutil
 	./common/auditlog
@@ -135,7 +134,6 @@ use (
 	./common/shutdown
 	./common/signature
 	./common/snapshot
-	./common/sse
 	./common/ssh
 	./common/stats
 	./common/stats/file
