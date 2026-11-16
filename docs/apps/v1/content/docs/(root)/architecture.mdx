@@ -14,13 +14,13 @@ description: ling-base 多模块架构与目录布局
 
 ```
 ling-base/
-├── common/          # 通用工具（含 mq / search / notification / stores）
+├── common/          # 通用工具（约 83 个一级包；含 mq / search / notification / stores）
 ├── relay/           # AI provider 中继
 ├── providers/       # voice / ocr / censor
 ├── bootstrap/       # 应用生命周期
 ├── lingcli/         # 项目脚手架
 ├── apidocs/         # OpenAPI / Huma
-├── pentest/         # 安全测试工具集
+├── toolkits/        # 专项工具（含 pentest）
 ├── version/         # 版本信息
 └── docs/            # 本文档站
 ```
@@ -33,6 +33,9 @@ ling-base/
 | 语音 | `github.com/LingByte/ling-base/providers/voice/...` |
 | 对象存储 | `github.com/LingByte/ling-base/common/stores` |
 | 消息队列 | `github.com/LingByte/ling-base/common/mq` |
+| 通知 / Webhook | `github.com/LingByte/ling-base/common/notification` |
+| 网络工具 | `github.com/LingByte/ling-base/common/netutil` |
 | 日志 | `github.com/LingByte/ling-base/common/logger` |
+| 安全测试 | `github.com/LingByte/ling-base/toolkits/pentest` |
 
-旧根路径 `github.com/LingByte/ling-base/mq` 已删除，请使用 `common/mq`。agentkit 已移出本仓库。
+旧根路径 `github.com/LingByte/ling-base/mq`、`pentest`、`stores`、`voice` 已迁移或删除；agentkit 已移出本仓库。详见 Common 文档中的「已折叠 / 已移除」表。

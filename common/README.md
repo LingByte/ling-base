@@ -1,13 +1,13 @@
 # common
 
-Root shared-utilities package for ling-base, plus 49 sub-packages covering
+Root shared-utilities package for ling-base, plus independent sub-packages covering
 caching, crypto, logging, rate limiting, and more.
 
 ## Structure
 
 ```
 common/
-├── base.go           # BaseModel: GORM entity with snowflake ID + audit fields
+├── base.go           # BaseModel: GORM entity (ID via common/idgen) + audit fields
 ├── env.go            # GetEnv / GetEnvXxx with TTL+LRU cache
 ├── dbs.go            # InitDatabase: GORM connection factory
 ├── dbs_mysql.go      # MySQL driver    (build tag: mysql)
@@ -44,7 +44,7 @@ func InitDatabase(logWrite io.Writer, driver, dsn string) (*gorm.DB, error)
 func GetEnv(key string) string
 ```
 
-## Sub-packages (49)
+## Sub-packages
 
 | Package          | Description                                                  |
 |------------------|--------------------------------------------------------------|
@@ -74,7 +74,7 @@ func GetEnv(key string) string
 | money            | Fixed-point money, custom currencies, FX conversion          |
 | metrics          | Metrics helpers                                             |
 | migration        | Database migration sources (filesystem, GORM migrator)       |
-| netutil          | Port availability and IP address helpers                    |
+| netutil          | Network helpers (DNS, curl parse/debug HTTP, ports/IPs)     |
 | notification     | Notification channel abstraction                            |
 | opentelemetry    | OpenTelemetry helpers                                       |
 | parser           | ASR and other parsing utilities                             |

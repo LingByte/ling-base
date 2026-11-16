@@ -11,7 +11,7 @@ ling-base/
 ├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ ARCHITECTURE.md           # 架构文档（relay/voice/common 详解）
 │
-├─ common/                   # 通用工具库（约 97 个一级包；仓库合计约 238 个 go.mod）
+├─ common/                   # 通用工具库（约 83 个一级包；仓库合计约 218 个 go.mod）
 │  ├─ logger/                # 结构化日志（zap + lumberjack）
 │  ├─ constants/             # 全局常量
 │  ├─ config/                # 配置加载（YAML + 环境变量）
@@ -29,12 +29,13 @@ ling-base/
 │  ├─ imageutil/             # 图片处理
 │  ├─ videoutil/             # 视频处理
 │  ├─ audioutil/             # 音频处理
-│  ├─ netutil/               # 网络工具
+│  ├─ netutil/               # 网络工具（含 DNS 查询、curl 解析/调试 HTTP）
 │  ├─ response/              # 统一 HTTP 响应封装
 │  ├─ cron/                  # 定时任务
 │  ├─ scheduler/             # 任务调度
 │  ├─ migration/             # 数据迁移
-│  ├─ (root) time.go         # 自然语言时间解析 ParseNaturalTime
+│  ├─ (root) time.go         # 自然语言时间解析 ParseNaturalTime / Duration / Range
+│  ├─ (root) time_helpers.go # 时区格式化、区间、秒表/倒计时、工作日等
 │  ├─ compress/              # 压缩工具（zstd/snappy/lz4）
 │  │
 │  ├─ totp/                  # TOTP 两步验证 + QR 码
@@ -74,8 +75,6 @@ ling-base/
 │  │
 │  ├─ geoip/                 # IP 地理位置查询（国内 pconline + 国际 ip-api）
 │  ├─ geocode/               # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
-│  ├─ dnsutil/               # 高级 DNS 查询（miekg/dns，10+ 记录类型，自定义服务器，反向解析）
-│  ├─ curlutil/              # curl 命令解析 + 调试型 HTTP 客户端（重定向链/TLS/二进制识别）
 │  ├─ phone/                 # 手机号归属地查询（内置离线号段库）
 │  ├─ i18n/                  # 国际化（翻译 + 格式化 + locale 检测）
 │  │  ├─ gin/                # Gin 中间件
@@ -91,20 +90,18 @@ ling-base/
 │  ├─ markdown/              # Markdown→HTML 渲染（goldmark，GFM/emoji/高亮/TOC）
 │  ├─ export/                # 数据导出（Excel/CSV/JSON/Markdown）
 │  ├─ diff/                  # 文本 diff（Myers 算法，unified/HTML 格式）
-│  ├─ emoji/                 # Emoji 处理（短代码↔Unicode，检测/移除/计数）
 │  ├─ signature/             # 请求签名（HMAC/RSA，API 签名验证）
 │  ├─ oauth2/                # OAuth2 客户端（Google/GitHub/微信/钉钉/飞书）
 │  ├─ featureflag/           # 功能开关（灰度发布，百分比/白名单/黑名单）
 │  ├─ auditlog/              # 审计日志（结构化，Storage 接口，不可篡改）
-│  ├─ webhook/               # Webhook 发送（签名+重试+事件过滤）
-│  ├─ backup/                # 数据备份/恢复（gzip 压缩，SHA256 校验）
+│  ├─ notification/          # 通知框架（email/SMS/IM/webhook/inbox/push）
+│  ├─ backup/                # 逻辑备份（多库 CLI dump / 目录 / Sink）
 │  ├─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
 │  │
 │  ├─ money/                 # 金额处理（int64 存储，运算/比较/分配/舍入）
 │  ├─ sse/                   # Server-Sent Events（Writer + Client + 事件解析）
 │  ├─ archive/               # 归档工具（zip/tar/tar.gz，zip slip 防护）
 │  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
-│  ├─ upload/                # 文件上传（验证/安全文件名/分片上传/MIME 检测）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
 │  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │  └─ stores/                # 对象存储接口（9 个独立 provider module）
@@ -255,9 +252,6 @@ go get github.com/LingByte/ling-base/common/wsutil
 
 # Cloudflare Turnstile 验证
 go get github.com/LingByte/ling-base/common/turnstile
-
-# 反垃圾（关键词过滤/频率限制/内容评分）
-
 
 # 一致性哈希（分布式分片）
 go get github.com/LingByte/ling-base/common/consistent

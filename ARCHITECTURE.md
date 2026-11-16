@@ -2,13 +2,13 @@
 
 ## 概述
 
-ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及大量独立 common 工具包。仓库约 **238** 个 `go.mod`（agentkit 已移出本仓库）。
+ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及大量独立 common 工具包。仓库约 **218** 个 `go.mod`（agentkit 已移出本仓库）。
 
 ## 仓库结构
 
 ```
 ling-base/
-├── common/          # 通用工具包（约 97 个一级目录；含 mq / search / notification / stores）
+├── common/          # 通用工具包（约 83 个一级目录；含 mq / search / notification / stores）
 │   ├── mq/          # 消息队列（5 个 broker）
 │   ├── stores/      # 对象存储（9 个 provider）
 │   ├── search/      # 全文搜索
@@ -144,7 +144,7 @@ providers/voice/
 
 ## common 模块
 
-约 97 个一级包目录（大量子实现各自独立 `go.mod`），按功能分类：
+约 83 个一级包目录（大量子实现各自独立 `go.mod`），按功能分类：
 
 | 分类 | 模块 |
 |------|------|
@@ -152,18 +152,18 @@ providers/voice/
 | 缓存 | cache（redis/ristretto）, bloom（5 种）, bitmap（memory/roaring/redis）, queue（3 种） |
 | 安全 | totp, passkey, password, jwtutil, captcha |
 | IO | compress, imageutil, videoutil, audioutil |
-| 网络 | netutil, httpclient, dnsutil（高级 DNS）, curlutil（curl 解析+调试 HTTP）, opentelemetry, tracing |
+| 网络 | netutil（含 DNS / curl 解析与调试 HTTP）, httpclient, opentelemetry, tracing |
 | 地理位置 | geoip（IP→位置）, geocode（经纬度↔地址，Nominatim+BigDataCloud）, phone（手机号归属地） |
 | 支付 | payment（stripe/creem/epay/waffo/waffopancake） |
-| 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff）, emoji（短代码↔Unicode） |
+| 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff） |
 | 数据导出 | export（Excel/CSV/JSON/Markdown） |
 | 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名）, turnstile（Cloudflare 验证） |
-| 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, webhook（Webhook 发送）, backup（数据备份） |
-| 网络/通信 | sse（Server-Sent Events）, wsutil（WebSocket 工具）, upload（文件上传） |
+| 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, notification（含 webhook 通道）, backup（逻辑备份） |
+| 网络/通信 | sse（Server-Sent Events）, wsutil（WebSocket 工具） |
 | 数据结构 | consistent（一致性哈希）, bitmap, bloom |
 | 金额/支付 | money（金额处理）, payment（stripe/creem/epay/waffo/waffopancake） |
 | 归档 | archive（zip/tar/tar.gz） |
-| 工具 | convert, parser, pinyin, qrcode, barcode, random, hash |
+| 工具 | convert, parser, pinyin, qrcode, barcode, random, hash；根包 time/time_helpers（自然语言时间 + 时区/区间/秒表） |
 
 ## 日志
 

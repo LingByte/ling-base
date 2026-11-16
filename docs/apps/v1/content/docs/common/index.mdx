@@ -1,13 +1,17 @@
 ---
 title: Common
-description: 通用工具包 — 日志、缓存、限流、锁、MQ 等
+description: 通用工具包 — 日志、缓存、限流、锁、MQ、时间工具等
 ---
 
-`common/` 下有约 97 个一级包目录，大量子实现各自独立 `go.mod`。
+`common/` 下约有 **83** 个一级包目录，大量子实现各自独立 `go.mod`（全仓库约 **218** 个 go.mod）。
+
+根包 `github.com/LingByte/ling-base/common` 还包含数据库连接、`BaseModel`、自然语言时间解析（`time.go`）以及时区/区间/秒表等时间辅助（`time_helpers.go`）。雪花号请使用 `common/idgen`。
 
 ## 常用模块
 
 ```bash
+go get github.com/LingByte/ling-base/common
+go get github.com/LingByte/ling-base/common/idgen
 go get github.com/LingByte/ling-base/common/logger
 go get github.com/LingByte/ling-base/common/cache
 go get github.com/LingByte/ling-base/common/limiter
@@ -15,6 +19,8 @@ go get github.com/LingByte/ling-base/common/lock
 go get github.com/LingByte/ling-base/common/jwtutil
 go get github.com/LingByte/ling-base/common/mq
 go get github.com/LingByte/ling-base/common/stores
+go get github.com/LingByte/ling-base/common/notification
+go get github.com/LingByte/ling-base/common/netutil
 ```
 
 ## 消息队列
@@ -26,5 +32,19 @@ go get github.com/LingByte/ling-base/common/mq
 go get github.com/LingByte/ling-base/common/mq/factory
 go get github.com/LingByte/ling-base/common/mq/rabbitmq
 ```
+
+## 通知与 Webhook
+
+Webhook 发送请使用 **`common/notification/webhook`**（独立的 `common/webhook` 模块已移除）。
+
+## 已折叠 / 已移除（勿再 go get）
+
+| 旧路径 | 现状 |
+|--------|------|
+| `common/timeutil` | 并入根包 `common` |
+| `common/dnsutil` / `common/curlutil` | 并入 `common/netutil` |
+| `common/mathutil` / `common/nltime` | 并入根包 `common` |
+| `common/webhook` / `common/rbac` / `common/antispam` / `common/alerting` / `common/tree` | 已删除 |
+| `common/emoji` / `common/upload` / `common/trie` / `common/configcenter` | 已删除 |
 
 源码：https://github.com/LingByte/ling-base/tree/main/common
