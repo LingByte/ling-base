@@ -101,6 +101,7 @@ normalize_dir() {
     common/upload|common/upload/*) printf 'common/upload was removed; use common/stores\n' >&2; return 1 ;;
     common/mathutil|common/mathutil/*) printf 'common/mathutil was removed; use github.com/LingByte/ling-base/common helpers\n' >&2; return 1 ;;
     common/nltime|common/nltime/*) printf 'common/nltime was folded into package common (ParseNaturalTime); use github.com/LingByte/ling-base/common\n' >&2; return 1 ;;
+    common/trie|common/trie/*) printf 'common/trie was removed\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then

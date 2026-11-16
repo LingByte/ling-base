@@ -167,7 +167,6 @@ use (
 	./common/tree/mysql
 	./common/tree/postgres
 	./common/tree/sqlite
-	./common/trie
 	./common/turnstile
 	./common/uaparse
 	./common/validate

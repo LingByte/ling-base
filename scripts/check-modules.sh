@@ -57,6 +57,8 @@ hits="$(grep -RIn --include='*.go' \
   -e '"github.com/LingByte/ling-base/common/mathutil/' \
   -e '"github.com/LingByte/ling-base/common/nltime"' \
   -e '"github.com/LingByte/ling-base/common/nltime/' \
+  -e '"github.com/LingByte/ling-base/common/trie"' \
+  -e '"github.com/LingByte/ling-base/common/trie/' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null | grep -v 'lingcli/fullmode.go' || true)"
@@ -87,6 +89,7 @@ sum_hits="$(grep -RIn --include='go.sum' \
   -e 'github.com/LingByte/ling-base/common/netutil/curlutil' \
   -e 'github.com/LingByte/ling-base/common/mathutil' \
   -e 'github.com/LingByte/ling-base/common/nltime' \
+  -e 'github.com/LingByte/ling-base/common/trie' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null || true)"

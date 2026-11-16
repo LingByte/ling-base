@@ -108,7 +108,6 @@ ling-base/
 │  ├─ upload/                # 文件上传（验证/安全文件名/分片上传/MIME 检测）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
 │  ├─ antispam/              # 反垃圾（关键词过滤/频率限制/内容评分）
-│  ├─ trie/                  # 前缀树（路由匹配/自动补全/线程安全版）
 │  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │  └─ stores/                # 对象存储接口（9 个独立 provider module）
 │     ├─ local/              # 本地文件系统（零云 SDK）
@@ -263,8 +262,6 @@ go get github.com/LingByte/ling-base/common/turnstile
 # 反垃圾（关键词过滤/频率限制/内容评分）
 go get github.com/LingByte/ling-base/common/antispam
 
-# 前缀树（路由匹配/自动补全）
-go get github.com/LingByte/ling-base/common/trie
 
 # 一致性哈希（分布式分片）
 go get github.com/LingByte/ling-base/common/consistent
@@ -636,7 +633,6 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/wsutil/README.md](common/wsutil/README.md)
 - [common/turnstile/README.md](common/turnstile/README.md)
 - [common/antispam/README.md](common/antispam/README.md)
-- [common/trie/README.md](common/trie/README.md)
 - [common/consistent/README.md](common/consistent/README.md)
 
 ## 开发

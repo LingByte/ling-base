@@ -171,7 +171,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/common/tree/mysql":                         "v0.1.0",
 	"github.com/LingByte/ling-base/common/tree/postgres":                      "v0.1.0",
 	"github.com/LingByte/ling-base/common/tree/sqlite":                        "v0.1.0",
-	"github.com/LingByte/ling-base/common/trie":                               "v0.1.0",
 	"github.com/LingByte/ling-base/common/turnstile":                          "v0.1.1",
 	"github.com/LingByte/ling-base/common/uaparse":                            "v0.1.0",
 	"github.com/LingByte/ling-base/common/validate":                           "v0.2.1",

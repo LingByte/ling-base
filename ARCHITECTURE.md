@@ -160,7 +160,7 @@ providers/voice/
 | 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名）, turnstile（Cloudflare 验证） |
 | 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, webhook（Webhook 发送）, backup（数据备份）, antispam（反垃圾） |
 | 网络/通信 | sse（Server-Sent Events）, wsutil（WebSocket 工具）, upload（文件上传） |
-| 数据结构 | trie（前缀树）, consistent（一致性哈希）, bitmap, bloom |
+| 数据结构 | consistent（一致性哈希）, bitmap, bloom |
 | 金额/支付 | money（金额处理）, payment（stripe/creem/epay/waffo/waffopancake） |
 | 归档 | archive（zip/tar/tar.gz） |
 | 工具 | convert, parser, pinyin, qrcode, barcode, random, hash |
