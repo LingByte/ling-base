@@ -71,6 +71,8 @@ hits="$(grep -RIn --include='*.go' \
   -e '"github.com/LingByte/ling-base/common/antispam/' \
   -e '"github.com/LingByte/ling-base/common/tree"' \
   -e '"github.com/LingByte/ling-base/common/tree/' \
+  -e '"github.com/LingByte/ling-base/common/alerting"' \
+  -e '"github.com/LingByte/ling-base/common/alerting/' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null | grep -v 'lingcli/fullmode.go' || true)"
@@ -108,6 +110,7 @@ sum_hits="$(grep -RIn --include='go.sum' \
   -e 'github.com/LingByte/ling-base/common/rbac' \
   -e 'github.com/LingByte/ling-base/common/antispam' \
   -e 'github.com/LingByte/ling-base/common/tree' \
+  -e 'github.com/LingByte/ling-base/common/alerting' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null || true)"

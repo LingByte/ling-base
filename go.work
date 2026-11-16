@@ -6,7 +6,6 @@ use (
 	./bootstrap
 	./common
 	./common/abtest
-	./common/alerting
 	./common/archive
 	./common/audioutil
 	./common/auditlog

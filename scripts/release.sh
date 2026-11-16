@@ -108,6 +108,7 @@ normalize_dir() {
     common/rbac|common/rbac/*) printf 'common/rbac was removed\n' >&2; return 1 ;;
     common/antispam|common/antispam/*) printf 'common/antispam was removed\n' >&2; return 1 ;;
     common/tree|common/tree/*) printf 'common/tree was removed\n' >&2; return 1 ;;
+    common/alerting|common/alerting/*) printf 'common/alerting was removed\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then

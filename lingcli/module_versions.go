@@ -10,7 +10,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/bootstrap":                                 "v0.1.6",
 	"github.com/LingByte/ling-base/common":                                    "v0.3.1",
 	"github.com/LingByte/ling-base/common/abtest":                             "v0.1.0",
-	"github.com/LingByte/ling-base/common/alerting":                           "v0.1.0",
 	"github.com/LingByte/ling-base/common/archive":                            "v0.1.1",
 	"github.com/LingByte/ling-base/common/audioutil":                          "v0.1.0",
 	"github.com/LingByte/ling-base/common/auditlog":                           "v0.1.1",
