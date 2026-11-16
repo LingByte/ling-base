@@ -39,6 +39,24 @@ hits="$(grep -RIn --include='*.go' \
   -e '"github.com/LingByte/ling-base/voice/' \
   -e '"github.com/LingByte/ling-base/stores"' \
   -e '"github.com/LingByte/ling-base/stores/' \
+  -e '"github.com/LingByte/ling-base/pentest"' \
+  -e '"github.com/LingByte/ling-base/pentest/' \
+  -e '"github.com/LingByte/ling-base/common/emoji"' \
+  -e '"github.com/LingByte/ling-base/common/emoji/' \
+  -e '"github.com/LingByte/ling-base/common/upload"' \
+  -e '"github.com/LingByte/ling-base/common/upload/' \
+  -e '"github.com/LingByte/ling-base/common/dnsutil"' \
+  -e '"github.com/LingByte/ling-base/common/dnsutil/' \
+  -e '"github.com/LingByte/ling-base/common/curlutil"' \
+  -e '"github.com/LingByte/ling-base/common/curlutil/' \
+  -e '"github.com/LingByte/ling-base/common/netutil/dnsutil"' \
+  -e '"github.com/LingByte/ling-base/common/netutil/dnsutil/' \
+  -e '"github.com/LingByte/ling-base/common/netutil/curlutil"' \
+  -e '"github.com/LingByte/ling-base/common/netutil/curlutil/' \
+  -e '"github.com/LingByte/ling-base/common/mathutil"' \
+  -e '"github.com/LingByte/ling-base/common/mathutil/' \
+  -e '"github.com/LingByte/ling-base/common/nltime"' \
+  -e '"github.com/LingByte/ling-base/common/nltime/' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null | grep -v 'lingcli/fullmode.go' || true)"
@@ -57,6 +75,18 @@ sum_hits="$(grep -RIn --include='go.sum' \
   -e 'github.com/LingByte/ling-base/voice/' \
   -e 'github.com/LingByte/ling-base/stores ' \
   -e 'github.com/LingByte/ling-base/stores/' \
+  -e 'github.com/LingByte/ling-base/pentest ' \
+  -e 'github.com/LingByte/ling-base/pentest/' \
+  -e 'github.com/LingByte/ling-base/common/emoji' \
+  -e 'github.com/LingByte/ling-base/common/upload' \
+  -e 'github.com/LingByte/ling-base/common/dnsutil ' \
+  -e 'github.com/LingByte/ling-base/common/dnsutil/' \
+  -e 'github.com/LingByte/ling-base/common/curlutil ' \
+  -e 'github.com/LingByte/ling-base/common/curlutil/' \
+  -e 'github.com/LingByte/ling-base/common/netutil/dnsutil' \
+  -e 'github.com/LingByte/ling-base/common/netutil/curlutil' \
+  -e 'github.com/LingByte/ling-base/common/mathutil' \
+  -e 'github.com/LingByte/ling-base/common/nltime' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null || true)"

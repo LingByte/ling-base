@@ -17,7 +17,8 @@ common/
 ├── file_type.go      # File category constants (image/audio/media/file)
 ├── files.go          # File hash, size, save helpers
 ├── array.go          # Generic Join[T] helper
-├── strings.go        # Zero-copy string <-> []byte conversions
+├── math.go           # Clamp / Min / Max / RoundFloat / GCD
+├── time.go           # ParseNaturalTime / Duration / Range (ex-nltime)
 ├── geo.go            # Haversine distance between two coordinates
 ├── signals.go        # Signal/event handler registry
 └── snowflake.go      # Deprecated snowflake aliases (use common/idgen)
@@ -71,11 +72,10 @@ func GetEnv(key string) string
 | limiter          | Unified rate-limiting and concurrency-control interface      |
 | lock             | Distributed lock interface                                  |
 | logger           | Structured logging (zap-based) with Gin integration          |
-| mathutil         | Math helpers: Clamp, Round, MinMax, Truncate                 |
+| money            | Fixed-point money, custom currencies, FX conversion          |
 | metrics          | Metrics helpers                                             |
 | migration        | Database migration sources (filesystem, GORM migrator)       |
 | netutil          | Port availability and IP address helpers                    |
-| nltime           | Natural-language time expression parser                     |
 | notification     | Notification channel abstraction                            |
 | opentelemetry    | OpenTelemetry helpers                                       |
 | parser           | ASR and other parsing utilities                             |
