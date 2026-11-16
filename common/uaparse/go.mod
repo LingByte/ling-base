@@ -12,5 +12,6 @@ require (
 require (
 	github.com/boyter/go-string v1.0.5 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/stretchr/testify v1.12.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )

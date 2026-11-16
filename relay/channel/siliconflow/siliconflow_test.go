@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/siliconflow"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
 func TestSiliconFlowAdaptor_ConvertImageRequest(t *testing.T) {
 	tests := []struct {
-		name         string
-		request      dto.ImageRequest
-		wantModel    string
-		wantPrompt   string
+		name          string
+		request       dto.ImageRequest
+		wantModel     string
+		wantPrompt    string
 		wantImageSize string
 		wantBatchSize uint
 	}{

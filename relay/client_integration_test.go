@@ -441,7 +441,7 @@ func TestIntegration_Fallback(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": "test", "model": model,
 			"choices": []map[string]any{{"index": 0, "message": map[string]any{"role": "assistant", "content": "ok"}, "finish_reason": "stop"}},
-			"usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+			"usage":   map[string]any{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
 		})
 	}))
 	defer server.Close()

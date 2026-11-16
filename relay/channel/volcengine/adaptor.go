@@ -1,8 +1,8 @@
 package volcengine
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,14 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/channel"
 	"github.com/LingByte/ling-base/relay/channel/claude"
 	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
-	constant "github.com/LingByte/ling-base/relay/relaymode"
+	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	constant "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/setting"
 	"github.com/samber/lo"
 )

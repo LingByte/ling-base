@@ -416,9 +416,9 @@ func reverseZone(ipStr string) (string, error) {
 func parseRecord(rr dns.RR) *DNSRecord {
 	header := rr.Header()
 	r := &DNSRecord{
-		Name:  header.Name,
-		Type:  dns.TypeToString[header.Rrtype],
-		TTL:   header.Ttl,
+		Name: header.Name,
+		Type: dns.TypeToString[header.Rrtype],
+		TTL:  header.Ttl,
 	}
 
 	switch v := rr.(type) {

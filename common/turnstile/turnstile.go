@@ -57,10 +57,10 @@ type Response struct {
 
 // Client verifies Turnstile tokens and renders widget HTML.
 type Client struct {
-	secretKey   string
-	siteKey     string
-	httpClient  *http.Client
-	endpoint    string
+	secretKey  string
+	siteKey    string
+	httpClient *http.Client
+	endpoint   string
 }
 
 // NewClient creates a new Turnstile client.

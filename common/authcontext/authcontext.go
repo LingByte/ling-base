@@ -21,28 +21,28 @@
 //
 // # Architecture
 //
-//	      Incoming Request
-//	             │
-//	             ▼
-//	   ┌───────────────────┐
-//	   │  Extractor        │  ← JWT / headers / custom
-//	   │  (AuthExtractor)  │
-//	   └────────┬──────────┘
-//	            │ Identity
-//	            ▼
-//	   ┌───────────────────┐
-//	   │  Context          │  ← context.WithValue
-//	   │  (WithIdentity)   │
-//	   └────────┬──────────┘
-//	            │ ctx
-//	            ▼
-//	   ┌───────────────────┐
-//	   │  Propagator       │  ← outbound http.RoundTripper
-//	   │  (PropagatingRT)  │
-//	   └───────────────────┘
-//	            │
-//	            ▼
-//	      Downstream Service
+//	   Incoming Request
+//	          │
+//	          ▼
+//	┌───────────────────┐
+//	│  Extractor        │  ← JWT / headers / custom
+//	│  (AuthExtractor)  │
+//	└────────┬──────────┘
+//	         │ Identity
+//	         ▼
+//	┌───────────────────┐
+//	│  Context          │  ← context.WithValue
+//	│  (WithIdentity)   │
+//	└────────┬──────────┘
+//	         │ ctx
+//	         ▼
+//	┌───────────────────┐
+//	│  Propagator       │  ← outbound http.RoundTripper
+//	│  (PropagatingRT)  │
+//	└───────────────────┘
+//	         │
+//	         ▼
+//	   Downstream Service
 //
 // # Quick start
 //
@@ -248,13 +248,13 @@ type HeaderExtractor struct {
 // NewHeaderExtractor returns a HeaderExtractor with default header names.
 func NewHeaderExtractor() *HeaderExtractor {
 	return &HeaderExtractor{
-		HeaderUserID:       "X-User-ID",
-		HeaderUserName:     "X-User-Name",
-		HeaderNickName:     "X-Nick-Name",
-		HeaderTenantID:     "X-Tenant-ID",
-		HeaderRoles:        "X-User-Roles",
-		HeaderPermissions:  "X-User-Permissions",
-		HeaderToken:        "X-Forwarded-Token",
+		HeaderUserID:      "X-User-ID",
+		HeaderUserName:    "X-User-Name",
+		HeaderNickName:    "X-Nick-Name",
+		HeaderTenantID:    "X-Tenant-ID",
+		HeaderRoles:       "X-User-Roles",
+		HeaderPermissions: "X-User-Permissions",
+		HeaderToken:       "X-Forwarded-Token",
 	}
 }
 
@@ -264,12 +264,12 @@ func (h *HeaderExtractor) Extract(r *http.Request) (*Identity, error) {
 		return strings.TrimSpace(r.Header.Get(name))
 	}
 	id := &Identity{
-		UserID:      get(h.HeaderUserID),
-		UserName:    get(h.HeaderUserName),
-		NickName:    get(h.HeaderNickName),
-		TenantID:    get(h.HeaderTenantID),
-		Token:       get(h.HeaderToken),
-		Source:      "header",
+		UserID:   get(h.HeaderUserID),
+		UserName: get(h.HeaderUserName),
+		NickName: get(h.HeaderNickName),
+		TenantID: get(h.HeaderTenantID),
+		Token:    get(h.HeaderToken),
+		Source:   "header",
 	}
 	if roles := get(h.HeaderRoles); roles != "" {
 		id.Roles = splitCSV(roles)
@@ -350,14 +350,14 @@ func (j *JWTExtractor) Extract(r *http.Request) (*Identity, error) {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
 	id := &Identity{
-		UserID:   stringFromExtra(claims.Extra, j.ClaimsUserID, claims.Subject),
-		UserName: stringFromExtra(claims.Extra, j.ClaimsUserName, ""),
-		NickName: stringFromExtra(claims.Extra, j.ClaimsNickName, ""),
-		TenantID: stringFromExtra(claims.Extra, j.ClaimsTenantID, ""),
-		Roles:    stringSliceFromExtra(claims.Extra, j.ClaimsRoles),
+		UserID:      stringFromExtra(claims.Extra, j.ClaimsUserID, claims.Subject),
+		UserName:    stringFromExtra(claims.Extra, j.ClaimsUserName, ""),
+		NickName:    stringFromExtra(claims.Extra, j.ClaimsNickName, ""),
+		TenantID:    stringFromExtra(claims.Extra, j.ClaimsTenantID, ""),
+		Roles:       stringSliceFromExtra(claims.Extra, j.ClaimsRoles),
 		Permissions: stringSliceFromExtra(claims.Extra, j.ClaimsPermissions),
-		Token:    token,
-		Source:   "jwt",
+		Token:       token,
+		Source:      "jwt",
 	}
 	if !id.IsAuthenticated() {
 		return nil, nil
@@ -388,13 +388,13 @@ func BearerFromHeader(r *http.Request) string {
 // [HeaderExtractor], so a downstream service using HeaderExtractor
 // will reconstitute the same identity.
 type PropagationHeaders struct {
-	UserID       string
-	UserName     string
-	NickName     string
-	TenantID     string
-	Roles        string
-	Permissions  string
-	Token        string
+	UserID      string
+	UserName    string
+	NickName    string
+	TenantID    string
+	Roles       string
+	Permissions string
+	Token       string
 }
 
 // DefaultPropagationHeaders returns the standard header names matching

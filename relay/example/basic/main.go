@@ -12,8 +12,8 @@ import (
 	"os"
 
 	relay "github.com/LingByte/ling-base/relay"
-	"github.com/LingByte/ling-base/relay/meter"
 	"github.com/LingByte/ling-base/relay/channel/openai"
+	"github.com/LingByte/ling-base/relay/meter"
 )
 
 func main() {

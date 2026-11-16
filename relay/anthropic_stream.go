@@ -21,13 +21,13 @@ func parseAnthropicSSE(body io.Reader, ch chan<- RichStreamChunk) (RichResponse,
 
 	// Track content blocks being assembled.
 	type blockState struct {
-		kind    string // "text" | "tool_use" | "thinking"
-		id      string
-		name    string
-		text    strings.Builder
-		input   strings.Builder
+		kind     string // "text" | "tool_use" | "thinking"
+		id       string
+		name     string
+		text     strings.Builder
+		input    strings.Builder
 		thinking strings.Builder
-		sig     string
+		sig      string
 	}
 	blocks := map[int]*blockState{}
 
@@ -49,9 +49,9 @@ func parseAnthropicSSE(body io.Reader, ch chan<- RichStreamChunk) (RichResponse,
 			Type string `json:"type"`
 			// message_start
 			Message *struct {
-				ID     string `json:"id"`
-				Model  string `json:"model"`
-				Usage  *struct {
+				ID    string `json:"id"`
+				Model string `json:"model"`
+				Usage *struct {
 					InputTokens              int64 `json:"input_tokens"`
 					OutputTokens             int64 `json:"output_tokens"`
 					CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
@@ -59,23 +59,23 @@ func parseAnthropicSSE(body io.Reader, ch chan<- RichStreamChunk) (RichResponse,
 				} `json:"usage"`
 			} `json:"message"`
 			// content_block_start
-			Index *int `json:"index"`
+			Index        *int `json:"index"`
 			ContentBlock *struct {
-				Type  string `json:"type"`
-				Text  string `json:"text"`
-				ID    string `json:"id"`
-				Name  string `json:"name"`
-				Input json.RawMessage `json:"input"`
-				Thinking string `json:"thinking"`
-				Signature string `json:"signature"`
+				Type      string          `json:"type"`
+				Text      string          `json:"text"`
+				ID        string          `json:"id"`
+				Name      string          `json:"name"`
+				Input     json.RawMessage `json:"input"`
+				Thinking  string          `json:"thinking"`
+				Signature string          `json:"signature"`
 			} `json:"content_block"`
 			// content_block_delta
 			Delta *struct {
-				Type       string `json:"type"`
-				Text       string `json:"text"`
+				Type        string `json:"type"`
+				Text        string `json:"text"`
 				PartialJSON string `json:"partial_json"`
-				Thinking   string `json:"thinking"`
-				Signature  string `json:"signature"`
+				Thinking    string `json:"thinking"`
+				Signature   string `json:"signature"`
 			} `json:"delta"`
 			// message_delta
 			DeltaMsg *struct {

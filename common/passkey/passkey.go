@@ -325,11 +325,11 @@ func adaptUser(u User) webauthn.User {
 	return &userAdapter{u: u}
 }
 
-func (a *userAdapter) WebAuthnID() []byte                          { return a.u.WebAuthnID() }
-func (a *userAdapter) WebAuthnName() string                        { return a.u.WebAuthnName() }
-func (a *userAdapter) WebAuthnDisplayName() string                 { return a.u.WebAuthnDisplayName() }
-func (a *userAdapter) WebAuthnIcon() string                        { return a.u.WebAuthnIcon() }
-func (a *userAdapter) WebAuthnCredentials() []webauthn.Credential  { return a.u.WebAuthnCredentials() }
+func (a *userAdapter) WebAuthnID() []byte                         { return a.u.WebAuthnID() }
+func (a *userAdapter) WebAuthnName() string                       { return a.u.WebAuthnName() }
+func (a *userAdapter) WebAuthnDisplayName() string                { return a.u.WebAuthnDisplayName() }
+func (a *userAdapter) WebAuthnIcon() string                       { return a.u.WebAuthnIcon() }
+func (a *userAdapter) WebAuthnCredentials() []webauthn.Credential { return a.u.WebAuthnCredentials() }
 
 // ──────────────────────────────────────────────
 // Internal: options builders

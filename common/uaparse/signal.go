@@ -10,7 +10,7 @@ type signal struct {
 	os, osVer           string
 	engine              string
 
-	deviceType          DeviceType
+	deviceType           DeviceType
 	family, brand, model string
 
 	category, vendor string

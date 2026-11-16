@@ -10,24 +10,24 @@
 //
 // The package implements a three-state state machine per operation ID:
 //
-//	┌─────────┐  Begin     ┌───────────┐  Complete  ┌─────────────┐
-//	│  ABSENT │ ─────────► │ IN_FLIGHT │ ─────────► │ ACCOMPLISHED │
-//	└─────────┘            └───────────┘            └─────────────┘
-//	                              │
-//	                              │ Error / Del
-//	                              ▼
-//	                         ┌───────────┐
-//	                         │  ABSENT   │
-//	                         └───────────┘
+//		┌─────────┐  Begin     ┌───────────┐  Complete  ┌─────────────┐
+//		│  ABSENT │ ─────────► │ IN_FLIGHT │ ─────────► │ ACCOMPLISHED │
+//		└─────────┘            └───────────┘            └─────────────┘
+//		                              │
+//		                              │ Error / Del
+//		                              ▼
+//		                         ┌───────────┐
+//		                         │  ABSENT   │
+//		                         └───────────┘
 //
-//  1. **Begin(id)** — atomically claims the ID. If the ID is absent,
-//     it is marked IN_FLIGHT and the caller proceeds. If already
-//     IN_FLIGHT or ACCOMPLISHED, the caller skips the operation.
-//  2. **Complete(id)** — marks an IN_FLIGHT operation as ACCOMPLISHED.
-//  3. **Del(id)** — removes the idempotency record (used on error so
-//     the operation can be retried).
-//  4. **IsAccomplished(id)** — checks whether the operation finished
-//     successfully.
+//	 1. **Begin(id)** — atomically claims the ID. If the ID is absent,
+//	    it is marked IN_FLIGHT and the caller proceeds. If already
+//	    IN_FLIGHT or ACCOMPLISHED, the caller skips the operation.
+//	 2. **Complete(id)** — marks an IN_FLIGHT operation as ACCOMPLISHED.
+//	 3. **Del(id)** — removes the idempotency record (used on error so
+//	    the operation can be retried).
+//	 4. **IsAccomplished(id)** — checks whether the operation finished
+//	    successfully.
 //
 // # Storage
 //

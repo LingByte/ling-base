@@ -30,10 +30,10 @@ func (c *countingEmbedder) EmbedSingle(ctx context.Context, text string) ([]floa
 	return vecs[0], nil
 }
 
-func (c *countingEmbedder) Dimension() int  { return c.dim }
-func (c *countingEmbedder) Name() string    { return "counting" }
+func (c *countingEmbedder) Dimension() int   { return c.dim }
+func (c *countingEmbedder) Name() string     { return "counting" }
 func (c *countingEmbedder) Provider() string { return "test" }
-func (c *countingEmbedder) Close() error    { return nil }
+func (c *countingEmbedder) Close() error     { return nil }
 
 func TestCachingEmbedder_Hit(t *testing.T) {
 	inner := &countingEmbedder{dim: 4}

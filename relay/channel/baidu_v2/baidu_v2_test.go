@@ -12,8 +12,8 @@ import (
 
 	"github.com/LingByte/ling-base/relay/channel/baidu_v2"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 func TestBaiduV2Adaptor_GetChannelName(t *testing.T) {
@@ -37,7 +37,7 @@ func TestBaiduV2Adaptor_ConvertClaudeRequest(t *testing.T) {
 		},
 	}
 	req := &dto.ClaudeRequest{
-		Model:    "ernie-4.0-8k",
+		Model:     "ernie-4.0-8k",
 		MaxTokens: ptrUint(1024),
 		Messages: []dto.ClaudeMessage{
 			{Role: "user", Content: "hello"},

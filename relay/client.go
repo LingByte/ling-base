@@ -39,12 +39,12 @@ import (
 	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/common/netutil"
 	"github.com/LingByte/ling-base/common/retry"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/meter"
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"go.uber.org/zap"
 )
 
@@ -110,10 +110,10 @@ type ImageRequest struct {
 
 // ChatResponse is the unified chat completion response.
 type ChatResponse struct {
-	ID      string         `json:"id"`
-	Model   string         `json:"model"`
-	Choices []ChatChoice   `json:"choices"`
-	Usage   meter.Usage    `json:"usage"`
+	ID       string       `json:"id"`
+	Model    string       `json:"model"`
+	Choices  []ChatChoice `json:"choices"`
+	Usage    meter.Usage  `json:"usage"`
 	Provider string       `json:"provider"`
 }
 
@@ -196,11 +196,11 @@ func NewProvider(name string, apiType int, adaptor common.Adaptor, baseURL strin
 	}
 }
 
-func (p *GenericProvider) Name() string             { return p.name }
-func (p *GenericProvider) ApiType() int             { return p.apiType }
-func (p *GenericProvider) Adaptor() common.Adaptor  { return p.adaptor }
-func (p *GenericProvider) BaseURL() string          { return p.baseURL }
-func (p *GenericProvider) APIKey() string           { return p.apiKey }
+func (p *GenericProvider) Name() string            { return p.name }
+func (p *GenericProvider) ApiType() int            { return p.apiType }
+func (p *GenericProvider) Adaptor() common.Adaptor { return p.adaptor }
+func (p *GenericProvider) BaseURL() string         { return p.baseURL }
+func (p *GenericProvider) APIKey() string          { return p.apiKey }
 
 // ─── Client ──────────────────────────────────────────────────────
 
@@ -537,10 +537,10 @@ func (c *Client) chatOnce(ctx context.Context, req *ChatRequest) (*ChatResponse,
 
 // ChatStreamChunk is one chunk in a streaming chat response.
 type ChatStreamChunk struct {
-	Delta        string                   // content delta (text)
-	Reasoning    string                   // reasoning_content delta (DeepSeek/o1-style)
-	ToolCalls    []dto.ToolCallResponse   // tool_call delta (OpenAI streaming format)
-	FinishReason string                   // "stop" | "tool_calls" | "length" | ...
+	Delta        string                 // content delta (text)
+	Reasoning    string                 // reasoning_content delta (DeepSeek/o1-style)
+	ToolCalls    []dto.ToolCallResponse // tool_call delta (OpenAI streaming format)
+	FinishReason string                 // "stop" | "tool_calls" | "length" | ...
 	Err          error
 	Done         bool
 	Usage        *meter.Usage // present on final chunk if provider reports it
@@ -684,8 +684,8 @@ func (c *Client) chatStreamOnce(ctx context.Context, req *ChatRequest) (*ChatStr
 // streamResponseWriter implements http.ResponseWriter by forwarding
 // SSE data chunks to a channel.
 type streamResponseWriter struct {
-	ch       chan ChatStreamChunk
-	header   http.Header
+	ch     chan ChatStreamChunk
+	header http.Header
 }
 
 func (w *streamResponseWriter) Header() http.Header {
@@ -769,11 +769,11 @@ func extractSSEChunk(data string) (ChatStreamChunk, bool) {
 	var chunk struct {
 		Choices []struct {
 			Delta struct {
-				Content          *string                  `json:"content,omitempty"`
-				ReasoningContent *string                  `json:"reasoning_content,omitempty"`
-				Reasoning        *string                  `json:"reasoning,omitempty"`
-				Role             string                   `json:"role,omitempty"`
-				ToolCalls        []dto.ToolCallResponse   `json:"tool_calls,omitempty"`
+				Content          *string                `json:"content,omitempty"`
+				ReasoningContent *string                `json:"reasoning_content,omitempty"`
+				Reasoning        *string                `json:"reasoning,omitempty"`
+				Role             string                 `json:"role,omitempty"`
+				ToolCalls        []dto.ToolCallResponse `json:"tool_calls,omitempty"`
 			} `json:"delta"`
 			FinishReason *string `json:"finish_reason"`
 		} `json:"choices"`
@@ -1494,20 +1494,20 @@ type MidjourneyResponse struct {
 
 // MidjourneyTask represents a fetched Midjourney task state.
 type MidjourneyTask struct {
-	ID          string         `json:"id"`
-	Action      string         `json:"action,omitempty"`
-	Status      string         `json:"status,omitempty"`
-	Progress    string         `json:"progress,omitempty"`
-	Prompt      string         `json:"prompt,omitempty"`
-	PromptEn    string         `json:"promptEn,omitempty"`
-	ImageUrl    string         `json:"imageUrl,omitempty"`
-	VideoUrl    string         `json:"videoUrl,omitempty"`
-	FailReason  string         `json:"failReason,omitempty"`
-	Buttons     []map[string]any `json:"buttons,omitempty"`
-	Properties  map[string]any `json:"properties,omitempty"`
-	SubmitTime  int64          `json:"submitTime,omitempty"`
-	StartTime   int64          `json:"startTime,omitempty"`
-	FinishTime  int64          `json:"finishTime,omitempty"`
+	ID         string           `json:"id"`
+	Action     string           `json:"action,omitempty"`
+	Status     string           `json:"status,omitempty"`
+	Progress   string           `json:"progress,omitempty"`
+	Prompt     string           `json:"prompt,omitempty"`
+	PromptEn   string           `json:"promptEn,omitempty"`
+	ImageUrl   string           `json:"imageUrl,omitempty"`
+	VideoUrl   string           `json:"videoUrl,omitempty"`
+	FailReason string           `json:"failReason,omitempty"`
+	Buttons    []map[string]any `json:"buttons,omitempty"`
+	Properties map[string]any   `json:"properties,omitempty"`
+	SubmitTime int64            `json:"submitTime,omitempty"`
+	StartTime  int64            `json:"startTime,omitempty"`
+	FinishTime int64            `json:"finishTime,omitempty"`
 }
 
 // MidjourneySubmit submits a Midjourney task.
@@ -1981,10 +1981,10 @@ func (w *dummyResponseWriter) Bytes() []byte { return w.buf }
 // parseChatResponse parses the JSON response body into a ChatResponse.
 func parseChatResponse(body []byte, model, provider string, usage meter.Usage) (*ChatResponse, error) {
 	var raw struct {
-		ID      string         `json:"id"`
-		Model   string         `json:"model"`
-		Choices []ChatChoice   `json:"choices"`
-		Usage   *dto.Usage     `json:"usage"`
+		ID      string       `json:"id"`
+		Model   string       `json:"model"`
+		Choices []ChatChoice `json:"choices"`
+		Usage   *dto.Usage   `json:"usage"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, fmt.Errorf("parse chat response: %w", err)
@@ -2050,7 +2050,7 @@ type RelayError struct {
 	StatusCode int
 	Code       string // error code from provider
 	Message    string
-	Err        error  // wrapped error
+	Err        error // wrapped error
 }
 
 // Error implements the error interface.
@@ -2098,11 +2098,11 @@ type CompletionsRequest struct {
 
 // CompletionsResponse is the legacy completions response.
 type CompletionsResponse struct {
-	ID      string          `json:"id"`
-	Model   string          `json:"model"`
-	Choices []json.RawMessage `json:"choices"`
-	Usage   meter.Usage     `json:"usage"`
-	Provider string         `json:"provider"`
+	ID       string            `json:"id"`
+	Model    string            `json:"model"`
+	Choices  []json.RawMessage `json:"choices"`
+	Usage    meter.Usage       `json:"usage"`
+	Provider string            `json:"provider"`
 }
 
 // Completions sends a legacy text completion request (/v1/completions).
@@ -2116,8 +2116,8 @@ func (c *Client) Completions(ctx context.Context, req *CompletionsRequest) (*Com
 	adaptor.Init(info)
 
 	openaiReq := &dto.GeneralOpenAIRequest{
-		Model:       req.Model,
-		Prompt:      req.Prompt,
+		Model:  req.Model,
+		Prompt: req.Prompt,
 	}
 	if req.Stream {
 		streamVal := true
@@ -2270,8 +2270,8 @@ func (c *Client) Moderations(ctx context.Context, req *ModerationsRequest) (*dto
 type ImageEditRequest struct {
 	Model  string
 	Prompt string
-	Image  []byte    // original image bytes
-	Mask   []byte    // optional mask bytes
+	Image  []byte // original image bytes
+	Mask   []byte // optional mask bytes
 	N      *int
 	Size   string
 	User   string
@@ -2362,12 +2362,12 @@ func (c *Client) ImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageRe
 
 // EditRequest is the legacy /v1/edits request.
 type EditRequest struct {
-	Model      string `json:"model"`
-	Input      string `json:"input"`
-	Instruction string `json:"instruction"`
-	N          *int   `json:"n,omitempty"`
+	Model       string   `json:"model"`
+	Input       string   `json:"input"`
+	Instruction string   `json:"instruction"`
+	N           *int     `json:"n,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty"`
-	TopP       *float64 `json:"top_p,omitempty"`
+	TopP        *float64 `json:"top_p,omitempty"`
 }
 
 // Edit sends a legacy text edit request (/v1/edits).
@@ -2707,7 +2707,7 @@ func (c *Client) AlphaSearch(ctx context.Context, req *AlphaSearchRequest) (*Res
 	c.record(ctx, req.Model, meter.Usage{RequestCount: 1})
 
 	return &ResponsesResponse{
-		Data: body,
+		Data:  body,
 		Usage: meter.Usage{RequestCount: 1},
 	}, nil
 }
@@ -2740,12 +2740,12 @@ func (c *Client) MidjourneyImageSeed(ctx context.Context, baseURL, apiKey, taskI
 
 // MidjourneyNotifyRequest is the body of a Midjourney webhook callback.
 type MidjourneyNotifyRequest struct {
-	MjId        string `json:"mjId"`
-	Status      string `json:"status"`
-	Progress    string `json:"progress"`
-	PromptEn    string `json:"promptEn"`
-	ImageUrl    string `json:"imageUrl"`
-	State       string `json:"state"`
+	MjId     string `json:"mjId"`
+	Status   string `json:"status"`
+	Progress string `json:"progress"`
+	PromptEn string `json:"promptEn"`
+	ImageUrl string `json:"imageUrl"`
+	State    string `json:"state"`
 }
 
 // MidjourneyNotify handles a Midjourney webhook callback.

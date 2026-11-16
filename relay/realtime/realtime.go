@@ -69,10 +69,10 @@ type Session struct {
 	client Conn
 	target Conn
 
-	mu     sync.Mutex
-	usage  dto.RealtimeUsage
-	meter  meter.Meter
-	model  string
+	mu       sync.Mutex
+	usage    dto.RealtimeUsage
+	meter    meter.Meter
+	model    string
 	provider string
 }
 

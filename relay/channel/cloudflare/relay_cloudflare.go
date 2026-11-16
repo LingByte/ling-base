@@ -14,7 +14,6 @@ import (
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-
 )
 
 func convertCf2CompletionsRequest(textRequest dto.GeneralOpenAIRequest) *CfRequest {

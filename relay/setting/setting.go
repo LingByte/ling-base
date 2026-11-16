@@ -30,7 +30,7 @@ func SetGlobalSettings(s *GlobalSettings) {
 
 // ModelSetting holds model-specific settings.
 type ModelSetting struct {
-	ThinkingAdapterEnabled             bool
+	ThinkingAdapterEnabled                bool
 	ThinkingAdapterBudgetTokensPercentage float64
 }
 
@@ -57,9 +57,9 @@ func IsSyncImageModel(modelName string) bool {
 
 // GeminiSetting holds Gemini-specific settings.
 type GeminiSetting struct {
-	ThinkingAdapterEnabled             bool
+	ThinkingAdapterEnabled                bool
 	ThinkingAdapterBudgetTokensPercentage float64
-	RemoveFunctionResponseIdEnabled    bool
+	RemoveFunctionResponseIdEnabled       bool
 }
 
 var geminiSetting = &GeminiSetting{}

@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/aws"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 func TestAWSAdaptor_ConvertClaudeRequest_URLMediaSourcesToBase64(t *testing.T) {

@@ -37,9 +37,9 @@ func TestNewWriter_NoFlusher(t *testing.T) {
 
 type noFlusher struct{}
 
-func (*noFlusher) Header() http.Header             { return http.Header{} }
-func (*noFlusher) Write([]byte) (int, error)       { return 0, nil }
-func (*noFlusher) WriteHeader(int)                 {}
+func (*noFlusher) Header() http.Header       { return http.Header{} }
+func (*noFlusher) Write([]byte) (int, error) { return 0, nil }
+func (*noFlusher) WriteHeader(int)           {}
 
 func TestSetHeaders(t *testing.T) {
 	rec := httptest.NewRecorder()
@@ -147,10 +147,10 @@ func TestWriter_WriteError(t *testing.T) {
 // fails on Write.
 type errorWriter struct{}
 
-func (*errorWriter) Header() http.Header             { return http.Header{} }
-func (*errorWriter) Write([]byte) (int, error)       { return 0, io.ErrShortWrite }
-func (*errorWriter) WriteHeader(int)                 {}
-func (*errorWriter) Flush()                          {}
+func (*errorWriter) Header() http.Header       { return http.Header{} }
+func (*errorWriter) Write([]byte) (int, error) { return 0, io.ErrShortWrite }
+func (*errorWriter) WriteHeader(int)           {}
+func (*errorWriter) Flush()                    {}
 
 // ──────────────────────────────────────────────
 // ParseEvent

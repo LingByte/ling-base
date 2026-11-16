@@ -37,12 +37,12 @@ var ErrInvalidReplicas = errors.New("consistent: replicas must be greater than z
 
 // Ring is a consistent-hash ring with virtual nodes.
 type Ring struct {
-	mu            sync.RWMutex
-	hash          Hash
-	replicas      int
-	virtualNodes  map[uint32]string // virtual-node hash -> physical node name
-	sortedHashes  []uint32          // ascending, for binary search
-	nodes         map[string]bool   // set of physical node names
+	mu           sync.RWMutex
+	hash         Hash
+	replicas     int
+	virtualNodes map[uint32]string // virtual-node hash -> physical node name
+	sortedHashes []uint32          // ascending, for binary search
+	nodes        map[string]bool   // set of physical node names
 }
 
 // Option configures a Ring.

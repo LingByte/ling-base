@@ -27,16 +27,16 @@ type ModerationRequest struct {
 // ModerationResponse is the unified moderations payload returned to clients.
 // OpenAI upstream results and local pkg/censor results are both normalized here.
 type ModerationResponse struct {
-	ID      string              `json:"id"`
-	Model   string              `json:"model"`
-	Results []ModerationResult  `json:"results"`
+	ID      string             `json:"id"`
+	Model   string             `json:"model"`
+	Results []ModerationResult `json:"results"`
 }
 
 // ModerationResult unifies OpenAI categories with censor suggestion/label fields.
 type ModerationResult struct {
-	Flagged                   bool               `json:"flagged"`
-	Categories                map[string]bool    `json:"categories"`
-	CategoryScores            map[string]float64 `json:"category_scores"`
+	Flagged                   bool                `json:"flagged"`
+	Categories                map[string]bool     `json:"categories"`
+	CategoryScores            map[string]float64  `json:"category_scores"`
 	CategoryAppliedInputTypes map[string][]string `json:"category_applied_input_types,omitempty"`
 	// Censor-compatible extensions (always present for local censor; optional for OpenAI).
 	Suggestion string  `json:"suggestion,omitempty"` // pass | review | block

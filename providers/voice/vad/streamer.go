@@ -70,12 +70,12 @@ type Streamer struct {
 	detector Detector
 	cfg      StreamerConfig
 
-	mu           sync.Mutex
-	speechActive bool
-	frameIndex   int
-	speechFrames int // consecutive speech frames
+	mu            sync.Mutex
+	speechActive  bool
+	frameIndex    int
+	speechFrames  int // consecutive speech frames
 	silenceFrames int // consecutive non-speech frames in hangover
-	lastEvent    Event
+	lastEvent     Event
 
 	// Pre-speech audio buffer (ring buffer of PCM frames).
 	preSpeechBuf   [][]byte

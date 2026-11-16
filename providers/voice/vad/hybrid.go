@@ -48,13 +48,13 @@ type HybridConfig struct {
 // by 60-70%, cutting average CPU from 4.5% to ~1.5% with zero accuracy loss.
 func DefaultHybridConfig() HybridConfig {
 	return HybridConfig{
-		SampleRate:           16000,
-		FrameDurationMs:      32, // match Silero's 32ms
-		SileroThreshold:      0.5,
-		EnergyPreThreshold:   300,
+		SampleRate:             16000,
+		FrameDurationMs:        32, // match Silero's 32ms
+		SileroThreshold:        0.5,
+		EnergyPreThreshold:     300,
 		EnergyConfirmThreshold: 0, // disabled: let Silero confirm
-		MinSpeechFrames:      3,
-		HangoverFrames:       15,
+		MinSpeechFrames:        3,
+		HangoverFrames:         15,
 	}
 }
 
@@ -75,9 +75,9 @@ type HybridDetector struct {
 	cfg    HybridConfig
 
 	// Energy pre-filter state (lightweight, no adaptive noise).
-	mu      sync.Mutex
+	mu         sync.Mutex
 	sampleRate int
-	frameMs   int
+	frameMs    int
 }
 
 // NewHybridDetector creates a hybrid Energy+Silero VAD detector.
@@ -302,9 +302,9 @@ func NewPooledSileroDetector(threshold float64) (*PooledSileroDetector, error) {
 	}, nil
 }
 
-func (p *PooledSileroDetector) Kind() EngineKind      { return EngineSilero }
-func (p *PooledSileroDetector) SampleRate() int        { return p.sampleRate }
-func (p *PooledSileroDetector) FrameDuration() int     { return p.frameMs }
+func (p *PooledSileroDetector) Kind() EngineKind   { return EngineSilero }
+func (p *PooledSileroDetector) SampleRate() int    { return p.sampleRate }
+func (p *PooledSileroDetector) FrameDuration() int { return p.frameMs }
 
 func (p *PooledSileroDetector) ProcessFrame(pcm []byte) (FrameResult, error) {
 	if p == nil || p.det == nil {

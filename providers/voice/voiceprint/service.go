@@ -6,8 +6,8 @@ package voiceprint
 import (
 	"context"
 	"fmt"
-	"strings"
 	"go.uber.org/zap"
+	"strings"
 	"sync"
 	"time"
 )

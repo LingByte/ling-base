@@ -931,8 +931,8 @@ func TestZipArchiver_UnarchiveZipWithModeZero(t *testing.T) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	w, err := zw.CreateHeader(&zip.FileHeader{
-		Name:     "nomode.txt",
-		Method:   zip.Deflate,
+		Name:               "nomode.txt",
+		Method:             zip.Deflate,
 		UncompressedSize64: 5,
 	})
 	require.NoError(t, err)

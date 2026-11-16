@@ -6,9 +6,9 @@ package middleware
 import (
 	"runtime/debug"
 
+	"github.com/LingByte/ling-base/common/logger"
 	"github.com/LingByte/ling-base/common/response"
 	ginresp "github.com/LingByte/ling-base/common/response/gin"
-	"github.com/LingByte/ling-base/common/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

@@ -27,8 +27,8 @@ package netutil
 
 import (
 	"context"
-	"encoding/base64"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +37,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
 )
 
 // ─── Request / Response types ───────────────────────────────────
@@ -48,7 +47,7 @@ type CurlRequest struct {
 	Method         string            `json:"method"`
 	Headers        map[string]string `json:"headers"`
 	Body           string            `json:"body"`
-	Timeout        int               `json:"timeout"`         // seconds
+	Timeout        int               `json:"timeout"` // seconds
 	FollowRedirect bool              `json:"follow_redirect"`
 	VerifySSL      bool              `json:"verify_ssl"`
 	HeadOnly       bool              `json:"head_only"`
@@ -69,7 +68,7 @@ type CurlResponse struct {
 	ContentLength int64             `json:"content_length"`
 	ContentType   string            `json:"content_type"`
 	RedirectChain []string          `json:"redirect_chain,omitempty"`
-	RequestInfo   CurlRequestInfo       `json:"request_info"`
+	RequestInfo   CurlRequestInfo   `json:"request_info"`
 }
 
 // RequestInfo holds metadata about the actual request sent.
@@ -86,8 +85,8 @@ type CurlRequestInfo struct {
 const (
 	DefaultCurlTimeout   = 30
 	DefaultCurlUserAgent = "ling-base-netutil-curl/1.0"
-	MaxBodyPreview   = 10000
-	MaxRedirects     = 10
+	MaxBodyPreview       = 10000
+	MaxRedirects         = 10
 	// MaxCurlBody caps response body reads for ExecuteCurl* (8 MiB).
 	MaxCurlBody = 8 << 20
 )

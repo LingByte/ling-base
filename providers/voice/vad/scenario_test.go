@@ -158,9 +158,9 @@ done:
 
 func TestScenario_NoiseRejection(t *testing.T) {
 	tests := []struct {
-		name    string
-		engine  EngineKind
-		amp     float64
+		name   string
+		engine EngineKind
+		amp    float64
 	}{
 		{"Silero_low_noise", EngineSilero, 0.05},
 		{"Silero_med_noise", EngineSilero, 0.15},
@@ -326,7 +326,7 @@ func TestScenario_ShortUtterance(t *testing.T) {
 	cfg := Config{
 		SampleRate:      16000,
 		FrameDurationMs: 32,
-		MinSpeechFrames: 2,  // 降低门槛以检测短语音
+		MinSpeechFrames: 2, // 降低门槛以检测短语音
 		HangoverFrames:  10,
 	}
 	stream := NewStreamer(det, cfg)
@@ -376,7 +376,7 @@ func TestScenario_MultiTurnConversation(t *testing.T) {
 
 	// 模拟 3 轮对话：每轮 1.5s 语音 + 1s 静音
 	turns := 3
-	speechDuration := 1500 // ms
+	speechDuration := 1500  // ms
 	silenceDuration := 1000 // ms
 	frameMs := 32
 	speechFrames := speechDuration / frameMs

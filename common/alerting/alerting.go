@@ -149,13 +149,13 @@ type Notifier interface {
 // ──────────────────────────────────────────────
 
 type checkState struct {
-	state         State
-	checkCount    int64
-	failureCount  int64
-	lastMessage   string
-	lastChangeAt  time.Time
-	lastEmitAt    time.Time
-	metadata      map[string]string
+	state        State
+	checkCount   int64
+	failureCount int64
+	lastMessage  string
+	lastChangeAt time.Time
+	lastEmitAt   time.Time
+	metadata     map[string]string
 }
 
 // ──────────────────────────────────────────────
@@ -336,15 +336,15 @@ func (e *Engine) RecordWithMetadata(ctx context.Context, checkName string, succe
 // makeEvent constructs an Event from the current check state.
 func (e *Engine) makeEvent(name string, trans Transition, from State, cs *checkState, message string) Event {
 	return Event{
-		CheckName:     name,
-		Transition:    trans,
-		FromState:     from,
-		ToState:       cs.state,
-		Message:       message,
-		CheckCount:    cs.checkCount,
-		FailureCount:  cs.failureCount,
-		Timestamp:     time.Now(),
-		Metadata:      cs.metadata,
+		CheckName:    name,
+		Transition:   trans,
+		FromState:    from,
+		ToState:      cs.state,
+		Message:      message,
+		CheckCount:   cs.checkCount,
+		FailureCount: cs.failureCount,
+		Timestamp:    time.Now(),
+		Metadata:     cs.metadata,
 	}
 }
 

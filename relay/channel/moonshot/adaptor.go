@@ -8,15 +8,14 @@ import (
 	"net/http"
 	"strings"
 
-	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/channel"
 	"github.com/LingByte/ling-base/relay/channel/claude"
 	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
+	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
-
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 type Adaptor struct {

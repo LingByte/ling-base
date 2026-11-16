@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/gemini"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
@@ -109,10 +109,10 @@ func TestGeminiAdaptor_ConvertImageRequest_Error(t *testing.T) {
 
 func TestGeminiAdaptor_GetRequestURL(t *testing.T) {
 	tests := []struct {
-		name        string
-		model       string
-		isStream    bool
-		wantSuffix  string
+		name       string
+		model      string
+		isStream   bool
+		wantSuffix string
 	}{
 		{
 			name:       "chat model generateContent",

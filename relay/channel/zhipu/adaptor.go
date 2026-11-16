@@ -10,11 +10,10 @@ import (
 	"github.com/LingByte/ling-base/relay/channel"
 	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/samber/lo"
-
 )
 
 type Adaptor struct {

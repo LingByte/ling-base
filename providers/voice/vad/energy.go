@@ -171,17 +171,17 @@ func DefaultEnergyConfig() EnergyConfig {
 
 // EnergyDetector is a production-grade energy + ZCR voice activity detector.
 type EnergyDetector struct {
-	mu          sync.Mutex
-	cfg         EnergyConfig
-	sampleRate  int
-	frameMs     int
+	mu         sync.Mutex
+	cfg        EnergyConfig
+	sampleRate int
+	frameMs    int
 
 	// Adaptive noise floor — ring buffer to avoid slice front-shift.
-	noiseRing       []float64
-	noiseRingIdx    int
-	noiseRingFilled bool
-	noiseSum        float64 // running sum for O(1) average
-	noiseLevel      float64
+	noiseRing         []float64
+	noiseRingIdx      int
+	noiseRingFilled   bool
+	noiseSum          float64 // running sum for O(1) average
+	noiseLevel        float64
 	adaptiveThreshold float64
 
 	enabled      bool
@@ -219,12 +219,12 @@ func NewEnergyDetectorWithConfig(cfg EnergyConfig) *EnergyDetector {
 		cfg.MaxNoiseSamples = 20
 	}
 	d := &EnergyDetector{
-		cfg:           cfg,
-		sampleRate:    cfg.SampleRate,
-		frameMs:       cfg.FrameDurationMs,
-		enabled:       true,
-		noiseRing:     make([]float64, cfg.MaxNoiseSamples),
-		noiseRingIdx:  0,
+		cfg:             cfg,
+		sampleRate:      cfg.SampleRate,
+		frameMs:         cfg.FrameDurationMs,
+		enabled:         true,
+		noiseRing:       make([]float64, cfg.MaxNoiseSamples),
+		noiseRingIdx:    0,
 		noiseRingFilled: false,
 	}
 	d.threshold.Store(math.Float64bits(cfg.Threshold))
@@ -246,10 +246,10 @@ func NewEnergyDetector() *EnergyDetector {
 	return d
 }
 
-func (d *EnergyDetector) Kind() EngineKind      { return EngineEnergy }
-func (d *EnergyDetector) SampleRate() int        { return d.sampleRate }
-func (d *EnergyDetector) FrameDuration() int     { return d.frameMs }
-func (d *EnergyDetector) Close() error           { return nil }
+func (d *EnergyDetector) Kind() EngineKind   { return EngineEnergy }
+func (d *EnergyDetector) SampleRate() int    { return d.sampleRate }
+func (d *EnergyDetector) FrameDuration() int { return d.frameMs }
+func (d *EnergyDetector) Close() error       { return nil }
 
 // ProcessFrame implements the Detector interface.
 func (d *EnergyDetector) ProcessFrame(pcm []byte) (FrameResult, error) {

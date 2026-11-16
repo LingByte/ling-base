@@ -186,11 +186,11 @@ func (s *Store) GetCDNStats(req *stores.CDNStatsRequest) (*stores.CDNStatsRespon
 
 	for _, metric := range metrics {
 		resp, err := client.DescribeCdnData(&cdn.DescribeCdnDataRequest{
-			StartTime:  &startTime,
-			EndTime:    &endTime,
-			Metric:     &metric,
-			Interval:   &interval,
-			Domains:    cdnCommon.StringPtrs(req.Domains),
+			StartTime: &startTime,
+			EndTime:   &endTime,
+			Metric:    &metric,
+			Interval:  &interval,
+			Domains:   cdnCommon.StringPtrs(req.Domains),
 		})
 		if err != nil {
 			continue

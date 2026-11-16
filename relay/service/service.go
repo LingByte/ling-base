@@ -178,7 +178,7 @@ var _ = json.Marshal
 func TaskErrorWrapper(err error, code string, statusCode int) *common.TaskError {
 	return &common.TaskError{
 		Code:       code,
-		Message:     err.Error(),
+		Message:    err.Error(),
 		StatusCode: statusCode,
 		Err:        err,
 	}
@@ -188,7 +188,7 @@ func TaskErrorWrapper(err error, code string, statusCode int) *common.TaskError 
 func TaskErrorWrapperLocal(err error, code string, statusCode int) *common.TaskError {
 	return &common.TaskError{
 		Code:       code,
-		Message:     err.Error(),
+		Message:    err.Error(),
 		StatusCode: statusCode,
 		LocalError: true,
 		Err:        err,

@@ -61,37 +61,37 @@ const (
 
 // GeocodeResult holds the result of a geocoding lookup.
 type GeocodeResult struct {
-	Lat          float64 // Latitude
-	Lon          float64 // Longitude
-	DisplayName  string  // Full human-readable address
-	Country      string  // Country name
-	CountryCode  string  // ISO 3166-1 alpha-2 country code
-	State        string  // State / province / region
-	StateDistrict string  // State district
-	County       string  // County
-	City         string  // City / town / village
-	Postcode     string  // Postal code
-	Street       string  // Street name
-	HouseNumber  string  // House number
-	Suburb       string  // Suburb / neighborhood
-	Type         string  // OSM type (e.g. "city", "road", "building")
-	Importance   float64 // Search rank importance (0-1)
-	Provider     Provider // Which provider returned this result
+	Lat           float64  // Latitude
+	Lon           float64  // Longitude
+	DisplayName   string   // Full human-readable address
+	Country       string   // Country name
+	CountryCode   string   // ISO 3166-1 alpha-2 country code
+	State         string   // State / province / region
+	StateDistrict string   // State district
+	County        string   // County
+	City          string   // City / town / village
+	Postcode      string   // Postal code
+	Street        string   // Street name
+	HouseNumber   string   // House number
+	Suburb        string   // Suburb / neighborhood
+	Type          string   // OSM type (e.g. "city", "road", "building")
+	Importance    float64  // Search rank importance (0-1)
+	Provider      Provider // Which provider returned this result
 }
 
 // ReverseResult holds the result of a reverse geocoding lookup.
 type ReverseResult struct {
-	Lat           float64 // Latitude
-	Lon           float64 // Longitude
-	DisplayName   string  // Full human-readable address
-	Country       string  // Country name
-	CountryCode   string  // ISO 3166-1 alpha-2
-	Locality      string  // City / locality
-	PrincipalSub  string  // State / province / principal subdivision
-	SubLocality   string  // Sub-locality / district
-	PostCode      string  // Postal code
-	LocalityInfo  map[string]any // Raw locality info from provider
-	Provider      Provider // Which provider returned this result
+	Lat          float64        // Latitude
+	Lon          float64        // Longitude
+	DisplayName  string         // Full human-readable address
+	Country      string         // Country name
+	CountryCode  string         // ISO 3166-1 alpha-2
+	Locality     string         // City / locality
+	PrincipalSub string         // State / province / principal subdivision
+	SubLocality  string         // Sub-locality / district
+	PostCode     string         // Postal code
+	LocalityInfo map[string]any // Raw locality info from provider
+	Provider     Provider       // Which provider returned this result
 }
 
 // AddressQuery is a structured address query for forward geocoding.
@@ -438,14 +438,14 @@ func IsInRadius(lat1, lon1, lat2, lon2, radiusKm float64) bool {
 
 // nominatimSearchResponse is the JSON response from Nominatim /search.
 type nominatimSearchResponse struct {
-	PlaceID     int64                    `json:"place_id"`
-	Lat         string                   `json:"lat"`
-	Lon         string                   `json:"lon"`
-	DisplayName string                   `json:"display_name"`
-	Type        string                   `json:"type"`
-	Importance  float64                  `json:"importance"`
-	Address     nominatimAddress         `json:"address"`
-	Extra       map[string]any           `json:"-"` // captured via UnmarshalJSON
+	PlaceID     int64            `json:"place_id"`
+	Lat         string           `json:"lat"`
+	Lon         string           `json:"lon"`
+	DisplayName string           `json:"display_name"`
+	Type        string           `json:"type"`
+	Importance  float64          `json:"importance"`
+	Address     nominatimAddress `json:"address"`
+	Extra       map[string]any   `json:"-"` // captured via UnmarshalJSON
 }
 
 func (r *nominatimSearchResponse) UnmarshalJSON(data []byte) error {
@@ -477,18 +477,18 @@ type nominatimError struct {
 }
 
 type nominatimAddress struct {
-	HouseNumber  string         `json:"house_number"`
-	Road         string         `json:"road"`
-	Suburb       string         `json:"suburb"`
-	City         string         `json:"city"`
-	Town         string         `json:"town"`
-	Village      string         `json:"village"`
-	County       string         `json:"county"`
-	State        string         `json:"state"`
-	Postcode     string         `json:"postcode"`
-	Country      string         `json:"country"`
-	CountryCode  string         `json:"country_code"`
-	Extra        map[string]any `json:"-"`
+	HouseNumber string         `json:"house_number"`
+	Road        string         `json:"road"`
+	Suburb      string         `json:"suburb"`
+	City        string         `json:"city"`
+	Town        string         `json:"town"`
+	Village     string         `json:"village"`
+	County      string         `json:"county"`
+	State       string         `json:"state"`
+	Postcode    string         `json:"postcode"`
+	Country     string         `json:"country"`
+	CountryCode string         `json:"country_code"`
+	Extra       map[string]any `json:"-"`
 }
 
 func (a *nominatimAddress) UnmarshalJSON(data []byte) error {
@@ -521,13 +521,13 @@ func (a *nominatimAddress) UnmarshalJSON(data []byte) error {
 
 // bigDataCloudResponse is the JSON response from BigDataCloud reverse geocoding.
 type bigDataCloudResponse struct {
-	CountryCode        string         `json:"countryCode"`
-	CountryName        string         `json:"countryName"`
-	PrincipalSubdivision string       `json:"principalSubdivision"`
-	Locality           string         `json:"locality"`
-	City               string         `json:"city"`
-	Postcode           string         `json:"postcode"`
-	LocalityInfo       map[string]any `json:"localityInfo"`
+	CountryCode          string         `json:"countryCode"`
+	CountryName          string         `json:"countryName"`
+	PrincipalSubdivision string         `json:"principalSubdivision"`
+	Locality             string         `json:"locality"`
+	City                 string         `json:"city"`
+	Postcode             string         `json:"postcode"`
+	LocalityInfo         map[string]any `json:"localityInfo"`
 }
 
 func (c *Client) parseNominatimResult(r *nominatimSearchResponse) (*GeocodeResult, error) {

@@ -139,10 +139,10 @@ func TestAuthMethods_NoAuth(t *testing.T) {
 // ──────────────────────────────────────────────
 
 type mockWSConn struct {
-	readData  [][]byte
-	readIdx   int
-	written   [][]byte
-	closeErr  error
+	readData [][]byte
+	readIdx  int
+	written  [][]byte
+	closeErr error
 }
 
 func (m *mockWSConn) ReadMessage() (int, []byte, error) {

@@ -145,7 +145,8 @@ func handleTTSResponse(c context.Context, resp *http.Response, info *common.Rela
 	}
 
 	if strings.HasPrefix(minimaxResp.Data.Audio, "http") {
-		w.Header().Set("Location", minimaxResp.Data.Audio); w.WriteHeader(http.StatusFound)
+		w.Header().Set("Location", minimaxResp.Data.Audio)
+		w.WriteHeader(http.StatusFound)
 	} else {
 		// Handle hex-encoded audio data
 		audioData, decodeErr := hex.DecodeString(minimaxResp.Data.Audio)
@@ -160,7 +161,8 @@ func handleTTSResponse(c context.Context, resp *http.Response, info *common.Rela
 		// Determine content type - default to mp3
 		_ = getContentTypeByFormat("mp3") // Not supported in library mode — contentType not used.
 
-		w.WriteHeader(http.StatusOK); w.Write(audioData)
+		w.WriteHeader(http.StatusOK)
+		w.Write(audioData)
 	}
 
 	usage = &dto.Usage{
@@ -193,6 +195,7 @@ func handleChatCompletionResponse(c context.Context, resp *http.Response, info *
 		}
 	}
 
-	w.WriteHeader(resp.StatusCode); w.Write(body)
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body)
 	return nil, nil
 }

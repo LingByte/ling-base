@@ -48,20 +48,20 @@ type TaskProperties struct {
 
 // Task represents an async AI generation task.
 type Task struct {
-	TaskID    string     `json:"task_id"`
-	Status    TaskStatus `json:"status"`
-	Model     string     `json:"model"`
-	Progress  string     `json:"progress"`
-	Result    string     `json:"result"`
-	Reason    string     `json:"reason,omitempty"`
-	Error     string     `json:"error,omitempty"`
+	TaskID   string     `json:"task_id"`
+	Status   TaskStatus `json:"status"`
+	Model    string     `json:"model"`
+	Progress string     `json:"progress"`
+	Result   string     `json:"result"`
+	Reason   string     `json:"reason,omitempty"`
+	Error    string     `json:"error,omitempty"`
 
 	// Library-mode extensions (stubs for LingRein compatibility).
-	Data      json.RawMessage   `json:"-"`
-	CreatedAt int64             `json:"-"`
-	UpdatedAt int64             `json:"-"`
-	FinishTime int64            `json:"-"`
-	Properties TaskProperties    `json:"-"`
+	Data       json.RawMessage `json:"-"`
+	CreatedAt  int64           `json:"-"`
+	UpdatedAt  int64           `json:"-"`
+	FinishTime int64           `json:"-"`
+	Properties TaskProperties  `json:"-"`
 }
 
 // GetUpstreamTaskID returns the upstream provider's task ID.

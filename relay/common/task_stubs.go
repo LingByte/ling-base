@@ -14,16 +14,16 @@ import (
 // In LingRein this is parsed from the HTTP request body by gin middleware.
 // In library mode, callers populate this struct directly.
 type TaskSubmitReq struct {
-	Prompt         string        `json:"prompt"`
-	Images         []string      `json:"images,omitempty"`
-	Duration       int           `json:"duration,omitempty"`
-	Seconds        string        `json:"seconds,omitempty"`
-	Size           string        `json:"size,omitempty"`
+	Prompt         string         `json:"prompt"`
+	Images         []string       `json:"images,omitempty"`
+	Duration       int            `json:"duration,omitempty"`
+	Seconds        string         `json:"seconds,omitempty"`
+	Size           string         `json:"size,omitempty"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
-	Model          string        `json:"model,omitempty"`
-	Mode           string        `json:"mode,omitempty"`
-	Image          string        `json:"image,omitempty"`
-	InputReference string        `json:"input_reference,omitempty"`
+	Model          string         `json:"model,omitempty"`
+	Mode           string         `json:"mode,omitempty"`
+	Image          string         `json:"image,omitempty"`
+	InputReference string         `json:"input_reference,omitempty"`
 }
 
 // UnmarshalMetadata marshals the request's Metadata map and unmarshals it

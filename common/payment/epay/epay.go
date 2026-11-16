@@ -192,9 +192,9 @@ func (a *Adapter) createCheckoutAPI(ctx context.Context, req *payment.CheckoutRe
 	}
 
 	result := &payment.CheckoutResult{
-		Provider:    payment.ProviderEpay,
-		SessionID:   apiResp.OID,
-		Raw:         apiResp,
+		Provider:  payment.ProviderEpay,
+		SessionID: apiResp.OID,
+		Raw:       apiResp,
 	}
 	// Prefer payurl for redirect; fall back to qrcode/img for QR flows.
 	if apiResp.PayURL != "" {
@@ -301,12 +301,12 @@ func (a *Adapter) VerifyWebhook(ctx context.Context, req *payment.WebhookVerifyR
 	}
 
 	event := &payment.WebhookEvent{
-		Provider:       payment.ProviderEpay,
-		TradeNo:        res.ServiceTradeNo,
+		Provider:        payment.ProviderEpay,
+		TradeNo:         res.ServiceTradeNo,
 		ProviderOrderID: res.TradeNo,
-		OrderType:      res.Type,
-		Raw:            req.FormParams,
-		RawBody:        req.RawBody,
+		OrderType:       res.Type,
+		Raw:             req.FormParams,
+		RawBody:         req.RawBody,
 	}
 	if res.Param != "" {
 		if event.Raw == nil {
@@ -372,9 +372,9 @@ func (a *Adapter) QueryOrder(ctx context.Context, req *payment.OrderQuery) (*pay
 	}
 
 	result := &payment.OrderQueryResult{
-		TradeNo:        resp.OutTradeNo,
+		TradeNo:         resp.OutTradeNo,
 		ProviderOrderID: resp.TradeNo,
-		Raw:            resp,
+		Raw:             resp,
 	}
 	if resp.Money != "" {
 		var m float64
@@ -397,19 +397,19 @@ func (a *Adapter) QueryOrder(ctx context.Context, req *payment.OrderQuery) (*pay
 
 // orderQueryResponse is the JSON response from /api.php?act=order.
 type orderQueryResponse struct {
-	Code        int    `json:"code"`
-	Msg         string `json:"msg"`
-	TradeNo     string `json:"trade_no"`
-	OutTradeNo  string `json:"out_trade_no"`
-	Type        string `json:"type"`
-	PID         string `json:"pid"`
-	Addtime     string `json:"addtime"`
-	Endtime     string `json:"endtime"`
-	Name        string `json:"name"`
-	Money       string `json:"money"`
-	Status      int    `json:"status"`
-	Param       string `json:"param"`
-	Buyer       string `json:"buyer"`
+	Code       int    `json:"code"`
+	Msg        string `json:"msg"`
+	TradeNo    string `json:"trade_no"`
+	OutTradeNo string `json:"out_trade_no"`
+	Type       string `json:"type"`
+	PID        string `json:"pid"`
+	Addtime    string `json:"addtime"`
+	Endtime    string `json:"endtime"`
+	Name       string `json:"name"`
+	Money      string `json:"money"`
+	Status     int    `json:"status"`
+	Param      string `json:"param"`
+	Buyer      string `json:"buyer"`
 }
 
 // QueryBalance queries the gateway's /api.php?act=balance endpoint.
@@ -504,10 +504,10 @@ func (a *Adapter) Refund(ctx context.Context, req *payment.RefundRequest) (*paym
 	}
 
 	return &payment.RefundResult{
-		TradeNo:        req.TradeNo,
+		TradeNo:         req.TradeNo,
 		ProviderOrderID: req.ProviderOrderID,
-		Status:         payment.StatusRefunded,
-		Raw:            apiResp,
+		Status:          payment.StatusRefunded,
+		Raw:             apiResp,
 	}, nil
 }
 

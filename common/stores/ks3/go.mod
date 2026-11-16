@@ -4,6 +4,8 @@ go 1.26.2
 
 require github.com/LingByte/ling-base/common/stores v0.1.0
 
+require github.com/stretchr/testify v1.12.1 // indirect
+
 require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/ks3sdklib/aws-sdk-go v1.12.0

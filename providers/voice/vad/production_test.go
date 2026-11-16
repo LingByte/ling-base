@@ -29,7 +29,7 @@ func genOneSecondSpeech(sr int) [][]byte {
 			buf := make([]byte, samples*2)
 			for j := 0; j < samples; j++ {
 				t := float64(j) / float64(sr)
-				v := (math.Sin(2*math.Pi*150*t)+0.3*math.Sin(2*math.Pi*300*t)) *
+				v := (math.Sin(2*math.Pi*150*t) + 0.3*math.Sin(2*math.Pi*300*t)) *
 					(0.7 + 0.3*math.Sin(2*math.Pi*5*t)) * 0.6
 				v += r.Float64()*0.1 - 0.05
 				s := int16(v * 30000)

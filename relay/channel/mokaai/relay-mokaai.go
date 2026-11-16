@@ -10,7 +10,6 @@ import (
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
-
 )
 
 func embeddingRequestOpenAI2Moka(request dto.GeneralOpenAIRequest) *dto.EmbeddingRequest {

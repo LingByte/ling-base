@@ -302,15 +302,15 @@ func IPRange(cidr string) (start, end string, err error) {
 
 // HTTPClientConfig configures the retry HTTP client.
 type HTTPClientConfig struct {
-	Timeout         time.Duration   // total request timeout (default 30s)
-	MaxRetries      int             // max retry attempts (default 3)
-	RetryInterval   time.Duration   // base interval between retries (default 1s)
-	RetryMaxWait    time.Duration   // max wait between retries (default 30s)
-	RetryableStatus map[int]bool    // status codes that trigger retry (default 429, 500, 502, 503, 504)
-	Transport       *http.Transport // custom transport (optional)
-	CircuitBreaker  *CircuitBreaker // optional circuit breaker
+	Timeout         time.Duration                                      // total request timeout (default 30s)
+	MaxRetries      int                                                // max retry attempts (default 3)
+	RetryInterval   time.Duration                                      // base interval between retries (default 1s)
+	RetryMaxWait    time.Duration                                      // max wait between retries (default 30s)
+	RetryableStatus map[int]bool                                       // status codes that trigger retry (default 429, 500, 502, 503, 504)
+	Transport       *http.Transport                                    // custom transport (optional)
+	CircuitBreaker  *CircuitBreaker                                    // optional circuit breaker
 	CheckRedirect   func(req *http.Request, via []*http.Request) error // optional redirect policy
-	Jar             http.CookieJar  // optional cookie jar
+	Jar             http.CookieJar                                     // optional cookie jar
 }
 
 // HTTPClient wraps http.Client with retry and circuit breaker support.

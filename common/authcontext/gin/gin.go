@@ -96,7 +96,7 @@ func RequireRole(role string) gin.HandlerFunc {
 		}
 		if !id.HasRole(role) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":  "insufficient role",
+				"error":    "insufficient role",
 				"required": role,
 			})
 			return

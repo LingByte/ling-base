@@ -52,14 +52,14 @@ func TestAdapter_CreateCheckout_InvalidRequest(t *testing.T) {
 func TestAdapter_CreateCheckout_Redirect_OK(t *testing.T) {
 	a := New(Config{PartnerID: "1001", Key: "secret", BaseURL: "https://pay.example.com"})
 	res, err := a.CreateCheckout(context.Background(), &payment.CheckoutRequest{
-		TradeNo:    "ORDER-1",
-		Money:      12.34,
-		Currency:   "CNY",
-		Name:       "Test Goods",
-		NotifyURL:  "https://me.example.com/notify",
-		ReturnURL:  "https://me.example.com/return",
-		ProductID:  "alipay",
-		Device:     payment.DevicePC,
+		TradeNo:   "ORDER-1",
+		Money:     12.34,
+		Currency:  "CNY",
+		Name:      "Test Goods",
+		NotifyURL: "https://me.example.com/notify",
+		ReturnURL: "https://me.example.com/return",
+		ProductID: "alipay",
+		Device:    payment.DevicePC,
 	})
 	require.NoError(t, err)
 	require.Equal(t, payment.ProviderEpay, res.Provider)

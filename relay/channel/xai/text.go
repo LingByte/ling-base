@@ -14,7 +14,6 @@ import (
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
 	"go.uber.org/zap"
-
 )
 
 func streamResponseXAI2OpenAI(xAIResp *dto.ChatCompletionsStreamResponse, usage *dto.Usage) *dto.ChatCompletionsStreamResponse {

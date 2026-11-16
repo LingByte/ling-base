@@ -19,12 +19,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
+	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/relayconvert"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 // DefaultBaseURL is the default Google Gemini API endpoint.
@@ -293,8 +293,8 @@ func NewProvider(apiKey string, opts ...Option) *Provider {
 	return &Provider{adaptor: New(apiKey, opts...)}
 }
 
-func (p *Provider) Name() string         { return "gemini" }
-func (p *Provider) ApiType() int         { return constant.APITypeGemini }
+func (p *Provider) Name() string            { return "gemini" }
+func (p *Provider) ApiType() int            { return constant.APITypeGemini }
 func (p *Provider) Adaptor() common.Adaptor { return p.adaptor }
-func (p *Provider) BaseURL() string      { return p.adaptor.BaseURL }
-func (p *Provider) APIKey() string       { return p.adaptor.APIKey }
+func (p *Provider) BaseURL() string         { return p.adaptor.BaseURL }
+func (p *Provider) APIKey() string          { return p.adaptor.APIKey }

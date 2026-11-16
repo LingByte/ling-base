@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/jina"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
@@ -50,8 +50,8 @@ func TestJinaAdaptor_ConvertRerankRequest_PassThrough(t *testing.T) {
 	a := &jina.Adaptor{}
 
 	req := dto.RerankRequest{
-		Model:    "jina-reranker-v2-base-multilingual",
-		Query:    "hello",
+		Model:     "jina-reranker-v2-base-multilingual",
+		Query:     "hello",
 		Documents: []any{"world", "foo"},
 	}
 

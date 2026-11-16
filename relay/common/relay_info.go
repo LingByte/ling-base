@@ -23,16 +23,16 @@ import (
 // This is a stripped version of LingRein's ChannelMeta — no ChannelId,
 // ChannelIsMultiKey, or ChannelSetting (which were DB-coupled).
 type ChannelMeta struct {
-	ChannelType       int               // constant.ChannelType*
-	ApiType           int               // constant.APIType*
-	ApiVersion        string            // Azure API version, Vertex region, etc.
-	ApiKey            string            // upstream API key
-	Organization      string            // OpenAI org ID, etc.
-	ChannelBaseUrl    string            // override default endpoint
-	ParamOverride     map[string]any    // parameter overrides
-	HeadersOverride   map[string]any    // header overrides
-	UpstreamModelName string            // model name after mapping
-	IsModelMapped     bool
+	ChannelType          int            // constant.ChannelType*
+	ApiType              int            // constant.APIType*
+	ApiVersion           string         // Azure API version, Vertex region, etc.
+	ApiKey               string         // upstream API key
+	Organization         string         // OpenAI org ID, etc.
+	ChannelBaseUrl       string         // override default endpoint
+	ParamOverride        map[string]any // parameter overrides
+	HeadersOverride      map[string]any // header overrides
+	UpstreamModelName    string         // model name after mapping
+	IsModelMapped        bool
 	SupportStreamOptions bool
 }
 
@@ -41,12 +41,12 @@ type ChannelMeta struct {
 // subscription/quota/WebSocket fields have been removed.
 type RelayInfo struct {
 	IsStream           bool
-	RelayMode          int               // relaymode.RelayMode*
-	OriginModelName    string            // original model name from client
-	RequestURLPath     string            // e.g. "/v1/chat/completions"
+	RelayMode          int    // relaymode.RelayMode*
+	OriginModelName    string // original model name from client
+	RequestURLPath     string // e.g. "/v1/chat/completions"
 	RequestHeaders     map[string]string
 	ShouldIncludeUsage bool
-	RelayFormat        types.RelayFormat  // input format (openai/claude/gemini)
+	RelayFormat        types.RelayFormat // input format (openai/claude/gemini)
 	StartTime          time.Time
 
 	// Channel/provider metadata.

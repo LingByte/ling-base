@@ -735,7 +735,7 @@ func TestRuleUUID(t *testing.T) {
 
 	// invalid
 	assert.Error(t, rule("not-a-uuid", "", nil))
-	assert.Error(t, rule("550e8400-e29b-41d4-a716", "", nil))     // too short
+	assert.Error(t, rule("550e8400-e29b-41d4-a716", "", nil))              // too short
 	assert.Error(t, rule("550e8400-e29b-41d4-a716-44665544000g", "", nil)) // invalid char
 
 	// non-string
@@ -776,12 +776,12 @@ func TestRuleSlug(t *testing.T) {
 	assert.NoError(t, rule("a1-b2-c3", "", nil))
 
 	// invalid
-	assert.Error(t, rule("Hello", "", nil))           // uppercase
-	assert.Error(t, rule("hello_world", "", nil))     // underscore
-	assert.Error(t, rule("hello--world", "", nil))    // double hyphen
-	assert.Error(t, rule("-hello", "", nil))          // leading hyphen
-	assert.Error(t, rule("hello-", "", nil))          // trailing hyphen
-	assert.Error(t, rule("hello world", "", nil))     // space
+	assert.Error(t, rule("Hello", "", nil))        // uppercase
+	assert.Error(t, rule("hello_world", "", nil))  // underscore
+	assert.Error(t, rule("hello--world", "", nil)) // double hyphen
+	assert.Error(t, rule("-hello", "", nil))       // leading hyphen
+	assert.Error(t, rule("hello-", "", nil))       // trailing hyphen
+	assert.Error(t, rule("hello world", "", nil))  // space
 	assert.Error(t, rule("", "", nil))
 
 	// non-string
@@ -812,7 +812,7 @@ func TestRuleCreditCard(t *testing.T) {
 	assert.Error(t, rule("1234567890123456", "", nil))
 
 	// invalid length
-	assert.Error(t, rule("4111111", "", nil))       // too short
+	assert.Error(t, rule("4111111", "", nil))              // too short
 	assert.Error(t, rule("41111111111111111111", "", nil)) // too long
 
 	// non-numeric
@@ -850,7 +850,7 @@ func TestRuleJSON(t *testing.T) {
 	assert.NoError(t, rule(`{"nested":{"a":1},"arr":[1,2]}`, "", nil))
 
 	// invalid
-	assert.Error(t, rule(`{key:"value"}`, "", nil))  // unquoted key
+	assert.Error(t, rule(`{key:"value"}`, "", nil)) // unquoted key
 	assert.Error(t, rule(`not json`, "", nil))
 	assert.Error(t, rule(`{`, "", nil))
 	assert.Error(t, rule(`[1,2,`, "", nil))
@@ -869,14 +869,14 @@ func TestRuleBase64(t *testing.T) {
 	require.NotNil(t, rule)
 
 	// valid Base64
-	assert.NoError(t, rule("aGVsbG8=", "", nil))       // "hello"
+	assert.NoError(t, rule("aGVsbG8=", "", nil))         // "hello"
 	assert.NoError(t, rule("aGVsbG8gd29ybGQ=", "", nil)) // "hello world"
-	assert.NoError(t, rule("dGVzdA==", "", nil))       // "test"
+	assert.NoError(t, rule("dGVzdA==", "", nil))         // "test"
 	assert.NoError(t, rule("SGVsbG8gV29ybGQh", "", nil))
 
 	// invalid
 	assert.Error(t, rule("not base64!", "", nil))
-	assert.Error(t, rule("aGVsbG8", "", nil))  // missing padding
+	assert.Error(t, rule("aGVsbG8", "", nil)) // missing padding
 	assert.Error(t, rule("", "", nil))
 	assert.Error(t, rule("!!!", "", nil))
 
@@ -896,7 +896,7 @@ func TestRuleHex(t *testing.T) {
 	// valid hex
 	assert.NoError(t, rule("0123456789abcdef", "", nil))
 	assert.NoError(t, rule("ABCDEF", "", nil))
-	assert.NoError(t, rule("0x"[:0] + "deadbeef", "", nil))
+	assert.NoError(t, rule("0x"[:0]+"deadbeef", "", nil))
 	assert.NoError(t, rule("123456", "", nil))
 	assert.NoError(t, rule("a", "", nil))
 

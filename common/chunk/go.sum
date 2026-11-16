@@ -1,0 +1,16 @@
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/LingByte/ling-base/common/circuitbreaker v0.1.0 h1:QQuBVacjMGrqX07PBbvT6uJ4riAQHYcx1OMBwWRVrHU=
+github.com/LingByte/ling-base/common/circuitbreaker v0.1.0/go.mod h1:Rhvx4eLRtBfzDAD94bO36SXI002V2WK2ObScHpL0C/U=
+github.com/LingByte/ling-base/common/constants v0.1.1 h1:GgQdADJQyZFc6sVgLD5AyDeJpFLD5vpNCKpsIxflHZc=
+github.com/LingByte/ling-base/common/constants v0.1.1/go.mod h1:+SzjhQLefioUr38aN3GjipHGNDRm8dOnjzR4y0pyM8U=
+github.com/LingByte/ling-base/common/logger v0.1.0 h1:4wdlgnbqK0nc+1LvhzmqNKHWMwdrglf8ZzJCz8OxMGg=
+github.com/LingByte/ling-base/common/netutil v0.1.0 h1:4PsfkOtAnjxrUI4wUdh5K4gGS/e8/55DKK6KFrBbz+I=
+github.com/LingByte/ling-base/common/retry v0.1.0 h1:MyzMq79Bb5TtK5BVidr6h5/Ek1E2Y4nLBtT6GEosNGk=
+github.com/natefinch/lumberjack v2.0.0+incompatible h1:4QJd3OLAMgj7ph+yZTuX13Ld4UpgHp07nNdFX7mqFfM=
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
+go.uber.org/zap v1.28.0 h1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+gopkg.in/natefinch/lumberjack.v2 v2.2.1 h1:bBRl1b0OH9s/DuPhuXpNl+VtCaJXFZ5/uEFST95x9zc=
+gopkg.in/yaml.v2 v2.4.0 h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=

@@ -9,7 +9,6 @@ import (
 	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
-
 )
 
 func ConvertRerankRequest(request dto.RerankRequest) *AliRerankRequest {
