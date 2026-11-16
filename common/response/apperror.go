@@ -195,8 +195,8 @@ func IsAppError(err error) bool {
 }
 
 // From converts any error to *AppError. If err is already an *AppError
-// it is returned as-is. nil input returns nil. Unknown errors become
-// CodeInternal.
+// it is returned as-is. nil input returns nil. Registered ErrorMappers
+// are consulted next; unknown errors become CodeInternal.
 func From(err error) *AppError {
 	if err == nil {
 		return nil
@@ -204,6 +204,11 @@ func From(err error) *AppError {
 	var ae *AppError
 	if errors.As(err, &ae) {
 		return ae
+	}
+	for _, mapFn := range errorMappers() {
+		if mapped, ok := mapFn(err); ok && mapped != nil {
+			return mapped
+		}
 	}
 	return &AppError{
 		Code:    CodeInternal,
