@@ -21,7 +21,6 @@ ling-base/
 │  ├─ validate/              # 数据校验
 │  ├─ random/                # 随机数/字符串
 │  ├─ idgen/                 # ID 生成（snowflake/uuid/...）
-│  ├─ timeutil/              # 时间工具
 │  ├─ money/                 # 定点货币算术 / FX / 自定义币种
 │  ├─ stats/                 # 统计工具
 │  ├─ pinyin/                # 拼音转换
@@ -107,7 +106,6 @@ ling-base/
 │  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
 │  ├─ upload/                # 文件上传（验证/安全文件名/分片上传/MIME 检测）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
-│  ├─ antispam/              # 反垃圾（关键词过滤/频率限制/内容评分）
 │  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │  └─ stores/                # 对象存储接口（9 个独立 provider module）
 │     ├─ local/              # 本地文件系统（零云 SDK）
@@ -230,7 +228,6 @@ go get github.com/LingByte/ling-base/common/featureflag
 go get github.com/LingByte/ling-base/common/signature
 
 # Webhook 发送（签名+重试）
-go get github.com/LingByte/ling-base/common/webhook
 
 # 审计日志
 go get github.com/LingByte/ling-base/common/auditlog
@@ -260,7 +257,6 @@ go get github.com/LingByte/ling-base/common/wsutil
 go get github.com/LingByte/ling-base/common/turnstile
 
 # 反垃圾（关键词过滤/频率限制/内容评分）
-go get github.com/LingByte/ling-base/common/antispam
 
 
 # 一致性哈希（分布式分片）
@@ -622,7 +618,6 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/oauth2/README.md](common/oauth2/README.md)
 - [common/featureflag/README.md](common/featureflag/README.md)
 - [common/signature/README.md](common/signature/README.md)
-- [common/webhook/README.md](common/webhook/README.md)
 - [common/auditlog/README.md](common/auditlog/README.md)
 - [common/backup/README.md](common/backup/README.md)
 - [common/abtest/README.md](common/abtest/README.md)
@@ -632,7 +627,6 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/archive/README.md](common/archive/README.md)
 - [common/wsutil/README.md](common/wsutil/README.md)
 - [common/turnstile/README.md](common/turnstile/README.md)
-- [common/antispam/README.md](common/antispam/README.md)
 - [common/consistent/README.md](common/consistent/README.md)
 
 ## 开发

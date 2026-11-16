@@ -103,6 +103,11 @@ normalize_dir() {
     common/nltime|common/nltime/*) printf 'common/nltime was folded into package common (ParseNaturalTime); use github.com/LingByte/ling-base/common\n' >&2; return 1 ;;
     common/trie|common/trie/*) printf 'common/trie was removed\n' >&2; return 1 ;;
     common/configcenter|common/configcenter/*) printf 'common/configcenter was removed\n' >&2; return 1 ;;
+    common/webhook|common/webhook/*) printf 'common/webhook was removed; use common/notification/webhook\n' >&2; return 1 ;;
+    common/timeutil|common/timeutil/*) printf 'common/timeutil was folded into package common; use github.com/LingByte/ling-base/common\n' >&2; return 1 ;;
+    common/rbac|common/rbac/*) printf 'common/rbac was removed\n' >&2; return 1 ;;
+    common/antispam|common/antispam/*) printf 'common/antispam was removed\n' >&2; return 1 ;;
+    common/tree|common/tree/*) printf 'common/tree was removed\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then

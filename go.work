@@ -7,7 +7,6 @@ use (
 	./common
 	./common/abtest
 	./common/alerting
-	./common/antispam
 	./common/archive
 	./common/audioutil
 	./common/auditlog
@@ -122,8 +121,6 @@ use (
 	./common/queue/memory
 	./common/queue/redis
 	./common/random
-	./common/rbac
-	./common/rbac/gin
 	./common/reconciler
 	./common/registry
 	./common/registry/consul
@@ -157,23 +154,14 @@ use (
 	./common/stores/s3
 	./common/stores/tos
 	./common/system
-	./common/timeutil
 	./common/totp
 	./common/tracing
-	./common/tree
-	./common/tree/gormstore
-	./common/tree/memory
-	./common/tree/mysql
-	./common/tree/postgres
-	./common/tree/sqlite
 	./common/turnstile
 	./common/uaparse
 	./common/validate
 	./common/videoutil
-	./common/webhook
 	./common/wsutil
 	./lingcli
-	./toolkits/pentest
 	./providers/censor
 	./providers/censor/aliyun
 	./providers/censor/qcloud
@@ -230,6 +218,7 @@ use (
 	./relay
 	./relay/compat
 	./relay/relaykit
+	./toolkits/pentest
 	./version
 )
 
