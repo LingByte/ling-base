@@ -19,8 +19,8 @@ common/
 ├── array.go          # Generic Join[T] helper
 ├── math.go           # Clamp / Min / Max / RoundFloat / GCD
 ├── time.go           # ParseNaturalTime / Duration / Range (ex-nltime)
+├── time_helpers.go   # format/parse/ranges/stopwatch (ex-timeutil)
 ├── geo.go            # Haversine distance between two coordinates
-└── snowflake.go      # Deprecated snowflake aliases (use common/idgen)
 ```
 
 ## Key Types
@@ -92,7 +92,6 @@ func GetEnv(key string) string
 | search           | Search engine abstraction                                   |
 | stats            | Statistics and archiving utilities                          |
 | system           | System info (disk cache, etc.)                              |
-| timeutil         | Time formatting, parsing, and range helpers                 |
 | totp             | TOTP / HOTP for 2FA (RFC 6238 / 4226)                       |
 | tracing          | Tracing attributes and helpers                              |
 | validate         | Input validation helpers                                    |
@@ -113,6 +112,7 @@ db, err := common.InitDatabase(nil, "mysql", "user:pass@tcp(127.0.0.1:3306)/db")
 // Content type lookup
 ct := common.GetContentType(".json") // "application/json"
 
-// Snowflake ID (via idgen)
-id := common.NextSnowflakeUint()
+// Snowflake ID — use common/idgen directly
+// import "github.com/LingByte/ling-base/common/idgen"
+id := idgen.SnowflakeNextUint()
 ```

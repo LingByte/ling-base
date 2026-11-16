@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package timeutil provides time utilities:
+// Time helpers (formerly common/timeutil):
 //
 //   - Formatting & parsing with timezone support
 //   - Time ranges (start/end of day, week, month, year)
@@ -12,20 +12,20 @@
 // # Quick start
 //
 //	// Format with timezone
-//	timeutil.FormatIn(time.Now(), "2006-01-02 15:04:05", "Asia/Shanghai")
+//	common.FormatIn(time.Now(), "2006-01-02 15:04:05", "Asia/Shanghai")
 //
 //	// Parse with timezone
-//	t, err := timeutil.ParseIn("2026-08-15 10:00:00", "2006-01-02 15:04:05", "Asia/Shanghai")
+//	t, err := common.ParseIn("2026-08-15 10:00:00", "2006-01-02 15:04:05", "Asia/Shanghai")
 //
 //	// Start of day in local timezone
-//	start := timeutil.StartOfDay(time.Now())
+//	start := common.StartOfDay(time.Now())
 //
 //	// Stopwatch
-//	sw := timeutil.NewStopwatch()
+//	sw := common.NewStopwatch()
 //	sw.Start()
 //	// ... do work ...
 //	elapsed := sw.Elapsed()
-package timeutil
+package common
 
 import (
 	"fmt"
@@ -87,7 +87,7 @@ func Location(name string) (*time.Location, error) {
 func MustLocation(name string) *time.Location {
 	loc, err := Location(name)
 	if err != nil {
-		panic(fmt.Sprintf("timeutil: unknown location %q: %v", name, err))
+		panic(fmt.Sprintf("common: unknown location %q: %v", name, err))
 	}
 	return loc
 }
@@ -160,7 +160,7 @@ func ParseUTC(value, layout string) (time.Time, error) {
 func MustParse(value, layout string) time.Time {
 	t, err := time.Parse(layout, value)
 	if err != nil {
-		panic(fmt.Sprintf("timeutil: parse %q with layout %q: %v", value, layout, err))
+		panic(fmt.Sprintf("common: parse %q with layout %q: %v", value, layout, err))
 	}
 	return t
 }
@@ -314,7 +314,7 @@ func (r TimeRange) Intersect(other TimeRange) (TimeRange, bool) {
 // Panics if n <= 0.
 func (r TimeRange) Split(n int) []TimeRange {
 	if n <= 0 {
-		panic("timeutil: Split requires n > 0")
+		panic("common: Split requires n > 0")
 	}
 	dur := r.Duration() / time.Duration(n)
 	result := make([]TimeRange, n)
@@ -380,19 +380,6 @@ func minTime(a, b time.Time) time.Time {
 // Duration helpers
 // ──────────────────────────────────────────────
 
-// ParseDuration parses a duration string. Supports standard Go duration
-// syntax (e.g. "1h30m", "500ms") and additional units:
-//   - "d" for days (e.g. "3d" = 72h)
-//   - "w" for weeks (e.g. "2w" = 336h)
-func ParseDuration(s string) (time.Duration, error) {
-	// Try standard parsing first.
-	if d, err := time.ParseDuration(s); err == nil {
-		return d, nil
-	}
-	// Custom parsing for 'd' and 'w' suffixes.
-	return parseCustomDuration(s)
-}
-
 // DurationToHuman returns a human-readable duration string.
 // e.g. "2h30m", "1d4h", "30s", "500ms".
 func DurationToHuman(d time.Duration) string {
@@ -442,70 +429,6 @@ func DurationToHuman(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%dns", d)
 	}
-}
-
-// parseCustomDuration handles 'd' (days) and 'w' (weeks) suffixes.
-func parseCustomDuration(s string) (time.Duration, error) {
-	if len(s) == 0 {
-		return 0, fmt.Errorf("timeutil: empty duration")
-	}
-	var total time.Duration
-	i := 0
-	for i < len(s) {
-		// Skip whitespace.
-		if s[i] == ' ' {
-			i++
-			continue
-		}
-		// Parse number.
-		numStart := i
-		for i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.') {
-			i++
-		}
-		if i == numStart {
-			return 0, fmt.Errorf("timeutil: invalid duration %q", s)
-		}
-		numStr := s[numStart:i]
-		// Parse unit.
-		unitStart := i
-		for i < len(s) && !((s[i] >= '0' && s[i] <= '9') || s[i] == '.' || s[i] == ' ') {
-			i++
-		}
-		unit := s[unitStart:i]
-		// Convert.
-		switch unit {
-		case "d":
-			n, err := parseFloat(numStr)
-			if err != nil {
-				return 0, err
-			}
-			total += time.Duration(n * float64(Day))
-		case "w":
-			n, err := parseFloat(numStr)
-			if err != nil {
-				return 0, err
-			}
-			total += time.Duration(n * float64(Week))
-		case "h", "m", "s", "ms", "µs", "us", "ns":
-			// Re-parse with standard parser for the remaining part.
-			sub, err := time.ParseDuration(numStr + unit)
-			if err != nil {
-				return 0, err
-			}
-			total += sub
-		default:
-			return 0, fmt.Errorf("timeutil: unknown unit %q in duration %q", unit, s)
-		}
-	}
-	return total, nil
-}
-
-func parseFloat(s string) (float64, error) {
-	var f float64
-	if _, err := fmt.Sscanf(s, "%f", &f); err != nil {
-		return 0, err
-	}
-	return f, nil
 }
 
 // ──────────────────────────────────────────────
@@ -792,9 +715,9 @@ func IsExpired(t time.Time) bool { return t.Before(time.Now()) }
 // IsZero returns true if the given time is the zero value.
 func IsZero(t time.Time) bool { return t.IsZero() }
 
-// Clamp ensures a time is within a range. If t is before start, returns
+// ClampTime ensures a time is within a range. If t is before start, returns
 // start. If t is after end, returns end. Otherwise returns t.
-func Clamp(t, start, end time.Time) time.Time {
+func ClampTime(t, start, end time.Time) time.Time {
 	if t.Before(start) {
 		return start
 	}
@@ -804,11 +727,11 @@ func Clamp(t, start, end time.Time) time.Time {
 	return t
 }
 
-// Max returns the later of two times.
-func Max(a, b time.Time) time.Time { return maxTime(a, b) }
+// MaxTime returns the later of two times.
+func MaxTime(a, b time.Time) time.Time { return maxTime(a, b) }
 
-// Min returns the earlier of two times.
-func Min(a, b time.Time) time.Time { return minTime(a, b) }
+// MinTime returns the earlier of two times.
+func MinTime(a, b time.Time) time.Time { return minTime(a, b) }
 
 // Yesterday returns the time 24 hours ago.
 func Yesterday() time.Time { return time.Now().AddDate(0, 0, -1) }

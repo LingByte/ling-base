@@ -6,6 +6,7 @@ package common
 import (
 	"time"
 
+	"github.com/LingByte/ling-base/common/idgen"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +24,7 @@ type BaseModel struct {
 // BeforeCreate add snowflake id for base
 func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	if m.ID == 0 {
-		if id := NextSnowflakeUint(); id > 0 {
+		if id := idgen.SnowflakeNextUint(); id > 0 {
 			m.ID = id
 		}
 	}

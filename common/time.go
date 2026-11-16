@@ -40,11 +40,7 @@ var (
 	EveningHour   = 18
 )
 
-// TimeRange is an inclusive-start / exclusive-end window used by ParseNaturalRange.
-type TimeRange struct {
-	Start time.Time
-	End   time.Time
-}
+// TimeRange is defined in time_helpers.go (inclusive-start / exclusive-end window).
 
 // ParseNaturalTime parses a natural-language time expression relative to now.
 //

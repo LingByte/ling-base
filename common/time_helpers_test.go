@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-package timeutil
+package common
 
 import (
 	"sync/atomic"
@@ -547,7 +547,7 @@ func TestThisYearRange(t *testing.T) {
 // Duration helpers
 // ──────────────────────────────────────────────
 
-func TestParseDuration(t *testing.T) {
+func TestParseNaturalDuration_FromHelpers(t *testing.T) {
 	tests := []struct {
 		input string
 		want  time.Duration
@@ -562,25 +562,25 @@ func TestParseDuration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := ParseDuration(tt.input)
+			got, err := ParseNaturalDuration(tt.input)
 			if err != nil {
-				t.Fatalf("ParseDuration(%q) error: %v", tt.input, err)
+				t.Fatalf("ParseNaturalDuration(%q) error: %v", tt.input, err)
 			}
 			if got != tt.want {
-				t.Fatalf("ParseDuration(%q) = %v, want %v", tt.input, got, tt.want)
+				t.Fatalf("ParseNaturalDuration(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestParseDuration_Error(t *testing.T) {
-	_, err := ParseDuration("")
+func TestParseNaturalDuration_FromHelpers_Error(t *testing.T) {
+	_, err := ParseNaturalDuration("")
 	if err == nil {
-		t.Fatal("ParseDuration(\"\") should error")
+		t.Fatal("ParseNaturalDuration(\"\") should error")
 	}
-	_, err = ParseDuration("invalid")
+	_, err = ParseNaturalDuration("invalid")
 	if err == nil {
-		t.Fatal("ParseDuration(\"invalid\") should error")
+		t.Fatal("ParseNaturalDuration(\"invalid\") should error")
 	}
 }
 
@@ -941,36 +941,36 @@ func TestIsZero(t *testing.T) {
 	}
 }
 
-func TestClamp(t *testing.T) {
+func TestClampTime(t *testing.T) {
 	start := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 15, 20, 0, 0, 0, time.UTC)
 	before := time.Date(2026, 8, 15, 5, 0, 0, 0, time.UTC)
 	after := time.Date(2026, 8, 15, 23, 0, 0, 0, time.UTC)
 	middle := time.Date(2026, 8, 15, 15, 0, 0, 0, time.UTC)
 
-	if !Clamp(before, start, end).Equal(start) {
-		t.Fatal("Clamp(before) should return start")
+	if !ClampTime(before, start, end).Equal(start) {
+		t.Fatal("ClampTime(before) should return start")
 	}
-	if !Clamp(after, start, end).Equal(end) {
-		t.Fatal("Clamp(after) should return end")
+	if !ClampTime(after, start, end).Equal(end) {
+		t.Fatal("ClampTime(after) should return end")
 	}
-	if !Clamp(middle, start, end).Equal(middle) {
-		t.Fatal("Clamp(middle) should return middle")
+	if !ClampTime(middle, start, end).Equal(middle) {
+		t.Fatal("ClampTime(middle) should return middle")
 	}
 }
 
-func TestMax(t *testing.T) {
+func TestMaxTime(t *testing.T) {
 	a := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
 	b := time.Date(2026, 8, 15, 20, 0, 0, 0, time.UTC)
-	if !Max(a, b).Equal(b) {
+	if !MaxTime(a, b).Equal(b) {
 		t.Fatal("Max should return later time")
 	}
 }
 
-func TestMin(t *testing.T) {
+func TestMinTime(t *testing.T) {
 	a := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
 	b := time.Date(2026, 8, 15, 20, 0, 0, 0, time.UTC)
-	if !Min(a, b).Equal(a) {
+	if !MinTime(a, b).Equal(a) {
 		t.Fatal("Min should return earlier time")
 	}
 }
