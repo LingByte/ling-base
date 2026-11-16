@@ -7,6 +7,8 @@
 //   - IP address helpers: LocalIPs, PublicIP, IsPrivateIP, IsLoopback
 //   - HTTP client with retry, timeout, and circuit breaker
 //   - TCP/UDP utilities: dial, listen, ping, forward
+//   - DNS queries: QueryA/QueryAll/ReverseLookup via DNSClient
+//   - Curl debug: ParseCurlCommand / ExecuteCurl / CurlGet
 //
 // # Quick start
 //
@@ -23,6 +25,8 @@
 //	    RetryInterval: time.Second,
 //	})
 //	resp, err := client.Get("https://example.com")
+//
+//	// DNS + curl helpers live in the same package (dns.go / curl.go).
 package netutil
 
 import (

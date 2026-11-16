@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-package curlutil
+package netutil
 
 import (
 	"testing"
@@ -194,32 +194,32 @@ func TestParseInt(t *testing.T) {
 
 // ─── Integration tests (require network) ────────────────────────
 
-func TestExecute_Get(t *testing.T) {
+func TestExecute_CurlGet(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
-	resp, err := Get("https://httpbin.org/get")
+	resp, err := CurlGet("https://httpbin.org/get")
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.False(t, resp.IsBinary)
 	assert.Contains(t, resp.Body, "httpbin")
 }
 
-func TestExecute_Post(t *testing.T) {
+func TestExecute_CurlPost(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
-	resp, err := Post("https://httpbin.org/post", `{"test":"value"}`)
+	resp, err := CurlPost("https://httpbin.org/post", `{"test":"value"}`)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Contains(t, resp.Body, "test")
 }
 
-func TestExecute_Head(t *testing.T) {
+func TestExecute_CurlHead(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
-	resp, err := Head("https://example.com")
+	resp, err := CurlHead("https://example.com")
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Contains(t, resp.Body, "HEAD")
@@ -229,7 +229,7 @@ func TestExecute_RedirectChain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
-	resp, err := Execute(&Request{
+	resp, err := ExecuteCurl(&CurlRequest{
 		URL:            "http://httpbin.org/redirect/2",
 		Method:         "GET",
 		FollowRedirect: true,
@@ -244,7 +244,7 @@ func TestExecute_NoRedirect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
-	resp, err := Execute(&Request{
+	resp, err := ExecuteCurl(&CurlRequest{
 		URL:            "http://httpbin.org/redirect/1",
 		Method:         "GET",
 		FollowRedirect: false,
@@ -256,22 +256,22 @@ func TestExecute_NoRedirect(t *testing.T) {
 }
 
 func TestExecute_NilRequest(t *testing.T) {
-	_, err := Execute(nil)
+	_, err := ExecuteCurl(nil)
 	require.Error(t, err)
 }
 
 func TestExecute_EmptyURL(t *testing.T) {
-	_, err := Execute(&Request{URL: ""})
+	_, err := ExecuteCurl(&CurlRequest{URL: ""})
 	require.Error(t, err)
 }
 
-func TestParseAndExecute(t *testing.T) {
+func TestParseAndExecuteCurl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test")
 	}
 	req, err := ParseCurlCommand(`curl -L https://httpbin.org/get -H "X-Test: hello"`)
 	require.NoError(t, err)
-	resp, err := Execute(req)
+	resp, err := ExecuteCurl(req)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Contains(t, resp.Body, "X-Test")

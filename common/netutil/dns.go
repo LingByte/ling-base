@@ -19,7 +19,7 @@
 //	// Query all record types concurrently
 //	result, _ := dnsutil.QueryAll("example.com", "8.8.8.8:53")
 //	// → AllRecords{A:[...], AAAA:[...], MX:[...], ...}
-package dnsutil
+package netutil
 
 import (
 	"context"
@@ -46,11 +46,11 @@ const (
 	ServerOpenDNS     = "208.67.222.222:53"
 )
 
-// DefaultServer is used when no server is specified.
-const DefaultServer = ServerGoogle
+// DefaultDNSServer is used when no server is specified.
+const DefaultDNSServer = ServerGoogle
 
-// DefaultTimeout for DNS queries.
-const DefaultTimeout = 5 * time.Second
+// DefaultDNSTimeout for DNS queries.
+const DefaultDNSTimeout = 5 * time.Second
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ type AllRecords struct {
 }
 
 // Client is a DNS query client.
-type Client struct {
+type DNSClient struct {
 	server  string
 	timeout time.Duration
 	udp     bool // true = force UDP, false = auto (TCP for large responses)
@@ -87,33 +87,33 @@ type Client struct {
 }
 
 // Option configures a Client.
-type Option func(*Client)
+type DNSOption func(*DNSClient)
 
 // WithServer sets the default DNS server.
-func WithServer(server string) Option {
-	return func(c *Client) { c.server = normalizeServer(server) }
+func WithDNSServer(server string) DNSOption {
+	return func(c *DNSClient) { c.server = normalizeServer(server) }
 }
 
 // WithTimeout sets the query timeout.
-func WithTimeout(d time.Duration) Option {
-	return func(c *Client) { c.timeout = d }
+func WithDNSTimeout(d time.Duration) DNSOption {
+	return func(c *DNSClient) { c.timeout = d }
 }
 
 // WithUDP forces UDP transport.
-func WithUDP() Option {
-	return func(c *Client) { c.udp = true }
+func WithDNSUDP() DNSOption {
+	return func(c *DNSClient) { c.udp = true }
 }
 
 // WithDNSSEC enables DNSSEC requests (sets DO bit + EDNS0).
-func WithDNSSEC() Option {
-	return func(c *Client) { c.dnssec = true }
+func WithDNSSEC() DNSOption {
+	return func(c *DNSClient) { c.dnssec = true }
 }
 
 // NewClient creates a DNS client with the given options.
-func NewClient(opts ...Option) *Client {
-	c := &Client{
-		server:  DefaultServer,
-		timeout: DefaultTimeout,
+func NewDNSClient(opts ...DNSOption) *DNSClient {
+	c := &DNSClient{
+		server:  DefaultDNSServer,
+		timeout: DefaultDNSTimeout,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -125,7 +125,7 @@ func NewClient(opts ...Option) *Client {
 
 // Query queries a single record type from a DNS server.
 func Query(domain, recordType, server string) ([]DNSRecord, error) {
-	return NewClient(WithServer(server)).Query(domain, recordType)
+	return NewDNSClient(WithDNSServer(server)).Query(domain, recordType)
 }
 
 // QueryWithServer queries using a preset server constant.
@@ -190,26 +190,26 @@ func QueryCAA(domain, server string) ([]DNSRecord, error) {
 
 // QueryAll queries all common record types concurrently.
 func QueryAll(domain, server string) (*AllRecords, error) {
-	return NewClient(WithServer(server)).QueryAll(domain)
+	return NewDNSClient(WithDNSServer(server)).QueryAll(domain)
 }
 
 // ─── Client methods ─────────────────────────────────────────────
 
 // Query queries a single record type using the client's configured server.
-func (c *Client) Query(domain, recordType string) ([]DNSRecord, error) {
+func (c *DNSClient) Query(domain, recordType string) ([]DNSRecord, error) {
 	return c.QueryContext(context.Background(), domain, recordType)
 }
 
 // QueryContext queries with a custom context.
-func (c *Client) QueryContext(ctx context.Context, domain, recordType string) ([]DNSRecord, error) {
+func (c *DNSClient) QueryContext(ctx context.Context, domain, recordType string) ([]DNSRecord, error) {
 	domain = strings.TrimSpace(domain)
 	if domain == "" {
-		return nil, fmt.Errorf("dnsutil: domain is empty")
+		return nil, fmt.Errorf("netutil: domain is empty")
 	}
 
 	qtype, ok := dns.StringToType[strings.ToUpper(recordType)]
 	if !ok {
-		return nil, fmt.Errorf("dnsutil: unsupported record type %q", recordType)
+		return nil, fmt.Errorf("netutil: unsupported record type %q", recordType)
 	}
 
 	msg := new(dns.Msg)
@@ -222,7 +222,7 @@ func (c *Client) QueryContext(ctx context.Context, domain, recordType string) ([
 
 	server := c.server
 	if server == "" {
-		server = DefaultServer
+		server = DefaultDNSServer
 	}
 
 	dnsClient := &dns.Client{
@@ -232,7 +232,7 @@ func (c *Client) QueryContext(ctx context.Context, domain, recordType string) ([
 
 	resp, _, err := dnsClient.ExchangeContext(ctx, msg, server)
 	if err != nil {
-		return nil, fmt.Errorf("dnsutil: query %s %s via %s: %w", domain, recordType, server, err)
+		return nil, fmt.Errorf("netutil: query %s %s via %s: %w", domain, recordType, server, err)
 	}
 
 	if resp.Rcode != dns.RcodeSuccess {
@@ -259,7 +259,7 @@ func (c *Client) QueryContext(ctx context.Context, domain, recordType string) ([
 }
 
 // QueryAll queries all common record types concurrently.
-func (c *Client) QueryAll(domain string) (*AllRecords, error) {
+func (c *DNSClient) QueryAll(domain string) (*AllRecords, error) {
 	types := []string{"A", "AAAA", "CNAME", "MX", "NS", "TXT", "SOA", "PTR", "SRV", "CAA"}
 
 	var (
@@ -274,14 +274,20 @@ func (c *Client) QueryAll(domain string) (*AllRecords, error) {
 		go func(recordType string) {
 			defer wg.Done()
 
-			// PTR needs an IP, skip if domain is not an IP
+			qName := domain
+			// PTR needs an IP reversed to in-addr.arpa / ip6.arpa.
 			if recordType == "PTR" {
 				if net.ParseIP(domain) == nil {
 					return
 				}
+				zone, zerr := reverseZone(domain)
+				if zerr != nil {
+					return
+				}
+				qName = zone
 			}
 
-			records, err := c.Query(domain, recordType)
+			records, err := c.Query(qName, recordType)
 			if err != nil {
 				// Ignore NXDOMAIN (domain does not exist for this type),
 				// only collect real errors.
@@ -303,7 +309,7 @@ func (c *Client) QueryAll(domain string) (*AllRecords, error) {
 	wg.Wait()
 
 	if len(errs) > 0 && len(results) == 0 {
-		return nil, fmt.Errorf("dnsutil: all queries failed: %v", errs[0])
+		return nil, fmt.Errorf("netutil: all queries failed: %v", errs[0])
 	}
 
 	return &AllRecords{
@@ -330,7 +336,7 @@ func ReverseLookup(ip, server string) ([]DNSRecord, error) {
 }
 
 // ReverseLookupWithClient does reverse DNS using a configured client.
-func (c *Client) ReverseLookup(ip string) ([]DNSRecord, error) {
+func (c *DNSClient) ReverseLookup(ip string) ([]DNSRecord, error) {
 	zone, err := reverseZone(ip)
 	if err != nil {
 		return nil, err
@@ -347,7 +353,7 @@ type RcodeError struct {
 }
 
 func (e *RcodeError) Error() string {
-	return fmt.Sprintf("dnsutil: server returned %s", dns.RcodeToString[e.Rcode])
+	return fmt.Sprintf("netutil: server returned %s", dns.RcodeToString[e.Rcode])
 }
 
 // SupportedRecordTypes returns all supported record type names.
@@ -368,7 +374,7 @@ func CommonRecordTypes() []string {
 func normalizeServer(server string) string {
 	server = strings.TrimSpace(server)
 	if server == "" {
-		return DefaultServer
+		return DefaultDNSServer
 	}
 	if !strings.Contains(server, ":") {
 		return server + ":53"
@@ -387,7 +393,7 @@ func autoNet(forceUDP bool) string {
 func reverseZone(ipStr string) (string, error) {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
-		return "", fmt.Errorf("dnsutil: invalid IP %q", ipStr)
+		return "", fmt.Errorf("netutil: invalid IP %q", ipStr)
 	}
 
 	if v4 := ip.To4(); v4 != nil {

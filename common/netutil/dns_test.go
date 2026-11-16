@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-package dnsutil
+package netutil
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ func TestNormalizeServer(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"", DefaultServer},
+		{"", DefaultDNSServer},
 		{"8.8.8.8", "8.8.8.8:53"},
 		{"1.1.1.1:53", "1.1.1.1:53"},
 		{"  8.8.4.4  ", "8.8.4.4:53"},
@@ -61,18 +61,18 @@ func TestCommonRecordTypes(t *testing.T) {
 }
 
 func TestNewClient_Defaults(t *testing.T) {
-	c := NewClient()
-	assert.Equal(t, DefaultServer, c.server)
-	assert.Equal(t, DefaultTimeout, c.timeout)
+	c := NewDNSClient()
+	assert.Equal(t, DefaultDNSServer, c.server)
+	assert.Equal(t, DefaultDNSTimeout, c.timeout)
 	assert.False(t, c.udp)
 	assert.False(t, c.dnssec)
 }
 
 func TestNewClient_Options(t *testing.T) {
-	c := NewClient(
-		WithServer("1.1.1.1:53"),
-		WithTimeout(10*time.Second),
-		WithUDP(),
+	c := NewDNSClient(
+		WithDNSServer("1.1.1.1:53"),
+		WithDNSTimeout(10*time.Second),
+		WithDNSUDP(),
 		WithDNSSEC(),
 	)
 	assert.Equal(t, "1.1.1.1:53", c.server)
@@ -82,14 +82,14 @@ func TestNewClient_Options(t *testing.T) {
 }
 
 func TestQuery_EmptyDomain(t *testing.T) {
-	c := NewClient()
+	c := NewDNSClient()
 	_, err := c.Query("", "A")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
 }
 
 func TestQuery_InvalidType(t *testing.T) {
-	c := NewClient()
+	c := NewDNSClient()
 	_, err := c.Query("example.com", "INVALID")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported")

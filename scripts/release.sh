@@ -95,6 +95,8 @@ normalize_dir() {
     stores|stores/*) printf 'stores moved to common/stores; use --pkg common/%s\n' "${dir#./}" >&2; return 1 ;;
     voice|voice/*) printf 'voice moved to providers/voice; use --pkg providers/%s\n' "${dir#./}" >&2; return 1 ;;
     pentest|pentest/*) printf 'pentest moved to toolkits/pentest; use --pkg toolkits/pentest\n' >&2; return 1 ;;
+    common/dnsutil|common/dnsutil/*|common/netutil/dnsutil|common/netutil/dnsutil/*) printf 'dnsutil folded into common/netutil; use --pkg common/netutil\n' >&2; return 1 ;;
+    common/curlutil|common/curlutil/*|common/netutil/curlutil|common/netutil/curlutil/*) printf 'curlutil folded into common/netutil; use --pkg common/netutil\n' >&2; return 1 ;;
     common/emoji|common/emoji/*) printf 'common/emoji was removed\n' >&2; return 1 ;;
     common/upload|common/upload/*) printf 'common/upload was removed; use common/stores\n' >&2; return 1 ;;
   esac

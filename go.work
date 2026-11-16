@@ -44,9 +44,7 @@ use (
 	./common/convert
 	./common/cron
 	./common/crypto
-	./common/curlutil
 	./common/diff
-	./common/dnsutil
 	./common/embedder
 	./common/eventbus
 	./common/export

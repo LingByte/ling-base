@@ -15,18 +15,19 @@
 // # Quick start
 //
 //	// Parse a curl command
-//	req, err := curlutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"key":"value"}'`)
+//	req, err := netutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"key":"value"}'`)
 //
 //	// Execute with full debug info
-//	resp, err := curlutil.Execute(req)
+//	resp, err := netutil.ExecuteCurl(req)
 //	fmt.Printf("Status: %d, Time: %dms, TLS: %s\n", resp.StatusCode, resp.ResponseTime, resp.RequestInfo.TLSVersion)
 //
 //	// Simple GET
-//	resp, err = curlutil.Get("https://example.com")
-package curlutil
+//	resp, err = netutil.CurlGet("https://example.com")
+package netutil
 
 import (
 	"context"
+	"encoding/base64"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -37,13 +38,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/LingByte/ling-base/common/crypto"
 )
 
 // ─── Request / Response types ───────────────────────────────────
 
 // Request represents an HTTP request with debug options.
-type Request struct {
+type CurlRequest struct {
 	URL            string            `json:"url"`
 	Method         string            `json:"method"`
 	Headers        map[string]string `json:"headers"`
@@ -55,7 +55,7 @@ type Request struct {
 }
 
 // Response holds the full debug response from an HTTP request.
-type Response struct {
+type CurlResponse struct {
 	URL           string            `json:"url"`
 	Method        string            `json:"method"`
 	StatusCode    int               `json:"status_code"`
@@ -69,11 +69,11 @@ type Response struct {
 	ContentLength int64             `json:"content_length"`
 	ContentType   string            `json:"content_type"`
 	RedirectChain []string          `json:"redirect_chain,omitempty"`
-	RequestInfo   RequestInfo       `json:"request_info"`
+	RequestInfo   CurlRequestInfo       `json:"request_info"`
 }
 
 // RequestInfo holds metadata about the actual request sent.
-type RequestInfo struct {
+type CurlRequestInfo struct {
 	FinalURL       string            `json:"final_url"`
 	RemoteAddr     string            `json:"remote_addr"`
 	Protocol       string            `json:"protocol"`
@@ -84,62 +84,64 @@ type RequestInfo struct {
 // ─── Defaults ───────────────────────────────────────────────────
 
 const (
-	DefaultTimeout   = 30
-	DefaultUserAgent = "ling-base-curlutil/1.0"
+	DefaultCurlTimeout   = 30
+	DefaultCurlUserAgent = "ling-base-netutil-curl/1.0"
 	MaxBodyPreview   = 10000
 	MaxRedirects     = 10
+	// MaxCurlBody caps response body reads for ExecuteCurl* (8 MiB).
+	MaxCurlBody = 8 << 20
 )
 
 // ─── Package-level convenience functions ────────────────────────
 
 // Get sends a simple GET request.
-func Get(targetURL string) (*Response, error) {
-	return Execute(&Request{
+func CurlGet(targetURL string) (*CurlResponse, error) {
+	return ExecuteCurl(&CurlRequest{
 		URL:            targetURL,
 		Method:         "GET",
 		FollowRedirect: true,
 		VerifySSL:      true,
-		Timeout:        DefaultTimeout,
+		Timeout:        DefaultCurlTimeout,
 	})
 }
 
 // Post sends a simple POST request.
-func Post(targetURL, body string) (*Response, error) {
-	return Execute(&Request{
+func CurlPost(targetURL, body string) (*CurlResponse, error) {
+	return ExecuteCurl(&CurlRequest{
 		URL:            targetURL,
 		Method:         "POST",
 		Body:           body,
 		FollowRedirect: true,
 		VerifySSL:      true,
-		Timeout:        DefaultTimeout,
+		Timeout:        DefaultCurlTimeout,
 		Headers:        map[string]string{"Content-Type": "application/json"},
 	})
 }
 
 // Head sends a HEAD request.
-func Head(targetURL string) (*Response, error) {
-	return Execute(&Request{
+func CurlHead(targetURL string) (*CurlResponse, error) {
+	return ExecuteCurl(&CurlRequest{
 		URL:            targetURL,
 		Method:         "HEAD",
 		HeadOnly:       true,
 		FollowRedirect: true,
 		VerifySSL:      true,
-		Timeout:        DefaultTimeout,
+		Timeout:        DefaultCurlTimeout,
 	})
 }
 
-// Execute sends an HTTP request and returns a detailed debug response.
-func Execute(req *Request) (*Response, error) {
+// ExecuteCurl sends an HTTP request and returns a detailed debug response.
+func ExecuteCurl(req *CurlRequest) (*CurlResponse, error) {
 	if req == nil {
-		return nil, fmt.Errorf("curlutil: request is nil")
+		return nil, fmt.Errorf("netutil: request is nil")
 	}
-	return ExecuteContext(context.Background(), req)
+	return ExecuteCurlContext(context.Background(), req)
 }
 
-// ExecuteContext sends an HTTP request with a custom context.
-func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
+// ExecuteCurlContext sends an HTTP request with a custom context.
+func ExecuteCurlContext(ctx context.Context, req *CurlRequest) (*CurlResponse, error) {
 	if req == nil {
-		return nil, fmt.Errorf("curlutil: request is nil")
+		return nil, fmt.Errorf("netutil: request is nil")
 	}
 
 	startTime := time.Now()
@@ -147,13 +149,13 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 	// Validate and normalize URL
 	parsedURL, err := url.Parse(req.URL)
 	if err != nil {
-		return nil, fmt.Errorf("curlutil: invalid URL: %w", err)
+		return nil, fmt.Errorf("netutil: invalid URL: %w", err)
 	}
 	if parsedURL.Scheme == "" {
 		req.URL = "https://" + req.URL
 		parsedURL, err = url.Parse(req.URL)
 		if err != nil {
-			return nil, fmt.Errorf("curlutil: invalid URL: %w", err)
+			return nil, fmt.Errorf("netutil: invalid URL: %w", err)
 		}
 	}
 
@@ -162,7 +164,7 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 		req.Method = "GET"
 	}
 	if req.Timeout == 0 {
-		req.Timeout = DefaultTimeout
+		req.Timeout = DefaultCurlTimeout
 	}
 	if req.Method == "HEAD" {
 		req.HeadOnly = true
@@ -190,7 +192,7 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 		client.CheckRedirect = func(newReq *http.Request, via []*http.Request) error {
 			redirectChain = append(redirectChain, newReq.URL.String())
 			if len(via) >= MaxRedirects {
-				return fmt.Errorf("curlutil: too many redirects")
+				return fmt.Errorf("netutil: too many redirects")
 			}
 			return nil
 		}
@@ -204,7 +206,7 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 
 	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.URL, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("curlutil: create request: %w", err)
+		return nil, fmt.Errorf("netutil: create request: %w", err)
 	}
 
 	// Set headers
@@ -212,13 +214,13 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 		httpReq.Header.Set(key, value)
 	}
 	if httpReq.Header.Get("User-Agent") == "" {
-		httpReq.Header.Set("User-Agent", DefaultUserAgent)
+		httpReq.Header.Set("User-Agent", DefaultCurlUserAgent)
 	}
 
 	// Execute
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("curlutil: request failed: %w", err)
+		return nil, fmt.Errorf("netutil: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -236,7 +238,7 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 		requestHeaders[key] = strings.Join(values, ", ")
 	}
 
-	requestInfo := RequestInfo{
+	requestInfo := CurlRequestInfo{
 		FinalURL:       resp.Request.URL.String(),
 		Protocol:       resp.Proto,
 		RequestHeaders: requestHeaders,
@@ -257,9 +259,12 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 	var bodySize int64
 
 	if !req.HeadOnly && req.Method != "HEAD" {
-		bodyBytes, err = io.ReadAll(resp.Body)
+		bodyBytes, err = io.ReadAll(io.LimitReader(resp.Body, int64(MaxCurlBody)+1))
 		if err != nil {
-			return nil, fmt.Errorf("curlutil: read response body: %w", err)
+			return nil, fmt.Errorf("netutil: read response body: %w", err)
+		}
+		if len(bodyBytes) > MaxCurlBody {
+			return nil, fmt.Errorf("netutil: response body exceeds %d bytes", MaxCurlBody)
 		}
 
 		bodySize = int64(len(bodyBytes))
@@ -282,7 +287,7 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 		bodySize = resp.ContentLength
 	}
 
-	return &Response{
+	return &CurlResponse{
 		URL:           req.URL,
 		Method:        req.Method,
 		StatusCode:    resp.StatusCode,
@@ -304,10 +309,10 @@ func ExecuteContext(ctx context.Context, req *Request) (*Response, error) {
 
 // ParseCurlCommand parses a curl command string into a Request.
 // Supports common flags: -X, -H, -d, -k, -L, -I, --data-raw, --compressed.
-func ParseCurlCommand(curlCmd string) (*Request, error) {
+func ParseCurlCommand(curlCmd string) (*CurlRequest, error) {
 	curlCmd = strings.TrimSpace(curlCmd)
 	if curlCmd == "" {
-		return nil, fmt.Errorf("curlutil: empty curl command")
+		return nil, fmt.Errorf("netutil: empty curl command")
 	}
 
 	// Remove "curl " prefix
@@ -317,12 +322,12 @@ func ParseCurlCommand(curlCmd string) (*Request, error) {
 		curlCmd = curlCmd[5:]
 	}
 
-	req := &Request{
+	req := &CurlRequest{
 		Method:         "GET",
 		Headers:        make(map[string]string),
 		FollowRedirect: false,
 		VerifySSL:      true,
-		Timeout:        DefaultTimeout,
+		Timeout:        DefaultCurlTimeout,
 	}
 
 	// Tokenize, respecting quoted strings
@@ -418,7 +423,7 @@ func ParseCurlCommand(curlCmd string) (*Request, error) {
 	}
 
 	if req.URL == "" {
-		return nil, fmt.Errorf("curlutil: no URL found in curl command")
+		return nil, fmt.Errorf("netutil: no URL found in curl command")
 	}
 
 	return req, nil
@@ -555,16 +560,16 @@ func tokenizeCurl(s string) ([]string, error) {
 	}
 
 	if inSingle || inDouble {
-		return nil, fmt.Errorf("curlutil: unterminated quote in curl command")
+		return nil, fmt.Errorf("netutil: unterminated quote in curl command")
 	}
 
 	return tokens, nil
 }
 
 // base64Encode returns the standard base64 encoding of s, used for the
-// -u (Basic auth) flag. It delegates to crypto.Base64Encode.
+// -u (Basic auth) flag.
 func base64Encode(s string) string {
-	return crypto.Base64Encode([]byte(s))
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 // parseInt is a helper to parse an int.
