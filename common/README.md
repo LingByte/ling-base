@@ -20,7 +20,6 @@ common/
 ├── math.go           # Clamp / Min / Max / RoundFloat / GCD
 ├── time.go           # ParseNaturalTime / Duration / Range (ex-nltime)
 ├── geo.go            # Haversine distance between two coordinates
-├── signals.go        # Signal/event handler registry
 └── snowflake.go      # Deprecated snowflake aliases (use common/idgen)
 ```
 

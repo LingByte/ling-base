@@ -42,7 +42,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/common/codegen":                            "v0.1.0",
 	"github.com/LingByte/ling-base/common/compress":                           "v0.1.1",
 	"github.com/LingByte/ling-base/common/config":                             "v0.1.2",
-	"github.com/LingByte/ling-base/common/configcenter":                       "v0.1.0",
 	"github.com/LingByte/ling-base/common/consistent":                         "v0.1.0",
 	"github.com/LingByte/ling-base/common/constants":                          "v0.1.1",
 	"github.com/LingByte/ling-base/common/convert":                            "v0.1.0",
