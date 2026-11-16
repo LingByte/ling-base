@@ -18,7 +18,7 @@ import (
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
 
-	"github.com/LingByte/ling-base/common/imageutil"
+	"github.com/LingByte/ling-base/common/media/image"
 )
 
 // ErrorCorrectionLevel controls the redundancy of the QR code. Higher

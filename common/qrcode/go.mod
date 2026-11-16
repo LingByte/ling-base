@@ -3,7 +3,7 @@ module github.com/LingByte/ling-base/common/qrcode
 go 1.26.2
 
 require (
-	github.com/LingByte/ling-base/common/imageutil v0.1.0
+	github.com/LingByte/ling-base/common/media/image v0.1.0
 	github.com/boombuler/barcode v1.1.0
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/stretchr/testify v1.12.1
@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/deepteams/webp v1.2.7 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
@@ -23,3 +24,5 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 )
+
+replace github.com/LingByte/ling-base/common/media/image => ../media/image

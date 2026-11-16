@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/imageutil
+module github.com/LingByte/ling-base/common/media/image
 
 go 1.26.2
 

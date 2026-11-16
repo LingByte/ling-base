@@ -1,4 +1,4 @@
-# audioutil
+# media/audio (audioutil)
 
 Audio processing utilities for WAV and MP3 files, providing decode, encode, volume, trim, mix, resample, and effects.
 
@@ -30,7 +30,7 @@ Audio processing utilities for WAV and MP3 files, providing decode, encode, volu
 ## Quick start
 
 ```go
-import "github.com/LingByte/ling-base/common/audioutil"
+import "github.com/LingByte/ling-base/common/media/audio"
 
 // Load WAV or MP3 (auto-detected by extension)
 audio, err := audioutil.Load("input.mp3")

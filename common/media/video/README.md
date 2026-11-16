@@ -1,4 +1,4 @@
-# videoutil
+# media/video (videoutil)
 
 High-level Go wrapper around FFmpeg and FFprobe for video processing: transcoding, screenshot extraction, watermarking, and media probing.
 
@@ -18,7 +18,7 @@ The package is a pure library — no web framework, no job manager, no global st
 ## Quick start
 
 ```go
-import "github.com/LingByte/ling-base/common/videoutil"
+import "github.com/LingByte/ling-base/common/media/video"
 
 err := videoutil.TranscodeMP4("input.mov", "output.mp4",
     videoutil.WithCRF(23), videoutil.WithPreset("medium"))

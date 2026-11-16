@@ -1,4 +1,4 @@
-module github.com/LingByte/ling-base/common/audioutil
+module github.com/LingByte/ling-base/common/media/audio
 
 go 1.26.2
 

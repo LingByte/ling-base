@@ -1,4 +1,4 @@
-# imageutil
+# media/image (imageutil)
 
 Image processing utilities supporting decode/encode, resize, crop, rotate, flip, filters, effects, watermark, composite, and histogram analysis.
 
@@ -35,7 +35,7 @@ Image processing utilities supporting decode/encode, resize, crop, rotate, flip,
 ```go
 import (
     "image"
-    "github.com/LingByte/ling-base/common/imageutil"
+    "github.com/LingByte/ling-base/common/media/image"
 )
 
 img, _, err := imageutil.DecodeFile("input.png")
