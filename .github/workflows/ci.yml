@@ -52,6 +52,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          fi
 
           all_modules() {
             find . -name go.mod \
@@ -238,7 +241,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.1.6
           args: --timeout 10m
           skip-cache: false
 
