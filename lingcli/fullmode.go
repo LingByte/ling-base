@@ -21,7 +21,7 @@ var fullExcludeDirs = map[string]bool{
 	"lingcli":  true, // the generator itself
 	"docs":     true, // documentation site
 	"example":  true, // examples
-	"pentest":  true, // penetration testing tools
+	"toolkits": true, // domain toolkits (e.g. pentest); not app scaffolding deps
 	".git":     true, // git metadata
 	"agentkit": true, // AI agent kit (heavy, separate concern)
 	"scripts":  true, // repository release/build tools

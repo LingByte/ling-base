@@ -21,7 +21,8 @@ ling-base/
 ├── bootstrap/       # 应用生命周期框架
 ├── lingcli/         # 项目脚手架 CLI
 ├── apidocs/         # OpenAPI / Huma 文档挂载
-├── pentest/         # Web 安全测试工具集
+├── toolkits/        # 专项领域工具库
+│   └── pentest/     # Web 安全测试工具集
 ├── version/         # 版本信息
 ├── docs/            # 文档站（Next.js + Fumadocs）
 ├── go.work          # 本地多模块工作区

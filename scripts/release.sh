@@ -73,7 +73,7 @@ list_group_dirs() {
       providers-other)
         [[ "$dir" == providers/ocr || "$dir" == providers/ocr/* || "$dir" == providers/censor || "$dir" == providers/censor/* ]] || continue ;;
       tooling)
-        [[ "$dir" == bootstrap || "$dir" == version || "$dir" == apidocs || "$dir" == pentest ]] || continue ;;
+        [[ "$dir" == bootstrap || "$dir" == version || "$dir" == apidocs || "$dir" == toolkits || "$dir" == toolkits/* ]] || continue ;;
       common-infra)
         case "$dir" in
           common/limiter|common/limiter/*|common/circuitbreaker|common/retry|common/cache|common/cache/*|common/lock|common/lock/*|common/mq|common/mq/*|common/queue|common/queue/*|common/bloom|common/bloom/*|common/pool|common/eventbus|common/scheduler) ;;
@@ -94,6 +94,7 @@ normalize_dir() {
   case "${dir#./}" in
     stores|stores/*) printf 'stores moved to common/stores; use --pkg common/%s\n' "${dir#./}" >&2; return 1 ;;
     voice|voice/*) printf 'voice moved to providers/voice; use --pkg providers/%s\n' "${dir#./}" >&2; return 1 ;;
+    pentest|pentest/*) printf 'pentest moved to toolkits/pentest; use --pkg toolkits/pentest\n' >&2; return 1 ;;
   esac
   resolved=$(cd "$dir" 2>/dev/null && pwd -P) || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
   if [[ "$resolved" == "$ROOT" ]]; then

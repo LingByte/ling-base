@@ -181,7 +181,7 @@ use (
 	./common/webhook
 	./common/wsutil
 	./lingcli
-	./pentest
+	./toolkits/pentest
 	./providers/censor
 	./providers/censor/aliyun
 	./providers/censor/qcloud

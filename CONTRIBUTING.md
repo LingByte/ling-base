@@ -17,11 +17,12 @@ ling-base/
 │  └─ ...
 ├─ providers/voice/          # 语音能力（识别/合成/…）
 ├─ relay/                    # AI 中继
+├─ toolkits/                 # 专项领域工具库（如 pentest）
 ├─ lingcli/                  # CLI
 └─ docs/                     # 文档站（apps/v1）
 ```
 
-**核心原则**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。
+**核心原则**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。`toolkits/` 放主动工具 / 垂直领域库，默认不作为应用脚手架依赖。
 
 ## 开发环境
 

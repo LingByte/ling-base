@@ -184,7 +184,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/common/videoutil":                          "v0.1.1",
 	"github.com/LingByte/ling-base/common/webhook":                            "v0.1.1",
 	"github.com/LingByte/ling-base/common/wsutil":                             "v0.1.0",
-	"github.com/LingByte/ling-base/pentest":                                   "v0.2.0",
 	"github.com/LingByte/ling-base/providers/censor":                          "v0.1.0",
 	"github.com/LingByte/ling-base/providers/censor/aliyun":                   "v0.1.0",
 	"github.com/LingByte/ling-base/providers/censor/qcloud":                   "v0.1.0",
@@ -241,5 +240,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/relay":                                     "v0.1.1",
 	"github.com/LingByte/ling-base/relay/compat":                              "v0.1.0",
 	"github.com/LingByte/ling-base/relay/relaykit":                            "v0.1.0",
+	"github.com/LingByte/ling-base/toolkits/pentest":                          "v0.1.0",
 	"github.com/LingByte/ling-base/version":                                   "v0.1.0",
 }
