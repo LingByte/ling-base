@@ -10,12 +10,14 @@
 - TCP/UDP utilities: dial, listen, ping, forward
 - DNS queries: custom upstream, common record types, reverse lookup, concurrent QueryAll
 - Curl debug: parse curl command strings and execute with redirect/TLS/binary inspection
+- HTTP probe: synthetic monitoring with validation, timing breakdown, multi-step sequences (formerly `common/probe`)
 
 ## Key types
 
 - `HTTPClientConfig` / `HTTPClient` — HTTP client with retry and circuit breaker
 - `DNSClient` / `DNSRecord` / `AllRecords` — advanced DNS querying
 - `CurlRequest` / `CurlResponse` — curl-style debug HTTP request/response
+- `Prober` / `ProbeRequest` / `ProbeSequence` — synthetic HTTP probing
 
 ## Quick start
 
@@ -42,4 +44,10 @@ all, _ := netutil.QueryAll("example.com", "8.8.8.8:53")
 // curl debug
 req, _ := netutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -d '{"a":1}' -L`)
 debug, _ := netutil.ExecuteCurl(req)
+
+// HTTP probe
+result := netutil.NewProber().Execute(context.Background(), netutil.ProbeRequest{
+    URL:    "https://api.example.com/health",
+    Expect: netutil.ProbeExpect{StatusCode: 200, BodyContains: "ok"},
+})
 ```
