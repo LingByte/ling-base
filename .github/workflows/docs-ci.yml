@@ -1,0 +1,41 @@
+name: Docs CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-ci.yml'
+      - '.github/workflows/docs-deploy.yml'
+  push:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fast static export
+        working-directory: docs/apps/v1
+        run: |
+          set -euo pipefail
+          node --check ./scripts/with-static-export.mjs
+          test -d content/docs
+          NEXT_PUBLIC_BASE_PATH=/ling-base NEXT_PUBLIC_STATIC_DEPLOY=1 node ./scripts/with-static-export.mjs
+          test -f out/index.html
+          test -d out/docs
+          test -f out/assets/docs.css
+          echo "Fast static export OK"

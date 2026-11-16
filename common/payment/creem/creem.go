@@ -190,16 +190,16 @@ func (a *Adapter) VerifyWebhook(ctx context.Context, req *payment.WebhookVerifyR
 	}
 
 	out := &payment.WebhookEvent{
-		Provider:       payment.ProviderCreem,
+		Provider:        payment.ProviderCreem,
 		ProviderOrderID: ev.Object.Order.ID,
-		TradeNo:        ev.Object.RequestID,
-		CustomerID:     ev.Object.Customer.ID,
-		CustomerEmail:  ev.Object.Customer.Email,
-		CustomerName:   ev.Object.Customer.Name,
-		OrderType:      ev.Object.Order.Type,
-		Mode:           ev.Object.Mode,
-		Raw:            ev,
-		RawBody:        req.RawBody,
+		TradeNo:         ev.Object.RequestID,
+		CustomerID:      ev.Object.Customer.ID,
+		CustomerEmail:   ev.Object.Customer.Email,
+		CustomerName:    ev.Object.Customer.Name,
+		OrderType:       ev.Object.Order.Type,
+		Mode:            ev.Object.Mode,
+		Raw:             ev,
+		RawBody:         req.RawBody,
 	}
 	if ev.Object.Order.Currency != "" {
 		out.Currency = payment.Currency(strings.ToUpper(ev.Object.Order.Currency))
@@ -295,22 +295,22 @@ type creemWebhookEvent struct {
 			Mode        string `json:"mode"`
 		} `json:"order"`
 		Product struct {
-			ID            string  `json:"id"`
-			Object        string  `json:"object"`
-			Name          string  `json:"name"`
-			Description   string  `json:"description"`
-			Price         int     `json:"price"`
-			Currency      string  `json:"currency"`
-			BillingType   string  `json:"billing_type"`
-			BillingPeriod string  `json:"billing_period"`
-			Status        string  `json:"status"`
-			TaxMode       string  `json:"tax_mode"`
-			TaxCategory   string  `json:"tax_category"`
-			CreatedAt     string  `json:"created_at"`
-			UpdatedAt     string  `json:"updated_at"`
-			Mode          string  `json:"mode"`
+			ID            string `json:"id"`
+			Object        string `json:"object"`
+			Name          string `json:"name"`
+			Description   string `json:"description"`
+			Price         int    `json:"price"`
+			Currency      string `json:"currency"`
+			BillingType   string `json:"billing_type"`
+			BillingPeriod string `json:"billing_period"`
+			Status        string `json:"status"`
+			TaxMode       string `json:"tax_mode"`
+			TaxCategory   string `json:"tax_category"`
+			CreatedAt     string `json:"created_at"`
+			UpdatedAt     string `json:"updated_at"`
+			Mode          string `json:"mode"`
 		} `json:"product"`
-		Units int `json:"units"`
+		Units    int `json:"units"`
 		Customer struct {
 			ID        string `json:"id"`
 			Object    string `json:"object"`

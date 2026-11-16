@@ -25,8 +25,8 @@ package markdown
 
 import (
 	"bytes"
-	stdhtml "html"
 	"fmt"
+	stdhtml "html"
 	"strings"
 
 	"github.com/yuin/goldmark"

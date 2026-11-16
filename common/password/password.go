@@ -317,7 +317,8 @@ func needsRehashArgon2id(stored string, o Options) bool {
 }
 
 // encodeArgon2id builds the standard Argon2id PHC string format:
-//   $argon2id$v=19$m=<memory>,t=<time>,p=<threads>$<base64-salt>$<base64-key>
+//
+//	$argon2id$v=19$m=<memory>,t=<time>,p=<threads>$<base64-salt>$<base64-key>
 func encodeArgon2id(o Options, salt, key []byte) string {
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version,

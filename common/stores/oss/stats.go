@@ -27,10 +27,10 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
-	openapiv1 "github.com/alibabacloud-go/darabonba-openapi/client"
 	cdn "github.com/alibabacloud-go/cdn-20180510/v4/client"
 	cms "github.com/alibabacloud-go/cms-20190101/v2/client"
+	openapiv1 "github.com/alibabacloud-go/darabonba-openapi/client"
+	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	"github.com/alibabacloud-go/tea/tea"
 )
 

@@ -324,10 +324,10 @@ func TestWithMaxBytes(t *testing.T) {
 		atomic.AddInt32(&flushed, int32(len(items)))
 		return nil
 	},
-		batch.WithSize[int](1000),       // high count limit
-		batch.WithMaxBytes[int](100),    // 100 byte limit
+		batch.WithSize[int](1000),                                  // high count limit
+		batch.WithMaxBytes[int](100),                               // 100 byte limit
 		batch.WithItemSize[int](func(i int) int { return i * 10 }), // each item = i*10 bytes
-		batch.WithInterval[int](0),      // disable timer
+		batch.WithInterval[int](0),                                 // disable timer
 	)
 
 	// Add items: 1(10B), 2(20B), 3(30B), 4(40B), 5(50B)

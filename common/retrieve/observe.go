@@ -31,7 +31,7 @@ type NoopObserver struct{}
 func (NoopObserver) BeginRetrieval(ctx context.Context, _ string, _ map[string]string) context.Context {
 	return ctx
 }
-func (NoopObserver) RecordStage(context.Context, string, StageEvent) {}
+func (NoopObserver) RecordStage(context.Context, string, StageEvent)  {}
 func (NoopObserver) EndRetrieval(context.Context, []*Document, error) {}
 
 type observerContextKey struct{}

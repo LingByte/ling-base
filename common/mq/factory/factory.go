@@ -17,7 +17,7 @@
 // # Usage
 //
 //	import (
-//	    "github.com/LingByte/ling-base/mq"
+//	    "github.com/LingByte/ling-base/common/mq"
 //	    "github.com/LingByte/ling-base/common/mq/factory"
 //	    "github.com/LingByte/ling-base/common/mq/rabbitmq"
 //	)
@@ -37,7 +37,7 @@ package factory
 import (
 	"fmt"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	"github.com/LingByte/ling-base/common/mq/activemq"
 	"github.com/LingByte/ling-base/common/mq/kafka"
 	"github.com/LingByte/ling-base/common/mq/rabbitmq"

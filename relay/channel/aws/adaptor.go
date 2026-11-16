@@ -10,13 +10,12 @@ import (
 	"github.com/LingByte/ling-base/relay/channel/claude"
 	"github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/pkg/errors"
-
 )
 
 type ClientMode int

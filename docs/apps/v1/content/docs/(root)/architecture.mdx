@@ -1,0 +1,41 @@
+---
+title: Architecture
+description: ling-base 多模块架构与目录布局
+---
+
+## 设计原则
+
+1. **每个模块独立 go.mod** — 消费者只引用需要的模块
+2. **接口与实现分离** — 领域定义统一接口，provider 各自实现
+3. **零循环依赖** — 模块间依赖单向流动
+4. **workspace 开发** — 本地用 `go.work`，发布时各模块独立打 tag
+
+## 仓库结构
+
+```
+ling-base/
+├── common/          # 通用工具（约 83 个一级包；含 mq / search / notification / stores）
+├── relay/           # AI provider 中继
+├── providers/       # voice / ocr / censor
+├── bootstrap/       # 应用生命周期
+├── lingcli/         # 项目脚手架
+├── apidocs/         # OpenAPI / Huma
+├── toolkits/        # 专项工具（含 pentest）
+├── version/         # 版本信息
+└── docs/            # 本文档站
+```
+
+## 路径说明
+
+| 能力 | Module 路径 |
+|------|-------------|
+| AI 中继 | `github.com/LingByte/ling-base/relay` |
+| 语音 | `github.com/LingByte/ling-base/providers/voice/...` |
+| 对象存储 | `github.com/LingByte/ling-base/common/stores` |
+| 消息队列 | `github.com/LingByte/ling-base/common/mq` |
+| 通知 / Webhook | `github.com/LingByte/ling-base/common/notification` |
+| 网络工具 | `github.com/LingByte/ling-base/common/netutil` |
+| 日志 | `github.com/LingByte/ling-base/common/logger` |
+| 安全测试 | `github.com/LingByte/ling-base/toolkits/pentest` |
+
+旧根路径 `github.com/LingByte/ling-base/mq`、`pentest`、`stores`、`voice` 已迁移或删除；agentkit 已移出本仓库。详见 Common 文档中的「已折叠 / 已移除」表。

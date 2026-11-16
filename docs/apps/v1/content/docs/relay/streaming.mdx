@@ -1,0 +1,18 @@
+---
+title: Streaming
+description: 流式 Chat（SSE）
+---
+
+```go
+result, err := client.ChatStream(ctx, &relay.ChatRequest{
+    Model:  "gpt-4o",
+    Stream: true,
+    Messages: []relay.Message{
+        {Role: "user", Content: "讲一个短故事"},
+    },
+})
+```
+
+具体流式消费方式以 `relay.Client` API 与 channel 实现为准，详见源码：
+
+https://github.com/LingByte/ling-base/blob/main/relay/client.go

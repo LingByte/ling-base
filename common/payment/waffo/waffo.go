@@ -149,7 +149,7 @@ func (a *Adapter) CreateCheckout(ctx context.Context, req *payment.CheckoutReque
 	params := &order.CreateOrderParams{
 		PaymentRequestID: req.TradeNo,
 		MerchantOrderID:  req.TradeNo,
-		OrderAmount:       formatAmount(float64(req.Money), currency),
+		OrderAmount:      formatAmount(float64(req.Money), currency),
 		OrderCurrency:    currency,
 		OrderDescription: goodsName,
 		OrderRequestedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
@@ -232,7 +232,7 @@ func (a *Adapter) VerifyWebhook(ctx context.Context, req *payment.WebhookVerifyR
 	case core.EventPayment:
 		out.EventType = payment.EventPaymentNotification
 		var payload struct {
-			EventType string `json:"eventType"`
+			EventType string                          `json:"eventType"`
 			Result    *core.PaymentNotificationResult `json:"result"`
 		}
 		if err := json.Unmarshal(req.RawBody, &payload); err != nil {
@@ -325,9 +325,9 @@ func (a *Adapter) QueryOrder(ctx context.Context, req *payment.OrderQuery) (*pay
 
 	data := resp.GetData()
 	result := &payment.OrderQueryResult{
-		TradeNo:        data.MerchantOrderID,
+		TradeNo:         data.MerchantOrderID,
 		ProviderOrderID: data.AcquiringOrderID,
-		Raw:            resp,
+		Raw:             resp,
 	}
 	if data.OrderCurrency != "" {
 		result.Currency = payment.Currency(strings.ToUpper(data.OrderCurrency))

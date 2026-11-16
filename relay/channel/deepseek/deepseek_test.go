@@ -10,18 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/deepseek"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
 func TestDeepSeekAdaptor_ConvertOpenAIResponsesRequest_ThinkingSuffix(t *testing.T) {
 	tests := []struct {
-		name         string
-		model        string
+		name           string
+		model          string
 		hasChannelMeta bool
-		wantModel    string
-		wantEffort   string
+		wantModel      string
+		wantEffort     string
 	}{
 		{
 			name:           "v4-flash-none suffix sets disabled effort",

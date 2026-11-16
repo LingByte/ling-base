@@ -178,7 +178,8 @@ func handleTTSResponse(c context.Context, resp *http.Response, info *common.Rela
 
 	contentType := getContentTypeByEncoding(encoding)
 	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(http.StatusOK); w.Write(audioData)
+	w.WriteHeader(http.StatusOK)
+	w.Write(audioData)
 
 	usage = &dto.Usage{
 		PromptTokens:     info.GetEstimatePromptTokens(),

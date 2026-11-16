@@ -1,0 +1,45 @@
+---
+title: Introduction
+description: ling-base 是 Go 多模块基础库，按需引入 AI 中继、语音、安全与基础设施。
+---
+
+**ling-base** 是 [LingByte](https://github.com/LingByte) 的 Go 基础工具库。采用多 module 按需引入：业务只 import 用到的路径，不会把无关 SDK 拉进依赖树。
+
+## 仓库
+
+- GitHub：https://github.com/LingByte/ling-base
+- 文档：https://lingbyte.github.io/ling-base
+
+## 特性
+
+- **40 个 AI channel** — `relay` 统一 Chat / Embed / Image / Audio / Responses
+- **语音链路** — ASR / TTS / Realtime（`providers/voice`）
+- **按需 common 包** — 日志、缓存、限流、JWT、MQ、通知、对象存储等独立 module
+- **应用框架** — `bootstrap` 启动器、`lingcli` 脚手架
+- **第三方服务** — OCR / 审核 / 对象存储（`common/stores`）/ 消息队列（`common/mq`）
+
+## 快速安装
+
+```bash
+go get github.com/LingByte/ling-base/relay
+go get github.com/LingByte/ling-base/common/logger
+go get github.com/LingByte/ling-base/bootstrap
+```
+
+## 最小 Chat 示例
+
+```go
+import (
+    "context"
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+client := relay.New(relay.WithProvider(openai.NewProvider("sk-xxx")))
+resp, err := client.Chat(context.Background(), &relay.ChatRequest{
+    Model: "gpt-4o",
+    Messages: []relay.Message{{Role: "user", Content: "Hello"}},
+})
+```
+
+接下来看 [Installation](/docs/installation) 或直接进入 [Relay](/docs/relay)。

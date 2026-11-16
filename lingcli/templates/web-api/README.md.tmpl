@@ -29,7 +29,7 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 - 结构化日志 (zap + lumberjack 轮转)
 - 统一响应封装 (ling-base/common/response)
 - 数据校验 (ling-base/common/validate，结构体标签驱动)
-- 对象存储 (ling-base/stores，默认 local 后端，可切换 S3/OSS/COS/MinIO 等)
+- 对象存储 (common/stores，默认 local 后端，可切换 S3/OSS/COS/MinIO 等)
 - 文件上传/下载 API (/api/v1/files)
 - 缓存 (ling-base/common/cache，默认 memory 后端，可切换 Redis)
 - 分布式锁 (ling-base/common/lock，默认 memory 后端，可切换 Redis/Etcd)
@@ -54,9 +54,9 @@ HTTP REST API 服务，基于 ling-base bootstrap 框架。
 
 | 模块 | pkg 包 | 默认后端 | 切换方式 |
 |------|--------|----------|----------|
-| 对象存储 (stores) | `pkg/storage` | local（本地文件系统） | `go get common/stores/s3` + 修改 `storage.driver` + 在 `pkg/storage.Init()` 加 case |
-| 缓存 (cache) | `pkg/cache` | memory（进程内） | `go get cache/redis` + 修改 `cache.driver` + 在 `pkg/cache.Init()` 加 case |
-| 分布式锁 (lock) | `pkg/lock` | memory（进程内） | `go get lock/redis` + 修改 `lock.driver` + 在 `pkg/lock.Init()` 加 case |
+| 对象存储 (stores) | `pkg/storage` | local（本地文件系统） | `go get github.com/LingByte/ling-base/common/stores/s3` + 修改 `storage.driver` + 在 `pkg/storage.Init()` 加 case |
+| 缓存 (cache) | `pkg/cache` | memory（进程内） | `go get github.com/LingByte/ling-base/common/cache/redis` + 修改 `cache.driver` + 在 `pkg/cache.Init()` 加 case |
+| 分布式锁 (lock) | `pkg/lock` | memory（进程内） | `go get github.com/LingByte/ling-base/common/lock/redis` + 修改 `lock.driver` + 在 `pkg/lock.Init()` 加 case |
 | 重试 (retry) | `pkg/retry` | 指数退避 + 抖动 | 修改 `retry.*` 配置项 |
 | 限流 (limiter) | middleware | 令牌桶 | 修改 `rateLimit.*` 配置项 |
 | 熔断 (circuitbreaker) | middleware | 滑动窗口 + 半开探测 | 修改 `circuitBreaker.*` 配置项 |
@@ -362,7 +362,7 @@ open http://localhost:{{.Port}}/docs
 │   └── types/
 │       └── types.go             # 通用 DTO（请求/响应结构体、分页参数）
 ├── pkg/                         # 可被外部引用的通用封装（包级单例）
-│   ├── storage/storage.go       # 对象存储封装（ling-base/stores，默认 local）
+│   ├── storage/storage.go       # 对象存储封装（common/stores，默认 local）
 │   ├── cache/cache.go           # 缓存封装（ling-base/common/cache，默认 memory）
 │   ├── lock/lock.go             # 分布式锁封装（ling-base/common/lock，默认 memory）
 │   ├── retry/retry.go           # 重试策略封装（ling-base/common/retry）

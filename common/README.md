@@ -1,13 +1,13 @@
 # common
 
-Root shared-utilities package for ling-base, plus 49 sub-packages covering
+Root shared-utilities package for ling-base, plus independent sub-packages covering
 caching, crypto, logging, rate limiting, and more.
 
 ## Structure
 
 ```
 common/
-├── base.go           # BaseModel: GORM entity with snowflake ID + audit fields
+├── base.go           # BaseModel: GORM entity (ID via common/idgen) + audit fields
 ├── env.go            # GetEnv / GetEnvXxx with TTL+LRU cache
 ├── dbs.go            # InitDatabase: GORM connection factory
 ├── dbs_mysql.go      # MySQL driver    (build tag: mysql)
@@ -17,10 +17,10 @@ common/
 ├── file_type.go      # File category constants (image/audio/media/file)
 ├── files.go          # File hash, size, save helpers
 ├── array.go          # Generic Join[T] helper
-├── strings.go        # Zero-copy string <-> []byte conversions
+├── math.go           # Clamp / Min / Max / RoundFloat / GCD
+├── time.go           # ParseNaturalTime / Duration / Range (ex-nltime)
+├── time_helpers.go   # format/parse/ranges/stopwatch (ex-timeutil)
 ├── geo.go            # Haversine distance between two coordinates
-├── signals.go        # Signal/event handler registry
-└── snowflake.go      # Deprecated snowflake aliases (use common/idgen)
 ```
 
 ## Key Types
@@ -44,7 +44,7 @@ func InitDatabase(logWrite io.Writer, driver, dsn string) (*gorm.DB, error)
 func GetEnv(key string) string
 ```
 
-## Sub-packages (49)
+## Sub-packages
 
 | Package          | Description                                                  |
 |------------------|--------------------------------------------------------------|
@@ -71,11 +71,10 @@ func GetEnv(key string) string
 | limiter          | Unified rate-limiting and concurrency-control interface      |
 | lock             | Distributed lock interface                                  |
 | logger           | Structured logging (zap-based) with Gin integration          |
-| mathutil         | Math helpers: Clamp, Round, MinMax, Truncate                 |
+| money            | Fixed-point money, custom currencies, FX conversion          |
 | metrics          | Metrics helpers                                             |
 | migration        | Database migration sources (filesystem, GORM migrator)       |
-| netutil          | Port availability and IP address helpers                    |
-| nltime           | Natural-language time expression parser                     |
+| netutil          | Network helpers (DNS, curl parse/debug HTTP, ports/IPs)     |
 | notification     | Notification channel abstraction                            |
 | opentelemetry    | OpenTelemetry helpers                                       |
 | parser           | ASR and other parsing utilities                             |
@@ -93,7 +92,6 @@ func GetEnv(key string) string
 | search           | Search engine abstraction                                   |
 | stats            | Statistics and archiving utilities                          |
 | system           | System info (disk cache, etc.)                              |
-| timeutil         | Time formatting, parsing, and range helpers                 |
 | totp             | TOTP / HOTP for 2FA (RFC 6238 / 4226)                       |
 | tracing          | Tracing attributes and helpers                              |
 | validate         | Input validation helpers                                    |
@@ -114,6 +112,7 @@ db, err := common.InitDatabase(nil, "mysql", "user:pass@tcp(127.0.0.1:3306)/db")
 // Content type lookup
 ct := common.GetContentType(".json") // "application/json"
 
-// Snowflake ID (via idgen)
-id := common.NextSnowflakeUint()
+// Snowflake ID — use common/idgen directly
+// import "github.com/LingByte/ling-base/common/idgen"
+id := idgen.SnowflakeNextUint()
 ```

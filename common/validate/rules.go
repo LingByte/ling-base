@@ -571,11 +571,11 @@ func extractField(parent any, path string) any {
 
 // Pre-compiled regexes for rules that use regex matching.
 var (
-	phoneRegex      = regexp.MustCompile(`^1[3-9]\d{9}$`)
-	uuidRegex       = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-	uuidV4Regex     = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
-	slugRegex       = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	hexRegex        = regexp.MustCompile(`^[0-9a-fA-F]+$`)
+	phoneRegex  = regexp.MustCompile(`^1[3-9]\d{9}$`)
+	uuidRegex   = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	uuidV4Regex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+	slugRegex   = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	hexRegex    = regexp.MustCompile(`^[0-9a-fA-F]+$`)
 )
 
 // rulePhone validates a Chinese mobile phone number: 11 digits starting

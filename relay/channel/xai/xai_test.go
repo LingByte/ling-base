@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/xai"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 
 func TestXAIAdaptor_ConvertOpenAIResponsesRequest_FillsModelFromInfo(t *testing.T) {
 	tests := []struct {
-		name           string
-		requestModel   string
-		upstreamModel  string
-		wantModel      string
+		name          string
+		requestModel  string
+		upstreamModel string
+		wantModel     string
 	}{
 		{
 			name:          "empty model filled from info.UpstreamModelName",

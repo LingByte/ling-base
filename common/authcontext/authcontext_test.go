@@ -172,10 +172,10 @@ func TestJWTExtractor(t *testing.T) {
 		claims: &authcontext.JWTClaims{
 			Subject: "user-456",
 			Extra: map[string]any{
-				"user_name":    "bob",
-				"nick_name":    "Bobby",
-				"roles":        []any{"admin", "viewer"},
-				"permissions":  []any{"user:*", "system:read"},
+				"user_name":   "bob",
+				"nick_name":   "Bobby",
+				"roles":       []any{"admin", "viewer"},
+				"permissions": []any{"user:*", "system:read"},
 			},
 		},
 	}

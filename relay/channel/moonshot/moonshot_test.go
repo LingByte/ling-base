@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/moonshot"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 )
 

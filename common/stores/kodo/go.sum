@@ -1,7 +1,5 @@
 github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
-github.com/LingByte/ling-base/stores v0.1.1 h1:r+V2VA765i1QjJBATJv+hCdufw6HiEDOE8TfZ5mPqeU=
-github.com/LingByte/ling-base/stores v0.1.1/go.mod h1:uHdKlriceQ5SCtm46q2RsetpuKT4hj39t1Xayk+Sx8Y=
 github.com/alex-ant/gomath v0.0.0-20160516115720-89013a210a82 h1:7dONQ3WNZ1zy960TmkxJPuwoolZwL7xKtpcM04MBnt4=
 github.com/alex-ant/gomath v0.0.0-20160516115720-89013a210a82/go.mod h1:nLnM0KdK1CmygvjpDUO6m1TjSsiQtL61juhNsvV/JVI=
 github.com/br41n10/qiniu-stats-go-sdk v0.0.0-20240430141314-0ca6c82ce905 h1:3u2TJ+++ZPXDOrsaQV6rxV2GT36dHhJTutqiBax7POs=

@@ -66,7 +66,7 @@ type CohereEmbeddingRequest struct {
 }
 
 type CohereEmbeddingResponse struct {
-	ID         string `json:"id"`
+	ID         string      `json:"id"`
 	Embeddings [][]float64 `json:"embeddings"`
 	Meta       struct {
 		BilledUnits struct {

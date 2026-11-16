@@ -40,7 +40,7 @@ func TestWithEndpoint(t *testing.T) {
 func TestIsTokenValid(t *testing.T) {
 	assert.False(t, IsTokenValid(""))
 	assert.False(t, IsTokenValid("short"))
-	assert.False(t, IsTokenValid("12345678")) // 8 chars < 10
+	assert.False(t, IsTokenValid("12345678"))  // 8 chars < 10
 	assert.True(t, IsTokenValid("0123456789")) // 10 chars
 	assert.True(t, IsTokenValid(strings.Repeat("a", 100)))
 	assert.False(t, IsTokenValid(strings.Repeat("a", 4097))) // > 4096

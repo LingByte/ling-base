@@ -1,18 +1,18 @@
 package suno
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/LingByte/ling-base/relay/channel"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/LingByte/ling-base/relay/task/taskcommon"
-	common "github.com/LingByte/ling-base/relay/common"
-	"github.com/LingByte/ling-base/relay/channel"
 )
 
 // sunoSubmitResponse mirrors the upstream Suno submit response shape

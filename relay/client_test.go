@@ -194,7 +194,7 @@ func (a *mockAdaptor) DoResponse(ctx context.Context, resp *http.Response, info 
 		return dto.Usage{}, nil
 	}
 }
-func (a *mockAdaptor) GetModelList() []string  { return []string{"test-model"} }
+func (a *mockAdaptor) GetModelList() []string { return []string{"test-model"} }
 func (a *mockAdaptor) GetChannelName() string { return "mock" }
 
 // newMockClient creates a Client backed by a mockAdaptor pointing at baseURL.

@@ -22,16 +22,16 @@ import (
 // (text, tool_use, tool_result, thinking, images) without depending on
 // any specific SDK.
 type RichChatRequest struct {
-	Model           string         `json:"model"`
-	Messages        []RichMessage  `json:"messages"`
-	System          string         `json:"system,omitempty"`
-	Temperature     *float64       `json:"temperature,omitempty"`
-	MaxTokens       int            `json:"max_tokens,omitempty"`
-	Tools           []RichTool     `json:"tools,omitempty"`
+	Model           string          `json:"model"`
+	Messages        []RichMessage   `json:"messages"`
+	System          string          `json:"system,omitempty"`
+	Temperature     *float64        `json:"temperature,omitempty"`
+	MaxTokens       int             `json:"max_tokens,omitempty"`
+	Tools           []RichTool      `json:"tools,omitempty"`
 	ToolChoice      json.RawMessage `json:"tool_choice,omitempty"`
-	Betas           []string       `json:"betas,omitempty"`
-	ReasoningEffort string         `json:"reasoning_effort,omitempty"`
-	Stream          bool           `json:"stream,omitempty"`
+	Betas           []string        `json:"betas,omitempty"`
+	ReasoningEffort string          `json:"reasoning_effort,omitempty"`
+	Stream          bool            `json:"stream,omitempty"`
 }
 
 // RichTool is a tool definition in the rich format.
@@ -295,9 +295,9 @@ func richToClaudeRequest(req *RichChatRequest) *dto.ClaudeRequest {
 	stream := true
 
 	claudeReq := &dto.ClaudeRequest{
-		Model:    req.Model,
+		Model:     req.Model,
 		MaxTokens: &maxTokens,
-		Stream:   &stream,
+		Stream:    &stream,
 	}
 
 	// System prompt

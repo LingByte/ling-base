@@ -1,8 +1,8 @@
 package gemini
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LingByte/ling-base/relay/channel"
 	common "github.com/LingByte/ling-base/relay/common"
-	"github.com/LingByte/ling-base/relay/task/taskmodel"
+	"github.com/LingByte/ling-base/relay/constant"
+	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/LingByte/ling-base/relay/setting"
-	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/task/taskcommon"
-	"github.com/LingByte/ling-base/relay/channel"
-	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	"github.com/LingByte/ling-base/relay/task/taskmodel"
 	"github.com/pkg/errors"
 )
 

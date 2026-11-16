@@ -9,16 +9,16 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/channel"
 	claude2 "github.com/LingByte/ling-base/relay/channel/claude"
 	gemini2 "github.com/LingByte/ling-base/relay/channel/gemini"
 	openai2 "github.com/LingByte/ling-base/relay/channel/openai"
 	common "github.com/LingByte/ling-base/relay/common"
-	relayconstant "github.com/LingByte/ling-base/relay/relaymode"
+	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/relayconvert"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relayconstant "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/service"
 	"github.com/samber/lo"
 )

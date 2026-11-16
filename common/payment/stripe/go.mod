@@ -8,6 +8,9 @@ require (
 	github.com/stripe/stripe-go/v81 v81.4.0
 )
 
-require go.yaml.in/yaml/v3 v3.0.5 // indirect
+require (
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/net v0.58.0 // indirect
+)
 
 replace github.com/LingByte/ling-base/common/payment => ../

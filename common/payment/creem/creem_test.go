@@ -128,8 +128,8 @@ func TestVerifySignature_EmptySecret(t *testing.T) {
 func buildCreemWebhookPayload(t *testing.T, eventType, orderStatus, orderType, requestID, orderID string, amountPaid int, currency, mode string) []byte {
 	t.Helper()
 	payload := map[string]any{
-		"id":        "evt_1",
-		"eventType": eventType,
+		"id":         "evt_1",
+		"eventType":  eventType,
 		"created_at": 1700000000,
 		"object": map[string]any{
 			"id":         "obj_1",

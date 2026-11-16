@@ -1,8 +1,8 @@
 package jimeng
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
 )
 
 // SignRequestForJimeng 对即梦 API 请求进行签名，支持 http.Request 或 header+url+body 方式

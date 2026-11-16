@@ -1,7 +1,7 @@
 // Copyright (c) 2026 LingByte. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-// Package rocketmq provides a RocketMQ backend for the ling-base/mq
+// Package rocketmq provides a RocketMQ backend for the ling-base/common/mq
 // broker abstraction. It wraps the official apache/rocketmq-client-go/v2
 // client, mapping the broker-agnostic mq.Message / mq.Delivery / mq.Producer
 // / mq.Consumer / mq.Broker interfaces onto RocketMQ topics, producer
@@ -20,7 +20,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	rocketmq "github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"

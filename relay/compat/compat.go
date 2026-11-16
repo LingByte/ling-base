@@ -112,26 +112,26 @@ func FileURLText(file *File) string {
 
 // ContentRef records where externalized content is stored and how to restore it.
 type ContentRef struct {
-	ArtifactRef      string `json:"artifact_ref"`
-	ArtifactName     string `json:"artifact_name,omitempty"`
-	ArtifactVersion  int    `json:"artifact_version"`
-	MimeType         string `json:"mime_type,omitempty"`
-	SizeBytes        int64  `json:"size_bytes,omitempty"`
-	SHA256           string `json:"sha256,omitempty"`
-	OriginalName     string `json:"original_name,omitempty"`
-	EventID          string `json:"event_id,omitempty"`
-	RequestID        string `json:"request_id,omitempty"`
+	ArtifactRef     string `json:"artifact_ref"`
+	ArtifactName    string `json:"artifact_name,omitempty"`
+	ArtifactVersion int    `json:"artifact_version"`
+	MimeType        string `json:"mime_type,omitempty"`
+	SizeBytes       int64  `json:"size_bytes,omitempty"`
+	SHA256          string `json:"sha256,omitempty"`
+	OriginalName    string `json:"original_name,omitempty"`
+	EventID         string `json:"event_id,omitempty"`
+	RequestID       string `json:"request_id,omitempty"`
 }
 
 // ContentPart represents a single content part in a multimodal message.
 type ContentPart struct {
-	Type       ContentType  `json:"type"`
-	Text       *string      `json:"text,omitempty"`
-	Image      *Image       `json:"image,omitempty"`
-	Audio      *Audio       `json:"audio,omitempty"`
-	Video      *Video       `json:"video,omitempty"`
-	File       *File        `json:"file,omitempty"`
-	ContentRef *ContentRef  `json:"content_ref,omitempty"`
+	Type       ContentType `json:"type"`
+	Text       *string     `json:"text,omitempty"`
+	Image      *Image      `json:"image,omitempty"`
+	Audio      *Audio      `json:"audio,omitempty"`
+	Video      *Video      `json:"video,omitempty"`
+	File       *File       `json:"file,omitempty"`
+	ContentRef *ContentRef `json:"content_ref,omitempty"`
 }
 
 // ─── Message (OpenAI-style flat message) ──────────────────────────────────
@@ -141,14 +141,14 @@ type ContentPart struct {
 // ContentParts for multimodal, and ToolCalls for function calling.
 // For structured content-block messages, use RichMessage instead.
 type Message struct {
-	Role              Role         `json:"role"`
-	Content           string       `json:"content,omitempty"`
-	ContentParts      []ContentPart `json:"content_parts,omitempty"`
-	ToolID            string       `json:"tool_id,omitempty"`
-	ToolName          string       `json:"tool_name,omitempty"`
-	ToolCalls         []ToolCall   `json:"tool_calls,omitempty"`
-	ReasoningContent  string       `json:"reasoning_content,omitempty"`
-	ReasoningSignature string      `json:"reasoning_signature,omitempty"`
+	Role               Role          `json:"role"`
+	Content            string        `json:"content,omitempty"`
+	ContentParts       []ContentPart `json:"content_parts,omitempty"`
+	ToolID             string        `json:"tool_id,omitempty"`
+	ToolName           string        `json:"tool_name,omitempty"`
+	ToolCalls          []ToolCall    `json:"tool_calls,omitempty"`
+	ReasoningContent   string        `json:"reasoning_content,omitempty"`
+	ReasoningSignature string        `json:"reasoning_signature,omitempty"`
 }
 
 // AddFilePath adds a file path to the message.
@@ -357,36 +357,36 @@ func (f *FunctionDefinitionParam) UnmarshalJSON(data []byte) error {
 
 // GenerationConfig contains configuration for text generation.
 type GenerationConfig struct {
-	MaxTokens         *int     `json:"max_tokens,omitempty"`
-	Temperature       *float64 `json:"temperature,omitempty"`
-	TopP              *float64 `json:"top_p,omitempty"`
-	Stream            bool     `json:"stream"`
-	Stop              []string `json:"stop,omitempty"`
-	PresencePenalty   *float64 `json:"presence_penalty,omitempty"`
-	FrequencyPenalty  *float64 `json:"frequency_penalty,omitempty"`
-	Logprobs          *bool    `json:"logprobs,omitempty"`
-	TopLogprobs       *int     `json:"top_logprobs,omitempty"`
-	ReasoningEffort   *string  `json:"reasoning_effort,omitempty"`
-	ThinkingEnabled   *bool    `json:"thinking_enabled,omitempty"`
-	ThinkingTokens    *int     `json:"thinking_tokens,omitempty"`
-	ThinkingLevel     *string  `json:"thinking_level,omitempty"`
+	MaxTokens        *int     `json:"max_tokens,omitempty"`
+	Temperature      *float64 `json:"temperature,omitempty"`
+	TopP             *float64 `json:"top_p,omitempty"`
+	Stream           bool     `json:"stream"`
+	Stop             []string `json:"stop,omitempty"`
+	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
+	Logprobs         *bool    `json:"logprobs,omitempty"`
+	TopLogprobs      *int     `json:"top_logprobs,omitempty"`
+	ReasoningEffort  *string  `json:"reasoning_effort,omitempty"`
+	ThinkingEnabled  *bool    `json:"thinking_enabled,omitempty"`
+	ThinkingTokens   *int     `json:"thinking_tokens,omitempty"`
+	ThinkingLevel    *string  `json:"thinking_level,omitempty"`
 }
 
 // GenerationConfigPatch selectively overrides fields in GenerationConfig.
 type GenerationConfigPatch struct {
-	MaxTokens         *int     `json:"max_tokens,omitempty"`
-	Temperature       *float64 `json:"temperature,omitempty"`
-	TopP              *float64 `json:"top_p,omitempty"`
-	Stream            *bool    `json:"stream,omitempty"`
-	Stop              []string `json:"stop,omitempty"`
-	PresencePenalty   *float64 `json:"presence_penalty,omitempty"`
-	FrequencyPenalty  *float64 `json:"frequency_penalty,omitempty"`
-	Logprobs          *bool    `json:"logprobs,omitempty"`
-	TopLogprobs       *int     `json:"top_logprobs,omitempty"`
-	ReasoningEffort   *string  `json:"reasoning_effort,omitempty"`
-	ThinkingEnabled   *bool    `json:"thinking_enabled,omitempty"`
-	ThinkingTokens    *int     `json:"thinking_tokens,omitempty"`
-	ThinkingLevel     *string  `json:"thinking_level,omitempty"`
+	MaxTokens        *int     `json:"max_tokens,omitempty"`
+	Temperature      *float64 `json:"temperature,omitempty"`
+	TopP             *float64 `json:"top_p,omitempty"`
+	Stream           *bool    `json:"stream,omitempty"`
+	Stop             []string `json:"stop,omitempty"`
+	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
+	Logprobs         *bool    `json:"logprobs,omitempty"`
+	TopLogprobs      *int     `json:"top_logprobs,omitempty"`
+	ReasoningEffort  *string  `json:"reasoning_effort,omitempty"`
+	ThinkingEnabled  *bool    `json:"thinking_enabled,omitempty"`
+	ThinkingTokens   *int     `json:"thinking_tokens,omitempty"`
+	ThinkingLevel    *string  `json:"thinking_level,omitempty"`
 }
 
 // ApplyGenerationConfigPatch applies patch to base and returns the merged configuration.
@@ -454,17 +454,17 @@ type ToolDecl struct {
 
 // JSONSchema represents the structure of JSON Schema used for defining arguments and responses.
 type JSONSchema struct {
-	Type                string                `json:"type,omitempty"`
-	Description         string                `json:"description,omitempty"`
-	Pattern             string                `json:"pattern,omitempty"`
-	Required            []string              `json:"required,omitempty"`
-	Properties          map[string]*JSONSchema `json:"properties,omitempty"`
-	Items               *JSONSchema           `json:"items,omitempty"`
-	AdditionalProperties any                   `json:"additionalProperties,omitempty"`
-	Default             any                   `json:"default,omitempty"`
-	Enum                []any                 `json:"enum,omitempty"`
-	Ref                 string                `json:"$ref,omitempty"`
-	Defs                map[string]*JSONSchema `json:"$defs,omitempty"`
+	Type                 string                 `json:"type,omitempty"`
+	Description          string                 `json:"description,omitempty"`
+	Pattern              string                 `json:"pattern,omitempty"`
+	Required             []string               `json:"required,omitempty"`
+	Properties           map[string]*JSONSchema `json:"properties,omitempty"`
+	Items                *JSONSchema            `json:"items,omitempty"`
+	AdditionalProperties any                    `json:"additionalProperties,omitempty"`
+	Default              any                    `json:"default,omitempty"`
+	Enum                 []any                  `json:"enum,omitempty"`
+	Ref                  string                 `json:"$ref,omitempty"`
+	Defs                 map[string]*JSONSchema `json:"$defs,omitempty"`
 }
 
 // ─── Structured output ────────────────────────────────────────────────────
@@ -502,15 +502,15 @@ type StructuredOutput struct {
 // Request is the request to the model (OpenAI-style flat format).
 // For content-block-based requests, use RichChatRequest instead.
 type Request struct {
-	Messages         []Message           `json:"messages"`
+	Messages         []Message `json:"messages"`
 	GenerationConfig `json:"generation_config,omitempty"`
-	StructuredOutput *StructuredOutput   `json:"structured_output,omitempty"`
-	ExtraFields      map[string]any      `json:"-"`
-	Headers          map[string]string   `json:"-"`
+	StructuredOutput *StructuredOutput `json:"structured_output,omitempty"`
+	ExtraFields      map[string]any    `json:"-"`
+	Headers          map[string]string `json:"-"`
 	// Tools is a map of tool name to tool interface. The concrete type
 	// can be agentkit/tool.Tool or any other type with a Declaration() method.
 	// Use the GetTools() helper to extract tool declarations.
-	Tools            any                 `json:"-"`
+	Tools any `json:"-"`
 }
 
 // GetTools returns the tools map as map[string]any. Returns nil if Tools is nil
@@ -596,21 +596,21 @@ const (
 
 // Object type constants for Response.Object field.
 const (
-	ObjectTypeError                     = "error"
-	ObjectTypeToolResponse              = "tool.response"
-	ObjectTypePreprocessingBasic        = "preprocessing.basic"
-	ObjectTypePreprocessingContent      = "preprocessing.content"
-	ObjectTypePreprocessingIdentity     = "preprocessing.identity"
-	ObjectTypePreprocessingInstruction  = "preprocessing.instruction"
-	ObjectTypePreprocessingPlanning     = "preprocessing.planning"
-	ObjectTypePreprocessingStatus       = "preprocessing.status"
-	ObjectTypePostprocessingPlanning    = "postprocessing.planning"
+	ObjectTypeError                       = "error"
+	ObjectTypeToolResponse                = "tool.response"
+	ObjectTypePreprocessingBasic          = "preprocessing.basic"
+	ObjectTypePreprocessingContent        = "preprocessing.content"
+	ObjectTypePreprocessingIdentity       = "preprocessing.identity"
+	ObjectTypePreprocessingInstruction    = "preprocessing.instruction"
+	ObjectTypePreprocessingPlanning       = "preprocessing.planning"
+	ObjectTypePreprocessingStatus         = "preprocessing.status"
+	ObjectTypePostprocessingPlanning      = "postprocessing.planning"
 	ObjectTypePostprocessingCodeExecution = "postprocessing.code_execution"
-	ObjectTypeTransfer                  = "agent.transfer"
-	ObjectTypeRunnerCompletion          = "runner.completion"
-	ObjectTypeStateUpdate               = "state.update"
-	ObjectTypeChatCompletionChunk       = "chat.completion.chunk"
-	ObjectTypeChatCompletion            = "chat.completion"
+	ObjectTypeTransfer                    = "agent.transfer"
+	ObjectTypeRunnerCompletion            = "runner.completion"
+	ObjectTypeStateUpdate                 = "state.update"
+	ObjectTypeChatCompletionChunk         = "chat.completion.chunk"
+	ObjectTypeChatCompletion              = "chat.completion"
 )
 
 // Choice represents a single completion choice.
@@ -629,10 +629,10 @@ type Logprobs struct {
 
 // TokenLogprob represents the log probability data for one generated token.
 type TokenLogprob struct {
-	Token       string        `json:"token"`
-	Logprob     float64       `json:"logprob"`
-	Bytes       []int         `json:"bytes,omitempty"`
-	TopLogprobs []TopLogprob  `json:"top_logprobs,omitempty"`
+	Token       string       `json:"token"`
+	Logprob     float64      `json:"logprob"`
+	Bytes       []int        `json:"bytes,omitempty"`
+	TopLogprobs []TopLogprob `json:"top_logprobs,omitempty"`
 }
 
 // TopLogprob represents one alternative token and its log probability.
@@ -650,19 +650,19 @@ type TimingInfo struct {
 
 // Usage represents token usage information.
 type Usage struct {
-	PromptTokens          int                   `json:"prompt_tokens"`
-	CompletionTokens      int                   `json:"completion_tokens"`
-	TotalTokens           int                   `json:"total_tokens"`
-	PromptTokensDetails   PromptTokensDetails   `json:"prompt_tokens_details"`
+	PromptTokens            int                     `json:"prompt_tokens"`
+	CompletionTokens        int                     `json:"completion_tokens"`
+	TotalTokens             int                     `json:"total_tokens"`
+	PromptTokensDetails     PromptTokensDetails     `json:"prompt_tokens_details"`
 	CompletionTokensDetails CompletionTokensDetails `json:"completion_tokens_details"`
-	TimingInfo            *TimingInfo           `json:"timing_info,omitempty"`
+	TimingInfo              *TimingInfo             `json:"timing_info,omitempty"`
 }
 
 // PromptTokensDetails is the details of the prompt tokens.
 type PromptTokensDetails struct {
-	CachedTokens      int `json:"cached_tokens"`
+	CachedTokens        int `json:"cached_tokens"`
 	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
-	CacheReadTokens    int `json:"cache_read_tokens,omitempty"`
+	CacheReadTokens     int `json:"cache_read_tokens,omitempty"`
 }
 
 // CompletionTokensDetails is the details of the completion tokens.
@@ -673,17 +673,17 @@ type CompletionTokensDetails struct {
 // Response is the response from the model (OpenAI-style with Choices).
 // For content-block-based responses, use RichResponse instead.
 type Response struct {
-	ID               string          `json:"id"`
-	Object           string          `json:"object"`
-	Created          int64           `json:"created"`
-	Model            string          `json:"model"`
-	Choices          []Choice        `json:"choices"`
-	Usage            *Usage          `json:"usage,omitempty"`
+	ID                string         `json:"id"`
+	Object            string         `json:"object"`
+	Created           int64          `json:"created"`
+	Model             string         `json:"model"`
+	Choices           []Choice       `json:"choices"`
+	Usage             *Usage         `json:"usage,omitempty"`
 	SystemFingerprint *string        `json:"system_fingerprint,omitempty"`
-	Error            *ResponseError  `json:"error,omitempty"`
-	Timestamp        time.Time       `json:"timestamp"`
-	Done             bool            `json:"done"`
-	IsPartial        bool            `json:"is_partial"`
+	Error             *ResponseError `json:"error,omitempty"`
+	Timestamp         time.Time      `json:"timestamp"`
+	Done              bool           `json:"done"`
+	IsPartial         bool           `json:"is_partial"`
 }
 
 // Clone creates a deep copy of the response.

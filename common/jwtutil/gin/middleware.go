@@ -37,8 +37,8 @@ const ContextKeyUserID = "user_id"
 // i18n message key 常量。可在 WithErrorHandler 中用这些 key
 // 配合 i18n.Manager 做本地化。
 const (
-	MsgKeyMissingToken = "auth.missing_token" // 缺少 Authorization 头
-	MsgKeyInvalidToken = "auth.invalid_token" // token 无效或已过期
+	MsgKeyMissingToken = "auth.missing_token"  // 缺少 Authorization 头
+	MsgKeyInvalidToken = "auth.invalid_token"  // token 无效或已过期
 	MsgKeyUnauthorized = "common.unauthorized" // 未授权（无 claims）
 	MsgKeyForbidden    = "common.forbidden"    // 权限不足
 )

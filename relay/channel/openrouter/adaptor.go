@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/channel/openai"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/constant"
 )
 
@@ -47,4 +47,3 @@ func (a *Adaptor) SetupRequestHeader(ctx context.Context, header *http.Header, i
 func (a *Adaptor) GetChannelName() string { return ChannelName }
 
 func (a *Adaptor) GetModelList() []string { return ModelList }
-

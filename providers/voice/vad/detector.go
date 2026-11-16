@@ -9,9 +9,9 @@ import "time"
 type EngineKind string
 
 const (
-	EngineEnergy  EngineKind = "energy"  // RMS + ZCR energy-based
-	EngineWebRTC  EngineKind = "webrtc"  // WebRTC GMM
-	EngineSilero  EngineKind = "silero"  // Silero neural (pure Go)
+	EngineEnergy EngineKind = "energy" // RMS + ZCR energy-based
+	EngineWebRTC EngineKind = "webrtc" // WebRTC GMM
+	EngineSilero EngineKind = "silero" // Silero neural (pure Go)
 )
 
 // FrameResult is the per-frame output of a Detector.

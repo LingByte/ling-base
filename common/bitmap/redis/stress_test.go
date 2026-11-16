@@ -38,7 +38,7 @@ func TestRedisStressExact(t *testing.T) {
 		}
 	}
 	// clear half
-	half := offs[: n/2]
+	half := offs[:n/2]
 	if err := b.ClearBatch(ctx, half); err != nil {
 		t.Fatal(err)
 	}

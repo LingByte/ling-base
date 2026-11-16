@@ -179,12 +179,12 @@ func (a *Adapter) VerifyWebhook(ctx context.Context, req *payment.WebhookVerifyR
 	}
 
 	ev := &payment.WebhookEvent{
-		Provider:       payment.ProviderStripe,
+		Provider:        payment.ProviderStripe,
 		ProviderOrderID: event.GetObjectValue("id"),
-		TradeNo:        event.GetObjectValue("client_reference_id"),
-		CustomerID:     event.GetObjectValue("customer"),
-		Raw:            event,
-		RawBody:        req.RawBody,
+		TradeNo:         event.GetObjectValue("client_reference_id"),
+		CustomerID:      event.GetObjectValue("customer"),
+		Raw:             event,
+		RawBody:         req.RawBody,
 	}
 
 	currency := strings.ToUpper(event.GetObjectValue("currency"))
@@ -273,9 +273,9 @@ func (a *Adapter) QueryOrder(ctx context.Context, req *payment.OrderQuery) (*pay
 	}
 
 	result := &payment.OrderQueryResult{
-		TradeNo:        req.TradeNo,
+		TradeNo:         req.TradeNo,
 		ProviderOrderID: sess.ID,
-		Raw:            sess,
+		Raw:             sess,
 	}
 	if sess.Currency != "" {
 		result.Currency = payment.Currency(strings.ToUpper(string(sess.Currency)))

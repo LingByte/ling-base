@@ -93,8 +93,8 @@ func GenerateStopResponse(id string, createAt int64, model string, systemFingerp
 		Created: createAt,
 		Choices: []dto.ChatCompletionsStreamResponseChoice{
 			{
-				Index: 0,
-				Delta: dto.ChatCompletionsStreamResponseChoiceDelta{},
+				Index:        0,
+				Delta:        dto.ChatCompletionsStreamResponseChoiceDelta{},
 				FinishReason: &stopReason,
 			},
 		},

@@ -255,11 +255,11 @@ func TestGetUser_GitHub(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"id":           float64(67890),
-			"login":        "octocat",
-			"name":         "The Octocat",
-			"email":        "octo@example.com",
-			"avatar_url":   "https://example.com/octo.png",
+			"id":         float64(67890),
+			"login":      "octocat",
+			"name":       "The Octocat",
+			"email":      "octo@example.com",
+			"avatar_url": "https://example.com/octo.png",
 		}))
 	}))
 	defer srv.Close()
@@ -362,10 +362,10 @@ func TestGetUser_Feishu(t *testing.T) {
 		assert.Equal(t, "Bearer at-fs", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"open_id":     "open-fs",
-			"name":        "Dave",
-			"email":       "dave@example.com",
-			"avatar_url":  "https://example.com/dave.png",
+			"open_id":    "open-fs",
+			"name":       "Dave",
+			"email":      "dave@example.com",
+			"avatar_url": "https://example.com/dave.png",
 		}))
 	}))
 	defer srv.Close()

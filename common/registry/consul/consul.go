@@ -52,11 +52,11 @@ type Config struct {
 
 // Consul implements [registry.Registry] using HashiCorp Consul.
 type Consul struct {
-	client  *api.Client
-	cfg     Config
-	mu      sync.Mutex
-	closed  bool
-	regIDs  map[string]bool // tracked registered instance IDs
+	client *api.Client
+	cfg    Config
+	mu     sync.Mutex
+	closed bool
+	regIDs map[string]bool // tracked registered instance IDs
 }
 
 // New creates a new Consul-backed registry.

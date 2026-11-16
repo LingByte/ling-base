@@ -74,11 +74,11 @@ const (
 
 // BucketStats is the current storage usage snapshot for a bucket.
 type BucketStats struct {
-	Bucket        string             `json:"bucket"`
-	Region        string             `json:"region,omitempty"`
-	Size          int64              `json:"size"`        // total storage in bytes
-	ObjectCount   int64              `json:"objectCount"` // number of objects
-	UpdatedAt     time.Time          `json:"updatedAt"`   // when the snapshot was taken
+	Bucket         string              `json:"bucket"`
+	Region         string              `json:"region,omitempty"`
+	Size           int64               `json:"size"`        // total storage in bytes
+	ObjectCount    int64               `json:"objectCount"` // number of objects
+	UpdatedAt      time.Time           `json:"updatedAt"`   // when the snapshot was taken
 	StorageClasses []StorageClassUsage `json:"storageClasses,omitempty"`
 }
 
@@ -103,9 +103,9 @@ type CDNStatsRequest struct {
 
 // CDNStatsResponse holds CDN statistics time-series data.
 type CDNStatsResponse struct {
-	Domains    []string         `json:"domains,omitempty"`
-	Points     []CDNStatsPoint  `json:"points"`
-	Summary    CDNStatsSummary  `json:"summary"`
+	Domains []string        `json:"domains,omitempty"`
+	Points  []CDNStatsPoint `json:"points"`
+	Summary CDNStatsSummary `json:"summary"`
 }
 
 // CDNStatsPoint is a single time-series data point for CDN stats.
@@ -120,13 +120,13 @@ type CDNStatsPoint struct {
 
 // CDNStatsSummary aggregates CDN stats over the full query range.
 type CDNStatsSummary struct {
-	TotalTraffic      int64   `json:"totalTraffic"`      // total bytes
-	TotalRequests     int64   `json:"totalRequests"`     // total requests
-	TotalHitRequests  int64   `json:"totalHitRequests"`  // total cache hits
-	HitRatio          float64 `json:"hitRatio"`          // 0..1
-	AvgBandwidth      float64 `json:"avgBandwidth"`      // average bandwidth in bps
-	PeakBandwidth     float64 `json:"peakBandwidth"`     // peak bandwidth in bps
-	StatusCodes       map[int]int64 `json:"statusCodes,omitempty"` // HTTP status code → count
+	TotalTraffic     int64         `json:"totalTraffic"`          // total bytes
+	TotalRequests    int64         `json:"totalRequests"`         // total requests
+	TotalHitRequests int64         `json:"totalHitRequests"`      // total cache hits
+	HitRatio         float64       `json:"hitRatio"`              // 0..1
+	AvgBandwidth     float64       `json:"avgBandwidth"`          // average bandwidth in bps
+	PeakBandwidth    float64       `json:"peakBandwidth"`         // peak bandwidth in bps
+	StatusCodes      map[int]int64 `json:"statusCodes,omitempty"` // HTTP status code → count
 }
 
 // ──────────────────────────────────────────────
@@ -142,30 +142,30 @@ type APIStatsRequest struct {
 
 // APIStatsResponse holds API request statistics time-series data.
 type APIStatsResponse struct {
-	Points  []APIStatsPoint  `json:"points"`
-	Summary APIStatsSummary  `json:"summary"`
+	Points  []APIStatsPoint `json:"points"`
+	Summary APIStatsSummary `json:"summary"`
 }
 
 // APIStatsPoint is a single time-series data point for API stats.
 type APIStatsPoint struct {
-	Timestamp       time.Time `json:"timestamp"`
-	TotalRequests   int64     `json:"totalRequests"`
-	GetRequests     int64     `json:"getRequests"`
-	PutRequests     int64     `json:"putRequests"`
-	DeleteRequests  int64     `json:"deleteRequests"`
-	HeadRequests    int64     `json:"headRequests"`
-	UploadBytes     int64     `json:"uploadBytes"`   // bytes uploaded
-	DownloadBytes   int64     `json:"downloadBytes"` // bytes downloaded
-	ErrorRequests   int64     `json:"errorRequests"` // 4xx+5xx
+	Timestamp      time.Time `json:"timestamp"`
+	TotalRequests  int64     `json:"totalRequests"`
+	GetRequests    int64     `json:"getRequests"`
+	PutRequests    int64     `json:"putRequests"`
+	DeleteRequests int64     `json:"deleteRequests"`
+	HeadRequests   int64     `json:"headRequests"`
+	UploadBytes    int64     `json:"uploadBytes"`   // bytes uploaded
+	DownloadBytes  int64     `json:"downloadBytes"` // bytes downloaded
+	ErrorRequests  int64     `json:"errorRequests"` // 4xx+5xx
 }
 
 // APIStatsSummary aggregates API stats over the full query range.
 type APIStatsSummary struct {
-	TotalRequests   int64   `json:"totalRequests"`
-	UploadBytes     int64   `json:"uploadBytes"`
-	DownloadBytes   int64   `json:"downloadBytes"`
-	ErrorRequests   int64   `json:"errorRequests"`
-	ErrorRate       float64 `json:"errorRate"` // 0..1
+	TotalRequests int64   `json:"totalRequests"`
+	UploadBytes   int64   `json:"uploadBytes"`
+	DownloadBytes int64   `json:"downloadBytes"`
+	ErrorRequests int64   `json:"errorRequests"`
+	ErrorRate     float64 `json:"errorRate"` // 0..1
 }
 
 // ──────────────────────────────────────────────
@@ -182,16 +182,16 @@ type OriginStatsRequest struct {
 
 // OriginStatsResponse holds origin-fetch statistics time-series data.
 type OriginStatsResponse struct {
-	Points  []OriginStatsPoint  `json:"points"`
-	Summary OriginStatsSummary  `json:"summary"`
+	Points  []OriginStatsPoint `json:"points"`
+	Summary OriginStatsSummary `json:"summary"`
 }
 
 // OriginStatsPoint is a single time-series data point for origin-fetch stats.
 type OriginStatsPoint struct {
-	Timestamp       time.Time `json:"timestamp"`
-	OriginTraffic   int64     `json:"originTraffic"`   // bytes pulled from origin
-	OriginRequests  int64     `json:"originRequests"`  // requests to origin
-	FailedRequests  int64     `json:"failedRequests"`  // failed origin requests
+	Timestamp      time.Time `json:"timestamp"`
+	OriginTraffic  int64     `json:"originTraffic"`  // bytes pulled from origin
+	OriginRequests int64     `json:"originRequests"` // requests to origin
+	FailedRequests int64     `json:"failedRequests"` // failed origin requests
 }
 
 // OriginStatsSummary aggregates origin-fetch stats over the full query range.

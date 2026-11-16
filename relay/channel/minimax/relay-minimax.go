@@ -3,10 +3,10 @@ package minimax
 import (
 	"fmt"
 
-	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
+	channelconstant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 func GetRequestURL(info *common.RelayInfo) (string, error) {

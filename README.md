@@ -11,7 +11,7 @@ ling-base/
 ├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ ARCHITECTURE.md           # 架构文档（relay/voice/common 详解）
 │
-├─ common/                   # 通用工具库（50+ 独立 module）
+├─ common/                   # 通用工具库（约 83 个一级包；仓库合计约 218 个 go.mod）
 │  ├─ logger/                # 结构化日志（zap + lumberjack）
 │  ├─ constants/             # 全局常量
 │  ├─ config/                # 配置加载（YAML + 环境变量）
@@ -21,8 +21,7 @@ ling-base/
 │  ├─ validate/              # 数据校验
 │  ├─ random/                # 随机数/字符串
 │  ├─ idgen/                 # ID 生成（snowflake/uuid/...）
-│  ├─ timeutil/              # 时间工具
-│  ├─ mathutil/              # 数学工具
+│  ├─ money/                 # 定点货币算术 / FX / 自定义币种
 │  ├─ stats/                 # 统计工具
 │  ├─ pinyin/                # 拼音转换
 │  ├─ qrcode/                # 二维码生成
@@ -30,12 +29,13 @@ ling-base/
 │  ├─ imageutil/             # 图片处理
 │  ├─ videoutil/             # 视频处理
 │  ├─ audioutil/             # 音频处理
-│  ├─ netutil/               # 网络工具
+│  ├─ netutil/               # 网络工具（含 DNS 查询、curl 解析/调试 HTTP）
 │  ├─ response/              # 统一 HTTP 响应封装
 │  ├─ cron/                  # 定时任务
 │  ├─ scheduler/             # 任务调度
 │  ├─ migration/             # 数据迁移
-│  ├─ nltime/                # 自然语言时间解析
+│  ├─ (root) time.go         # 自然语言时间解析 ParseNaturalTime / Duration / Range
+│  ├─ (root) time_helpers.go # 时区格式化、区间、秒表/倒计时、工作日等
 │  ├─ compress/              # 压缩工具（zstd/snappy/lz4）
 │  │
 │  ├─ totp/                  # TOTP 两步验证 + QR 码
@@ -75,8 +75,6 @@ ling-base/
 │  │
 │  ├─ geoip/                 # IP 地理位置查询（国内 pconline + 国际 ip-api）
 │  ├─ geocode/               # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
-│  ├─ dnsutil/               # 高级 DNS 查询（miekg/dns，10+ 记录类型，自定义服务器，反向解析）
-│  ├─ curlutil/              # curl 命令解析 + 调试型 HTTP 客户端（重定向链/TLS/二进制识别）
 │  ├─ phone/                 # 手机号归属地查询（内置离线号段库）
 │  ├─ i18n/                  # 国际化（翻译 + 格式化 + locale 检测）
 │  │  ├─ gin/                # Gin 中间件
@@ -92,23 +90,17 @@ ling-base/
 │  ├─ markdown/              # Markdown→HTML 渲染（goldmark，GFM/emoji/高亮/TOC）
 │  ├─ export/                # 数据导出（Excel/CSV/JSON/Markdown）
 │  ├─ diff/                  # 文本 diff（Myers 算法，unified/HTML 格式）
-│  ├─ emoji/                 # Emoji 处理（短代码↔Unicode，检测/移除/计数）
 │  ├─ signature/             # 请求签名（HMAC/RSA，API 签名验证）
 │  ├─ oauth2/                # OAuth2 客户端（Google/GitHub/微信/钉钉/飞书）
 │  ├─ featureflag/           # 功能开关（灰度发布，百分比/白名单/黑名单）
 │  ├─ auditlog/              # 审计日志（结构化，Storage 接口，不可篡改）
-│  ├─ webhook/               # Webhook 发送（签名+重试+事件过滤）
-│  ├─ backup/                # 数据备份/恢复（gzip 压缩，SHA256 校验）
-│  ├─ abtest/                # A/B 测试分流（一致性哈希，权重分配）
+│  ├─ notification/          # 通知框架（email/SMS/IM/webhook/inbox/push）
+│  ├─ backup/                # 逻辑备份（多库 CLI dump / 目录 / Sink）
 │  │
 │  ├─ money/                 # 金额处理（int64 存储，运算/比较/分配/舍入）
-│  ├─ sse/                   # Server-Sent Events（Writer + Client + 事件解析）
 │  ├─ archive/               # 归档工具（zip/tar/tar.gz，zip slip 防护）
 │  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
-│  ├─ upload/                # 文件上传（验证/安全文件名/分片上传/MIME 检测）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
-│  ├─ antispam/              # 反垃圾（关键词过滤/频率限制/内容评分）
-│  ├─ trie/                  # 前缀树（路由匹配/自动补全/线程安全版）
 │  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │  └─ stores/                # 对象存储接口（9 个独立 provider module）
 │     ├─ local/              # 本地文件系统（零云 SDK）
@@ -140,54 +132,23 @@ ling-base/
 │  ├─ constant/              # provider endpoint 常量
 │  └─ helper/                # 辅助函数
 │
-├─ mq/                       # 消息队列接口（5 个 broker）→ common/mq/
-│  ├─ factory/               # 工厂注册
-│  └─ kafka / rabbitmq / activemq / rocketmq / redisstream
-│
 ├─ providers/                # 第三方服务对接
-│  ├─ voice/                 # 语音处理库
-│  │  ├─ recognizer/         # ASR 语音识别
-│  │  │  ├─ baidu/ qcloud/ volcengine/ volcengine_llm
-│  │  │  ├─ aws/ google/ deepgram/ gladia/ funasr/ whisper
-│  │  │  └─ voiceapi/ local
-│  │  ├─ synthesizer/        # TTS 语音合成
-│  │  │  ├─ aliyun/ baidu/ qcloud/ volcengine/ xunfei
-│  │  │  ├─ aws/ azure/ google/ openai
-│  │  │  ├─ elevenlabs/ fishaudio/ fishspeech/ coqui/ minimax/ qiniu
-│  │  │  └─ local/           # 本地 PCM 合成
-│  │  ├─ realtime/           # 实时多模态语音对话（8 个 provider）
-│  │  │  ├─ openai/          # OpenAI Realtime API
-│  │  │  ├─ gemini/          # Google Gemini Live API
-│  │  │  ├─ aliyunomni/      # Qwen-Omni / DashScope
-│  │  │  ├─ volcdialogue/    # 豆包实时对话
-│  │  │  └─ iflytek/ minimax/ stepfun/ tencentsts
-│  │  ├─ vad/               # 语音活动检测
-│  │  ├─ voiceprint/        # 声纹识别
-│  │  └─ voiceclone/        # 语音克隆
-│  ├─ ocr/                   # OCR 光学字符识别（6 个 provider）
-│  │  └─ aws/ google/ aliyun/ baidu/ azure/ qcloud
-│  └─ censor/                # 内容审核接口
-│     ├─ aliyun/             # 阿里云 SDK
-│     ├─ qcloud/             # 腾讯云 SDK
-│     └─ qiniu/              # 七牛 SDK
-│
-├─ search/                   # 全文搜索接口
-│  ├─ bleve/                 # 本地 Bleve 索引
-│  └─ elasticsearch/         # Elasticsearch 8.x
-│
-├─ notification/             # 通知调度（邮件/短信/IM/Webhook）
-│  └─ email / sms / im / inbox / webhook
+│  ├─ voice/                 # 语音处理库（ASR / TTS / Realtime / VAD / 声纹 / 克隆）
+│  ├─ ocr/                   # OCR（aws / google / aliyun / baidu / azure / qcloud）
+│  └─ censor/                # 内容审核（aliyun / qcloud / qiniu）
 │
 ├─ bootstrap/                # 应用启动框架（生命周期管理 + banner）
 ├─ version/                  # 版本信息
 ├─ lingcli/                  # 项目脚手架 CLI
-├─ example/                  # 已清空，预留目录
-└─ apidocs/                  # API 文档
+├─ apidocs/                  # API 文档（Huma OpenAPI）
+├─ toolkits/                 # 专项领域工具库
+│  └─ pentest/               # Web 安全测试工具集
+└─ docs/                     # 文档站（Next.js + Fumadocs）
 ```
 
 本地开发使用已提交的 `go.work`；发布后消费者**不需要** `go.work`，直接 `go get` 子模块即可。
 
-> 目录迁移：对象存储现位于 `common/stores`，语音模块现位于 `providers/voice`，Go import 和 module 路径同步变更。外部项目需要更新引用，并等待新路径对应的模块 tag 发布后再通过 `go get` 安装；旧路径的 tag 不适用于新路径。根目录 `example/` 已清空，不再作为工作区模块。
+> 路径说明：对象存储在 `common/stores`，消息队列在 `common/mq`（**不是**已删除的根路径 `ling-base/mq`），搜索在 `common/search`，通知在 `common/notification`，语音在 `providers/voice`，渗透测试工具在 `toolkits/pentest`（**不是**旧根路径 `ling-base/pentest`）。agentkit 已移出本仓库。
 
 ## 按需安装示例
 
@@ -237,11 +198,8 @@ go get github.com/LingByte/ling-base/common/geoip
 # 经纬度定位/逆地理编码（Nominatim + BigDataCloud，免费无 Key）
 go get github.com/LingByte/ling-base/common/geocode
 
-# 高级 DNS 查询（自定义服务器，10+ 记录类型，反向解析）
-go get github.com/LingByte/ling-base/common/dnsutil
-
-# curl 命令解析 + 调试型 HTTP 客户端
-go get github.com/LingByte/ling-base/common/curlutil
+# 网络工具（端口/IP/HTTP Client + DNS 查询 + curl 调试）
+go get github.com/LingByte/ling-base/common/netutil
 
 # 手机号归属地查询（内置离线号段库，无需联网）
 go get github.com/LingByte/ling-base/common/phone
@@ -265,7 +223,6 @@ go get github.com/LingByte/ling-base/common/featureflag
 go get github.com/LingByte/ling-base/common/signature
 
 # Webhook 发送（签名+重试）
-go get github.com/LingByte/ling-base/common/webhook
 
 # 审计日志
 go get github.com/LingByte/ling-base/common/auditlog
@@ -274,19 +231,13 @@ go get github.com/LingByte/ling-base/common/auditlog
 go get github.com/LingByte/ling-base/common/backup
 
 # A/B 测试分流
-go get github.com/LingByte/ling-base/common/abtest
 
 # 文本 diff
 go get github.com/LingByte/ling-base/common/diff
 
-# Emoji 处理
-go get github.com/LingByte/ling-base/common/emoji
-
 # 金额处理（避免浮点误差）
 go get github.com/LingByte/ling-base/common/money
 
-# Server-Sent Events
-go get github.com/LingByte/ling-base/common/sse
 
 # 归档工具（zip/tar/tar.gz）
 go get github.com/LingByte/ling-base/common/archive
@@ -294,17 +245,8 @@ go get github.com/LingByte/ling-base/common/archive
 # WebSocket 工具
 go get github.com/LingByte/ling-base/common/wsutil
 
-# 文件上传（分片/验证/MIME 检测）
-go get github.com/LingByte/ling-base/common/upload
-
 # Cloudflare Turnstile 验证
 go get github.com/LingByte/ling-base/common/turnstile
-
-# 反垃圾（关键词过滤/频率限制/内容评分）
-go get github.com/LingByte/ling-base/common/antispam
-
-# 前缀树（路由匹配/自动补全）
-go get github.com/LingByte/ling-base/common/trie
 
 # 一致性哈希（分布式分片）
 go get github.com/LingByte/ling-base/common/consistent
@@ -433,55 +375,27 @@ dist := geocode.HaversineDistance(39.9042, 116.4074, 31.2304, 121.4737)
 inRadius := geocode.IsInRadius(lat1, lon1, lat2, lon2, 5.0) // 5km
 ```
 
-### dnsutil 快速上手
+### netutil DNS / curl 快速上手
 
-高级 DNS 查询，支持自定义服务器、10+ 记录类型、反向解析、并发查询：
+DNS 查询与 curl 调试已并入 `common/netutil`：
 
 ```go
-import "github.com/LingByte/ling-base/common/dnsutil"
+import "github.com/LingByte/ling-base/common/netutil"
 
-// 查询 A 记录（指定 Google DNS）
-records, _ := dnsutil.QueryA("google.com", dnsutil.ServerGoogle)
-// → [{Name:"google.com.", Type:"A", TTL:300, Value:"142.250.191.14"}]
+records, _ := netutil.QueryA("google.com", netutil.ServerGoogle)
+result, _ := netutil.QueryAll("example.com", "8.8.8.8:53")
 
-// 查询 MX 记录（用 Cloudflare DNS）
-records, _ = dnsutil.QueryMX("google.com", dnsutil.ServerCloudflare)
-
-// 反向 DNS 查询
-records, _ = dnsutil.ReverseLookup("8.8.8.8", dnsutil.ServerGoogle)
-// → [{Type:"PTR", Value:"dns.google."}]
-
-// 并发查询所有记录类型
-result, _ := dnsutil.QueryAll("example.com", "8.8.8.8:53")
-// → AllRecords{A, AAAA, CNAME, MX, NS, TXT, SOA, ...}
-
-// 可配置 Client（阿里 DNS + DNSSEC）
-client := dnsutil.NewClient(
-    dnsutil.WithServer("223.5.5.5:53"),
-    dnsutil.WithDNSSEC(),
+dnsClient := netutil.NewDNSClient(
+    netutil.WithDNSServer("223.5.5.5:53"),
+    netutil.WithDNSSEC(),
 )
-records, _ = client.Query("example.com", "A")
-```
+records, _ = dnsClient.Query("example.com", "A")
 
-### curlutil 快速上手
-
-curl 命令解析 + 调试型 HTTP 客户端：
-
-```go
-import "github.com/LingByte/ling-base/common/curlutil"
-
-// 解析 curl 命令
-req, _ := curlutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"key":"value"}' -L`)
-
-// 执行并获取调试信息
-resp, _ := curlutil.Execute(req)
+req, _ := netutil.ParseCurlCommand(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"key":"value"}' -L`)
+resp, _ := netutil.ExecuteCurl(req)
 fmt.Printf("Status: %d, Time: %dms, TLS: %s\n", resp.StatusCode, resp.ResponseTime, resp.RequestInfo.TLSVersion)
-fmt.Printf("Redirects: %v\n", resp.RedirectChain)
 
-// 快捷函数
-resp, _ = curlutil.Get("https://example.com")
-resp, _ = curlutil.Post("https://httpbin.org/post", `{"key":"value"}`)
-resp, _ = curlutil.Head("https://example.com")
+resp, _ = netutil.CurlGet("https://example.com")
 ```
 
 ### phone 快速上手
@@ -686,28 +600,20 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [circuitbreaker/README.md](circuitbreaker/README.md)
 - [pool/README.md](pool/README.md)
 - [common/geocode/README.md](common/geocode/README.md)
-- [common/dnsutil/README.md](common/dnsutil/README.md)
-- [common/curlutil/README.md](common/curlutil/README.md)
+- [common/netutil/README.md](common/netutil/README.md)
 - [common/sanitize/README.md](common/sanitize/README.md)
 - [common/markdown/README.md](common/markdown/README.md)
 - [common/export/README.md](common/export/README.md)
 - [common/oauth2/README.md](common/oauth2/README.md)
 - [common/featureflag/README.md](common/featureflag/README.md)
 - [common/signature/README.md](common/signature/README.md)
-- [common/webhook/README.md](common/webhook/README.md)
 - [common/auditlog/README.md](common/auditlog/README.md)
 - [common/backup/README.md](common/backup/README.md)
-- [common/abtest/README.md](common/abtest/README.md)
 - [common/diff/README.md](common/diff/README.md)
-- [common/emoji/README.md](common/emoji/README.md)
 - [common/money/README.md](common/money/README.md)
-- [common/sse/README.md](common/sse/README.md)
 - [common/archive/README.md](common/archive/README.md)
 - [common/wsutil/README.md](common/wsutil/README.md)
-- [common/upload/README.md](common/upload/README.md)
 - [common/turnstile/README.md](common/turnstile/README.md)
-- [common/antispam/README.md](common/antispam/README.md)
-- [common/trie/README.md](common/trie/README.md)
 - [common/consistent/README.md](common/consistent/README.md)
 
 ## 开发

@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	relay "github.com/LingByte/ling-base/relay"
-	"github.com/LingByte/ling-base/relay/meter"
 	"github.com/LingByte/ling-base/relay/channel/openai"
+	"github.com/LingByte/ling-base/relay/meter"
 )
 
 // mockOpenAIServer creates a test HTTP server that mimics OpenAI's API.

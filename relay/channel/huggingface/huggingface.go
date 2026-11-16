@@ -68,8 +68,8 @@ func NewProvider(apiKey string, opts ...Option) *Provider {
 	return &Provider{adaptor: New(apiKey, opts...)}
 }
 
-func (p *Provider) Name() string           { return ChannelName }
-func (p *Provider) ApiType() int           { return constant.APITypeHuggingFace }
+func (p *Provider) Name() string            { return ChannelName }
+func (p *Provider) ApiType() int            { return constant.APITypeHuggingFace }
 func (p *Provider) Adaptor() common.Adaptor { return p.adaptor }
-func (p *Provider) BaseURL() string        { return p.adaptor.BaseURL }
-func (p *Provider) APIKey() string         { return p.adaptor.APIKey }
+func (p *Provider) BaseURL() string         { return p.adaptor.BaseURL }
+func (p *Provider) APIKey() string          { return p.adaptor.APIKey }

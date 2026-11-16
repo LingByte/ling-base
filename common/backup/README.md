@@ -1,84 +1,95 @@
 # backup
 
-A pluggable backup/restore manager that copies data from a `Source` to a
-`Destination`, computing a SHA-256 checksum and optionally applying gzip
-compression. File-based source/destination implementations are included.
+Pluggable **logical** backup/restore orchestrator for ling-base.
 
-## Design
+Streams data from a `Source` to a `Destination` with optional gzip and SHA-256
+checksums. Restore reads the artifact back and writes it to a `Sink`.
 
-Both the backup source and destination are abstracted as interfaces so
-that file systems, object stores, databases, or any other backend can be
-plugged in:
+## Platforms & scenarios
 
-```go
-type Source interface {
-    Read() (io.ReadCloser, error)
-}
-type Destination interface {
-    Write(name string, r io.Reader) (string, error)
-}
-```
+| Scenario | Helper |
+|----------|--------|
+| Local file | `FileSource` / `FileSink` / `FileDestination` |
+| Directory tree (uploads, configs) | `DirectorySource` / `DirectorySink` (tar.gz) |
+| MySQL / MariaDB (self-hosted **or cloud**) | `MySQLDump` / `MySQLLoad` |
+| PostgreSQL | `PostgresDump` / `PostgresLoad` |
+| MongoDB | `MongoDump` / `MongoRestore` (`--archive`) |
+| SQLite | `SQLiteDump` / `SQLiteLoad` |
+| Redis (RDB stream) | `RedisDump` |
+| ClickHouse | `ClickHouseDump` |
+| SQL Server / Azure SQL | `MSSQLDump` (`sqlcmd`) |
+| Arbitrary CLI | `CommandSource` / `CommandSink` |
+| In-memory / custom io | `BytesSource`, `ReaderSource`, `WriterSink`, `BufferSink` |
 
-File-based implementations are provided:
+Cloud databases (RDS, PolarDB, Cloud SQL, Azure SQL, ElastiCache, …) use the
+**same helpers**: point `Host` / `URI` at the cloud endpoint with a backup
+account. Vendor physical snapshots / PITR APIs are **out of scope** (heavy
+SDKs); implement `Source`/`Destination` in your app if you need them.
 
-- `FileSource{Path}` — reads from a local file
-- `FileDestination{Dir}` — writes artifacts into a local directory
+Object storage: implement `Destination` yourself (do not pull `common/stores`
+into this module).
 
-## Features
-
-- SHA-256 checksum of the stored (possibly compressed) bytes
-- Optional gzip compression via `WithCompression()`
-- In-memory registry of completed backups (`List`, `Delete`)
-- Single-pass streaming: data is compressed, checksummed, and written
-  concurrently without buffering the whole stream
-
-## Quick start
+## Quick start — file
 
 ```go
-import "github.com/LingByte/ling-base/common/backup"
+src := &backup.FileSource{Path: "/var/data/app.db"}
+dst := &backup.FileDestination{Dir: "/var/backups"}
+sink := &backup.FileSink{Path: "/var/data/app.db"}
 
-mgr := backup.NewManager(
-    &backup.FileSource{Path: "/var/data/app.db"},
-    &backup.FileDestination{Dir: "/var/backups"},
+mgr := backup.New(src, dst,
     backup.WithCompression(),
+    backup.WithCatalog(&backup.FileCatalog{Path: "/var/backups/catalog.json"}),
+    backup.WithRetention(backup.KeepLastN(7)),
+    backup.WithSink(sink),
 )
 
 bp, err := mgr.Backup(ctx, "app-2026-01-01")
-if err != nil { /* ... */ }
-fmt.Printf("backed up to %s (%d bytes, sha256=%s)\n", bp.Path, bp.Size, bp.Checksum)
+_ = mgr.Verify(ctx, bp)
+_ = mgr.Restore(ctx, bp, nil)
+_, _ = mgr.Prune(ctx, nil)
+```
 
-// Later, restore it
-err = mgr.Restore(ctx, bp)
+## Quick start — cloud MySQL
 
-// List / delete
-backups, _ := mgr.List()
-_ = mgr.Delete("app-2026-01-01")
+```go
+cfg := backup.MySQLConfig{
+    Host:     "rm-xxx.mysql.rds.aliyuncs.com",
+    Port:     3306,
+    User:     "backup",
+    Password: "...",
+    Database: "app",
+}
+mgr := backup.New(
+    backup.MySQLDump(cfg),
+    &backup.FileDestination{Dir: "/var/backups"},
+    backup.WithCompression(),
+    backup.WithCatalog(&backup.FileCatalog{Path: "/var/backups/catalog.json"}),
+)
+bp, err := mgr.Backup(ctx, "mysql-app")
+err = mgr.Restore(ctx, bp, backup.MySQLLoad(cfg))
+```
+
+## Quick start — directory
+
+```go
+mgr := backup.New(
+    &backup.DirectorySource{Root: "/var/lib/uploads"},
+    &backup.FileDestination{Dir: "/var/backups"},
+)
+bp, _ := mgr.Backup(ctx, "uploads")
+_ = mgr.Restore(ctx, bp, &backup.DirectorySink{Dest: "/var/lib/uploads-restored"})
 ```
 
 ## API
 
-### Manager
-
 | Method | Description |
-| --- | --- |
-| `NewManager(src, dst, opts...)` | Create a manager |
-| `Backup(ctx, name)` | Back up source → destination |
-| `Restore(ctx, *Backup)` | Restore an artifact back to the source |
-| `List()` | List recorded backups (sorted by name) |
-| `Delete(name)` | Delete a backup record + artifact |
+|--------|-------------|
+| `Backup` | Source → Destination (+ catalog) |
+| `Restore` | Destination → Sink |
+| `Verify` | Re-hash artifact vs recorded checksum |
+| `List` / `Get` / `Delete` | Catalog + artifact lifecycle |
+| `Prune` | Retention (`KeepLastN`, `KeepNewerThan`) |
 
-### Options
+## License
 
-| Option | Description |
-| --- | --- |
-| `WithCompression()` | Enable gzip compression |
-
-### Backup fields
-
-`Name`, `Timestamp`, `Size`, `Checksum` (SHA-256 hex), `Path`, `Compressed`.
-
-## Checksum semantics
-
-The `Checksum` is the SHA-256 of the **stored** bytes — i.e. after
-compression when `WithCompression()` is enabled. This lets receivers
-verify the artifact on disk directly without decompressing first.
+MIT

@@ -6,7 +6,7 @@ package kafka
 import (
 	"testing"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
 )

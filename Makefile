@@ -10,14 +10,17 @@
 #   make fmt             Format all Go source files.
 #   make fmt-check       Check formatting without modifying files.
 #   make lint            Run golangci-lint (if installed).
-#   make check           Run fmt-check + vet + build + test (CI equivalent).
+#   make check           Run fmt-check + vet + build + test + check-modules.
+#   make check-all       check + lint + vuln + check-cli-versions.
 #   make cover-html      Generate HTML coverage report (aggregate).
 #   make clean           Remove generated coverage files and demo binaries.
 #   make tags            List all git tags grouped by module.
 #   make release-patch   Bump patch version for a module and create a tag.
 #   make release-minor   Bump minor version for a module and create a tag.
 #   make release-major   Bump major version for a module and create a tag.
-#   make release-all     Tag changed library modules (release lingcli separately).
+#   make release-group GROUP=voice  Tag changed modules in a group (prefer over --all).
+#   make release-all     Tag changed library modules (heavy; prefer PKG/GROUP).
+#   make check-modules   Verify go.work covers every go.mod; reject stale imports.
 #   make sync-cli-versions   Regenerate the CLI module version catalog.
 #   Add DRY_RUN=1 to release commands to preview without creating tags.
 #   make push-tags       Push all tags to the remote.
@@ -26,6 +29,7 @@
 #   make release-patch PKG=common/stores          # first tag: common/stores/v0.1.0
 #   make release-minor PKG=common/jwtutil         # common/jwtutil/v0.1.0 → common/jwtutil/v0.2.0
 #   make release-major PKG=common                 # common/v0.3.1 → common/v1.0.0
+#   make release-group GROUP=relay DRY_RUN=1      # group: relay|common-infra|voice|providers-other|tooling|common
 #   make release-all                              # Auto-bump all modules with changes since last tag.
 #   make release-all LEVEL=minor                  # Auto-bump all changed modules by minor version.
 #
@@ -48,7 +52,7 @@ DRY_RUN ?= 0
 RELEASE_FLAGS := $(if $(filter 1 true,$(DRY_RUN)),--dry-run,)
 
 # Find all go.mod directories (excluding vendor).
-GO_MOD_DIRS := $(shell find . -name go.mod -not -path './vendor/*' -print0 | xargs -0 -n1 dirname | sed 's|^\./||' | sort)
+GO_MOD_DIRS := $(shell find . -name go.mod -not -path './vendor/*' -not -path './docs/*' -not -path './.git/*' | sed 's|/go.mod||;s|^\./||' | sed 's|^$$|.|' | sort -u)
 
 # ──────────────────────────────────────────────
 # Help
@@ -81,11 +85,13 @@ help: ## Show this help message
 	@echo "  make release-patch PKG=dir   Bump patch version (v0.1.0 → v0.1.1)"
 	@echo "  make release-minor PKG=dir   Bump minor version (v0.1.0 → v0.2.0)"
 	@echo "  make release-major PKG=dir   Bump major version (v0.1.0 → v1.0.0)"
-	@echo "  make release-all             Tag changed libraries (excludes lingcli)"
+	@echo "  make release-group GROUP=name Tag changed modules in a group"
+	@echo "  make release-all             Tag changed libraries (excludes lingcli; prefer PKG/GROUP)"
 	@echo "  make release-all LEVEL=minor Choose the library release level"
 	@echo "  Add DRY_RUN=1                Preview release tags without creating them"
 	@echo "  make sync-cli-versions       Sync CLI versions after publishing libraries"
 	@echo "  make check-cli-versions      Check the generated CLI version catalog"
+	@echo "  make check-modules           Verify go.work + reject stale imports"
 	@echo "  make tags                    List all tags"
 	@echo "  make push-tags               Push all tags to remote"
 	@echo ""
@@ -123,10 +129,12 @@ test-pkg: ## Test a single module (PKG=dir)
 
 test-cover: ## Run tests with coverage for all modules
 	@echo "==> Testing with coverage..."
-	@for dir in $(GO_MOD_DIRS); do \
+	@fail=0; \
+	for dir in $(GO_MOD_DIRS); do \
 		echo "  → $$dir"; \
-		(cd "$$dir" && $(GO) test -count=1 -cover ./... 2>&1) || true; \
-	done
+		(cd "$$dir" && $(GO) test -count=1 -cover ./...) || fail=1; \
+	done; \
+	exit $$fail
 
 # ──────────────────────────────────────────────
 # Code quality
@@ -163,16 +171,18 @@ vuln: ## Run govulncheck on all modules (if installed)
 		echo "  go install golang.org/x/vuln/cmd/govulncheck@latest"; \
 		exit 1; \
 	}
-	@for dir in $(GO_MOD_DIRS); do \
+	@fail=0; \
+	for dir in $(GO_MOD_DIRS); do \
 		echo "  → $$dir"; \
-		(cd "$$dir" && govulncheck ./... 2>&1) || true; \
-	done
+		(cd "$$dir" && govulncheck ./...) || fail=1; \
+	done; \
+	exit $$fail
 
-check: fmt-check vet build test ## Run fmt-check + vet + build + test (CI equivalent)
+check: fmt-check vet build test check-modules ## Run fmt-check + vet + build + test + check-modules
 	@echo "==> All checks passed!"
 
-check-all: fmt-check vet build test lint vuln ## Run all checks including lint + vuln
-	@echo "==> All checks (including lint + vuln) passed!"
+check-all: fmt-check vet build test lint vuln check-modules check-cli-versions ## Run all local quality gates
+	@echo "==> All checks (including lint + vuln + module/CLI gates) passed!"
 
 # ──────────────────────────────────────────────
 # Coverage (HTML)
@@ -215,7 +225,7 @@ tags-pkg: ## List tags for a specific module (PKG=dir)
 # Release — version bump + tag
 # ──────────────────────────────────────────────
 
-.PHONY: release-patch release-minor release-major release-all
+.PHONY: release-patch release-minor release-major release-group release-all check-modules
 release-patch: ## Bump patch version for a module (PKG=dir)
 	@$(MAKE) _release PKG=$(PKG) LEVEL=patch
 
@@ -225,9 +235,17 @@ release-minor: ## Bump minor version for a module (PKG=dir)
 release-major: ## Bump major version for a module (PKG=dir)
 	@$(MAKE) _release PKG=$(PKG) LEVEL=major
 
-release-all: ## Tag changed libraries; release lingcli separately after syncing versions
+release-group: ## Tag changed modules in GROUP=relay|common-infra|voice|providers-other|tooling|common
+	@test -n "$(GROUP)" || (echo "Usage: make release-group GROUP=<name>" && exit 1)
+	@echo "==> Releasing group $(GROUP)..."
+	@bash $(ROOT)/scripts/release.sh --group "$(GROUP)" --level $(RELEASE_LEVEL) $(RELEASE_FLAGS)
+
+release-all: ## Tag changed libraries; prefer PKG/GROUP for routine releases
 	@echo "==> Detecting changed library modules since their last tag..."
 	@bash $(ROOT)/scripts/release.sh --all --level $(RELEASE_LEVEL) $(RELEASE_FLAGS)
+
+check-modules: ## Verify go.work covers every go.mod and reject stale imports
+	@bash $(ROOT)/scripts/check-modules.sh
 
 .PHONY: sync-cli-versions check-cli-versions
 sync-cli-versions: ## Regenerate lingcli module versions from current module paths and tags

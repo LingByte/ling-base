@@ -13,7 +13,7 @@ import (
 type MemoryRegistry struct {
 	mu        sync.RWMutex
 	instances map[string]map[string]Instance // serviceName -> instanceID -> Instance
-	watchers  map[string][]chan []Instance    // serviceName -> watcher channels
+	watchers  map[string][]chan []Instance   // serviceName -> watcher channels
 	closed    bool
 }
 

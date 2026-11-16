@@ -10,7 +10,15 @@ the module path, e.g. `[common/stats]`, `[cache/redis]`, `[scheduler]`.
 
 ## [Unreleased]
 
+### Removed
+- `common/webhook`、`common/rbac`（含 gin）、`common/antispam`、`common/alerting`、`common/abtest`、`common/sse`、`common/tree`（含各 store）— 仓库内无外部引用，已下线并删除对应 tag
+- `common/timeutil` — 能力并入根包 `common`（`time_helpers.go`）
+- `common/snowflake.go` — 删除薄包装；请直接使用 `common/idgen`
+- 此前清理：`common/emoji`、`common/upload`、`common/trie`、`common/configcenter`、`common.Signals`；`dnsutil`/`curlutil`/`mathutil`/`nltime` 已折叠进 `common` / `netutil`
+
 ### Changed
+- CI：`detect-changes` 改为文件收集模块列表；`golangci-lint-action` 升级到 v7 以支持 golangci-lint v2
+- `BaseModel` 雪花号改为调用 `idgen.SnowflakeNextUint()`
 - 对象存储迁移到 `common/stores`，语音迁移到 `providers/voice`，同步 module/import 路径；52 个迁移模块的新前缀统一从 `v0.1.0` 首发，历史 tag 保持不变。
 - 根目录 `example/` 清空并退出 Go 工作区。
 - 发布脚本根据当前 `go.mod` 校验 tag 前缀，精确匹配正式版本，支持只读预览并拒绝为未提交代码打 tag；库和 lingcli 分开发布。

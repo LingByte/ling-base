@@ -12,8 +12,8 @@ import (
 
 	"github.com/LingByte/ling-base/relay/channel/dify"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 func TestDifyAdaptor_GetChannelName(t *testing.T) {

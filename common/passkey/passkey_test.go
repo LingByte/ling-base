@@ -61,10 +61,10 @@ type mockUser struct {
 	creds       []Credential
 }
 
-func (u *mockUser) WebAuthnID() []byte             { return u.id }
-func (u *mockUser) WebAuthnName() string           { return u.name }
-func (u *mockUser) WebAuthnDisplayName() string    { return u.displayName }
-func (u *mockUser) WebAuthnIcon() string           { return "" }
+func (u *mockUser) WebAuthnID() []byte                { return u.id }
+func (u *mockUser) WebAuthnName() string              { return u.name }
+func (u *mockUser) WebAuthnDisplayName() string       { return u.displayName }
+func (u *mockUser) WebAuthnIcon() string              { return "" }
 func (u *mockUser) WebAuthnCredentials() []Credential { return u.creds }
 
 func TestBeginRegistrationNilUser(t *testing.T) {
@@ -107,8 +107,8 @@ func TestBeginRegistrationWithExclusions(t *testing.T) {
 		displayName: "Alice",
 	}
 	cred, _, err := pk.BeginRegistration(user, &RegistrationOptions{
-		ExcludeCredentials:  [][]byte{[]byte("existing-cred-id")},
-		RequireResidentKey:  true,
+		ExcludeCredentials: [][]byte{[]byte("existing-cred-id")},
+		RequireResidentKey: true,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, cred)

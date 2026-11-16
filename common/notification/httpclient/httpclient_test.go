@@ -335,7 +335,7 @@ func TestNewWithOptions(t *testing.T) {
 }
 
 func TestNewWithTimeout(t *testing.T) {
-	c := New("sms:", WithTimeout(10 * time.Second))
+	c := New("sms:", WithTimeout(10*time.Second))
 	require.NotNil(t, c.HTTPClient)
 	assert.Equal(t, 10*time.Second, c.HTTPClient.Timeout)
 }

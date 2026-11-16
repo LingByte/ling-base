@@ -17,7 +17,7 @@ require (
 require (
 	github.com/LingByte/ling-base/common/logger v0.1.0
 	github.com/stretchr/testify v1.12.1 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 )
 
 replace github.com/LingByte/ling-base/providers/voice/synthesizer => ..

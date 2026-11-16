@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	constant "github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
-	"github.com/LingByte/ling-base/relay/task/vidu"
+	constant "github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/task/taskmodel"
+	"github.com/LingByte/ling-base/relay/task/vidu"
 )
 
 func testRelayInfo() *common.RelayInfo {

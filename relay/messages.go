@@ -199,13 +199,13 @@ func NewSystemMessage(text string) RichMessage {
 // RichResponse is the assembled response from a model turn, in content-block
 // form. It is the provider-neutral equivalent of anthropic.BetaMessage.
 type RichResponse struct {
-	ID          string         `json:"id"`
-	Role        string         `json:"role"` // always "assistant"
-	Content     []ContentBlock `json:"content"`
-	StopReason  string         `json:"stop_reason"` // "end_turn" | "tool_use" | "max_tokens" | ...
-	Model       string         `json:"model"`
-	InputTokens int64          `json:"input_tokens"`
-	OutputTokens int64         `json:"output_tokens"`
+	ID           string         `json:"id"`
+	Role         string         `json:"role"` // always "assistant"
+	Content      []ContentBlock `json:"content"`
+	StopReason   string         `json:"stop_reason"` // "end_turn" | "tool_use" | "max_tokens" | ...
+	Model        string         `json:"model"`
+	InputTokens  int64          `json:"input_tokens"`
+	OutputTokens int64          `json:"output_tokens"`
 	// Prompt-cache usage (Anthropic-specific; zero for other providers).
 	CacheReadInputTokens     int64 `json:"cache_read_input_tokens,omitempty"`
 	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens,omitempty"`
@@ -277,8 +277,8 @@ type RichStreamChunk struct {
 
 // Stream chunk type constants.
 const (
-	ChunkTypeTextDelta    = "text_delta"
-	ChunkTypeToolUseDelta = "tool_use_delta"
+	ChunkTypeTextDelta     = "text_delta"
+	ChunkTypeToolUseDelta  = "tool_use_delta"
 	ChunkTypeThinkingDelta = "thinking_delta"
 	ChunkTypeFinish        = "finish"
 	ChunkTypeUsage         = "usage"

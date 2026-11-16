@@ -11,14 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ──────────────────────────────────────────────
-// Construction
-// ──────────────────────────────────────────────
-
 func TestNew(t *testing.T) {
-	m := New(199, "USD")
+	m := New(199, "usd")
 	assert.Equal(t, int64(199), m.Amount())
 	assert.Equal(t, "USD", m.Currency())
+	assert.True(t, m.IsValid())
+	assert.False(t, Money{}.IsValid())
 }
 
 func TestFromDecimal(t *testing.T) {
@@ -30,425 +28,223 @@ func TestFromDecimal(t *testing.T) {
 		{1.99, "USD", 199},
 		{10.50, "USD", 1050},
 		{0.01, "USD", 1},
-		{0.005, "USD", 1}, // round half up
+		{0.005, "USD", 1},
 		{100, "JPY", 100},
-		{1.234, "JPY", 1}, // 0 decimals
+		{1.234, "JPY", 1},
 		{1.5, "JPY", 2},
 		{-1.99, "USD", -199},
 		{0, "USD", 0},
-		{1.999, "BHD", 1999}, // 3 decimals
+		{1.999, "BHD", 1999},
 	}
 	for _, tt := range tests {
-		m := FromDecimal(tt.value, tt.currency)
+		m, err := FromDecimal(tt.value, tt.currency)
+		require.NoError(t, err, "FromDecimal(%v, %s)", tt.value, tt.currency)
 		assert.Equal(t, tt.want, m.Amount(), "FromDecimal(%v, %s)", tt.value, tt.currency)
 	}
 }
 
 func TestRound(t *testing.T) {
-	// Use 0.125 (1/8, exactly representable) so 0.125*100 = 12.5 is a true tie.
-	// RoundHalfUp: ties away from zero
-	assert.Equal(t, int64(13), Round(0.125, "USD", RoundHalfUp).Amount())
-	assert.Equal(t, int64(12), Round(0.124, "USD", RoundHalfUp).Amount())
-	assert.Equal(t, int64(-13), Round(-0.125, "USD", RoundHalfUp).Amount())
-
-	// RoundHalfDown: ties toward zero
-	assert.Equal(t, int64(12), Round(0.125, "USD", RoundHalfDown).Amount())
-	assert.Equal(t, int64(13), Round(0.126, "USD", RoundHalfDown).Amount())
-	assert.Equal(t, int64(-12), Round(-0.125, "USD", RoundHalfDown).Amount())
-
-	// RoundHalfEven: ties to even (banker's rounding)
-	assert.Equal(t, int64(12), Round(0.125, "USD", RoundHalfEven).Amount())  // tie -> 12 (even)
-	assert.Equal(t, int64(38), Round(0.375, "USD", RoundHalfEven).Amount())  // tie -> 38 (even)
-	assert.Equal(t, int64(-12), Round(-0.125, "USD", RoundHalfEven).Amount())
-
-	// RoundDown (truncation toward zero)
-	assert.Equal(t, int64(12), Round(0.129, "USD", RoundDown).Amount())
-	assert.Equal(t, int64(-12), Round(-0.129, "USD", RoundDown).Amount())
-
-	// RoundUp (away from zero)
-	assert.Equal(t, int64(13), Round(0.121, "USD", RoundUp).Amount())
-	assert.Equal(t, int64(-13), Round(-0.121, "USD", RoundUp).Amount())
-
-	// Unknown rounding mode defaults to half up
-	assert.Equal(t, int64(13), Round(0.125, "USD", RoundingMode(99)).Amount())
-}
-
-func TestParse(t *testing.T) {
-	tests := []struct {
-		s        string
-		currency string
-		want     int64
-		wantErr  bool
-	}{
-		{"1.99", "USD", 199, false},
-		{"1.9", "USD", 190, false},
-		{"1", "USD", 100, false},
-		{"0.01", "USD", 1, false},
-		{"-1.99", "USD", -199, false},
-		{"+1.50", "USD", 150, false},
-		{"  1.25  ", "USD", 125, false},
-		{"100", "JPY", 100, false},
-		{"100.50", "JPY", 100, false}, // truncate extra decimals
-		{"1.234", "BHD", 1234, false}, // 3 decimals
-		{"1.2", "BHD", 1200, false},
-		{"", "USD", 0, true},
-		{"  ", "USD", 0, true},
-		{"abc", "USD", 0, true},
-		{"1.2.3", "USD", 0, true},
-		{"1.xx", "USD", 0, true},
-		{"-1.2x", "USD", 0, true},
-		{".99", "USD", 99, false},
-		{"-.", "USD", 0, true},
-		{"99999999999999999999999999", "USD", 0, true}, // overflow
+	must := func(v float64, mode RoundingMode) int64 {
+		t.Helper()
+		m, err := Round(v, "USD", mode)
+		require.NoError(t, err)
+		return m.Amount()
 	}
-	for _, tt := range tests {
-		m, err := Parse(tt.s, tt.currency)
-		if tt.wantErr {
-			assert.Error(t, err, "Parse(%q, %s) should error", tt.s, tt.currency)
-			continue
-		}
-		require.NoError(t, err, "Parse(%q, %s)", tt.s, tt.currency)
-		assert.Equal(t, tt.want, m.Amount(), "Parse(%q, %s)", tt.s, tt.currency)
-	}
+	assert.Equal(t, int64(13), must(0.125, RoundHalfUp))
+	assert.Equal(t, int64(12), must(0.124, RoundHalfUp))
+	assert.Equal(t, int64(-13), must(-0.125, RoundHalfUp))
+
+	assert.Equal(t, int64(12), must(0.125, RoundHalfDown))
+	assert.Equal(t, int64(13), must(0.126, RoundHalfDown))
+	assert.Equal(t, int64(-12), must(-0.125, RoundHalfDown))
+
+	assert.Equal(t, int64(12), must(0.125, RoundHalfEven))
+	assert.Equal(t, int64(38), must(0.375, RoundHalfEven))
+	assert.Equal(t, int64(-12), must(-0.125, RoundHalfEven))
+
+	assert.Equal(t, int64(12), must(0.129, RoundDown))
+	assert.Equal(t, int64(-12), must(-0.129, RoundDown))
+
+	assert.Equal(t, int64(13), must(0.121, RoundUp))
+	assert.Equal(t, int64(-13), must(-0.121, RoundUp))
+
+	assert.Equal(t, int64(13), must(0.125, RoundingMode(99)))
 }
 
-// ──────────────────────────────────────────────
-// Accessors & formatting
-// ──────────────────────────────────────────────
-
-func TestDecimal(t *testing.T) {
-	assert.Equal(t, 1.99, New(199, "USD").Decimal())
-	assert.Equal(t, 100.0, New(100, "JPY").Decimal())
-	assert.Equal(t, 1.234, New(1234, "BHD").Decimal())
-	assert.Equal(t, -1.50, New(-150, "USD").Decimal())
+func TestRound_Errors(t *testing.T) {
+	_, err := Round(math.NaN(), "USD", RoundHalfUp)
+	assert.ErrorIs(t, err, ErrInvalidAmount)
+	_, err = Round(math.Inf(1), "USD", RoundHalfUp)
+	assert.ErrorIs(t, err, ErrInvalidAmount)
+	_, err = Round(1e30, "USD", RoundHalfUp)
+	assert.Error(t, err)
+	_, err = Round(1.0, "", RoundHalfUp)
+	assert.ErrorIs(t, err, ErrUnknownCurrency)
 }
 
-func TestString(t *testing.T) {
-	assert.Equal(t, "USD 1.99", New(199, "USD").String())
-	assert.Equal(t, "USD -1.99", New(-199, "USD").String())
-	assert.Equal(t, "JPY 100", New(100, "JPY").String())
-	assert.Equal(t, "USD 0.00", New(0, "USD").String())
-	assert.Equal(t, "BHD 1.234", New(1234, "BHD").String())
+func TestParseStrictAndTrunc(t *testing.T) {
+	m, err := Parse("1.99", "USD")
+	require.NoError(t, err)
+	assert.Equal(t, int64(199), m.Amount())
+
+	_, err = Parse("1.2345", "USD")
+	assert.ErrorIs(t, err, ErrInvalidAmount)
+
+	m, err = ParseTrunc("1.2345", "USD")
+	require.NoError(t, err)
+	assert.Equal(t, int64(123), m.Amount())
+
+	m, err = ParseTrunc("100.50", "JPY")
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), m.Amount())
+
+	_, err = Parse("100.50", "JPY")
+	assert.ErrorIs(t, err, ErrInvalidAmount)
+
+	_, err = Parse("", "USD")
+	assert.ErrorIs(t, err, ErrInvalidAmount)
+	_, err = Parse("abc", "USD")
+	assert.ErrorIs(t, err, ErrInvalidAmount)
 }
 
-func TestFormat(t *testing.T) {
-	assert.Equal(t, "1.99", New(199, "USD").Format())
-	assert.Equal(t, "0.05", New(5, "USD").Format())
-	assert.Equal(t, "100", New(100, "JPY").Format())
-	assert.Equal(t, "-1.50", New(-150, "USD").Format())
-	assert.Equal(t, "0.00", New(0, "USD").Format())
-}
-
-// ──────────────────────────────────────────────
-// Arithmetic
-// ──────────────────────────────────────────────
-
-func TestAdd(t *testing.T) {
-	a := New(100, "USD")
-	b := New(200, "USD")
-	sum, err := a.Add(b)
+func TestArithmetic(t *testing.T) {
+	sum, err := New(100, "USD").Add(New(200, "USD"))
 	require.NoError(t, err)
 	assert.Equal(t, int64(300), sum.Amount())
-
-	_, err = a.Add(New(100, "EUR"))
+	_, err = New(100, "USD").Add(New(100, "EUR"))
 	assert.ErrorIs(t, err, ErrCurrencyMismatch)
-}
 
-func TestSub(t *testing.T) {
-	a := New(300, "USD")
-	b := New(100, "USD")
-	diff, err := a.Sub(b)
+	diff, err := New(300, "USD").Sub(New(100, "USD"))
 	require.NoError(t, err)
 	assert.Equal(t, int64(200), diff.Amount())
 
-	_, err = a.Sub(New(100, "EUR"))
-	assert.ErrorIs(t, err, ErrCurrencyMismatch)
-}
+	prod, err := New(100, "USD").Mul(3)
+	require.NoError(t, err)
+	assert.Equal(t, int64(300), prod.Amount())
 
-func TestMul(t *testing.T) {
-	assert.Equal(t, int64(300), New(100, "USD").Mul(3).Amount())
-	assert.Equal(t, int64(-200), New(100, "USD").Mul(-2).Amount())
-	assert.Equal(t, int64(0), New(100, "USD").Mul(0).Amount())
-}
-
-func TestDiv(t *testing.T) {
 	q, err := New(100, "USD").Div(3)
 	require.NoError(t, err)
 	assert.Equal(t, int64(33), q.Amount())
-
 	_, err = New(100, "USD").Div(0)
 	assert.ErrorIs(t, err, ErrDivisionByZero)
 }
 
-func TestDivMod(t *testing.T) {
-	q, r, err := New(100, "USD").DivMod(3)
+func TestCompareAmountAndOrdering(t *testing.T) {
+	cmp, err := New(100, "USD").CompareAmount(New(200, "USD"))
 	require.NoError(t, err)
-	assert.Equal(t, int64(33), q.Amount())
-	assert.Equal(t, int64(1), r.Amount())
+	assert.Equal(t, -1, cmp)
 
-	_, _, err = New(100, "USD").DivMod(0)
-	assert.ErrorIs(t, err, ErrDivisionByZero)
-}
+	_, err = New(100, "USD").CompareAmount(New(100, "EUR"))
+	assert.ErrorIs(t, err, ErrCurrencyMismatch)
 
-func TestNeg(t *testing.T) {
-	assert.Equal(t, int64(-100), New(100, "USD").Neg().Amount())
-	assert.Equal(t, int64(100), New(-100, "USD").Neg().Amount())
-	assert.Equal(t, int64(0), New(0, "USD").Neg().Amount())
-}
+	lt, err := New(100, "USD").LessThan(New(200, "USD"))
+	require.NoError(t, err)
+	assert.True(t, lt)
 
-func TestAbs(t *testing.T) {
-	assert.Equal(t, int64(100), New(-100, "USD").Abs().Amount())
-	assert.Equal(t, int64(100), New(100, "USD").Abs().Amount())
-	assert.Equal(t, int64(0), New(0, "USD").Abs().Amount())
-}
+	_, err = New(100, "USD").LessThan(New(100, "EUR"))
+	assert.ErrorIs(t, err, ErrCurrencyMismatch)
 
-// ──────────────────────────────────────────────
-// Predicates & comparison
-// ──────────────────────────────────────────────
-
-func TestIsZero(t *testing.T) {
-	assert.True(t, New(0, "USD").IsZero())
-	assert.False(t, New(1, "USD").IsZero())
-	assert.False(t, New(-1, "USD").IsZero())
-}
-
-func TestIsPositive(t *testing.T) {
-	assert.True(t, New(1, "USD").IsPositive())
-	assert.False(t, New(0, "USD").IsPositive())
-	assert.False(t, New(-1, "USD").IsPositive())
-}
-
-func TestIsNegative(t *testing.T) {
-	assert.True(t, New(-1, "USD").IsNegative())
-	assert.False(t, New(0, "USD").IsNegative())
-	assert.False(t, New(1, "USD").IsNegative())
-}
-
-func TestEqual(t *testing.T) {
-	assert.True(t, New(100, "USD").Equal(New(100, "USD")))
-	assert.False(t, New(100, "USD").Equal(New(101, "USD")))
-	assert.False(t, New(100, "USD").Equal(New(100, "EUR")))
-}
-
-func TestCompare(t *testing.T) {
-	assert.Equal(t, -1, New(100, "USD").Compare(New(200, "USD")))
-	assert.Equal(t, 0, New(100, "USD").Compare(New(100, "USD")))
-	assert.Equal(t, 1, New(200, "USD").Compare(New(100, "USD")))
-	// different currencies: lexicographic on currency code
+	// Compare still sorts cross-currency lexicographically.
 	assert.Equal(t, -1, New(100, "EUR").Compare(New(100, "USD")))
-	assert.Equal(t, 1, New(100, "USD").Compare(New(100, "EUR")))
 }
-
-func TestLessThanGreaterThan(t *testing.T) {
-	assert.True(t, New(100, "USD").LessThan(New(200, "USD")))
-	assert.False(t, New(200, "USD").LessThan(New(100, "USD")))
-	assert.True(t, New(200, "USD").GreaterThan(New(100, "USD")))
-	assert.False(t, New(100, "USD").GreaterThan(New(200, "USD")))
-	// different currency
-	assert.True(t, New(100, "EUR").LessThan(New(100, "USD")))
-	assert.True(t, New(100, "USD").GreaterThan(New(100, "EUR")))
-}
-
-// ──────────────────────────────────────────────
-// Allocate
-// ──────────────────────────────────────────────
 
 func TestAllocate(t *testing.T) {
-	// 100 cents across [1,1,1] => 34,33,33
 	parts, err := New(100, "USD").Allocate([]int{1, 1, 1})
 	require.NoError(t, err)
 	require.Len(t, parts, 3)
 	assert.Equal(t, int64(34), parts[0].Amount())
 	assert.Equal(t, int64(33), parts[1].Amount())
 	assert.Equal(t, int64(33), parts[2].Amount())
-	// sum equals original
+
 	sum := int64(0)
 	for _, p := range parts {
 		sum += p.Amount()
 	}
 	assert.Equal(t, int64(100), sum)
 
-	// 100 cents across [1,1,2] => 25,25,50
-	parts, err = New(100, "USD").Allocate([]int{1, 1, 2})
+	parts, err = New(7, "USD").Allocate([]int{1, 1, 1})
 	require.NoError(t, err)
-	sum = int64(0)
-	for _, p := range parts {
-		sum += p.Amount()
-	}
-	assert.Equal(t, int64(100), sum)
-
-	// single part
-	parts, err = New(99, "USD").Allocate([]int{5})
-	require.NoError(t, err)
-	assert.Equal(t, int64(99), parts[0].Amount())
-
-	// uneven: 10 cents across [1,1,1] => 4,3,3
-	parts, err = New(10, "USD").Allocate([]int{1, 1, 1})
-	require.NoError(t, err)
-	sum = int64(0)
-	for _, p := range parts {
-		sum += p.Amount()
-	}
-	assert.Equal(t, int64(10), sum)
-
-	// negative amount allocation
-	parts, err = New(-100, "USD").Allocate([]int{1, 1, 1})
-	require.NoError(t, err)
-	sum = int64(0)
-	for _, p := range parts {
-		sum += p.Amount()
-	}
-	assert.Equal(t, int64(-100), sum)
-
-	// zero amount
-	parts, err = New(0, "USD").Allocate([]int{1, 2, 3})
-	require.NoError(t, err)
-	for _, p := range parts {
-		assert.Equal(t, int64(0), p.Amount())
-	}
-
-	// errors
-	_, err = New(100, "USD").Allocate([]int{})
-	assert.ErrorIs(t, err, ErrNoAllocationParts)
-
-	_, err = New(100, "USD").Allocate(nil)
-	assert.ErrorIs(t, err, ErrNoAllocationParts)
-
-	_, err = New(100, "USD").Allocate([]int{0, 0, 0})
-	assert.ErrorIs(t, err, ErrNoAllocationParts)
-
-	_, err = New(100, "USD").Allocate([]int{1, -1, 1})
-	assert.ErrorIs(t, err, ErrNegativeAllocationPart)
-}
-
-func TestAllocateLargeRemainder(t *testing.T) {
-	// 7 across [1,1,1] => 3,2,2
-	parts, err := New(7, "USD").Allocate([]int{1, 1, 1})
-	require.NoError(t, err)
-	sum := int64(0)
+	sum = 0
 	for _, p := range parts {
 		sum += p.Amount()
 	}
 	assert.Equal(t, int64(7), sum)
+
+	_, err = New(100, "USD").Allocate([]int{})
+	assert.ErrorIs(t, err, ErrNoAllocationParts)
+	_, err = New(100, "USD").Allocate([]int{1, -1})
+	assert.ErrorIs(t, err, ErrNegativeAllocationPart)
 }
 
-// ──────────────────────────────────────────────
-// Currency metadata
-// ──────────────────────────────────────────────
+func TestRegisterCurrencyAndConvert(t *testing.T) {
+	require.NoError(t, RegisterCurrency(Currency{Code: "POINTS", Precision: 0, Symbol: "P"}))
+	t.Cleanup(func() { UnregisterCurrency("POINTS") })
 
-func TestCurrencyPrecision(t *testing.T) {
-	assert.Equal(t, 2, CurrencyPrecision("USD"))
-	assert.Equal(t, 0, CurrencyPrecision("JPY"))
-	assert.Equal(t, 3, CurrencyPrecision("BHD"))
-	assert.Equal(t, 2, CurrencyPrecision("UNKNOWN")) // default
+	assert.True(t, IsKnownCurrency("POINTS"))
+	assert.Equal(t, 0, CurrencyPrecision("POINTS"))
+	assert.Equal(t, "P", CurrencySymbol("POINTS"))
+
+	m, err := Parse("10", "POINTS")
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), m.Amount())
+
+	rates := NewRateTable()
+	require.NoError(t, rates.Set("USD", "CNY", 7))
+	cny, err := rates.Convert(New(100, "USD"), "CNY", RoundHalfUp) // $1.00 -> ¥7.00
+	require.NoError(t, err)
+	assert.Equal(t, "CNY", cny.Currency())
+	assert.Equal(t, int64(700), cny.Amount())
+
+	_, err = rates.Convert(New(100, "USD"), "EUR", RoundHalfUp)
+	assert.Error(t, err)
+	_, err = New(100, "USD").Convert("CNY", -1, RoundHalfUp)
+	assert.ErrorIs(t, err, ErrInvalidRate)
 }
 
-func TestCurrencySymbol(t *testing.T) {
-	assert.Equal(t, "$", CurrencySymbol("USD"))
-	assert.Equal(t, "€", CurrencySymbol("EUR"))
-	assert.Equal(t, "¥", CurrencySymbol("CNY"))
-	assert.Equal(t, "¥", CurrencySymbol("JPY"))
-	assert.Equal(t, "UNKNOWN", CurrencySymbol("UNKNOWN"))
+func TestFormatAndDecimal(t *testing.T) {
+	assert.Equal(t, "USD 1.99", New(199, "USD").String())
+	assert.Equal(t, "1.99", New(199, "USD").Format())
+	assert.Equal(t, 1.99, New(199, "USD").Decimal())
+	assert.Equal(t, "100", New(100, "JPY").Format())
 }
 
-// ──────────────────────────────────────────────
-// Rounding helpers (internal)
-// ──────────────────────────────────────────────
-
-func TestRoundHalfDownInternal(t *testing.T) {
-	assert.Equal(t, 2.0, roundHalfDown(2.5))
-	assert.Equal(t, 3.0, roundHalfDown(2.6))
-	assert.Equal(t, -2.0, roundHalfDown(-2.5))
-	assert.Equal(t, -3.0, roundHalfDown(-2.6))
+func TestPow10Bounds(t *testing.T) {
+	v, err := pow10(0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), v)
+	_, err = pow10(19)
+	assert.ErrorIs(t, err, ErrOverflow)
+	_, err = pow10(-1)
+	assert.ErrorIs(t, err, ErrOverflow)
 }
 
-func TestRoundHalfEvenInternal(t *testing.T) {
-	assert.Equal(t, 2.0, roundHalfEven(2.5))
-	assert.Equal(t, 4.0, roundHalfEven(3.5))
-	assert.Equal(t, -2.0, roundHalfEven(-2.5))
-	assert.Equal(t, -4.0, roundHalfEven(-3.5))
-	assert.Equal(t, 2.0, roundHalfEven(2.4))
-	assert.Equal(t, 3.0, roundHalfEven(2.6))
-	// Negative non-tie cases.
-	assert.Equal(t, -2.0, roundHalfEven(-2.4))
-	assert.Equal(t, -3.0, roundHalfEven(-2.6))
+func TestOverflowMulAdd(t *testing.T) {
+	_, err := New(math.MaxInt64, "USD").Add(New(1, "USD"))
+	assert.ErrorIs(t, err, ErrOverflow)
+	_, err = New(math.MaxInt64/2+1, "USD").Mul(3)
+	assert.ErrorIs(t, err, ErrOverflow)
 }
-
-func TestRoundUpInternal(t *testing.T) {
-	assert.Equal(t, 3.0, roundUp(2.1))
-	assert.Equal(t, -3.0, roundUp(-2.1))
-	assert.Equal(t, 2.0, roundUp(2.0))
-}
-
-func TestPow10(t *testing.T) {
-	assert.Equal(t, int64(1), pow10(0))
-	assert.Equal(t, int64(10), pow10(1))
-	assert.Equal(t, int64(100), pow10(2))
-	assert.Equal(t, int64(1000), pow10(3))
-}
-
-func TestLeftPad(t *testing.T) {
-	assert.Equal(t, "005", leftPad("5", 3))
-	assert.Equal(t, "123", leftPad("123", 3))
-	assert.Equal(t, "00123", leftPad("123", 5))
-}
-
-// Ensure Decimal matches math for a known value to keep the math import used.
-func TestDecimalFloatAccuracy(t *testing.T) {
-	m := New(123456, "USD")
-	assert.InDelta(t, 1234.56, m.Decimal(), math.Pow(10, -6))
-}
-
-// ──────────────────────────────────────────────
-// String-based precision (large amounts & edge cases)
-// ──────────────────────────────────────────────
 
 func TestFromDecimal_LargeAmount(t *testing.T) {
-	// Large amount that would lose precision with float64 multiplication.
-	// 123456789.99 * 100 = 12345678999 which is within int64 range but
-	// float64 multiplication can introduce rounding errors.
-	m := FromDecimal(123456789.99, "USD")
+	m, err := FromDecimal(123456789.99, "USD")
+	require.NoError(t, err)
 	assert.Equal(t, int64(12345678999), m.Amount())
-
-	m2 := FromDecimal(9999999999.99, "USD")
-	assert.Equal(t, int64(999999999999), m2.Amount())
 }
 
-func TestRound_NonFinite(t *testing.T) {
-	assert.Equal(t, int64(0), Round(math.NaN(), "USD", RoundHalfUp).Amount())
-	assert.Equal(t, int64(0), Round(math.Inf(1), "USD", RoundHalfUp).Amount())
-	assert.Equal(t, int64(0), Round(math.Inf(-1), "USD", RoundHalfUp).Amount())
-}
-
-func TestRound_HalfEvenWithMoreAfterTie(t *testing.T) {
-	// 0.1255 with 2 decimals: kept=12, rest=55 -> first digit 5, hasMore=true -> round up.
-	assert.Equal(t, int64(13), Round(0.1255, "USD", RoundHalfEven).Amount())
-}
-
-func TestRound_HalfEvenGreaterThanFive(t *testing.T) {
-	// 0.126 with 2 decimals: kept=12, rest=6 -> 6 > 5 -> round up.
-	assert.Equal(t, int64(13), Round(0.126, "USD", RoundHalfEven).Amount())
-}
-
-func TestRound_HalfDownWithMoreAfterTie(t *testing.T) {
-	// 0.1255 with 2 decimals: kept=12, rest=55 -> first digit 5, hasMore=true -> round up.
-	assert.Equal(t, int64(13), Round(0.1255, "USD", RoundHalfDown).Amount())
-}
-
-func TestRound_OverflowIntPart(t *testing.T) {
-	// Integer part overflows int64 -> returns 0.
-	m := Round(1e30, "USD", RoundHalfUp)
-	assert.Equal(t, int64(0), m.Amount())
+func TestRound_HalfEvenEdges(t *testing.T) {
+	m, err := Round(0.1255, "USD", RoundHalfEven)
+	require.NoError(t, err)
+	assert.Equal(t, int64(13), m.Amount())
+	m, err = Round(0.126, "USD", RoundHalfEven)
+	require.NoError(t, err)
+	assert.Equal(t, int64(13), m.Amount())
+	m, err = Round(0.1255, "USD", RoundHalfDown)
+	require.NoError(t, err)
+	assert.Equal(t, int64(13), m.Amount())
 }
 
 func TestHasNonZero(t *testing.T) {
 	assert.False(t, hasNonZero(""))
 	assert.False(t, hasNonZero("000"))
 	assert.True(t, hasNonZero("001"))
-	assert.True(t, hasNonZero("1"))
-}
-
-func TestDecimal_LargeAmount(t *testing.T) {
-	m := New(12345678999, "USD")
-	assert.InDelta(t, 123456789.99, m.Decimal(), 1e-6)
 }

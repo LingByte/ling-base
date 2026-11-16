@@ -67,7 +67,7 @@ func NewJinaEmbedder(cfg *Config) (*JinaEmbedder, error) {
 	}, nil
 }
 
-func (e *JinaEmbedder) Name() string  { return ProviderJina }
+func (e *JinaEmbedder) Name() string     { return ProviderJina }
 func (e *JinaEmbedder) Provider() string { return ProviderJina }
 func (e *JinaEmbedder) Dimension() int   { return e.dimension }
 func (e *JinaEmbedder) Close() error     { return nil }

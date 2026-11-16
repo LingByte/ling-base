@@ -12,8 +12,8 @@ import (
 
 	"github.com/LingByte/ling-base/relay/channel/coze"
 	common "github.com/LingByte/ling-base/relay/common"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 func TestCozeAdaptor_GetChannelName(t *testing.T) {

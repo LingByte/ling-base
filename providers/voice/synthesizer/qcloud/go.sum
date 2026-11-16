@@ -4,8 +4,6 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/LingByte/ling-base/common/logger v0.1.0 h1:4wdlgnbqK0nc+1LvhzmqNKHWMwdrglf8ZzJCz8OxMGg=
 github.com/LingByte/ling-base/common/logger v0.1.0/go.mod h1:S9BpHEi5QbOd1rr5QOUqPa9ev8WSXe3rJlU+lkJYkGE=
-github.com/LingByte/ling-base/voice/synthesizer v0.1.1 h1:VklZKM6WRK8+utpL3sq8vc1hJ+kKztV12KsFU1IjFOQ=
-github.com/LingByte/ling-base/voice/synthesizer v0.1.1/go.mod h1:8klYxVtdCfZ/Db4XH9bBS3HaXh0b0bkEpNtASNbM944=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

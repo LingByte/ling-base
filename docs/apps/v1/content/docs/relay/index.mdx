@@ -1,0 +1,34 @@
+---
+title: Relay
+description: AI provider 中继 — 统一 Client API 与 40+ channel 适配器
+---
+
+`relay` 提供统一的 AI 调用层，屏蔽各厂商协议差异。
+
+```bash
+go get github.com/LingByte/ling-base/relay
+```
+
+## 能力
+
+| Mode | 说明 |
+|------|------|
+| ChatCompletions | OpenAI chat 格式 |
+| Embeddings | 向量嵌入 |
+| ImagesGenerations | 图片生成 |
+| AudioSpeech | TTS |
+| Responses | OpenAI Responses API |
+| Realtime | WebSocket 实时 |
+| Tasks | 异步视频/音乐生成 |
+
+## 目录
+
+```
+relay/
+├── client.go      # Chat / Stream / Embed / Image / Audio / Responses
+├── channel/       # ~40 个 provider 适配器
+├── task/          # Sora / Kling / Suno / Vidu ...
+└── relaykit/      # OpenAI ↔ Claude ↔ Gemini 格式转换
+```
+
+源码：https://github.com/LingByte/ling-base/tree/main/relay

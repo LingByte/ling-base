@@ -3,6 +3,7 @@ module github.com/LingByte/ling-base/common/mq/redisstream
 go 1.26.2
 
 require (
+	github.com/LingByte/ling-base/common/mq v0.1.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.1
 )

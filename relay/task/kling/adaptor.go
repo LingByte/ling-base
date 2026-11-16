@@ -1,8 +1,8 @@
 package kling
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,19 +12,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LingByte/ling-base/relay/task/taskmodel"
+	"github.com/LingByte/ling-base/relay/channel"
+	common "github.com/LingByte/ling-base/relay/common"
 	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/task/taskcommon"
-	common "github.com/LingByte/ling-base/relay/common"
-	"github.com/LingByte/ling-base/relay/channel"
+	"github.com/LingByte/ling-base/relay/task/taskmodel"
 
 	"github.com/samber/lo"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 
-	"github.com/LingByte/ling-base/relay/service"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
+	"github.com/LingByte/ling-base/relay/service"
 )
 
 // ============================

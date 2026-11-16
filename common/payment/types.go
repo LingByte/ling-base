@@ -29,10 +29,10 @@ const (
 type OrderStatus string
 
 const (
-	StatusPending OrderStatus = "pending"
-	StatusSuccess OrderStatus = "success"
-	StatusFailed  OrderStatus = "failed"
-	StatusExpired OrderStatus = "expired"
+	StatusPending  OrderStatus = "pending"
+	StatusSuccess  OrderStatus = "success"
+	StatusFailed   OrderStatus = "failed"
+	StatusExpired  OrderStatus = "expired"
 	StatusRefunded OrderStatus = "refunded"
 )
 
@@ -238,19 +238,19 @@ type WebhookResponse struct {
 // OrderQuery is the provider-neutral input for querying an order's status
 // from the provider's API (not via webhook).
 type OrderQuery struct {
-	TradeNo        string
+	TradeNo         string
 	ProviderOrderID string
 }
 
 // OrderQueryResult is the provider-neutral output of an order status query.
 type OrderQueryResult struct {
-	TradeNo        string
+	TradeNo         string
 	ProviderOrderID string
-	Status         OrderStatus
-	MoneyPaid      Money
-	Currency       Currency
-	PaidAt         *time.Time
-	Raw            any
+	Status          OrderStatus
+	MoneyPaid       Money
+	Currency        Currency
+	PaidAt          *time.Time
+	Raw             any
 }
 
 // Common sentinel errors returned by adapters. Adapters may wrap these with

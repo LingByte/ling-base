@@ -1,0 +1,35 @@
+---
+title: Chat
+description: 使用 relay.Client 发起 Chat 请求
+---
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/LingByte/ling-base/relay"
+    "github.com/LingByte/ling-base/relay/channel/openai"
+)
+
+func main() {
+    client := relay.New(
+        relay.WithProvider(openai.NewProvider("sk-xxx")),
+    )
+
+    resp, err := client.Chat(context.Background(), &relay.ChatRequest{
+        Model: "gpt-4o",
+        Messages: []relay.Message{
+            {Role: "user", Content: "Hello from ling-base"},
+        },
+    })
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(resp)
+}
+```
+
+兼容 OpenAI 的 provider（DeepSeek、Moonshot、SiliconFlow 等）通常可复用 `openai` channel，并设置自定义 BaseURL。

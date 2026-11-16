@@ -21,7 +21,7 @@ var fullExcludeDirs = map[string]bool{
 	"lingcli":  true, // the generator itself
 	"docs":     true, // documentation site
 	"example":  true, // examples
-	"pentest":  true, // penetration testing tools
+	"toolkits": true, // domain toolkits (e.g. pentest); not app scaffolding deps
 	".git":     true, // git metadata
 	"agentkit": true, // AI agent kit (heavy, separate concern)
 	"scripts":  true, // repository release/build tools
@@ -147,8 +147,7 @@ func copyModuleSource(lingBaseRoot, targetPkgDir, modulePath string) error {
 // paths that only work in the workspace context (via go.work re-exports)
 // but break when everything is merged into a single module in full mode.
 var importFixups = map[string]string{
-	// common/mq subpackages import "github.com/LingByte/ling-base/mq"
-	// but the actual module path is common/mq
+	// Legacy root path used before MQ moved under common/.
 	"github.com/LingByte/ling-base/mq": "github.com/LingByte/ling-base/common/mq",
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
 	"github.com/LingByte/ling-base/relay/service"
-
 )
 
 func siliconflowRerankHandler(c context.Context, info *common.RelayInfo, resp *http.Response, w http.ResponseWriter) (*dto.Usage, *types.NewAPIError) {

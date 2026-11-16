@@ -2,24 +2,29 @@
 
 ## 概述
 
-ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及 80+ 通用工具包。
+ling-base 是一个 Go 多模块基础库，为 LingByte 系列项目（LingRein、LingEchoX 等）提供可复用的通用能力：AI provider 中继、语音处理、对象存储、消息队列、内容审核、OCR 以及大量独立 common 工具包。仓库约 **218** 个 `go.mod`（agentkit 已移出本仓库）。
 
 ## 仓库结构
 
 ```
 ling-base/
-├── common/          # 通用工具包（每个独立 go.mod）
-│   └── stores/      # 对象存储（9 个 provider）
-├── relay/           # AI provider 中继（60+ 适配器）
+├── common/          # 通用工具包（约 83 个一级目录；含 mq / search / notification / stores）
+│   ├── mq/          # 消息队列（5 个 broker）
+│   ├── stores/      # 对象存储（9 个 provider）
+│   ├── search/      # 全文搜索
+│   └── notification/# 通知调度
+├── relay/           # AI provider 中继（约 40 个 channel + task）
 ├── providers/       # 第三方服务
 │   ├── voice/       # 语音识别 / 合成 / 实时 / VAD / 声纹 / 克隆
 │   ├── censor/      # 内容审核（3 个 provider）
 │   └── ocr/         # OCR（6 个 provider）
-├── mq/              # 消息队列（5 个 broker）
 ├── bootstrap/       # 应用生命周期框架
 ├── lingcli/         # 项目脚手架 CLI
-├── example/         # 已清空，预留目录
+├── apidocs/         # OpenAPI / Huma 文档挂载
+├── toolkits/        # 专项领域工具库
+│   └── pentest/     # Web 安全测试工具集
 ├── version/         # 版本信息
+├── docs/            # 文档站（Next.js + Fumadocs）
 ├── go.work          # 本地多模块工作区
 └── ARCHITECTURE.md  # 本文档
 ```
@@ -139,7 +144,7 @@ providers/voice/
 
 ## common 模块
 
-80+ 独立工具包，按功能分类：
+约 83 个一级包目录（大量子实现各自独立 `go.mod`），按功能分类：
 
 | 分类 | 模块 |
 |------|------|
@@ -147,18 +152,18 @@ providers/voice/
 | 缓存 | cache（redis/ristretto）, bloom（5 种）, bitmap（memory/roaring/redis）, queue（3 种） |
 | 安全 | totp, passkey, password, jwtutil, captcha |
 | IO | compress, imageutil, videoutil, audioutil |
-| 网络 | netutil, httpclient, dnsutil（高级 DNS）, curlutil（curl 解析+调试 HTTP）, opentelemetry, tracing |
+| 网络 | netutil（含 DNS / curl 解析与调试 HTTP）, httpclient, opentelemetry, tracing |
 | 地理位置 | geoip（IP→位置）, geocode（经纬度↔地址，Nominatim+BigDataCloud）, phone（手机号归属地） |
 | 支付 | payment（stripe/creem/epay/waffo/waffopancake） |
-| 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff）, emoji（短代码↔Unicode） |
+| 文本处理 | slug（URL slug）, sanitize（XSS 过滤）, markdown（MD→HTML）, diff（文本 diff） |
 | 数据导出 | export（Excel/CSV/JSON/Markdown） |
 | 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名）, turnstile（Cloudflare 验证） |
-| 运营工具 | featureflag（功能开关）, abtest（A/B 分流）, auditlog（审计日志）, webhook（Webhook 发送）, backup（数据备份）, antispam（反垃圾） |
-| 网络/通信 | sse（Server-Sent Events）, wsutil（WebSocket 工具）, upload（文件上传） |
-| 数据结构 | trie（前缀树）, consistent（一致性哈希）, bitmap, bloom |
+| 运营工具 | featureflag（功能开关）, auditlog（审计日志）, notification（含 webhook 通道）, backup（逻辑备份） |
+| 网络/通信 | wsutil（WebSocket 工具） |
+| 数据结构 | consistent（一致性哈希）, bitmap, bloom |
 | 金额/支付 | money（金额处理）, payment（stripe/creem/epay/waffo/waffopancake） |
 | 归档 | archive（zip/tar/tar.gz） |
-| 工具 | convert, parser, pinyin, qrcode, barcode, random, hash |
+| 工具 | convert, parser, pinyin, qrcode, barcode, random, hash；根包 time/time_helpers（自然语言时间 + 时区/区间/秒表） |
 
 ## 日志
 
@@ -177,7 +182,7 @@ relay 模块的 channel 适配器统一使用 logger，不直接调用 fmt.Print
 
 每个模块独立打 tag 发布，tag 前缀与当前 `go.mod` 路径一致。迁移后的 `common/stores/*` 和 `providers/voice/*`（含各领域核心模块）从新前缀的 `v0.1.0` 首发，历史 tag 保持不变。
 
-发布脚本支持 `DRY_RUN=1` 预览，并拒绝为未提交的工作区打 tag。先发布库，再通过 `make sync-cli-versions` 更新并提交 lingcli 版本表，最后单独发布 lingcli；`make release-all` 不包含 CLI。详见 [发布指南](CONTRIBUTING.md#8-发布版本)。
+发布脚本支持 `DRY_RUN=1` 预览，并拒绝为未提交的工作区打 tag。日常优先 `--pkg <dir>` 或 `--group <name>`；`--all` 仅用于大范围同步。先发布库，再通过 `make sync-cli-versions` 更新并提交 lingcli 版本表，最后单独发布 lingcli；`make release-all` 不包含 CLI。详见 [发布指南](CONTRIBUTING.md#8-发布版本)。
 
 ```bash
 git tag common/totp/v0.1.0

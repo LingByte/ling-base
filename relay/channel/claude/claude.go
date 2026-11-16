@@ -18,12 +18,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/LingByte/ling-base/relay/constant"
 	common "github.com/LingByte/ling-base/relay/common"
+	"github.com/LingByte/ling-base/relay/constant"
 	"github.com/LingByte/ling-base/relay/relaykit/dto"
 	"github.com/LingByte/ling-base/relay/relaykit/relayconvert"
-	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 	"github.com/LingByte/ling-base/relay/relaykit/types"
+	relaymode "github.com/LingByte/ling-base/relay/relaymode"
 )
 
 // DefaultBaseURL is the default Anthropic API endpoint.
@@ -31,9 +31,9 @@ const DefaultBaseURL = "https://api.anthropic.com"
 
 // Adaptor implements common.Adaptor for Anthropic Claude.
 type Adaptor struct {
-	APIKey      string
-	BaseURL     string
-	APIVersion  string // anthropic-version header, default "2023-06-01"
+	APIKey     string
+	BaseURL    string
+	APIVersion string // anthropic-version header, default "2023-06-01"
 	// AuthToken is an OAuth bearer token. When set, it is sent as
 	// "Authorization: Bearer <token>" instead of the x-api-key header.
 	// This is used for Claude Code OAuth sessions.
@@ -198,8 +198,8 @@ func (a *Adaptor) handleStreamChatResponse(ctx context.Context, info *common.Rel
 		}
 		// Claude streams have event types. Look for message_delta with usage.
 		var event struct {
-			Type  string `json:"type"`
-			Usage *dto.ClaudeUsage `json:"usage"`
+			Type    string           `json:"type"`
+			Usage   *dto.ClaudeUsage `json:"usage"`
 			Message *struct {
 				Usage *dto.ClaudeUsage `json:"usage"`
 			} `json:"message"`
@@ -276,8 +276,8 @@ func NewProvider(apiKey string, opts ...Option) *Provider {
 	return &Provider{adaptor: New(apiKey, opts...)}
 }
 
-func (p *Provider) Name() string         { return "claude" }
-func (p *Provider) ApiType() int         { return constant.APITypeAnthropic }
+func (p *Provider) Name() string            { return "claude" }
+func (p *Provider) ApiType() int            { return constant.APITypeAnthropic }
 func (p *Provider) Adaptor() common.Adaptor { return p.adaptor }
-func (p *Provider) BaseURL() string      { return p.adaptor.BaseURL }
-func (p *Provider) APIKey() string       { return p.adaptor.APIKey }
+func (p *Provider) BaseURL() string         { return p.adaptor.BaseURL }
+func (p *Provider) APIKey() string          { return p.adaptor.APIKey }

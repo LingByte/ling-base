@@ -10,19 +10,19 @@ ling-base 是一个**多 module Go 库**，每个子目录是一个独立的 Go 
 ling-base/
 ├─ go.mod / go.work          # 仓库锚点 + 本地多 module 开发
 ├─ common/                   # 通用工具模块
-│  ├─ stats/                 # 统计指标库（独立 module）
-│  │  ├─ memory/             # memory 后端（独立 module）
-│  │  ├─ redis/              # redis 后端（独立 module）
-│  │  └─ gin/                # gin 中间件（独立 module）
-│  └─ jwtutil/               # JWT 工具（独立 module）
-├─ cache/                    # 缓存抽象（独立 module）
-│  └─ redis/                 # redis 后端（独立 module）
-├─ lock/                     # 分布式锁（独立 module）
-│  └─ redis/                 # redis 后端（独立 module）
-└─ ...
+│  ├─ cache/                 # 缓存抽象 + redis 等后端
+│  ├─ lock/                  # 分布式锁 + redis 等后端
+│  ├─ mq/                    # 消息队列接口与 broker
+│  ├─ stores/                # 对象存储抽象与后端
+│  └─ ...
+├─ providers/voice/          # 语音能力（识别/合成/…）
+├─ relay/                    # AI 中继
+├─ toolkits/                 # 专项领域工具库（如 pentest）
+├─ lingcli/                  # CLI
+└─ docs/                     # 文档站（apps/v1）
 ```
 
-**核心原则**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。
+**核心原则**：业务只 import 用到的驱动，不会把无关 SDK 拉进依赖树。`toolkits/` 放主动工具 / 垂直领域库，默认不作为应用脚手架依赖。
 
 ## 开发环境
 
@@ -48,8 +48,11 @@ make build
 # 测试所有模块
 make test
 
-# 格式化 + vet + 构建 + 测试（CI 等价）
+# 格式化 + vet + 构建 + 测试 + go.work 一致性
 make check
+
+# 更接近完整 CI（含 lint / vuln / CLI 版本目录）
+make check-all
 ```
 
 ### 本地依赖服务
@@ -173,18 +176,24 @@ chore: 更新构建配置
 - `providers/voice/recognizer/v0.1.0`、`providers/voice/synthesizer/v0.1.0`、`providers/voice/realtime/v0.1.0` 及各 provider；
 - `providers/voice/vad/v0.1.0`、`providers/voice/voiceprint/v0.1.0`、`providers/voice/voiceclone/v0.1.0`。
 
-**先发布库，最后发布 lingcli**。`release-all` 只处理库模块，不包含 lingcli。真实创建 tag 前必须提交全部改动；预览不要求工作区干净，也不会写入 tag。
+**先发布库，最后发布 lingcli**。日常优先 `--pkg` / `make release-group`；`release-all` 会扫描约 238 个 module，仅用于大范围同步，且不包含 lingcli。真实创建 tag 前必须提交全部改动；预览不要求工作区干净，也不会写入 tag。发版前可跑 `make check-modules`。
 
 ```bash
+# 0. 一致性检查（go.work 覆盖 + 拒绝已删除路径的 import）
+make check-modules
+
 # 1. 预览新 tag（不会创建或推送任何 tag）
 make release-patch PKG=common/stores DRY_RUN=1
 make release-patch PKG=providers/voice/recognizer DRY_RUN=1
-make release-all DRY_RUN=1
+make release-group GROUP=relay DRY_RUN=1
+# groups: relay | common-infra | voice | providers-other | tooling | common
 
 # 2. 提交改动后，为变更的库创建本地 tag；检查清单后推送库 tag
-make release-all
-make push-tag TAG=common/stores/v0.1.0  # 单个推送示例
-# 首次迁移需要发布全部 52 个新路径 tag；确认本地 tag 清单后也可 make push-tags
+make release-group GROUP=common-infra
+make release-patch PKG=common/mq
+make push-tag TAG=common/mq/v0.1.0
+# 仅大范围同步时：
+make release-all DRY_RUN=1
 
 # 3. 库 tag 已发布后，同步 lingcli 内置版本表并提交生成文件
 make sync-cli-versions
@@ -236,18 +245,26 @@ make push-tag TAG=lingcli/v0.33.0
 
 ## CI/CD
 
-所有 push 和 PR 会自动触发 CI（`.github/workflows/ci.yml`）：
+所有分支的 push / PR 都会触发 Go CI（`.github/workflows/ci.yml`）：
 
-1. **fmt + vet** — 格式和静态检查
-2. **build + test** — 矩阵构建和测试所有模块
-3. **coverage** — 覆盖率报告
-4. **lint** — golangci-lint
-5. **vuln** — govulncheck 漏洞扫描
+1. **check-modules** — `go.work` 覆盖校验 + 拒绝已删除路径的 import/`go.sum`
+2. **check-cli-versions** — lingcli 模块版本目录一致性
+3. **fmt + vet** — 格式和静态检查
+4. **build + test** — PR 仅测受影响模块；push 默认全量（含 race）
+5. **coverage** — 覆盖率报告（测试失败会失败）
+6. **lint** — golangci-lint
+7. **vuln** — govulncheck（目前上报漏洞报告，不阻断合并；本地可用 `make vuln` 查看）
+
+文档站：
+
+- PR：`.github/workflows/docs-ci.yml`（typecheck / lint / static build）
+- `main` 合并后：`.github/workflows/docs-deploy.yml` 部署 GitHub Pages
 
 打 tag 时自动触发 Release（`.github/workflows/release.yml`）：
 
 1. 验证对应模块能编译 + 测试通过
 2. 创建 GitHub Release
+3. `lingcli/*` tag 额外交叉编译并上传二进制
 
 ## 联系
 

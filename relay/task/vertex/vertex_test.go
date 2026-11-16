@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	common "github.com/LingByte/ling-base/relay/common"
-	"github.com/LingByte/ling-base/relay/task/vertex"
 	"github.com/LingByte/ling-base/relay/task/taskmodel"
+	"github.com/LingByte/ling-base/relay/task/vertex"
 )
 
 // validCredentialsJSON is a minimal JSON for vertex2.Credentials used by

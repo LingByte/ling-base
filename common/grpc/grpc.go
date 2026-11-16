@@ -57,12 +57,12 @@ var (
 type ClientOption func(*clientConfig)
 
 type clientConfig struct {
-	balancer        string
-	credentials     grpc.DialOption
-	dialOptions     []grpc.DialOption
-	interceptors    []grpc.UnaryClientInterceptor
+	balancer           string
+	credentials        grpc.DialOption
+	dialOptions        []grpc.DialOption
+	interceptors       []grpc.UnaryClientInterceptor
 	streamInterceptors []grpc.StreamClientInterceptor
-	timeout         time.Duration
+	timeout            time.Duration
 }
 
 // WithRoundRobin sets round-robin load balancing.
@@ -213,8 +213,8 @@ func (p *ConnPool) Close() error {
 type ServerOption func(*serverConfig)
 
 type serverConfig struct {
-	maxRecvMsgSize   int
-	maxSendMsgSize   int
+	maxRecvMsgSize     int
+	maxSendMsgSize     int
 	unaryInterceptors  []grpc.UnaryServerInterceptor
 	streamInterceptors []grpc.StreamServerInterceptor
 }

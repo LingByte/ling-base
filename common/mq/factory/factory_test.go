@@ -6,7 +6,7 @@ package factory
 import (
 	"testing"
 
-	"github.com/LingByte/ling-base/mq"
+	"github.com/LingByte/ling-base/common/mq"
 	"github.com/LingByte/ling-base/common/mq/activemq"
 	"github.com/LingByte/ling-base/common/mq/kafka"
 	"github.com/LingByte/ling-base/common/mq/rabbitmq"

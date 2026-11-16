@@ -1,0 +1,55 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fast static export
+        working-directory: docs/apps/v1
+        run: |
+          set -euo pipefail
+          NEXT_PUBLIC_BASE_PATH=/ling-base NEXT_PUBLIC_STATIC_DEPLOY=1 node ./scripts/with-static-export.mjs
+          rm -rf ../../out
+          mkdir -p ../../out
+          cp -R out/. ../../out/
+          test -f ../../out/index.html
+          test -d ../../out/docs
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,18 @@
+---
+title: Bootstrap
+description: 应用生命周期框架
+---
+
+```bash
+go get github.com/LingByte/ling-base/bootstrap
+```
+
+```go
+import "github.com/LingByte/ling-base/bootstrap"
+
+app := bootstrap.New("myapp", bootstrap.WithProfile(bootstrap.ProfileProd))
+app.MustRegister("api", &APIServer{})
+_ = app.Run()
+```
+
+源码：https://github.com/LingByte/ling-base/tree/main/bootstrap

@@ -5,9 +5,7 @@ use (
 	./apidocs
 	./bootstrap
 	./common
-	./common/abtest
-	./common/alerting
-	./common/antispam
+	./common/archive
 	./common/audioutil
 	./common/auditlog
 	./common/authcontext
@@ -37,7 +35,6 @@ use (
 	./common/codegen
 	./common/compress
 	./common/config
-	./common/configcenter
 	./common/consistent
 	./common/constants
 	./common/convert
@@ -45,11 +42,11 @@ use (
 	./common/crypto
 	./common/diff
 	./common/embedder
-	./common/emoji
 	./common/eventbus
 	./common/export
 	./common/extension
 	./common/featureflag
+	./common/geocode
 	./common/geoip
 	./common/grpc
 	./common/hash
@@ -82,11 +79,11 @@ use (
 	./common/logger
 	./common/logger/gin
 	./common/markdown
-	./common/mathutil
 	./common/metrics
 	./common/middleware
 	./common/migration
 	./common/migration/gormmigrator
+	./common/money
 	./common/mq
 	./common/mq/activemq
 	./common/mq/factory
@@ -95,7 +92,6 @@ use (
 	./common/mq/redisstream
 	./common/mq/rocketmq
 	./common/netutil
-	./common/nltime
 	./common/notification
 	./common/notification/email
 	./common/notification/httpclient
@@ -123,8 +119,6 @@ use (
 	./common/queue/memory
 	./common/queue/redis
 	./common/random
-	./common/rbac
-	./common/rbac/gin
 	./common/reconciler
 	./common/registry
 	./common/registry/consul
@@ -157,23 +151,14 @@ use (
 	./common/stores/s3
 	./common/stores/tos
 	./common/system
-	./common/timeutil
 	./common/totp
 	./common/tracing
-	./common/tree
-	./common/tree/gormstore
-	./common/tree/memory
-	./common/tree/mysql
-	./common/tree/postgres
-	./common/tree/sqlite
-	./common/trie
+	./common/turnstile
 	./common/uaparse
 	./common/validate
 	./common/videoutil
-	./common/webhook
 	./common/wsutil
 	./lingcli
-	./pentest
 	./providers/censor
 	./providers/censor/aliyun
 	./providers/censor/qcloud
@@ -230,6 +215,7 @@ use (
 	./relay
 	./relay/compat
 	./relay/relaykit
+	./toolkits/pentest
 	./version
 )
 

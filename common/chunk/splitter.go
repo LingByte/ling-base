@@ -678,7 +678,7 @@ func SplitTextParentChild(text string, parentCfg, childCfg SplitterConfig) Paren
 			sub.Start += parent.Start
 			sub.End += parent.Start
 			children = append(children, ChildChunk{
-				splitChunk:       sub,
+				splitChunk:  sub,
 				ParentIndex: parentIndex,
 			})
 			childSeq++
