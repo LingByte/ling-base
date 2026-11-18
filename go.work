@@ -42,6 +42,7 @@ use (
 	./common/diff
 	./common/devices
 	./common/embedder
+	./common/sandbox
 	./common/eventbus
 	./common/export
 	./common/featureflag
@@ -165,6 +166,7 @@ use (
 	./providers/ocr/baidu
 	./providers/ocr/google
 	./providers/ocr/qcloud
+	./providers/embedder
 	./providers/rerank
 	./providers/voice/realtime
 	./providers/voice/realtime/aliyunomni
