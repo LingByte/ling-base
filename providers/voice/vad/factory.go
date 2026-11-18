@@ -8,10 +8,12 @@ import "fmt"
 // NewDetector creates a VAD detector by engine kind.
 //
 // Supported kinds:
-//   - EngineEnergy:  RMS + ZCR energy-based (pure Go, no deps)
-//   - EngineWebRTC:  WebRTC GMM (CGO, github.com/GanymedeNil/go-webrtcvad)
-//   - EngineSilero:  Silero neural (pure Go, embedded weights, 16kHz only)
-//   - EngineHybrid:  Energy pre-filter + Silero confirmation (best speed/accuracy)
+//   - EngineEnergy:     RMS + ZCR energy-based (pure Go, no deps)
+//   - EngineWebRTC:     WebRTC GMM (CGO, github.com/GanymedeNil/go-webrtcvad)
+//   - EngineSilero:     Silero neural (pure Go, embedded weights, 16kHz only)
+//   - EngineHybrid:     Energy pre-filter + Silero confirmation (best speed/accuracy)
+//   - EngineTinySilero: Levad TinySilero (requires -tags levad + liblevad)
+//   - EngineTinyTen:    Levad TinyTen (requires -tags levad + liblevad)
 func NewDetector(kind EngineKind, cfg Config) (Detector, error) {
 	cfg.validate()
 
@@ -52,6 +54,12 @@ func NewDetector(kind EngineKind, cfg Config) (Detector, error) {
 			MinSpeechFrames: cfg.MinSpeechFrames,
 			HangoverFrames:  cfg.HangoverFrames,
 		})
+
+	case EngineTinySilero:
+		return NewTinySileroDetector(cfg.SampleRate)
+
+	case EngineTinyTen:
+		return NewTinyTenDetector(cfg.SampleRate)
 
 	default:
 		return nil, fmt.Errorf("vad: unknown engine kind %q", kind)

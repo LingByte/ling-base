@@ -9,9 +9,12 @@ import "time"
 type EngineKind string
 
 const (
-	EngineEnergy EngineKind = "energy" // RMS + ZCR energy-based
-	EngineWebRTC EngineKind = "webrtc" // WebRTC GMM
-	EngineSilero EngineKind = "silero" // Silero neural (pure Go)
+	EngineEnergy     EngineKind = "energy"     // RMS + ZCR energy-based
+	EngineWebRTC     EngineKind = "webrtc"     // WebRTC GMM (CGO)
+	EngineSilero     EngineKind = "silero"     // Silero neural (pure Go)
+	EngineTinySilero EngineKind = "tinysilero" // Levad TinySilero (CGO + -tags levad)
+	EngineTinyTen    EngineKind = "tinyten"    // Levad TinyTen (CGO + -tags levad)
+	// EngineHybrid is declared in hybrid.go
 )
 
 // FrameResult is the per-frame output of a Detector.

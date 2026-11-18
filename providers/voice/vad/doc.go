@@ -20,6 +20,8 @@
 //     candidates, falls through to Silero for accurate classification.
 //     Average ~0.56ms/frame with zero accuracy loss vs pure Silero.
 //     Recommended for production real-time conversations.
+//   - [EngineTinySilero] / [EngineTinyTen]: Levad native Tiny models via
+//     CGO (`-tags levad` + built `native/levad` liblevad).
 //
 // # Quick start
 //
