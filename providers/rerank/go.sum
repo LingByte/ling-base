@@ -1,0 +1,8 @@
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.103 h1:W1dpZ/Q6+DjUpiAUSmIHuFn7rAvetlSqzQCtf0tKEEA=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.103/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lkeap v1.3.103 h1:z7Xh69LIe65ea866b9BVXJL/Jrf/kxOy5ggaIqpIrc0=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lkeap v1.3.103/go.mod h1:vw9jKKb4OeMEYnZqsKYoyMEJ/xv16oWnKVh3/JLOJvg=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=

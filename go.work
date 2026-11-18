@@ -165,6 +165,7 @@ use (
 	./providers/ocr/baidu
 	./providers/ocr/google
 	./providers/ocr/qcloud
+	./providers/rerank
 	./providers/voice/realtime
 	./providers/voice/realtime/aliyunomni
 	./providers/voice/realtime/gemini
@@ -175,6 +176,7 @@ use (
 	./providers/voice/realtime/tencentsts
 	./providers/voice/realtime/volcdialogue
 	./providers/voice/recognizer
+	./providers/voice/recognizer/std
 	./providers/voice/recognizer/aws
 	./providers/voice/recognizer/baidu
 	./providers/voice/recognizer/deepgram
@@ -188,6 +190,7 @@ use (
 	./providers/voice/recognizer/volcengine_llm
 	./providers/voice/recognizer/whisper
 	./providers/voice/synthesizer
+	./providers/voice/synthesizer/std
 	./providers/voice/synthesizer/aliyun
 	./providers/voice/synthesizer/aws
 	./providers/voice/synthesizer/azure
