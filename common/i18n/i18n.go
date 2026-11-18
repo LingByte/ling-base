@@ -127,11 +127,17 @@ func (m *Manager) LoadTranslations(path string) error {
 
 		baseName := strings.TrimSuffix(info.Name(), ".json")
 		parts := strings.Split(baseName, ".")
-		if len(parts) < 2 {
+		var loc Locale
+		switch {
+		case len(parts) >= 2:
+			// messages.zh-CN.json → zh-CN
+			loc = Locale(parts[len(parts)-1])
+		case len(parts) == 1 && parts[0] != "":
+			// zh-CN.json → zh-CN (bare locale filename)
+			loc = Locale(parts[0])
+		default:
 			return nil
 		}
-
-		loc := Locale(parts[len(parts)-1])
 		if !m.isSupportedLocale(loc) {
 			return nil
 		}
