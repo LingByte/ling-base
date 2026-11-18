@@ -16,7 +16,6 @@ common/
 ├── content_type.go   # File extension -> MIME type map
 ├── file_type.go      # File category constants (image/audio/media/file)
 ├── files.go          # File hash, size, save helpers
-├── array.go          # Generic Join[T] helper
 ├── math.go           # Clamp / Min / Max / RoundFloat / GCD
 ├── time.go           # ParseNaturalTime / Duration / Range (ex-nltime)
 ├── time_helpers.go   # format/parse/ranges/stopwatch (ex-timeutil)

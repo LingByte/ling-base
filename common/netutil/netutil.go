@@ -9,6 +9,7 @@
 //   - TCP/UDP utilities: dial, listen, ping, forward
 //   - DNS queries: QueryA/QueryAll/ReverseLookup via DNSClient
 //   - Curl debug: ParseCurlCommand / ExecuteCurl / CurlGet
+//   - HTTP probe: NewProber / ProbeSequence for synthetic monitoring
 //
 // # Quick start
 //
@@ -26,7 +27,11 @@
 //	})
 //	resp, err := client.Get("https://example.com")
 //
-//	// DNS + curl helpers live in the same package (dns.go / curl.go).
+//	// Synthetic HTTP probe (formerly common/probe)
+//	result := netutil.NewProber().Execute(ctx, netutil.ProbeRequest{
+//	    URL: "https://api.example.com/health",
+//	    Expect: netutil.ProbeExpect{StatusCode: 200},
+//	})
 package netutil
 
 import (

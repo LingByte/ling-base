@@ -151,7 +151,7 @@ providers/voice/
 | 并发控制 | limiter（10 种）, lock（5 种）, circuitbreaker, retry |
 | 缓存 | cache（redis/ristretto）, bloom（5 种）, bitmap（memory/roaring/redis）, queue（3 种） |
 | 安全 | totp, passkey, password, jwtutil, captcha |
-| IO | compress, imageutil, videoutil, audioutil |
+| IO | compress, media/image, media/audio, media/video |
 | 网络 | netutil（含 DNS / curl 解析与调试 HTTP）, httpclient, opentelemetry, tracing |
 | 地理位置 | geoip（IP→位置）, geocode（经纬度↔地址，Nominatim+BigDataCloud）, phone（手机号归属地） |
 | 支付 | payment（stripe/creem/epay/waffo/waffopancake） |
@@ -160,7 +160,7 @@ providers/voice/
 | 安全/认证 | totp, passkey, password, jwtutil, captcha, oauth2（OAuth2 客户端）, signature（请求签名）, turnstile（Cloudflare 验证） |
 | 运营工具 | featureflag（功能开关）, auditlog（审计日志）, notification（含 webhook 通道）, backup（逻辑备份） |
 | 网络/通信 | wsutil（WebSocket 工具） |
-| 数据结构 | consistent（一致性哈希）, bitmap, bloom |
+| 数据结构 | bitmap, bloom |
 | 金额/支付 | money（金额处理）, payment（stripe/creem/epay/waffo/waffopancake） |
 | 归档 | archive（zip/tar/tar.gz） |
 | 工具 | convert, parser, pinyin, qrcode, barcode, random, hash；根包 time/time_helpers（自然语言时间 + 时区/区间/秒表） |

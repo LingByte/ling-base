@@ -26,10 +26,11 @@ ling-base/
 │  ├─ pinyin/                # 拼音转换
 │  ├─ qrcode/                # 二维码生成
 │  ├─ barcode/               # 条形码生成
-│  ├─ imageutil/             # 图片处理
-│  ├─ videoutil/             # 视频处理
-│  ├─ audioutil/             # 音频处理
-│  ├─ netutil/               # 网络工具（含 DNS 查询、curl 解析/调试 HTTP）
+│  ├─ media/                 # 媒体处理
+│  │  ├─ image/             # 图片（原 imageutil）
+│  │  ├─ audio/             # 音频（原 audioutil）
+│  │  └─ video/             # 视频（原 videoutil）
+│  ├─ netutil/               # 网络工具（DNS / curl 调试 / HTTP probe）
 │  ├─ response/              # 统一 HTTP 响应封装
 │  ├─ cron/                  # 定时任务
 │  ├─ scheduler/             # 任务调度
@@ -101,7 +102,6 @@ ling-base/
 │  ├─ archive/               # 归档工具（zip/tar/tar.gz，zip slip 防护）
 │  ├─ wsutil/                # WebSocket 工具（连接管理/心跳/Hub 广播）
 │  ├─ turnstile/             # Cloudflare Turnstile 验证
-│  ├─ consistent/            # 一致性哈希（虚拟节点/分布式分片）
 │  └─ stores/                # 对象存储接口（9 个独立 provider module）
 │     ├─ local/              # 本地文件系统（零云 SDK）
 │     ├─ s3/ oss/ cos/ minio/
@@ -248,8 +248,6 @@ go get github.com/LingByte/ling-base/common/wsutil
 # Cloudflare Turnstile 验证
 go get github.com/LingByte/ling-base/common/turnstile
 
-# 一致性哈希（分布式分片）
-go get github.com/LingByte/ling-base/common/consistent
 ```
 
 ```go
@@ -614,7 +612,6 @@ APP_SERVER_PORT=9090 APP_DATABASE_DRIVER=mysql APP_DATABASE_DSN="user:pass@tcp(h
 - [common/archive/README.md](common/archive/README.md)
 - [common/wsutil/README.md](common/wsutil/README.md)
 - [common/turnstile/README.md](common/turnstile/README.md)
-- [common/consistent/README.md](common/consistent/README.md)
 
 ## 开发
 

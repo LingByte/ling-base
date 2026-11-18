@@ -81,7 +81,7 @@ const (
 const (
 	DefaultSiteURL         = "https://lingecho.com"
 	DefaultSiteName        = "LingEchoX"
-	DefaultSiteDescription = "SoulNexus - Intelligent Voice Customer Service Platform"
+	DefaultSiteDescription = "LingEchoX - Intelligent Voice Customer Service Platform"
 )
 
 // Table names used in bootstrap (raw SQL in seeds)

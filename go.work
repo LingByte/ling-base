@@ -6,7 +6,7 @@ use (
 	./bootstrap
 	./common
 	./common/archive
-	./common/audioutil
+	./common/media/audio
 	./common/auditlog
 	./common/authcontext
 	./common/authcontext/gin
@@ -35,27 +35,26 @@ use (
 	./common/codegen
 	./common/compress
 	./common/config
-	./common/consistent
 	./common/constants
 	./common/convert
 	./common/cron
 	./common/crypto
 	./common/diff
+	./common/devices
 	./common/embedder
+	./common/sandbox
 	./common/eventbus
 	./common/export
-	./common/extension
 	./common/featureflag
 	./common/geocode
 	./common/geoip
-	./common/grpc
 	./common/hash
 	./common/i18n
 	./common/i18n/gin
 	./common/i18n/mymemory
 	./common/idempotency
 	./common/idgen
-	./common/imageutil
+	./common/media/image
 	./common/jwtutil
 	./common/jwtutil/gin
 	./common/limiter
@@ -113,15 +112,12 @@ use (
 	./common/payment/waffopancake
 	./common/phone
 	./common/pool
-	./common/probe
 	./common/qrcode
 	./common/queue
 	./common/queue/memory
 	./common/queue/redis
 	./common/random
 	./common/reconciler
-	./common/registry
-	./common/registry/consul
 	./common/response
 	./common/response/gin
 	./common/retrieve
@@ -156,7 +152,7 @@ use (
 	./common/turnstile
 	./common/uaparse
 	./common/validate
-	./common/videoutil
+	./common/media/video
 	./common/wsutil
 	./lingcli
 	./providers/censor
@@ -170,6 +166,8 @@ use (
 	./providers/ocr/baidu
 	./providers/ocr/google
 	./providers/ocr/qcloud
+	./providers/embedder
+	./providers/rerank
 	./providers/voice/realtime
 	./providers/voice/realtime/aliyunomni
 	./providers/voice/realtime/gemini
@@ -180,6 +178,7 @@ use (
 	./providers/voice/realtime/tencentsts
 	./providers/voice/realtime/volcdialogue
 	./providers/voice/recognizer
+	./providers/voice/recognizer/std
 	./providers/voice/recognizer/aws
 	./providers/voice/recognizer/baidu
 	./providers/voice/recognizer/deepgram
@@ -193,6 +192,7 @@ use (
 	./providers/voice/recognizer/volcengine_llm
 	./providers/voice/recognizer/whisper
 	./providers/voice/synthesizer
+	./providers/voice/synthesizer/std
 	./providers/voice/synthesizer/aliyun
 	./providers/voice/synthesizer/aws
 	./providers/voice/synthesizer/azure

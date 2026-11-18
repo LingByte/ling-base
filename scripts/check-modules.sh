@@ -77,6 +77,22 @@ hits="$(grep -RIn --include='*.go' \
   -e '"github.com/LingByte/ling-base/common/abtest/' \
   -e '"github.com/LingByte/ling-base/common/sse"' \
   -e '"github.com/LingByte/ling-base/common/sse/' \
+  -e '"github.com/LingByte/ling-base/common/consistent"' \
+  -e '"github.com/LingByte/ling-base/common/consistent/' \
+  -e '"github.com/LingByte/ling-base/common/grpc"' \
+  -e '"github.com/LingByte/ling-base/common/grpc/' \
+  -e '"github.com/LingByte/ling-base/common/probe"' \
+  -e '"github.com/LingByte/ling-base/common/probe/' \
+  -e '"github.com/LingByte/ling-base/common/videoutil"' \
+  -e '"github.com/LingByte/ling-base/common/videoutil/' \
+  -e '"github.com/LingByte/ling-base/common/registry"' \
+  -e '"github.com/LingByte/ling-base/common/registry/' \
+  -e '"github.com/LingByte/ling-base/common/audioutil"' \
+  -e '"github.com/LingByte/ling-base/common/audioutil/' \
+  -e '"github.com/LingByte/ling-base/common/imageutil"' \
+  -e '"github.com/LingByte/ling-base/common/imageutil/' \
+  -e '"github.com/LingByte/ling-base/common/extension"' \
+  -e '"github.com/LingByte/ling-base/common/extension/' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null | grep -v 'lingcli/fullmode.go' || true)"
@@ -117,6 +133,14 @@ sum_hits="$(grep -RIn --include='go.sum' \
   -e 'github.com/LingByte/ling-base/common/alerting' \
   -e 'github.com/LingByte/ling-base/common/abtest' \
   -e 'github.com/LingByte/ling-base/common/sse' \
+  -e 'github.com/LingByte/ling-base/common/consistent' \
+  -e 'github.com/LingByte/ling-base/common/grpc' \
+  -e 'github.com/LingByte/ling-base/common/probe' \
+  -e 'github.com/LingByte/ling-base/common/videoutil' \
+  -e 'github.com/LingByte/ling-base/common/registry' \
+  -e 'github.com/LingByte/ling-base/common/audioutil' \
+  -e 'github.com/LingByte/ling-base/common/imageutil' \
+  -e 'github.com/LingByte/ling-base/common/extension' \
   --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
   --exclude-dir=embed_source --exclude-dir=.next --exclude-dir=docs \
   . 2>/dev/null || true)"
