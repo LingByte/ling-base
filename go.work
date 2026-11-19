@@ -57,6 +57,7 @@ use (
 	./common/media/image
 	./common/jwtutil
 	./common/jwtutil/gin
+	./common/knowledge
 	./common/limiter
 	./common/limiter/count
 	./common/limiter/etcd
@@ -151,6 +152,7 @@ use (
 	./common/tracing
 	./common/turnstile
 	./common/uaparse
+	./common/utils
 	./common/validate
 	./common/media/video
 	./common/wsutil
