@@ -216,7 +216,6 @@ var lingBaseSubmoduleVersions = map[string]string{
 	"github.com/LingByte/ling-base/providers/voice/voiceprint":                "v0.1.0",
 	"github.com/LingByte/ling-base/relay":                                     "v0.1.1",
 	"github.com/LingByte/ling-base/relay/compat":                              "v0.1.0",
-	"github.com/LingByte/ling-base/relay/relaykit":                            "v0.1.0",
 	"github.com/LingByte/ling-base/toolkits/pentest":                          "v0.1.0",
 	"github.com/LingByte/ling-base/version":                                   "v0.1.0",
 }

@@ -1,6 +1,6 @@
 # RelayKit
 
-RelayKit 是 [lingrein](https://github.com/LingByte/LingRein) 项目内的协议转换子包，提供常用大模型文本协议的 DTO、请求转换、响应转换和流式事件转换。
+RelayKit 是 [`github.com/LingByte/ling-base/relay`](.) 模块内的协议转换子包（**不是**独立 go.mod），提供常用大模型文本协议的 DTO、请求转换、响应转换和流式事件转换。
 
 它只负责协议层的数据建模与语义转换，不包含 HTTP 服务、上游请求发送、渠道调度、鉴权、计费或数据库逻辑，保持与宿主业务代码的解耦。
 
@@ -34,21 +34,21 @@ RelayKit 是 [lingrein](https://github.com/LingByte/LingRein) 项目内的协议
 
 ## 安装
 
-RelayKit 是 lingrein 主模块的子包，无需单独获取。在 lingrein 项目内直接导入即可：
+随 `github.com/LingByte/ling-base/relay` 一起获取，无需单独 `go get`：
 
 ```go
-import "github.com/LingByte/LingRein/pkg/relaykit/relayconvert"
+import "github.com/LingByte/ling-base/relay/relaykit/relayconvert"
 ```
 
 主要包：
 
 | 包 | 用途 |
 |---|---|
-| `pkg/relaykit/dto` | 各协议的请求、响应、流式事件和 usage DTO |
-| `pkg/relaykit/types` | 协议格式、错误、文件来源及共享类型 |
-| `pkg/relaykit/relayconvert` | 请求、响应和流式转换入口 |
-| `pkg/relaykit/relayconvert/convmeta` | 与宿主实现解耦的转换上下文和选项 |
-| `pkg/relaykit/reasonmap` | 不同协议之间的结束原因映射 |
+| `relay/relaykit/dto` | 各协议的请求、响应、流式事件和 usage DTO |
+| `relay/relaykit/types` | 协议格式、错误、文件来源及共享类型 |
+| `relay/relaykit/relayconvert` | 请求、响应和流式转换入口 |
+| `relay/relaykit/relayconvert/convmeta` | 与宿主实现解耦的转换上下文和选项 |
+| `relay/relaykit/reasonmap` | 不同协议之间的结束原因映射 |
 
 ## 快速开始
 

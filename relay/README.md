@@ -139,7 +139,7 @@ for chunk := range result.Ch {
 | `helper`        | SSE streaming, response ID generation helpers            |
 | `meter`         | Usage metering (tokens, images, audio/video seconds)     |
 | `realtime`      | WebSocket realtime API connectors (OpenAI, etc.)         |
-| `relaykit`      | DTO types, reason maps, relay format converters          |
+| `relaykit`      | Internal protocol DTOs / converters (same module, not a separate go.mod) |
 | `relaymode`     | Relay mode constants (chat, embed, image, audio, ...)    |
 | `service`       | Adaptor-to-relaykit bridge and response utilities        |
 | `setting`       | Global relay settings stubs (overridable by app)         |

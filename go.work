@@ -217,7 +217,6 @@ use (
 	./providers/voice/voiceprint
 	./relay
 	./relay/compat
-	./relay/relaykit
 	./toolkits/pentest
 	./version
 )

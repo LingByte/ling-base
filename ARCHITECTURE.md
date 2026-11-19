@@ -57,7 +57,7 @@ relay/
 │   ├── ...              # 更多 provider
 │   └── channel.go       # Adaptor 接口定义
 ├── task/                # 异步任务 provider（视频/音乐生成）
-├── relaykit/            # 协议层 DTO 和格式转换
+├── relaykit/            # 协议层 DTO/转换（relay 模块内子包，非独立 go.mod）
 │   ├── dto/             # 请求/响应数据结构
 │   ├── types/           # 类型定义和错误码
 │   └── relayconvert/    # 格式转换（OpenAI ↔ Claude ↔ Gemini）
