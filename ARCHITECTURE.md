@@ -19,6 +19,7 @@ ling-base/
 │   ├── censor/      # 内容审核（3 个 provider）
 │   └── ocr/         # OCR（6 个 provider）
 ├── bootstrap/       # 应用生命周期框架
+├── media/           # 实时媒体管线（会话 / 编解码 / 降噪 / AEC）
 ├── lingcli/         # 项目脚手架 CLI
 ├── apidocs/         # OpenAPI / Huma 文档挂载
 ├── toolkits/        # 专项领域工具库

@@ -4,6 +4,7 @@ use (
 	.
 	./apidocs
 	./bootstrap
+	./media
 	./common
 	./common/archive
 	./common/media/audio
