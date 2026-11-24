@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"html"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -175,11 +176,18 @@ func (u *uiRenderer) mount(r *gin.Engine) {
 		c.String(http.StatusOK, u.css)
 	})
 
-	r.GET(logoPath, func(c *gin.Context) {
+	serveLogo := func(c *gin.Context) {
 		c.Header("Content-Type", u.logoCT)
 		c.Header("Cache-Control", "public, max-age=86400")
+		c.Header("Content-Length", strconv.Itoa(len(u.logo)))
+		if c.Request.Method == http.MethodHead {
+			c.Status(http.StatusOK)
+			return
+		}
 		c.Data(http.StatusOK, u.logoCT, u.logo)
-	})
+	}
+	r.GET(logoPath, serveLogo)
+	r.HEAD(logoPath, serveLogo)
 
 	htmlPage := u.renderHTML()
 
